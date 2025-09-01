@@ -12,6 +12,7 @@ import Administracao from "./pages/Administracao";
 import Clientes from "./pages/Clientes";
 import Notificacoes from "./pages/Notificacoes";
 import Prospeccao from "./pages/Prospeccao";
+import CentralAtendimento from "./pages/CentralAtendimento";
 import Loja from "./pages/Loja";
 import BuscaResgate from "./pages/BuscaResgate";
 import Metas from "./pages/Metas";
