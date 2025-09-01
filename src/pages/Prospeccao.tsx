@@ -175,11 +175,10 @@ const Prospeccao = () => {
 
   return (
     <DashboardLayout title="Prospecção">
-      <Tabs defaultValue="visao-geral" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="visao-geral" className="space-y-3">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
-          <TabsTrigger value="criar">Criar Prospecção</TabsTrigger>
-          <TabsTrigger value="gestao">Gestão</TabsTrigger>
+          <TabsTrigger value="kanban">Kanban</TabsTrigger>
           <TabsTrigger value="automacao">Automação</TabsTrigger>
         </TabsList>
 
@@ -190,20 +189,25 @@ const Prospeccao = () => {
           />
 
           {/* Seletor de Prospecção */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Selecionar Prospecção</h3>
-            <select className="w-full p-3 border rounded-lg bg-card">
-              <option value="">Selecione uma prospecção</option>
-              {mockProspections.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} - {item.brand}
-                </option>
-              ))}
-            </select>
+          <Card className="p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-foreground mb-2">Selecionar Prospecção</h3>
+                <select className="w-full p-3 border rounded-lg bg-card">
+                  <option value="">Selecione uma prospecção</option>
+                  {mockProspections.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} - {item.brand}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button>Nova Prospecção</Button>
+            </div>
           </Card>
 
           {/* KPIs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-2">
             {kpis.map((kpi, index) => (
               <KPICard
                 key={index}
@@ -216,11 +220,15 @@ const Prospeccao = () => {
           </div>
 
           {/* Lista de Prospecções */}
-          <Card className="p-6">
+          <Card className="p-4">
             <h3 className="text-lg font-semibold text-foreground mb-4">Prospecções Criadas</h3>
-            <div className="space-y-4">
+            <div className="space-y-2">
               {mockProspections.map((item) => (
-                <div key={item.id} className="border rounded-lg p-4 hover:bg-muted/50">
+                <div 
+                  key={item.id} 
+                  className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer"
+                  onClick={() => console.log('Abrir prospecção:', item)}
+                >
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="font-semibold">{item.name}</h4>
@@ -245,79 +253,7 @@ const Prospeccao = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="criar" className="space-y-6">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-6">Criar Nova Prospecção</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium mb-2">Nome da Prospecção</label>
-                <input type="text" className="w-full p-3 border rounded-lg" />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Marca</label>
-                <select className="w-full p-3 border rounded-lg">
-                  <option>Honda</option>
-                  <option>Toyota</option>
-                  <option>Volkswagen</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Data de Início</label>
-                <input type="date" className="w-full p-3 border rounded-lg" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Data de Fim</label>
-                <input type="date" className="w-full p-3 border rounded-lg" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Hora do Evento</label>
-                <input type="time" className="w-full p-3 border rounded-lg" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Local do Evento</label>
-                <input type="text" className="w-full p-3 border rounded-lg" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Objetivo de Vendas</label>
-                <input type="number" className="w-full p-3 border rounded-lg" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Lojas Participantes</label>
-                <input type="text" className="w-full p-3 border rounded-lg" placeholder="Opcional" />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-2">Condições Especiais</label>
-                <textarea className="w-full p-3 border rounded-lg" rows={3}></textarea>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Imagem de Divulgação</label>
-                <input type="file" className="w-full p-3 border rounded-lg" accept="image/*" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Vídeo de Divulgação</label>
-                <input type="file" className="w-full p-3 border rounded-lg" accept="video/*" />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <Button className="px-8">Salvar Prospecção</Button>
-              <Button variant="outline">Cancelar</Button>
-            </div>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="gestao" className="space-y-3">
+        <TabsContent value="kanban" className="space-y-3">
           <FilterBar
             searchPlaceholder="Buscar por cliente, campanha ou status..."
           />

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Edit, Trash2, Bot } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 interface Persona {
   id: string;
@@ -50,6 +51,54 @@ const Personas = () => {
 
   const [showForm, setShowForm] = useState(false);
   const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
+  const [formData, setFormData] = useState({
+    nome: '',
+    funcao: '',
+    whatsapp: '',
+    acaoAtiva: 'sim',
+    gatilhos: [] as string[],
+    acoes: [] as any[]
+  });
+
+  const handleSavePersona = () => {
+    if (editingPersona) {
+      setPersonas(personas.map(p => 
+        p.id === editingPersona.id 
+          ? { 
+              ...editingPersona, 
+              nome: formData.nome,
+              funcao: formData.funcao, 
+              numeroWhatsapp: formData.whatsapp,
+              acaoAtiva: formData.acaoAtiva === 'sim',
+              gatilhos: formData.gatilhos,
+              acoes: formData.acoes
+            }
+          : p
+      ));
+      toast.success("Persona atualizada com sucesso!");
+    } else {
+      const newPersona: Persona = {
+        id: Date.now().toString(),
+        foto: '',
+        nome: formData.nome,
+        funcao: formData.funcao,
+        acaoAtiva: formData.acaoAtiva === 'sim',
+        numeroWhatsapp: formData.whatsapp,
+        gatilhos: formData.gatilhos,
+        acoes: formData.acoes
+      };
+      setPersonas([...personas, newPersona]);
+      toast.success("Persona criada com sucesso!");
+    }
+    setShowForm(false);
+    setEditingPersona(null);
+    setFormData({ nome: '', funcao: '', whatsapp: '', acaoAtiva: 'sim', gatilhos: [], acoes: [] });
+  };
+
+  const handleDeletePersona = (id: string) => {
+    setPersonas(personas.filter(p => p.id !== id));
+    toast.success("Persona excluída com sucesso!");
+  };
 
   const mockGatilhos = [
     { id: "novo_lead", nome: "Novo Lead Criado" },
@@ -213,7 +262,7 @@ const Personas = () => {
                 <Button variant="outline" onClick={() => setShowForm(false)}>
                   Cancelar
                 </Button>
-                <Button>
+                <Button onClick={handleSavePersona}>
                   {editingPersona ? "Atualizar" : "Criar"} Persona
                 </Button>
               </div>
@@ -244,7 +293,11 @@ const Personas = () => {
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleDeletePersona(persona.id)}
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>

@@ -51,34 +51,19 @@ const Clientes = () => {
     setIsNewClientDialogOpen(true);
   };
 
-  const mockClients = [
-    {
-      id: "001",
-      name: "João Silva",
-      phone: "(11) 99999-9999",
-      email: "joao@email.com",
-      gender: "Masculino",
-      birthDate: "15/03/1985",
-      document: "123.456.789-00",
-      hasPurchased: "Sim",
-      responsible: "Maria Santos",
-      products: "Produto A, Produto B",
-      lastPurchase: "15/12/2023"
-    },
-    {
-      id: "002", 
-      name: "Ana Costa",
-      phone: "(11) 88888-8888",
-      email: "ana@email.com",
-      gender: "Feminino",
-      birthDate: "22/07/1990",
-      document: "987.654.321-00",
-      hasPurchased: "Não",
-      responsible: "Carlos Lima",
-      products: "-",
-      lastPurchase: "-"
-    }
-  ];
+  const mockClients = Array.from({ length: 1234 }, (_, i) => ({
+    id: String(i + 1).padStart(3, '0'),
+    name: `Cliente ${i + 1}`,
+    phone: i < 1100 ? `(11) ${Math.floor(Math.random() * 90000) + 10000}-${Math.floor(Math.random() * 9000) + 1000}` : '',
+    email: i < 856 ? `cliente${i + 1}@email.com` : '',
+    gender: ['Masculino', 'Feminino', 'Outro'][Math.floor(Math.random() * 3)],
+    birthDate: `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/${1950 + Math.floor(Math.random() * 50)}`,
+    document: `${Math.floor(Math.random() * 900) + 100}.${Math.floor(Math.random() * 900) + 100}.${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 90) + 10}`,
+    hasPurchased: i < 432 ? "Sim" : "Não",
+    responsible: `Vendedor ${Math.floor(Math.random() * 10) + 1}`,
+    products: i < 432 ? "Honda Civic, Toyota Corolla" : "-",
+    lastPurchase: i < 432 ? `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/2023` : "-"
+  }));
 
   return (
     <DashboardLayout title="Carteira de Clientes">
@@ -104,7 +89,7 @@ const Clientes = () => {
 
         {/* Gender/Document Distribution */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Card className="p-6">
+        <Card className="p-4">
           <h3 className="text-lg font-semibold text-foreground mb-4">Distribuição por Sexo</h3>
           <div className="space-y-2">
             <div className="flex justify-between">
@@ -122,7 +107,7 @@ const Clientes = () => {
           </div>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-4">
           <h3 className="text-lg font-semibold text-foreground mb-4">Tipo de Documento</h3>
           <div className="space-y-2">
             <div className="flex justify-between">
@@ -202,10 +187,11 @@ const Clientes = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
               <div>
                 <Label htmlFor="name">Nome Completo</Label>
-                <Input 
+                 <Input 
                   id="name" 
                   defaultValue={selectedClient?.name || ''} 
                   placeholder="Digite o nome completo"
+                  className="bg-white"
                 />
               </div>
               
@@ -215,6 +201,7 @@ const Clientes = () => {
                   id="phone" 
                   defaultValue={selectedClient?.phone || ''} 
                   placeholder="(11) 99999-9999"
+                  className="bg-white"
                 />
               </div>
               
@@ -225,6 +212,7 @@ const Clientes = () => {
                   type="email"
                   defaultValue={selectedClient?.email || ''} 
                   placeholder="cliente@email.com"
+                  className="bg-white"
                 />
               </div>
               
@@ -232,7 +220,7 @@ const Clientes = () => {
                 <Label htmlFor="gender">Sexo</Label>
                 <select 
                   id="gender" 
-                  className="w-full p-2 border rounded-md"
+                  className="w-full p-2 border rounded-md bg-white"
                   defaultValue={selectedClient?.gender || ''}
                 >
                   <option value="">Selecione</option>
@@ -249,6 +237,7 @@ const Clientes = () => {
                   type="date"
                   defaultValue={selectedClient?.birthDate ? 
                     selectedClient.birthDate.split('/').reverse().join('-') : ''} 
+                  className="bg-white"
                 />
               </div>
               
@@ -258,6 +247,7 @@ const Clientes = () => {
                   id="document" 
                   defaultValue={selectedClient?.document || ''} 
                   placeholder="000.000.000-00"
+                  className="bg-white"
                 />
               </div>
             </div>
