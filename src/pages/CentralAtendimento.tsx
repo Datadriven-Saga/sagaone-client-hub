@@ -4,8 +4,76 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Users, UserPlus, Clock, Calendar, CheckCircle, X } from "lucide-react";
+import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
+import { useState } from "react";
 
 const CentralAtendimento = () => {
+  const [kanbanColumns, setKanbanColumns] = useState<KanbanColumnData[]>([
+    {
+      id: 'novo',
+      title: 'Novo',
+      items: [
+        { id: '1', title: 'Maria Silva', description: 'Interessada em plano familiar', channel: 'WhatsApp', priority: 'high' },
+        { id: '2', title: 'João Santos', description: 'Plano empresarial', channel: 'WhatsApp', priority: 'medium' },
+        { id: '3', title: 'Ana Costa', description: 'Informações sobre cobertura', channel: 'WhatsApp', priority: 'low' }
+      ]
+    },
+    {
+      id: 'em-andamento',
+      title: 'Em Andamento',
+      items: [
+        { id: '4', title: 'Carlos Lima', description: 'Negociando condições', channel: 'Telefone', priority: 'high' },
+        { id: '5', title: 'Fernanda Oliveira', description: 'Documentação pendente', channel: 'Telefone', priority: 'medium' }
+      ]
+    },
+    {
+      id: 'agendamento',
+      title: 'Agendamento',
+      items: [
+        { id: '6', title: 'Roberto Pereira', description: 'Visita técnica agendada', channel: 'E-mail', priority: 'medium' }
+      ]
+    },
+    {
+      id: 'concluido',
+      title: 'Concluído',
+      items: [
+        { id: '7', title: 'Luciana Rocha', description: 'Contrato assinado', channel: 'Presencial', priority: 'high' }
+      ]
+    },
+    {
+      id: 'cancelado',
+      title: 'Cancelado',
+      items: [
+        { id: '8', title: 'Pedro Mendes', description: 'Desistiu do plano', channel: 'WhatsApp', priority: 'low' }
+      ]
+    }
+  ]);
+
+  const handleAddItem = (columnId: string, item: Omit<KanbanItem, 'id'>) => {
+    const newItem: KanbanItem = {
+      ...item,
+      id: `item-${Date.now()}`
+    };
+    
+    setKanbanColumns(columns => columns.map(col => 
+      col.id === columnId 
+        ? { ...col, items: [...col.items, newItem] }
+        : col
+    ));
+  };
+
+  const handleEditItem = (item: KanbanItem) => {
+    // Implementar edição
+    console.log('Editar item:', item);
+  };
+
+  const handleDeleteItem = (itemId: string) => {
+    setKanbanColumns(columns => columns.map(col => ({
+      ...col,
+      items: col.items.filter(item => item.id !== itemId)
+    })));
+  };
+
   const kpis = [
     { title: "Total de Leads", value: "1,250", icon: Users },
     { title: "Leads Novos", value: "180", subtitle: "14.4%", icon: UserPlus },
@@ -132,97 +200,13 @@ const CentralAtendimento = () => {
         </TabsContent>
 
         <TabsContent value="atendimento" className="space-y-6">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Kanban - Atendimento de Leads</h3>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-              {/* Colunas do Kanban */}
-              <div className="space-y-3">
-                <div className="bg-muted p-3 rounded-lg text-center">
-                  <h4 className="font-semibold">Novo</h4>
-                  <span className="text-sm text-muted-foreground">25 leads</span>
-                </div>
-                
-                <div className="space-y-2">
-                  {[1, 2, 3].map((item) => (
-                    <div key={item} className="bg-card p-3 rounded-lg border hover:shadow-sm cursor-pointer">
-                      <p className="font-medium text-sm">Cliente {item}</p>
-                      <p className="text-xs text-muted-foreground">WhatsApp</p>
-                      <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="bg-muted p-3 rounded-lg text-center">
-                  <h4 className="font-semibold">Em Andamento</h4>
-                  <span className="text-sm text-muted-foreground">18 leads</span>
-                </div>
-                
-                <div className="space-y-2">
-                  {[1, 2].map((item) => (
-                    <div key={item} className="bg-card p-3 rounded-lg border hover:shadow-sm cursor-pointer">
-                      <p className="font-medium text-sm">Cliente {item + 3}</p>
-                      <p className="text-xs text-muted-foreground">Telefone</p>
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="bg-muted p-3 rounded-lg text-center">
-                  <h4 className="font-semibold">Agendamento</h4>
-                  <span className="text-sm text-muted-foreground">12 leads</span>
-                </div>
-                
-                <div className="space-y-2">
-                  {[1].map((item) => (
-                    <div key={item} className="bg-card p-3 rounded-lg border hover:shadow-sm cursor-pointer">
-                      <p className="font-medium text-sm">Cliente {item + 5}</p>
-                      <p className="text-xs text-muted-foreground">E-mail</p>
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="bg-muted p-3 rounded-lg text-center">
-                  <h4 className="font-semibold">Concluído</h4>
-                  <span className="text-sm text-muted-foreground">8 leads</span>
-                </div>
-                
-                <div className="space-y-2">
-                  {[1].map((item) => (
-                    <div key={item} className="bg-card p-3 rounded-lg border hover:shadow-sm cursor-pointer">
-                      <p className="font-medium text-sm">Cliente {item + 6}</p>
-                      <p className="text-xs text-muted-foreground">Presencial</p>
-                      <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="bg-muted p-3 rounded-lg text-center">
-                  <h4 className="font-semibold">Cancelado</h4>
-                  <span className="text-sm text-muted-foreground">5 leads</span>
-                </div>
-                
-                <div className="space-y-2">
-                  {[1].map((item) => (
-                    <div key={item} className="bg-card p-3 rounded-lg border hover:shadow-sm cursor-pointer">
-                      <p className="font-medium text-sm">Cliente {item + 7}</p>
-                      <p className="text-xs text-muted-foreground">WhatsApp</p>
-                      <div className="w-2 h-2 bg-red-500 rounded-full mt-2"></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Card>
+          <KanbanBoard
+            columns={kanbanColumns}
+            onUpdateColumns={setKanbanColumns}
+            onAddItem={handleAddItem}
+            onEditItem={handleEditItem}
+            onDeleteItem={handleDeleteItem}
+          />
         </TabsContent>
       </Tabs>
     </DashboardLayout>

@@ -4,8 +4,77 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Users, UserPlus, Clock, Calendar, CheckCircle, X } from "lucide-react";
+import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
+import { useState } from "react";
 
 const BuscaResgate = () => {
+  const [kanbanColumns, setKanbanColumns] = useState<KanbanColumnData[]>([
+    {
+      id: 'novo',
+      title: 'Novo',
+      items: [
+        { id: '1', title: 'Cliente Inativo A', description: 'Não compra há 6 meses', channel: 'Loja', priority: 'high' },
+        { id: '2', title: 'Ex-cliente B', description: 'Cancelou contrato recentemente', channel: 'Loja', priority: 'medium' }
+      ]
+    },
+    {
+      id: 'em-andamento',
+      title: 'Em Andamento',
+      items: [
+        { id: '3', title: 'Cliente C', description: 'Primeiro contato realizado', channel: 'WhatsApp', priority: 'high' },
+        { id: '4', title: 'Cliente D', description: 'Oferta especial enviada', channel: 'WhatsApp', priority: 'medium' },
+        { id: '5', title: 'Cliente E', description: 'Aguardando retorno', channel: 'WhatsApp', priority: 'medium' }
+      ]
+    },
+    {
+      id: 'agendamento',
+      title: 'Agendamento',
+      items: [
+        { id: '6', title: 'Cliente F', description: 'Reunião de reativação agendada', channel: 'Telefone', priority: 'high' }
+      ]
+    },
+    {
+      id: 'concluido',
+      title: 'Concluído',
+      items: [
+        { id: '7', title: 'Cliente G', description: 'Reativado com sucesso', channel: 'Telefone', priority: 'high' },
+        { id: '8', title: 'Cliente H', description: 'Nova compra realizada', channel: 'Telefone', priority: 'high' }
+      ]
+    },
+    {
+      id: 'cancelado',
+      title: 'Cancelado',
+      items: [
+        { id: '9', title: 'Ex-cliente I', description: 'Não demonstrou interesse', channel: 'E-mail', priority: 'low' }
+      ]
+    }
+  ]);
+
+  const handleAddItem = (columnId: string, item: Omit<KanbanItem, 'id'>) => {
+    const newItem: KanbanItem = {
+      ...item,
+      id: `item-${Date.now()}`
+    };
+    
+    setKanbanColumns(columns => columns.map(col => 
+      col.id === columnId 
+        ? { ...col, items: [...col.items, newItem] }
+        : col
+    ));
+  };
+
+  const handleEditItem = (item: KanbanItem) => {
+    // Implementar edição
+    console.log('Editar item:', item);
+  };
+
+  const handleDeleteItem = (itemId: string) => {
+    setKanbanColumns(columns => columns.map(col => ({
+      ...col,
+      items: col.items.filter(item => item.id !== itemId)
+    })));
+  };
+
   const kpis = [
     { title: "Total de Eventos", value: "456", icon: Users },
     { title: "Eventos Novos", value: "68", subtitle: "14.9%", icon: UserPlus },
@@ -129,97 +198,13 @@ const BuscaResgate = () => {
         </TabsContent>
 
         <TabsContent value="atendimento" className="space-y-6">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Kanban - Busca & Resgate</h3>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-              {/* Colunas do Kanban */}
-              <div className="space-y-3">
-                <div className="bg-muted p-3 rounded-lg text-center">
-                  <h4 className="font-semibold">Novo</h4>
-                  <span className="text-sm text-muted-foreground">12 eventos</span>
-                </div>
-                
-                <div className="space-y-2">
-                  {[1, 2].map((item) => (
-                    <div key={item} className="bg-card p-3 rounded-lg border hover:shadow-sm cursor-pointer">
-                      <p className="font-medium text-sm">Cliente {item}</p>
-                      <p className="text-xs text-muted-foreground">Loja</p>
-                      <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="bg-muted p-3 rounded-lg text-center">
-                  <h4 className="font-semibold">Em Andamento</h4>
-                  <span className="text-sm text-muted-foreground">18 eventos</span>
-                </div>
-                
-                <div className="space-y-2">
-                  {[1, 2, 3].map((item) => (
-                    <div key={item} className="bg-card p-3 rounded-lg border hover:shadow-sm cursor-pointer">
-                      <p className="font-medium text-sm">Cliente {item + 2}</p>
-                      <p className="text-xs text-muted-foreground">Pós-venda</p>
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="bg-muted p-3 rounded-lg text-center">
-                  <h4 className="font-semibold">Agendamento</h4>
-                  <span className="text-sm text-muted-foreground">6 eventos</span>
-                </div>
-                
-                <div className="space-y-2">
-                  {[1].map((item) => (
-                    <div key={item} className="bg-card p-3 rounded-lg border hover:shadow-sm cursor-pointer">
-                      <p className="font-medium text-sm">Cliente {item + 5}</p>
-                      <p className="text-xs text-muted-foreground">CRM</p>
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="bg-muted p-3 rounded-lg text-center">
-                  <h4 className="font-semibold">Concluído</h4>
-                  <span className="text-sm text-muted-foreground">8 eventos</span>
-                </div>
-                
-                <div className="space-y-2">
-                  {[1, 2].map((item) => (
-                    <div key={item} className="bg-card p-3 rounded-lg border hover:shadow-sm cursor-pointer">
-                      <p className="font-medium text-sm">Cliente {item + 6}</p>
-                      <p className="text-xs text-muted-foreground">WhatsApp</p>
-                      <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="bg-muted p-3 rounded-lg text-center">
-                  <h4 className="font-semibold">Cancelado</h4>
-                  <span className="text-sm text-muted-foreground">2 eventos</span>
-                </div>
-                
-                <div className="space-y-2">
-                  {[1].map((item) => (
-                    <div key={item} className="bg-card p-3 rounded-lg border hover:shadow-sm cursor-pointer">
-                      <p className="font-medium text-sm">Cliente {item + 8}</p>
-                      <p className="text-xs text-muted-foreground">E-mail</p>
-                      <div className="w-2 h-2 bg-red-500 rounded-full mt-2"></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Card>
+          <KanbanBoard
+            columns={kanbanColumns}
+            onUpdateColumns={setKanbanColumns}
+            onAddItem={handleAddItem}
+            onEditItem={handleEditItem}
+            onDeleteItem={handleDeleteItem}
+          />
         </TabsContent>
       </Tabs>
     </DashboardLayout>
