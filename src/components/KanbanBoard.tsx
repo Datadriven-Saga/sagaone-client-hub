@@ -44,6 +44,7 @@ interface KanbanBoardProps {
   onAddItem?: (columnId: string, item: Omit<KanbanItem, 'id'>) => void;
   onEditItem?: (item: KanbanItem) => void;
   onDeleteItem?: (itemId: string) => void;
+  onCardClick?: (item: KanbanItem) => void;
 }
 
 export function KanbanBoard({ 
@@ -51,7 +52,8 @@ export function KanbanBoard({
   onUpdateColumns, 
   onAddItem, 
   onEditItem, 
-  onDeleteItem 
+  onDeleteItem,
+  onCardClick
 }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeItem, setActiveItem] = useState<KanbanItem | null>(null);
@@ -163,6 +165,7 @@ export function KanbanBoard({
                   onAddItem={onAddItem}
                   onEditItem={onEditItem}
                   onDeleteItem={onDeleteItem}
+                  onCardClick={onCardClick}
                 />
               </SortableContext>
             </div>

@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KPICard } from "@/components/KPICard";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { Target, Users, Send, MessageSquare, Calendar, CheckCircle, X, UserX } from "lucide-react";
+import { FilterBar } from "@/components/FilterBar";
 import { useState } from "react";
 
 const Prospeccao = () => {
@@ -167,6 +168,11 @@ const Prospeccao = () => {
     );
   };
 
+  const handleCardClick = (item: KanbanItem) => {
+    // Abrir modal conforme instruções iniciais
+    console.log('Abrir detalhes do card:', item);
+  };
+
   return (
     <DashboardLayout title="Prospecção">
       <Tabs defaultValue="visao-geral" className="space-y-6">
@@ -177,7 +183,12 @@ const Prospeccao = () => {
           <TabsTrigger value="automacao">Automação</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="visao-geral" className="space-y-6">
+        <TabsContent value="visao-geral" className="space-y-3">
+          {/* Filtros */}
+          <FilterBar
+            searchPlaceholder="Filtrar prospecções por nome, marca ou status..."
+          />
+
           {/* Seletor de Prospecção */}
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-foreground mb-4">Selecionar Prospecção</h3>
@@ -192,7 +203,7 @@ const Prospeccao = () => {
           </Card>
 
           {/* KPIs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             {kpis.map((kpi, index) => (
               <KPICard
                 key={index}
@@ -306,8 +317,12 @@ const Prospeccao = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="gestao" className="space-y-6">
-          <Card className="p-6 h-[800px]">
+        <TabsContent value="gestao" className="space-y-3">
+          <FilterBar
+            searchPlaceholder="Buscar por cliente, campanha ou status..."
+          />
+          
+          <Card className="p-4">
             <h3 className="text-lg font-semibold text-foreground mb-4">Kanban - Gestão da Prospecção</h3>
             <KanbanBoard
               columns={kanbanColumns}
@@ -315,6 +330,7 @@ const Prospeccao = () => {
               onAddItem={handleAddItem}
               onEditItem={handleEditItem}
               onDeleteItem={handleDeleteItem}
+              onCardClick={handleCardClick}
             />
           </Card>
         </TabsContent>

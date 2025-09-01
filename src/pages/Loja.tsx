@@ -7,6 +7,8 @@ import { Users, UserPlus, Clock, Calendar, CheckCircle, X } from "lucide-react";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { useState } from "react";
 
+import { FilterBar } from "@/components/FilterBar";
+
 const Loja = () => {
   const [kanbanColumns, setKanbanColumns] = useState<KanbanColumnData[]>([
     {
@@ -97,6 +99,11 @@ const Loja = () => {
     { name: "Telefone", value: 190, color: "#A679E1" }
   ];
 
+  const handleCardClick = (item: KanbanItem) => {
+    // Abrir modal conforme instruções iniciais
+    console.log('Abrir detalhes da loja:', item);
+  };
+
   return (
     <DashboardLayout title="Loja">
       <Tabs defaultValue="visao-geral" className="space-y-6">
@@ -107,7 +114,7 @@ const Loja = () => {
 
         <TabsContent value="visao-geral" className="space-y-6">
           {/* KPIs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {kpis.map((kpi, index) => (
               <KPICard
                 key={index}
@@ -120,7 +127,7 @@ const Loja = () => {
           </div>
 
           {/* Gráficos */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Leads por Origem</h3>
               <ResponsiveContainer width="100%" height={300}>
@@ -169,14 +176,22 @@ const Loja = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="atendimento" className="space-y-6">
-          <KanbanBoard
-            columns={kanbanColumns}
-            onUpdateColumns={setKanbanColumns}
-            onAddItem={handleAddItem}
-            onEditItem={handleEditItem}
-            onDeleteItem={handleDeleteItem}
+        <TabsContent value="atendimento" className="space-y-3">
+          <FilterBar
+            searchPlaceholder="Buscar por cliente, produto ou status..."
           />
+          
+          <Card className="p-4 h-[600px]">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Kanban - Atendimento</h3>
+            <KanbanBoard
+              columns={kanbanColumns}
+              onUpdateColumns={setKanbanColumns}
+              onAddItem={handleAddItem}
+              onEditItem={handleEditItem}
+              onDeleteItem={handleDeleteItem}
+              onCardClick={handleCardClick}
+            />
+          </Card>
         </TabsContent>
       </Tabs>
     </DashboardLayout>

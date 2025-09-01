@@ -20,14 +20,10 @@ interface KanbanColumnProps {
   onAddItem?: (columnId: string, item: Omit<KanbanItem, 'id'>) => void;
   onEditItem?: (item: KanbanItem) => void;
   onDeleteItem?: (itemId: string) => void;
+  onCardClick?: (item: KanbanItem) => void;
 }
 
-export function KanbanColumn({ 
-  column, 
-  onAddItem, 
-  onEditItem, 
-  onDeleteItem 
-}: KanbanColumnProps) {
+export function KanbanColumn({ column, onAddItem, onEditItem, onDeleteItem, onCardClick }: KanbanColumnProps) {
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -120,12 +116,13 @@ export function KanbanColumn({
         className="p-4 space-y-3 min-h-[200px] max-h-[600px] overflow-y-auto"
       >
         {column.items.map((item) => (
-          <KanbanCard
-            key={item.id}
-            item={item}
-            onEdit={onEditItem}
-            onDelete={onDeleteItem}
-          />
+                <KanbanCard
+                  key={item.id}
+                  item={item}
+                  onEdit={onEditItem}
+                  onDelete={onDeleteItem}
+                  onCardClick={onCardClick}
+                />
         ))}
 
         {isAddingItem ? (

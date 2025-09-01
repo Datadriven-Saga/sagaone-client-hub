@@ -28,9 +28,10 @@ interface KanbanCardProps {
   isDragging?: boolean;
   onEdit?: (item: KanbanItem) => void;
   onDelete?: (itemId: string) => void;
+  onCardClick?: (item: KanbanItem) => void;
 }
 
-export function KanbanCard({ item, isDragging, onEdit, onDelete }: KanbanCardProps) {
+export function KanbanCard({ item, isDragging, onEdit, onDelete, onCardClick }: KanbanCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   const {
@@ -77,6 +78,7 @@ export function KanbanCard({ item, isDragging, onEdit, onDelete }: KanbanCardPro
       }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={() => onCardClick?.(item)}
     >
       <div className="space-y-2">
         <div className="flex items-start justify-between">

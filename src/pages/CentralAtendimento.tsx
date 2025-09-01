@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Users, UserPlus, Clock, Calendar, CheckCircle, X } from "lucide-react";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
+import { FilterBar } from "@/components/FilterBar";
 import { useState } from "react";
 
 const CentralAtendimento = () => {
@@ -98,6 +99,11 @@ const CentralAtendimento = () => {
     { name: "Presencial", value: 150, color: "#C193EC" }
   ];
 
+  const handleCardClick = (item: KanbanItem) => {
+    // Abrir modal conforme instruções iniciais
+    console.log('Abrir detalhes do atendimento:', item);
+  };
+
   return (
     <DashboardLayout title="Central de Atendimento">
       <Tabs defaultValue="visao-geral" className="space-y-6">
@@ -108,7 +114,7 @@ const CentralAtendimento = () => {
 
         <TabsContent value="visao-geral" className="space-y-6">
           {/* KPIs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {kpis.map((kpi, index) => (
               <KPICard
                 key={index}
@@ -199,14 +205,22 @@ const CentralAtendimento = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="atendimento" className="space-y-6">
-          <KanbanBoard
-            columns={kanbanColumns}
-            onUpdateColumns={setKanbanColumns}
-            onAddItem={handleAddItem}
-            onEditItem={handleEditItem}
-            onDeleteItem={handleDeleteItem}
+        <TabsContent value="atendimento" className="space-y-3">
+          <FilterBar
+            searchPlaceholder="Buscar por lead, cliente ou status..."
           />
+          
+          <Card className="p-4 h-[600px]">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Kanban - Atendimento</h3>
+            <KanbanBoard
+              columns={kanbanColumns}
+              onUpdateColumns={setKanbanColumns}
+              onAddItem={handleAddItem}
+              onEditItem={handleEditItem}
+              onDeleteItem={handleDeleteItem}
+              onCardClick={handleCardClick}
+            />
+          </Card>
         </TabsContent>
       </Tabs>
     </DashboardLayout>
