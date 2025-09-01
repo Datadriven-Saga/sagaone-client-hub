@@ -3,7 +3,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KPICard } from "@/components/KPICard";
+import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { Target, Users, Send, MessageSquare, Calendar, CheckCircle, X, UserX } from "lucide-react";
+import { useState } from "react";
 
 const Prospeccao = () => {
   const kpis = [
@@ -16,6 +18,104 @@ const Prospeccao = () => {
     { title: "Opt-Out", value: "31", subtitle: "315%", icon: UserX },
     { title: "Objetivo de Vendas", value: "10", subtitle: "100%", icon: Target }
   ];
+
+  const [kanbanColumns, setKanbanColumns] = useState<KanbanColumnData[]>([
+    {
+      id: 'novo',
+      title: 'Novo',
+      color: '#6645EB',
+      items: [
+        {
+          id: '1',
+          title: 'João Silva',
+          description: 'Interessado em Honda Civic',
+          channel: 'WhatsApp',
+          priority: 'high',
+          assignee: 'Maria Santos'
+        },
+        {
+          id: '2',
+          title: 'Ana Costa',
+          description: 'Consultou sobre financiamento',
+          channel: 'Site',
+          priority: 'medium',
+          assignee: 'Pedro Lima'
+        }
+      ]
+    },
+    {
+      id: 'enviados',
+      title: 'Enviados',
+      color: '#8B5FD6',
+      items: [
+        {
+          id: '3',
+          title: 'Carlos Oliveira',
+          description: 'Primeira mensagem enviada',
+          channel: 'E-mail',
+          dueDate: '25/01',
+          assignee: 'Julia Mendes'
+        }
+      ]
+    },
+    {
+      id: 'recebidos',
+      title: 'Recebidos',
+      color: '#A679E1',
+      items: [
+        {
+          id: '4',
+          title: 'Fernanda Rocha',
+          description: 'Respondeu interesse em test drive',
+          channel: 'WhatsApp',
+          tags: ['Test Drive'],
+          priority: 'high',
+          assignee: 'Roberto Santos'
+        }
+      ]
+    },
+    {
+      id: 'respondidos',
+      title: 'Respondidos',
+      color: '#C193EC',
+      items: []
+    },
+    {
+      id: 'agendados',
+      title: 'Agendados',
+      color: '#DCADF7',
+      items: [
+        {
+          id: '5',
+          title: 'Ricardo Ferreira',
+          description: 'Test drive agendado',
+          channel: 'Telefone',
+          dueDate: '26/01',
+          tags: ['Test Drive', 'Honda Civic'],
+          priority: 'high',
+          assignee: 'Ana Paula'
+        }
+      ]
+    },
+    {
+      id: 'confirmados',
+      title: 'Confirmados',
+      color: '#10B981',
+      items: []
+    },
+    {
+      id: 'cancelados',
+      title: 'Cancelados',
+      color: '#EF4444',
+      items: []
+    },
+    {
+      id: 'opt-out',
+      title: 'Opt-Out',
+      color: '#6B7280',
+      items: []
+    }
+  ]);
 
   const mockProspections = [
     {
@@ -37,6 +137,35 @@ const Prospeccao = () => {
       status: "Finalizada"
     }
   ];
+
+  const handleAddItem = (columnId: string, item: Omit<KanbanItem, 'id'>) => {
+    const newItem: KanbanItem = {
+      ...item,
+      id: `${Date.now()}-${Math.random()}`
+    };
+
+    setKanbanColumns(columns =>
+      columns.map(col =>
+        col.id === columnId
+          ? { ...col, items: [...col.items, newItem] }
+          : col
+      )
+    );
+  };
+
+  const handleEditItem = (item: KanbanItem) => {
+    console.log('Edit item:', item);
+    // Implementar modal de edição
+  };
+
+  const handleDeleteItem = (itemId: string) => {
+    setKanbanColumns(columns =>
+      columns.map(col => ({
+        ...col,
+        items: col.items.filter(item => item.id !== itemId)
+      }))
+    );
+  };
 
   return (
     <DashboardLayout title="Prospecção">
@@ -178,12 +307,15 @@ const Prospeccao = () => {
         </TabsContent>
 
         <TabsContent value="gestao" className="space-y-6">
-          <Card className="p-6">
+          <Card className="p-6 h-[800px]">
             <h3 className="text-lg font-semibold text-foreground mb-4">Kanban - Gestão da Prospecção</h3>
-            <p className="text-muted-foreground">
-              Visualização em Kanban das etapas da prospecção será implementada aqui.
-              Colunas: Novo, Enviados, Recebidos, Respondidos, Agendados, Confirmados, Cancelados, Opt-Out
-            </p>
+            <KanbanBoard
+              columns={kanbanColumns}
+              onUpdateColumns={setKanbanColumns}
+              onAddItem={handleAddItem}
+              onEditItem={handleEditItem}
+              onDeleteItem={handleDeleteItem}
+            />
           </Card>
         </TabsContent>
 

@@ -1,0 +1,191 @@
+
+import React, { useState } from 'react';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { KanbanColumn } from './KanbanColumn';
+import { KanbanCard } from './KanbanCard';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
+
+export interface KanbanItem {
+  id: string;
+  title: string;
+  description?: string;
+  assignee?: string;
+  priority?: 'low' | 'medium' | 'high';
+  dueDate?: string;
+  tags?: string[];
+  channel?: string;
+}
+
+export interface KanbanColumnData {
+  id: string;
+  title: string;
+  items: KanbanItem[];
+  color?: string;
+  limit?: number;
+}
+
+interface KanbanBoardProps {
+  columns: KanbanColumnData[];
+  onUpdateColumns: (columns: KanbanColumnData[]) => void;
+  onAddItem?: (columnId: string, item: Omit<KanbanItem, 'id'>) => void;
+  onEditItem?: (item: KanbanItem) => void;
+  onDeleteItem?: (itemId: string) => void;
+}
+
+export function KanbanBoard({ 
+  columns, 
+  onUpdateColumns, 
+  onAddItem, 
+  onEditItem, 
+  onDeleteItem 
+}: KanbanBoardProps) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeItem, setActiveItem] = useState<KanbanItem | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+    
+    // Find the active item
+    const item = columns
+      .flatMap(col => col.items)
+      .find(item => item.id === event.active.id);
+    
+    setActiveItem(item || null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Find source column and item
+    const sourceColumn = columns.find(col => 
+      col.items.some(item => item.id === activeId)
+    );
+    const sourceItem = sourceColumn?.items.find(item => item.id === activeId);
+
+    if (!sourceColumn || !sourceItem) return;
+
+    // Determine target column
+    let targetColumn = columns.find(col => col.id === overId);
+    if (!targetColumn) {
+      // If dropped on an item, find its column
+      targetColumn = columns.find(col => 
+        col.items.some(item => item.id === overId)
+      );
+    }
+
+    if (!targetColumn) return;
+
+    // Create new columns array
+    const newColumns = columns.map(col => {
+      if (col.id === sourceColumn.id) {
+        // Remove item from source column
+        return {
+          ...col,
+          items: col.items.filter(item => item.id !== activeId)
+        };
+      } else if (col.id === targetColumn.id) {
+        // Add item to target column
+        const targetIndex = col.items.findIndex(item => item.id === overId);
+        const newItems = [...col.items];
+        
+        if (targetIndex >= 0) {
+          newItems.splice(targetIndex, 0, sourceItem);
+        } else {
+          newItems.push(sourceItem);
+        }
+        
+        return {
+          ...col,
+          items: newItems
+        };
+      }
+      return col;
+    });
+
+    onUpdateColumns(newColumns);
+    setActiveId(null);
+    setActiveItem(null);
+  };
+
+  const handleAddColumn = () => {
+    const newColumn: KanbanColumnData = {
+      id: `column-${Date.now()}`,
+      title: 'Nova Coluna',
+      items: [],
+      color: '#6645EB'
+    };
+    onUpdateColumns([...columns, newColumn]);
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex gap-6 overflow-x-auto pb-4 flex-1">
+          {columns.map((column) => (
+            <div key={column.id} className="flex-shrink-0">
+              <SortableContext
+                items={column.items.map(item => item.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <KanbanColumn
+                  column={column}
+                  onAddItem={onAddItem}
+                  onEditItem={onEditItem}
+                  onDeleteItem={onDeleteItem}
+                />
+              </SortableContext>
+            </div>
+          ))}
+          
+          <Card className="flex-shrink-0 w-80 p-4 border-dashed border-2 border-muted-foreground/30 hover:border-primary/50 transition-colors">
+            <Button
+              variant="ghost"
+              onClick={handleAddColumn}
+              className="w-full h-full min-h-[100px] text-muted-foreground hover:text-foreground"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Adicionar Coluna
+            </Button>
+          </Card>
+        </div>
+
+        <DragOverlay>
+          {activeItem ? (
+            <KanbanCard item={activeItem} isDragging />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </div>
+  );
+}
