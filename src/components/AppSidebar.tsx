@@ -10,7 +10,8 @@ import {
   FileText, 
   BookOpen, 
   Settings, 
-  Shield 
+  Shield,
+  Bot 
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
@@ -31,6 +32,7 @@ const menuItems = [
   { title: "Página Inicial", url: "/", icon: Home },
   { title: "Carteira de Clientes", url: "/clientes", icon: Users },
   { title: "Notificações", url: "/notificacoes", icon: Bell },
+  { title: "Personas de IA", url: "/personas", icon: Bot },
   { title: "Prospecção", url: "/prospeccao", icon: Target },
   { title: "Central de Atendimento", url: "/atendimento", icon: Headphones },
   { title: "Loja", url: "/loja", icon: Store },

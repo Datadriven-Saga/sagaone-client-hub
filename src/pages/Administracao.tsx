@@ -1,0 +1,102 @@
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { DashboardCard } from "@/components/DashboardCard";
+import { 
+  Building, 
+  Users, 
+  Settings, 
+  Code, 
+  Zap,
+  FileText
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+const Administracao = () => {
+  const navigate = useNavigate();
+
+  const adminModules = [
+    {
+      title: "Empresas",
+      description: "Gerenciar dados das empresas do sistema",
+      icon: Building,
+      route: "/administracao/empresas"
+    },
+    {
+      title: "Acessos",
+      description: "Gerenciar usuários e permissões do sistema",
+      icon: Users,
+      route: "/administracao/acessos"
+    },
+    {
+      title: "Gatilhos",
+      description: "Configurar gatilhos para personas de IA",
+      icon: Zap,
+      route: "/gatilhos"
+    },
+    {
+      title: "Campos Obrigatórios",
+      description: "Configurar campos obrigatórios por módulo",
+      icon: FileText,
+      route: "/administracao/campos"
+    },
+    {
+      title: "APIs",
+      description: "Gerenciar APIs e integrações do sistema",
+      icon: Code,
+      route: "/administracao/apis"
+    }
+  ];
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Administração
+          </h1>
+          <p className="text-muted-foreground">
+            Gerencie configurações avançadas do sistema TAVAT
+          </p>
+        </div>
+
+        {/* Admin Modules Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {adminModules.map((module) => (
+            <DashboardCard
+              key={module.title}
+              title={module.title}
+              icon={module.icon}
+              actionText={`Acessar ${module.title}`}
+              onAction={() => navigate(module.route)}
+            >
+              <p className="text-sm text-muted-foreground">
+                {module.description}
+              </p>
+            </DashboardCard>
+          ))}
+        </div>
+
+        {/* Info Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+          <div className="bg-card border rounded-lg p-6">
+            <h3 className="text-lg font-semibold mb-2">Acesso Restrito</h3>
+            <p className="text-sm text-muted-foreground">
+              Apenas usuários com perfil de <strong>Administrador</strong> têm acesso 
+              completo a este módulo. Outros perfis podem ter acesso limitado a alguns sub-módulos.
+            </p>
+          </div>
+          
+          <div className="bg-card border rounded-lg p-6">
+            <h3 className="text-lg font-semibold mb-2">Configurações Críticas</h3>
+            <p className="text-sm text-muted-foreground">
+              As alterações realizadas neste módulo afetam todo o sistema. 
+              Tenha cuidado ao modificar configurações existentes.
+            </p>
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default Administracao;
