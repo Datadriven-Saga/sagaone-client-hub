@@ -10,9 +10,11 @@ interface KPICardProps {
     type: 'increase' | 'decrease';
   };
   description?: string;
+  subtitle?: string;
+  trend?: 'up' | 'down';
 }
 
-export function KPICard({ title, value, icon: Icon, change, description }: KPICardProps) {
+export function KPICard({ title, value, icon: Icon, change, description, subtitle, trend }: KPICardProps) {
   return (
     <Card>
       <CardContent className="p-6">
@@ -24,9 +26,9 @@ export function KPICard({ title, value, icon: Icon, change, description }: KPICa
             <p className="text-2xl font-bold text-foreground">
               {value}
             </p>
-            {description && (
+            {(description || subtitle) && (
               <p className="text-xs text-muted-foreground mt-1">
-                {description}
+                {description || subtitle}
               </p>
             )}
           </div>
@@ -35,19 +37,27 @@ export function KPICard({ title, value, icon: Icon, change, description }: KPICa
           </div>
         </div>
         
-        {change && (
+        {(change || trend) && (
           <div className="flex items-center mt-4 text-sm">
-            {change.type === 'increase' ? (
+            {trend === 'up' || change?.type === 'increase' ? (
               <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
             ) : (
               <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
             )}
-            <span className={change.type === 'increase' ? 'text-green-600' : 'text-red-600'}>
-              {change.value > 0 ? '+' : ''}{change.value}%
-            </span>
-            <span className="text-muted-foreground ml-1">
-              vs. mês anterior
-            </span>
+            {change ? (
+              <>
+                <span className={change.type === 'increase' ? 'text-green-600' : 'text-red-600'}>
+                  {change.value > 0 ? '+' : ''}{change.value}%
+                </span>
+                <span className="text-muted-foreground ml-1">
+                  vs. mês anterior
+                </span>
+              </>
+            ) : (
+              <span className={trend === 'up' ? 'text-green-600' : 'text-red-600'}>
+                Tendência {trend === 'up' ? 'positiva' : 'negativa'}
+              </span>
+            )}
           </div>
         )}
       </CardContent>

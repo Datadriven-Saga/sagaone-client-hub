@@ -34,7 +34,7 @@ const menuItems = [
   { title: "Notificações", url: "/notificacoes", icon: Bell },
   { title: "Personas de IA", url: "/personas", icon: Bot },
   { title: "Prospecção", url: "/prospeccao", icon: Target },
-  { title: "Central de Atendimento", url: "/atendimento", icon: Headphones },
+  { title: "Central de Atendimento", url: "/central-atendimento", icon: Headphones },
   { title: "Loja", url: "/loja", icon: Store },
   { title: "Busca & Resgate", url: "/busca-resgate", icon: Search },
   { title: "Metas e OKR", url: "/metas", icon: TrendingUp },

@@ -5,9 +5,10 @@ import { UserMenu } from "./UserMenu";
 
 interface DashboardLayoutProps {
   children: ReactNode;
+  title?: string;
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -18,6 +19,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
             <div className="flex items-center gap-4">
               <SidebarTrigger className="h-8 w-8" />
+              {title && (
+                <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+              )}
             </div>
             
             <UserMenu />

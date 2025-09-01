@@ -9,6 +9,15 @@ import NotFound from "./pages/NotFound";
 import Personas from "./pages/Personas";
 import Gatilhos from "./pages/Gatilhos";
 import Administracao from "./pages/Administracao";
+import Clientes from "./pages/Clientes";
+import Notificacoes from "./pages/Notificacoes";
+import Prospeccao from "./pages/Prospeccao";
+import Loja from "./pages/Loja";
+import BuscaResgate from "./pages/BuscaResgate";
+import Metas from "./pages/Metas";
+import Relatorios from "./pages/Relatorios";
+import Treinamentos from "./pages/Treinamentos";
+import Configuracoes from "./pages/Configuracoes";
 
 const queryClient = new QueryClient();
 
@@ -21,7 +30,17 @@ const App = () => (
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<Index />} />
+          <Route path="/clientes" element={<Clientes />} />
+          <Route path="/notificacoes" element={<Notificacoes />} />
           <Route path="/personas" element={<Personas />} />
+          <Route path="/prospeccao" element={<Prospeccao />} />
+          <Route path="/central-atendimento" element={<CentralAtendimento />} />
+          <Route path="/loja" element={<Loja />} />
+          <Route path="/busca-resgate" element={<BuscaResgate />} />
+          <Route path="/metas" element={<Metas />} />
+          <Route path="/relatorios" element={<Relatorios />} />
+          <Route path="/treinamentos" element={<Treinamentos />} />
+          <Route path="/configuracoes" element={<Configuracoes />} />
           <Route path="/gatilhos" element={<Gatilhos />} />
           <Route path="/administracao" element={<Administracao />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
