@@ -16,10 +16,10 @@ const Clientes = () => {
 
   // Mock data - replace with real data from API
   const kpis = [
-    { title: "Quantidade de Clientes", value: "1,234", icon: Users },
-    { title: "Clientes com Telefone", value: "1,100", subtitle: "89%", icon: Phone },
-    { title: "Clientes com E-mail", value: "856", subtitle: "69%", icon: Mail },
-    { title: "Já realizaram compra", value: "432", subtitle: "35%", icon: UserCheck }
+    { title: "Clientes", value: "1,234", icon: Users },
+    { title: "Com Telefone", value: "1,100", subtitle: "89%", icon: Phone },
+    { title: "Com E-mail", value: "856", subtitle: "69%", icon: Mail },
+    { title: "Realizaram Compra", value: "432", subtitle: "35%", icon: UserCheck }
   ];
 
   const clientFilters = [
