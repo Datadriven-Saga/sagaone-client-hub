@@ -66,19 +66,31 @@ serve(async (req) => {
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (profilesError) throw profilesError;
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError);
+          throw profilesError;
+        }
+
+        console.log('Found profiles:', profiles?.length || 0);
 
         // Get user emails from auth using admin client
         const profilesWithEmails = await Promise.all(
           (profiles || []).map(async (profile) => {
             try {
-              const { data: userData } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+              const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+              if (userError) {
+                console.error('Error fetching user data for:', profile.id, userError);
+                return {
+                  ...profile,
+                  email: 'Email não disponível'
+                };
+              }
               return {
                 ...profile,
                 email: userData?.user?.email || 'Email não disponível'
               };
             } catch (error) {
-              console.error('Error fetching user email:', error);
+              console.error('Error fetching user email for profile:', profile.id, error);
               return {
                 ...profile,
                 email: 'Email não disponível'
@@ -86,6 +98,8 @@ serve(async (req) => {
             }
           })
         );
+
+        console.log('Profiles with emails:', profilesWithEmails.length);
 
         return new Response(
           JSON.stringify({ users: profilesWithEmails }),

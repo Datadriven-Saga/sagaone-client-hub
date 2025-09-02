@@ -67,21 +67,86 @@ const Acessos = () => {
 
   const fetchProfiles = async () => {
     try {
-      // Usar a edge function para buscar usuários com emails
+      console.log('Fetching profiles...');
+      
+      // Primeiro tentar a edge function para buscar usuários com emails
       const { data, error } = await supabase.functions.invoke('manage-users', {
         body: { action: 'list_users' }
       });
 
-      if (error) throw error;
+      console.log('Response from edge function:', data, error);
 
-      setProfiles(data.users || []);
+      if (error) {
+        console.error('Edge function error, trying fallback:', error);
+        // Fallback: buscar diretamente da tabela profiles
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (profilesError) throw profilesError;
+
+        // Mapear para incluir email como placeholder
+        const profilesWithPlaceholderEmails = (profilesData || []).map(profile => ({
+          ...profile,
+          email: 'Email não disponível'
+        }));
+
+        console.log('Fallback: Found profiles:', profilesWithPlaceholderEmails.length);
+        setProfiles(profilesWithPlaceholderEmails);
+        return;
+      }
+
+      if (data?.users) {
+        console.log('Found users from edge function:', data.users.length);
+        setProfiles(data.users);
+      } else {
+        console.warn('No users found in response, trying fallback');
+        // Fallback caso a edge function não retorne dados
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (profilesError) throw profilesError;
+
+        const profilesWithPlaceholderEmails = (profilesData || []).map(profile => ({
+          ...profile,
+          email: 'Email não disponível'
+        }));
+
+        console.log('Fallback: Found profiles:', profilesWithPlaceholderEmails.length);
+        setProfiles(profilesWithPlaceholderEmails);
+      }
     } catch (error) {
       console.error('Erro ao buscar perfis:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar os usuários",
-        variant: "destructive"
-      });
+      
+      // Último fallback: tentar buscar diretamente da tabela
+      try {
+        console.log('Trying final fallback...');
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (profilesError) throw profilesError;
+
+        const profilesWithPlaceholderEmails = (profilesData || []).map(profile => ({
+          ...profile,
+          email: 'Email não disponível'
+        }));
+
+        console.log('Final fallback: Found profiles:', profilesWithPlaceholderEmails.length);
+        setProfiles(profilesWithPlaceholderEmails);
+      } catch (fallbackError) {
+        console.error('Final fallback failed:', fallbackError);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os usuários",
+          variant: "destructive"
+        });
+        setProfiles([]);
+      }
     } finally {
       setLoading(false);
     }
