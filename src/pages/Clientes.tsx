@@ -1,18 +1,21 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { KPICard } from "@/components/KPICard";
-import { FilterBar } from "@/components/FilterBar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { Users, Phone, Mail, UserCheck } from "lucide-react";
 import { useState } from "react";
+import { DateRange } from "react-day-picker";
 
 const Clientes = () => {
   const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   // Mock data - replace with real data from API
   const kpis = [
@@ -20,25 +23,6 @@ const Clientes = () => {
     { title: "Com Telefone", value: "1,100", subtitle: "89%", icon: Phone },
     { title: "Com E-mail", value: "856", subtitle: "69%", icon: Mail },
     { title: "Realizaram Compra", value: "432", subtitle: "35%", icon: UserCheck }
-  ];
-
-  const clientFilters = [
-    {
-      key: 'status',
-      label: 'Status',
-      options: [
-        { value: 'ativo', label: 'Ativo' },
-        { value: 'inativo', label: 'Inativo' }
-      ]
-    },
-    {
-      key: 'gender',
-      label: 'Sexo',
-      options: [
-        { value: 'masculino', label: 'Masculino' },
-        { value: 'feminino', label: 'Feminino' }
-      ]
-    }
   ];
 
   const handleClientRowClick = (client: any) => {
@@ -69,10 +53,40 @@ const Clientes = () => {
     <DashboardLayout title="Carteira de Clientes">
       <div className="space-y-3">
         {/* Filtros */}
-        <FilterBar
-          searchPlaceholder="Buscar cliente por nome, telefone ou email..."
-          additionalFilters={clientFilters}
-        />
+        <Card className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Input placeholder="Buscar cliente por nome, telefone ou email..." />
+
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder="Tipo do Cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cpf">CPF</SelectItem>
+                <SelectItem value="cnpj">CNPJ</SelectItem>
+                <SelectItem value="">Todos</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder="Sexo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="masculino">Masculino</SelectItem>
+                <SelectItem value="feminino">Feminino</SelectItem>
+                <SelectItem value="outro">Outro</SelectItem>
+                <SelectItem value="">Todos</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <DateRangePicker 
+              date={dateRange}
+              onDateChange={setDateRange}
+              placeholder="Período"
+            />
+          </div>
+        </Card>
 
         {/* KPIs Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
