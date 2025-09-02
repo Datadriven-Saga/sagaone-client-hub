@@ -508,14 +508,14 @@ const Prospeccao = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="kanban" className="space-y-3">
+        <TabsContent value="kanban" className="space-y-3 overflow-x-hidden">
           <FilterBar
             searchPlaceholder="Buscar por cliente, campanha ou status..."
             onSearchChange={setSearchFilter}
           />
           
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-4">
+          <Card className="p-4 overflow-x-hidden">
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
               <h3 className="text-lg font-semibold text-foreground">Kanban - Gestão da Prospecção</h3>
               <div className="flex items-center space-x-4">
                 <div className="text-sm text-muted-foreground">
@@ -531,7 +531,7 @@ const Prospeccao = () => {
               </div>
             </div>
             
-            <div className="h-[600px]">
+            <div className="h-[480px] overflow-x-hidden">
               <KanbanBoard
                 columns={kanbanColumns}
                 onUpdateColumns={() => {}} // Será atualizado automaticamente pelos dados do banco

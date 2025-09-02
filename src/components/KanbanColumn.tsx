@@ -56,7 +56,7 @@ export function KanbanColumn({ column, onAddItem, onEditItem, onDeleteItem, onCa
   const isAtLimit = column.limit && column.items.length >= column.limit;
 
   return (
-    <Card className="w-64 bg-muted/30 border-muted-foreground/20">
+    <Card className="w-64 bg-muted/30 border-muted-foreground/20 flex-shrink-0 overflow-hidden">
       <div className="p-4 border-b border-muted-foreground/20">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-1">
@@ -113,7 +113,7 @@ export function KanbanColumn({ column, onAddItem, onEditItem, onDeleteItem, onCa
 
       <div 
         ref={setNodeRef}
-        className="p-4 space-y-3 min-h-[200px] max-h-[600px] overflow-y-auto"
+        className="p-4 space-y-3 min-h-[200px] max-h-[calc(60vh-120px)] overflow-y-auto overflow-x-hidden"
       >
         {column.items.map((item) => (
                 <KanbanCard
@@ -132,7 +132,7 @@ export function KanbanColumn({ column, onAddItem, onEditItem, onDeleteItem, onCa
               onChange={(e) => setNewItemTitle(e.target.value)}
               placeholder="Digite o título do item..."
               onKeyDown={handleKeyPress}
-              className="border-none p-0 focus-visible:ring-0"
+              className="border-none p-0 focus-visible:ring-0 break-words"
               autoFocus
             />
             <div className="flex gap-2 mt-2">
@@ -157,10 +157,10 @@ export function KanbanColumn({ column, onAddItem, onEditItem, onDeleteItem, onCa
             size="sm"
             onClick={() => setIsAddingItem(true)}
             disabled={isAtLimit}
-            className="w-full justify-start text-muted-foreground hover:text-foreground border-dashed border-2 border-transparent hover:border-muted-foreground/30"
+            className="w-full justify-start text-muted-foreground hover:text-foreground border-dashed border-2 border-transparent hover:border-muted-foreground/30 break-words"
           >
-            <Plus className="w-4 h-4 mr-2" />
-            {isAtLimit ? 'Limite atingido' : 'Adicionar item'}
+            <Plus className="w-4 h-4 mr-2 flex-shrink-0" />
+            <span className="break-words">{isAtLimit ? 'Limite atingido' : 'Adicionar item'}</span>
           </Button>
         )}
       </div>

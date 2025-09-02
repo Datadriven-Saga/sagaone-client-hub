@@ -195,13 +195,13 @@ export function KanbanBoard({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-x-hidden">
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="overflow-x-auto flex-1">
+        <div className="flex-1 overflow-x-auto overflow-y-auto max-h-full">
           <div className="flex gap-4 pb-4 min-w-max">
             {columns.map((column) => (
               <div key={column.id} className="flex-shrink-0">
