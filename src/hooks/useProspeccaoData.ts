@@ -124,7 +124,7 @@ export const useProspeccaoData = () => {
     origem: Lead['origem'];
     empresa_id?: string;
     observacoes?: string;
-  }[]) => {
+  }[], prospeccaoId?: string) => {
     try {
       const leadsParaInserir = novosLeads.map(lead => ({
         ...lead,
@@ -141,6 +141,25 @@ export const useProspeccaoData = () => {
 
       if (data) {
         setLeads(prev => [...data, ...prev]);
+        
+        // Disparar gatilho para cada novo lead adicionado
+        if (prospeccaoId) {
+          for (const lead of data) {
+            await supabase.functions.invoke('trigger-webhook', {
+              body: {
+                gatilho: 'novo_contato_prospeccao',
+                dados: {
+                  prospeccao_id: prospeccaoId,
+                  lead_id: lead.id,
+                  nome: lead.nome,
+                  telefone: lead.telefone,
+                  email: lead.email
+                }
+              }
+            });
+          }
+        }
+        
         return data;
       }
     } catch (error) {

@@ -11,5 +11,14 @@ additional_redirect_urls = ["https://localhost:3000"]
 password = "postgres"
 shadow_database_url = "postgresql://postgres:postgres@127.0.0.1:54320/postgres"
 
+[functions.prospeccao-status]
+verify_jwt = false
+
+[functions.prospeccao-anotacao]
+verify_jwt = false
+
+[functions.trigger-webhook] 
+verify_jwt = false
+
 [functions.manage-users]
 verify_jwt = true
