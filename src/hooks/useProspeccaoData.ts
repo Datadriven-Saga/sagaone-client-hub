@@ -198,6 +198,18 @@ export const useProspeccaoData = () => {
   }) => {
     console.log('criarProspeccao called with:', dadosProspeccao);
     console.log('Current user:', user);
+    console.log('User authenticated:', !!user);
+    console.log('User ID:', user?.id);
+    
+    if (!user) {
+      console.error('User not authenticated');
+      toast({
+        title: "Erro de autenticação",
+        description: "Você precisa estar logado para criar uma prospecção",
+        variant: "destructive"
+      });
+      return;
+    }
     
     try {
       const prospeccaoData = {

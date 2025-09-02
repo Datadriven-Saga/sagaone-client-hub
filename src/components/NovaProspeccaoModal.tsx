@@ -43,6 +43,9 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('handleSubmit called');
+    console.log('Current user:', user);
+    console.log('User ID:', user?.id);
+    console.log('User metadata:', user?.user_metadata);
     
     if (!formData.titulo.trim()) {
       toast({
