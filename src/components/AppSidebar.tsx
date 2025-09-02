@@ -55,11 +55,11 @@ export function AppSidebar() {
     >
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <img 
-            src={tavatLogo} 
-            alt="TAVAT" 
-            className="h-8 w-8 flex-shrink-0"
-          />
+          <div className="h-8 w-8 flex-shrink-0 bg-primary rounded-lg flex items-center justify-center">
+            <span className="text-primary-foreground font-bold text-xl" style={{ fontFamily: 'Roboto, sans-serif' }}>
+              T
+            </span>
+          </div>
           {!isCollapsed && (
             <span className="text-sidebar-foreground font-bold text-lg">
               TAVAT
@@ -70,9 +70,6 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className={isCollapsed ? "sr-only" : ""}>
-            Menu Principal
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (

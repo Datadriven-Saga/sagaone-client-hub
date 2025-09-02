@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { FileText, Download, Filter } from "lucide-react";
 
 const Relatorios = () => {
+  const [selectedModule, setSelectedModule] = useState<string>("");
   const modules = [
     {
       name: "Carteira de Clientes",
@@ -56,7 +58,7 @@ const Relatorios = () => {
               <label className="block text-sm font-medium mb-2">
                 Selecione o Módulo
               </label>
-              <Select>
+              <Select value={selectedModule} onValueChange={setSelectedModule}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Escolha um módulo do sistema" />
                 </SelectTrigger>
@@ -71,24 +73,26 @@ const Relatorios = () => {
             </div>
 
             {/* Seleção das Colunas */}
-            <div>
-              <label className="block text-sm font-medium mb-3">
-                Selecione as Colunas (Carteira de Clientes)
-              </label>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {modules[0].fields.map((field) => (
-                  <div key={field} className="flex items-center space-x-2">
-                    <Checkbox id={field} defaultChecked />
-                    <label
-                      htmlFor={field}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      {field}
-                    </label>
-                  </div>
-                ))}
+            {selectedModule && (
+              <div>
+                <label className="block text-sm font-medium mb-3">
+                  Selecione as Colunas ({selectedModule})
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {modules.find(m => m.name === selectedModule)?.fields.map((field) => (
+                    <div key={field} className="flex items-center space-x-2">
+                      <Checkbox id={field} defaultChecked />
+                      <label
+                        htmlFor={field}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {field}
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Filtros */}
             <div>
