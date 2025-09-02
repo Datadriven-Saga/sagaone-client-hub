@@ -4,20 +4,181 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KPICard } from "@/components/KPICard";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
+import { SalesFunnel, FunnelStage } from "@/components/SalesFunnel";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Target, Users, Send, MessageSquare, Calendar, CheckCircle, X, UserX } from "lucide-react";
 import { FilterBar } from "@/components/FilterBar";
 import { useState } from "react";
 
+interface Prospection {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  brand: string;
+  objective: number;
+  status: string;
+  metrics: {
+    enviados: number;
+    recebidos: number;
+    respondidos: number;
+    agendados: number;
+    confirmados: number;
+    cancelados: number;
+    optOut: number;
+    vendas: number;
+  };
+}
+
 const Prospeccao = () => {
+  const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
+
+  const mockProspections: Prospection[] = [
+    {
+      id: "001",
+      name: "Campanha Janeiro 2025",
+      startDate: "01/01/2025",
+      endDate: "31/01/2025",
+      brand: "Honda",
+      objective: 50,
+      status: "Ativa",
+      metrics: {
+        enviados: 1200,
+        recebidos: 1100,
+        respondidos: 450,
+        agendados: 45,
+        confirmados: 22,
+        cancelados: 10,
+        optOut: 15,
+        vendas: 8
+      }
+    },
+    {
+      id: "002",
+      name: "Black Friday 2024",
+      startDate: "25/11/2024", 
+      endDate: "30/11/2024",
+      brand: "Toyota",
+      objective: 25,
+      status: "Finalizada",
+      metrics: {
+        enviados: 900,
+        recebidos: 850,
+        respondidos: 350,
+        agendados: 35,
+        confirmados: 18,
+        cancelados: 8,
+        optOut: 12,
+        vendas: 6
+      }
+    },
+    {
+      id: "003",
+      name: "Promoção Fim de Ano",
+      startDate: "15/12/2024",
+      endDate: "31/12/2024",
+      brand: "Volkswagen",
+      objective: 30,
+      status: "Ativa",
+      metrics: {
+        enviados: 800,
+        recebidos: 750,
+        respondidos: 300,
+        agendados: 30,
+        confirmados: 15,
+        cancelados: 7,
+        optOut: 10,
+        vendas: 4
+      }
+    }
+  ];
+
+  // Calcular métricas consolidadas das prospecções selecionadas
+  const getConsolidatedMetrics = () => {
+    if (selectedProspections.length === 0) {
+      // Se nenhuma prospecção selecionada, mostrar totais de todas
+      return mockProspections.reduce((acc, prospect) => ({
+        enviados: acc.enviados + prospect.metrics.enviados,
+        recebidos: acc.recebidos + prospect.metrics.recebidos,
+        respondidos: acc.respondidos + prospect.metrics.respondidos,
+        agendados: acc.agendados + prospect.metrics.agendados,
+        confirmados: acc.confirmados + prospect.metrics.confirmados,
+        cancelados: acc.cancelados + prospect.metrics.cancelados,
+        optOut: acc.optOut + prospect.metrics.optOut,
+        vendas: acc.vendas + prospect.metrics.vendas
+      }), {
+        enviados: 0, recebidos: 0, respondidos: 0, agendados: 0,
+        confirmados: 0, cancelados: 0, optOut: 0, vendas: 0
+      });
+    }
+
+    return mockProspections
+      .filter(p => selectedProspections.includes(p.id))
+      .reduce((acc, prospect) => ({
+        enviados: acc.enviados + prospect.metrics.enviados,
+        recebidos: acc.recebidos + prospect.metrics.recebidos,
+        respondidos: acc.respondidos + prospect.metrics.respondidos,
+        agendados: acc.agendados + prospect.metrics.agendados,
+        confirmados: acc.confirmados + prospect.metrics.confirmados,
+        cancelados: acc.cancelados + prospect.metrics.cancelados,
+        optOut: acc.optOut + prospect.metrics.optOut,
+        vendas: acc.vendas + prospect.metrics.vendas
+      }), {
+        enviados: 0, recebidos: 0, respondidos: 0, agendados: 0,
+        confirmados: 0, cancelados: 0, optOut: 0, vendas: 0
+      });
+  };
+
+  const consolidatedMetrics = getConsolidatedMetrics();
+
+  const funnelStages: FunnelStage[] = [
+    {
+      id: 'enviados',
+      title: 'Enviados',
+      value: consolidatedMetrics.enviados,
+      color: '#6366f1'
+    },
+    {
+      id: 'recebidos',
+      title: 'Recebidos',
+      value: consolidatedMetrics.recebidos,
+      color: '#8b5cf6'
+    },
+    {
+      id: 'respondidos',
+      title: 'Respondidos',
+      value: consolidatedMetrics.respondidos,
+      color: '#a855f7'
+    },
+    {
+      id: 'agendados',
+      title: 'Agendados',
+      value: consolidatedMetrics.agendados,
+      color: '#c084fc'
+    },
+    {
+      id: 'confirmados',
+      title: 'Confirmados',
+      value: consolidatedMetrics.confirmados,
+      color: '#10b981'
+    },
+    {
+      id: 'vendas',
+      title: 'Vendas',
+      value: consolidatedMetrics.vendas,
+      color: '#059669'
+    }
+  ];
+
   const kpis = [
-    { title: "Enviados", value: "2,100", subtitle: "21.000%", icon: Send },
-    { title: "Recebidos", value: "2,000", subtitle: "20.000%", icon: MessageSquare },
-    { title: "Respondidos", value: "800", subtitle: "8.000%", icon: MessageSquare },
-    { title: "Agendados", value: "80", subtitle: "800%", icon: Calendar },
-    { title: "Confirmados", value: "40", subtitle: "400%", icon: CheckCircle },
-    { title: "Cancelados", value: "20", subtitle: "200%", icon: X },
-    { title: "Opt-Out", value: "31", subtitle: "315%", icon: UserX },
-    { title: "Objetivo de Vendas", value: "10", subtitle: "100%", icon: Target }
+    { title: "Enviados", value: consolidatedMetrics.enviados.toLocaleString(), icon: Send },
+    { title: "Recebidos", value: consolidatedMetrics.recebidos.toLocaleString(), icon: MessageSquare },
+    { title: "Respondidos", value: consolidatedMetrics.respondidos.toLocaleString(), icon: MessageSquare },
+    { title: "Agendados", value: consolidatedMetrics.agendados.toLocaleString(), icon: Calendar },
+    { title: "Confirmados", value: consolidatedMetrics.confirmados.toLocaleString(), icon: CheckCircle },
+    { title: "Cancelados", value: consolidatedMetrics.cancelados.toLocaleString(), icon: X },
+    { title: "Opt-Out", value: consolidatedMetrics.optOut.toLocaleString(), icon: UserX },
+    { title: "Vendas", value: consolidatedMetrics.vendas.toLocaleString(), icon: Target }
   ];
 
   const [kanbanColumns, setKanbanColumns] = useState<KanbanColumnData[]>([
@@ -118,26 +279,21 @@ const Prospeccao = () => {
     }
   ]);
 
-  const mockProspections = [
-    {
-      id: "001",
-      name: "Campanha Janeiro 2025",
-      startDate: "01/01/2025",
-      endDate: "31/01/2025",
-      brand: "Honda",
-      objective: 50,
-      status: "Ativa"
-    },
-    {
-      id: "002",
-      name: "Black Friday 2024",
-      startDate: "25/11/2024", 
-      endDate: "30/11/2024",
-      brand: "Toyota",
-      objective: 25,
-      status: "Finalizada"
+  const handleProspectionSelection = (prospectionId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedProspections(prev => [...prev, prospectionId]);
+    } else {
+      setSelectedProspections(prev => prev.filter(id => id !== prospectionId));
     }
-  ];
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedProspections(mockProspections.map(p => p.id));
+    } else {
+      setSelectedProspections([]);
+    }
+  };
 
   const handleAddItem = (columnId: string, item: Omit<KanbanItem, 'id'>) => {
     const newItem: KanbanItem = {
@@ -156,7 +312,6 @@ const Prospeccao = () => {
 
   const handleEditItem = (item: KanbanItem) => {
     console.log('Edit item:', item);
-    // Implementar modal de edição
   };
 
   const handleDeleteItem = (itemId: string) => {
@@ -169,7 +324,6 @@ const Prospeccao = () => {
   };
 
   const handleCardClick = (item: KanbanItem) => {
-    // Abrir modal conforme instruções iniciais
     console.log('Abrir detalhes do card:', item);
   };
 
@@ -188,69 +342,97 @@ const Prospeccao = () => {
             searchPlaceholder="Filtrar prospecções por nome, marca ou status..."
           />
 
-          {/* Seletor de Prospecção */}
-          <Card className="p-4">
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-foreground mb-2">Selecionar Prospecção</h3>
-                <select className="w-full p-3 border rounded-lg bg-card">
-                  <option value="">Selecione uma prospecção</option>
-                  {mockProspections.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} - {item.brand}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <Button>Nova Prospecção</Button>
+          {/* Layout: Funil à esquerda, Lista à direita */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Funil de Vendas - Metade Esquerda */}
+            <div className="order-2 lg:order-1">
+              <SalesFunnel 
+                stages={funnelStages}
+                title={`Funil de Vendas ${
+                  selectedProspections.length > 0 
+                    ? `(${selectedProspections.length} prospecção${selectedProspections.length > 1 ? 'ões' : ''} selecionada${selectedProspections.length > 1 ? 's' : ''})`
+                    : '(Todas as prospecções)'
+                }`}
+              />
             </div>
-          </Card>
 
-          {/* KPIs */}
+            {/* Lista de Prospecções - Metade Direita */}
+            <div className="order-1 lg:order-2 space-y-4">
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-foreground">Prospecções</h3>
+                  <Button>Nova Prospecção</Button>
+                </div>
+
+                {/* Seleção Geral */}
+                <div className="flex items-center space-x-2 mb-4 pb-2 border-b border-muted">
+                  <Checkbox 
+                    id="select-all"
+                    checked={selectedProspections.length === mockProspections.length}
+                    onCheckedChange={handleSelectAll}
+                  />
+                  <label 
+                    htmlFor="select-all" 
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Selecionar todas ({mockProspections.length})
+                  </label>
+                </div>
+
+                {/* Lista de Prospecções */}
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {mockProspections.map((item) => (
+                    <div key={item.id} className="border rounded-lg p-4 hover:bg-muted/50">
+                      <div className="flex items-start space-x-3">
+                        <Checkbox 
+                          id={`prospect-${item.id}`}
+                          checked={selectedProspections.includes(item.id)}
+                          onCheckedChange={(checked) => handleProspectionSelection(item.id, !!checked)}
+                        />
+                        
+                        <div className="flex-1 cursor-pointer" onClick={() => console.log('Abrir prospecção:', item)}>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-semibold">{item.name}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                {item.startDate} - {item.endDate} | {item.brand}
+                              </p>
+                              <p className="text-sm">Objetivo: {item.objective} vendas</p>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Enviados: {item.metrics.enviados.toLocaleString()} | 
+                                Vendas: {item.metrics.vendas}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                item.status === 'Ativa' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {item.status}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          </div>
+
+          {/* KPIs - Abaixo do layout principal */}
           <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-2">
             {kpis.map((kpi, index) => (
               <KPICard
                 key={index}
                 title={kpi.title}
                 value={kpi.value}
-                subtitle={kpi.subtitle}
                 icon={kpi.icon}
               />
             ))}
           </div>
-
-          {/* Lista de Prospecções */}
-          <Card className="p-4">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Prospecções Criadas</h3>
-            <div className="space-y-2">
-              {mockProspections.map((item) => (
-                <div 
-                  key={item.id} 
-                  className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer"
-                  onClick={() => console.log('Abrir prospecção:', item)}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold">{item.name}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {item.startDate} - {item.endDate} | {item.brand}
-                      </p>
-                      <p className="text-sm">Objetivo: {item.objective} vendas</p>
-                    </div>
-                    <div className="text-right">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        item.status === 'Ativa' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {item.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
         </TabsContent>
 
         <TabsContent value="kanban" className="space-y-3">
