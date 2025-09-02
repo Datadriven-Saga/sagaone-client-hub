@@ -8,6 +8,8 @@ import { SalesFunnel, FunnelStage } from "@/components/SalesFunnel";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Target, Users, Send, MessageSquare, Calendar, CheckCircle, X, UserX } from "lucide-react";
 import { FilterBar } from "@/components/FilterBar";
+import { UploadPlanilha } from "@/components/UploadPlanilha";
+import { BaseExistente } from "@/components/BaseExistente";
 import { useState } from "react";
 
 interface Prospection {
@@ -321,8 +323,8 @@ const Prospeccao = () => {
       <Tabs defaultValue="visao-geral" className="space-y-3">
         <TabsList className="inline-flex">
           <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
+          <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
-          <TabsTrigger value="automacao">Automação</TabsTrigger>
         </TabsList>
 
         <TabsContent value="visao-geral" className="space-y-3">
@@ -412,44 +414,26 @@ const Prospeccao = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="kanban" className="space-y-3">
-          <FilterBar
-            searchPlaceholder="Buscar por cliente, campanha ou status..."
-          />
-          
-          <Card className="p-4">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Kanban - Gestão da Prospecção</h3>
-            <KanbanBoard
-              columns={kanbanColumns}
-              onUpdateColumns={setKanbanColumns}
-              onAddItem={handleAddItem}
-              onEditItem={handleEditItem}
-              onDeleteItem={handleDeleteItem}
-              onCardClick={handleCardClick}
-            />
-          </Card>
-        </TabsContent>
-
         <TabsContent value="automacao" className="space-y-6">
           <Card className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Automação e Carga de Clientes</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Adicionar Contatos à Prospecção</h3>
             
             <div className="space-y-6">
               <div>
                 <h4 className="font-semibold mb-3">Carga de Clientes</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button variant="outline" className="p-6 h-auto">
-                    <div className="text-center">
-                      <Users className="mx-auto mb-2" size={24} />
-                      <p>Usar Base Existente</p>
-                    </div>
-                  </Button>
-                  <Button variant="outline" className="p-6 h-auto">
-                    <div className="text-center">
-                      <Send className="mx-auto mb-2" size={24} />
-                      <p>Upload de Planilha</p>
-                    </div>
-                  </Button>
+                  <BaseExistente 
+                    onClientesSelected={(clientes) => {
+                      console.log('Clientes selecionados da base:', clientes);
+                      // Aqui você pode implementar a lógica para adicionar os clientes à prospecção
+                    }}
+                  />
+                  <UploadPlanilha 
+                    onClientesImported={(clientes) => {
+                      console.log('Clientes importados da planilha:', clientes);
+                      // Aqui você pode implementar a lógica para adicionar os clientes à prospecção
+                    }}
+                  />
                 </div>
               </div>
 
@@ -468,6 +452,24 @@ const Prospeccao = () => {
                 </div>
               </div>
             </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="kanban" className="space-y-3">
+          <FilterBar
+            searchPlaceholder="Buscar por cliente, campanha ou status..."
+          />
+          
+          <Card className="p-4">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Kanban - Gestão da Prospecção</h3>
+            <KanbanBoard
+              columns={kanbanColumns}
+              onUpdateColumns={setKanbanColumns}
+              onAddItem={handleAddItem}
+              onEditItem={handleEditItem}
+              onDeleteItem={handleDeleteItem}
+              onCardClick={handleCardClick}
+            />
           </Card>
         </TabsContent>
       </Tabs>
