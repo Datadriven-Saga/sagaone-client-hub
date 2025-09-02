@@ -110,6 +110,29 @@ serve(async (req) => {
       case 'create_user': {
         const { email, password, nome_completo, tipo_acesso, departamento, celular, cpf, status } = payload;
 
+        // Check if user already exists
+        const { data: existingUser, error: checkError } = await supabaseAdmin.auth.admin.listUsers();
+        
+        if (checkError) {
+          console.error('Error checking existing users:', checkError);
+          throw new Error('Erro ao verificar usuários existentes');
+        }
+
+        const userExists = existingUser.users?.some(user => user.email === email);
+        
+        if (userExists) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Um usuário com este email já existe no sistema'
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+
         // Create user in auth
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
           email,
@@ -124,6 +147,15 @@ serve(async (req) => {
         if (authError) throw authError;
 
         if (authData.user) {
+          // Get user's empresa_id from current admin user
+          const { data: adminProfile, error: adminProfileError } = await supabase
+            .from('profiles')
+            .select('empresa_id')
+            .eq('id', user.id)
+            .single();
+
+          const empresaId = adminProfile?.empresa_id || '00000000-0000-0000-0000-000000000001';
+
           // Update the profile created by trigger
           const { error: updateError } = await supabase
             .from('profiles')
@@ -132,7 +164,8 @@ serve(async (req) => {
               departamento,
               celular,
               cpf,
-              status
+              status,
+              empresa_id: empresaId
             })
             .eq('id', authData.user.id);
 
