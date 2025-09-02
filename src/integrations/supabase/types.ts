@@ -14,7 +14,167 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      empresas: {
+        Row: {
+          cnpj: string
+          created_at: string | null
+          email: string | null
+          endereco: string | null
+          grupo_empresarial: string | null
+          horario_funcionamento: string | null
+          id: string
+          logomarca_url: string | null
+          nome_empresa: string
+          razao_social: string
+          responsavel_legal_cpf: string | null
+          responsavel_legal_email: string | null
+          responsavel_legal_nome: string | null
+          responsavel_legal_telefone: string | null
+          site: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cnpj: string
+          created_at?: string | null
+          email?: string | null
+          endereco?: string | null
+          grupo_empresarial?: string | null
+          horario_funcionamento?: string | null
+          id?: string
+          logomarca_url?: string | null
+          nome_empresa: string
+          razao_social: string
+          responsavel_legal_cpf?: string | null
+          responsavel_legal_email?: string | null
+          responsavel_legal_nome?: string | null
+          responsavel_legal_telefone?: string | null
+          site?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cnpj?: string
+          created_at?: string | null
+          email?: string | null
+          endereco?: string | null
+          grupo_empresarial?: string | null
+          horario_funcionamento?: string | null
+          id?: string
+          logomarca_url?: string | null
+          nome_empresa?: string
+          razao_social?: string
+          responsavel_legal_cpf?: string | null
+          responsavel_legal_email?: string | null
+          responsavel_legal_nome?: string | null
+          responsavel_legal_telefone?: string | null
+          site?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      horarios_trabalho: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          dia_semana: Database["public"]["Enums"]["dia_semana"]
+          hora_fim: string
+          hora_inicio: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          dia_semana: Database["public"]["Enums"]["dia_semana"]
+          hora_fim: string
+          hora_inicio: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          dia_semana?: Database["public"]["Enums"]["dia_semana"]
+          hora_fim?: string
+          hora_inicio?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "horarios_trabalho_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          celular: string | null
+          cpf: string | null
+          created_at: string | null
+          departamento: string | null
+          empresa_id: string | null
+          foto_url: string | null
+          gestor_imediato: string | null
+          id: string
+          nome_completo: string
+          notificacao_email: boolean | null
+          notificacao_whatsapp: boolean | null
+          status: Database["public"]["Enums"]["status_usuario"] | null
+          tipo_acesso: Database["public"]["Enums"]["tipo_acesso"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          celular?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          departamento?: string | null
+          empresa_id?: string | null
+          foto_url?: string | null
+          gestor_imediato?: string | null
+          id: string
+          nome_completo: string
+          notificacao_email?: boolean | null
+          notificacao_whatsapp?: boolean | null
+          status?: Database["public"]["Enums"]["status_usuario"] | null
+          tipo_acesso?: Database["public"]["Enums"]["tipo_acesso"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          celular?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          departamento?: string | null
+          empresa_id?: string | null
+          foto_url?: string | null
+          gestor_imediato?: string | null
+          id?: string
+          nome_completo?: string
+          notificacao_email?: boolean | null
+          notificacao_whatsapp?: boolean | null
+          status?: Database["public"]["Enums"]["status_usuario"] | null
+          tipo_acesso?: Database["public"]["Enums"]["tipo_acesso"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_gestor_imediato_fkey"
+            columns: ["gestor_imediato"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +183,25 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      dia_semana:
+        | "Segunda"
+        | "Terça"
+        | "Quarta"
+        | "Quinta"
+        | "Sexta"
+        | "Sábado"
+        | "Domingo"
+      status_usuario: "Ativo" | "Inativo" | "Suspenso"
+      tipo_acesso:
+        | "SDR"
+        | "Gerente de Leads"
+        | "Vendedor"
+        | "Gerente de Loja"
+        | "Busca"
+        | "Diretor"
+        | "Outros"
+        | "TI"
+        | "Administrador"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +328,28 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      dia_semana: [
+        "Segunda",
+        "Terça",
+        "Quarta",
+        "Quinta",
+        "Sexta",
+        "Sábado",
+        "Domingo",
+      ],
+      status_usuario: ["Ativo", "Inativo", "Suspenso"],
+      tipo_acesso: [
+        "SDR",
+        "Gerente de Leads",
+        "Vendedor",
+        "Gerente de Loja",
+        "Busca",
+        "Diretor",
+        "Outros",
+        "TI",
+        "Administrador",
+      ],
+    },
   },
 } as const
