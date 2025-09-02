@@ -67,26 +67,14 @@ const Acessos = () => {
 
   const fetchProfiles = async () => {
     try {
-      // Buscar profiles junto com os dados de auth para obter o email
-      const { data: profilesData, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Usar a edge function para buscar usuários com emails
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        body: { action: 'list_users' }
+      });
 
       if (error) throw error;
 
-      // Buscar dados de usuário do auth para obter emails
-      const profilesWithEmails = await Promise.all(
-        (profilesData || []).map(async (profile) => {
-          const { data: userData } = await supabase.auth.admin.getUserById(profile.id);
-          return {
-            ...profile,
-            email: userData?.user?.email || 'Email não disponível'
-          };
-        })
-      );
-
-      setProfiles(profilesWithEmails as any);
+      setProfiles(data.users || []);
     } catch (error) {
       console.error('Erro ao buscar perfis:', error);
       toast({
@@ -106,48 +94,34 @@ const Acessos = () => {
   const handleCreateUser = async (data: UserForm) => {
     setSubmitting(true);
     try {
-      // Criar usuário no auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password!,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            nome_completo: data.nome_completo,
-            full_name: data.nome_completo
-          }
+      const { data: result, error } = await supabase.functions.invoke('manage-users', {
+        body: {
+          action: 'create_user',
+          email: data.email,
+          password: data.password!,
+          nome_completo: data.nome_completo,
+          tipo_acesso: data.tipo_acesso,
+          departamento: data.departamento,
+          celular: data.celular,
+          cpf: data.cpf,
+          status: data.status
         }
       });
 
-      if (authError) throw authError;
+      if (error) throw error;
 
-      // Aguardar um pouco para o trigger criar o profile
-      setTimeout(async () => {
-        if (authData.user) {
-          // Atualizar o profile criado pelo trigger
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({
-              tipo_acesso: data.tipo_acesso,
-              departamento: data.departamento,
-              celular: data.celular,
-              cpf: data.cpf,
-              status: data.status
-            })
-            .eq('id', authData.user.id);
+      if (result?.success) {
+        toast({
+          title: "Sucesso",
+          description: result.message || "Usuário criado com sucesso"
+        });
 
-          if (updateError) throw updateError;
-
-          toast({
-            title: "Sucesso",
-            description: "Usuário criado com sucesso"
-          });
-
-          setIsDialogOpen(false);
-          form.reset();
-          fetchProfiles();
-        }
-      }, 1000);
+        setIsDialogOpen(false);
+        form.reset();
+        fetchProfiles();
+      } else {
+        throw new Error(result?.error || 'Erro ao criar usuário');
+      }
 
     } catch (error: any) {
       console.error('Erro ao criar usuário:', error);
@@ -166,29 +140,34 @@ const Acessos = () => {
 
     setSubmitting(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
+      const { data: result, error } = await supabase.functions.invoke('manage-users', {
+        body: {
+          action: 'update_user',
+          user_id: editingUser.id,
           nome_completo: data.nome_completo,
           tipo_acesso: data.tipo_acesso,
           departamento: data.departamento,
           celular: data.celular,
           cpf: data.cpf,
           status: data.status
-        })
-        .eq('id', editingUser.id);
+        }
+      });
 
       if (error) throw error;
 
-      toast({
-        title: "Sucesso",
-        description: "Usuário atualizado com sucesso"
-      });
+      if (result?.success) {
+        toast({
+          title: "Sucesso",
+          description: result.message || "Usuário atualizado com sucesso"
+        });
 
-      setIsDialogOpen(false);
-      setEditingUser(null);
-      form.reset();
-      fetchProfiles();
+        setIsDialogOpen(false);
+        setEditingUser(null);
+        form.reset();
+        fetchProfiles();
+      } else {
+        throw new Error(result?.error || 'Erro ao atualizar usuário');
+      }
 
     } catch (error: any) {
       console.error('Erro ao atualizar usuário:', error);
@@ -225,27 +204,33 @@ const Acessos = () => {
   };
 
   const handleDelete = async (userId: string) => {
-    if (!confirm("Tem certeza que deseja excluir este usuário?")) return;
+    if (!confirm("Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.")) return;
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ status: 'Inativo' })
-        .eq('id', userId);
+      const { data: result, error } = await supabase.functions.invoke('manage-users', {
+        body: {
+          action: 'delete_user',
+          user_id: userId
+        }
+      });
 
       if (error) throw error;
 
-      toast({
-        title: "Sucesso",
-        description: "Usuário desativado com sucesso"
-      });
+      if (result?.success) {
+        toast({
+          title: "Sucesso",
+          description: result.message || "Usuário excluído com sucesso"
+        });
 
-      fetchProfiles();
+        fetchProfiles();
+      } else {
+        throw new Error(result?.error || 'Erro ao excluir usuário');
+      }
     } catch (error: any) {
-      console.error('Erro ao desativar usuário:', error);
+      console.error('Erro ao excluir usuário:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível desativar o usuário",
+        description: error.message || "Não foi possível excluir o usuário",
         variant: "destructive"
       });
     }

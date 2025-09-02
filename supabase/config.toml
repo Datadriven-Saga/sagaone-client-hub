@@ -1,1 +1,15 @@
 project_id = "karcxgnfiymlrkbzhewo"
+
+[auth]
+enabled = true
+external_url = "https://karcxgnfiymlrkbzhewo.supabase.co"
+schema = "auth"
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+
+[db]
+password = "postgres"
+shadow_database_url = "postgresql://postgres:postgres@127.0.0.1:54320/postgres"
+
+[functions.manage-users]
+verify_jwt = true

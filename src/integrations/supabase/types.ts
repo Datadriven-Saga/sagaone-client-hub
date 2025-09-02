@@ -1070,6 +1070,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_manage_users: {
+        Args: { user_id?: string }
+        Returns: boolean
+      }
       get_current_user_access_type: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["tipo_acesso"]
