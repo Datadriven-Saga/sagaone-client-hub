@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Contato } from '@/hooks/useContatoData';
+import { Contato, statusKanbanMap } from '@/hooks/useContatoData';
 
 interface ContatoModalProps {
   isOpen: boolean;
@@ -350,9 +350,21 @@ export function ContatoModal({
                     <h3 className="text-lg font-semibold mb-4">Alterar Status</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="text-sm font-medium mb-2 block">Status Atual</label>
+                        <label className="text-sm font-medium mb-2 block">Status Atual (Coluna Kanban)</label>
                         <Badge variant="outline" className="mb-4">
-                          {contato.status}
+                          {(() => {
+                            const kanbanColumn = statusKanbanMap[contato.status];
+                            const columnNames = {
+                              'novo': 'Novo',
+                              'enviados': 'Enviados', 
+                              'recebidos': 'Recebidos',
+                              'respondidos': 'Respondidos',
+                              'agendados': 'Agendados',
+                              'confirmados': 'Confirmados',
+                              'cancelados': 'Cancelados'
+                            };
+                            return columnNames[kanbanColumn as keyof typeof columnNames] || contato.status;
+                          })()}
                         </Badge>
                       </div>
                       

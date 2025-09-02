@@ -296,6 +296,67 @@ export const useContatoData = () => {
     }
   };
 
+  // Excluir contato
+  const excluirContato = async (contatoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('contatos')
+        .delete()
+        .eq('id', contatoId);
+
+      if (error) throw error;
+
+      setContatos(prev => prev.filter(contato => contato.id !== contatoId));
+      
+      toast({
+        title: "Contato excluído",
+        description: "O contato foi removido com sucesso"
+      });
+    } catch (error) {
+      console.error('Erro ao excluir contato:', error);
+      toast({
+        title: "Erro ao excluir contato",
+        description: "Não foi possível excluir o contato",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
+
+  // Atribuir responsável ao contato
+  const atribuirResponsavel = async (contatoId: string, userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('contatos')
+        .update({ 
+          responsavel_id: userId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', contatoId);
+
+      if (error) throw error;
+
+      setContatos(prev => prev.map(contato => 
+        contato.id === contatoId 
+          ? { ...contato, responsavel_id: userId, updated_at: new Date().toISOString() }
+          : contato
+      ));
+
+      toast({
+        title: "Responsável atribuído",
+        description: "O responsável foi definido com sucesso"
+      });
+    } catch (error) {
+      console.error('Erro ao atribuir responsável:', error);
+      toast({
+        title: "Erro ao atribuir responsável",
+        description: "Não foi possível atribuir o responsável",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
+
   // Calcular métricas dos contatos
   const getMetricas = () => {
     const metricas = contatos.reduce((acc, contato) => {
@@ -345,6 +406,8 @@ export const useContatoData = () => {
     loading,
     adicionarContatos,
     atualizarStatusContato,
+    excluirContato,
+    atribuirResponsavel,
     getMetricas,
     updateDateFilter,
     criarProspeccao,

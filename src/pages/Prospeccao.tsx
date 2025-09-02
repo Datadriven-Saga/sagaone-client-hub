@@ -30,7 +30,18 @@ const Prospeccao = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { registrarMovimentacao } = useProspeccaoLogs();
-  const { contatos, prospeccoes, loading, adicionarContatos, atualizarStatusContato, getMetricas, updateDateFilter, criarProspeccao, refetch } = useContatoData();
+  const { 
+    contatos, 
+    prospeccoes, 
+    loading, 
+    adicionarContatos,
+    atualizarStatusContato,
+    excluirContato,
+    atribuirResponsavel,
+    getMetricas, 
+    criarProspeccao,
+    refetch 
+  } = useContatoData();
 
   // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
@@ -283,13 +294,11 @@ const Prospeccao = () => {
   };
 
   const handleModalDelete = async (contatoId: string) => {
-    // TODO: Implementar exclusão no banco
-    console.log('Excluir contato:', contatoId);
+    await excluirContato(contatoId);
   };
 
   const handleModalAssignResponsible = async (contatoId: string, userId: string) => {
-    // TODO: Implementar atribuição de responsável no banco
-    console.log('Atribuir responsável:', contatoId, userId);
+    await atribuirResponsavel(contatoId, userId);
   };
 
   if (loading) {
@@ -314,7 +323,6 @@ const Prospeccao = () => {
         <TabsContent value="visao-geral" className="space-y-3">
           <FilterBar
             searchPlaceholder="Filtrar prospecções por nome, marca ou status..."
-            onDateRangeChange={updateDateFilter}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
