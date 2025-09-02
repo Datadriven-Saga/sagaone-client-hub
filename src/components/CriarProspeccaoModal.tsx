@@ -20,6 +20,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
   const [descricao, setDescricao] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+  const [localEvento, setLocalEvento] = useState("");
+  const [condicoesEspeciais, setCondicoesEspeciais] = useState("");
+  const [objetivoVendas, setObjetivoVendas] = useState("");
+  const [imagemDivulgacao, setImagemDivulgacao] = useState("");
   
   const { toast } = useToast();
   const { user } = useAuth();
@@ -48,6 +52,22 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
     setLoading(true);
     
     try {
+      // Primeiro, verificar se o usuário tem um perfil com empresa_id
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('empresa_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile?.empresa_id) {
+        toast({
+          title: "Erro de configuração",
+          description: "Seu perfil não está associado a uma empresa. Entre em contato com o administrador.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const { data, error } = await supabase
         .from('prospeccoes')
         .insert([{
@@ -55,8 +75,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
           descricao: descricao.trim() || null,
           data_inicio: dataInicio || null,
           data_fim: dataFim || null,
+          local_evento: localEvento.trim() || null,
+          condicoes_especiais: condicoesEspeciais.trim() || null,
+          objetivo_vendas: objetivoVendas.trim() || null,
+          imagem_divulgacao_url: imagemDivulgacao.trim() || null,
           responsavel_id: user.id,
-          empresa_id: user.user_metadata?.empresa_id || null,
+          empresa_id: profile.empresa_id,
           leads_gerados: 0
         }])
         .select()
@@ -77,6 +101,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
       setDescricao("");
       setDataInicio("");
       setDataFim("");
+      setLocalEvento("");
+      setCondicoesEspeciais("");
+      setObjetivoVendas("");
+      setImagemDivulgacao("");
       
       onOpenChange(false);
       onProspeccaoCriada();
@@ -98,6 +126,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
     setDescricao("");
     setDataInicio("");
     setDataFim("");
+    setLocalEvento("");
+    setCondicoesEspeciais("");
+    setObjetivoVendas("");
+    setImagemDivulgacao("");
     onOpenChange(false);
   };
 
@@ -151,6 +183,48 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
                 onChange={(e) => setDataFim(e.target.value)}
               />
             </div>
+          </div>
+
+          <div>
+            <Label htmlFor="local_evento">Local do Evento</Label>
+            <Input
+              id="local_evento"
+              placeholder="Ex: Centro de Convenções SP"
+              value={localEvento}
+              onChange={(e) => setLocalEvento(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="condicoes_especiais">Condições Especiais</Label>
+            <Textarea
+              id="condicoes_especiais"
+              placeholder="Condições especiais do evento..."
+              rows={3}
+              value={condicoesEspeciais}
+              onChange={(e) => setCondicoesEspeciais(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="objetivo_vendas">Objetivo de Vendas</Label>
+            <Input
+              id="objetivo_vendas"
+              placeholder="Ex: Aumentar vendas em 30%"
+              value={objetivoVendas}
+              onChange={(e) => setObjetivoVendas(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="imagem_divulgacao">Imagem de Divulgação (Opcional)</Label>
+            <Input
+              id="imagem_divulgacao"
+              type="url"
+              placeholder="https://exemplo.com/imagem.jpg"
+              value={imagemDivulgacao}
+              onChange={(e) => setImagemDivulgacao(e.target.value)}
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t">
