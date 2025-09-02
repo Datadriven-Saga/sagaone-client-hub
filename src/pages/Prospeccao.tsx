@@ -12,6 +12,18 @@ import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
 import { DetalhesProspeccao } from "@/components/DetalhesProspeccao";
 import { useState } from "react";
+import { useToast } from "@/components/ui/use-toast";
+
+interface ClienteProspeccao {
+  id: string;
+  nome: string;
+  telefone: string;
+  email?: string;
+  cpf?: string;
+  campanha: string;
+  status: 'pendente' | 'enviado' | 'respondeu' | 'agendado';
+  dataImportacao: string;
+}
 
 interface Prospection {
   id: string;
@@ -35,6 +47,8 @@ interface Prospection {
 
 const Prospeccao = () => {
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
+  const [clientesProspeccao, setClientesProspeccao] = useState<ClienteProspeccao[]>([]);
+  const { toast } = useToast();
 
   const mockProspections: Prospection[] = [
     {
@@ -420,20 +434,61 @@ const Prospeccao = () => {
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-foreground mb-4">Adicionar Contatos à Prospecção</h3>
             
+            {/* Contador de Clientes Adicionados */}
+            {clientesProspeccao.length > 0 && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="text-green-600" size={20} />
+                  <div>
+                    <p className="font-medium text-green-800">
+                      {clientesProspeccao.length} clientes adicionados à prospecção
+                    </p>
+                    <p className="text-sm text-green-600">
+                      Os contatos estão prontos para serem utilizados na automação
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="space-y-6">
               <div>
                 <h4 className="font-semibold mb-3">Carga de Clientes</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <BaseExistente 
                     onClientesSelected={(campanha, clientes) => {
-                      console.log('Clientes selecionados da base para campanha:', campanha, clientes);
-                      // Aqui você pode implementar a lógica para adicionar os clientes à prospecção
+                      const novosClientes: ClienteProspeccao[] = clientes.map((cliente, index) => ({
+                        id: `base-${Date.now()}-${index}`,
+                        ...cliente,
+                        campanha,
+                        status: 'pendente' as const,
+                        dataImportacao: new Date().toISOString()
+                      }));
+                      
+                      setClientesProspeccao(prev => [...prev, ...novosClientes]);
+                      
+                      toast({
+                        title: "Clientes adicionados",
+                        description: `${novosClientes.length} clientes da base foram adicionados à prospecção`,
+                      });
                     }}
                   />
                   <UploadPlanilha 
                     onClientesImported={(campanha, clientes) => {
-                      console.log('Clientes importados da planilha para campanha:', campanha, clientes);
-                      // Aqui você pode implementar a lógica para adicionar os clientes à prospecção
+                      const novosClientes: ClienteProspeccao[] = clientes.map((cliente, index) => ({
+                        id: `upload-${Date.now()}-${index}`,
+                        ...cliente,
+                        campanha,
+                        status: 'pendente' as const,
+                        dataImportacao: new Date().toISOString()
+                      }));
+                      
+                      setClientesProspeccao(prev => [...prev, ...novosClientes]);
+                      
+                      toast({
+                        title: "Planilha importada",
+                        description: `${novosClientes.length} clientes foram importados e adicionados à prospecção`,
+                      });
                     }}
                   />
                 </div>

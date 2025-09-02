@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import * as XLSX from 'xlsx';
 
 interface ClienteData {
   nome: string;
@@ -60,23 +61,47 @@ export const UploadPlanilha = ({ onClientesImported }: UploadPlanilhaProps) => {
   const processFile = async (file: File) => {
     setIsProcessing(true);
     
-    // Simulação de processamento do Excel (aqui você implementaria a leitura real do arquivo)
-    // Por enquanto, vamos simular com dados de exemplo
-    setTimeout(() => {
-      const mockData: ClienteData[] = [
-        { nome: "João Silva", telefone: "(11) 99999-1111", email: "joao@email.com", cpf: "123.456.789-01" },
-        { nome: "Maria Santos", telefone: "(11) 99999-2222", email: "maria@email.com" },
-        { nome: "Pedro Costa", telefone: "(11) 99999-3333", cpf: "987.654.321-02" },
-      ];
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
       
-      setPreviewData(mockData);
+      // Pega a primeira planilha
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      
+      // Converte para JSON
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      // Remove a primeira linha (cabeçalho) se existir
+      const dataRows = jsonData.slice(1) as any[][];
+      
+      // Mapeia os dados para o formato esperado
+      const clientesData: ClienteData[] = dataRows
+        .filter(row => row && row.length > 0) // Remove linhas vazias
+        .map(row => ({
+          nome: row[0]?.toString().trim() || '',
+          telefone: row[1]?.toString().trim() || '',
+          email: row[2]?.toString().trim() || '',
+          cpf: row[3]?.toString().trim() || '',
+        }))
+        .filter(cliente => cliente.nome || cliente.telefone); // Remove registros completamente vazios
+      
+      setPreviewData(clientesData);
       setIsProcessing(false);
       
       toast({
         title: "Arquivo processado",
-        description: `${mockData.length} registros encontrados no arquivo`,
+        description: `${clientesData.length} registros encontrados no arquivo`,
       });
-    }, 2000);
+    } catch (error) {
+      console.error('Erro ao processar arquivo:', error);
+      setIsProcessing(false);
+      toast({
+        title: "Erro ao processar arquivo",
+        description: "Verifique se o arquivo está no formato correto (Excel .xlsx ou .xls)",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleImport = () => {
