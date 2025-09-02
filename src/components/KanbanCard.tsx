@@ -133,6 +133,15 @@ export function KanbanCard({ item, isDragging, onEdit, onDelete, onCardClick }: 
           </div>
         )}
 
+        {/* Prospecção info */}
+        {item.prospeccaoNome && (
+          <div className="flex items-center gap-1">
+            <Badge variant="outline" className="text-xs">
+              {item.prospeccaoNome}
+            </Badge>
+          </div>
+        )}
+
         {/* Channel indicator */}
         {item.channel && (
           <div className="flex items-center gap-1">

@@ -28,6 +28,7 @@ export interface KanbanItem {
   dueDate?: string;
   tags?: string[];
   channel?: string;
+  prospeccaoNome?: string;
 }
 
 export interface KanbanColumnData {

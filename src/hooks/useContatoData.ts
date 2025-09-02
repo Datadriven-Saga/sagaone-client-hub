@@ -183,19 +183,25 @@ export const useContatoData = () => {
         // Disparar gatilho para cada novo contato adicionado
         if (prospeccaoId) {
           for (const contato of data) {
-            await supabase.functions.invoke('trigger-webhook', {
-              body: {
-                gatilho: 'novo_contato_prospeccao',
-                dados: {
-                  prospeccao_id: prospeccaoId,
-                  contato_id: contato.id,
-                  nome: contato.nome,
-                  telefone: contato.telefone,
-                  email: contato.email,
-                  status: contato.status
+            console.log('Disparando webhook para contato:', contato);
+            try {
+              const webhookResult = await supabase.functions.invoke('trigger-webhook', {
+                body: {
+                  gatilho: 'novo_contato_prospeccao',
+                  dados: {
+                    prospeccao_id: prospeccaoId,
+                    contato_id: contato.id,
+                    nome: contato.nome,
+                    telefone: contato.telefone,
+                    email: contato.email,
+                    status: contato.status
+                  }
                 }
-              }
-            });
+              });
+              console.log('Resultado do webhook:', webhookResult);
+            } catch (webhookError) {
+              console.error('Erro ao disparar webhook:', webhookError);
+            }
           }
         }
         

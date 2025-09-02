@@ -28,6 +28,7 @@ interface ClienteData {
 const Prospeccao = () => {
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchFilter, setSearchFilter] = useState('');
   const { toast } = useToast();
   const { user } = useAuth();
   const { registrarMovimentacao } = useProspeccaoLogs();
@@ -101,14 +102,31 @@ const Prospeccao = () => {
 
   // Converter contatos para itens do Kanban
   const contatosToKanbanItems = (contatosLista: typeof contatos): KanbanItem[] => {
-    return contatosLista.map(contato => ({
-      id: contato.id,
-      title: contato.nome,
-      description: `${contato.telefone}${contato.email ? ` - ${contato.email}` : ''}`,
-      channel: contato.origem,
-      priority: 'medium' as const,
-      assignee: contato.responsavel_id || undefined
-    }));
+    return contatosLista
+      .filter(contato => {
+        if (!searchFilter) return true;
+        const searchLower = searchFilter.toLowerCase();
+        return (
+          contato.nome.toLowerCase().includes(searchLower) ||
+          contato.telefone.includes(searchLower) ||
+          contato.email?.toLowerCase().includes(searchLower) ||
+          contato.origem.toLowerCase().includes(searchLower)
+        );
+      })
+      .map(contato => {
+        // Buscar nome da prospecção se houver relacionamento
+        const prospeccaoNome = prospeccoes.length > 0 ? prospeccoes[0].titulo : 'Sem prospecção';
+        
+        return {
+          id: contato.id,
+          title: contato.nome,
+          description: `${contato.telefone}${contato.email ? ` - ${contato.email}` : ''}`,
+          channel: contato.origem,
+          priority: 'medium' as const,
+          assignee: contato.responsavel_id || undefined,
+          prospeccaoNome // Adicionar nome da prospecção
+        };
+      });
   };
 
   // Configurar colunas do Kanban com dados reais
@@ -478,6 +496,7 @@ const Prospeccao = () => {
         <TabsContent value="kanban" className="space-y-3">
           <FilterBar
             searchPlaceholder="Buscar por cliente, campanha ou status..."
+            onSearchChange={setSearchFilter}
           />
           
           <Card className="p-4">
