@@ -1180,7 +1180,11 @@ export type Database = {
         | "Reunião Agendada"
         | "Negociação"
         | "Fechamento"
-      tipo_gatilho: "Temporal" | "Evento" | "Condicional"
+      tipo_gatilho:
+        | "Temporal"
+        | "Evento"
+        | "Condicional"
+        | "novo_contato_prospeccao"
       tipo_meta: "Vendas" | "Leads" | "Conversão" | "Atendimento"
       tipo_notificacao: "Sistema" | "WhatsApp" | "Email" | "SMS" | "Push"
     }
@@ -1363,7 +1367,12 @@ export const Constants = {
         "Negociação",
         "Fechamento",
       ],
-      tipo_gatilho: ["Temporal", "Evento", "Condicional"],
+      tipo_gatilho: [
+        "Temporal",
+        "Evento",
+        "Condicional",
+        "novo_contato_prospeccao",
+      ],
       tipo_meta: ["Vendas", "Leads", "Conversão", "Atendimento"],
       tipo_notificacao: ["Sistema", "WhatsApp", "Email", "SMS", "Push"],
     },

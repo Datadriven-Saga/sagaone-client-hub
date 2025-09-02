@@ -268,13 +268,28 @@ const Gatilhos = () => {
 
       console.log('Testando gatilho:', gatilho.nome, 'com dados:', dadosTeste);
 
+      // Criar o body baseado na descrição do gatilho
+      let bodyEnvio;
+      if (gatilho.tipo === 'novo_contato_prospeccao') {
+        bodyEnvio = {
+          nome: "Fabricio (TESTE)",
+          telefone: "6292390133",
+          email: "moreira.it@email.com",
+          id: "test-contact-id",
+          status: "Novo",
+          prospeccao_id: "test-prospeccao-id"
+        };
+      } else {
+        bodyEnvio = dadosTeste;
+      }
+
       // Enviar requisição diretamente para o webhook configurado
       const response = await fetch(gatilho.webhook_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(dadosTeste)
+        body: JSON.stringify(bodyEnvio)
       });
 
       if (response.ok) {

@@ -72,16 +72,20 @@ serve(async (req) => {
           // Para gatilho de novo contato na prospecção
           if (gatilho === 'novo_contato_prospeccao' && dados) {
             webhookBody = {
-              ...webhookBody,
               nome: dados.nome || '',
               telefone: dados.telefone || '',
-              id: dados.id || '',
-              status: dados.status || 'Novo'
+              email: dados.email || '',
+              id: dados.contato_id || dados.id || '',
+              status: dados.status || 'Novo',
+              prospeccao_id: dados.prospeccao_id || ''
             };
           }
           // Para outros gatilhos, incluir dados completos
           else {
-            webhookBody.dados = dados;
+            webhookBody = {
+              ...webhookBody,
+              dados: dados
+            };
           }
           
           const webhookResponse = await fetch(webhookUrl, {
