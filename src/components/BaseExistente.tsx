@@ -34,17 +34,30 @@ interface FiltrosBase {
   ultimaCompraFim?: Date;
 }
 
+interface Campanha {
+  id: string;
+  nome: string;
+}
+
 interface BaseExistenteProps {
-  onClientesSelected: (clientes: Cliente[]) => void;
+  onClientesSelected: (campanha: string, clientes: Cliente[]) => void;
 }
 
 export const BaseExistente = ({ onClientesSelected }: BaseExistenteProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedCampanha, setSelectedCampanha] = useState<string>('');
   const [filtros, setFiltros] = useState<FiltrosBase>({});
   const [clientesFiltrados, setClientesFiltrados] = useState<Cliente[]>([]);
   const [selectedClientes, setSelectedClientes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  // Mock de campanhas disponíveis
+  const campanhas: Campanha[] = [
+    { id: '001', nome: 'Campanha Janeiro 2025' },
+    { id: '002', nome: 'Black Friday 2024' },
+    { id: '003', nome: 'Promoção Fim de Ano' },
+  ];
 
   // Mock de dados de clientes
   const mockClientes: Cliente[] = [
@@ -157,9 +170,19 @@ export const BaseExistente = ({ onClientesSelected }: BaseExistenteProps) => {
   };
 
   const handleConfirmSelection = () => {
+    if (!selectedCampanha) {
+      toast({
+        title: "Selecione uma campanha",
+        description: "Você deve escolher uma campanha para adicionar os contatos",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const clientesSelecionados = clientesFiltrados.filter(c => selectedClientes.includes(c.id));
-    onClientesSelected(clientesSelecionados);
+    onClientesSelected(selectedCampanha, clientesSelecionados);
     setIsOpen(false);
+    setSelectedCampanha('');
     
     toast({
       title: "Clientes selecionados",
@@ -178,12 +201,29 @@ export const BaseExistente = ({ onClientesSelected }: BaseExistenteProps) => {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-6xl max-h-[80vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-6xl h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Selecionar da Base Existente</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6">
+        <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+          {/* Seleção de Campanha */}
+          <Card className="p-4 bg-green-50 border-green-200">
+            <Label className="text-green-800 font-medium">Selecione a Campanha</Label>
+            <Select value={selectedCampanha} onValueChange={setSelectedCampanha}>
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Escolha uma campanha para adicionar os contatos..." />
+              </SelectTrigger>
+              <SelectContent>
+                {campanhas.map((campanha) => (
+                  <SelectItem key={campanha.id} value={campanha.id}>
+                    {campanha.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Card>
+
           {/* Filtros */}
           <Card className="p-4">
             <div className="flex items-center space-x-2 mb-4">
@@ -322,61 +362,67 @@ export const BaseExistente = ({ onClientesSelected }: BaseExistenteProps) => {
                 </div>
               </div>
               
-              <div className="max-h-60 overflow-auto border rounded">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Sel.</TableHead>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Telefone</TableHead>
-                      <TableHead>E-mail</TableHead>
-                      <TableHead>Sexo</TableHead>
-                      <TableHead>Nasc.</TableHead>
-                      <TableHead>Últ. Compra</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {clientesFiltrados.map((cliente) => (
-                      <TableRow key={cliente.id}>
-                        <TableCell>
-                          <Checkbox 
-                            checked={selectedClientes.includes(cliente.id)}
-                            onCheckedChange={(checked) => handleClienteSelection(cliente.id, !!checked)}
-                          />
-                        </TableCell>
-                        <TableCell>{cliente.nome}</TableCell>
-                        <TableCell>{cliente.telefone}</TableCell>
-                        <TableCell>{cliente.email || '-'}</TableCell>
-                        <TableCell>{cliente.sexo || '-'}</TableCell>
-                        <TableCell>
-                          {cliente.dataNascimento ? format(cliente.dataNascimento, 'dd/MM/yyyy') : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {cliente.ultimaCompra ? format(cliente.ultimaCompra, 'dd/MM/yyyy') : '-'}
-                        </TableCell>
+              <div className="border rounded-lg overflow-hidden">
+                <div className="max-h-80 overflow-y-auto">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-background z-10">
+                      <TableRow>
+                        <TableHead className="w-[50px]">Sel.</TableHead>
+                        <TableHead className="w-[180px]">Nome</TableHead>
+                        <TableHead className="w-[140px]">Telefone</TableHead>
+                        <TableHead className="w-[180px]">E-mail</TableHead>
+                        <TableHead className="w-[80px]">Sexo</TableHead>
+                        <TableHead className="w-[110px]">Nasc.</TableHead>
+                        <TableHead className="w-[110px]">Últ. Compra</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="flex justify-between items-center mt-4">
-                <p className="text-sm text-muted-foreground">
-                  {selectedClientes.length} clientes selecionados
-                </p>
-                <div className="flex space-x-2">
-                  <Button variant="outline" onClick={() => setIsOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button 
-                    onClick={handleConfirmSelection}
-                    disabled={selectedClientes.length === 0}
-                  >
-                    Adicionar Selecionados
-                  </Button>
+                    </TableHeader>
+                    <TableBody>
+                      {clientesFiltrados.map((cliente) => (
+                        <TableRow key={cliente.id}>
+                          <TableCell>
+                            <Checkbox 
+                              checked={selectedClientes.includes(cliente.id)}
+                              onCheckedChange={(checked) => handleClienteSelection(cliente.id, !!checked)}
+                            />
+                          </TableCell>
+                          <TableCell>{cliente.nome}</TableCell>
+                          <TableCell>{cliente.telefone}</TableCell>
+                          <TableCell>{cliente.email || '-'}</TableCell>
+                          <TableCell>{cliente.sexo || '-'}</TableCell>
+                          <TableCell>
+                            {cliente.dataNascimento ? format(cliente.dataNascimento, 'dd/MM/yyyy') : '-'}
+                          </TableCell>
+                          <TableCell>
+                            {cliente.ultimaCompra ? format(cliente.ultimaCompra, 'dd/MM/yyyy') : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
             </Card>
+          )}
+        </div>
+
+        <div className="flex-shrink-0 border-t pt-4">
+          {clientesFiltrados.length > 0 && (
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-muted-foreground">
+                {selectedClientes.length} clientes selecionados
+              </p>
+              <div className="flex space-x-2">
+                <Button variant="outline" onClick={() => setIsOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleConfirmSelection}
+                  disabled={selectedClientes.length === 0}
+                >
+                  Adicionar Selecionados
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       </DialogContent>

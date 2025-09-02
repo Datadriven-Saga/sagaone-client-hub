@@ -10,6 +10,7 @@ import { Target, Users, Send, MessageSquare, Calendar, CheckCircle, X, UserX } f
 import { FilterBar } from "@/components/FilterBar";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
+import { DetalhesProspeccao } from "@/components/DetalhesProspeccao";
 import { useState } from "react";
 
 interface Prospection {
@@ -394,7 +395,7 @@ const Prospeccao = () => {
                                 Vendas: {item.metrics.vendas}
                               </div>
                             </div>
-                            <div className="text-right">
+                            <div className="text-right flex flex-col space-y-2">
                               <span className={`px-2 py-1 rounded text-xs ${
                                 item.status === 'Ativa' 
                                   ? 'bg-green-100 text-green-800' 
@@ -402,6 +403,7 @@ const Prospeccao = () => {
                               }`}>
                                 {item.status}
                               </span>
+                              <DetalhesProspeccao prospeccao={item} />
                             </div>
                           </div>
                         </div>
@@ -423,14 +425,14 @@ const Prospeccao = () => {
                 <h4 className="font-semibold mb-3">Carga de Clientes</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <BaseExistente 
-                    onClientesSelected={(clientes) => {
-                      console.log('Clientes selecionados da base:', clientes);
+                    onClientesSelected={(campanha, clientes) => {
+                      console.log('Clientes selecionados da base para campanha:', campanha, clientes);
                       // Aqui você pode implementar a lógica para adicionar os clientes à prospecção
                     }}
                   />
                   <UploadPlanilha 
-                    onClientesImported={(clientes) => {
-                      console.log('Clientes importados da planilha:', clientes);
+                    onClientesImported={(campanha, clientes) => {
+                      console.log('Clientes importados da planilha para campanha:', campanha, clientes);
                       // Aqui você pode implementar a lógica para adicionar os clientes à prospecção
                     }}
                   />

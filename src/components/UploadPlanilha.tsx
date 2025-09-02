@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react';
@@ -15,17 +16,30 @@ interface ClienteData {
   cpf?: string;
 }
 
+interface Campanha {
+  id: string;
+  nome: string;
+}
+
 interface UploadPlanilhaProps {
-  onClientesImported: (clientes: ClienteData[]) => void;
+  onClientesImported: (campanha: string, clientes: ClienteData[]) => void;
 }
 
 export const UploadPlanilha = ({ onClientesImported }: UploadPlanilhaProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedCampanha, setSelectedCampanha] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<ClienteData[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Mock de campanhas disponíveis
+  const campanhas: Campanha[] = [
+    { id: '001', nome: 'Campanha Janeiro 2025' },
+    { id: '002', nome: 'Black Friday 2024' },
+    { id: '003', nome: 'Promoção Fim de Ano' },
+  ];
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -66,6 +80,15 @@ export const UploadPlanilha = ({ onClientesImported }: UploadPlanilhaProps) => {
   };
 
   const handleImport = () => {
+    if (!selectedCampanha) {
+      toast({
+        title: "Selecione uma campanha",
+        description: "Você deve escolher uma campanha para adicionar os contatos",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validar dados obrigatórios
     const invalidRecords = previewData.filter(item => !item.nome || !item.telefone);
     
@@ -78,8 +101,9 @@ export const UploadPlanilha = ({ onClientesImported }: UploadPlanilhaProps) => {
       return;
     }
 
-    onClientesImported(previewData);
+    onClientesImported(selectedCampanha, previewData);
     setIsOpen(false);
+    setSelectedCampanha('');
     setFile(null);
     setPreviewData([]);
     
@@ -92,6 +116,7 @@ export const UploadPlanilha = ({ onClientesImported }: UploadPlanilhaProps) => {
   const clearData = () => {
     setFile(null);
     setPreviewData([]);
+    setSelectedCampanha('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -108,12 +133,29 @@ export const UploadPlanilha = ({ onClientesImported }: UploadPlanilhaProps) => {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-4xl max-h-[80vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-5xl h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Upload de Planilha de Contatos</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6">
+        <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+          {/* Seleção de Campanha */}
+          <Card className="p-4 bg-green-50 border-green-200">
+            <Label className="text-green-800 font-medium">Selecione a Campanha</Label>
+            <Select value={selectedCampanha} onValueChange={setSelectedCampanha}>
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Escolha uma campanha para adicionar os contatos..." />
+              </SelectTrigger>
+              <SelectContent>
+                {campanhas.map((campanha) => (
+                  <SelectItem key={campanha.id} value={campanha.id}>
+                    {campanha.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Card>
+
           {/* Instruções */}
           <Card className="p-4 bg-blue-50 border-blue-200">
             <div className="flex items-start space-x-2">
@@ -172,49 +214,53 @@ export const UploadPlanilha = ({ onClientesImported }: UploadPlanilhaProps) => {
                 </Button>
               </div>
               
-              <div className="max-h-60 overflow-auto border rounded">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome*</TableHead>
-                      <TableHead>Telefone*</TableHead>
-                      <TableHead>E-mail</TableHead>
-                      <TableHead>CPF</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {previewData.map((item, index) => {
-                      const isValid = item.nome && item.telefone;
-                      return (
-                        <TableRow key={index}>
-                          <TableCell className={!item.nome ? 'text-red-600' : ''}>{item.nome || 'OBRIGATÓRIO'}</TableCell>
-                          <TableCell className={!item.telefone ? 'text-red-600' : ''}>{item.telefone || 'OBRIGATÓRIO'}</TableCell>
-                          <TableCell>{item.email || '-'}</TableCell>
-                          <TableCell>{item.cpf || '-'}</TableCell>
-                          <TableCell>
-                            {isValid ? (
-                              <CheckCircle className="text-green-600" size={16} />
-                            ) : (
-                              <AlertCircle className="text-red-600" size={16} />
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleImport}>
-                  Importar Contatos
-                </Button>
+              <div className="border rounded-lg overflow-hidden">
+                <div className="max-h-80 overflow-y-auto">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-background z-10">
+                      <TableRow>
+                        <TableHead className="w-[200px]">Nome*</TableHead>
+                        <TableHead className="w-[150px]">Telefone*</TableHead>
+                        <TableHead className="w-[200px]">E-mail</TableHead>
+                        <TableHead className="w-[150px]">CPF</TableHead>
+                        <TableHead className="w-[80px]">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {previewData.map((item, index) => {
+                        const isValid = item.nome && item.telefone;
+                        return (
+                          <TableRow key={index}>
+                            <TableCell className={!item.nome ? 'text-red-600' : ''}>{item.nome || 'OBRIGATÓRIO'}</TableCell>
+                            <TableCell className={!item.telefone ? 'text-red-600' : ''}>{item.telefone || 'OBRIGATÓRIO'}</TableCell>
+                            <TableCell>{item.email || '-'}</TableCell>
+                            <TableCell>{item.cpf || '-'}</TableCell>
+                            <TableCell>
+                              {isValid ? (
+                                <CheckCircle className="text-green-600" size={16} />
+                              ) : (
+                                <AlertCircle className="text-red-600" size={16} />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             </div>
+          )}
+        </div>
+
+        <div className="flex-shrink-0 flex justify-end space-x-2 pt-4 border-t">
+          <Button variant="outline" onClick={() => setIsOpen(false)}>
+            Cancelar
+          </Button>
+          {previewData.length > 0 && (
+            <Button onClick={handleImport}>
+              Importar Contatos
+            </Button>
           )}
         </div>
       </DialogContent>
