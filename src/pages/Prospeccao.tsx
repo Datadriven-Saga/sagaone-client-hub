@@ -426,6 +426,7 @@ const Prospeccao = () => {
         isOpen={showNovaProspeccaoModal}
         onOpenChange={setShowNovaProspeccaoModal}
         onProspeccaoCriada={refetch}
+        criarProspeccao={criarProspeccao}
       />
     </DashboardLayout>
   );

@@ -12,9 +12,19 @@ interface NovaProspeccaoModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onProspeccaoCriada: () => void;
+  criarProspeccao: (dados: {
+    titulo: string;
+    descricao?: string;
+    data_inicio?: string;
+    data_fim?: string;
+    local_evento?: string;
+    condicoes_especiais?: string;
+    objetivo_vendas?: string;
+    imagem_divulgacao_url?: string;
+  }) => Promise<any>;
 }
 
-export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }: NovaProspeccaoModalProps) => {
+export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, criarProspeccao }: NovaProspeccaoModalProps) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     titulo: "",
@@ -47,36 +57,22 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }
     console.log('Starting submission with data:', formData);
     
     try {
-      const prospeccaoData = {
+      const dadosProspeccao = {
         titulo: formData.titulo.trim(),
-        descricao: formData.descricao.trim() || null,
-        data_inicio: formData.data_inicio || null,
-        data_fim: formData.data_fim || null,
-        local_evento: formData.local_evento.trim() || null,
-        condicoes_especiais: formData.condicoes_especiais.trim() || null,
-        objetivo_vendas: formData.objetivo_vendas.trim() || null,
-        imagem_divulgacao_url: formData.imagem_divulgacao_url.trim() || null,
-        leads_gerados: 0,
-        responsavel_id: user?.id,
-        empresa_id: user?.user_metadata?.empresa_id || null
+        descricao: formData.descricao.trim() || undefined,
+        data_inicio: formData.data_inicio || undefined,
+        data_fim: formData.data_fim || undefined,
+        local_evento: formData.local_evento.trim() || undefined,
+        condicoes_especiais: formData.condicoes_especiais.trim() || undefined,
+        objetivo_vendas: formData.objetivo_vendas.trim() || undefined,
+        imagem_divulgacao_url: formData.imagem_divulgacao_url.trim() || undefined
       };
 
-      console.log('Submitting to Supabase:', prospeccaoData);
+      console.log('Calling criarProspeccao with:', dadosProspeccao);
 
-      const { data, error } = await supabase
-        .from('prospeccoes')
-        .insert([prospeccaoData])
-        .select()
-        .single();
+      await criarProspeccao(dadosProspeccao);
 
-      console.log('Supabase response:', { data, error });
-
-      if (error) throw error;
-
-      toast({
-        title: "Sucesso",
-        description: "Prospecção criada com sucesso!"
-      });
+      console.log('Prospecção criada com sucesso');
 
       // Resetar form
       setFormData({
@@ -94,12 +90,8 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }
       onProspeccaoCriada();
 
     } catch (error) {
-      console.error('Erro ao criar prospecção:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível criar a prospecção",
-        variant: "destructive"
-      });
+      console.error('Erro no handleSubmit:', error);
+      // O toast já é mostrado pela função criarProspeccao
     } finally {
       setLoading(false);
     }

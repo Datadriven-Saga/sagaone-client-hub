@@ -191,7 +191,14 @@ export const useProspeccaoData = () => {
     data_inicio?: string;
     data_fim?: string;
     meta_leads?: number;
+    local_evento?: string;
+    condicoes_especiais?: string;
+    objetivo_vendas?: string;
+    imagem_divulgacao_url?: string;
   }) => {
+    console.log('criarProspeccao called with:', dadosProspeccao);
+    console.log('Current user:', user);
+    
     try {
       const prospeccaoData = {
         ...dadosProspeccao,
@@ -200,23 +207,31 @@ export const useProspeccaoData = () => {
         empresa_id: user?.user_metadata?.empresa_id || null
       };
 
+      console.log('Data to insert:', prospeccaoData);
+
       const { data, error } = await supabase
         .from('prospeccoes')
         .insert([prospeccaoData])
         .select()
         .single();
 
+      console.log('Supabase response:', { data, error });
+
       if (error) throw error;
 
       if (data) {
         setProspeccoes(prev => [data, ...prev]);
+        toast({
+          title: "Sucesso",
+          description: "Prospecção criada com sucesso!"
+        });
         return data;
       }
     } catch (error) {
       console.error('Erro ao criar prospecção:', error);
       toast({
         title: "Erro ao criar prospecção",
-        description: "Não foi possível criar a prospecção",
+        description: "Não foi possível criar a prospecção. Verifique se você está logado.",
         variant: "destructive"
       });
       throw error;
