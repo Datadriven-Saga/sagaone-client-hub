@@ -28,6 +28,7 @@ import Empresas from "./pages/admin/Empresas";
 import Acessos from "./pages/admin/Acessos";
 import CamposObrigatorios from "./pages/admin/CamposObrigatorios";
 import APIs from "./pages/admin/APIs";
+import TestAPIs from "./pages/admin/TestAPIs";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="/administracao/acessos" element={<ProtectedRoute><Acessos /></ProtectedRoute>} />
             <Route path="/administracao/campos" element={<ProtectedRoute><CamposObrigatorios /></ProtectedRoute>} />
             <Route path="/administracao/apis" element={<ProtectedRoute><APIs /></ProtectedRoute>} />
+            <Route path="/administracao/test-apis" element={<ProtectedRoute><TestAPIs /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

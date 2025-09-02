@@ -43,6 +43,12 @@ const Administracao = () => {
       description: "Gerenciar APIs e integrações do sistema",
       icon: Code,
       route: "/administracao/apis"
+    },
+    {
+      title: "Teste de APIs",
+      description: "Testar APIs de prospecção do sistema",
+      icon: Settings,
+      route: "/administracao/test-apis"
     }
   ];
 
