@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 // Usando os tipos corretos do banco de dados
 export interface Lead {
@@ -60,7 +60,18 @@ export const useProspeccaoData = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateFilter, setDateFilter] = useState<{ start: string; end: string } | null>(null);
+  
+  // Inicializar dateFilter com valores padrão
+  const getDefaultDates = () => {
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    return {
+      start: firstDayOfMonth.toISOString().split('T')[0],
+      end: today.toISOString().split('T')[0]
+    };
+  };
+  
+  const [dateFilter, setDateFilter] = useState<{ start: string; end: string }>(getDefaultDates());
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -274,11 +285,21 @@ export const useProspeccaoData = () => {
     if (user) {
       loadData();
     }
-  }, [user, dateFilter]);
+  }, [user]); // Removendo dateFilter das dependências para evitar loop
 
-  // Função para atualizar filtro de data
+  // useEffect separado para filtro de data
+  useEffect(() => {
+    if (user) {
+      fetchProspeccoes();
+    }
+  }, [dateFilter]); // Apenas recarregar prospecções quando o filtro mudar
+
+  // Função para atualizar filtro de data com verificação de mudança
   const updateDateFilter = (start: string, end: string) => {
-    setDateFilter({ start, end });
+    // Só atualizar se os valores realmente mudaram
+    if (dateFilter.start !== start || dateFilter.end !== end) {
+      setDateFilter({ start, end });
+    }
   };
 
   return {

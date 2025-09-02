@@ -49,10 +49,10 @@ export function FilterBar({
     }
   };
 
-  // Disparar filtro inicial apenas uma vez quando o componente montar
-  useEffect(() => {
-    onDateRangeChange?.(defaultDates.start, defaultDates.end);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Não executar o useEffect para disparo inicial, já que o hook já tem valores padrão
+  // useEffect(() => {
+  //   onDateRangeChange?.(defaultDates.start, defaultDates.end);
+  // }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Card className="p-3">
