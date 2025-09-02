@@ -6,9 +6,13 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Users, UserPlus, Clock, Calendar, CheckCircle, X } from "lucide-react";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { FilterBar } from "@/components/FilterBar";
+import { AtendimentoModal } from "@/components/AtendimentoModal";
 import { useState } from "react";
 
 const CentralAtendimento = () => {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<KanbanItem | null>(null);
+  const [selectedColumn, setSelectedColumn] = useState<string>('');
   const [kanbanColumns, setKanbanColumns] = useState<KanbanColumnData[]>([
     {
       id: 'novo',
@@ -100,14 +104,19 @@ const CentralAtendimento = () => {
   ];
 
   const handleCardClick = (item: KanbanItem) => {
-    // Abrir modal conforme instruções iniciais
-    console.log('Abrir detalhes do atendimento:', item);
+    // Encontrar a coluna do item
+    const column = kanbanColumns.find(col => col.items.some(i => i.id === item.id));
+    if (column) {
+      setSelectedItem(item);
+      setSelectedColumn(column.id);
+      setModalOpen(true);
+    }
   };
 
   return (
     <DashboardLayout title="Central de Atendimento">
       <Tabs defaultValue="visao-geral" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="w-fit">
           <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
           <TabsTrigger value="atendimento">Atendimento</TabsTrigger>
         </TabsList>
@@ -223,6 +232,13 @@ const CentralAtendimento = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <AtendimentoModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        item={selectedItem}
+        columnId={selectedColumn}
+      />
     </DashboardLayout>
   );
 };

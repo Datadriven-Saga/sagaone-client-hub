@@ -80,10 +80,21 @@ export function KanbanBoard({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     
-    if (!over) return;
+    if (!over) {
+      setActiveId(null);
+      setActiveItem(null);
+      return;
+    }
 
     const activeId = active.id as string;
     const overId = over.id as string;
+
+    // Se soltar no mesmo elemento, não fazer nada
+    if (activeId === overId) {
+      setActiveId(null);
+      setActiveItem(null);
+      return;
+    }
 
     // Find source column and item
     const sourceColumn = columns.find(col => 
@@ -91,7 +102,11 @@ export function KanbanBoard({
     );
     const sourceItem = sourceColumn?.items.find(item => item.id === activeId);
 
-    if (!sourceColumn || !sourceItem) return;
+    if (!sourceColumn || !sourceItem) {
+      setActiveId(null);
+      setActiveItem(null);
+      return;
+    }
 
     // Determine target column
     let targetColumn = columns.find(col => col.id === overId);
@@ -102,36 +117,61 @@ export function KanbanBoard({
       );
     }
 
-    if (!targetColumn) return;
+    if (!targetColumn) {
+      setActiveId(null);
+      setActiveItem(null);
+      return;
+    }
 
-    // Create new columns array
-    const newColumns = columns.map(col => {
-      if (col.id === sourceColumn.id) {
-        // Remove item from source column
-        return {
-          ...col,
-          items: col.items.filter(item => item.id !== activeId)
-        };
-      } else if (col.id === targetColumn.id) {
-        // Add item to target column
-        const targetIndex = col.items.findIndex(item => item.id === overId);
-        const newItems = [...col.items];
+    // Se mover dentro da mesma coluna, apenas reordenar
+    if (sourceColumn.id === targetColumn.id) {
+      const sourceIndex = sourceColumn.items.findIndex(item => item.id === activeId);
+      const targetIndex = targetColumn.items.findIndex(item => item.id === overId);
+      
+      if (sourceIndex !== -1 && targetIndex !== -1 && sourceIndex !== targetIndex) {
+        const newItems = [...sourceColumn.items];
+        const [removed] = newItems.splice(sourceIndex, 1);
+        newItems.splice(targetIndex, 0, removed);
         
-        if (targetIndex >= 0) {
-          newItems.splice(targetIndex, 0, sourceItem);
-        } else {
-          newItems.push(sourceItem);
-        }
+        const newColumns = columns.map(col => 
+          col.id === sourceColumn.id 
+            ? { ...col, items: newItems }
+            : col
+        );
         
-        return {
-          ...col,
-          items: newItems
-        };
+        onUpdateColumns(newColumns);
       }
-      return col;
-    });
+    } else {
+      // Mover entre colunas diferentes
+      const newColumns = columns.map(col => {
+        if (col.id === sourceColumn.id) {
+          // Remove item from source column
+          return {
+            ...col,
+            items: col.items.filter(item => item.id !== activeId)
+          };
+        } else if (col.id === targetColumn.id) {
+          // Add item to target column
+          const targetIndex = col.items.findIndex(item => item.id === overId);
+          const newItems = [...col.items];
+          
+          if (targetIndex >= 0) {
+            newItems.splice(targetIndex, 0, sourceItem);
+          } else {
+            newItems.push(sourceItem);
+          }
+          
+          return {
+            ...col,
+            items: newItems
+          };
+        }
+        return col;
+      });
 
-    onUpdateColumns(newColumns);
+      onUpdateColumns(newColumns);
+    }
+    
     setActiveId(null);
     setActiveItem(null);
   };

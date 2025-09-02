@@ -61,6 +61,11 @@ const Personas = () => {
   });
 
   const handleSavePersona = () => {
+    if (!formData.nome || !formData.funcao || !formData.whatsapp) {
+      toast.error("Preencha todos os campos obrigatórios!");
+      return;
+    }
+    
     if (editingPersona) {
       setPersonas(personas.map(p => 
         p.id === editingPersona.id 
@@ -150,20 +155,38 @@ const Personas = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="nome">Nome da Persona</Label>
-                      <Input id="nome" placeholder="Ex: Ana Vendedora" />
+                      <Input 
+                        id="nome" 
+                        placeholder="Ex: Ana Vendedora"
+                        value={formData.nome}
+                        onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
+                        style={{ backgroundColor: '#FFFFFF' }}
+                      />
                     </div>
                     <div>
                       <Label htmlFor="funcao">Função da Persona</Label>
-                      <Input id="funcao" placeholder="Ex: Vendedora Senior" />
+                      <Input 
+                        id="funcao" 
+                        placeholder="Ex: Vendedora Senior"
+                        value={formData.funcao}
+                        onChange={(e) => setFormData(prev => ({ ...prev, funcao: e.target.value }))}
+                        style={{ backgroundColor: '#FFFFFF' }}
+                      />
                     </div>
                     <div>
                       <Label htmlFor="whatsapp">Número WhatsApp</Label>
-                      <Input id="whatsapp" placeholder="+5511999999999" />
+                      <Input 
+                        id="whatsapp" 
+                        placeholder="+5511999999999"
+                        value={formData.whatsapp}
+                        onChange={(e) => setFormData(prev => ({ ...prev, whatsapp: e.target.value }))}
+                        style={{ backgroundColor: '#FFFFFF' }}
+                      />
                     </div>
                     <div>
                       <Label htmlFor="acao-ativa">Ação Ativa</Label>
-                      <Select>
-                        <SelectTrigger>
+                      <Select value={formData.acaoAtiva} onValueChange={(value) => setFormData(prev => ({ ...prev, acaoAtiva: value }))}>
+                        <SelectTrigger style={{ backgroundColor: '#FFFFFF' }}>
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -175,7 +198,7 @@ const Personas = () => {
                   </div>
                   <div>
                     <Label htmlFor="foto">Foto da Persona</Label>
-                    <Input id="foto" type="file" accept="image/*" />
+                    <Input id="foto" type="file" accept="image/*" style={{ backgroundColor: '#FFFFFF' }} />
                   </div>
                 </TabsContent>
 
@@ -288,6 +311,14 @@ const Personas = () => {
                     size="sm"
                     onClick={() => {
                       setEditingPersona(persona);
+                      setFormData({
+                        nome: persona.nome,
+                        funcao: persona.funcao,
+                        whatsapp: persona.numeroWhatsapp,
+                        acaoAtiva: persona.acaoAtiva ? 'sim' : 'nao',
+                        gatilhos: persona.gatilhos,
+                        acoes: persona.acoes
+                      });
                       setShowForm(true);
                     }}
                   >
