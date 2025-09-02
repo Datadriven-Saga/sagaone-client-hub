@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
 import { useContatoData, kanbanStatusMap, Contato } from "@/hooks/useContatoData";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ClienteData {
   nome: string;
@@ -289,6 +290,39 @@ const Prospeccao = () => {
     await atribuirResponsavel(contatoId, userId);
   };
 
+  const testarWebhook = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('trigger-webhook', {
+        body: {
+          gatilho: 'novo_contato_prospeccao',
+          dados: {
+            prospeccao_id: 'test-prospeccao-id',
+            contato_id: '1234',
+            nome: 'Fabricio',
+            telefone: '62992390133',
+            email: 'fabricio@teste.com',
+            status: 'Novo'
+          }
+        }
+      });
+
+      console.log('Resultado do teste webhook:', data);
+      console.log('Erro do webhook:', error);
+
+      toast({
+        title: "Teste de webhook executado",
+        description: `Resultado: ${data?.success ? 'Sucesso' : 'Erro'} - ${data?.webhooks_disparados || 0} webhooks disparados`
+      });
+    } catch (error) {
+      console.error('Erro ao testar webhook:', error);
+      toast({
+        title: "Erro no teste",
+        description: "Falha ao executar o teste do webhook",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout title="Prospecção">
@@ -449,8 +483,17 @@ const Prospeccao = () => {
           <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-foreground">Kanban - Gestão da Prospecção</h3>
-              <div className="text-sm text-muted-foreground">
-                Total de contatos: {contatos.length}
+              <div className="flex items-center space-x-4">
+                <div className="text-sm text-muted-foreground">
+                  Total de contatos: {contatos.length}
+                </div>
+                <Button
+                  onClick={testarWebhook}
+                  variant="outline"
+                  size="sm"
+                >
+                  Testar Webhook Fabricio
+                </Button>
               </div>
             </div>
             

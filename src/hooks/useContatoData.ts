@@ -191,7 +191,8 @@ export const useContatoData = () => {
                   contato_id: contato.id,
                   nome: contato.nome,
                   telefone: contato.telefone,
-                  email: contato.email
+                  email: contato.email,
+                  status: contato.status
                 }
               }
             });
