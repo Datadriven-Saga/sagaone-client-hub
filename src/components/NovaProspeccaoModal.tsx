@@ -32,6 +32,7 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('handleSubmit called');
     
     if (!formData.titulo.trim()) {
       toast({
@@ -43,6 +44,7 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }
     }
 
     setLoading(true);
+    console.log('Starting submission with data:', formData);
     
     try {
       const prospeccaoData = {
@@ -59,11 +61,15 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }
         empresa_id: user?.user_metadata?.empresa_id || null
       };
 
+      console.log('Submitting to Supabase:', prospeccaoData);
+
       const { data, error } = await supabase
         .from('prospeccoes')
         .insert([prospeccaoData])
         .select()
         .single();
+
+      console.log('Supabase response:', { data, error });
 
       if (error) throw error;
 
@@ -115,12 +121,12 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nova Prospecção</DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 p-1">
           <div>
             <Label htmlFor="titulo">Título *</Label>
             <Input
@@ -207,7 +213,7 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+          <div className="flex justify-end gap-2 pt-4 border-t">
             <Button type="button" variant="outline" onClick={handleCancel} disabled={loading}>
               Cancelar
             </Button>
