@@ -59,19 +59,37 @@ serve(async (req) => {
 
         if (webhookUrl) {
           console.log(`Disparando webhook: ${webhookUrl}`);
+          console.log(`Descrição do gatilho: ${gatilhoConfig.descricao}`);
+          
+          // Preparar dados do webhook baseado na descrição e tipo do gatilho
+          let webhookBody = {
+            gatilho: gatilho,
+            gatilho_id: gatilhoConfig.id,
+            gatilho_nome: gatilhoConfig.nome,
+            timestamp: new Date().toISOString()
+          };
+
+          // Para gatilho de novo contato na prospecção
+          if (gatilho === 'novo_contato_prospeccao' && dados) {
+            webhookBody = {
+              ...webhookBody,
+              nome: dados.nome || '',
+              telefone: dados.telefone || '',
+              id: dados.id || '',
+              status: dados.status || 'Novo'
+            };
+          }
+          // Para outros gatilhos, incluir dados completos
+          else {
+            webhookBody.dados = dados;
+          }
           
           const webhookResponse = await fetch(webhookUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              gatilho: gatilho,
-              gatilho_id: gatilhoConfig.id,
-              gatilho_nome: gatilhoConfig.nome,
-              dados: dados,
-              timestamp: new Date().toISOString()
-            })
+            body: JSON.stringify(webhookBody)
           });
 
           webhooksDispareados.push({
