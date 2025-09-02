@@ -7,7 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Edit, Trash2, Zap } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface Gatilho {
   id: string;
@@ -19,6 +22,9 @@ interface Gatilho {
 }
 
 const Gatilhos = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
   const tiposGatilho = [
     { 
       value: "novo_contato_prospeccao", 
@@ -38,6 +44,7 @@ const Gatilhos = () => {
   ];
 
   const [gatilhos, setGatilhos] = useState<Gatilho[]>([]);
+  const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -47,6 +54,52 @@ const Gatilhos = () => {
     webhook_url: "",
     ativo: true
   });
+
+  // Carregar gatilhos do banco
+  const carregarGatilhos = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      
+      // Buscar empresa_id do usuário
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('empresa_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileError) throw profileError;
+      
+      const { data, error } = await supabase
+        .from('gatilhos')
+        .select('*')
+        .eq('empresa_id', profile.empresa_id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      const gatilhosFormatados = (data || []).map(g => ({
+        id: g.id,
+        nome: g.nome,
+        descricao: g.descricao || '',
+        tipo: (g.acoes as any)?.tipo_evento || '',
+        webhook_url: (g.acoes as any)?.webhook_url || '',
+        ativo: g.status === 'Ativo'
+      }));
+      
+      setGatilhos(gatilhosFormatados);
+    } catch (error) {
+      console.error('Erro ao carregar gatilhos:', error);
+      toast({
+        title: "Erro ao carregar gatilhos",
+        description: "Não foi possível carregar os gatilhos do banco de dados",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -72,30 +125,110 @@ const Gatilhos = () => {
     setShowForm(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.nome && formData.tipo && formData.webhook_url) {
-      const novoGatilho: Gatilho = {
-        id: editingId || Date.now().toString(),
+    if (!formData.nome || !formData.tipo || !formData.webhook_url) return;
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      
+      // Buscar empresa_id do usuário
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('empresa_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileError) throw profileError;
+
+      const gatilhoData = {
         nome: formData.nome,
         descricao: formData.descricao,
-        tipo: formData.tipo,
-        webhook_url: formData.webhook_url,
-        ativo: formData.ativo
+        tipo: "Evento" as "Temporal" | "Evento" | "Condicional",
+        status: (formData.ativo ? 'Ativo' : 'Inativo') as "Ativo" | "Inativo" | "Pausado",
+        acoes: {
+          webhook_url: formData.webhook_url,
+          tipo_evento: formData.tipo
+        } as any,
+        empresa_id: profile.empresa_id,
+        criado_por: user.id
       };
 
       if (editingId) {
-        setGatilhos(prev => prev.map(g => g.id === editingId ? novoGatilho : g));
+        // Atualizar gatilho existente
+        const { error } = await supabase
+          .from('gatilhos')
+          .update(gatilhoData)
+          .eq('id', editingId);
+        
+        if (error) throw error;
+        
+        toast({
+          title: "Gatilho atualizado",
+          description: "O gatilho foi atualizado com sucesso"
+        });
       } else {
-        setGatilhos(prev => [...prev, novoGatilho]);
+        // Criar novo gatilho
+        const { error } = await supabase
+          .from('gatilhos')
+          .insert(gatilhoData);
+        
+        if (error) throw error;
+        
+        toast({
+          title: "Gatilho criado",
+          description: "O gatilho foi criado com sucesso"
+        });
       }
+      
+      // Recarregar lista
+      await carregarGatilhos();
       resetForm();
+    } catch (error) {
+      console.error('Erro ao salvar gatilho:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar o gatilho",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDelete = (id: string) => {
-    setGatilhos(prev => prev.filter(g => g.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('gatilhos')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Gatilho excluído",
+        description: "O gatilho foi excluído com sucesso"
+      });
+      
+      // Recarregar lista
+      await carregarGatilhos();
+    } catch (error) {
+      console.error('Erro ao excluir gatilho:', error);
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível excluir o gatilho",
+        variant: "destructive"
+      });
+    }
   };
+
+  // Carregar gatilhos ao montar o componente
+  useEffect(() => {
+    if (user) {
+      carregarGatilhos();
+    }
+  }, [user]);
 
   return (
     <DashboardLayout>
@@ -192,8 +325,8 @@ const Gatilhos = () => {
                   <Button type="button" variant="outline" onClick={resetForm}>
                     Cancelar
                   </Button>
-                  <Button type="submit">
-                    {editingId ? "Atualizar" : "Criar"} Gatilho
+                  <Button type="submit" disabled={loading}>
+                    {loading ? "Salvando..." : editingId ? "Atualizar" : "Criar"} Gatilho
                   </Button>
                 </div>
               </form>
