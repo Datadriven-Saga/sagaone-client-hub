@@ -10,7 +10,7 @@ import { Target, CheckCircle } from "lucide-react";
 import { FilterBar } from "@/components/FilterBar";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
-import { NovaProspeccaoModal } from "@/components/NovaProspeccaoModal";
+import { CriarProspeccaoModal } from "@/components/CriarProspeccaoModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
 import { useProspeccaoData, kanbanStatusMap } from "@/hooks/useProspeccaoData";
@@ -25,7 +25,7 @@ interface ClienteData {
 
 const Prospeccao = () => {
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
-  const [showNovaProspeccaoModal, setShowNovaProspeccaoModal] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const { registrarMovimentacao } = useProspeccaoLogs();
@@ -282,7 +282,7 @@ const Prospeccao = () => {
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-foreground">Prospecções</h3>
-                  <Button onClick={() => setShowNovaProspeccaoModal(true)}>Nova Prospecção</Button>
+                  <Button onClick={() => setIsModalOpen(true)}>Nova Prospecção</Button>
                 </div>
 
                 {prospeccoes.length > 0 ? (
@@ -422,11 +422,10 @@ const Prospeccao = () => {
         </TabsContent>
       </Tabs>
 
-      <NovaProspeccaoModal
-        isOpen={showNovaProspeccaoModal}
-        onOpenChange={setShowNovaProspeccaoModal}
+      <CriarProspeccaoModal
+        isOpen={isModalOpen}
+        onOpenChange={setIsModalOpen}
         onProspeccaoCriada={refetch}
-        criarProspeccao={criarProspeccao}
       />
     </DashboardLayout>
   );
