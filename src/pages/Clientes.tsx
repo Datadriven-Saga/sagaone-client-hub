@@ -139,11 +139,6 @@ const Clientes = () => {
                 <TableRow>
                   <TableHead>ID</TableHead>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Sexo</TableHead>
-                  <TableHead>Nascimento</TableHead>
-                  <TableHead>CPF/CNPJ</TableHead>
                   <TableHead>Já comprou?</TableHead>
                   <TableHead>Responsável</TableHead>
                   <TableHead>Produtos</TableHead>
@@ -159,11 +154,6 @@ const Clientes = () => {
                   >
                     <TableCell className="font-medium">{client.id}</TableCell>
                     <TableCell>{client.name}</TableCell>
-                    <TableCell>{client.phone}</TableCell>
-                    <TableCell>{client.email}</TableCell>
-                    <TableCell>{client.gender}</TableCell>
-                    <TableCell>{client.birthDate}</TableCell>
-                    <TableCell>{client.document}</TableCell>
                     <TableCell>{client.hasPurchased}</TableCell>
                     <TableCell>{client.responsible}</TableCell>
                     <TableCell>{client.products}</TableCell>
