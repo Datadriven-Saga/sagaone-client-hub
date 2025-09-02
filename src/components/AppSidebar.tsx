@@ -55,11 +55,11 @@ export function AppSidebar() {
     >
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 flex-shrink-0 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-xl" style={{ fontFamily: 'Roboto, sans-serif' }}>
-              T
-            </span>
-          </div>
+          <img 
+            src={tavatLogo} 
+            alt="TAVAT Logo" 
+            className="h-8 w-8 flex-shrink-0 object-contain"
+          />
           {!isCollapsed && (
             <span className="text-sidebar-foreground font-bold text-lg">
               TAVAT
