@@ -499,11 +499,28 @@ const Prospeccao = () => {
                         dataImportacao: new Date().toISOString()
                       }));
                       
+                      // Adicionar aos clientes da prospecção
                       setClientesProspeccao(prev => [...prev, ...novosClientes]);
+                      
+                      // Adicionar automaticamente à coluna "Novo" do Kanban
+                      const novosItensKanban: KanbanItem[] = novosClientes.map(cliente => ({
+                        id: cliente.id,
+                        title: cliente.nome,
+                        description: `${cliente.telefone}${cliente.email ? ` - ${cliente.email}` : ''}`,
+                        channel: 'Base Existente',
+                        tags: [cliente.campanha],
+                        priority: 'medium' as const
+                      }));
+                      
+                      setKanbanColumns(prev => prev.map(col => 
+                        col.id === 'novo' 
+                          ? { ...col, items: [...col.items, ...novosItensKanban] }
+                          : col
+                      ));
                       
                       toast({
                         title: "Clientes adicionados",
-                        description: `${novosClientes.length} clientes da base foram adicionados à prospecção`,
+                        description: `${novosClientes.length} clientes da base foram adicionados ao Kanban`,
                       });
                     }}
                   />
@@ -517,11 +534,28 @@ const Prospeccao = () => {
                         dataImportacao: new Date().toISOString()
                       }));
                       
+                      // Adicionar aos clientes da prospecção
                       setClientesProspeccao(prev => [...prev, ...novosClientes]);
+                      
+                      // Adicionar automaticamente à coluna "Novo" do Kanban
+                      const novosItensKanban: KanbanItem[] = novosClientes.map(cliente => ({
+                        id: cliente.id,
+                        title: cliente.nome,
+                        description: `${cliente.telefone}${cliente.email ? ` - ${cliente.email}` : ''}`,
+                        channel: 'Importação',
+                        tags: [cliente.campanha],
+                        priority: 'medium' as const
+                      }));
+                      
+                      setKanbanColumns(prev => prev.map(col => 
+                        col.id === 'novo' 
+                          ? { ...col, items: [...col.items, ...novosItensKanban] }
+                          : col
+                      ));
                       
                       toast({
                         title: "Planilha importada",
-                        description: `${novosClientes.length} clientes foram importados e adicionados à prospecção`,
+                        description: `${novosClientes.length} clientes foram importados e adicionados ao Kanban`,
                       });
                     }}
                   />
