@@ -201,7 +201,7 @@ export function KanbanBoard({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-6 overflow-x-auto pb-4 flex-1">
+        <div className="flex gap-4 overflow-x-auto pb-4 flex-1 min-h-0">
           {columns.map((column) => (
             <div key={column.id} className="flex-shrink-0">
               <SortableContext
@@ -219,7 +219,7 @@ export function KanbanBoard({
             </div>
           ))}
           
-          <Card className="flex-shrink-0 w-80 p-4 border-dashed border-2 border-muted-foreground/30 hover:border-primary/50 transition-colors">
+          <Card className="flex-shrink-0 w-64 p-4 border-dashed border-2 border-muted-foreground/30 hover:border-primary/50 transition-colors">
             <Button
               variant="ghost"
               onClick={handleAddColumn}

@@ -56,7 +56,7 @@ export function KanbanColumn({ column, onAddItem, onEditItem, onDeleteItem, onCa
   const isAtLimit = column.limit && column.items.length >= column.limit;
 
   return (
-    <Card className="w-80 bg-muted/30 border-muted-foreground/20">
+    <Card className="w-64 bg-muted/30 border-muted-foreground/20">
       <div className="p-4 border-b border-muted-foreground/20">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-1">
