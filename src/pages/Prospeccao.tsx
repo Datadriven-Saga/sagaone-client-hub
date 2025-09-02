@@ -170,17 +170,6 @@ const Prospeccao = () => {
     }
   ];
 
-  const kpis = [
-    { title: "Enviados", value: consolidatedMetrics.enviados.toLocaleString(), icon: Send },
-    { title: "Recebidos", value: consolidatedMetrics.recebidos.toLocaleString(), icon: MessageSquare },
-    { title: "Respondidos", value: consolidatedMetrics.respondidos.toLocaleString(), icon: MessageSquare },
-    { title: "Agendados", value: consolidatedMetrics.agendados.toLocaleString(), icon: Calendar },
-    { title: "Confirmados", value: consolidatedMetrics.confirmados.toLocaleString(), icon: CheckCircle },
-    { title: "Cancelados", value: consolidatedMetrics.cancelados.toLocaleString(), icon: X },
-    { title: "Opt-Out", value: consolidatedMetrics.optOut.toLocaleString(), icon: UserX },
-    { title: "Vendas", value: consolidatedMetrics.vendas.toLocaleString(), icon: Target }
-  ];
-
   const [kanbanColumns, setKanbanColumns] = useState<KanbanColumnData[]>([
     {
       id: 'novo',
@@ -420,18 +409,6 @@ const Prospeccao = () => {
                 </div>
               </Card>
             </div>
-          </div>
-
-          {/* KPIs - Abaixo do layout principal */}
-          <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-2">
-            {kpis.map((kpi, index) => (
-              <KPICard
-                key={index}
-                title={kpi.title}
-                value={kpi.value}
-                icon={kpi.icon}
-              />
-            ))}
           </div>
         </TabsContent>
 
