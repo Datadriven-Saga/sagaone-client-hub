@@ -3,64 +3,43 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { KPICard } from "@/components/KPICard";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { SalesFunnel, FunnelStage } from "@/components/SalesFunnel";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Target, Users, Send, MessageSquare, Calendar, CheckCircle, X, UserX } from "lucide-react";
+import { Target, CheckCircle } from "lucide-react";
 import { FilterBar } from "@/components/FilterBar";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
-import { DetalhesProspeccao } from "@/components/DetalhesProspeccao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
+import { useProspeccaoData, kanbanStatusMap } from "@/hooks/useProspeccaoData";
 import { useToast } from "@/components/ui/use-toast";
 
-interface ClienteProspeccao {
-  id: string;
+interface ClienteData {
   nome: string;
   telefone: string;
   email?: string;
   cpf?: string;
-  campanha: string;
-  status: 'pendente' | 'enviado' | 'respondeu' | 'agendado';
-  dataImportacao: string;
-}
-
-interface Prospection {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  brand: string;
-  objective: number;
-  status: string;
-  totalContacts: number;
-  metrics: {
-    enviados: number;
-    recebidos: number;
-    respondidos: number;
-    agendados: number;
-    confirmados: number;
-    cancelados: number;
-    optOut: number;
-    vendas: number;
-  };
 }
 
 const Prospeccao = () => {
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
-  const [clientesProspeccao, setClientesProspeccao] = useState<ClienteProspeccao[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
   const { registrarMovimentacao } = useProspeccaoLogs();
+  const { leads, prospeccoes, loading, adicionarLeads, atualizarStatusLead, getMetricas } = useProspeccaoData();
 
   // Função para registrar movimentações dos leads
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
+    const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
+    if (novoStatusDb) {
+      await atualizarStatusLead(itemId, novoStatusDb);
+    }
+
     if (registrarMovimentacao && user) {
       await registrarMovimentacao({
         leadId: itemId,
-        prospeccaoId: 'current-prospeccao-id', // TODO: passar ID real da prospecção
+        prospeccaoId: prospeccoes[0]?.id || 'default', 
         statusAnterior: fromStatus,
         statusNovo: toStatus,
         usuarioId: user.id,
@@ -68,256 +47,151 @@ const Prospeccao = () => {
     }
   };
 
-  const mockProspections: Prospection[] = [
-    {
-      id: "001",
-      name: "Campanha Janeiro 2025",
-      startDate: "01/01/2025",
-      endDate: "31/01/2025",
-      brand: "Honda",
-      objective: 50,
-      status: "Ativa",
-      totalContacts: 1500,
-      metrics: {
-        enviados: 1200,
-        recebidos: 1100,
-        respondidos: 450,
-        agendados: 45,
-        confirmados: 22,
-        cancelados: 10,
-        optOut: 15,
-        vendas: 8
-      }
-    },
-    {
-      id: "002",
-      name: "Black Friday 2024",
-      startDate: "25/11/2024", 
-      endDate: "30/11/2024",
-      brand: "Toyota",
-      objective: 25,
-      status: "Finalizada",
-      totalContacts: 1200,
-      metrics: {
-        enviados: 900,
-        recebidos: 850,
-        respondidos: 350,
-        agendados: 35,
-        confirmados: 18,
-        cancelados: 8,
-        optOut: 12,
-        vendas: 6
-      }
-    },
-    {
-      id: "003",
-      name: "Promoção Fim de Ano",
-      startDate: "15/12/2024",
-      endDate: "31/12/2024",
-      brand: "Volkswagen",
-      objective: 30,
-      status: "Ativa",
-      totalContacts: 1000,
-      metrics: {
-        enviados: 800,
-        recebidos: 750,
-        respondidos: 300,
-        agendados: 30,
-        confirmados: 15,
-        cancelados: 7,
-        optOut: 10,
-        vendas: 4
-      }
-    }
-  ];
+  // Calcular métricas dos leads
+  const metricas = getMetricas();
 
-  // Calcular métricas consolidadas das prospecções selecionadas
-  const getConsolidatedMetrics = () => {
-    if (selectedProspections.length === 0) {
-      // Se nenhuma prospecção selecionada, mostrar totais de todas
-      return mockProspections.reduce((acc, prospect) => ({
-        enviados: acc.enviados + prospect.metrics.enviados,
-        recebidos: acc.recebidos + prospect.metrics.recebidos,
-        respondidos: acc.respondidos + prospect.metrics.respondidos,
-        agendados: acc.agendados + prospect.metrics.agendados,
-        confirmados: acc.confirmados + prospect.metrics.confirmados,
-        cancelados: acc.cancelados + prospect.metrics.cancelados,
-        optOut: acc.optOut + prospect.metrics.optOut,
-        vendas: acc.vendas + prospect.metrics.vendas
-      }), {
-        enviados: 0, recebidos: 0, respondidos: 0, agendados: 0,
-        confirmados: 0, cancelados: 0, optOut: 0, vendas: 0
-      });
-    }
-
-    return mockProspections
-      .filter(p => selectedProspections.includes(p.id))
-      .reduce((acc, prospect) => ({
-        enviados: acc.enviados + prospect.metrics.enviados,
-        recebidos: acc.recebidos + prospect.metrics.recebidos,
-        respondidos: acc.respondidos + prospect.metrics.respondidos,
-        agendados: acc.agendados + prospect.metrics.agendados,
-        confirmados: acc.confirmados + prospect.metrics.confirmados,
-        cancelados: acc.cancelados + prospect.metrics.cancelados,
-        optOut: acc.optOut + prospect.metrics.optOut,
-        vendas: acc.vendas + prospect.metrics.vendas
-      }), {
-        enviados: 0, recebidos: 0, respondidos: 0, agendados: 0,
-        confirmados: 0, cancelados: 0, optOut: 0, vendas: 0
-      });
-  };
-
-  const consolidatedMetrics = getConsolidatedMetrics();
-  
-  // Calcular total da base (incluindo leads em qualquer status)
-  const totalBase = selectedProspections.length === 0 
-    ? mockProspections.reduce((acc, prospect) => acc + prospect.totalContacts, 0)
-    : mockProspections
-        .filter(p => selectedProspections.includes(p.id))
-        .reduce((acc, prospect) => acc + prospect.totalContacts, 0);
-
-  const funnelStages: FunnelStage[] = [
+  // Dados do funil de vendas usando dados reais
+  const funnelData: FunnelStage[] = [
     {
-      id: 'totalBase',
+      id: 'total-base',
       title: 'Total da Base',
-      value: totalBase,
-      color: '#94a3b8'
+      value: metricas.totalBase,
+      color: '#1f2937'
     },
     {
       id: 'enviados',
       title: 'Enviados',
-      value: consolidatedMetrics.enviados,
-      color: '#6366f1'
+      value: metricas.enviados,
+      color: '#8B5FD6'
     },
     {
       id: 'recebidos',
       title: 'Recebidos',
-      value: consolidatedMetrics.recebidos,
-      color: '#8b5cf6'
+      value: metricas.recebidos,
+      color: '#A679E1'
     },
     {
       id: 'respondidos',
       title: 'Respondidos',
-      value: consolidatedMetrics.respondidos,
+      value: metricas.respondidos,
       color: '#a855f7'
     },
     {
       id: 'agendados',
       title: 'Agendados',
-      value: consolidatedMetrics.agendados,
+      value: metricas.agendados,
       color: '#c084fc'
     },
     {
       id: 'confirmados',
       title: 'Confirmados',
-      value: consolidatedMetrics.confirmados,
+      value: metricas.confirmados,
       color: '#10b981'
-    },
-    {
-      id: 'vendas',
-      title: 'Vendas',
-      value: consolidatedMetrics.vendas,
-      color: '#059669'
     }
   ];
 
-  const [kanbanColumns, setKanbanColumns] = useState<KanbanColumnData[]>([
+  // Converter leads para itens do Kanban
+  const leadsToKanbanItems = (leadsLista: typeof leads): KanbanItem[] => {
+    return leadsLista.map(lead => ({
+      id: lead.id,
+      title: lead.nome,
+      description: `${lead.telefone}${lead.email ? ` - ${lead.email}` : ''}`,
+      channel: lead.origem,
+      priority: 'medium' as const,
+      assignee: lead.responsavel_id || undefined
+    }));
+  };
+
+  // Configurar colunas do Kanban com dados reais
+  const kanbanColumns: KanbanColumnData[] = [
     {
       id: 'novo',
       title: 'Novo',
       color: '#6645EB',
-      items: [
-        {
-          id: '1',
-          title: 'João Silva',
-          description: 'Interessado em Honda Civic',
-          channel: 'WhatsApp',
-          priority: 'high',
-          assignee: 'Maria Santos'
-        },
-        {
-          id: '2',
-          title: 'Ana Costa',
-          description: 'Consultou sobre financiamento',
-          channel: 'Site',
-          priority: 'medium',
-          assignee: 'Pedro Lima'
-        }
-      ]
+      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Novo'))
     },
     {
       id: 'enviados',
       title: 'Enviados',
       color: '#8B5FD6',
-      items: [
-        {
-          id: '3',
-          title: 'Carlos Oliveira',
-          description: 'Primeira mensagem enviada',
-          channel: 'E-mail',
-          dueDate: '25/01',
-          assignee: 'Julia Mendes'
-        }
-      ]
+      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Negociação'))
     },
     {
       id: 'recebidos',
       title: 'Recebidos',
       color: '#A679E1',
-      items: [
-        {
-          id: '4',
-          title: 'Fernanda Rocha',
-          description: 'Respondeu interesse em test drive',
-          channel: 'WhatsApp',
-          tags: ['Test Drive'],
-          priority: 'high',
-          assignee: 'Roberto Santos'
-        }
-      ]
+      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Em Contato'))
     },
     {
       id: 'respondidos',
       title: 'Respondidos',
       color: '#C193EC',
-      items: []
+      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Qualificado'))
     },
     {
       id: 'agendados',
       title: 'Agendados',
       color: '#DCADF7',
-      items: [
-        {
-          id: '5',
-          title: 'Ricardo Ferreira',
-          description: 'Test drive agendado',
-          channel: 'Telefone',
-          dueDate: '26/01',
-          tags: ['Test Drive', 'Honda Civic'],
-          priority: 'high',
-          assignee: 'Ana Paula'
-        }
-      ]
+      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Proposta'))
     },
     {
       id: 'confirmados',
       title: 'Confirmados',
       color: '#10B981',
-      items: []
+      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Fechado'))
     },
     {
       id: 'cancelados',
       title: 'Cancelados',
       color: '#EF4444',
-      items: []
-    },
-    {
-      id: 'opt-out',
-      title: 'Opt-Out',
-      color: '#6B7280',
-      items: []
+      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Perdido'))
     }
-  ]);
+  ];
+
+  // Função para importar clientes como leads
+  const handleClientesImported = async (campanha: string, clientes: ClienteData[]) => {
+    try {
+      const novosLeads = clientes.map(cliente => ({
+        nome: cliente.nome,
+        telefone: cliente.telefone,
+        email: cliente.email,
+        origem: 'Outros' as const,
+        empresa_id: user?.user_metadata?.empresa_id,
+        observacoes: `Importado da campanha: ${campanha}`
+      }));
+
+      await adicionarLeads(novosLeads);
+
+      toast({
+        title: "Planilha importada",
+        description: `${clientes.length} contatos foram importados e adicionados ao Kanban`,
+      });
+    } catch (error) {
+      console.error('Erro ao importar leads:', error);
+    }
+  };
+
+  const handleClientesSelected = async (campanha: string, clientes: ClienteData[]) => {
+    try {
+      const novosLeads = clientes.map(cliente => ({
+        nome: cliente.nome,
+        telefone: cliente.telefone,
+        email: cliente.email,
+        origem: 'Outros' as const,
+        empresa_id: user?.user_metadata?.empresa_id,
+        observacoes: `Selecionado da base: ${campanha}`
+      }));
+
+      await adicionarLeads(novosLeads);
+
+      toast({
+        title: "Clientes adicionados",
+        description: `${clientes.length} clientes da base foram adicionados ao Kanban`,
+      });
+    } catch (error) {
+      console.error('Erro ao adicionar leads:', error);
+    }
+  };
 
   const handleProspectionSelection = (prospectionId: string, checked: boolean) => {
     if (checked) {
@@ -329,25 +203,23 @@ const Prospeccao = () => {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedProspections(mockProspections.map(p => p.id));
+      setSelectedProspections(prospeccoes.map(p => p.id));
     } else {
       setSelectedProspections([]);
     }
   };
 
   const handleAddItem = (columnId: string, item: Omit<KanbanItem, 'id'>) => {
-    const newItem: KanbanItem = {
-      ...item,
-      id: `${Date.now()}-${Math.random()}`
+    // Criar um novo lead quando adicionar item via Kanban
+    const novoLead = {
+      nome: item.title,
+      telefone: item.description || 'N/A',
+      origem: 'Outros' as const,
+      empresa_id: user?.user_metadata?.empresa_id,
+      observacoes: 'Adicionado pelo Kanban'
     };
 
-    setKanbanColumns(columns =>
-      columns.map(col =>
-        col.id === columnId
-          ? { ...col, items: [...col.items, newItem] }
-          : col
-      )
-    );
+    adicionarLeads([novoLead]);
   };
 
   const handleEditItem = (item: KanbanItem) => {
@@ -355,17 +227,23 @@ const Prospeccao = () => {
   };
 
   const handleDeleteItem = (itemId: string) => {
-    setKanbanColumns(columns =>
-      columns.map(col => ({
-        ...col,
-        items: col.items.filter(item => item.id !== itemId)
-      }))
-    );
+    // TODO: Implementar exclusão do lead no banco
+    console.log('Delete item:', itemId);
   };
 
   const handleCardClick = (item: KanbanItem) => {
     console.log('Abrir detalhes do card:', item);
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Prospecção">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Prospecção">
@@ -377,26 +255,20 @@ const Prospeccao = () => {
         </TabsList>
 
         <TabsContent value="visao-geral" className="space-y-3">
-          {/* Filtros */}
           <FilterBar
             searchPlaceholder="Filtrar prospecções por nome, marca ou status..."
           />
 
-          {/* Layout: Funil à esquerda, Lista à direita */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Funil de Vendas - Metade Esquerda */}
+            {/* Funil de Vendas */}
             <div className="order-2 lg:order-1">
               <SalesFunnel 
-                stages={funnelStages}
-                title={`Funil de Vendas ${
-                  selectedProspections.length > 0 
-                    ? `(${selectedProspections.length} prospecção${selectedProspections.length > 1 ? 'ões' : ''} selecionada${selectedProspections.length > 1 ? 's' : ''})`
-                    : '(Todas as prospecções)'
-                }`}
+                stages={funnelData}
+                title="Funil de Vendas Geral"
               />
             </div>
 
-            {/* Lista de Prospecções - Metade Direita */}
+            {/* Lista de Prospecções */}
             <div className="order-1 lg:order-2 space-y-4">
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-4">
@@ -404,61 +276,58 @@ const Prospeccao = () => {
                   <Button>Nova Prospecção</Button>
                 </div>
 
-                {/* Seleção Geral */}
-                <div className="flex items-center space-x-2 mb-4 pb-2 border-b border-muted">
-                  <Checkbox 
-                    id="select-all"
-                    checked={selectedProspections.length === mockProspections.length}
-                    onCheckedChange={handleSelectAll}
-                  />
-                  <label 
-                    htmlFor="select-all" 
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    Selecionar todas ({mockProspections.length})
-                  </label>
-                </div>
+                {prospeccoes.length > 0 ? (
+                  <>
+                    <div className="flex items-center space-x-2 mb-4 pb-2 border-b border-muted">
+                      <Checkbox 
+                        id="select-all"
+                        checked={selectedProspections.length === prospeccoes.length}
+                        onCheckedChange={handleSelectAll}
+                      />
+                      <label 
+                        htmlFor="select-all" 
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Selecionar todas ({prospeccoes.length})
+                      </label>
+                    </div>
 
-                {/* Lista de Prospecções */}
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {mockProspections.map((item) => (
-                    <div key={item.id} className="border rounded-lg p-4 hover:bg-muted/50">
-                      <div className="flex items-start space-x-3">
-                        <Checkbox 
-                          id={`prospect-${item.id}`}
-                          checked={selectedProspections.includes(item.id)}
-                          onCheckedChange={(checked) => handleProspectionSelection(item.id, !!checked)}
-                        />
-                        
-                        <div className="flex-1 cursor-pointer" onClick={() => console.log('Abrir prospecção:', item)}>
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h4 className="font-semibold">{item.name}</h4>
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {prospeccoes.map((item) => (
+                        <div key={item.id} className="border rounded-lg p-4 hover:bg-muted/50">
+                          <div className="flex items-start space-x-3">
+                            <Checkbox 
+                              id={`prospect-${item.id}`}
+                              checked={selectedProspections.includes(item.id)}
+                              onCheckedChange={(checked) => handleProspectionSelection(item.id, !!checked)}
+                            />
+                            
+                            <div className="flex-1">
+                              <h4 className="font-semibold">{item.titulo}</h4>
                               <p className="text-sm text-muted-foreground">
-                                {item.startDate} - {item.endDate} | {item.brand}
+                                {item.data_inicio && item.data_fim 
+                                  ? `${item.data_inicio} - ${item.data_fim}` 
+                                  : 'Datas não definidas'
+                                }
                               </p>
-                              <p className="text-sm">Objetivo: {item.objective} vendas</p>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Enviados: {item.metrics.enviados.toLocaleString()} | 
-                                Vendas: {item.metrics.vendas}
-                              </div>
-                            </div>
-                            <div className="text-right flex flex-col space-y-2">
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                item.status === 'Ativa' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {item.status}
-                              </span>
-                              <DetalhesProspeccao prospeccao={item} />
+                              <p className="text-sm">Meta: {item.meta_leads || 0} leads</p>
+                              <p className="text-sm">Gerados: {item.leads_gerados}</p>
+                              {item.descricao && (
+                                <p className="text-xs text-muted-foreground mt-1">{item.descricao}</p>
+                              )}
                             </div>
                           </div>
                         </div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Target className="mx-auto mb-2" size={32} />
+                    <p>Nenhuma prospecção encontrada</p>
+                    <p className="text-sm">Crie sua primeira prospecção para começar</p>
+                  </div>
+                )}
               </Card>
             </div>
           </div>
@@ -468,17 +337,17 @@ const Prospeccao = () => {
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-foreground mb-4">Adicionar Contatos à Prospecção</h3>
             
-            {/* Contador de Clientes Adicionados */}
-            {clientesProspeccao.length > 0 && (
+            {/* Contador de Leads */}
+            {leads.length > 0 && (
               <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center space-x-2">
                   <CheckCircle className="text-green-600" size={20} />
                   <div>
                     <p className="font-medium text-green-800">
-                      {clientesProspeccao.length} clientes adicionados à prospecção
+                      {leads.length} leads cadastrados no sistema
                     </p>
                     <p className="text-sm text-green-600">
-                      Os contatos estão prontos para serem utilizados na automação
+                      Todos os contatos estão disponíveis no Kanban para gestão
                     </p>
                   </div>
                 </div>
@@ -490,74 +359,10 @@ const Prospeccao = () => {
                 <h4 className="font-semibold mb-3">Carga de Clientes</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <BaseExistente 
-                    onClientesSelected={(campanha, clientes) => {
-                      const novosClientes: ClienteProspeccao[] = clientes.map((cliente, index) => ({
-                        id: `base-${Date.now()}-${index}`,
-                        ...cliente,
-                        campanha,
-                        status: 'pendente' as const,
-                        dataImportacao: new Date().toISOString()
-                      }));
-                      
-                      // Adicionar aos clientes da prospecção
-                      setClientesProspeccao(prev => [...prev, ...novosClientes]);
-                      
-                      // Adicionar automaticamente à coluna "Novo" do Kanban
-                      const novosItensKanban: KanbanItem[] = novosClientes.map(cliente => ({
-                        id: cliente.id,
-                        title: cliente.nome,
-                        description: `${cliente.telefone}${cliente.email ? ` - ${cliente.email}` : ''}`,
-                        channel: 'Base Existente',
-                        tags: [cliente.campanha],
-                        priority: 'medium' as const
-                      }));
-                      
-                      setKanbanColumns(prev => prev.map(col => 
-                        col.id === 'novo' 
-                          ? { ...col, items: [...col.items, ...novosItensKanban] }
-                          : col
-                      ));
-                      
-                      toast({
-                        title: "Clientes adicionados",
-                        description: `${novosClientes.length} clientes da base foram adicionados ao Kanban`,
-                      });
-                    }}
+                    onClientesSelected={handleClientesSelected}
                   />
                   <UploadPlanilha 
-                    onClientesImported={(campanha, clientes) => {
-                      const novosClientes: ClienteProspeccao[] = clientes.map((cliente, index) => ({
-                        id: `upload-${Date.now()}-${index}`,
-                        ...cliente,
-                        campanha,
-                        status: 'pendente' as const,
-                        dataImportacao: new Date().toISOString()
-                      }));
-                      
-                      // Adicionar aos clientes da prospecção
-                      setClientesProspeccao(prev => [...prev, ...novosClientes]);
-                      
-                      // Adicionar automaticamente à coluna "Novo" do Kanban
-                      const novosItensKanban: KanbanItem[] = novosClientes.map(cliente => ({
-                        id: cliente.id,
-                        title: cliente.nome,
-                        description: `${cliente.telefone}${cliente.email ? ` - ${cliente.email}` : ''}`,
-                        channel: 'Importação',
-                        tags: [cliente.campanha],
-                        priority: 'medium' as const
-                      }));
-                      
-                      setKanbanColumns(prev => prev.map(col => 
-                        col.id === 'novo' 
-                          ? { ...col, items: [...col.items, ...novosItensKanban] }
-                          : col
-                      ));
-                      
-                      toast({
-                        title: "Planilha importada",
-                        description: `${novosClientes.length} clientes foram importados e adicionados ao Kanban`,
-                      });
-                    }}
+                    onClientesImported={handleClientesImported}
                   />
                 </div>
               </div>
@@ -586,16 +391,22 @@ const Prospeccao = () => {
           />
           
           <Card className="p-4">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Kanban - Gestão da Prospecção</h3>
-                    <KanbanBoard
-                      columns={kanbanColumns}
-                      onUpdateColumns={setKanbanColumns}
-                      onAddItem={handleAddItem}
-                      onEditItem={handleEditItem}
-                      onDeleteItem={handleDeleteItem}
-                      onCardClick={handleCardClick}
-                      onStatusChange={handleStatusChange}
-                    />
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">Kanban - Gestão da Prospecção</h3>
+              <div className="text-sm text-muted-foreground">
+                Total de leads: {leads.length}
+              </div>
+            </div>
+            
+            <KanbanBoard
+              columns={kanbanColumns}
+              onUpdateColumns={() => {}} // Será atualizado automaticamente pelos dados do banco
+              onAddItem={handleAddItem}
+              onEditItem={handleEditItem}
+              onDeleteItem={handleDeleteItem}
+              onCardClick={handleCardClick}
+              onStatusChange={handleStatusChange}
+            />
           </Card>
         </TabsContent>
       </Tabs>
