@@ -49,6 +49,7 @@ export interface Prospeccao {
   leads_gerados: number;
   responsavel_id?: string;
   empresa_id?: string;
+  canal: 'Whatsapp' | 'Ligação';
   persona_id?: string;
   created_at: string;
   updated_at: string;
@@ -84,7 +85,10 @@ export const useContatoData = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setProspeccoes(data || []);
+      setProspeccoes((data || []).map(p => ({
+        ...p,
+        canal: p.canal as 'Whatsapp' | 'Ligação'
+      })));
     } catch (error) {
       console.error('Erro ao buscar prospecções:', error);
       toast({
@@ -278,7 +282,10 @@ export const useContatoData = () => {
       if (error) throw error;
 
       if (data) {
-        setProspeccoes(prev => [data, ...prev]);
+        setProspeccoes(prev => [{
+          ...data,
+          canal: data.canal as 'Whatsapp' | 'Ligação'
+        }, ...prev]);
         toast({
           title: "Sucesso",
           description: "Prospecção criada com sucesso!"

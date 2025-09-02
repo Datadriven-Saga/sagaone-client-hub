@@ -400,7 +400,11 @@ const Prospeccao = () => {
 
                     <div className="space-y-3 max-h-96 overflow-y-auto">
                       {prospeccoes.map((item) => (
-                        <div key={item.id} className="border rounded-lg p-4 hover:bg-muted/50">
+                        <div key={item.id} className={`border rounded-lg p-4 hover:bg-muted/50 ${
+                          item.canal === 'Whatsapp' 
+                            ? 'border-t-4 border-t-green-500' 
+                            : 'border-t-4 border-t-blue-500'
+                        }`}>
                           <div className="flex items-start space-x-3">
                             <Checkbox 
                               id={`prospect-${item.id}`}
@@ -409,7 +413,16 @@ const Prospeccao = () => {
                             />
                             
                             <div className="flex-1">
-                              <h4 className="font-semibold">{item.titulo}</h4>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold">{item.titulo}</h4>
+                                <span className={`px-2 py-1 text-xs rounded-full ${
+                                  item.canal === 'Whatsapp'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-blue-100 text-blue-700'
+                                }`}>
+                                  {item.canal}
+                                </span>
+                              </div>
                               <p className="text-sm text-muted-foreground">
                                 {item.data_inicio && item.data_fim 
                                   ? `${item.data_inicio} - ${item.data_fim}` 

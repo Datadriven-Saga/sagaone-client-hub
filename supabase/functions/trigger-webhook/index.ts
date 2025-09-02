@@ -38,6 +38,31 @@ serve(async (req) => {
       .eq('acoes->>tipo_evento', gatilho)
       .eq('status', 'Ativo');
 
+    // Se for novo contato na prospecção, verificar se é canal Whatsapp
+    if (gatilho === 'novo_contato_prospeccao' && dados?.prospeccao_id) {
+      const { data: prospeccao } = await supabaseClient
+        .from('prospeccoes')
+        .select('canal')
+        .eq('id', dados.prospeccao_id)
+        .single();
+      
+      // Só dispara webhook se for canal Whatsapp
+      if (prospeccao?.canal !== 'Whatsapp') {
+        console.log('Webhook não disparado: campanha não é do canal Whatsapp');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            gatilho: gatilho,
+            message: 'Webhook não disparado: campanha de ligação não dispara webhook automaticamente',
+            webhooks_disparados: 0
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+    }
+
     if (error) {
       console.error('Erro ao buscar gatilhos:', error);
       return new Response(

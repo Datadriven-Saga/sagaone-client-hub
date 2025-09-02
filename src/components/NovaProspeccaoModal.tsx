@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface NovaProspeccaoModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ interface NovaProspeccaoModalProps {
     condicoes_especiais?: string;
     objetivo_vendas?: string;
     imagem_divulgacao_url?: string;
+    canal?: 'Whatsapp' | 'Ligação';
   }) => Promise<any>;
 }
 
@@ -34,7 +36,8 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, 
     local_evento: "",
     condicoes_especiais: "",
     objetivo_vendas: "",
-    imagem_divulgacao_url: ""
+    imagem_divulgacao_url: "",
+    canal: "Whatsapp" as 'Whatsapp' | 'Ligação'
   });
   
   const { toast } = useToast();
@@ -68,7 +71,8 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, 
         local_evento: formData.local_evento.trim() || undefined,
         condicoes_especiais: formData.condicoes_especiais.trim() || undefined,
         objetivo_vendas: formData.objetivo_vendas.trim() || undefined,
-        imagem_divulgacao_url: formData.imagem_divulgacao_url.trim() || undefined
+        imagem_divulgacao_url: formData.imagem_divulgacao_url.trim() || undefined,
+        canal: formData.canal
       };
 
       console.log('Calling criarProspeccao with:', dadosProspeccao);
@@ -86,7 +90,8 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, 
         local_evento: "",
         condicoes_especiais: "",
         objetivo_vendas: "",
-        imagem_divulgacao_url: ""
+        imagem_divulgacao_url: "",
+        canal: "Whatsapp"
       });
 
       onOpenChange(false);
@@ -109,7 +114,8 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, 
       local_evento: "",
       condicoes_especiais: "",
       objetivo_vendas: "",
-      imagem_divulgacao_url: ""
+      imagem_divulgacao_url: "",
+      canal: "Whatsapp"
     });
     onOpenChange(false);
   };
@@ -195,6 +201,19 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, 
               value={formData.objetivo_vendas}
               onChange={(e) => setFormData({...formData, objetivo_vendas: e.target.value})}
             />
+          </div>
+
+          <div>
+            <Label htmlFor="canal">Canal *</Label>
+            <Select value={formData.canal} onValueChange={(value: 'Whatsapp' | 'Ligação') => setFormData({...formData, canal: value})}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o canal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Whatsapp">Whatsapp</SelectItem>
+                <SelectItem value="Ligação">Ligação</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div>

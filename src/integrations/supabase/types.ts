@@ -828,6 +828,7 @@ export type Database = {
       }
       prospeccoes: {
         Row: {
+          canal: string
           condicoes_especiais: string | null
           created_at: string | null
           data_fim: string | null
@@ -846,6 +847,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          canal?: string
           condicoes_especiais?: string | null
           created_at?: string | null
           data_fim?: string | null
@@ -864,6 +866,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          canal?: string
           condicoes_especiais?: string | null
           created_at?: string | null
           data_fim?: string | null

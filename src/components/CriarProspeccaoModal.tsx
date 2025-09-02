@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface CriarProspeccaoModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
   const [condicoesEspeciais, setCondicoesEspeciais] = useState("");
   const [objetivoVendas, setObjetivoVendas] = useState("");
   const [imagemDivulgacao, setImagemDivulgacao] = useState("");
+  const [canal, setCanal] = useState<'Whatsapp' | 'Ligação'>('Whatsapp');
   
   const { toast } = useToast();
   const { user } = useAuth();
@@ -79,6 +81,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
           condicoes_especiais: condicoesEspeciais.trim() || null,
           objetivo_vendas: objetivoVendas.trim() || null,
           imagem_divulgacao_url: imagemDivulgacao.trim() || null,
+          canal: canal,
           responsavel_id: user.id,
           empresa_id: profile.empresa_id,
           leads_gerados: 0
@@ -105,6 +108,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
       setCondicoesEspeciais("");
       setObjetivoVendas("");
       setImagemDivulgacao("");
+      setCanal('Whatsapp');
       
       onOpenChange(false);
       onProspeccaoCriada();
@@ -130,6 +134,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
     setCondicoesEspeciais("");
     setObjetivoVendas("");
     setImagemDivulgacao("");
+    setCanal('Whatsapp');
     onOpenChange(false);
   };
 
@@ -214,6 +219,19 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
               value={objetivoVendas}
               onChange={(e) => setObjetivoVendas(e.target.value)}
             />
+          </div>
+
+          <div>
+            <Label htmlFor="canal">Canal *</Label>
+            <Select value={canal} onValueChange={(value: 'Whatsapp' | 'Ligação') => setCanal(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o canal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Whatsapp">Whatsapp</SelectItem>
+                <SelectItem value="Ligação">Ligação</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div>
