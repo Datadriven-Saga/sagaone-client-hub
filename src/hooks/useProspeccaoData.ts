@@ -60,18 +60,27 @@ export const useProspeccaoData = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dateFilter, setDateFilter] = useState<{ start: string; end: string } | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Buscar prospecções da empresa
+  // Buscar prospecções da empresa com filtro de data
   const fetchProspeccoes = async () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('prospeccoes')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
+
+      // Aplicar filtro de data se definido
+      if (dateFilter) {
+        query = query
+          .gte('data_inicio', dateFilter.start)
+          .lte('data_fim', dateFilter.end);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       setProspeccoes(data || []);
@@ -207,7 +216,12 @@ export const useProspeccaoData = () => {
     if (user) {
       loadData();
     }
-  }, [user]);
+  }, [user, dateFilter]);
+
+  // Função para atualizar filtro de data
+  const updateDateFilter = (start: string, end: string) => {
+    setDateFilter({ start, end });
+  };
 
   return {
     leads,
@@ -216,6 +230,7 @@ export const useProspeccaoData = () => {
     adicionarLeads,
     atualizarStatusLead,
     getMetricas,
+    updateDateFilter,
     refetch: () => {
       fetchProspeccoes();
       fetchLeads();

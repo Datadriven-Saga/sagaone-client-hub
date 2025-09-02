@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Calendar } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface FilterBarProps {
   onSearchChange?: (value: string) => void;
@@ -25,22 +25,34 @@ export function FilterBar({
   additionalFilters = [],
   showDateFilter = true
 }: FilterBarProps) {
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  // Data padrão: primeiro dia do mês atual até hoje
+  const getDefaultDates = () => {
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    return {
+      start: firstDayOfMonth.toISOString().split('T')[0],
+      end: today.toISOString().split('T')[0]
+    };
+  };
+
+  const defaultDates = getDefaultDates();
+  const [startDate, setStartDate] = useState(defaultDates.start);
+  const [endDate, setEndDate] = useState(defaultDates.end);
 
   const handleDateChange = (type: 'start' | 'end', value: string) => {
     if (type === 'start') {
       setStartDate(value);
-      if (endDate) {
-        onDateRangeChange?.(value, endDate);
-      }
+      onDateRangeChange?.(value, endDate);
     } else {
       setEndDate(value);
-      if (startDate) {
-        onDateRangeChange?.(startDate, value);
-      }
+      onDateRangeChange?.(startDate, value);
     }
   };
+
+  // Disparar filtro inicial apenas uma vez quando o componente montar
+  useEffect(() => {
+    onDateRangeChange?.(defaultDates.start, defaultDates.end);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Card className="p-3">

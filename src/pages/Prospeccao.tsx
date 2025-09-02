@@ -27,7 +27,7 @@ const Prospeccao = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { registrarMovimentacao } = useProspeccaoLogs();
-  const { leads, prospeccoes, loading, adicionarLeads, atualizarStatusLead, getMetricas } = useProspeccaoData();
+  const { leads, prospeccoes, loading, adicionarLeads, atualizarStatusLead, getMetricas, updateDateFilter } = useProspeccaoData();
 
   // Função para registrar movimentações dos leads
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
@@ -257,6 +257,7 @@ const Prospeccao = () => {
         <TabsContent value="visao-geral" className="space-y-3">
           <FilterBar
             searchPlaceholder="Filtrar prospecções por nome, marca ou status..."
+            onDateRangeChange={updateDateFilter}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
