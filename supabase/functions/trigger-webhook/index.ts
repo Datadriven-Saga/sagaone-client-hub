@@ -35,7 +35,7 @@ serve(async (req) => {
     const { data: gatilhos, error } = await supabaseClient
       .from('gatilhos')
       .select('*')
-      .eq('tipo', gatilho)
+      .eq('acoes->>tipo_evento', gatilho)
       .eq('status', 'Ativo');
 
     if (error) {
