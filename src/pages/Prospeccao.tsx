@@ -273,7 +273,7 @@ const Prospeccao = () => {
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-foreground">Prospecções</h3>
-                  <Button>Nova Prospecção</Button>
+                  <Button onClick={() => console.log('Implementar modal de Nova Prospecção')}>Nova Prospecção</Button>
                 </div>
 
                 {prospeccoes.length > 0 ? (
@@ -360,9 +360,11 @@ const Prospeccao = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <BaseExistente 
                     onClientesSelected={handleClientesSelected}
+                    prospeccoes={prospeccoes}
                   />
                   <UploadPlanilha 
                     onClientesImported={handleClientesImported}
+                    prospeccoes={prospeccoes}
                   />
                 </div>
               </div>

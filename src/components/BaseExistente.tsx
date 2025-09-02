@@ -34,16 +34,18 @@ interface FiltrosBase {
   ultimaCompraFim?: Date;
 }
 
-interface Campanha {
+interface Prospeccao {
   id: string;
-  nome: string;
+  titulo: string;
+  descricao?: string;
 }
 
 interface BaseExistenteProps {
   onClientesSelected: (campanha: string, clientes: Cliente[]) => void;
+  prospeccoes: Prospeccao[];
 }
 
-export const BaseExistente = ({ onClientesSelected }: BaseExistenteProps) => {
+export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistenteProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCampanha, setSelectedCampanha] = useState<string>('');
   const [filtros, setFiltros] = useState<FiltrosBase>({});
@@ -52,12 +54,6 @@ export const BaseExistente = ({ onClientesSelected }: BaseExistenteProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Mock de campanhas disponíveis
-  const campanhas: Campanha[] = [
-    { id: '001', nome: 'Campanha Janeiro 2025' },
-    { id: '002', nome: 'Black Friday 2024' },
-    { id: '003', nome: 'Promoção Fim de Ano' },
-  ];
 
   // Mock de dados de clientes
   const mockClientes: Cliente[] = [
@@ -215,9 +211,9 @@ export const BaseExistente = ({ onClientesSelected }: BaseExistenteProps) => {
                 <SelectValue placeholder="Escolha uma campanha para adicionar os contatos..." />
               </SelectTrigger>
               <SelectContent>
-                {campanhas.map((campanha) => (
-                  <SelectItem key={campanha.id} value={campanha.id}>
-                    {campanha.nome}
+                {prospeccoes.map((prospeccao) => (
+                  <SelectItem key={prospeccao.id} value={prospeccao.titulo}>
+                    {prospeccao.titulo}
                   </SelectItem>
                 ))}
               </SelectContent>

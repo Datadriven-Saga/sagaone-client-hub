@@ -17,16 +17,18 @@ interface ClienteData {
   cpf?: string;
 }
 
-interface Campanha {
+interface Prospeccao {
   id: string;
-  nome: string;
+  titulo: string;
+  descricao?: string;
 }
 
 interface UploadPlanilhaProps {
   onClientesImported: (campanha: string, clientes: ClienteData[]) => void;
+  prospeccoes: Prospeccao[];
 }
 
-export const UploadPlanilha = ({ onClientesImported }: UploadPlanilhaProps) => {
+export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanilhaProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCampanha, setSelectedCampanha] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
@@ -35,12 +37,6 @@ export const UploadPlanilha = ({ onClientesImported }: UploadPlanilhaProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Mock de campanhas disponíveis
-  const campanhas: Campanha[] = [
-    { id: '001', nome: 'Campanha Janeiro 2025' },
-    { id: '002', nome: 'Black Friday 2024' },
-    { id: '003', nome: 'Promoção Fim de Ano' },
-  ];
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -172,9 +168,9 @@ export const UploadPlanilha = ({ onClientesImported }: UploadPlanilhaProps) => {
                 <SelectValue placeholder="Escolha uma campanha para adicionar os contatos..." />
               </SelectTrigger>
               <SelectContent>
-                {campanhas.map((campanha) => (
-                  <SelectItem key={campanha.id} value={campanha.id}>
-                    {campanha.nome}
+                {prospeccoes.map((prospeccao) => (
+                  <SelectItem key={prospeccao.id} value={prospeccao.titulo}>
+                    {prospeccao.titulo}
                   </SelectItem>
                 ))}
               </SelectContent>
