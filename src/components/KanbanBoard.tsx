@@ -201,34 +201,36 @@ export function KanbanBoard({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4 flex-1 min-h-0">
-          {columns.map((column) => (
-            <div key={column.id} className="flex-shrink-0">
-              <SortableContext
-                items={column.items.map(item => item.id)}
-                strategy={verticalListSortingStrategy}
+        <div className="overflow-x-auto flex-1">
+          <div className="flex gap-4 pb-4 min-w-max">
+            {columns.map((column) => (
+              <div key={column.id} className="flex-shrink-0">
+                <SortableContext
+                  items={column.items.map(item => item.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <KanbanColumn
+                    column={column}
+                    onAddItem={onAddItem}
+                    onEditItem={onEditItem}
+                    onDeleteItem={onDeleteItem}
+                    onCardClick={onCardClick}
+                  />
+                </SortableContext>
+              </div>
+            ))}
+            
+            <Card className="flex-shrink-0 w-64 p-4 border-dashed border-2 border-muted-foreground/30 hover:border-primary/50 transition-colors">
+              <Button
+                variant="ghost"
+                onClick={handleAddColumn}
+                className="w-full h-full min-h-[100px] text-muted-foreground hover:text-foreground"
               >
-                <KanbanColumn
-                  column={column}
-                  onAddItem={onAddItem}
-                  onEditItem={onEditItem}
-                  onDeleteItem={onDeleteItem}
-                  onCardClick={onCardClick}
-                />
-              </SortableContext>
-            </div>
-          ))}
-          
-          <Card className="flex-shrink-0 w-64 p-4 border-dashed border-2 border-muted-foreground/30 hover:border-primary/50 transition-colors">
-            <Button
-              variant="ghost"
-              onClick={handleAddColumn}
-              className="w-full h-full min-h-[100px] text-muted-foreground hover:text-foreground"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Adicionar Coluna
-            </Button>
-          </Card>
+                <Plus className="w-5 h-5 mr-2" />
+                Adicionar Coluna
+              </Button>
+            </Card>
+          </div>
         </div>
 
         <DragOverlay>
