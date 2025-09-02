@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Zap } from "lucide-react";
+import { Plus, Edit, Trash2, Zap, Play } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -223,6 +223,84 @@ const Gatilhos = () => {
     }
   };
 
+  const handleTest = async (gatilho: Gatilho) => {
+    try {
+      setLoading(true);
+      
+      // Dados de teste baseados no tipo de gatilho
+      let dadosTeste;
+      
+      switch (gatilho.tipo) {
+        case 'novo_contato_prospeccao':
+          dadosTeste = {
+            nome: "João Silva (TESTE)",
+            telefone: "(11) 99999-9999",
+            email: "joao.teste@email.com",
+            id: "test-contact-id",
+            status: "Novo",
+            prospeccao_id: "test-prospeccao-id"
+          };
+          break;
+        case 'alteracao_status_contato':
+          dadosTeste = {
+            nome: "Maria Santos (TESTE)",
+            telefone: "(11) 88888-8888",
+            id: "test-contact-id",
+            status_anterior: "Novo",
+            status_novo: "Qualificado"
+          };
+          break;
+        case 'adicao_anotacao_prospeccao':
+          dadosTeste = {
+            contato_nome: "Pedro Costa (TESTE)",
+            anotacao: "Esta é uma anotação de teste do sistema",
+            usuario_nome: "Sistema de Teste",
+            data: new Date().toISOString()
+          };
+          break;
+        default:
+          dadosTeste = {
+            teste: true,
+            timestamp: new Date().toISOString(),
+            gatilho_id: gatilho.id
+          };
+      }
+
+      console.log('Testando gatilho:', gatilho.nome, 'com dados:', dadosTeste);
+
+      // Enviar requisição diretamente para o webhook configurado
+      const response = await fetch(gatilho.webhook_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dadosTeste)
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Teste realizado com sucesso!",
+          description: `Webhook "${gatilho.nome}" foi chamado e respondeu com status ${response.status}`,
+        });
+      } else {
+        toast({
+          title: "Teste falhou",
+          description: `O webhook respondeu com status ${response.status}. Verifique a configuração.`,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao testar gatilho:', error);
+      toast({
+        title: "Erro no teste",
+        description: "Não foi possível conectar com o webhook. Verifique a URL e conexão.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Carregar gatilhos ao montar o componente
   useEffect(() => {
     if (user) {
@@ -356,6 +434,15 @@ const Gatilhos = () => {
                     <Badge variant={gatilho.ativo ? "default" : "secondary"}>
                       {gatilho.ativo ? "Ativo" : "Inativo"}
                     </Badge>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleTest(gatilho)}
+                      disabled={loading}
+                      title="Testar webhook"
+                    >
+                      <Play className="h-4 w-4" />
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => handleEdit(gatilho)}>
                       <Edit className="h-4 w-4" />
                     </Button>
