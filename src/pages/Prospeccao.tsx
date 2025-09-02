@@ -13,7 +13,7 @@ import { BaseExistente } from "@/components/BaseExistente";
 import { CriarProspeccaoModal } from "@/components/CriarProspeccaoModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
-import { useProspeccaoData, kanbanStatusMap } from "@/hooks/useProspeccaoData";
+import { useContatoData, kanbanStatusMap } from "@/hooks/useContatoData";
 import { useToast } from "@/components/ui/use-toast";
 
 interface ClienteData {
@@ -29,13 +29,13 @@ const Prospeccao = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { registrarMovimentacao } = useProspeccaoLogs();
-  const { leads, prospeccoes, loading, adicionarLeads, atualizarStatusLead, getMetricas, updateDateFilter, criarProspeccao, refetch } = useProspeccaoData();
+  const { contatos, prospeccoes, loading, adicionarContatos, atualizarStatusContato, getMetricas, updateDateFilter, criarProspeccao, refetch } = useContatoData();
 
-  // Função para registrar movimentações dos leads
+  // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
     const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
     if (novoStatusDb) {
-      await atualizarStatusLead(itemId, novoStatusDb);
+      await atualizarStatusContato(itemId, novoStatusDb);
     }
 
     if (registrarMovimentacao && user) {
@@ -49,7 +49,7 @@ const Prospeccao = () => {
     }
   };
 
-  // Calcular métricas dos leads
+  // Calcular métricas dos contatos
   const metricas = getMetricas();
 
   // Dados do funil de vendas usando dados reais
@@ -92,15 +92,15 @@ const Prospeccao = () => {
     }
   ];
 
-  // Converter leads para itens do Kanban
-  const leadsToKanbanItems = (leadsLista: typeof leads): KanbanItem[] => {
-    return leadsLista.map(lead => ({
-      id: lead.id,
-      title: lead.nome,
-      description: `${lead.telefone}${lead.email ? ` - ${lead.email}` : ''}`,
-      channel: lead.origem,
+  // Converter contatos para itens do Kanban
+  const contatosToKanbanItems = (contatosLista: typeof contatos): KanbanItem[] => {
+    return contatosLista.map(contato => ({
+      id: contato.id,
+      title: contato.nome,
+      description: `${contato.telefone}${contato.email ? ` - ${contato.email}` : ''}`,
+      channel: contato.origem,
       priority: 'medium' as const,
-      assignee: lead.responsavel_id || undefined
+      assignee: contato.responsavel_id || undefined
     }));
   };
 
@@ -110,69 +110,68 @@ const Prospeccao = () => {
       id: 'novo',
       title: 'Novo',
       color: '#6645EB',
-      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Novo'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Novo'))
     },
     {
       id: 'enviados',
       title: 'Enviados',
       color: '#8B5FD6',
-      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Negociação'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Negociação'))
     },
     {
       id: 'recebidos',
       title: 'Recebidos',
       color: '#A679E1',
-      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Em Contato'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Em Contato'))
     },
     {
       id: 'respondidos',
       title: 'Respondidos',
       color: '#C193EC',
-      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Qualificado'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Qualificado'))
     },
     {
       id: 'agendados',
       title: 'Agendados',
       color: '#DCADF7',
-      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Proposta'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Proposta'))
     },
     {
       id: 'confirmados',
       title: 'Confirmados',
       color: '#10B981',
-      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Fechado'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Fechado'))
     },
     {
       id: 'cancelados',
       title: 'Cancelados',
       color: '#EF4444',
-      items: leadsToKanbanItems(leads.filter(lead => lead.status === 'Perdido'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Perdido'))
     }
   ];
 
-  // Função para importar clientes como leads
+  // Função para importar clientes como contatos
   const handleClientesImported = async (campanha: string, clientes: ClienteData[]) => {
     try {
       // Buscar o ID da prospecção pela campanha selecionada
       const prospeccaoSelecionada = prospeccoes.find(p => p.titulo === campanha);
       
-      const novosLeads = clientes.map(cliente => ({
+      const novosContatos = clientes.map(cliente => ({
         nome: cliente.nome,
         telefone: cliente.telefone,
         email: cliente.email,
         origem: 'Outros' as const,
-        empresa_id: user?.user_metadata?.empresa_id,
         observacoes: `Importado da campanha: ${campanha}`
       }));
 
-      await adicionarLeads(novosLeads, prospeccaoSelecionada?.id);
+      await adicionarContatos(novosContatos, prospeccaoSelecionada?.id);
 
       toast({
         title: "Planilha importada",
         description: `${clientes.length} contatos foram importados e adicionados ao Kanban`,
       });
     } catch (error) {
-      console.error('Erro ao importar leads:', error);
+      console.error('Erro ao importar contatos:', error);
     }
   };
 
@@ -181,23 +180,22 @@ const Prospeccao = () => {
       // Buscar o ID da prospecção pela campanha selecionada
       const prospeccaoSelecionada = prospeccoes.find(p => p.titulo === campanha);
       
-      const novosLeads = clientes.map(cliente => ({
+      const novosContatos = clientes.map(cliente => ({
         nome: cliente.nome,
         telefone: cliente.telefone,
         email: cliente.email,
         origem: 'Outros' as const,
-        empresa_id: user?.user_metadata?.empresa_id,
         observacoes: `Selecionado da base: ${campanha}`
       }));
 
-      await adicionarLeads(novosLeads, prospeccaoSelecionada?.id);
+      await adicionarContatos(novosContatos, prospeccaoSelecionada?.id);
 
       toast({
         title: "Clientes adicionados",
         description: `${clientes.length} clientes da base foram adicionados ao Kanban`,
       });
     } catch (error) {
-      console.error('Erro ao adicionar leads:', error);
+      console.error('Erro ao adicionar contatos:', error);
     }
   };
 
@@ -218,16 +216,15 @@ const Prospeccao = () => {
   };
 
   const handleAddItem = (columnId: string, item: Omit<KanbanItem, 'id'>) => {
-    // Criar um novo lead quando adicionar item via Kanban
-    const novoLead = {
+    // Criar um novo contato quando adicionar item via Kanban
+    const novoContato = {
       nome: item.title,
       telefone: item.description || 'N/A',
       origem: 'Outros' as const,
-      empresa_id: user?.user_metadata?.empresa_id,
       observacoes: 'Adicionado pelo Kanban'
     };
 
-    adicionarLeads([novoLead]);
+    adicionarContatos([novoContato]);
   };
 
   const handleEditItem = (item: KanbanItem) => {
@@ -235,7 +232,7 @@ const Prospeccao = () => {
   };
 
   const handleDeleteItem = (itemId: string) => {
-    // TODO: Implementar exclusão do lead no banco
+    // TODO: Implementar exclusão do contato no banco
     console.log('Delete item:', itemId);
   };
 
@@ -319,7 +316,7 @@ const Prospeccao = () => {
                                   : 'Datas não definidas'
                                 }
                               </p>
-                              <p className="text-sm">Meta: {item.meta_leads || 0} leads</p>
+                              <p className="text-sm">Meta: {item.meta_leads || 0} contatos</p>
                               <p className="text-sm">Gerados: {item.leads_gerados}</p>
                               {item.descricao && (
                                 <p className="text-xs text-muted-foreground mt-1">{item.descricao}</p>
@@ -346,14 +343,14 @@ const Prospeccao = () => {
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-foreground mb-4">Adicionar Contatos à Prospecção</h3>
             
-            {/* Contador de Leads */}
-            {leads.length > 0 && (
+            {/* Contador de Contatos */}
+            {contatos.length > 0 && (
               <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center space-x-2">
                   <CheckCircle className="text-green-600" size={20} />
                   <div>
                     <p className="font-medium text-green-800">
-                      {leads.length} leads cadastrados no sistema
+                      {contatos.length} contatos cadastrados no sistema
                     </p>
                     <p className="text-sm text-green-600">
                       Todos os contatos estão disponíveis no Kanban para gestão
@@ -405,7 +402,7 @@ const Prospeccao = () => {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-foreground">Kanban - Gestão da Prospecção</h3>
               <div className="text-sm text-muted-foreground">
-                Total de leads: {leads.length}
+                Total de contatos: {contatos.length}
               </div>
             </div>
             

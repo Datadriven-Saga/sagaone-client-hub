@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 
 interface LogMovimentacao {
-  leadId: string;
+  leadId: string; // Mantendo o nome leadId para compatibilidade com o código existente
   prospeccaoId: string;
   statusAnterior?: string;
   statusNovo: string;
@@ -16,9 +16,9 @@ export const useProspeccaoLogs = () => {
   const registrarMovimentacao = async (params: LogMovimentacao) => {
     try {
       const { error } = await supabase
-        .from('logs_movimentacao_leads')
+        .from('logs_movimentacao_contatos')
         .insert({
-          lead_id: params.leadId,
+          contato_id: params.leadId, // Mapeia leadId para contato_id
           prospeccao_id: params.prospeccaoId,
           status_anterior: params.statusAnterior,
           status_novo: params.statusNovo,
@@ -48,12 +48,12 @@ export const useProspeccaoLogs = () => {
     }
   };
 
-  const obterLogsLead = async (leadId: string) => {
+  const obterLogsContato = async (contatoId: string) => {
     try {
       const { data, error } = await supabase
-        .from('logs_movimentacao_leads')
+        .from('logs_movimentacao_contatos')
         .select('*')
-        .eq('lead_id', leadId)
+        .eq('contato_id', contatoId)
         .order('data_movimentacao', { ascending: false });
 
       if (error) {
@@ -71,7 +71,7 @@ export const useProspeccaoLogs = () => {
   const obterLogsProspeccao = async (prospeccaoId: string) => {
     try {
       const { data, error } = await supabase
-        .from('logs_movimentacao_leads')
+        .from('logs_movimentacao_contatos')
         .select('*')
         .eq('prospeccao_id', prospeccaoId)
         .order('data_movimentacao', { ascending: false });
@@ -90,7 +90,7 @@ export const useProspeccaoLogs = () => {
 
   return {
     registrarMovimentacao,
-    obterLogsLead,
+    obterLogsContato,
     obterLogsProspeccao,
   };
 };

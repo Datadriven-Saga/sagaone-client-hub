@@ -29,12 +29,12 @@ serve(async (req) => {
       );
     }
 
-    const { prospeccao_id, lead_id, mensagem } = await req.json();
+    const { prospeccao_id, contato_id, mensagem } = await req.json();
 
-    if (!prospeccao_id || !lead_id || !mensagem) {
+    if (!prospeccao_id || !contato_id || !mensagem) {
       return new Response(
         JSON.stringify({ 
-          error: 'prospeccao_id, lead_id e mensagem são obrigatórios' 
+          error: 'prospeccao_id, contato_id e mensagem são obrigatórios' 
         }),
         {
           status: 400,
@@ -43,16 +43,16 @@ serve(async (req) => {
       );
     }
 
-    // Verificar se o lead existe
-    const { data: lead, error: leadError } = await supabaseClient
-      .from('leads')
+    // Verificar se o contato existe
+    const { data: contato, error: contatoError } = await supabaseClient
+      .from('contatos')
       .select('id, nome')
-      .eq('id', lead_id)
+      .eq('id', contato_id)
       .single();
 
-    if (leadError || !lead) {
+    if (contatoError || !contato) {
       return new Response(
-        JSON.stringify({ error: 'Lead não encontrado' }),
+        JSON.stringify({ error: 'Contato não encontrado' }),
         {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -65,7 +65,7 @@ serve(async (req) => {
       .from('eventos_prospeccao')
       .insert({
         prospeccao_id: prospeccao_id,
-        lead_id: lead_id,
+        contato_id: contato_id,
         tipo_evento: 'Anotação',
         descricao: mensagem,
         observacoes: 'Adicionado via API',
@@ -91,7 +91,7 @@ serve(async (req) => {
         gatilho: 'adicao_anotacao_prospeccao',
         dados: {
           prospeccao_id: prospeccao_id,
-          lead_id: lead_id,
+          contato_id: contato_id,
           mensagem: mensagem,
           evento_id: evento.id
         }
@@ -103,7 +103,7 @@ serve(async (req) => {
         success: true,
         evento_id: evento.id,
         prospeccao_id: prospeccao_id,
-        lead_id: lead_id,
+        contato_id: contato_id,
         mensagem: mensagem,
         data_criacao: evento.created_at
       }),

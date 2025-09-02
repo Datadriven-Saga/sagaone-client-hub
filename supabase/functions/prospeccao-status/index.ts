@@ -21,12 +21,12 @@ serve(async (req) => {
 
     const url = new URL(req.url);
     const prospeccaoId = url.searchParams.get('prospeccao_id');
-    const leadId = url.searchParams.get('lead_id');
+    const contatoId = url.searchParams.get('contato_id');
 
-    if (!prospeccaoId || !leadId) {
+    if (!prospeccaoId || !contatoId) {
       return new Response(
         JSON.stringify({ 
-          error: 'prospeccao_id e lead_id são obrigatórios' 
+          error: 'prospeccao_id e contato_id são obrigatórios' 
         }),
         {
           status: 400,
@@ -37,16 +37,16 @@ serve(async (req) => {
 
     if (req.method === 'GET') {
       // Consultar status do contato
-      const { data: lead, error } = await supabaseClient
-        .from('leads')
+      const { data: contato, error } = await supabaseClient
+        .from('contatos')
         .select('id, nome, telefone, email, status')
-        .eq('id', leadId)
+        .eq('id', contatoId)
         .single();
 
       if (error) {
-        console.error('Erro ao buscar lead:', error);
+        console.error('Erro ao buscar contato:', error);
         return new Response(
-          JSON.stringify({ error: 'Lead não encontrado' }),
+          JSON.stringify({ error: 'Contato não encontrado' }),
           {
             status: 404,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -57,11 +57,11 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           prospeccao_id: prospeccaoId,
-          lead_id: leadId,
-          status: lead.status,
-          nome: lead.nome,
-          telefone: lead.telefone,
-          email: lead.email
+          contato_id: contatoId,
+          status: contato.status,
+          nome: contato.nome,
+          telefone: contato.telefone,
+          email: contato.email
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -84,23 +84,23 @@ serve(async (req) => {
       }
 
       // Primeiro, buscar o status anterior
-      const { data: leadAnterior } = await supabaseClient
-        .from('leads')
+      const { data: contatoAnterior } = await supabaseClient
+        .from('contatos')
         .select('status')
-        .eq('id', leadId)
+        .eq('id', contatoId)
         .single();
 
       // Atualizar status
       const { error: updateError } = await supabaseClient
-        .from('leads')
+        .from('contatos')
         .update({ 
           status: novo_status,
           updated_at: new Date().toISOString()
         })
-        .eq('id', leadId);
+        .eq('id', contatoId);
 
       if (updateError) {
-        console.error('Erro ao atualizar lead:', updateError);
+        console.error('Erro ao atualizar contato:', updateError);
         return new Response(
           JSON.stringify({ error: 'Erro ao atualizar status' }),
           {
@@ -112,11 +112,11 @@ serve(async (req) => {
 
       // Registrar log de movimentação
       await supabaseClient
-        .from('logs_movimentacao_leads')
+        .from('logs_movimentacao_contatos')
         .insert({
-          lead_id: leadId,
+          contato_id: contatoId,
           prospeccao_id: prospeccaoId,
-          status_anterior: leadAnterior?.status,
+          status_anterior: contatoAnterior?.status,
           status_novo: novo_status,
           observacoes: 'Alteração via API'
         });
@@ -127,8 +127,8 @@ serve(async (req) => {
           gatilho: 'alteracao_status_contato',
           dados: {
             prospeccao_id: prospeccaoId,
-            lead_id: leadId,
-            status_anterior: leadAnterior?.status,
+            contato_id: contatoId,
+            status_anterior: contatoAnterior?.status,
             status_novo: novo_status
           }
         }
@@ -138,8 +138,8 @@ serve(async (req) => {
         JSON.stringify({
           success: true,
           prospeccao_id: prospeccaoId,
-          lead_id: leadId,
-          status_anterior: leadAnterior?.status,
+          contato_id: contatoId,
+          status_anterior: contatoAnterior?.status,
           status_novo: novo_status
         }),
         {

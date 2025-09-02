@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 // Usando os tipos corretos do banco de dados
-export interface Lead {
+export interface Contato {
   id: string;
   nome: string;
   telefone: string;
@@ -56,8 +56,8 @@ export interface Prospeccao {
   updated_at: string;
 }
 
-export const useProspeccaoData = () => {
-  const [leads, setLeads] = useState<Lead[]>([]);
+export const useContatoData = () => {
+  const [contatos, setContatos] = useState<Contato[]>([]);
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -80,18 +80,10 @@ export const useProspeccaoData = () => {
     if (!user) return;
 
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('prospeccoes')
-        .select('*');
-
-      // Aplicar filtro de data se definido
-      if (dateFilter) {
-        query = query
-          .gte('data_inicio', dateFilter.start)
-          .lte('data_fim', dateFilter.end);
-      }
-
-      const { data, error } = await query.order('created_at', { ascending: false });
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setProspeccoes(data || []);
@@ -105,66 +97,79 @@ export const useProspeccaoData = () => {
     }
   };
 
-  // Buscar leads da empresa
-  const fetchLeads = async () => {
+  // Buscar contatos da empresa
+  const fetchContatos = async () => {
     if (!user) return;
 
     try {
       const { data, error } = await supabase
-        .from('leads')
+        .from('contatos')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setLeads(data || []);
+      setContatos(data || []);
     } catch (error) {
-      console.error('Erro ao buscar leads:', error);
+      console.error('Erro ao buscar contatos:', error);
       toast({
-        title: "Erro ao carregar leads",
-        description: "Não foi possível carregar os leads",
+        title: "Erro ao carregar contatos",
+        description: "Não foi possível carregar os contatos",
         variant: "destructive"
       });
     }
   };
 
-  // Adicionar novos leads ao banco
-  const adicionarLeads = async (novosLeads: {
+  // Adicionar novos contatos ao banco
+  const adicionarContatos = async (novosContatos: {
     nome: string;
     telefone: string;
     email?: string;
-    origem: Lead['origem'];
+    origem: Contato['origem'];
     empresa_id?: string;
     observacoes?: string;
   }[], prospeccaoId?: string) => {
     try {
-      const leadsParaInserir = novosLeads.map(lead => ({
-        ...lead,
+      // Buscar empresa_id do usuário logado
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('empresa_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (profileError) {
+        console.error('Erro ao buscar perfil do usuário:', profileError);
+        throw profileError;
+      }
+
+      const contatosParaInserir = novosContatos.map(contato => ({
+        ...contato,
         status: 'Novo' as const,
-        origem: lead.origem || 'Outros' as const
+        origem: contato.origem || 'Outros' as const,
+        empresa_id: profile.empresa_id
       }));
 
       const { data, error } = await supabase
-        .from('leads')
-        .insert(leadsParaInserir)
+        .from('contatos')
+        .insert(contatosParaInserir)
         .select();
 
       if (error) throw error;
 
       if (data) {
-        setLeads(prev => [...data, ...prev]);
+        setContatos(prev => [...data, ...prev]);
         
-        // Disparar gatilho para cada novo lead adicionado
+        // Disparar gatilho para cada novo contato adicionado
         if (prospeccaoId) {
-          for (const lead of data) {
+          for (const contato of data) {
             await supabase.functions.invoke('trigger-webhook', {
               body: {
                 gatilho: 'novo_contato_prospeccao',
                 dados: {
                   prospeccao_id: prospeccaoId,
-                  lead_id: lead.id,
-                  nome: lead.nome,
-                  telefone: lead.telefone,
-                  email: lead.email
+                  contato_id: contato.id,
+                  nome: contato.nome,
+                  telefone: contato.telefone,
+                  email: contato.email
                 }
               }
             });
@@ -174,10 +179,10 @@ export const useProspeccaoData = () => {
         return data;
       }
     } catch (error) {
-      console.error('Erro ao adicionar leads:', error);
+      console.error('Erro ao adicionar contatos:', error);
       toast({
-        title: "Erro ao adicionar leads",
-        description: "Não foi possível adicionar os leads ao banco",
+        title: "Erro ao adicionar contatos",
+        description: "Não foi possível adicionar os contatos ao banco",
         variant: "destructive"
       });
       throw error;
@@ -212,11 +217,23 @@ export const useProspeccaoData = () => {
     }
     
     try {
+      // Buscar empresa_id do usuário logado
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('empresa_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (profileError) {
+        console.error('Erro ao buscar perfil do usuário:', profileError);
+        throw profileError;
+      }
+
       const prospeccaoData = {
         ...dadosProspeccao,
         leads_gerados: 0,
         responsavel_id: user?.id,
-        empresa_id: user?.user_metadata?.empresa_id || null
+        empresa_id: profile.empresa_id
       };
 
       console.log('Data to insert:', prospeccaoData);
@@ -250,45 +267,45 @@ export const useProspeccaoData = () => {
     }
   };
 
-  // Atualizar status do lead
-  const atualizarStatusLead = async (leadId: string, novoStatus: Lead['status']) => {
+  // Atualizar status do contato
+  const atualizarStatusContato = async (contatoId: string, novoStatus: Contato['status']) => {
     try {
       const { error } = await supabase
-        .from('leads')
+        .from('contatos')
         .update({ 
           status: novoStatus,
           updated_at: new Date().toISOString()
         })
-        .eq('id', leadId);
+        .eq('id', contatoId);
 
       if (error) throw error;
 
-      setLeads(prev => prev.map(lead => 
-        lead.id === leadId 
-          ? { ...lead, status: novoStatus, updated_at: new Date().toISOString() }
-          : lead
+      setContatos(prev => prev.map(contato => 
+        contato.id === contatoId 
+          ? { ...contato, status: novoStatus, updated_at: new Date().toISOString() }
+          : contato
       ));
     } catch (error) {
-      console.error('Erro ao atualizar status do lead:', error);
+      console.error('Erro ao atualizar status do contato:', error);
       toast({
-        title: "Erro ao atualizar lead",
-        description: "Não foi possível atualizar o status do lead",
+        title: "Erro ao atualizar contato",
+        description: "Não foi possível atualizar o status do contato",
         variant: "destructive"
       });
       throw error;
     }
   };
 
-  // Calcular métricas dos leads
+  // Calcular métricas dos contatos
   const getMetricas = () => {
-    const metricas = leads.reduce((acc, lead) => {
-      const status = lead.status;
+    const metricas = contatos.reduce((acc, contato) => {
+      const status = contato.status;
       acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
     return {
-      totalBase: leads.length,
+      totalBase: contatos.length,
       novo: metricas['Novo'] || 0,
       enviados: metricas['Negociação'] || 0,
       recebidos: metricas['Em Contato'] || 0,
@@ -304,7 +321,7 @@ export const useProspeccaoData = () => {
       setLoading(true);
       await Promise.all([
         fetchProspeccoes(),
-        fetchLeads()
+        fetchContatos()
       ]);
       setLoading(false);
     };
@@ -312,14 +329,7 @@ export const useProspeccaoData = () => {
     if (user) {
       loadData();
     }
-  }, [user]); // Removendo dateFilter das dependências para evitar loop
-
-  // useEffect separado para filtro de data
-  useEffect(() => {
-    if (user) {
-      fetchProspeccoes();
-    }
-  }, [dateFilter]); // Apenas recarregar prospecções quando o filtro mudar
+  }, [user]);
 
   // Função para atualizar filtro de data com verificação de mudança
   const updateDateFilter = (start: string, end: string) => {
@@ -330,17 +340,17 @@ export const useProspeccaoData = () => {
   };
 
   return {
-    leads,
+    contatos,
     prospeccoes,
     loading,
-    adicionarLeads,
-    atualizarStatusLead,
+    adicionarContatos,
+    atualizarStatusContato,
     getMetricas,
     updateDateFilter,
     criarProspeccao,
     refetch: () => {
       fetchProspeccoes();
-      fetchLeads();
+      fetchContatos();
     }
   };
 };

@@ -83,6 +83,76 @@ export type Database = {
           },
         ]
       }
+      contatos: {
+        Row: {
+          cliente_id: string | null
+          created_at: string | null
+          email: string | null
+          empresa_id: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          origem: Database["public"]["Enums"]["origem_lead"] | null
+          responsavel_id: string | null
+          status: Database["public"]["Enums"]["status_lead"] | null
+          telefone: string | null
+          updated_at: string | null
+          valor_potencial: number | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          empresa_id?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          origem?: Database["public"]["Enums"]["origem_lead"] | null
+          responsavel_id?: string | null
+          status?: Database["public"]["Enums"]["status_lead"] | null
+          telefone?: string | null
+          updated_at?: string | null
+          valor_potencial?: number | null
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          empresa_id?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          origem?: Database["public"]["Enums"]["origem_lead"] | null
+          responsavel_id?: string | null
+          status?: Database["public"]["Enums"]["status_lead"] | null
+          telefone?: string | null
+          updated_at?: string | null
+          valor_potencial?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       empresas: {
         Row: {
           cnpj: string
@@ -142,11 +212,11 @@ export type Database = {
       }
       eventos_prospeccao: {
         Row: {
+          contato_id: string | null
           created_at: string | null
           data_evento: string | null
           descricao: string | null
           id: string
-          lead_id: string | null
           observacoes: string | null
           prospeccao_id: string | null
           proximo_contato: string | null
@@ -156,11 +226,11 @@ export type Database = {
             | null
         }
         Insert: {
+          contato_id?: string | null
           created_at?: string | null
           data_evento?: string | null
           descricao?: string | null
           id?: string
-          lead_id?: string | null
           observacoes?: string | null
           prospeccao_id?: string | null
           proximo_contato?: string | null
@@ -170,11 +240,11 @@ export type Database = {
             | null
         }
         Update: {
+          contato_id?: string | null
           created_at?: string | null
           data_evento?: string | null
           descricao?: string | null
           id?: string
-          lead_id?: string | null
           observacoes?: string | null
           prospeccao_id?: string | null
           proximo_contato?: string | null
@@ -186,9 +256,9 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "eventos_prospeccao_lead_id_fkey"
-            columns: ["lead_id"]
+            columns: ["contato_id"]
             isOneToOne: false
-            referencedRelation: "leads"
+            referencedRelation: "contatos"
             referencedColumns: ["id"]
           },
           {
@@ -346,82 +416,12 @@ export type Database = {
           },
         ]
       }
-      leads: {
+      logs_movimentacao_contatos: {
         Row: {
-          cliente_id: string | null
-          created_at: string | null
-          email: string | null
-          empresa_id: string | null
-          id: string
-          nome: string
-          observacoes: string | null
-          origem: Database["public"]["Enums"]["origem_lead"] | null
-          responsavel_id: string | null
-          status: Database["public"]["Enums"]["status_lead"] | null
-          telefone: string | null
-          updated_at: string | null
-          valor_potencial: number | null
-        }
-        Insert: {
-          cliente_id?: string | null
-          created_at?: string | null
-          email?: string | null
-          empresa_id?: string | null
-          id?: string
-          nome: string
-          observacoes?: string | null
-          origem?: Database["public"]["Enums"]["origem_lead"] | null
-          responsavel_id?: string | null
-          status?: Database["public"]["Enums"]["status_lead"] | null
-          telefone?: string | null
-          updated_at?: string | null
-          valor_potencial?: number | null
-        }
-        Update: {
-          cliente_id?: string | null
-          created_at?: string | null
-          email?: string | null
-          empresa_id?: string | null
-          id?: string
-          nome?: string
-          observacoes?: string | null
-          origem?: Database["public"]["Enums"]["origem_lead"] | null
-          responsavel_id?: string | null
-          status?: Database["public"]["Enums"]["status_lead"] | null
-          telefone?: string | null
-          updated_at?: string | null
-          valor_potencial?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "leads_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: false
-            referencedRelation: "clientes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leads_empresa_id_fkey"
-            columns: ["empresa_id"]
-            isOneToOne: false
-            referencedRelation: "empresas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leads_responsavel_id_fkey"
-            columns: ["responsavel_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      logs_movimentacao_leads: {
-        Row: {
+          contato_id: string
           created_at: string
           data_movimentacao: string
           id: string
-          lead_id: string
           observacoes: string | null
           prospeccao_id: string
           status_anterior: string | null
@@ -429,10 +429,10 @@ export type Database = {
           usuario_id: string | null
         }
         Insert: {
+          contato_id: string
           created_at?: string
           data_movimentacao?: string
           id?: string
-          lead_id: string
           observacoes?: string | null
           prospeccao_id: string
           status_anterior?: string | null
@@ -440,10 +440,10 @@ export type Database = {
           usuario_id?: string | null
         }
         Update: {
+          contato_id?: string
           created_at?: string
           data_movimentacao?: string
           id?: string
-          lead_id?: string
           observacoes?: string | null
           prospeccao_id?: string
           status_anterior?: string | null
@@ -521,12 +521,12 @@ export type Database = {
       notificacoes: {
         Row: {
           cliente_id: string | null
+          contato_id: string | null
           created_at: string | null
           data_envio: string | null
           data_leitura: string | null
           destinatario_id: string | null
           id: string
-          lead_id: string | null
           mensagem: string
           remetente_id: string | null
           status: Database["public"]["Enums"]["status_notificacao"] | null
@@ -536,12 +536,12 @@ export type Database = {
         }
         Insert: {
           cliente_id?: string | null
+          contato_id?: string | null
           created_at?: string | null
           data_envio?: string | null
           data_leitura?: string | null
           destinatario_id?: string | null
           id?: string
-          lead_id?: string | null
           mensagem: string
           remetente_id?: string | null
           status?: Database["public"]["Enums"]["status_notificacao"] | null
@@ -551,12 +551,12 @@ export type Database = {
         }
         Update: {
           cliente_id?: string | null
+          contato_id?: string | null
           created_at?: string | null
           data_envio?: string | null
           data_leitura?: string | null
           destinatario_id?: string | null
           id?: string
-          lead_id?: string | null
           mensagem?: string
           remetente_id?: string | null
           status?: Database["public"]["Enums"]["status_notificacao"] | null
@@ -581,9 +581,9 @@ export type Database = {
           },
           {
             foreignKeyName: "notificacoes_lead_id_fkey"
-            columns: ["lead_id"]
+            columns: ["contato_id"]
             isOneToOne: false
-            referencedRelation: "leads"
+            referencedRelation: "contatos"
             referencedColumns: ["id"]
           },
           {
