@@ -26,35 +26,31 @@ export const SalesFunnel = ({ stages, title = "Funil de Vendas" }: SalesFunnelPr
     <Card className="p-6">
       <h3 className="text-lg font-semibold text-foreground mb-6 text-center">{title}</h3>
       
-      <div className="space-y-2">
+      <div className="flex flex-col items-center space-y-1 max-w-md mx-auto">
         {stages.map((stage, index) => {
-          // Largura proporcional ao valor (mínimo 20% para visibilidade)
-          const widthPercentage = Math.max((stage.value / maxValue) * 100, 20);
+          // Larguras fixas progressivamente menores para criar o formato de funil
+          const funnelWidths = [100, 85, 70, 55, 40]; // Porcentagens de largura para cada nível
+          const widthPercentage = funnelWidths[Math.min(index, funnelWidths.length - 1)];
           const previousStage = index > 0 ? stages[index - 1] : null;
           const conversionRate = previousStage ? getConversionRate(stage.value, previousStage.value) : 100;
           
           return (
-            <div key={stage.id} className="relative">
+            <div key={stage.id} className="w-full">
               {/* Estágio do funil */}
               <div className="flex items-center justify-center relative">
                 <div
-                  className="relative flex items-center justify-center text-white font-semibold shadow-lg transition-all duration-300 hover:shadow-xl group"
+                  className="relative flex flex-col items-center justify-center text-foreground font-semibold shadow-sm transition-all duration-300 hover:shadow-md group border border-muted"
                   style={{
                     backgroundColor: stage.color,
                     width: `${widthPercentage}%`,
-                    height: '60px',
-                    clipPath: index === 0 
-                      ? 'polygon(0 0, 100% 0, 95% 100%, 5% 100%)' // Primeiro estágio (topo do funil)
-                      : index === stages.length - 1
-                      ? 'polygon(15% 0, 85% 0, 80% 100%, 20% 100%)' // Último estágio (fundo do funil)
-                      : 'polygon(10% 0, 90% 0, 85% 100%, 15% 100%)', // Estágios intermediários
-                    margin: '0 auto'
+                    height: '80px',
+                    borderRadius: '4px'
                   }}
                 >
                   {/* Conteúdo do estágio */}
-                  <div className="text-center">
+                  <div className="text-center text-white">
+                    <div className="text-2xl font-bold">{stage.value.toLocaleString()}</div>
                     <div className="text-sm font-medium">{stage.title}</div>
-                    <div className="text-lg font-bold">{stage.value.toLocaleString()}</div>
                   </div>
 
                   {/* Tooltip hover */}
@@ -69,9 +65,9 @@ export const SalesFunnel = ({ stages, title = "Funil de Vendas" }: SalesFunnelPr
 
               {/* Taxa de conversão entre estágios */}
               {index > 0 && (
-                <div className="flex justify-center mt-1 mb-1">
-                  <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-                    {conversionRate}% conversão
+                <div className="flex justify-center my-2">
+                  <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full border">
+                    {conversionRate}%
                   </div>
                 </div>
               )}
