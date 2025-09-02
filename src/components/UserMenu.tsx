@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +18,7 @@ import { toast } from "@/hooks/use-toast";
 export function UserMenu() {
   const { user: authUser, signOut } = useAuth();
   const [profile, setProfile] = useState<any>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (authUser) {
@@ -30,7 +32,7 @@ export function UserMenu() {
         .from("profiles")
         .select("*")
         .eq("id", authUser?.id)
-        .single();
+        .maybeSingle();
       setProfile(data);
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -53,7 +55,11 @@ export function UserMenu() {
     }
   };
 
-  if (!authUser || !profile) return null;
+  if (!authUser) return null;
+  
+  // Use profile if available, otherwise fallback to authUser data
+  const displayName = profile?.nome_completo || authUser.email?.split('@')[0] || "Usuário";
+  const userEmail = authUser.email || "";
 
   return (
     <DropdownMenu>
@@ -61,9 +67,9 @@ export function UserMenu() {
         <Button variant="ghost" className="relative h-auto w-auto p-2">
           <div className="flex items-center space-x-2">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={profile.foto_url} alt={profile.nome_completo} />
+              <AvatarImage src={profile?.foto_url} alt={displayName} />
               <AvatarFallback>
-                {profile.nome_completo
+                {displayName
                   .split(" ")
                   .map((n: string) => n[0])
                   .join("")
@@ -71,9 +77,9 @@ export function UserMenu() {
               </AvatarFallback>
             </Avatar>
             <div className="ml-2 text-left">
-              <p className="text-sm font-medium leading-none">{profile.nome_completo}</p>
+              <p className="text-sm font-medium leading-none">{displayName}</p>
               <p className="text-xs leading-none text-muted-foreground">
-                {authUser.email}
+                {userEmail}
               </p>
             </div>
           </div>
@@ -83,29 +89,31 @@ export function UserMenu() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{profile.nome_completo}</p>
+            <p className="text-sm font-medium leading-none">{displayName}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {authUser.email}
+              {userEmail}
             </p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {profile.tipo_acesso}
-            </p>
+            {profile?.tipo_acesso && (
+              <p className="text-xs leading-none text-muted-foreground">
+                {profile.tipo_acesso}
+              </p>
+            )}
           </div>
         </DropdownMenuLabel>
         
         <DropdownMenuSeparator />
         
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/minha-conta")}>
           <User className="mr-2 h-4 w-4" />
           <span>Minha Conta</span>
         </DropdownMenuItem>
         
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/configuracoes")}>
           <Settings className="mr-2 h-4 w-4" />
           <span>Configurações</span>
         </DropdownMenuItem>
         
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/ajuda")}>
           <HelpCircle className="mr-2 h-4 w-4" />
           <span>Ajuda</span>
         </DropdownMenuItem>

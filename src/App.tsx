@@ -22,6 +22,8 @@ import Metas from "./pages/Metas";
 import Relatorios from "./pages/Relatorios";
 import Treinamentos from "./pages/Treinamentos";
 import Configuracoes from "./pages/Configuracoes";
+import MinhaConta from "./pages/MinhaConta";
+import Ajuda from "./pages/Ajuda";
 import Empresas from "./pages/admin/Empresas";
 import Acessos from "./pages/admin/Acessos";
 import CamposObrigatorios from "./pages/admin/CamposObrigatorios";
@@ -51,6 +53,8 @@ const App = () => (
           <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
           <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
           <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+          <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
+          <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
           <Route path="/gatilhos" element={<ProtectedRoute><Gatilhos /></ProtectedRoute>} />
           <Route path="/administracao" element={<ProtectedRoute><Administracao /></ProtectedRoute>} />
           <Route path="/administracao/empresas" element={<ProtectedRoute><Empresas /></ProtectedRoute>} />

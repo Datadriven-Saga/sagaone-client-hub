@@ -12,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Users, Edit, Trash2, Shield, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
 import { Database } from "@/integrations/supabase/types";
@@ -49,6 +50,7 @@ const Acessos = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { user: authUser, session } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<UserForm>({
@@ -68,6 +70,8 @@ const Acessos = () => {
   const fetchProfiles = async () => {
     try {
       console.log('Fetching profiles...');
+      console.log('Current user:', authUser?.id);
+      console.log('Session:', session);
       
       // Primeiro tentar a edge function para buscar usuários com emails
       const { data, error } = await supabase.functions.invoke('manage-users', {
