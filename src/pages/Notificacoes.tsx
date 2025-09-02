@@ -9,12 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { AlertCircle, Clock, CheckCircle, BarChart3 } from "lucide-react";
 import { useState } from "react";
+import { DateRange } from "react-day-picker";
 
 const Notificacoes = () => {
   const [isNotificationDialogOpen, setIsNotificationDialogOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const kpis = [
     { title: "Atrasadas", value: "23", icon: AlertCircle, trend: "down" as const },
     { title: "Pendentes", value: "156", icon: Clock },
@@ -69,10 +72,10 @@ const Notificacoes = () => {
   return (
     <DashboardLayout title="Notificações">
       <div className="space-y-3">
-        {/* Filters */}
         <Card className="p-4">
-          <h3 className="text-lg font-semibold text-foreground mb-4">Filtros</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Input placeholder="Nome do cliente" />
+
             <Select>
               <SelectTrigger>
                 <SelectValue placeholder="Tipo da Notificação" />
@@ -86,8 +89,6 @@ const Notificacoes = () => {
               </SelectContent>
             </Select>
 
-            <Input placeholder="Nome do cliente" />
-
             <Select>
               <SelectTrigger>
                 <SelectValue placeholder="Status" />
@@ -99,7 +100,11 @@ const Notificacoes = () => {
               </SelectContent>
             </Select>
 
-            <Input type="date" placeholder="Período" />
+            <DateRangePicker 
+              date={dateRange}
+              onDateChange={setDateRange}
+              placeholder="Período"
+            />
           </div>
         </Card>
 
