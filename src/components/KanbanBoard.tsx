@@ -45,6 +45,7 @@ interface KanbanBoardProps {
   onEditItem?: (item: KanbanItem) => void;
   onDeleteItem?: (itemId: string) => void;
   onCardClick?: (item: KanbanItem) => void;
+  onStatusChange?: (itemId: string, fromStatus: string, toStatus: string) => void;
 }
 
 export function KanbanBoard({ 
@@ -53,7 +54,8 @@ export function KanbanBoard({
   onAddItem, 
   onEditItem, 
   onDeleteItem,
-  onCardClick
+  onCardClick,
+  onStatusChange
 }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeItem, setActiveItem] = useState<KanbanItem | null>(null);
@@ -142,7 +144,11 @@ export function KanbanBoard({
         onUpdateColumns(newColumns);
       }
     } else {
-      // Mover entre colunas diferentes
+      // Mover entre colunas diferentes - registrar log
+      if (onStatusChange) {
+        onStatusChange(activeId, sourceColumn.id, targetColumn.id);
+      }
+      
       const newColumns = columns.map(col => {
         if (col.id === sourceColumn.id) {
           // Remove item from source column

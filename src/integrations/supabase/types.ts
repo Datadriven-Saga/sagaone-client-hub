@@ -416,6 +416,42 @@ export type Database = {
           },
         ]
       }
+      logs_movimentacao_leads: {
+        Row: {
+          created_at: string
+          data_movimentacao: string
+          id: string
+          lead_id: string
+          observacoes: string | null
+          prospeccao_id: string
+          status_anterior: string | null
+          status_novo: string
+          usuario_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data_movimentacao?: string
+          id?: string
+          lead_id: string
+          observacoes?: string | null
+          prospeccao_id: string
+          status_anterior?: string | null
+          status_novo: string
+          usuario_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data_movimentacao?: string
+          id?: string
+          lead_id?: string
+          observacoes?: string | null
+          prospeccao_id?: string
+          status_anterior?: string | null
+          status_novo?: string
+          usuario_id?: string | null
+        }
+        Relationships: []
+      }
       metas: {
         Row: {
           created_at: string | null

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,8 @@ import { FilterBar } from "@/components/FilterBar";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
 import { DetalhesProspeccao } from "@/components/DetalhesProspeccao";
-import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
 import { useToast } from "@/components/ui/use-toast";
 
 interface ClienteProspeccao {
@@ -33,6 +35,7 @@ interface Prospection {
   brand: string;
   objective: number;
   status: string;
+  totalContacts: number;
   metrics: {
     enviados: number;
     recebidos: number;
@@ -49,6 +52,21 @@ const Prospeccao = () => {
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
   const [clientesProspeccao, setClientesProspeccao] = useState<ClienteProspeccao[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { registrarMovimentacao } = useProspeccaoLogs();
+
+  // Função para registrar movimentações dos leads
+  const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
+    if (registrarMovimentacao && user) {
+      await registrarMovimentacao({
+        leadId: itemId,
+        prospeccaoId: 'current-prospeccao-id', // TODO: passar ID real da prospecção
+        statusAnterior: fromStatus,
+        statusNovo: toStatus,
+        usuarioId: user.id,
+      });
+    }
+  };
 
   const mockProspections: Prospection[] = [
     {
@@ -59,6 +77,7 @@ const Prospeccao = () => {
       brand: "Honda",
       objective: 50,
       status: "Ativa",
+      totalContacts: 1500,
       metrics: {
         enviados: 1200,
         recebidos: 1100,
@@ -78,6 +97,7 @@ const Prospeccao = () => {
       brand: "Toyota",
       objective: 25,
       status: "Finalizada",
+      totalContacts: 1200,
       metrics: {
         enviados: 900,
         recebidos: 850,
@@ -97,6 +117,7 @@ const Prospeccao = () => {
       brand: "Volkswagen",
       objective: 30,
       status: "Ativa",
+      totalContacts: 1000,
       metrics: {
         enviados: 800,
         recebidos: 750,
@@ -147,8 +168,21 @@ const Prospeccao = () => {
   };
 
   const consolidatedMetrics = getConsolidatedMetrics();
+  
+  // Calcular total da base (incluindo leads em qualquer status)
+  const totalBase = selectedProspections.length === 0 
+    ? mockProspections.reduce((acc, prospect) => acc + prospect.totalContacts, 0)
+    : mockProspections
+        .filter(p => selectedProspections.includes(p.id))
+        .reduce((acc, prospect) => acc + prospect.totalContacts, 0);
 
   const funnelStages: FunnelStage[] = [
+    {
+      id: 'totalBase',
+      title: 'Total da Base',
+      value: totalBase,
+      color: '#94a3b8'
+    },
     {
       id: 'enviados',
       title: 'Enviados',
@@ -519,14 +553,15 @@ const Prospeccao = () => {
           
           <Card className="p-4">
             <h3 className="text-lg font-semibold text-foreground mb-4">Kanban - Gestão da Prospecção</h3>
-            <KanbanBoard
-              columns={kanbanColumns}
-              onUpdateColumns={setKanbanColumns}
-              onAddItem={handleAddItem}
-              onEditItem={handleEditItem}
-              onDeleteItem={handleDeleteItem}
-              onCardClick={handleCardClick}
-            />
+                    <KanbanBoard
+                      columns={kanbanColumns}
+                      onUpdateColumns={setKanbanColumns}
+                      onAddItem={handleAddItem}
+                      onEditItem={handleEditItem}
+                      onDeleteItem={handleDeleteItem}
+                      onCardClick={handleCardClick}
+                      onStatusChange={handleStatusChange}
+                    />
           </Card>
         </TabsContent>
       </Tabs>
