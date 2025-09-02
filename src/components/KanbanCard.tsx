@@ -75,6 +75,12 @@ export function KanbanCard({ item, isDragging, onEdit, onDelete, onCardClick }: 
       {...listeners}
       className={`p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group ${
         isDragging ? 'rotate-3 shadow-lg' : ''
+      } ${
+        item.prospeccaoCanal === 'Whatsapp' 
+          ? 'border-t-4 border-t-green-500' 
+          : item.prospeccaoCanal === 'Ligação' 
+          ? 'border-t-4 border-t-blue-500' 
+          : ''
       }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

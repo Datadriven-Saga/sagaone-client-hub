@@ -116,6 +116,7 @@ const Prospeccao = () => {
       .map(contato => {
         // Buscar nome da prospecção se houver relacionamento
         const prospeccaoNome = prospeccoes.length > 0 ? prospeccoes[0].titulo : 'Sem prospecção';
+        const prospeccaoCanal = prospeccoes.length > 0 ? prospeccoes[0].canal : 'Whatsapp';
         
         return {
           id: contato.id,
@@ -124,7 +125,8 @@ const Prospeccao = () => {
           channel: contato.origem,
           priority: 'medium' as const,
           assignee: contato.responsavel_id || undefined,
-          prospeccaoNome // Adicionar nome da prospecção
+          prospeccaoNome, // Adicionar nome da prospecção
+          prospeccaoCanal // Adicionar canal da prospecção
         };
       });
   };
