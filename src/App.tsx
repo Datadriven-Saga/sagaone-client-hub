@@ -38,34 +38,34 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-          <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
-          <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
-          <Route path="/personas" element={<ProtectedRoute><Personas /></ProtectedRoute>} />
-          <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
-          <Route path="/central-atendimento" element={<ProtectedRoute><CentralAtendimento /></ProtectedRoute>} />
-          <Route path="/loja" element={<ProtectedRoute><Loja /></ProtectedRoute>} />
-          <Route path="/busca-resgate" element={<ProtectedRoute><BuscaResgate /></ProtectedRoute>} />
-          <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />
-          <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
-          <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
-          <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-          <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
-          <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
-          <Route path="/gatilhos" element={<ProtectedRoute><Gatilhos /></ProtectedRoute>} />
-          <Route path="/administracao" element={<ProtectedRoute><Administracao /></ProtectedRoute>} />
-          <Route path="/administracao/empresas" element={<ProtectedRoute><Empresas /></ProtectedRoute>} />
-          <Route path="/administracao/acessos" element={<ProtectedRoute><Acessos /></ProtectedRoute>} />
-          <Route path="/administracao/campos" element={<ProtectedRoute><CamposObrigatorios /></ProtectedRoute>} />
-          <Route path="/administracao/apis" element={<ProtectedRoute><APIs /></ProtectedRoute>} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
+            <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
+            <Route path="/personas" element={<ProtectedRoute><Personas /></ProtectedRoute>} />
+            <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
+            <Route path="/central-atendimento" element={<ProtectedRoute><CentralAtendimento /></ProtectedRoute>} />
+            <Route path="/loja" element={<ProtectedRoute><Loja /></ProtectedRoute>} />
+            <Route path="/busca-resgate" element={<ProtectedRoute><BuscaResgate /></ProtectedRoute>} />
+            <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />
+            <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
+            <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
+            <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+            <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
+            <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
+            <Route path="/gatilhos" element={<ProtectedRoute><Gatilhos /></ProtectedRoute>} />
+            <Route path="/administracao" element={<ProtectedRoute><Administracao /></ProtectedRoute>} />
+            <Route path="/administracao/empresas" element={<ProtectedRoute><Empresas /></ProtectedRoute>} />
+            <Route path="/administracao/acessos" element={<ProtectedRoute><Acessos /></ProtectedRoute>} />
+            <Route path="/administracao/campos" element={<ProtectedRoute><CamposObrigatorios /></ProtectedRoute>} />
+            <Route path="/administracao/apis" element={<ProtectedRoute><APIs /></ProtectedRoute>} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
