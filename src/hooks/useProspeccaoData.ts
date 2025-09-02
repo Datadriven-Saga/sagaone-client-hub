@@ -173,6 +173,45 @@ export const useProspeccaoData = () => {
     }
   };
 
+  // Criar nova prospecção
+  const criarProspeccao = async (dadosProspeccao: {
+    titulo: string;
+    descricao?: string;
+    data_inicio?: string;
+    data_fim?: string;
+    meta_leads?: number;
+  }) => {
+    try {
+      const prospeccaoData = {
+        ...dadosProspeccao,
+        leads_gerados: 0,
+        responsavel_id: user?.id,
+        empresa_id: user?.user_metadata?.empresa_id || null
+      };
+
+      const { data, error } = await supabase
+        .from('prospeccoes')
+        .insert([prospeccaoData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setProspeccoes(prev => [data, ...prev]);
+        return data;
+      }
+    } catch (error) {
+      console.error('Erro ao criar prospecção:', error);
+      toast({
+        title: "Erro ao criar prospecção",
+        description: "Não foi possível criar a prospecção",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
+
   // Atualizar status do lead
   const atualizarStatusLead = async (leadId: string, novoStatus: Lead['status']) => {
     try {
@@ -250,6 +289,7 @@ export const useProspeccaoData = () => {
     atualizarStatusLead,
     getMetricas,
     updateDateFilter,
+    criarProspeccao,
     refetch: () => {
       fetchProspeccoes();
       fetchLeads();

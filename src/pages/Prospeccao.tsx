@@ -10,6 +10,7 @@ import { Target, CheckCircle } from "lucide-react";
 import { FilterBar } from "@/components/FilterBar";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
+import { NovaProspeccaoModal } from "@/components/NovaProspeccaoModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
 import { useProspeccaoData, kanbanStatusMap } from "@/hooks/useProspeccaoData";
@@ -24,10 +25,11 @@ interface ClienteData {
 
 const Prospeccao = () => {
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
+  const [showNovaProspeccaoModal, setShowNovaProspeccaoModal] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const { registrarMovimentacao } = useProspeccaoLogs();
-  const { leads, prospeccoes, loading, adicionarLeads, atualizarStatusLead, getMetricas, updateDateFilter } = useProspeccaoData();
+  const { leads, prospeccoes, loading, adicionarLeads, atualizarStatusLead, getMetricas, updateDateFilter, criarProspeccao, refetch } = useProspeccaoData();
 
   // Função para registrar movimentações dos leads
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
@@ -151,6 +153,9 @@ const Prospeccao = () => {
   // Função para importar clientes como leads
   const handleClientesImported = async (campanha: string, clientes: ClienteData[]) => {
     try {
+      // Buscar o ID da prospecção pela campanha selecionada
+      const prospeccaoSelecionada = prospeccoes.find(p => p.titulo === campanha);
+      
       const novosLeads = clientes.map(cliente => ({
         nome: cliente.nome,
         telefone: cliente.telefone,
@@ -160,7 +165,7 @@ const Prospeccao = () => {
         observacoes: `Importado da campanha: ${campanha}`
       }));
 
-      await adicionarLeads(novosLeads);
+      await adicionarLeads(novosLeads, prospeccaoSelecionada?.id);
 
       toast({
         title: "Planilha importada",
@@ -173,6 +178,9 @@ const Prospeccao = () => {
 
   const handleClientesSelected = async (campanha: string, clientes: ClienteData[]) => {
     try {
+      // Buscar o ID da prospecção pela campanha selecionada
+      const prospeccaoSelecionada = prospeccoes.find(p => p.titulo === campanha);
+      
       const novosLeads = clientes.map(cliente => ({
         nome: cliente.nome,
         telefone: cliente.telefone,
@@ -182,7 +190,7 @@ const Prospeccao = () => {
         observacoes: `Selecionado da base: ${campanha}`
       }));
 
-      await adicionarLeads(novosLeads);
+      await adicionarLeads(novosLeads, prospeccaoSelecionada?.id);
 
       toast({
         title: "Clientes adicionados",
@@ -274,7 +282,7 @@ const Prospeccao = () => {
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-foreground">Prospecções</h3>
-                  <Button onClick={() => console.log('Implementar modal de Nova Prospecção')}>Nova Prospecção</Button>
+                  <Button onClick={() => setShowNovaProspeccaoModal(true)}>Nova Prospecção</Button>
                 </div>
 
                 {prospeccoes.length > 0 ? (
@@ -413,6 +421,12 @@ const Prospeccao = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <NovaProspeccaoModal
+        isOpen={showNovaProspeccaoModal}
+        onOpenChange={setShowNovaProspeccaoModal}
+        onProspeccaoCriada={refetch}
+      />
     </DashboardLayout>
   );
 };
