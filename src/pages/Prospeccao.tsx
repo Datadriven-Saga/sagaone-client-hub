@@ -319,7 +319,7 @@ const Prospeccao = () => {
   return (
     <DashboardLayout title="Prospecção">
       <Tabs defaultValue="visao-geral" className="space-y-3">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="inline-flex">
           <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
           <TabsTrigger value="automacao">Automação</TabsTrigger>
