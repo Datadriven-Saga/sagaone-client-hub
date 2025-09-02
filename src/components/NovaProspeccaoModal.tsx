@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -21,7 +21,10 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }
     descricao: "",
     data_inicio: "",
     data_fim: "",
-    meta_leads: ""
+    local_evento: "",
+    condicoes_especiais: "",
+    objetivo_vendas: "",
+    imagem_divulgacao_url: ""
   });
   
   const { toast } = useToast();
@@ -47,7 +50,10 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }
         descricao: formData.descricao.trim() || null,
         data_inicio: formData.data_inicio || null,
         data_fim: formData.data_fim || null,
-        meta_leads: formData.meta_leads ? parseInt(formData.meta_leads) : null,
+        local_evento: formData.local_evento.trim() || null,
+        condicoes_especiais: formData.condicoes_especiais.trim() || null,
+        objetivo_vendas: formData.objetivo_vendas.trim() || null,
+        imagem_divulgacao_url: formData.imagem_divulgacao_url.trim() || null,
         leads_gerados: 0,
         responsavel_id: user?.id,
         empresa_id: user?.user_metadata?.empresa_id || null
@@ -72,7 +78,10 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }
         descricao: "",
         data_inicio: "",
         data_fim: "",
-        meta_leads: ""
+        local_evento: "",
+        condicoes_especiais: "",
+        objetivo_vendas: "",
+        imagem_divulgacao_url: ""
       });
 
       onOpenChange(false);
@@ -96,7 +105,10 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }
       descricao: "",
       data_inicio: "",
       data_fim: "",
-      meta_leads: ""
+      local_evento: "",
+      condicoes_especiais: "",
+      objetivo_vendas: "",
+      imagem_divulgacao_url: ""
     });
     onOpenChange(false);
   };
@@ -154,14 +166,44 @@ export const NovaProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }
           </div>
 
           <div>
-            <Label htmlFor="meta_leads">Meta de Leads</Label>
+            <Label htmlFor="local_evento">Local do Evento</Label>
             <Input
-              id="meta_leads"
-              type="number"
-              placeholder="Ex: 1000"
-              min="0"
-              value={formData.meta_leads}
-              onChange={(e) => setFormData({...formData, meta_leads: e.target.value})}
+              id="local_evento"
+              placeholder="Ex: Centro de Convenções SP"
+              value={formData.local_evento}
+              onChange={(e) => setFormData({...formData, local_evento: e.target.value})}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="condicoes_especiais">Condições Especiais</Label>
+            <Textarea
+              id="condicoes_especiais"
+              placeholder="Condições especiais do evento..."
+              rows={3}
+              value={formData.condicoes_especiais}
+              onChange={(e) => setFormData({...formData, condicoes_especiais: e.target.value})}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="objetivo_vendas">Objetivo de Vendas</Label>
+            <Input
+              id="objetivo_vendas"
+              placeholder="Ex: Aumentar vendas em 30%"
+              value={formData.objetivo_vendas}
+              onChange={(e) => setFormData({...formData, objetivo_vendas: e.target.value})}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="imagem_divulgacao_url">Imagem de Divulgação (Opcional)</Label>
+            <Input
+              id="imagem_divulgacao_url"
+              type="url"
+              placeholder="https://exemplo.com/imagem.jpg"
+              value={formData.imagem_divulgacao_url}
+              onChange={(e) => setFormData({...formData, imagem_divulgacao_url: e.target.value})}
             />
           </div>
 

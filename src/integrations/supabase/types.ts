@@ -828,42 +828,54 @@ export type Database = {
       }
       prospeccoes: {
         Row: {
+          condicoes_especiais: string | null
           created_at: string | null
           data_fim: string | null
           data_inicio: string | null
           descricao: string | null
           empresa_id: string | null
           id: string
+          imagem_divulgacao_url: string | null
           leads_gerados: number | null
+          local_evento: string | null
           meta_leads: number | null
+          objetivo_vendas: string | null
           persona_id: string | null
           responsavel_id: string | null
           titulo: string
           updated_at: string | null
         }
         Insert: {
+          condicoes_especiais?: string | null
           created_at?: string | null
           data_fim?: string | null
           data_inicio?: string | null
           descricao?: string | null
           empresa_id?: string | null
           id?: string
+          imagem_divulgacao_url?: string | null
           leads_gerados?: number | null
+          local_evento?: string | null
           meta_leads?: number | null
+          objetivo_vendas?: string | null
           persona_id?: string | null
           responsavel_id?: string | null
           titulo: string
           updated_at?: string | null
         }
         Update: {
+          condicoes_especiais?: string | null
           created_at?: string | null
           data_fim?: string | null
           data_inicio?: string | null
           descricao?: string | null
           empresa_id?: string | null
           id?: string
+          imagem_divulgacao_url?: string | null
           leads_gerados?: number | null
+          local_evento?: string | null
           meta_leads?: number | null
+          objetivo_vendas?: string | null
           persona_id?: string | null
           responsavel_id?: string | null
           titulo?: string
