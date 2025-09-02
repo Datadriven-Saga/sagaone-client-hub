@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { 
+import { useState, useEffect } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -7,41 +9,86 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Settings, HelpCircle, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 export function UserMenu() {
-  const [user] = useState({
-    name: "João Silva",
-    email: "joao@empresa.com",
-    avatar: ""
-  });
+  const { user: authUser, signOut } = useAuth();
+  const [profile, setProfile] = useState<any>(null);
 
-  const handleLogout = () => {
-    // TODO: Implementar logout após conectar Supabase
-    console.log("Logout");
+  useEffect(() => {
+    if (authUser) {
+      fetchProfile();
+    }
+  }, [authUser]);
+
+  const fetchProfile = async () => {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", authUser?.id)
+        .single();
+      setProfile(data);
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    }
   };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Logout realizado",
+        description: "Você foi desconectado do sistema.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro no logout",
+        description: "Ocorreu um erro ao sair do sistema.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (!authUser || !profile) return null;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={user.avatar} alt={user.name} />
-            <AvatarFallback className="bg-primary text-primary-foreground">
-              {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+        <Button variant="ghost" className="relative h-auto w-auto p-2">
+          <div className="flex items-center space-x-2">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={profile.foto_url} alt={profile.nome_completo} />
+              <AvatarFallback>
+                {profile.nome_completo
+                  .split(" ")
+                  .map((n: string) => n[0])
+                  .join("")
+                  .toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="ml-2 text-left">
+              <p className="text-sm font-medium leading-none">{profile.nome_completo}</p>
+              <p className="text-xs leading-none text-muted-foreground">
+                {authUser.email}
+              </p>
+            </div>
+          </div>
         </Button>
       </DropdownMenuTrigger>
       
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
+            <p className="text-sm font-medium leading-none">{profile.nome_completo}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
+              {authUser.email}
+            </p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {profile.tipo_acesso}
             </p>
           </div>
         </DropdownMenuLabel>

@@ -3,9 +3,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Personas from "./pages/Personas";
 import Gatilhos from "./pages/Gatilhos";
 import Administracao from "./pages/Administracao";
@@ -28,35 +30,37 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Index />} />
-          <Route path="/clientes" element={<Clientes />} />
-          <Route path="/notificacoes" element={<Notificacoes />} />
-          <Route path="/personas" element={<Personas />} />
-          <Route path="/prospeccao" element={<Prospeccao />} />
-          <Route path="/central-atendimento" element={<CentralAtendimento />} />
-          <Route path="/loja" element={<Loja />} />
-          <Route path="/busca-resgate" element={<BuscaResgate />} />
-          <Route path="/metas" element={<Metas />} />
-          <Route path="/relatorios" element={<Relatorios />} />
-          <Route path="/treinamentos" element={<Treinamentos />} />
-          <Route path="/configuracoes" element={<Configuracoes />} />
-          <Route path="/gatilhos" element={<Gatilhos />} />
-          <Route path="/administracao" element={<Administracao />} />
-          <Route path="/administracao/empresas" element={<Empresas />} />
-          <Route path="/administracao/acessos" element={<Acessos />} />
-          <Route path="/administracao/campos" element={<CamposObrigatorios />} />
-          <Route path="/administracao/apis" element={<APIs />} />
+          <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+          <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
+          <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
+          <Route path="/personas" element={<ProtectedRoute><Personas /></ProtectedRoute>} />
+          <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
+          <Route path="/central-atendimento" element={<ProtectedRoute><CentralAtendimento /></ProtectedRoute>} />
+          <Route path="/loja" element={<ProtectedRoute><Loja /></ProtectedRoute>} />
+          <Route path="/busca-resgate" element={<ProtectedRoute><BuscaResgate /></ProtectedRoute>} />
+          <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />
+          <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
+          <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
+          <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+          <Route path="/gatilhos" element={<ProtectedRoute><Gatilhos /></ProtectedRoute>} />
+          <Route path="/administracao" element={<ProtectedRoute><Administracao /></ProtectedRoute>} />
+          <Route path="/administracao/empresas" element={<ProtectedRoute><Empresas /></ProtectedRoute>} />
+          <Route path="/administracao/acessos" element={<ProtectedRoute><Acessos /></ProtectedRoute>} />
+          <Route path="/administracao/campos" element={<ProtectedRoute><CamposObrigatorios /></ProtectedRoute>} />
+          <Route path="/administracao/apis" element={<ProtectedRoute><APIs /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

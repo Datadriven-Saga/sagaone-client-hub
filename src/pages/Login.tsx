@@ -1,22 +1,61 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { toast } from "@/hooks/use-toast";
 import tavatLogo from "@/assets/tavat-logo.png";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: ""
   });
+  
+  const { signIn, user } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implementar login após conectar Supabase
-    console.log("Login attempt:", formData);
+    setLoading(true);
+
+    try {
+      const { error } = await signIn(formData.email, formData.password);
+      
+      if (error) {
+        toast({
+          title: "Erro no login",
+          description: "Email ou senha incorretos. Tente novamente.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Login realizado",
+          description: "Bem-vindo ao sistema!",
+        });
+        navigate("/");
+      }
+    } catch (error) {
+      toast({
+        title: "Erro no login",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -87,8 +126,12 @@ const Login = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
-                Entrar no Sistema
+              <Button 
+                type="submit" 
+                className="w-full bg-primary hover:bg-primary/90"
+                disabled={loading}
+              >
+                {loading ? "Entrando..." : "Entrar no Sistema"}
               </Button>
 
               <div className="text-center">
