@@ -1,0 +1,617 @@
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { 
+  User, 
+  Phone, 
+  Mail, 
+  CreditCard, 
+  History, 
+  MessageSquare, 
+  Package, 
+  Thermometer, 
+  MessageCircle, 
+  FileText,
+  Calendar,
+  Trash2,
+  UserCheck,
+  Plus,
+  Settings
+} from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { Contato } from '@/hooks/useContatoData';
+
+interface ContatoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  contato: Contato | null;
+  columnId?: string;
+  onStatusChange?: (contatoId: string, novoStatus: Contato['status']) => void;
+  onDelete?: (contatoId: string) => void;
+  onAssignResponsible?: (contatoId: string, userId: string) => void;
+}
+
+interface Anotacao {
+  id: string;
+  texto: string;
+  usuario: string;
+  timestamp: string;
+}
+
+interface Produto {
+  id: string;
+  nome: string;
+  preco?: number;
+  categoria?: string;
+}
+
+interface TemperaturaOption {
+  id: string;
+  nome: string;
+  cor: string;
+}
+
+interface LogEntry {
+  id: string;
+  acao: string;
+  usuario: string;
+  timestamp: string;
+  detalhes?: string;
+}
+
+export function ContatoModal({ 
+  isOpen, 
+  onClose, 
+  contato, 
+  columnId, 
+  onStatusChange,
+  onDelete,
+  onAssignResponsible 
+}: ContatoModalProps) {
+  const [activeTab, setActiveTab] = useState('dados-pessoais');
+  const [novaAnotacao, setNovaAnotacao] = useState('');
+  const [temperaturaAtual, setTemperaturaAtual] = useState<string>('');
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Mock data - substitua por dados reais do banco
+  const [anotacoes] = useState<Anotacao[]>([
+    {
+      id: '1',
+      texto: 'Cliente demonstrou interesse no produto premium',
+      usuario: 'João Silva',
+      timestamp: '2025-01-02 14:30'
+    },
+    {
+      id: '2',
+      texto: 'Agendado reunião para apresentação',
+      usuario: 'Maria Santos',
+      timestamp: '2025-01-02 16:15'
+    }
+  ]);
+
+  const [produtosDisponiveis] = useState<Produto[]>([
+    { id: '1', nome: 'Produto A', preco: 299.90, categoria: 'Premium' },
+    { id: '2', nome: 'Produto B', preco: 199.90, categoria: 'Standard' },
+    { id: '3', nome: 'Produto C', preco: 99.90, categoria: 'Basic' }
+  ]);
+
+  const [produtosSelecionados, setProdutosSelecionados] = useState<string[]>([]);
+
+  const temperaturas: TemperaturaOption[] = [
+    { id: 'frio', nome: 'Frio', cor: '#3b82f6' },
+    { id: 'morno', nome: 'Morno', cor: '#f59e0b' },
+    { id: 'quente', nome: 'Quente', cor: '#ef4444' }
+  ];
+
+  const [logEntries] = useState<LogEntry[]>([
+    {
+      id: '1',
+      acao: 'Contato criado',
+      usuario: 'Sistema',
+      timestamp: '2025-01-02 10:00',
+      detalhes: 'Contato importado via planilha'
+    },
+    {
+      id: '2',
+      acao: 'Status alterado',
+      usuario: 'João Silva',
+      timestamp: '2025-01-02 14:30',
+      detalhes: 'De "Novo" para "Em Contato"'
+    }
+  ]);
+
+  const statusOptions: Contato['status'][] = [
+    'Novo', 'Negociação', 'Em Contato', 'Qualificado', 'Proposta', 'Fechado', 'Perdido'
+  ];
+
+  const handleAdicionarAnotacao = () => {
+    if (novaAnotacao.trim().length === 0) {
+      toast({
+        title: "Erro",
+        description: "A anotação não pode estar vazia",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (novaAnotacao.length > 1000) {
+      toast({
+        title: "Erro",
+        description: "A anotação não pode ter mais de 1000 caracteres",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // TODO: Salvar anotação no banco
+    toast({
+      title: "Sucesso",
+      description: "Anotação adicionada com sucesso"
+    });
+    setNovaAnotacao('');
+  };
+
+  const handleStatusChange = (novoStatus: Contato['status']) => {
+    if (!contato) return;
+
+    // Regras especiais para status específicos
+    if (novoStatus === 'Perdido') {
+      // TODO: Abrir modal para escolher motivo de insucesso
+      console.log('Selecionar motivo de insucesso');
+    } else if (novoStatus === 'Fechado') {
+      // TODO: Criar lead no Central de Atendimento
+      console.log('Criar lead no Central de Atendimento');
+    }
+
+    onStatusChange?.(contato.id, novoStatus);
+    
+    toast({
+      title: "Status atualizado",
+      description: `Status alterado para ${novoStatus}`
+    });
+  };
+
+  const handleAtribuirResponsavel = () => {
+    if (!contato || !user || columnId !== 'novo') return;
+    
+    onAssignResponsible?.(contato.id, user.id);
+    
+    toast({
+      title: "Responsável atribuído",
+      description: "Você foi definido como responsável por este contato"
+    });
+  };
+
+  const handleExcluirContato = () => {
+    if (!contato) return;
+    
+    if (window.confirm('Tem certeza que deseja excluir este contato da prospecção?')) {
+      onDelete?.(contato.id);
+      onClose();
+      
+      toast({
+        title: "Contato excluído",
+        description: "O contato foi removido da prospecção"
+      });
+    }
+  };
+
+  const toggleProduto = (produtoId: string) => {
+    setProdutosSelecionados(prev => 
+      prev.includes(produtoId) 
+        ? prev.filter(id => id !== produtoId)
+        : [...prev, produtoId]
+    );
+  };
+
+  if (!contato) return null;
+
+  const sidebarItems = [
+    { id: 'dados-pessoais', label: 'Dados Pessoais', icon: User },
+    { id: 'status', label: 'Status', icon: Settings },
+    { id: 'responsavel', label: 'Responsável', icon: UserCheck },
+    { id: 'anotacoes', label: 'Anotações', icon: MessageSquare },
+    { id: 'produtos', label: 'Produtos', icon: Package },
+    { id: 'temperatura', label: 'Temperatura', icon: Thermometer },
+    { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
+    { id: 'log-auditoria', label: 'Log de Auditoria', icon: FileText }
+  ];
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-0">
+          <DialogTitle className="flex items-center gap-2">
+            <User className="w-5 h-5" />
+            Detalhes do Contato - {contato.nome}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar */}
+          <div className="w-64 border-r bg-muted/30 overflow-y-auto">
+            <div className="p-4">
+              <nav className="space-y-1">
+                {sidebarItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors ${
+                        activeTab === item.id
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-6">
+              {activeTab === 'dados-pessoais' && (
+                <div className="space-y-6">
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4">Informações Básicas</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                          <User className="w-4 h-4" />
+                          Nome
+                        </label>
+                        <Input value={contato.nome} readOnly />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                          <Phone className="w-4 h-4" />
+                          Telefone
+                        </label>
+                        <Input value={contato.telefone} readOnly />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                          <Mail className="w-4 h-4" />
+                          E-mail
+                        </label>
+                        <Input value={contato.email || 'Não informado'} readOnly />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                          <CreditCard className="w-4 h-4" />
+                          Valor Potencial
+                        </label>
+                        <Input 
+                          value={contato.valor_potencial ? `R$ ${contato.valor_potencial.toFixed(2)}` : 'Não definido'} 
+                          readOnly 
+                        />
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <History className="w-5 h-5" />
+                      Históricos
+                    </h3>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-medium text-sm mb-2">Produtos Adquiridos</h4>
+                        <p className="text-sm text-muted-foreground">Nenhum produto adquirido ainda</p>
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div>
+                        <h4 className="font-medium text-sm mb-2">Prospecções Anteriores</h4>
+                        <p className="text-sm text-muted-foreground">Primeira participação em prospecção</p>
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div>
+                        <h4 className="font-medium text-sm mb-2">Histórico de Leads</h4>
+                        <p className="text-sm text-muted-foreground">Lead criado em {new Date(contato.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              )}
+
+              {activeTab === 'status' && (
+                <div className="space-y-6">
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4">Alterar Status</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Status Atual</label>
+                        <Badge variant="outline" className="mb-4">
+                          {contato.status}
+                        </Badge>
+                      </div>
+                      
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Novo Status</label>
+                        <Select onValueChange={(value) => handleStatusChange(value as Contato['status'])}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o novo status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {statusOptions.map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {status}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4 text-destructive">Zona de Perigo</h3>
+                    <Button 
+                      variant="destructive" 
+                      onClick={handleExcluirContato}
+                      className="w-full"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Excluir Contato da Prospecção
+                    </Button>
+                  </Card>
+                </div>
+              )}
+
+              {activeTab === 'responsavel' && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Responsável</h3>
+                  
+                  {contato.responsavel_id ? (
+                    <div className="flex items-center gap-3 p-3 border rounded-lg">
+                      <Avatar className="w-10 h-10">
+                        <AvatarFallback>
+                          {getInitials('João Silva')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">João Silva</p>
+                        <p className="text-sm text-muted-foreground">SDR</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground mb-4">Nenhum responsável atribuído</p>
+                      {columnId === 'novo' && (
+                        <Button onClick={handleAtribuirResponsavel}>
+                          <UserCheck className="w-4 h-4 mr-2" />
+                          Assumir Responsabilidade
+                        </Button>
+                      )}
+                      {columnId !== 'novo' && (
+                        <p className="text-sm text-muted-foreground">
+                          Só é possível atribuir responsabilidade para contatos na coluna "Novo"
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {activeTab === 'anotacoes' && (
+                <div className="space-y-6">
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4">Nova Anotação</h3>
+                    <div className="space-y-4">
+                      <Textarea
+                        placeholder="Digite sua anotação aqui (máximo 1000 caracteres)..."
+                        value={novaAnotacao}
+                        onChange={(e) => setNovaAnotacao(e.target.value)}
+                        maxLength={1000}
+                      />
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">
+                          {novaAnotacao.length}/1000 caracteres
+                        </span>
+                        <Button onClick={handleAdicionarAnotacao} disabled={!novaAnotacao.trim()}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Adicionar Anotação
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4">Anotações Existentes</h3>
+                    <ScrollArea className="h-64">
+                      <div className="space-y-4">
+                        {anotacoes.map((anotacao) => (
+                          <div key={anotacao.id} className="border-l-4 border-primary pl-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <span className="font-medium text-sm">{anotacao.usuario}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(anotacao.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-sm">{anotacao.texto}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </Card>
+                </div>
+              )}
+
+              {activeTab === 'produtos' && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Produtos de Interesse</h3>
+                  
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Selecione os produtos que podem interessar ao cliente:
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {produtosDisponiveis.map((produto) => (
+                        <div
+                          key={produto.id}
+                          className={`border rounded-lg p-3 cursor-pointer transition-colors ${
+                            produtosSelecionados.includes(produto.id)
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                          onClick={() => toggleProduto(produto.id)}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-medium">{produto.nome}</h4>
+                              <p className="text-sm text-muted-foreground">{produto.categoria}</p>
+                              {produto.preco && (
+                                <p className="text-sm font-medium text-green-600">
+                                  R$ {produto.preco.toFixed(2)}
+                                </p>
+                              )}
+                            </div>
+                            {produtosSelecionados.includes(produto.id) && (
+                              <Badge variant="default">Selecionado</Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {produtosSelecionados.length > 0 && (
+                      <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-sm font-medium text-green-800">
+                          {produtosSelecionados.length} produto(s) selecionado(s)
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              )}
+
+              {activeTab === 'temperatura' && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Temperatura do Lead</h3>
+                  
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Defina o nível de interesse do contato:
+                    </p>
+                    
+                    <div className="space-y-3">
+                      {temperaturas.map((temp) => (
+                        <button
+                          key={temp.id}
+                          onClick={() => setTemperaturaAtual(temp.id)}
+                          className={`w-full p-3 border rounded-lg text-left transition-colors ${
+                            temperaturaAtual === temp.id
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div 
+                              className="w-4 h-4 rounded-full"
+                              style={{ backgroundColor: temp.cor }}
+                            />
+                            <span className="font-medium">{temp.nome}</span>
+                            {temperaturaAtual === temp.id && (
+                              <Badge variant="default">Selecionado</Badge>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {!temperaturaAtual && (
+                      <p className="text-sm text-muted-foreground mt-4">
+                        Nenhuma temperatura selecionada. O card ficará na cor padrão.
+                      </p>
+                    )}
+                  </div>
+                </Card>
+              )}
+
+              {activeTab === 'whatsapp' && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">WhatsApp</h3>
+                  
+                  <div className="text-center py-8">
+                    <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="font-medium mb-2">WhatsApp Web não configurado</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Para conversar via WhatsApp, você precisa vincular o WhatsApp Web nas configurações.
+                    </p>
+                    <div className="space-y-2 text-sm text-left bg-muted p-3 rounded-lg">
+                      <p><strong>Cliente:</strong> {contato.nome}</p>
+                      <p><strong>Telefone:</strong> {contato.telefone}</p>
+                    </div>
+                    <Button variant="outline" className="mt-4">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Ir para Configurações
+                    </Button>
+                  </div>
+                </Card>
+              )}
+
+              {activeTab === 'log-auditoria' && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Log de Auditoria</h3>
+                  
+                  <ScrollArea className="h-64">
+                    <div className="space-y-4">
+                      {logEntries.map((entry) => (
+                        <div key={entry.id} className="flex gap-3 p-3 border rounded-lg">
+                          <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
+                          <div className="flex-1">
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="font-medium text-sm">{entry.acao}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(entry.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{entry.usuario}</p>
+                            {entry.detalhes && (
+                              <p className="text-sm mt-1">{entry.detalhes}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </Card>
+              )}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

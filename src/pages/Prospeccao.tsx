@@ -11,9 +11,10 @@ import { FilterBar } from "@/components/FilterBar";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
 import { CriarProspeccaoModal } from "@/components/CriarProspeccaoModal";
+import { ContatoModal } from "@/components/ContatoModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
-import { useContatoData, kanbanStatusMap } from "@/hooks/useContatoData";
+import { useContatoData, kanbanStatusMap, Contato } from "@/hooks/useContatoData";
 import { useToast } from "@/components/ui/use-toast";
 
 interface ClienteData {
@@ -236,8 +237,59 @@ const Prospeccao = () => {
     console.log('Delete item:', itemId);
   };
 
+  const [modalContato, setModalContato] = useState<{ isOpen: boolean; contato: Contato | null; columnId?: string }>({
+    isOpen: false,
+    contato: null,
+    columnId: undefined
+  });
+
   const handleCardClick = (item: KanbanItem) => {
-    console.log('Abrir detalhes do card:', item);
+    // Buscar o contato completo pelo ID do item
+    const contatoCompleto = contatos.find(c => c.id === item.id);
+    if (contatoCompleto) {
+      // Encontrar a coluna do item para passar como contexto
+      const coluna = kanbanColumns.find(col => 
+        col.items.some(kanbanItem => kanbanItem.id === item.id)
+      );
+      
+      setModalContato({
+        isOpen: true,
+        contato: contatoCompleto,
+        columnId: coluna?.id
+      });
+    }
+  };
+
+  const handleCloseModal = () => {
+    setModalContato({ isOpen: false, contato: null, columnId: undefined });
+  };
+
+  const handleModalStatusChange = async (contatoId: string, novoStatus: Contato['status']) => {
+    await atualizarStatusContato(contatoId, novoStatus);
+    
+    // Registrar movimentação se necessário
+    if (registrarMovimentacao && user) {
+      const contato = contatos.find(c => c.id === contatoId);
+      if (contato) {
+        await registrarMovimentacao({
+          leadId: contatoId,
+          prospeccaoId: prospeccoes[0]?.id || 'default',
+          statusAnterior: contato.status,
+          statusNovo: novoStatus,
+          usuarioId: user.id,
+        });
+      }
+    }
+  };
+
+  const handleModalDelete = async (contatoId: string) => {
+    // TODO: Implementar exclusão no banco
+    console.log('Excluir contato:', contatoId);
+  };
+
+  const handleModalAssignResponsible = async (contatoId: string, userId: string) => {
+    // TODO: Implementar atribuição de responsável no banco
+    console.log('Atribuir responsável:', contatoId, userId);
   };
 
   if (loading) {
@@ -423,6 +475,16 @@ const Prospeccao = () => {
         isOpen={isModalOpen}
         onOpenChange={setIsModalOpen}
         onProspeccaoCriada={refetch}
+      />
+
+      <ContatoModal
+        isOpen={modalContato.isOpen}
+        onClose={handleCloseModal}
+        contato={modalContato.contato}
+        columnId={modalContato.columnId}
+        onStatusChange={handleModalStatusChange}
+        onDelete={handleModalDelete}
+        onAssignResponsible={handleModalAssignResponsible}
       />
     </DashboardLayout>
   );
