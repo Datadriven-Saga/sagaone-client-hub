@@ -67,13 +67,26 @@ const Acessos = () => {
 
   const fetchProfiles = async () => {
     try {
-      const { data, error } = await supabase
+      // Buscar profiles junto com os dados de auth para obter o email
+      const { data: profilesData, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setProfiles(data || []);
+
+      // Buscar dados de usuário do auth para obter emails
+      const profilesWithEmails = await Promise.all(
+        (profilesData || []).map(async (profile) => {
+          const { data: userData } = await supabase.auth.admin.getUserById(profile.id);
+          return {
+            ...profile,
+            email: userData?.user?.email || 'Email não disponível'
+          };
+        })
+      );
+
+      setProfiles(profilesWithEmails as any);
     } catch (error) {
       console.error('Erro ao buscar perfis:', error);
       toast({
@@ -100,7 +113,8 @@ const Acessos = () => {
         options: {
           emailRedirectTo: `${window.location.origin}/`,
           data: {
-            nome_completo: data.nome_completo
+            nome_completo: data.nome_completo,
+            full_name: data.nome_completo
           }
         }
       });
@@ -460,10 +474,11 @@ const Acessos = () => {
                     Nenhum usuário encontrado
                   </div>
                 ) : (
-                  profiles.map((profile) => (
+                  profiles.map((profile: any) => (
                     <div key={profile.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="space-y-1">
                         <h3 className="font-semibold">{profile.nome_completo}</h3>
+                        <p className="text-sm text-muted-foreground">{profile.email}</p>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Shield className="h-4 w-4" />
