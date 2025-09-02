@@ -139,26 +139,26 @@ const Metas = () => {
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-semibold">Tempos Médios (em horas)</h4>
+                <h4 className="font-semibold">Tempos Médios (em minutos)</h4>
                 
                 <div>
                   <label className="block text-sm font-medium mb-2">TME - Tempo Médio de Espera</label>
-                  <Input type="number" placeholder="Ex: 0.5" step="0.1" />
+                  <Input type="number" placeholder="Ex: 30" step="1" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium mb-2">TMQ - Tempo Médio de Qualificação</label>
-                  <Input type="number" placeholder="Ex: 1.5" step="0.1" />
+                  <Input type="number" placeholder="Ex: 90" step="1" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium mb-2">TMA - Tempo Médio de Atendimento</label>
-                  <Input type="number" placeholder="Ex: 2.0" step="0.1" />
+                  <Input type="number" placeholder="Ex: 120" step="1" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium mb-2">TMN - Tempo Médio de Negociação</label>
-                  <Input type="number" placeholder="Ex: 4.0" step="0.1" />
+                  <Input type="number" placeholder="Ex: 240" step="1" />
                 </div>
               </div>
             </div>
