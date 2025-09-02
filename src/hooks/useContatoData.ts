@@ -9,7 +9,7 @@ export interface Contato {
   nome: string;
   telefone: string;
   email?: string;
-  status: 'Novo' | 'Negociação' | 'Em Contato' | 'Qualificado' | 'Proposta' | 'Fechado' | 'Perdido';
+  status: 'Novo' | 'Enviado' | 'Recebido' | 'Agendado' | 'Confirmado' | 'Cancelado';
   valor_potencial?: number;
   responsavel_id?: string;
   cliente_id?: string;
@@ -23,22 +23,20 @@ export interface Contato {
 // Mapeamento dos status do banco para as colunas do Kanban
 export const statusKanbanMap = {
   'Novo': 'novo',
-  'Negociação': 'enviados', 
-  'Em Contato': 'recebidos',
-  'Qualificado': 'respondidos',
-  'Proposta': 'agendados',
-  'Fechado': 'confirmados',
-  'Perdido': 'cancelados'
+  'Enviado': 'enviados', 
+  'Recebido': 'recebidos',
+  'Agendado': 'agendados',
+  'Confirmado': 'confirmados',
+  'Cancelado': 'cancelados'
 } as const;
 
 export const kanbanStatusMap = {
   'novo': 'Novo',
-  'enviados': 'Negociação',
-  'recebidos': 'Em Contato', 
-  'respondidos': 'Qualificado',
-  'agendados': 'Proposta',
-  'confirmados': 'Fechado',
-  'cancelados': 'Perdido'
+  'enviados': 'Enviado',
+  'recebidos': 'Recebido', 
+  'agendados': 'Agendado',
+  'confirmados': 'Confirmado',
+  'cancelados': 'Cancelado'
 } as const;
 
 export interface Prospeccao {
@@ -108,7 +106,25 @@ export const useContatoData = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setContatos(data || []);
+      
+      // Mapear status antigos para novos
+      const contatosWithNewStatus = (data || []).map(contato => ({
+        ...contato,
+        status: (() => {
+          const statusMap: Record<string, Contato['status']> = {
+            'Novo': 'Novo',
+            'Negociação': 'Enviado',
+            'Em Contato': 'Recebido',
+            'Qualificado': 'Agendado',
+            'Proposta': 'Agendado',
+            'Fechado': 'Confirmado',
+            'Perdido': 'Cancelado'
+          };
+          return statusMap[contato.status] || 'Novo';
+        })()
+      }));
+      
+      setContatos(contatosWithNewStatus);
     } catch (error) {
       console.error('Erro ao buscar contatos:', error);
       toast({
@@ -156,7 +172,13 @@ export const useContatoData = () => {
       if (error) throw error;
 
       if (data) {
-        setContatos(prev => [...data, ...prev]);
+        // Mapear os dados inseridos para os novos status
+        const dataWithNewStatus = data.map(contato => ({
+          ...contato,
+          status: 'Novo' as Contato['status']
+        }));
+        
+        setContatos(prev => [...dataWithNewStatus, ...prev]);
         
         // Disparar gatilho para cada novo contato adicionado
         if (prospeccaoId) {
@@ -270,10 +292,20 @@ export const useContatoData = () => {
   // Atualizar status do contato
   const atualizarStatusContato = async (contatoId: string, novoStatus: Contato['status']) => {
     try {
+      // Mapear novo status para status do banco
+      const statusMap: Record<Contato['status'], string> = {
+        'Novo': 'Novo',
+        'Enviado': 'Negociação',
+        'Recebido': 'Em Contato',
+        'Agendado': 'Qualificado',
+        'Confirmado': 'Fechado',
+        'Cancelado': 'Perdido'
+      };
+      
       const { error } = await supabase
         .from('contatos')
         .update({ 
-          status: novoStatus,
+          status: statusMap[novoStatus] as any,
           updated_at: new Date().toISOString()
         })
         .eq('id', contatoId);
@@ -368,12 +400,11 @@ export const useContatoData = () => {
     return {
       totalBase: contatos.length,
       novo: metricas['Novo'] || 0,
-      enviados: metricas['Negociação'] || 0,
-      recebidos: metricas['Em Contato'] || 0,
-      respondidos: metricas['Qualificado'] || 0,
-      agendados: metricas['Proposta'] || 0,
-      confirmados: metricas['Fechado'] || 0,
-      cancelados: metricas['Perdido'] || 0
+      enviados: metricas['Enviado'] || 0,
+      recebidos: metricas['Recebido'] || 0,
+      agendados: metricas['Agendado'] || 0,
+      confirmados: metricas['Confirmado'] || 0,
+      cancelados: metricas['Cancelado'] || 0
     };
   };
 

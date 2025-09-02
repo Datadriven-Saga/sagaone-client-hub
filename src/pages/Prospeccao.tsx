@@ -85,16 +85,10 @@ const Prospeccao = () => {
       color: '#A679E1'
     },
     {
-      id: 'respondidos',
-      title: 'Respondidos',
-      value: metricas.respondidos,
-      color: '#a855f7'
-    },
-    {
       id: 'agendados',
       title: 'Agendados',
       value: metricas.agendados,
-      color: '#c084fc'
+      color: '#C193EC'
     },
     {
       id: 'confirmados',
@@ -128,37 +122,31 @@ const Prospeccao = () => {
       id: 'enviados',
       title: 'Enviados',
       color: '#8B5FD6',
-      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Negociação'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Enviado'))
     },
     {
       id: 'recebidos',
       title: 'Recebidos',
       color: '#A679E1',
-      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Em Contato'))
-    },
-    {
-      id: 'respondidos',
-      title: 'Respondidos',
-      color: '#C193EC',
-      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Qualificado'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Recebido'))
     },
     {
       id: 'agendados',
       title: 'Agendados',
-      color: '#DCADF7',
-      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Proposta'))
+      color: '#C193EC',
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Agendado'))
     },
     {
       id: 'confirmados',
       title: 'Confirmados',
       color: '#10B981',
-      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Fechado'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Confirmado'))
     },
     {
       id: 'cancelados',
       title: 'Cancelados',
       color: '#EF4444',
-      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Perdido'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Cancelado'))
     }
   ];
 
