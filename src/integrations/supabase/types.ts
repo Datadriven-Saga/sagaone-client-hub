@@ -1049,6 +1049,41 @@ export type Database = {
           },
         ]
       }
+      user_empresas: {
+        Row: {
+          created_at: string
+          empresa_id: string
+          id: string
+          is_ativa: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id: string
+          id?: string
+          is_ativa?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          is_ativa?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_empresas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendas: {
         Row: {
           cliente_id: string | null
@@ -1129,9 +1164,17 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["tipo_acesso"]
       }
+      get_user_active_company: {
+        Args: { user_id_param?: string }
+        Returns: string
+      }
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      set_user_active_company: {
+        Args: { new_empresa_id: string }
+        Returns: undefined
       }
     }
     Enums: {

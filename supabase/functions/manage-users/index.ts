@@ -73,42 +73,64 @@ serve(async (req) => {
 
         console.log('Found profiles:', profiles?.length || 0);
 
-        // Get user emails from auth using admin client
-        const profilesWithEmails = await Promise.all(
+        // Get user emails from auth and companies for each user
+        const profilesWithDetails = await Promise.all(
           (profiles || []).map(async (profile) => {
             try {
+              // Get user email from auth
               const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+              
+              // Get user companies
+              const { data: userEmpresas, error: empresasError } = await supabaseAdmin
+                .from('user_empresas')
+                .select(`
+                  empresa_id,
+                  is_ativa,
+                  empresas:empresa_id (
+                    id,
+                    nome_empresa,
+                    razao_social
+                  )
+                `)
+                .eq('user_id', profile.id);
+
+              const companies = userEmpresas?.map(ue => ue.empresas).filter(Boolean) || [];
+
               if (userError) {
                 console.error('Error fetching user data for:', profile.id, userError);
                 return {
                   ...profile,
-                  email: 'Email não disponível'
+                  email: 'Email não disponível',
+                  empresas: companies
                 };
               }
+
               return {
                 ...profile,
-                email: userData?.user?.email || 'Email não disponível'
+                email: userData?.user?.email || 'Email não disponível',
+                empresas: companies
               };
             } catch (error) {
-              console.error('Error fetching user email for profile:', profile.id, error);
+              console.error('Error fetching user details for profile:', profile.id, error);
               return {
                 ...profile,
-                email: 'Email não disponível'
+                email: 'Email não disponível',
+                empresas: []
               };
             }
           })
         );
 
-        console.log('Profiles with emails:', profilesWithEmails.length);
+        console.log('Profiles with details:', profilesWithDetails.length);
 
         return new Response(
-          JSON.stringify({ users: profilesWithEmails }),
+          JSON.stringify({ users: profilesWithDetails }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       case 'create_user': {
-        const { email, password, nome_completo, tipo_acesso, departamento, celular, cpf, status } = payload;
+        const { email, password, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresas } = payload;
 
         // Check if user already exists
         const { data: existingUser, error: checkError } = await supabaseAdmin.auth.admin.listUsers();
@@ -154,7 +176,7 @@ serve(async (req) => {
             .eq('id', user.id)
             .single();
 
-          const empresaId = adminProfile?.empresa_id || '00000000-0000-0000-0000-000000000001';
+          const defaultEmpresaId = adminProfile?.empresa_id || '00000000-0000-0000-0000-000000000001';
 
           // Update the profile created by trigger using admin client
           const { error: updateError } = await supabaseAdmin
@@ -165,7 +187,7 @@ serve(async (req) => {
               celular,
               cpf,
               status,
-              empresa_id: empresaId
+              empresa_id: defaultEmpresaId
             })
             .eq('id', authData.user.id);
 
@@ -174,6 +196,26 @@ serve(async (req) => {
             // Try to clean up the created user
             await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
             throw updateError;
+          }
+
+          // Create company relationships
+          if (empresas && empresas.length > 0) {
+            const userEmpresasData = empresas.map((empresaId: string, index: number) => ({
+              user_id: authData.user.id,
+              empresa_id: empresaId,
+              is_ativa: index === 0 // First company is active by default
+            }));
+
+            const { error: userEmpresasError } = await supabaseAdmin
+              .from('user_empresas')
+              .insert(userEmpresasData);
+
+            if (userEmpresasError) {
+              console.error('Error creating user-company relationships:', userEmpresasError);
+              // Try to clean up the created user
+              await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+              throw userEmpresasError;
+            }
           }
 
           console.log('User created successfully:', authData.user.id);
@@ -215,7 +257,7 @@ serve(async (req) => {
       }
 
       case 'update_user': {
-        const { user_id, nome_completo, tipo_acesso, departamento, celular, cpf, status } = payload;
+        const { user_id, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresas } = payload;
 
         if (!user_id) {
           throw new Error('User ID is required');
@@ -235,6 +277,36 @@ serve(async (req) => {
           .eq('id', user_id);
 
         if (updateError) throw updateError;
+
+        // Update company relationships if provided
+        if (empresas && empresas.length > 0) {
+          // Delete existing relationships
+          const { error: deleteError } = await supabaseAdmin
+            .from('user_empresas')
+            .delete()
+            .eq('user_id', user_id);
+
+          if (deleteError) {
+            console.error('Error deleting user company relationships:', deleteError);
+            throw deleteError;
+          }
+
+          // Create new relationships
+          const userEmpresasData = empresas.map((empresaId: string, index: number) => ({
+            user_id: user_id,
+            empresa_id: empresaId,
+            is_ativa: index === 0 // First company is active by default
+          }));
+
+          const { error: insertError } = await supabaseAdmin
+            .from('user_empresas')
+            .insert(userEmpresasData);
+
+          if (insertError) {
+            console.error('Error creating user company relationships:', insertError);
+            throw insertError;
+          }
+        }
 
         // Also update the user metadata
         const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(

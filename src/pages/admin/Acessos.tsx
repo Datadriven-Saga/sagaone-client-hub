@@ -7,10 +7,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Users, Edit, Trash2, Shield, Loader2 } from "lucide-react";
+import { Plus, Users, Edit, Trash2, Shield, Loader2, Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -28,7 +29,8 @@ const userSchema = z.object({
   departamento: z.string().optional(),
   celular: z.string().optional(),
   cpf: z.string().optional(),
-  status: z.enum(["Ativo", "Inativo", "Suspenso"])
+  status: z.enum(["Ativo", "Inativo", "Suspenso"]),
+  empresas: z.array(z.string()).min(1, "Selecione pelo menos uma empresa")
 });
 
 type UserForm = z.infer<typeof userSchema>;
@@ -42,10 +44,23 @@ interface Profile {
   celular?: string | null;
   cpf?: string | null;
   created_at: string | null;
+  email: string;
+  empresas?: Array<{
+    id: string;
+    nome_empresa: string;
+    razao_social: string;
+  }>;
+}
+
+interface Company {
+  id: string;
+  nome_empresa: string;
+  razao_social: string;
 }
 
 const Acessos = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
@@ -63,17 +78,34 @@ const Acessos = () => {
       departamento: "",
       celular: "",
       cpf: "",
-      status: "Ativo"
+      status: "Ativo",
+      empresas: []
     }
   });
+
+  const fetchCompanies = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('empresas')
+        .select('id, nome_empresa, razao_social')
+        .order('nome_empresa');
+
+      if (error) throw error;
+      setCompanies(data || []);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as empresas",
+        variant: "destructive"
+      });
+    }
+  };
 
   const fetchProfiles = async () => {
     try {
       console.log('Fetching profiles...');
-      console.log('Current user:', authUser?.id);
-      console.log('Session token:', session?.access_token ? 'present' : 'missing');
       
-      // Primeiro tentar a edge function para buscar usuários com emails
       const { data, error } = await supabase.functions.invoke('manage-users', {
         body: { action: 'list_users' }
       });
@@ -106,6 +138,7 @@ const Acessos = () => {
   };
 
   useEffect(() => {
+    fetchCompanies();
     fetchProfiles();
   }, []);
 
@@ -122,7 +155,8 @@ const Acessos = () => {
           departamento: data.departamento,
           celular: data.celular,
           cpf: data.cpf,
-          status: data.status
+          status: data.status,
+          empresas: data.empresas
         }
       });
 
@@ -167,7 +201,8 @@ const Acessos = () => {
           departamento: data.departamento,
           celular: data.celular,
           cpf: data.cpf,
-          status: data.status
+          status: data.status,
+          empresas: data.empresas
         }
       });
 
@@ -211,12 +246,13 @@ const Acessos = () => {
     setEditingUser(user);
     form.reset({
       nome_completo: user.nome_completo,
-      email: "", // Email não pode ser editado
+      email: user.email,
       tipo_acesso: user.tipo_acesso || "SDR",
       departamento: user.departamento || "",
       celular: user.celular || "",
       cpf: user.cpf || "",
-      status: user.status || "Ativo"
+      status: user.status || "Ativo",
+      empresas: user.empresas?.map(e => e.id) || []
     });
     setIsDialogOpen(true);
   };
@@ -264,7 +300,8 @@ const Acessos = () => {
       departamento: "",
       celular: "",
       cpf: "",
-      status: "Ativo"
+      status: "Ativo",
+      empresas: []
     });
     setIsDialogOpen(true);
   };
@@ -286,14 +323,14 @@ const Acessos = () => {
                 Novo Usuário
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {editingUser ? "Editar Usuário" : "Novo Usuário"}
                 </DialogTitle>
               </DialogHeader>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -435,6 +472,55 @@ const Acessos = () => {
                       )}
                     />
                   </div>
+
+                  {/* Seleção de Empresas */}
+                  <FormField
+                    control={form.control}
+                    name="empresas"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-base font-semibold flex items-center gap-2">
+                          <Building2 className="h-4 w-4" />
+                          Empresas com Acesso *
+                        </FormLabel>
+                        <FormControl>
+                          <Card className="p-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-48 overflow-y-auto">
+                              {companies.map((company) => (
+                                <div key={company.id} className="flex items-start space-x-2">
+                                  <Checkbox
+                                    id={`company-${company.id}`}
+                                    checked={field.value.includes(company.id)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        field.onChange([...field.value, company.id]);
+                                      } else {
+                                        field.onChange(field.value.filter((id: string) => id !== company.id));
+                                      }
+                                    }}
+                                  />
+                                  <div className="grid gap-1.5 leading-none">
+                                    <label
+                                      htmlFor={`company-${company.id}`}
+                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                    >
+                                      {company.nome_empresa}
+                                    </label>
+                                    {company.razao_social && company.razao_social !== company.nome_empresa && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {company.razao_social}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </Card>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   
                   <div className="flex justify-end space-x-2 pt-4">
                     <Button 
@@ -477,10 +563,13 @@ const Acessos = () => {
                     Nenhum usuário encontrado
                   </div>
                 ) : (
-                  profiles.map((profile: any) => (
+                  profiles.map((profile: Profile) => (
                     <div key={profile.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-1">
-                        <h3 className="font-semibold">{profile.nome_completo}</h3>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold">{profile.nome_completo}</h3>
+                          <Badge variant="outline">{profile.status}</Badge>
+                        </div>
                         <p className="text-sm text-muted-foreground">{profile.email}</p>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
@@ -488,28 +577,33 @@ const Acessos = () => {
                             {profile.tipo_acesso}
                           </span>
                           {profile.departamento && (
-                            <span>Depto: {profile.departamento}</span>
-                          )}
-                          {profile.celular && (
-                            <span>Tel: {profile.celular}</span>
+                            <span>{profile.departamento}</span>
                           )}
                         </div>
+                        {profile.empresas && profile.empresas.length > 0 && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                            {profile.empresas.map((empresa) => (
+                              <Badge key={empresa.id} variant="secondary" className="text-xs">
+                                {empresa.nome_empresa}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={profile.status === "Ativo" ? "default" : "secondary"}>
-                          {profile.status}
-                        </Badge>
-                        <Button 
-                          variant="outline" 
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(profile)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleDelete(profile.id)}
+                          className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

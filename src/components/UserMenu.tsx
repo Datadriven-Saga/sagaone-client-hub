@@ -14,6 +14,7 @@ import { User, Settings, HelpCircle, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { CompanySelector } from "./CompanySelector";
 
 export function UserMenu() {
   const { user: authUser, signOut } = useAuth();
@@ -62,29 +63,31 @@ export function UserMenu() {
   const userEmail = authUser.email || "";
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-auto w-auto p-2">
-          <div className="flex items-center space-x-2">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={profile?.foto_url} alt={displayName} />
-              <AvatarFallback>
-                {displayName
-                  .split(" ")
-                  .map((n: string) => n[0])
-                  .join("")
-                  .toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="ml-2 text-left">
-              <p className="text-sm font-medium leading-none">{displayName}</p>
-              <p className="text-xs leading-none text-muted-foreground">
-                {userEmail}
-              </p>
+    <div className="flex items-center gap-4">
+      <CompanySelector />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative h-auto w-auto p-2">
+            <div className="flex items-center space-x-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={profile?.foto_url} alt={displayName} />
+                <AvatarFallback>
+                  {displayName
+                    .split(" ")
+                    .map((n: string) => n[0])
+                    .join("")
+                    .toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="ml-2 text-left">
+                <p className="text-sm font-medium leading-none">{displayName}</p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  {userEmail}
+                </p>
+              </div>
             </div>
-          </div>
-        </Button>
-      </DropdownMenuTrigger>
+          </Button>
+        </DropdownMenuTrigger>
       
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
@@ -126,5 +129,6 @@ export function UserMenu() {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </div>
   );
 }
