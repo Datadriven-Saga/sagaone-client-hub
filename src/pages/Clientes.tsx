@@ -11,18 +11,34 @@ import { DateRangePicker } from "@/components/DateRangePicker";
 import { Users, Phone, Mail, UserCheck } from "lucide-react";
 import { useState } from "react";
 import { DateRange } from "react-day-picker";
+import { useClientesData } from "@/hooks/useClientesData";
 
 const Clientes = () => {
   const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const { clientes: clientesList, kpis: kpisData, loading } = useClientesData();
 
-  // Mock data - replace with real data from API
   const kpis = [
-    { title: "Clientes", value: "1,234", icon: Users },
-    { title: "Com Telefone", value: "1,100", subtitle: "89%", icon: Phone },
-    { title: "Com E-mail", value: "856", subtitle: "69%", icon: Mail },
-    { title: "Realizaram Compra", value: "432", subtitle: "35%", icon: UserCheck }
+    { title: "Clientes", value: loading ? "..." : kpisData.total.toString(), icon: Users },
+    { 
+      title: "Com Telefone", 
+      value: loading ? "..." : kpisData.comTelefone.toString(), 
+      subtitle: kpisData.total > 0 ? `${((kpisData.comTelefone / kpisData.total) * 100).toFixed(0)}%` : "0%", 
+      icon: Phone 
+    },
+    { 
+      title: "Com E-mail", 
+      value: loading ? "..." : kpisData.comEmail.toString(), 
+      subtitle: kpisData.total > 0 ? `${((kpisData.comEmail / kpisData.total) * 100).toFixed(0)}%` : "0%", 
+      icon: Mail 
+    },
+    { 
+      title: "Realizaram Compra", 
+      value: loading ? "..." : kpisData.realizaramCompra.toString(), 
+      subtitle: kpisData.total > 0 ? `${((kpisData.realizaramCompra / kpisData.total) * 100).toFixed(0)}%` : "0%", 
+      icon: UserCheck 
+    }
   ];
 
   const handleClientRowClick = (client: any) => {
@@ -35,19 +51,6 @@ const Clientes = () => {
     setIsNewClientDialogOpen(true);
   };
 
-  const mockClients = Array.from({ length: 1234 }, (_, i) => ({
-    id: String(i + 1).padStart(3, '0'),
-    name: `Cliente ${i + 1}`,
-    phone: i < 1100 ? `(11) ${Math.floor(Math.random() * 90000) + 10000}-${Math.floor(Math.random() * 9000) + 1000}` : '',
-    email: i < 856 ? `cliente${i + 1}@email.com` : '',
-    gender: ['Masculino', 'Feminino', 'Outro'][Math.floor(Math.random() * 3)],
-    birthDate: `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/${1950 + Math.floor(Math.random() * 50)}`,
-    document: `${Math.floor(Math.random() * 900) + 100}.${Math.floor(Math.random() * 900) + 100}.${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 90) + 10}`,
-    hasPurchased: i < 432 ? "Sim" : "Não",
-    responsible: `Vendedor ${Math.floor(Math.random() * 10) + 1}`,
-    products: i < 432 ? "Honda Civic, Toyota Corolla" : "-",
-    lastPurchase: i < 432 ? `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/2023` : "-"
-  }));
 
   return (
     <DashboardLayout title="Carteira de Clientes">
@@ -160,20 +163,34 @@ const Clientes = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockClients.map((client) => (
-                  <TableRow 
-                    key={client.id} 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleClientRowClick(client)}
-                  >
-                    <TableCell className="font-medium">{client.id}</TableCell>
-                    <TableCell>{client.name}</TableCell>
-                    <TableCell>{client.hasPurchased}</TableCell>
-                    <TableCell>{client.responsible}</TableCell>
-                    <TableCell>{client.products}</TableCell>
-                    <TableCell>{client.lastPurchase}</TableCell>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      Carregando clientes...
+                    </TableCell>
                   </TableRow>
-                ))}
+                ) : clientesList.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      Nenhum cliente encontrado
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  clientesList.map((client) => (
+                    <TableRow 
+                      key={client.id} 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleClientRowClick(client)}
+                    >
+                      <TableCell className="font-medium">{client.id}</TableCell>
+                      <TableCell>{client.name}</TableCell>
+                      <TableCell>{client.hasPurchased}</TableCell>
+                      <TableCell>{client.responsible}</TableCell>
+                      <TableCell>{client.products}</TableCell>
+                      <TableCell>{client.lastPurchase}</TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

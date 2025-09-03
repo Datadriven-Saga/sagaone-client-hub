@@ -30,13 +30,13 @@ import tavatLogo from "@/assets/tavat-logo.png";
 
 const menuItems = [
   { title: "Página Inicial", url: "/", icon: Home },
-  { title: "Carteira de Clientes", url: "/clientes", icon: Users },
-  { title: "Notificações", url: "/notificacoes", icon: Bell },
   { title: "Personas de IA", url: "/personas", icon: Bot },
   { title: "Prospecção", url: "/prospeccao", icon: Target },
   { title: "Central de Atendimento", url: "/central-atendimento", icon: Headphones },
   { title: "Loja", url: "/loja", icon: Store },
   { title: "Busca & Resgate", url: "/busca-resgate", icon: Search },
+  { title: "Carteira de Clientes", url: "/clientes", icon: Users },
+  { title: "Notificações", url: "/notificacoes", icon: Bell },
   { title: "Metas e OKR", url: "/metas", icon: TrendingUp },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
   { title: "Treinamentos", url: "/treinamentos", icon: BookOpen },

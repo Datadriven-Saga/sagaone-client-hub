@@ -9,17 +9,11 @@ import {
   Search
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 const Index = () => {
   const navigate = useNavigate();
-
-  // Mock data - será substituído por dados reais do Supabase
-  const mockKPIs = {
-    notificacoesPendentes: 23,
-    prospeccoesAtivas: 8,
-    leadsAbertos: 145,
-    vendasMes: 87
-  };
+  const { data, loading } = useDashboardData();
 
   return (
     <DashboardLayout>
@@ -45,11 +39,16 @@ const Index = () => {
           >
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="font-semibold">1,247</p>
+                <p className="font-semibold">{loading ? "..." : data.totalClientes.toLocaleString()}</p>
                 <p className="text-muted-foreground">Total de Clientes</p>
               </div>
               <div>
-                <p className="font-semibold">94.6%</p>
+                <p className="font-semibold">
+                  {loading ? "..." : data.totalClientes > 0 
+                    ? `${((data.clientesComTelefone / data.totalClientes) * 100).toFixed(1)}%`
+                    : "0%"
+                  }
+                </p>
                 <p className="text-muted-foreground">Com Telefone</p>
               </div>
             </div>
@@ -65,11 +64,15 @@ const Index = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Pendentes:</span>
-                <span className="font-semibold text-orange-600">{mockKPIs.notificacoesPendentes}</span>
+                <span className="font-semibold text-orange-600">
+                  {loading ? "..." : data.notificacoesPendentes}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Realizadas hoje:</span>
-                <span className="font-semibold text-green-600">12</span>
+                <span className="font-semibold text-green-600">
+                  {loading ? "..." : data.notificacoesRealizadas}
+                </span>
               </div>
             </div>
           </DashboardCard>
@@ -84,11 +87,15 @@ const Index = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Ativas:</span>
-                <span className="font-semibold">{mockKPIs.prospeccoesAtivas}</span>
+                <span className="font-semibold">
+                  {loading ? "..." : data.prospeccoesAtivas}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Confirmados:</span>
-                <span className="font-semibold text-green-600">34</span>
+                <span className="font-semibold text-green-600">
+                  {loading ? "..." : data.prospeccoesConfirmadas}
+                </span>
               </div>
             </div>
           </DashboardCard>
@@ -103,11 +110,15 @@ const Index = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Leads Abertos:</span>
-                <span className="font-semibold">{mockKPIs.leadsAbertos}</span>
+                <span className="font-semibold">
+                  {loading ? "..." : data.leadsAbertos}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Em Andamento:</span>
-                <span className="font-semibold text-blue-600">67</span>
+                <span className="font-semibold text-blue-600">
+                  {loading ? "..." : data.leadsEmAndamento}
+                </span>
               </div>
             </div>
           </DashboardCard>
@@ -122,11 +133,15 @@ const Index = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Vendas Mês:</span>
-                <span className="font-semibold text-green-600">{mockKPIs.vendasMes}</span>
+                <span className="font-semibold text-green-600">
+                  {loading ? "..." : data.vendasMes}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Em Negociação:</span>
-                <span className="font-semibold text-orange-600">23</span>
+                <span className="font-semibold text-orange-600">
+                  {loading ? "..." : data.vendasEmNegociacao}
+                </span>
               </div>
             </div>
           </DashboardCard>
@@ -141,11 +156,15 @@ const Index = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Eventos Ativos:</span>
-                <span className="font-semibold">18</span>
+                <span className="font-semibold">
+                  {loading ? "..." : data.eventosAtivos}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Concluídos:</span>
-                <span className="font-semibold text-green-600">5</span>
+                <span className="font-semibold text-green-600">
+                  {loading ? "..." : data.eventosConcluidos}
+                </span>
               </div>
             </div>
           </DashboardCard>

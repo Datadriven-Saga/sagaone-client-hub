@@ -13,47 +13,21 @@ import { DateRangePicker } from "@/components/DateRangePicker";
 import { AlertCircle, Clock, CheckCircle, BarChart3 } from "lucide-react";
 import { useState } from "react";
 import { DateRange } from "react-day-picker";
+import { useNotificacoesData } from "@/hooks/useNotificacoesData";
 
 const Notificacoes = () => {
   const [isNotificationDialogOpen, setIsNotificationDialogOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const { notificacoes: notificacoesList, kpis: kpisData, loading } = useNotificacoesData();
+  
   const kpis = [
-    { title: "Atrasadas", value: "23", icon: AlertCircle, trend: "down" as const },
-    { title: "Pendentes", value: "156", icon: Clock },
-    { title: "Realizadas", value: "342", icon: CheckCircle, trend: "up" as const },
-    { title: "Total", value: "521", icon: BarChart3 }
+    { title: "Atrasadas", value: loading ? "..." : kpisData.atrasadas.toString(), icon: AlertCircle, trend: "down" as const },
+    { title: "Pendentes", value: loading ? "..." : kpisData.pendentes.toString(), icon: Clock },
+    { title: "Realizadas", value: loading ? "..." : kpisData.realizadas.toString(), icon: CheckCircle, trend: "up" as const },
+    { title: "Total", value: loading ? "..." : kpisData.total.toString(), icon: BarChart3 }
   ];
 
-  const mockNotifications = [
-    {
-      id: "001",
-      type: "Aniversário",
-      clientName: "João Silva",
-      eventDate: "15/01/2025",
-      lastPurchase: "15/12/2023",
-      lastVehicle: "Honda Civic 2023",
-      status: "Atrasada"
-    },
-    {
-      id: "002",
-      type: "Recompra", 
-      clientName: "Ana Costa",
-      eventDate: "20/01/2025",
-      lastPurchase: "10/11/2023",
-      lastVehicle: "Toyota Corolla 2022",
-      status: "Pendente"
-    },
-    {
-      id: "003",
-      type: "Revisão",
-      clientName: "Carlos Santos",
-      eventDate: "12/01/2025", 
-      lastPurchase: "05/08/2023",
-      lastVehicle: "Volkswagen Jetta 2023",
-      status: "Realizada"
-    }
-  ];
 
   const getStatusBadge = (status: string) => {
     const variants: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -143,26 +117,40 @@ const Notificacoes = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockNotifications.map((notification) => (
-                  <TableRow key={notification.id} className="cursor-pointer hover:bg-muted/50">
-                    <TableCell className="font-medium">{notification.id}</TableCell>
-                    <TableCell>{notification.type}</TableCell>
-                    <TableCell>{notification.clientName}</TableCell>
-                    <TableCell>{notification.eventDate}</TableCell>
-                    <TableCell>{notification.lastPurchase}</TableCell>
-                    <TableCell>{notification.lastVehicle}</TableCell>
-                    <TableCell>{getStatusBadge(notification.status)}</TableCell>
-                    <TableCell>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleOpenNotification(notification)}
-                      >
-                        Abrir
-                      </Button>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      Carregando notificações...
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : notificacoesList.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      Nenhuma notificação encontrada
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  notificacoesList.map((notification) => (
+                    <TableRow key={notification.id} className="cursor-pointer hover:bg-muted/50">
+                      <TableCell className="font-medium">{notification.id}</TableCell>
+                      <TableCell>{notification.type}</TableCell>
+                      <TableCell>{notification.clientName}</TableCell>
+                      <TableCell>{notification.eventDate}</TableCell>
+                      <TableCell>{notification.lastPurchase}</TableCell>
+                      <TableCell>{notification.lastVehicle}</TableCell>
+                      <TableCell>{getStatusBadge(notification.status)}</TableCell>
+                      <TableCell>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleOpenNotification(notification)}
+                        >
+                          Abrir
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
