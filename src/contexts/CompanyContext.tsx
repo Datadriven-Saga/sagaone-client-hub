@@ -26,7 +26,13 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
 
   const fetchUserCompanies = async () => {
-    if (!user) return;
+    if (!user) {
+      console.warn('CompanyContext: No user found, skipping fetch');
+      setLoading(false);
+      return;
+    }
+
+    console.log('CompanyContext: Fetching companies for user:', user.id);
 
     try {
       // Get user's companies
@@ -59,12 +65,22 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   };
 
   const switchCompany = async (companyId: string) => {
+    if (!user) {
+      toast.error('Usuário não autenticado');
+      return;
+    }
+
     try {
+      console.log('CompanyContext: Switching to company:', companyId);
+      
       const { error } = await supabase.rpc('set_user_active_company', {
         new_empresa_id: companyId
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('CompanyContext: RPC error:', error);
+        throw error;
+      }
 
       const newActiveCompany = userCompanies.find(c => c.id === companyId);
       setActiveCompany(newActiveCompany || null);
@@ -73,8 +89,8 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       // Refresh the page to update all data based on new company
       window.location.reload();
     } catch (error) {
-      console.error('Error switching company:', error);
-      toast.error('Erro ao trocar empresa');
+      console.error('CompanyContext: Error switching company:', error);
+      toast.error('Erro ao trocar empresa: ' + (error as Error).message);
     }
   };
 
