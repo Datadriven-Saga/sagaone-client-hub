@@ -60,8 +60,8 @@ serve(async (req) => {
 
     switch (action) {
       case 'list_users': {
-        // Get all profiles with user emails
-        const { data: profiles, error: profilesError } = await supabase
+        // Use admin client to bypass RLS for profile fetching
+        const { data: profiles, error: profilesError } = await supabaseAdmin
           .from('profiles')
           .select('*')
           .order('created_at', { ascending: false });
@@ -148,7 +148,7 @@ serve(async (req) => {
 
         if (authData.user) {
           // Get user's empresa_id from current admin user
-          const { data: adminProfile, error: adminProfileError } = await supabase
+          const { data: adminProfile, error: adminProfileError } = await supabaseAdmin
             .from('profiles')
             .select('empresa_id')
             .eq('id', user.id)
@@ -156,8 +156,8 @@ serve(async (req) => {
 
           const empresaId = adminProfile?.empresa_id || '00000000-0000-0000-0000-000000000001';
 
-          // Update the profile created by trigger
-          const { error: updateError } = await supabase
+          // Update the profile created by trigger using admin client
+          const { error: updateError } = await supabaseAdmin
             .from('profiles')
             .update({
               tipo_acesso,
@@ -221,8 +221,8 @@ serve(async (req) => {
           throw new Error('User ID is required');
         }
 
-        // Update profile
-        const { error: updateError } = await supabase
+        // Update profile using admin client
+        const { error: updateError } = await supabaseAdmin
           .from('profiles')
           .update({
             nome_completo,
