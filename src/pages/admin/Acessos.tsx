@@ -85,18 +85,24 @@ const Acessos = () => {
 
   const fetchCompanies = async () => {
     try {
+      console.log('Acessos: Fetching companies...');
       const { data, error } = await supabase
         .from('empresas')
         .select('id, nome_empresa, razao_social')
         .order('nome_empresa');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Acessos: Error fetching companies:', error);
+        throw error;
+      }
+      
+      console.log('Acessos: Companies loaded:', data?.length || 0);
       setCompanies(data || []);
     } catch (error) {
       console.error('Error fetching companies:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível carregar as empresas",
+        description: "Não foi possível carregar as empresas. Verifique suas permissões.",
         variant: "destructive"
       });
     }
@@ -138,9 +144,12 @@ const Acessos = () => {
   };
 
   useEffect(() => {
+    console.log('Acessos: Component mounted, current user:', authUser?.id);
+    console.log('Acessos: Session:', session ? 'exists' : 'null');
+    
     fetchCompanies();
     fetchProfiles();
-  }, []);
+  }, [authUser, session]);
 
   const handleCreateUser = async (data: UserForm) => {
     setSubmitting(true);
