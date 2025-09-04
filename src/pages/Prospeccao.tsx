@@ -78,11 +78,6 @@ const Prospeccao = () => {
     }
   };
 
-  // Calcular métricas dos contatos
-  console.log('📈 Calculating metricas...');
-  const metricas = getMetricas();
-  console.log('📊 Metricas calculated:', metricas);
-
   console.log('⏳ Loading status check:', loading);
   
   if (loading) {
@@ -97,6 +92,11 @@ const Prospeccao = () => {
   }
 
   console.log('✅ All data loaded, rendering main component...');
+  
+  // Calcular métricas dos contatos após verificar loading
+  console.log('📈 Calculating metricas...');
+  const metricas = getMetricas();
+  console.log('📊 Metricas calculated:', metricas);
   const funnelData: FunnelStage[] = [
     {
       id: 'total-base',
@@ -526,15 +526,6 @@ const Prospeccao = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <DashboardLayout title="Prospecção">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout title="Prospecção">
