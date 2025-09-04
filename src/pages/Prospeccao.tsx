@@ -553,41 +553,43 @@ const Prospeccao = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="kanban" className="space-y-3 overflow-x-hidden">
-          <FilterBar
-            searchPlaceholder="Buscar por cliente, campanha ou status..."
-            onSearchChange={setSearchFilter}
-          />
-          
-          <Card className="p-4 overflow-x-hidden">
-            <div className="flex items-center justify-between mb-4 flex-shrink-0">
-              <h3 className="text-lg font-semibold text-foreground">Kanban - Gestão da Prospecção</h3>
-              <div className="flex items-center space-x-4">
-                <div className="text-sm text-muted-foreground">
-                  Total de contatos: {contatos.length}
-                </div>
-                <Button
-                  onClick={solicitarClientes}
-                  variant="outline"
-                  size="sm"
-                >
-                  Solicitar Clientes
-                </Button>
-              </div>
-            </div>
+        <TabsContent value="kanban" className="flex flex-col h-[calc(100vh-200px)] overflow-hidden">
+          <div className="flex-shrink-0 space-y-3">
+            <FilterBar
+              searchPlaceholder="Buscar por cliente, campanha ou status..."
+              onSearchChange={setSearchFilter}
+            />
             
-            <div className="h-[480px] overflow-x-hidden">
-              <KanbanBoard
-                columns={kanbanColumns}
-                onUpdateColumns={() => {}} // Será atualizado automaticamente pelos dados do banco
-                onAddItem={handleAddItem}
-                onEditItem={handleEditItem}
-                onDeleteItem={handleDeleteItem}
-                onCardClick={handleCardClick}
-                onStatusChange={handleStatusChange}
-              />
-            </div>
-          </Card>
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">Kanban - Gestão da Prospecção</h3>
+                <div className="flex items-center space-x-4">
+                  <div className="text-sm text-muted-foreground">
+                    Total de contatos: {contatos.length}
+                  </div>
+                  <Button
+                    onClick={solicitarClientes}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Solicitar Clientes
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+          
+          <div className="flex-1 overflow-hidden">
+            <KanbanBoard
+              columns={kanbanColumns}
+              onUpdateColumns={() => {}} // Será atualizado automaticamente pelos dados do banco
+              onAddItem={handleAddItem}
+              onEditItem={handleEditItem}
+              onDeleteItem={handleDeleteItem}
+              onCardClick={handleCardClick}
+              onStatusChange={handleStatusChange}
+            />
+          </div>
         </TabsContent>
       </Tabs>
 

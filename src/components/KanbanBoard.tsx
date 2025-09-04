@@ -196,14 +196,14 @@ export function KanbanBoard({
   };
 
   return (
-    <div className="flex flex-col h-full overflow-x-hidden">
+    <div className="h-full flex flex-col">
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex-1 overflow-x-auto overflow-y-auto max-h-full">
-          <div className="flex gap-4 pb-4 min-w-max">
+        <div className="flex-1 overflow-x-auto overflow-y-hidden">
+          <div className="flex gap-4 pb-4 min-w-max h-full">
             {columns.map((column) => (
               <div key={column.id} className="flex-shrink-0">
                 <SortableContext
