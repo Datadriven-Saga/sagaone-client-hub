@@ -23,6 +23,8 @@ interface ClienteData {
   telefone: string;
   email?: string;
   cpf?: string;
+  segmentacao?: string;
+  responsavel?: string;
 }
 
 const Prospeccao = () => {
@@ -66,7 +68,7 @@ const Prospeccao = () => {
   // Calcular métricas dos contatos
   const metricas = getMetricas();
 
-  // Dados do funil de vendas usando dados reais
+  // Dados do funil de vendas usando dados reais - novas etapas
   const funnelData: FunnelStage[] = [
     {
       id: 'total-base',
@@ -75,15 +77,15 @@ const Prospeccao = () => {
       color: '#1f2937'
     },
     {
-      id: 'enviados',
-      title: 'Enviados',
-      value: metricas.enviados,
+      id: 'atribuidos',
+      title: 'Atribuídos',
+      value: metricas.atribuidos,
       color: '#8B5FD6'
     },
     {
-      id: 'recebidos',
-      title: 'Recebidos',
-      value: metricas.recebidos,
+      id: 'convidados',
+      title: 'Convidados',
+      value: metricas.convidados,
       color: '#A679E1'
     },
     {
@@ -97,6 +99,18 @@ const Prospeccao = () => {
       title: 'Confirmados',
       value: metricas.confirmados,
       color: '#10b981'
+    },
+    {
+      id: 'check-in',
+      title: 'Check-in',
+      value: metricas.checkin,
+      color: '#22c55e'
+    },
+    {
+      id: 'descartados',
+      title: 'Descartados',
+      value: metricas.descartados,
+      color: '#ef4444'
     }
   ];
 
@@ -123,31 +137,31 @@ const Prospeccao = () => {
           title: contato.nome,
           description: `${contato.telefone}${contato.email ? ` - ${contato.email}` : ''}`,
           channel: contato.origem,
-          priority: 'medium' as const,
           assignee: contato.responsavel_id || undefined,
           prospeccaoNome, // Adicionar nome da prospecção
-          prospeccaoCanal // Adicionar canal da prospecção
+          prospeccaoCanal, // Adicionar canal da prospecção
+          segmentacao: 'Undefined' // Buscar da tabela contatos quando implementar
         };
       });
   };
 
-  // Configurar colunas do Kanban com dados reais
+  // Configurar colunas do Kanban com dados reais - novas colunas
   const kanbanColumns: KanbanColumnData[] = [
     {
-      id: 'novo',
-      title: 'Novo',
+      id: 'novos',
+      title: 'Novos',
       color: '#6645EB',
       items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Novo'))
     },
     {
-      id: 'enviados',
-      title: 'Enviados',
+      id: 'atribuidos',
+      title: 'Atribuídos',
       color: '#8B5FD6',
       items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Enviado'))
     },
     {
-      id: 'recebidos',
-      title: 'Recebidos',
+      id: 'convidados',
+      title: 'Convidados',
       color: '#A679E1',
       items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Recebido'))
     },
@@ -164,10 +178,16 @@ const Prospeccao = () => {
       items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Confirmado'))
     },
     {
-      id: 'cancelados',
-      title: 'Cancelados',
-      color: '#EF4444',
+      id: 'checkin',
+      title: 'Check-in',
+      color: '#22c55e',
       items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Cancelado'))
+    },
+    {
+      id: 'descartados',
+      title: 'Descartados',
+      color: '#ef4444',
+      items: []
     }
   ];
 
@@ -181,8 +201,10 @@ const Prospeccao = () => {
         nome: cliente.nome,
         telefone: cliente.telefone,
         email: cliente.email,
+        segmentacao: cliente.segmentacao,
+        responsavel_email: cliente.responsavel,
         origem: 'Outros' as const,
-        observacoes: `Importado da campanha: ${campanha}`
+        observacoes: `Importado da campanha: ${campanha}`,
       }));
 
       await adicionarContatos(novosContatos, prospeccaoSelecionada?.id);
@@ -310,34 +332,57 @@ const Prospeccao = () => {
     await atribuirResponsavel(contatoId, userId);
   };
 
-  const testarWebhook = async () => {
+  const solicitarClientes = async () => {
+    if (!user) return;
+
     try {
-      const { data, error } = await supabase.functions.invoke('trigger-webhook', {
-        body: {
-          gatilho: 'novo_contato_prospeccao',
-          dados: {
-            prospeccao_id: 'test-prospeccao-id',
-            contato_id: '1234',
-            nome: 'Fabricio',
-            telefone: '62992390133',
-            email: 'fabricio@teste.com',
-            status: 'Novo'
-          }
-        }
-      });
+      // Verificar se o usuário tem contatos na coluna "Atribuídos"
+      const contatosAtribuidos = contatos.filter(
+        contato => contato.status === 'Enviado' && contato.responsavel_id === user.id
+      );
 
-      console.log('Resultado do teste webhook:', data);
-      console.log('Erro do webhook:', error);
+      if (contatosAtribuidos.length > 0) {
+        toast({
+          title: "Não é possível solicitar clientes",
+          description: "Você possui clientes parados na coluna Atribuídos. Finalize o atendimento antes de solicitar novos clientes.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Buscar contatos não atribuídos (status 'Novo' e sem responsável)
+      const contatosNovos = contatos.filter(
+        contato => contato.status === 'Novo' && !contato.responsavel_id
+      );
+
+      if (contatosNovos.length === 0) {
+        toast({
+          title: "Nenhum cliente disponível",
+          description: "Não há clientes novos disponíveis para atribuição no momento.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Atribuir até 5 clientes para o usuário
+      const clientesParaAtribuir = contatosNovos.slice(0, 5);
+      
+      for (const contato of clientesParaAtribuir) {
+        await atribuirResponsavel(contato.id, user.id);
+        // Mover para coluna "Atribuídos" (status 'Enviado')
+        await atualizarStatusContato(contato.id, 'Enviado');
+      }
 
       toast({
-        title: "Teste de webhook executado",
-        description: `Resultado: ${data?.success ? 'Sucesso' : 'Erro'} - ${data?.webhooks_disparados || 0} webhooks disparados`
+        title: "Clientes atribuídos",
+        description: `${clientesParaAtribuir.length} cliente(s) foram atribuídos para você e movidos para a coluna Atribuídos.`,
       });
+
     } catch (error) {
-      console.error('Erro ao testar webhook:', error);
+      console.error('Erro ao solicitar clientes:', error);
       toast({
-        title: "Erro no teste",
-        description: "Falha ao executar o teste do webhook",
+        title: "Erro",
+        description: "Ocorreu um erro ao solicitar clientes. Tente novamente.",
         variant: "destructive"
       });
     }
@@ -522,11 +567,11 @@ const Prospeccao = () => {
                   Total de contatos: {contatos.length}
                 </div>
                 <Button
-                  onClick={testarWebhook}
+                  onClick={solicitarClientes}
                   variant="outline"
                   size="sm"
                 >
-                  Testar Webhook Fabricio
+                  Solicitar Clientes
                 </Button>
               </div>
             </div>

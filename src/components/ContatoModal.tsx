@@ -83,28 +83,10 @@ export function ContatoModal({
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Mock data - substitua por dados reais do banco
-  const [anotacoes] = useState<Anotacao[]>([
-    {
-      id: '1',
-      texto: 'Cliente demonstrou interesse no produto premium',
-      usuario: 'João Silva',
-      timestamp: '2025-01-02 14:30'
-    },
-    {
-      id: '2',
-      texto: 'Agendado reunião para apresentação',
-      usuario: 'Maria Santos',
-      timestamp: '2025-01-02 16:15'
-    }
-  ]);
-
-  const [produtosDisponiveis] = useState<Produto[]>([
-    { id: '1', nome: 'Produto A', preco: 299.90, categoria: 'Premium' },
-    { id: '2', nome: 'Produto B', preco: 199.90, categoria: 'Standard' },
-    { id: '3', nome: 'Produto C', preco: 99.90, categoria: 'Basic' }
-  ]);
-
+  // Dados mockados removidos - buscar dados reais do banco
+  const [anotacoes, setAnotacoes] = useState<Anotacao[]>([]);
+  const [produtosDisponiveis, setProdutosDisponiveis] = useState<Produto[]>([]);
+  const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [produtosSelecionados, setProdutosSelecionados] = useState<string[]>([]);
 
   const temperaturas: TemperaturaOption[] = [
@@ -113,22 +95,15 @@ export function ContatoModal({
     { id: 'quente', nome: 'Quente', cor: '#ef4444' }
   ];
 
-  const [logEntries] = useState<LogEntry[]>([
-    {
-      id: '1',
-      acao: 'Contato criado',
-      usuario: 'Sistema',
-      timestamp: '2025-01-02 10:00',
-      detalhes: 'Contato importado via planilha'
-    },
-    {
-      id: '2',
-      acao: 'Status alterado',
-      usuario: 'João Silva',
-      timestamp: '2025-01-02 14:30',
-      detalhes: 'De "Novo" para "Em Contato"'
+  // Buscar dados reais ao abrir o modal
+  useEffect(() => {
+    if (contato && isOpen) {
+      // TODO: Buscar anotações reais do contato
+      // TODO: Buscar produtos disponíveis
+      // TODO: Buscar log de auditoria
+      console.log('Carregando dados do contato:', contato.id);
     }
-  ]);
+  }, [contato, isOpen]);
 
   const statusOptions = [
     'Novo', 'Enviado', 'Recebido', 'Agendado', 'Confirmado', 'Cancelado'
@@ -304,10 +279,10 @@ export function ContatoModal({
                       <div className="space-y-2">
                         <label className="text-sm font-medium flex items-center gap-2">
                           <CreditCard className="w-4 h-4" />
-                          Valor Potencial
+                          Segmentação
                         </label>
                         <Input 
-                          value={contato.valor_potencial ? `R$ ${contato.valor_potencial.toFixed(2)}` : 'Não definido'} 
+                          value={contato.observacoes || 'Não definida'} 
                           readOnly 
                         />
                       </div>

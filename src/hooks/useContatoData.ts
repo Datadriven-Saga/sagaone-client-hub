@@ -411,14 +411,35 @@ export const useContatoData = () => {
       return acc;
     }, {} as Record<string, number>);
 
+    const totalBase = contatos.length;
+    const novo = metricas['Novo'] || 0;
+    const enviados = metricas['Enviado'] || 0;
+    const recebidos = metricas['Recebido'] || 0;
+    const agendados = metricas['Agendado'] || 0;
+    const confirmados = metricas['Confirmado'] || 0;
+    const cancelados = metricas['Cancelado'] || 0;
+
+    // Novas métricas baseadas no novo funil
+    const atribuidos = enviados; // Atribuídos é mapeado para "Enviado"
+    const convidados = recebidos; // Convidados é mapeado para "Recebido"
+    const checkin = cancelados; // Check-in é mapeado temporariamente para "Cancelado"
+    const descartados = 0; // Descartados é uma nova categoria
+    const desperdicio = totalBase - checkin - descartados;
+
     return {
-      totalBase: contatos.length,
-      novo: metricas['Novo'] || 0,
-      enviados: metricas['Enviado'] || 0,
-      recebidos: metricas['Recebido'] || 0,
-      agendados: metricas['Agendado'] || 0,
-      confirmados: metricas['Confirmado'] || 0,
-      cancelados: metricas['Cancelado'] || 0
+      totalBase,
+      novo,
+      enviados,
+      recebidos,
+      agendados,
+      confirmados,
+      cancelados,
+      // Novas métricas
+      atribuidos,
+      convidados,
+      checkin,
+      descartados,
+      desperdicio
     };
   };
 

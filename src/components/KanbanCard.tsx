@@ -148,19 +148,12 @@ export function KanbanCard({ item, isDragging, onEdit, onDelete, onCardClick }: 
           </div>
         )}
 
-        {/* Channel indicator */}
-        {item.channel && (
-          <div className="flex items-center gap-1 w-full min-w-0">
-            <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
-            <span className="text-xs text-muted-foreground break-words">{item.channel}</span>
-          </div>
-        )}
-
-        {/* Priority indicator */}
-        {item.priority && (
-          <div className="flex items-center gap-1 w-full min-w-0">
-            <div className={`w-2 h-2 rounded-full ${getPriorityColor(item.priority)} flex-shrink-0`} />
-            <span className="text-xs text-muted-foreground capitalize break-words">{item.priority}</span>
+        {/* Segmentação */}
+        {item.segmentacao && (
+          <div className="flex items-center gap-1 w-full">
+            <Badge variant="outline" className="text-xs break-words max-w-full">
+              {item.segmentacao}
+            </Badge>
           </div>
         )}
 

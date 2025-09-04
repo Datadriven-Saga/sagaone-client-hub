@@ -30,6 +30,7 @@ export interface KanbanItem {
   channel?: string;
   prospeccaoNome?: string;
   prospeccaoCanal?: 'Whatsapp' | 'Ligação';
+  segmentacao?: string;
 }
 
 export interface KanbanColumnData {

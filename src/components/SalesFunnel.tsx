@@ -44,7 +44,7 @@ export const SalesFunnel = ({ stages, title = "Funil de Vendas" }: SalesFunnelPr
                     backgroundColor: stage.color,
                     width: `${widthPercentage}%`,
                     height: '80px',
-                    borderRadius: '4px'
+                    borderRadius: '12px'
                   }}
                 >
                   {/* Conteúdo do estágio */}
@@ -63,14 +63,6 @@ export const SalesFunnel = ({ stages, title = "Funil de Vendas" }: SalesFunnelPr
                 </div>
               </div>
 
-              {/* Taxa de conversão entre estágios */}
-              {index > 0 && (
-                <div className="flex justify-center my-2">
-                  <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full border">
-                    {conversionRate}%
-                  </div>
-                </div>
-              )}
             </div>
           );
         })}

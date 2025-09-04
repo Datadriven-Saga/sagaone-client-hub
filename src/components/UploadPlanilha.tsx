@@ -15,6 +15,8 @@ interface ClienteData {
   telefone: string;
   email?: string;
   cpf?: string;
+  segmentacao?: string;
+  responsavel?: string;
 }
 
 interface Prospeccao {
@@ -79,6 +81,8 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
           telefone: row[1]?.toString().trim() || '',
           email: row[2]?.toString().trim() || '',
           cpf: row[3]?.toString().trim() || '',
+          segmentacao: row[4]?.toString().trim() || '',
+          responsavel: row[5]?.toString().trim() || '',
         }))
         .filter(cliente => cliente.nome || cliente.telefone); // Remove registros completamente vazios
       
@@ -184,9 +188,10 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
               <div className="text-sm">
                 <p className="font-medium text-blue-800 mb-1">Formato da planilha:</p>
                 <p className="text-blue-700">
-                  • Colunas: Nome*, Telefone*, E-mail, CPF (* = obrigatório)<br/>
+                  • Colunas: Nome*, Telefone*, E-mail, CPF, Segmentação, Responsável (* = obrigatório)<br/>
                   • Formato: Excel (.xlsx ou .xls)<br/>
-                  • Primeira linha deve conter os cabeçalhos
+                  • Primeira linha deve conter os cabeçalhos<br/>
+                  • Responsável deve ser o e-mail do responsável
                 </p>
               </div>
             </div>
@@ -244,6 +249,8 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
                         <TableHead className="w-[150px]">Telefone*</TableHead>
                         <TableHead className="w-[200px]">E-mail</TableHead>
                         <TableHead className="w-[150px]">CPF</TableHead>
+                        <TableHead className="w-[150px]">Segmentação</TableHead>
+                        <TableHead className="w-[200px]">Responsável</TableHead>
                         <TableHead className="w-[80px]">Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -256,6 +263,8 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
                             <TableCell className={!item.telefone ? 'text-red-600' : ''}>{item.telefone || 'OBRIGATÓRIO'}</TableCell>
                             <TableCell>{item.email || '-'}</TableCell>
                             <TableCell>{item.cpf || '-'}</TableCell>
+                            <TableCell>{item.segmentacao || '-'}</TableCell>
+                            <TableCell>{item.responsavel || '-'}</TableCell>
                             <TableCell>
                               {isValid ? (
                                 <CheckCircle className="text-green-600" size={16} />
