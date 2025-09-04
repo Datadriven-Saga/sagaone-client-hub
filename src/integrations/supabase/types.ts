@@ -1153,6 +1153,10 @@ export type Database = {
         Args: { user_id?: string }
         Returns: boolean
       }
+      check_password_protection_status: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       check_user_email_exists: {
         Args: { email_to_check: string }
         Returns: boolean
