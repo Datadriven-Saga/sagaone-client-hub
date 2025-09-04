@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { CompanyProvider } from "@/contexts/CompanyContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
@@ -37,10 +38,11 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+      <CompanyProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -49,6 +51,7 @@ const App = () => (
             <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
             <Route path="/personas" element={<ProtectedRoute><Personas /></ProtectedRoute>} />
             <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
+            {/* DEBUG: Prospeccao route registered */}
             <Route path="/prospeccao-new" element={<ProtectedRoute><ProspeccaoNew /></ProtectedRoute>} />
             <Route path="/central-atendimento" element={<ProtectedRoute><CentralAtendimento /></ProtectedRoute>} />
             <Route path="/loja" element={<ProtectedRoute><Loja /></ProtectedRoute>} />
@@ -70,8 +73,9 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </CompanyProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

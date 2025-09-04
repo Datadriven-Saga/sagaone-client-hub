@@ -27,12 +27,12 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
   const fetchUserCompanies = async () => {
     if (!user) {
-      console.warn('CompanyContext: No user found, skipping fetch');
+      console.warn('🏢 CompanyContext: No user found, skipping fetch');
       setLoading(false);
       return;
     }
 
-    console.log('CompanyContext: Fetching companies for user:', user.id);
+    console.log('🏢 CompanyContext: Fetching companies for user:', user.id, user.email);
 
     try {
       // Get user's companies with better error handling
@@ -49,46 +49,53 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         `)
         .eq('user_id', user.id);
 
-      console.log('CompanyContext: Raw data response:', userEmpresasData);
-      console.log('CompanyContext: Error response:', userEmpresasError);
+      console.log('🏢 CompanyContext: user_empresas query result:', {
+        data: userEmpresasData,
+        error: userEmpresasError,
+        userEmpresasCount: userEmpresasData?.length || 0
+      });
 
       if (userEmpresasError) {
-        console.error('CompanyContext: Supabase error:', userEmpresasError);
+        console.error('🏢 CompanyContext: Error fetching user empresas:', userEmpresasError);
         throw userEmpresasError;
       }
 
-      if (!userEmpresasData || userEmpresasData.length === 0) {
-        console.warn('CompanyContext: No companies found for user');
-        setUserCompanies([]);
+      const companies = (userEmpresasData || [])
+        .filter(ue => ue.empresas) // Filter out null empresas
+        .map(ue => ({
+          id: ue.empresas.id,
+          nome_empresa: ue.empresas.nome_empresa,
+          razao_social: ue.empresas.razao_social,
+        }));
+
+      console.log('🏢 CompanyContext: Processed companies:', companies);
+
+      setUserCompanies(companies);
+
+      // Find the active company
+      const activeEmpresa = userEmpresasData?.find(ue => ue.is_ativa && ue.empresas);
+      console.log('🏢 CompanyContext: Active empresa found:', activeEmpresa);
+
+      if (activeEmpresa && activeEmpresa.empresas) {
+        const activeCompanyData = {
+          id: activeEmpresa.empresas.id,
+          nome_empresa: activeEmpresa.empresas.nome_empresa,
+          razao_social: activeEmpresa.empresas.razao_social,
+        };
+        console.log('🏢 CompanyContext: Setting active company:', activeCompanyData);
+        setActiveCompany(activeCompanyData);
+      } else {
+        console.warn('🏢 CompanyContext: No active company found');
         setActiveCompany(null);
-        setLoading(false);
-        return;
-      }
-
-      const companies = userEmpresasData
-        ?.map(ue => ue.empresas)
-        .filter(Boolean) || [];
-      
-      const activeCompanyData = userEmpresasData
-        ?.find(ue => ue.is_ativa)?.empresas;
-
-      console.log('CompanyContext: Processed companies:', companies);
-      console.log('CompanyContext: Active company:', activeCompanyData);
-
-      setUserCompanies(companies as Company[]);
-      setActiveCompany(activeCompanyData as Company || null);
-      
-      if (companies.length > 0 && !activeCompanyData) {
-        console.warn('CompanyContext: No active company found, but companies exist');
       }
     } catch (error) {
-      console.error('CompanyContext: Error fetching user companies:', error);
+      console.error('🏢 CompanyContext: Error in fetchUserCompanies:', error);
       toast.error('Erro ao carregar empresas: ' + (error as Error).message);
-      // Set empty state on error
       setUserCompanies([]);
       setActiveCompany(null);
     } finally {
       setLoading(false);
+      console.log('🏢 CompanyContext: Fetch completed, loading set to false');
     }
   };
 
@@ -99,14 +106,14 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      console.log('CompanyContext: Switching to company:', companyId);
+      console.log('🏢 CompanyContext: Switching to company:', companyId);
       
       const { error } = await supabase.rpc('set_user_active_company', {
         new_empresa_id: companyId
       });
 
       if (error) {
-        console.error('CompanyContext: RPC error:', error);
+        console.error('🏢 CompanyContext: RPC error:', error);
         throw error;
       }
 
@@ -117,7 +124,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       // Refresh the page to update all data based on new company
       window.location.reload();
     } catch (error) {
-      console.error('CompanyContext: Error switching company:', error);
+      console.error('🏢 CompanyContext: Error switching company:', error);
       toast.error('Erro ao trocar empresa: ' + (error as Error).message);
     }
   };
@@ -127,9 +134,11 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    console.log('🏢 CompanyContext: useEffect triggered, user:', user?.email);
     if (user) {
       fetchUserCompanies();
     } else {
+      console.log('🏢 CompanyContext: No user, clearing state');
       setActiveCompany(null);
       setUserCompanies([]);
       setLoading(false);
@@ -143,6 +152,12 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     switchCompany,
     refreshCompanies,
   };
+
+  console.log('🏢 CompanyContext: Rendering with state:', {
+    activeCompany: activeCompany?.nome_empresa,
+    userCompaniesCount: userCompanies.length,
+    loading: loading
+  });
 
   return <CompanyContext.Provider value={value}>{children}</CompanyContext.Provider>;
 }
