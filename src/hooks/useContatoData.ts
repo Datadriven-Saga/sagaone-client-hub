@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 export interface Contato {
@@ -58,292 +57,106 @@ export const useContatoData = () => {
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Inicializar dateFilter com valores padrão de forma segura
-  const [dateFilter, setDateFilter] = useState<{ start: string; end: string }>(() => {
-    const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    return {
-      start: firstDayOfMonth.toISOString().split('T')[0],
-      end: today.toISOString().split('T')[0]
-    };
+  const [dateFilter, setDateFilter] = useState<{ start: string; end: string }>({
+    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    end: new Date().toISOString().split('T')[0]
   });
   
-  const { user } = useAuth();
   const { toast } = useToast();
 
-  // Buscar prospecções - Simplificado sem validações desnecessárias
+  // Buscar prospecções - SUPER SIMPLES
   const fetchProspeccoes = async () => {
-    console.log('🎯 fetchProspeccoes called, user:', user?.id);
-    
     try {
-      console.log('📡 Making supabase call to prospeccoes...');
       const { data, error } = await supabase
         .from('prospeccoes')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('❌ Error in fetchProspeccoes:', error);
-        throw error;
-      }
-      
-      console.log('✅ fetchProspeccoes success, data:', data?.length);
-      console.log('📋 Sample prospeccao:', data?.[0]);
+      if (error) throw error;
       
       setProspeccoes((data || []).map(p => ({
         ...p,
         canal: (p.canal as 'Whatsapp' | 'Ligação') || 'Whatsapp'
       })));
     } catch (error) {
-      console.error('🚨 Erro ao buscar prospecções:', error);
-      // Set empty array on error to avoid infinite loading
+      console.error('Erro ao buscar prospecções:', error);
       setProspeccoes([]);
     }
   };
 
-  // Buscar contatos - Simplificado sem validações desnecessárias
+  // Buscar contatos - SUPER SIMPLES
   const fetchContatos = async () => {
-    console.log('👥 fetchContatos called, user:', user?.id);
-    
     try {
-      console.log('📡 Making supabase call to contatos...');
       const { data, error } = await supabase
         .from('contatos')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('❌ Error in fetchContatos:', error);
-        throw error;
-      }
+      if (error) throw error;
       
-      console.log('✅ fetchContatos success, data:', data?.length);
-      console.log('📋 Sample contato:', data?.[0]);
-      
-      // Mapear dados do banco usando os tipos corretos
-      const contatosProcessed = (data || []).map((contato: any) => ({
-        ...contato,
-        // Garantir que os campos opcionais não sejam undefined
-        email: contato.email || undefined,
-        responsavel_email: contato.responsavel_email || undefined,
-        observacoes: contato.observacoes || undefined,
-        valor_potencial: contato.valor_potencial || undefined,
-        cliente_id: contato.cliente_id || undefined,
-        empresa_id: contato.empresa_id || undefined
-      }));
-      
-      console.log('🔄 Processed contatos:', contatosProcessed.length);
-      setContatos(contatosProcessed);
+      setContatos(data || []);
     } catch (error) {
-      console.error('🚨 Erro ao buscar contatos:', error);
-      // Set empty array on error to avoid infinite loading
+      console.error('Erro ao buscar contatos:', error);
       setContatos([]);
     }
   };
 
-  // Adicionar novos contatos ao banco
+  // EFEITO SIMPLES - SEM LOOPS
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchProspeccoes(),
+        fetchContatos()
+      ]);
+      setLoading(false);
+    };
+
+    loadData();
+  }, []); // SEM DEPENDÊNCIAS - EXECUTA SÓ UMA VEZ
+
+  // Adicionar novos contatos - SIMPLES
   const adicionarContatos = async (novosContatos: {
     nome: string;
     telefone: string;
     email?: string;
     origem: Contato['origem'];
-    empresa_id?: string;
     observacoes?: string;
     responsavel_email?: string;
   }[], prospeccaoId?: string) => {
     try {
-      // Buscar empresa_id do usuário logado
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('empresa_id')
-        .eq('id', user?.id)
-        .single();
-
-      if (profileError) {
-        console.error('Erro ao buscar perfil do usuário:', profileError);
-        throw profileError;
-      }
-
-      const contatosParaInserir = novosContatos.map(contato => ({
-        ...contato,
-        status: 'Novo' as const,
-        origem: contato.origem || 'Outros' as const,
-        empresa_id: profile.empresa_id
-      }));
-
       const { data, error } = await supabase
         .from('contatos')
-        .insert(contatosParaInserir)
+        .insert(novosContatos.map(contato => ({
+          ...contato,
+          status: 'Novo' as const
+        })))
         .select();
 
       if (error) throw error;
-
-      if (data) {
-        // Mapear os dados inseridos para os novos status
-        const dataWithNewStatus = data.map(contato => ({
-          ...contato,
-          status: 'Novo' as Contato['status']
-        }));
-        
-        setContatos(prev => [...dataWithNewStatus, ...prev]);
-        
-        // Disparar gatilho para cada novo contato adicionado
-        if (prospeccaoId) {
-          console.log('Iniciando disparo de webhooks para prospecção:', prospeccaoId);
-          for (const contato of data) {
-            console.log('Disparando webhook para contato:', contato);
-            try {
-              const webhookResult = await supabase.functions.invoke('trigger-webhook', {
-                body: {
-                  gatilho: 'novo_contato_prospeccao',
-                  dados: {
-                    prospeccao_id: prospeccaoId,
-                    contato_id: contato.id,
-                    nome: contato.nome,
-                    telefone: contato.telefone,
-                    email: contato.email,
-                    status: contato.status
-                  }
-                }
-              });
-              console.log('Resultado do webhook:', webhookResult);
-              
-              if (webhookResult.error) {
-                console.error('Erro no webhook:', webhookResult.error);
-              }
-            } catch (webhookError) {
-              console.error('Erro ao disparar webhook:', webhookError);
-            }
-          }
-        }
-        
-        console.log('Contatos adicionados com sucesso:', data.length);
-        
-        return data;
-      }
+      if (data) setContatos(prev => [...data, ...prev]);
     } catch (error) {
       console.error('Erro ao adicionar contatos:', error);
-      toast({
-        title: "Erro ao adicionar contatos",
-        description: "Não foi possível adicionar os contatos ao banco",
-        variant: "destructive"
-      });
-      throw error;
+      toast({ title: "Erro", description: "Erro ao adicionar contatos", variant: "destructive" });
     }
   };
 
-  // Criar nova prospecção
-  const criarProspeccao = async (dadosProspeccao: {
-    titulo: string;
-    descricao?: string;
-    data_inicio?: string;
-    data_fim?: string;
-    meta_leads?: number;
-    local_evento?: string;
-    condicoes_especiais?: string;
-    objetivo_vendas?: string;
-    imagem_divulgacao_url?: string;
-  }) => {
-    console.log('criarProspeccao called with:', dadosProspeccao);
-    console.log('Current user:', user);
-    console.log('User authenticated:', !!user);
-    console.log('User ID:', user?.id);
-    
-    if (!user) {
-      console.error('User not authenticated');
-      toast({
-        title: "Erro de autenticação",
-        description: "Você precisa estar logado para criar uma prospecção",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    try {
-      // Buscar empresa_id do usuário logado
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('empresa_id')
-        .eq('id', user?.id)
-        .single();
-
-      if (profileError) {
-        console.error('Erro ao buscar perfil do usuário:', profileError);
-        throw profileError;
-      }
-
-      const prospeccaoData = {
-        ...dadosProspeccao,
-        leads_gerados: 0,
-        responsavel_id: user?.id,
-        empresa_id: profile.empresa_id
-      };
-
-      console.log('Data to insert:', prospeccaoData);
-
-      const { data, error } = await supabase
-        .from('prospeccoes')
-        .insert([prospeccaoData])
-        .select()
-        .single();
-
-      console.log('Supabase response:', { data, error });
-
-      if (error) throw error;
-
-      if (data) {
-        setProspeccoes(prev => [{
-          ...data,
-          canal: data.canal as 'Whatsapp' | 'Ligação'
-        }, ...prev]);
-        toast({
-          title: "Sucesso",
-          description: "Prospecção criada com sucesso!"
-        });
-        return data;
-      }
-    } catch (error) {
-      console.error('Erro ao criar prospecção:', error);
-      toast({
-        title: "Erro ao criar prospecção",
-        description: "Não foi possível criar a prospecção. Verifique se você está logado.",
-        variant: "destructive"
-      });
-      throw error;
-    }
-  };
-
-  // Atualizar status do contato
+  // Atualizar status - SIMPLES
   const atualizarStatusContato = async (contatoId: string, novoStatus: Contato['status']) => {
     try {
       const { error } = await supabase
         .from('contatos')
-        .update({ 
-          status: novoStatus,
-          updated_at: new Date().toISOString()
-        })
+        .update({ status: novoStatus })
         .eq('id', contatoId);
 
       if (error) throw error;
-
-      setContatos(prev => prev.map(contato => 
-        contato.id === contatoId 
-          ? { ...contato, status: novoStatus, updated_at: new Date().toISOString() }
-          : contato
-      ));
+      setContatos(prev => prev.map(c => c.id === contatoId ? { ...c, status: novoStatus } : c));
     } catch (error) {
-      console.error('Erro ao atualizar status do contato:', error);
-      toast({
-        title: "Erro ao atualizar contato",
-        description: "Não foi possível atualizar o status do contato",
-        variant: "destructive"
-      });
-      throw error;
+      console.error('Erro ao atualizar status:', error);
     }
   };
 
-  // Excluir contato
+  // Excluir contato - SIMPLES
   const excluirContato = async (contatoId: string) => {
     try {
       const { error } = await supabase
@@ -352,132 +165,76 @@ export const useContatoData = () => {
         .eq('id', contatoId);
 
       if (error) throw error;
-
-      setContatos(prev => prev.filter(contato => contato.id !== contatoId));
-      
-      toast({
-        title: "Contato excluído",
-        description: "O contato foi removido com sucesso"
-      });
+      setContatos(prev => prev.filter(c => c.id !== contatoId));
     } catch (error) {
       console.error('Erro ao excluir contato:', error);
-      toast({
-        title: "Erro ao excluir contato",
-        description: "Não foi possível excluir o contato",
-        variant: "destructive"
-      });
-      throw error;
     }
   };
 
-  // Atribuir responsável ao contato
-  const atribuirResponsavel = async (contatoId: string, userEmail: string) => {
+  // Atribuir responsável - SIMPLES  
+  const atribuirResponsavel = async (contatoId: string, userId: string) => {
     try {
       const { error } = await supabase
         .from('contatos')
-        .update({ 
-          responsavel_email: userEmail,
-          updated_at: new Date().toISOString()
-        })
+        .update({ responsavel_email: userId })
         .eq('id', contatoId);
 
       if (error) throw error;
-
-      setContatos(prev => prev.map(contato => 
-        contato.id === contatoId 
-          ? { ...contato, responsavel_email: userEmail, updated_at: new Date().toISOString() }
-          : contato
-      ));
-
-      toast({
-        title: "Responsável atribuído",
-        description: "O responsável foi definido com sucesso"
-      });
+      setContatos(prev => prev.map(c => c.id === contatoId ? { ...c, responsavel_email: userId } : c));
     } catch (error) {
       console.error('Erro ao atribuir responsável:', error);
-      toast({
-        title: "Erro ao atribuir responsável",
-        description: "Não foi possível atribuir o responsável",
-        variant: "destructive"
-      });
+    }
+  };
+
+  // Criar prospecção - SIMPLES
+  const criarProspeccao = async (dadosProspeccao: Omit<Prospeccao, 'id' | 'created_at' | 'updated_at' | 'leads_gerados'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('prospeccoes')
+        .insert({ ...dadosProspeccao, leads_gerados: 0 })
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        const prospeccaoFormatada = {
+          ...data,
+          canal: (data.canal as 'Whatsapp' | 'Ligação') || 'Whatsapp'
+        };
+        setProspeccoes(prev => [prospeccaoFormatada, ...prev]);
+        return prospeccaoFormatada;
+      }
+    } catch (error) {
+      console.error('Erro ao criar prospecção:', error);
       throw error;
     }
   };
 
-  // Calcular métricas dos contatos
-  const getMetricas = () => {
-    const metricas = contatos.reduce((acc, contato) => {
-      const status = contato.status;
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+  // Editar prospecção - SIMPLES
+  const editarProspeccao = async (prospeccaoId: string, dadosAtualizados: Partial<Prospeccao>) => {
+    try {
+      const { data, error } = await supabase
+        .from('prospeccoes')
+        .update(dadosAtualizados)
+        .eq('id', prospeccaoId)
+        .select()
+        .single();
 
-    const totalBase = contatos.length;
-    const novo = metricas['Novo'] || 0;
-    const enviados = metricas['Negociação'] || 0;
-    const recebidos = metricas['Em Contato'] || 0;
-    const agendados = metricas['Qualificado'] || 0;
-    const confirmados = metricas['Fechado'] || 0;
-    const cancelados = metricas['Perdido'] || 0;
-
-    // Novas métricas baseadas no novo funil
-    const atribuidos = enviados; // Atribuídos é mapeado para "Negociação"
-    const convidados = recebidos; // Convidados é mapeado para "Em Contato"
-    const checkin = cancelados; // Check-in é mapeado temporariamente para "Perdido"
-    const descartados = 0; // Descartados é uma nova categoria
-    const desperdicio = totalBase - checkin - descartados;
-
-    return {
-      totalBase,
-      novo,
-      enviados,
-      recebidos,
-      agendados,
-      confirmados,
-      cancelados,
-      // Novas métricas
-      atribuidos,
-      convidados,
-      checkin,
-      descartados,
-      desperdicio
-    };
+      if (error) throw error;
+      if (data) {
+        const prospeccaoFormatada = {
+          ...data,
+          canal: (data.canal as 'Whatsapp' | 'Ligação') || 'Whatsapp'
+        };
+        setProspeccoes(prev => prev.map(p => p.id === prospeccaoId ? prospeccaoFormatada : p));
+      }
+    } catch (error) {
+      console.error('Erro ao editar prospecção:', error);
+      throw error;
+    }
   };
 
-  useEffect(() => {
-    console.log('🔥 useContatoData useEffect triggered');
-    
-    if (!user?.id) {
-      console.log('❌ No user found, setting loading to false');
-      setLoading(false);
-      return;
-    }
-    
-    const loadData = async () => {
-      console.log('📊 Starting to load data...');
-      setLoading(true);
-      try {
-        console.log('🚀 Calling fetchProspeccoes and fetchContatos...');
-        await Promise.all([
-          fetchProspeccoes(),
-          fetchContatos()
-        ]);
-        console.log('✅ Data loaded successfully');
-      } catch (error) {
-        console.error('❌ Error loading data:', error);
-        // Ensure arrays are set even on error
-        setContatos([]);
-        setProspeccoes([]);
-      } finally {
-        console.log('🏁 Setting loading to false');
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [user?.id]); // Só depende do user ID
-
-  // Excluir prospecção
+  // Excluir prospecção - SIMPLES
   const excluirProspeccao = async (prospeccaoId: string) => {
     try {
       const { error } = await supabase
@@ -486,76 +243,40 @@ export const useContatoData = () => {
         .eq('id', prospeccaoId);
 
       if (error) throw error;
-
       setProspeccoes(prev => prev.filter(p => p.id !== prospeccaoId));
-      
-      toast({
-        title: "Prospecção excluída",
-        description: "A prospecção foi removida com sucesso"
-      });
     } catch (error) {
       console.error('Erro ao excluir prospecção:', error);
-      toast({
-        title: "Erro ao excluir prospecção",
-        description: "Não foi possível excluir a prospecção",
-        variant: "destructive"
-      });
       throw error;
     }
   };
 
-  // Editar prospecção
-  const editarProspeccao = async (prospeccaoId: string, dadosProspeccao: {
-    titulo: string;
-    descricao?: string;
-    data_inicio?: string;
-    data_fim?: string;
-    meta_leads?: number;
-    local_evento?: string;
-    condicoes_especiais?: string;
-    objetivo_vendas?: string;
-    imagem_divulgacao_url?: string;
-  }) => {
-    try {
-      const { data, error } = await supabase
-        .from('prospeccoes')
-        .update(dadosProspeccao)
-        .eq('id', prospeccaoId)
-        .select()
-        .single();
+  // Métricas - SIMPLES
+  const getMetricas = () => {
+    const totalBase = contatos.length;
+    const novo = contatos.filter(c => c.status === 'Novo').length;
+    const atribuidos = contatos.filter(c => c.status === 'Negociação').length;
+    const convidados = contatos.filter(c => c.status === 'Em Contato').length;
+    const agendados = contatos.filter(c => c.status === 'Qualificado').length;
+    const confirmados = contatos.filter(c => c.status === 'Fechado').length;
+    const checkin = contatos.filter(c => c.status === 'Perdido').length;
+    const descartados = 0;
+    const desperdicio = 0;
 
-      if (error) throw error;
-
-      if (data) {
-        setProspeccoes(prev => prev.map(p => 
-          p.id === prospeccaoId 
-            ? { ...data, canal: data.canal as 'Whatsapp' | 'Ligação' }
-            : p
-        ));
-        
-        toast({
-          title: "Sucesso",
-          description: "Prospecção atualizada com sucesso!"
-        });
-        return data;
-      }
-    } catch (error) {
-      console.error('Erro ao editar prospecção:', error);
-      toast({
-        title: "Erro ao editar prospecção",
-        description: "Não foi possível atualizar a prospecção",
-        variant: "destructive"
-      });
-      throw error;
-    }
+    return {
+      totalBase,
+      novo,
+      atribuidos,
+      convidados,
+      agendados,
+      confirmados,
+      checkin,
+      descartados,
+      desperdicio
+    };
   };
 
-  // Função para atualizar filtro de data com verificação de mudança
   const updateDateFilter = (start: string, end: string) => {
-    // Só atualizar se os valores realmente mudaram
-    if (dateFilter.start !== start || dateFilter.end !== end) {
-      setDateFilter({ start, end });
-    }
+    setDateFilter({ start, end });
   };
 
   return {
@@ -572,10 +293,8 @@ export const useContatoData = () => {
     editarProspeccao,
     excluirProspeccao,
     refetch: () => {
-      if (user?.id) {
-        fetchProspeccoes();
-        fetchContatos();
-      }
+      fetchProspeccoes();
+      fetchContatos();
     }
   };
 };
