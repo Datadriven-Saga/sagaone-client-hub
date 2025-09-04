@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,9 +13,10 @@ interface CriarProspeccaoModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onProspeccaoCriada: () => void;
+  editingProspeccao?: any;
 }
 
-export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada }: CriarProspeccaoModalProps) => {
+export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, editingProspeccao }: CriarProspeccaoModalProps) => {
   const [loading, setLoading] = useState(false);
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -29,6 +30,36 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
   
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Preencher campos quando estiver editando
+  useEffect(() => {
+    if (editingProspeccao && isOpen) {
+      setTitulo(editingProspeccao.titulo || "");
+      setDescricao(editingProspeccao.descricao || "");
+      setDataInicio(editingProspeccao.data_inicio || "");
+      setDataFim(editingProspeccao.data_fim || "");
+      setLocalEvento(editingProspeccao.local_evento || "");
+      setCondicoesEspeciais(editingProspeccao.condicoes_especiais || "");
+      setObjetivoVendas(editingProspeccao.objetivo_vendas || "");
+      setImagemDivulgacao(editingProspeccao.imagem_divulgacao_url || "");
+      setCanal(editingProspeccao.canal || 'Whatsapp');
+    } else if (!editingProspeccao && isOpen) {
+      // Limpar campos quando criar nova prospecção
+      clearForm();
+    }
+  }, [editingProspeccao, isOpen]);
+
+  const clearForm = () => {
+    setTitulo("");
+    setDescricao("");
+    setDataInicio("");
+    setDataFim("");
+    setLocalEvento("");
+    setCondicoesEspeciais("");
+    setObjetivoVendas("");
+    setImagemDivulgacao("");
+    setCanal('Whatsapp');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,70 +85,86 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
     setLoading(true);
     
     try {
-      // Primeiro, verificar se o usuário tem um perfil com empresa_id
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('empresa_id')
-        .eq('id', user.id)
-        .single();
+      const dadosProspeccao = {
+        titulo: titulo.trim(),
+        descricao: descricao.trim() || null,
+        data_inicio: dataInicio || null,
+        data_fim: dataFim || null,
+        local_evento: localEvento.trim() || null,
+        condicoes_especiais: condicoesEspeciais.trim() || null,
+        objetivo_vendas: objetivoVendas.trim() || null,
+        imagem_divulgacao_url: imagemDivulgacao.trim() || null,
+        canal: canal,
+      };
 
-      if (profileError || !profile?.empresa_id) {
+      if (editingProspeccao) {
+        // Editando prospecção existente
+        const { data, error } = await supabase
+          .from('prospeccoes')
+          .update(dadosProspeccao)
+          .eq('id', editingProspeccao.id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Erro do Supabase:', error);
+          throw error;
+        }
+
         toast({
-          title: "Erro de configuração",
-          description: "Seu perfil não está associado a uma empresa. Entre em contato com o administrador.",
-          variant: "destructive"
+          title: "Sucesso",
+          description: "Prospecção atualizada com sucesso!"
         });
-        return;
+      } else {
+        // Criando nova prospecção
+        // Primeiro, verificar se o usuário tem um perfil com empresa_id
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('empresa_id')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError || !profile?.empresa_id) {
+          toast({
+            title: "Erro de configuração",
+            description: "Seu perfil não está associado a uma empresa. Entre em contato com o administrador.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('prospeccoes')
+          .insert([{
+            ...dadosProspeccao,
+            responsavel_id: user.id,
+            empresa_id: profile.empresa_id,
+            leads_gerados: 0
+          }])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Erro do Supabase:', error);
+          throw error;
+        }
+
+        toast({
+          title: "Sucesso",
+          description: "Prospecção criada com sucesso!"
+        });
       }
 
-      const { data, error } = await supabase
-        .from('prospeccoes')
-        .insert([{
-          titulo: titulo.trim(),
-          descricao: descricao.trim() || null,
-          data_inicio: dataInicio || null,
-          data_fim: dataFim || null,
-          local_evento: localEvento.trim() || null,
-          condicoes_especiais: condicoesEspeciais.trim() || null,
-          objetivo_vendas: objetivoVendas.trim() || null,
-          imagem_divulgacao_url: imagemDivulgacao.trim() || null,
-          canal: canal,
-          responsavel_id: user.id,
-          empresa_id: profile.empresa_id,
-          leads_gerados: 0
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Erro do Supabase:', error);
-        throw error;
-      }
-
-      toast({
-        title: "Sucesso",
-        description: "Prospecção criada com sucesso!"
-      });
-
-      // Limpar form
-      setTitulo("");
-      setDescricao("");
-      setDataInicio("");
-      setDataFim("");
-      setLocalEvento("");
-      setCondicoesEspeciais("");
-      setObjetivoVendas("");
-      setImagemDivulgacao("");
-      setCanal('Whatsapp');
-      
+      // Limpar form e fechar modal
+      clearForm();
       onOpenChange(false);
       onProspeccaoCriada();
 
     } catch (error: any) {
-      console.error('Erro ao criar prospecção:', error);
+      console.error('Erro ao processar prospecção:', error);
       toast({
         title: "Erro",
-        description: error.message || "Erro ao criar prospecção",
+        description: error.message || "Erro ao processar prospecção",
         variant: "destructive"
       });
     } finally {
@@ -126,15 +173,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
   };
 
   const handleCancel = () => {
-    setTitulo("");
-    setDescricao("");
-    setDataInicio("");
-    setDataFim("");
-    setLocalEvento("");
-    setCondicoesEspeciais("");
-    setObjetivoVendas("");
-    setImagemDivulgacao("");
-    setCanal('Whatsapp');
+    clearForm();
     onOpenChange(false);
   };
 
@@ -142,7 +181,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nova Prospecção</DialogTitle>
+          <DialogTitle>
+            {editingProspeccao ? 'Editar Prospecção' : 'Nova Prospecção'}
+          </DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -250,7 +291,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada 
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Criando..." : "Criar Prospecção"}
+              {loading 
+                ? (editingProspeccao ? "Salvando..." : "Criando...") 
+                : (editingProspeccao ? "Salvar Alterações" : "Criar Prospecção")
+              }
             </Button>
           </div>
         </form>

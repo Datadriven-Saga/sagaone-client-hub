@@ -466,6 +466,79 @@ export const useContatoData = () => {
     }
   }, [user]);
 
+  // Excluir prospecção
+  const excluirProspeccao = async (prospeccaoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('prospeccoes')
+        .delete()
+        .eq('id', prospeccaoId);
+
+      if (error) throw error;
+
+      setProspeccoes(prev => prev.filter(p => p.id !== prospeccaoId));
+      
+      toast({
+        title: "Prospecção excluída",
+        description: "A prospecção foi removida com sucesso"
+      });
+    } catch (error) {
+      console.error('Erro ao excluir prospecção:', error);
+      toast({
+        title: "Erro ao excluir prospecção",
+        description: "Não foi possível excluir a prospecção",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
+
+  // Editar prospecção
+  const editarProspeccao = async (prospeccaoId: string, dadosProspeccao: {
+    titulo: string;
+    descricao?: string;
+    data_inicio?: string;
+    data_fim?: string;
+    meta_leads?: number;
+    local_evento?: string;
+    condicoes_especiais?: string;
+    objetivo_vendas?: string;
+    imagem_divulgacao_url?: string;
+  }) => {
+    try {
+      const { data, error } = await supabase
+        .from('prospeccoes')
+        .update(dadosProspeccao)
+        .eq('id', prospeccaoId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setProspeccoes(prev => prev.map(p => 
+          p.id === prospeccaoId 
+            ? { ...data, canal: data.canal as 'Whatsapp' | 'Ligação' }
+            : p
+        ));
+        
+        toast({
+          title: "Sucesso",
+          description: "Prospecção atualizada com sucesso!"
+        });
+        return data;
+      }
+    } catch (error) {
+      console.error('Erro ao editar prospecção:', error);
+      toast({
+        title: "Erro ao editar prospecção",
+        description: "Não foi possível atualizar a prospecção",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
+
   // Função para atualizar filtro de data com verificação de mudança
   const updateDateFilter = (start: string, end: string) => {
     // Só atualizar se os valores realmente mudaram
@@ -485,6 +558,8 @@ export const useContatoData = () => {
     getMetricas,
     updateDateFilter,
     criarProspeccao,
+    editarProspeccao,
+    excluirProspeccao,
     refetch: () => {
       fetchProspeccoes();
       fetchContatos();

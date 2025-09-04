@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { SalesFunnel, FunnelStage } from "@/components/SalesFunnel";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Target, CheckCircle } from "lucide-react";
+import { Target, CheckCircle, Edit, Trash2, MoreVertical } from "lucide-react";
 import { FilterBar } from "@/components/FilterBar";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
@@ -17,6 +17,8 @@ import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
 import { useContatoData, kanbanStatusMap, Contato } from "@/hooks/useContatoData";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface ClienteData {
   nome: string;
@@ -31,6 +33,8 @@ const Prospeccao = () => {
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
+  const [editingProspeccao, setEditingProspeccao] = useState<any>(null);
+  const [deleteProspeccaoId, setDeleteProspeccaoId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const { registrarMovimentacao } = useProspeccaoLogs();
@@ -44,6 +48,8 @@ const Prospeccao = () => {
     atribuirResponsavel,
     getMetricas, 
     criarProspeccao,
+    editarProspeccao,
+    excluirProspeccao,
     refetch 
   } = useContatoData();
 
@@ -475,6 +481,32 @@ const Prospeccao = () => {
     }
   };
 
+  // Handlers para editar e excluir prospecção
+  const handleEditProspeccao = (prospeccao: any) => {
+    setEditingProspeccao(prospeccao);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteProspeccao = async (prospeccaoId: string) => {
+    try {
+      if (excluirProspeccao) {
+        await excluirProspeccao(prospeccaoId);
+        setDeleteProspeccaoId(null);
+        toast({
+          title: "Prospecção excluída",
+          description: "A prospecção foi removida com sucesso."
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao excluir prospecção:', error);
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível excluir a prospecção.",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout title="Prospecção">
@@ -546,17 +578,45 @@ const Prospeccao = () => {
                               onCheckedChange={(checked) => handleProspectionSelection(item.id, !!checked)}
                             />
                             
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-semibold">{item.titulo}</h4>
-                                <span className={`px-2 py-1 text-xs rounded-full ${
-                                  item.canal === 'Whatsapp'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-blue-100 text-blue-700'
-                                }`}>
-                                  {item.canal}
-                                </span>
-                              </div>
+                             <div className="flex-1">
+                               <div className="flex items-center justify-between gap-2 mb-1">
+                                 <div className="flex items-center gap-2">
+                                   <h4 className="font-semibold">{item.titulo}</h4>
+                                   <span className={`px-2 py-1 text-xs rounded-full ${
+                                     item.canal === 'Whatsapp'
+                                       ? 'bg-green-100 text-green-700'
+                                       : 'bg-blue-100 text-blue-700'
+                                   }`}>
+                                     {item.canal}
+                                   </span>
+                                 </div>
+                                 
+                                 {/* Menu de ações */}
+                                 <DropdownMenu>
+                                   <DropdownMenuTrigger asChild>
+                                     <Button 
+                                       variant="ghost" 
+                                       size="sm"
+                                       className="h-8 w-8 p-0"
+                                     >
+                                       <MoreVertical size={16} />
+                                     </Button>
+                                   </DropdownMenuTrigger>
+                                   <DropdownMenuContent align="end">
+                                     <DropdownMenuItem onClick={() => handleEditProspeccao(item)}>
+                                       <Edit size={16} className="mr-2" />
+                                       Editar
+                                     </DropdownMenuItem>
+                                     <DropdownMenuItem 
+                                       onClick={() => setDeleteProspeccaoId(item.id)}
+                                       className="text-red-600"
+                                     >
+                                       <Trash2 size={16} className="mr-2" />
+                                       Excluir
+                                     </DropdownMenuItem>
+                                   </DropdownMenuContent>
+                                 </DropdownMenu>
+                               </div>
                               <p className="text-sm text-muted-foreground">
                                 {item.data_inicio && item.data_fim 
                                   ? `${item.data_inicio} - ${item.data_fim}` 
@@ -682,9 +742,36 @@ const Prospeccao = () => {
 
       <CriarProspeccaoModal
         isOpen={isModalOpen}
-        onOpenChange={setIsModalOpen}
+        onOpenChange={(open) => {
+          setIsModalOpen(open);
+          if (!open) {
+            setEditingProspeccao(null);
+          }
+        }}
+        editingProspeccao={editingProspeccao}
         onProspeccaoCriada={refetch}
       />
+
+      {/* Modal de confirmação de exclusão */}
+      <AlertDialog open={deleteProspeccaoId !== null} onOpenChange={() => setDeleteProspeccaoId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Prospecção</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta prospecção? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteProspeccaoId && handleDeleteProspeccao(deleteProspeccaoId)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ContatoModal
         isOpen={modalContato.isOpen}
