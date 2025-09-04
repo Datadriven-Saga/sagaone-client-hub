@@ -322,11 +322,11 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                             />
                           </div>
                         </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
+                        <DialogContent className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-2">
                           <img 
                             src={formData.foto_url} 
                             alt={`Foto completa do agente ${formData.nome}`}
-                            className="w-full h-auto rounded-lg"
+                            className="w-full h-auto max-w-full max-h-[90vh] object-contain rounded-lg"
                           />
                         </DialogContent>
                       </Dialog>
