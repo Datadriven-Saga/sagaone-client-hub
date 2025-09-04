@@ -73,7 +73,7 @@ export const useContatoData = () => {
   const { toast } = useToast();
 
   // Buscar prospecções - Simplificado sem validações desnecessárias
-  const fetchProspeccoes = useCallback(async () => {
+  const fetchProspeccoes = async () => {
     console.log('🎯 fetchProspeccoes called, user:', user?.id);
     
     try {
@@ -100,10 +100,10 @@ export const useContatoData = () => {
       // Set empty array on error to avoid infinite loading
       setProspeccoes([]);
     }
-  }, [toast]);
+  };
 
   // Buscar contatos - Simplificado sem validações desnecessárias
-  const fetchContatos = useCallback(async () => {
+  const fetchContatos = async () => {
     console.log('👥 fetchContatos called, user:', user?.id);
     
     try {
@@ -140,7 +140,7 @@ export const useContatoData = () => {
       // Set empty array on error to avoid infinite loading
       setContatos([]);
     }
-  }, [toast]);
+  };
 
   // Adicionar novos contatos ao banco
   const adicionarContatos = async (novosContatos: {
@@ -447,6 +447,12 @@ export const useContatoData = () => {
   useEffect(() => {
     console.log('🔥 useContatoData useEffect triggered');
     
+    if (!user?.id) {
+      console.log('❌ No user found, setting loading to false');
+      setLoading(false);
+      return;
+    }
+    
     const loadData = async () => {
       console.log('📊 Starting to load data...');
       setLoading(true);
@@ -469,7 +475,7 @@ export const useContatoData = () => {
     };
 
     loadData();
-  }, [fetchProspeccoes, fetchContatos]); // Dependências corretas
+  }, [user?.id]); // Só depende do user ID
 
   // Excluir prospecção
   const excluirProspeccao = async (prospeccaoId: string) => {
