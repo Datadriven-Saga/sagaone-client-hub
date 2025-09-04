@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -59,22 +59,21 @@ export const useContatoData = () => {
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Inicializar dateFilter com valores padrão
-  const getDefaultDates = () => {
+  // Inicializar dateFilter com valores padrão de forma segura
+  const [dateFilter, setDateFilter] = useState<{ start: string; end: string }>(() => {
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     return {
       start: firstDayOfMonth.toISOString().split('T')[0],
       end: today.toISOString().split('T')[0]
     };
-  };
+  });
   
-  const [dateFilter, setDateFilter] = useState<{ start: string; end: string }>(getDefaultDates());
   const { user } = useAuth();
   const { toast } = useToast();
 
   // Buscar prospecções da empresa com filtro de data
-  const fetchProspeccoes = async () => {
+  const fetchProspeccoes = useCallback(async () => {
     console.log('🎯 fetchProspeccoes called, user:', user?.id);
     if (!user) return;
 
@@ -103,10 +102,10 @@ export const useContatoData = () => {
         variant: "destructive"
       });
     }
-  };
+  }, [user?.id, toast]);
 
   // Buscar contatos da empresa
-  const fetchContatos = async () => {
+  const fetchContatos = useCallback(async () => {
     console.log('👥 fetchContatos called, user:', user?.id);
     if (!user) return;
 
@@ -147,7 +146,7 @@ export const useContatoData = () => {
         variant: "destructive"
       });
     }
-  };
+  }, [user?.id, toast]);
 
   // Adicionar novos contatos ao banco
   const adicionarContatos = async (novosContatos: {
@@ -454,6 +453,12 @@ export const useContatoData = () => {
   useEffect(() => {
     console.log('🔥 useContatoData useEffect triggered, user:', user?.id);
     
+    if (!user) {
+      console.log('❌ No user found, setting loading to false');
+      setLoading(false);
+      return;
+    }
+    
     const loadData = async () => {
       console.log('📊 Starting to load data...');
       setLoading(true);
@@ -472,13 +477,9 @@ export const useContatoData = () => {
       }
     };
 
-    if (user) {
-      console.log('👤 User exists, loading data...');
-      loadData();
-    } else {
-      console.log('❌ No user found');
-    }
-  }, [user]);
+    console.log('👤 User exists, loading data...');
+    loadData();
+  }, [user?.id, fetchProspeccoes, fetchContatos]); // Dependências corretas
 
   // Excluir prospecção
   const excluirProspeccao = async (prospeccaoId: string) => {
@@ -575,8 +576,10 @@ export const useContatoData = () => {
     editarProspeccao,
     excluirProspeccao,
     refetch: () => {
-      fetchProspeccoes();
-      fetchContatos();
+      if (user?.id) {
+        fetchProspeccoes();
+        fetchContatos();
+      }
     }
   };
 };
