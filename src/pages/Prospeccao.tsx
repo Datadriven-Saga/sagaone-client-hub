@@ -32,16 +32,21 @@ interface ClienteData {
 const Prospeccao = () => {
   console.log('🚀 Prospeccao component initiated');
   
+  // ✅ TODOS OS HOOKS DEVEM VIR PRIMEIRO - ANTES DE QUALQUER LÓGICA
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
   const [editingProspeccao, setEditingProspeccao] = useState<any>(null);
   const [deleteProspeccaoId, setDeleteProspeccaoId] = useState<string | null>(null);
+  const [modalContato, setModalContato] = useState<{ isOpen: boolean; contato: Contato | null; columnId?: string }>({
+    isOpen: false,
+    contato: null,
+    columnId: undefined
+  });
+  
+  // ✅ HOOKS DE CONTEXTO E CUSTOM HOOKS
   const { toast } = useToast();
   const { user } = useAuth();
-  
-  console.log('🔑 User from auth:', user);
-  
   const { registrarMovimentacao } = useProspeccaoLogs();
   const { 
     contatos, 
@@ -58,6 +63,7 @@ const Prospeccao = () => {
     refetch 
   } = useContatoData();
   
+  console.log('🔑 User from auth:', user);
   console.log('📊 Data from hooks - contatos:', contatos?.length, 'prospeccoes:', prospeccoes?.length, 'loading:', loading);
 
   // Função para registrar movimentações dos contatos
@@ -78,6 +84,7 @@ const Prospeccao = () => {
     }
   };
 
+  // ✅ AGORA EARLY RETURN PODE VIR APÓS TODOS OS HOOKS
   console.log('⏳ Loading status check:', loading);
   
   if (loading) {
@@ -348,12 +355,6 @@ const Prospeccao = () => {
     // TODO: Implementar exclusão do contato no banco
     console.log('Delete item:', itemId);
   };
-
-  const [modalContato, setModalContato] = useState<{ isOpen: boolean; contato: Contato | null; columnId?: string }>({
-    isOpen: false,
-    contato: null,
-    columnId: undefined
-  });
 
   const handleCardClick = (item: KanbanItem) => {
     // Buscar o contato completo pelo ID do item
