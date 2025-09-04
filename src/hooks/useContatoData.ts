@@ -76,21 +76,28 @@ export const useContatoData = () => {
 
   // Buscar prospecções da empresa com filtro de data
   const fetchProspeccoes = async () => {
+    console.log('🎯 fetchProspeccoes called, user:', user?.id);
     if (!user) return;
 
     try {
+      console.log('📡 Making supabase call to prospeccoes...');
       const { data, error } = await supabase
         .from('prospeccoes')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error in fetchProspeccoes:', error);
+        throw error;
+      }
+      
+      console.log('✅ fetchProspeccoes success, data:', data?.length);
       setProspeccoes((data || []).map(p => ({
         ...p,
         canal: p.canal as 'Whatsapp' | 'Ligação'
       })));
     } catch (error) {
-      console.error('Erro ao buscar prospecções:', error);
+      console.error('🚨 Erro ao buscar prospecções:', error);
       toast({
         title: "Erro ao carregar prospecções",
         description: "Não foi possível carregar as prospecções",
@@ -101,15 +108,22 @@ export const useContatoData = () => {
 
   // Buscar contatos da empresa
   const fetchContatos = async () => {
+    console.log('👥 fetchContatos called, user:', user?.id);
     if (!user) return;
 
     try {
+      console.log('📡 Making supabase call to contatos...');
       const { data, error } = await supabase
         .from('contatos')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error in fetchContatos:', error);
+        throw error;
+      }
+      
+      console.log('✅ fetchContatos success, data:', data?.length);
       
       // Mapear status antigos para novos
       const contatosWithNewStatus = (data || []).map(contato => ({
@@ -128,9 +142,10 @@ export const useContatoData = () => {
         })()
       }));
       
+      console.log('🔄 Mapped contatos:', contatosWithNewStatus.length);
       setContatos(contatosWithNewStatus);
     } catch (error) {
-      console.error('Erro ao buscar contatos:', error);
+      console.error('🚨 Erro ao buscar contatos:', error);
       toast({
         title: "Erro ao carregar contatos",
         description: "Não foi possível carregar os contatos",
@@ -452,17 +467,31 @@ export const useContatoData = () => {
   };
 
   useEffect(() => {
+    console.log('🔥 useContatoData useEffect triggered, user:', user?.id);
+    
     const loadData = async () => {
+      console.log('📊 Starting to load data...');
       setLoading(true);
-      await Promise.all([
-        fetchProspeccoes(),
-        fetchContatos()
-      ]);
-      setLoading(false);
+      try {
+        console.log('🚀 Calling fetchProspeccoes and fetchContatos...');
+        await Promise.all([
+          fetchProspeccoes(),
+          fetchContatos()
+        ]);
+        console.log('✅ Data loaded successfully');
+      } catch (error) {
+        console.error('❌ Error loading data:', error);
+      } finally {
+        console.log('🏁 Setting loading to false');
+        setLoading(false);
+      }
     };
 
     if (user) {
+      console.log('👤 User exists, loading data...');
       loadData();
+    } else {
+      console.log('❌ No user found');
     }
   }, [user]);
 
