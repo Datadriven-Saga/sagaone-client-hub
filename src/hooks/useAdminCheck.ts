@@ -19,34 +19,34 @@ export function useAdminCheck() {
       console.log('useAdminCheck: Checking admin status for user:', user.id, user.email);
 
       try {
-        // First, try using the is_admin() function
+        // Use the new security definer function
         const { data: adminData, error: adminError } = await supabase
-          .rpc('is_admin');
+          .rpc('check_user_is_admin');
 
-        console.log('useAdminCheck: is_admin() result:', { data: adminData, error: adminError });
+        console.log('useAdminCheck: check_user_is_admin() result:', { data: adminData, error: adminError });
 
         if (!adminError && adminData !== null) {
+          console.log('useAdminCheck: Final admin status from RPC:', adminData);
           setIsAdmin(adminData);
-          setLoading(false);
-          return;
-        }
-
-        // Fallback: Direct query to profiles table
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('tipo_acesso')
-          .eq('id', user.id)
-          .single();
-
-        console.log('useAdminCheck: Direct query result:', { data, error });
-
-        if (error) {
-          console.error('Error checking admin status:', error);
-          setIsAdmin(false);
         } else {
-          const isAdminUser = data?.tipo_acesso === 'Administrador';
-          console.log('useAdminCheck: Final admin status:', isAdminUser);
-          setIsAdmin(isAdminUser);
+          // Fallback: Direct query to profiles table
+          console.log('useAdminCheck: Fallback to direct query');
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('tipo_acesso')
+            .eq('id', user.id)
+            .single();
+
+          console.log('useAdminCheck: Direct query result:', { data, error });
+
+          if (error) {
+            console.error('Error checking admin status:', error);
+            setIsAdmin(false);
+          } else {
+            const isAdminUser = data?.tipo_acesso === 'Administrador';
+            console.log('useAdminCheck: Final admin status from direct query:', isAdminUser);
+            setIsAdmin(isAdminUser);
+          }
         }
       } catch (error) {
         console.error('Error checking admin status:', error);
