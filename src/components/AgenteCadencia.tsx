@@ -45,13 +45,6 @@ export function AgenteCadencia({ agenteId }: AgenteCadenciaProps) {
     ativo: true
   });
 
-  const gatilhosCadencia = [
-    { value: "inatividade_cliente", label: "Inatividade do cliente" },
-    { value: "encerramento_prospeccao", label: "Encerramento da prospecção" },
-    { value: "encerramento_lead", label: "Encerramento do lead" },
-    { value: "entrega_veiculo", label: "Entrega do veículo" }
-  ];
-
   const diasSemana = [
     { value: "segunda", label: "Segunda-feira" },
     { value: "terca", label: "Terça-feira" },
@@ -60,12 +53,6 @@ export function AgenteCadencia({ agenteId }: AgenteCadenciaProps) {
     { value: "sexta", label: "Sexta-feira" },
     { value: "sabado", label: "Sábado" },
     { value: "domingo", label: "Domingo" }
-  ];
-
-  const timezones = [
-    { value: "America/Sao_Paulo", label: "GMT-3 (Brasília)" },
-    { value: "America/Manaus", label: "GMT-4 (Manaus)" },
-    { value: "America/Rio_Branco", label: "GMT-5 (Rio Branco)" }
   ];
 
   const carregarCadencia = async () => {
@@ -209,7 +196,7 @@ export function AgenteCadencia({ agenteId }: AgenteCadenciaProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Configurações básicas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="quantidade_etapas">Quantidade de Etapas</Label>
               <Input
@@ -219,25 +206,6 @@ export function AgenteCadencia({ agenteId }: AgenteCadenciaProps) {
                 value={formData.quantidade_etapas}
                 onChange={(e) => setFormData(prev => ({ ...prev, quantidade_etapas: parseInt(e.target.value) || 1 }))}
               />
-            </div>
-
-            <div>
-              <Label htmlFor="gatilho_cadencia">Gatilho da Cadência</Label>
-              <Select 
-                value={formData.gatilho_cadencia} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, gatilho_cadencia: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o gatilho" />
-                </SelectTrigger>
-                <SelectContent>
-                  {gatilhosCadencia.map((gatilho) => (
-                    <SelectItem key={gatilho.value} value={gatilho.value}>
-                      {gatilho.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <div>
@@ -267,7 +235,7 @@ export function AgenteCadencia({ agenteId }: AgenteCadenciaProps) {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Horário Disponível para Executar</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="horario_inicio">Hora de Início</Label>
                 <Input
@@ -286,25 +254,6 @@ export function AgenteCadencia({ agenteId }: AgenteCadenciaProps) {
                   value={formData.horario_fim}
                   onChange={(e) => setFormData(prev => ({ ...prev, horario_fim: e.target.value }))}
                 />
-              </div>
-
-              <div>
-                <Label htmlFor="timezone">Timezone</Label>
-                <Select 
-                  value={formData.timezone} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, timezone: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o timezone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timezones.map((timezone) => (
-                      <SelectItem key={timezone.value} value={timezone.value}>
-                        {timezone.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </div>
@@ -332,15 +281,6 @@ export function AgenteCadencia({ agenteId }: AgenteCadenciaProps) {
             </div>
           </div>
 
-          {/* Status */}
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="cadencia_ativa"
-              checked={formData.ativo}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, ativo: checked as boolean }))}
-            />
-            <Label htmlFor="cadencia_ativa">Cadência ativa</Label>
-          </div>
         </CardContent>
       </Card>
 
@@ -358,8 +298,6 @@ export function AgenteCadencia({ agenteId }: AgenteCadenciaProps) {
             </div>
             <div>
               <p><strong>Horário:</strong> {formData.horario_inicio} às {formData.horario_fim}</p>
-              <p><strong>Timezone:</strong> {timezones.find(tz => tz.value === formData.timezone)?.label}</p>
-              <p><strong>Gatilho:</strong> {gatilhosCadencia.find(g => g.value === formData.gatilho_cadencia)?.label}</p>
             </div>
           </div>
           <div className="mt-4">
