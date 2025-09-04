@@ -368,7 +368,12 @@ export function ContatoModal({
                       
                       <div>
                         <h4 className="font-medium text-sm mb-2">Histórico de Leads</h4>
-                        <p className="text-sm text-muted-foreground">Lead criado em {new Date(contato.created_at).toLocaleDateString()}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {contato?.created_at ? 
+                            `Lead criado em ${new Date(contato.created_at).toLocaleDateString()}` : 
+                            'Data de criação não disponível'
+                          }
+                        </p>
                       </div>
                     </div>
                   </Card>
