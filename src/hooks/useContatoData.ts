@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -72,7 +72,7 @@ export const useContatoData = () => {
   console.log('👤 useContatoData - user:', user);
 
   // Buscar prospecções com filtro de empresa
-  const fetchProspeccoes = async () => {
+  const fetchProspeccoes = useCallback(async () => {
     if (!activeCompany?.id) {
       console.warn('useContatoData: No active company found for prospeccoes');
       setProspeccoes([]);
@@ -107,10 +107,10 @@ export const useContatoData = () => {
       });
       setProspeccoes([]);
     }
-  };
+  }, [activeCompany?.id, toast]);
 
   // Buscar contatos com filtro de empresa
-  const fetchContatos = async () => {
+  const fetchContatos = useCallback(async () => {
     if (!activeCompany?.id) {
       console.warn('useContatoData: No active company found for contatos');
       setContatos([]);
@@ -142,15 +142,15 @@ export const useContatoData = () => {
       });
       setContatos([]);
     }
-  };
+  }, [activeCompany?.id, toast]);
 
   // Carregamento de dados quando empresa ativa muda  
   useEffect(() => {
     console.log('🔄 useContatoData useEffect triggered');
-    console.log('👤 User authenticated:', !!user);
-    console.log('🏢 Active company:', activeCompany);
+    console.log('👤 User ID:', user?.id);
+    console.log('🏢 Active company ID:', activeCompany?.id);
 
-    if (!user) {
+    if (!user?.id) {
       console.log('❌ User not authenticated, clearing data');
       setContatos([]);
       setProspeccoes([]);
@@ -164,11 +164,11 @@ export const useContatoData = () => {
       setContatos([]);
       setProspeccoes([]);
       
-      // Timeout para evitar loading infinito - após 5 segundos para de carregar
+      // Timeout para evitar loading infinito - após 3 segundos para de carregar
       const timeout = setTimeout(() => {
         console.log('⏰ Timeout reached, stopping loading without active company');
         setLoading(false);
-      }, 5000);
+      }, 3000);
       
       return () => clearTimeout(timeout);
     }
@@ -191,7 +191,7 @@ export const useContatoData = () => {
     };
 
     loadData();
-  }, [activeCompany?.id, user]); // Depende da empresa ativa e do usuário
+  }, [activeCompany?.id, user?.id]); // FIXED: usar user?.id em vez de user objeto
 
   // Adicionar novos contatos com empresa_id automático
   const adicionarContatos = async (novosContatos: {
