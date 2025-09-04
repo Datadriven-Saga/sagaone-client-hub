@@ -144,7 +144,7 @@ export const useContatoData = () => {
     }
   };
 
-  // Carregamento de dados quando empresa ativa muda
+  // Carregamento de dados quando empresa ativa muda  
   useEffect(() => {
     console.log('🔄 useContatoData useEffect triggered');
     console.log('👤 User authenticated:', !!user);
@@ -158,12 +158,19 @@ export const useContatoData = () => {
       return;
     }
 
+    // Se não tem empresa ativa mas o usuário está autenticado, aguardar um pouco
     if (!activeCompany?.id) {
-      console.log('❌ No active company, clearing data and keeping loading');
+      console.log('⏳ No active company yet, waiting...');
       setContatos([]);
       setProspeccoes([]);
-      // Manter loading true para aguardar empresa ativa ser carregada
-      return;
+      
+      // Timeout para evitar loading infinito - após 5 segundos para de carregar
+      const timeout = setTimeout(() => {
+        console.log('⏰ Timeout reached, stopping loading without active company');
+        setLoading(false);
+      }, 5000);
+      
+      return () => clearTimeout(timeout);
     }
 
     const loadData = async () => {
