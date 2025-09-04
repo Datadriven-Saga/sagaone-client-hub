@@ -30,6 +30,8 @@ interface ClienteData {
 }
 
 const Prospeccao = () => {
+  console.log('🚀 Prospeccao component initiated');
+  
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
@@ -37,6 +39,9 @@ const Prospeccao = () => {
   const [deleteProspeccaoId, setDeleteProspeccaoId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  
+  console.log('🔑 User from auth:', user);
+  
   const { registrarMovimentacao } = useProspeccaoLogs();
   const { 
     contatos, 
@@ -52,6 +57,8 @@ const Prospeccao = () => {
     excluirProspeccao,
     refetch 
   } = useContatoData();
+  
+  console.log('📊 Data from hooks - contatos:', contatos?.length, 'prospeccoes:', prospeccoes?.length, 'loading:', loading);
 
   // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
@@ -72,9 +79,24 @@ const Prospeccao = () => {
   };
 
   // Calcular métricas dos contatos
+  console.log('📈 Calculating metricas...');
   const metricas = getMetricas();
+  console.log('📊 Metricas calculated:', metricas);
 
-  // Dados do funil de vendas usando dados reais - novas etapas
+  console.log('⏳ Loading status check:', loading);
+  
+  if (loading) {
+    console.log('🔄 Rendering loading state...');
+    return (
+      <DashboardLayout title="Prospecção">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  console.log('✅ All data loaded, rendering main component...');
   const funnelData: FunnelStage[] = [
     {
       id: 'total-base',
