@@ -14,6 +14,251 @@ export type Database = {
   }
   public: {
     Tables: {
+      agente_cadencias: {
+        Row: {
+          agente_id: string
+          ativo: boolean
+          created_at: string
+          delay_inicial_minutos: number
+          dias_semana: Json
+          empresa_id: string | null
+          gatilho_cadencia: string
+          horario_fim: string
+          horario_inicio: string
+          id: string
+          intervalo_etapas_minutos: number
+          quantidade_etapas: number
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          agente_id: string
+          ativo?: boolean
+          created_at?: string
+          delay_inicial_minutos?: number
+          dias_semana?: Json
+          empresa_id?: string | null
+          gatilho_cadencia?: string
+          horario_fim?: string
+          horario_inicio?: string
+          id?: string
+          intervalo_etapas_minutos?: number
+          quantidade_etapas?: number
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          agente_id?: string
+          ativo?: boolean
+          created_at?: string
+          delay_inicial_minutos?: number
+          dias_semana?: Json
+          empresa_id?: string | null
+          gatilho_cadencia?: string
+          horario_fim?: string
+          horario_inicio?: string
+          id?: string
+          intervalo_etapas_minutos?: number
+          quantidade_etapas?: number
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agente_cadencias_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "agentes_ia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agente_followups: {
+        Row: {
+          acoes: Json | null
+          agente_id: string
+          ativo: boolean
+          condicoes: Json | null
+          created_at: string
+          criado_por: string | null
+          descricao: string | null
+          empresa_id: string | null
+          id: string
+          nome: string
+          tipo: string
+          updated_at: string
+          webhook_url: string
+        }
+        Insert: {
+          acoes?: Json | null
+          agente_id: string
+          ativo?: boolean
+          condicoes?: Json | null
+          created_at?: string
+          criado_por?: string | null
+          descricao?: string | null
+          empresa_id?: string | null
+          id?: string
+          nome: string
+          tipo: string
+          updated_at?: string
+          webhook_url: string
+        }
+        Update: {
+          acoes?: Json | null
+          agente_id?: string
+          ativo?: boolean
+          condicoes?: Json | null
+          created_at?: string
+          criado_por?: string | null
+          descricao?: string | null
+          empresa_id?: string | null
+          id?: string
+          nome?: string
+          tipo?: string
+          updated_at?: string
+          webhook_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agente_followups_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "agentes_ia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agente_integracoes: {
+        Row: {
+          agente_id: string
+          ativo: boolean
+          banco_dados_ia: string | null
+          created_at: string
+          empresa_id: string | null
+          evolution_id: string | null
+          id: string
+          tabela_historico_ia: string | null
+          updated_at: string
+          webhook_metodo: string
+          webhook_url: string | null
+        }
+        Insert: {
+          agente_id: string
+          ativo?: boolean
+          banco_dados_ia?: string | null
+          created_at?: string
+          empresa_id?: string | null
+          evolution_id?: string | null
+          id?: string
+          tabela_historico_ia?: string | null
+          updated_at?: string
+          webhook_metodo?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          agente_id?: string
+          ativo?: boolean
+          banco_dados_ia?: string | null
+          created_at?: string
+          empresa_id?: string | null
+          evolution_id?: string | null
+          id?: string
+          tabela_historico_ia?: string | null
+          updated_at?: string
+          webhook_metodo?: string
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agente_integracoes_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "agentes_ia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agente_performance: {
+        Row: {
+          agente_id: string
+          cadencias_executadas: number
+          created_at: string
+          data_registro: string
+          empresa_id: string | null
+          followups_executados: number
+          id: string
+        }
+        Insert: {
+          agente_id: string
+          cadencias_executadas?: number
+          created_at?: string
+          data_registro?: string
+          empresa_id?: string | null
+          followups_executados?: number
+          id?: string
+        }
+        Update: {
+          agente_id?: string
+          cadencias_executadas?: number
+          created_at?: string
+          data_registro?: string
+          empresa_id?: string | null
+          followups_executados?: number
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agente_performance_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "agentes_ia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agentes_ia: {
+        Row: {
+          ativo: boolean
+          cerebro: string | null
+          created_at: string
+          criado_por: string | null
+          empresa_id: string | null
+          foto_url: string | null
+          id: string
+          nome: string
+          persona: string | null
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cerebro?: string | null
+          created_at?: string
+          criado_por?: string | null
+          empresa_id?: string | null
+          foto_url?: string | null
+          id?: string
+          nome: string
+          persona?: string | null
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cerebro?: string | null
+          created_at?: string
+          criado_por?: string | null
+          empresa_id?: string | null
+          foto_url?: string | null
+          id?: string
+          nome?: string
+          persona?: string | null
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clientes: {
         Row: {
           cep: string | null

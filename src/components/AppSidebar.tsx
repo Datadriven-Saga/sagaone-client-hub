@@ -31,6 +31,7 @@ import tavatLogo from "@/assets/tavat-logo.png";
 const menuItems = [
   { title: "Página Inicial", url: "/", icon: Home },
   { title: "Personas de IA", url: "/personas", icon: Bot },
+  { title: "Agentes de IA", url: "/agentes-ia", icon: Bot },
   { title: "Prospecção", url: "/prospeccao", icon: Target },
   { title: "Central de Atendimento", url: "/central-atendimento", icon: Headphones },
   { title: "Loja", url: "/loja", icon: Store },

@@ -29,6 +29,7 @@ import Acessos from "./pages/admin/Acessos";
 import CamposObrigatorios from "./pages/admin/CamposObrigatorios";
 import APIs from "./pages/admin/APIs";
 import TestAPIs from "./pages/admin/TestAPIs";
+import AgentesIA from "./pages/AgentesIA";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
             <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
             <Route path="/gatilhos" element={<ProtectedRoute><Gatilhos /></ProtectedRoute>} />
+            <Route path="/agentes-ia" element={<ProtectedRoute><AgentesIA /></ProtectedRoute>} />
             <Route path="/administracao" element={<ProtectedRoute><Administracao /></ProtectedRoute>} />
             <Route path="/administracao/empresas" element={<ProtectedRoute><Empresas /></ProtectedRoute>} />
             <Route path="/administracao/acessos" element={<ProtectedRoute><Acessos /></ProtectedRoute>} />
