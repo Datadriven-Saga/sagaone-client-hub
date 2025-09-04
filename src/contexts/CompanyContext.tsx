@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { toast } from "sonner";
@@ -25,8 +25,8 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  const fetchUserCompanies = async () => {
-    if (!user) {
+  const fetchUserCompanies = useCallback(async () => {
+    if (!user?.id) {
       console.warn('🏢 CompanyContext: No user found, skipping fetch');
       setLoading(false);
       return;
@@ -97,10 +97,10 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       console.log('🏢 CompanyContext: Fetch completed, loading set to false');
     }
-  };
+  }, [user?.id]);
 
-  const switchCompany = async (companyId: string) => {
-    if (!user) {
+  const switchCompany = useCallback(async (companyId: string) => {
+    if (!user?.id) {
       toast.error('Usuário não autenticado');
       return;
     }
@@ -127,15 +127,15 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       console.error('🏢 CompanyContext: Error switching company:', error);
       toast.error('Erro ao trocar empresa: ' + (error as Error).message);
     }
-  };
+  }, [userCompanies]);
 
-  const refreshCompanies = async () => {
+  const refreshCompanies = useCallback(async () => {
     await fetchUserCompanies();
-  };
+  }, [fetchUserCompanies]);
 
   useEffect(() => {
-    console.log('🏢 CompanyContext: useEffect triggered, user:', user?.email);
-    if (user) {
+    console.log('🏢 CompanyContext: useEffect triggered, user ID:', user?.id);
+    if (user?.id) {
       fetchUserCompanies();
     } else {
       console.log('🏢 CompanyContext: No user, clearing state');
@@ -143,15 +143,15 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       setUserCompanies([]);
       setLoading(false);
     }
-  }, [user]);
+  }, [user?.id, fetchUserCompanies]);
 
-  const value = {
+  const value = useMemo(() => ({
     activeCompany,
     userCompanies,
     loading,
     switchCompany,
     refreshCompanies,
-  };
+  }), [activeCompany, userCompanies, loading, switchCompany, refreshCompanies]);
 
   console.log('🏢 CompanyContext: Rendering with state:', {
     activeCompany: activeCompany?.nome_empresa,
