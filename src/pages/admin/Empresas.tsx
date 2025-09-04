@@ -1,47 +1,62 @@
 import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Plus, Building, Users, Edit, Trash2, Loader2, Phone, Mail, Globe, MapPin } from "lucide-react";
+import { toast } from "sonner";
+import { Plus, Pencil, Trash2, Building } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { Database } from "@/integrations/supabase/types";
 
-type Empresa = Database["public"]["Tables"]["empresas"]["Row"];
-
+// Schema de validação
 const empresaSchema = z.object({
   nome_empresa: z.string().min(1, "Nome da empresa é obrigatório"),
   razao_social: z.string().min(1, "Razão social é obrigatória"),
   cnpj: z.string().min(1, "CNPJ é obrigatório"),
-  grupo_empresarial: z.string().optional(),
-  endereco: z.string().optional(),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
-  site: z.string().optional(),
+  site: z.string().url("URL inválida").optional().or(z.literal("")),
+  endereco: z.string().optional(),
+  grupo_empresarial: z.string().optional(),
   horario_funcionamento: z.string().optional(),
   responsavel_legal_nome: z.string().optional(),
   responsavel_legal_cpf: z.string().optional(),
-  responsavel_legal_telefone: z.string().optional(),
   responsavel_legal_email: z.string().email("Email inválido").optional().or(z.literal("")),
-  logomarca_url: z.string().optional()
+  responsavel_legal_telefone: z.string().optional(),
 });
 
 type EmpresaForm = z.infer<typeof empresaSchema>;
 
-const Empresas = () => {
+interface Empresa {
+  id: string;
+  nome_empresa: string;
+  razao_social: string;
+  cnpj: string;
+  email?: string;
+  site?: string;
+  endereco?: string;
+  grupo_empresarial?: string;
+  horario_funcionamento?: string;
+  responsavel_legal_nome?: string;
+  responsavel_legal_cpf?: string;
+  responsavel_legal_email?: string;
+  responsavel_legal_telefone?: string;
+  logomarca_url?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export default function Empresas() {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEmpresa, setEditingEmpresa] = useState<Empresa | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const { toast } = useToast();
 
   const form = useForm<EmpresaForm>({
     resolver: zodResolver(empresaSchema),
@@ -49,141 +64,121 @@ const Empresas = () => {
       nome_empresa: "",
       razao_social: "",
       cnpj: "",
-      grupo_empresarial: "",
-      endereco: "",
       email: "",
       site: "",
+      endereco: "",
+      grupo_empresarial: "",
       horario_funcionamento: "",
       responsavel_legal_nome: "",
       responsavel_legal_cpf: "",
-      responsavel_legal_telefone: "",
       responsavel_legal_email: "",
-      logomarca_url: ""
-    }
+      responsavel_legal_telefone: "",
+    },
   });
-
-  const fetchEmpresas = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('empresas')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setEmpresas(data || []);
-    } catch (error) {
-      console.error('Erro ao buscar empresas:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar as empresas",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     fetchEmpresas();
   }, []);
 
-  const handleCreateEmpresa = async (data: EmpresaForm) => {
+  const fetchEmpresas = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("empresas")
+        .select("*")
+        .order("nome_empresa");
+
+      if (error) throw error;
+      setEmpresas(data || []);
+    } catch (error) {
+      console.error("Erro ao buscar empresas:", error);
+      toast.error("Erro ao carregar empresas");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (data: EmpresaForm) => {
     setSubmitting(true);
     try {
+      if (editingEmpresa) {
+        await handleUpdateEmpresa(data);
+      } else {
+        await handleCreateEmpresa(data);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateEmpresa = async (data: EmpresaForm) => {
+    try {
+      // Filter out empty strings for optional fields
+      const cleanData: any = {
+        nome_empresa: data.nome_empresa,
+        razao_social: data.razao_social,
+        cnpj: data.cnpj,
+        email: data.email || null,
+        site: data.site || null,
+        endereco: data.endereco || null,
+        grupo_empresarial: data.grupo_empresarial || null,
+        horario_funcionamento: data.horario_funcionamento || null,
+        responsavel_legal_nome: data.responsavel_legal_nome || null,
+        responsavel_legal_cpf: data.responsavel_legal_cpf || null,
+        responsavel_legal_email: data.responsavel_legal_email || null,
+        responsavel_legal_telefone: data.responsavel_legal_telefone || null,
+      };
+
       const { error } = await supabase
-        .from('empresas')
-        .insert([{
-          nome_empresa: data.nome_empresa,
-          razao_social: data.razao_social,
-          cnpj: data.cnpj,
-          grupo_empresarial: data.grupo_empresarial || null,
-          endereco: data.endereco || null,
-          email: data.email || null,
-          site: data.site || null,
-          horario_funcionamento: data.horario_funcionamento || null,
-          responsavel_legal_nome: data.responsavel_legal_nome || null,
-          responsavel_legal_cpf: data.responsavel_legal_cpf || null,
-          responsavel_legal_telefone: data.responsavel_legal_telefone || null,
-          responsavel_legal_email: data.responsavel_legal_email || null,
-          logomarca_url: data.logomarca_url || null
-        }]);
+        .from("empresas")
+        .insert([cleanData]);
 
       if (error) throw error;
 
-      toast({
-        title: "Sucesso",
-        description: "Empresa criada com sucesso"
-      });
-
-      setIsDialogOpen(false);
+      toast.success("Empresa criada com sucesso");
+      setDialogOpen(false);
       form.reset();
       fetchEmpresas();
-
-    } catch (error: any) {
-      console.error('Erro ao criar empresa:', error);
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível criar a empresa",
-        variant: "destructive"
-      });
-    } finally {
-      setSubmitting(false);
+    } catch (error) {
+      console.error("Erro ao criar empresa:", error);
+      toast.error("Erro ao criar empresa");
     }
   };
 
   const handleUpdateEmpresa = async (data: EmpresaForm) => {
     if (!editingEmpresa) return;
 
-    setSubmitting(true);
     try {
+      // Filter out empty strings for optional fields
+      const cleanData: any = {
+        nome_empresa: data.nome_empresa,
+        razao_social: data.razao_social,
+        cnpj: data.cnpj,
+        email: data.email || null,
+        site: data.site || null,
+        endereco: data.endereco || null,
+        grupo_empresarial: data.grupo_empresarial || null,
+        horario_funcionamento: data.horario_funcionamento || null,
+        responsavel_legal_nome: data.responsavel_legal_nome || null,
+        responsavel_legal_cpf: data.responsavel_legal_cpf || null,
+        responsavel_legal_email: data.responsavel_legal_email || null,
+        responsavel_legal_telefone: data.responsavel_legal_telefone || null,
+      };
+
       const { error } = await supabase
-        .from('empresas')
-        .update({
-          nome_empresa: data.nome_empresa,
-          razao_social: data.razao_social,
-          cnpj: data.cnpj,
-          grupo_empresarial: data.grupo_empresarial || null,
-          endereco: data.endereco || null,
-          email: data.email || null,
-          site: data.site || null,
-          horario_funcionamento: data.horario_funcionamento || null,
-          responsavel_legal_nome: data.responsavel_legal_nome || null,
-          responsavel_legal_cpf: data.responsavel_legal_cpf || null,
-          responsavel_legal_telefone: data.responsavel_legal_telefone || null,
-          responsavel_legal_email: data.responsavel_legal_email || null,
-          logomarca_url: data.logomarca_url || null
-        })
-        .eq('id', editingEmpresa.id);
+        .from("empresas")
+        .update(cleanData)
+        .eq("id", editingEmpresa.id);
 
       if (error) throw error;
 
-      toast({
-        title: "Sucesso",
-        description: "Empresa atualizada com sucesso"
-      });
-
-      setIsDialogOpen(false);
+      toast.success("Empresa atualizada com sucesso");
+      setDialogOpen(false);
       setEditingEmpresa(null);
       form.reset();
       fetchEmpresas();
-
-    } catch (error: any) {
-      console.error('Erro ao atualizar empresa:', error);
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível atualizar a empresa",
-        variant: "destructive"
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleSubmit = (data: EmpresaForm) => {
-    if (editingEmpresa) {
-      handleUpdateEmpresa(data);
-    } else {
-      handleCreateEmpresa(data);
+    } catch (error) {
+      console.error("Erro ao atualizar empresa:", error);
+      toast.error("Erro ao atualizar empresa");
     }
   };
 
@@ -193,78 +188,64 @@ const Empresas = () => {
       nome_empresa: empresa.nome_empresa,
       razao_social: empresa.razao_social,
       cnpj: empresa.cnpj,
-      grupo_empresarial: empresa.grupo_empresarial || "",
-      endereco: empresa.endereco || "",
       email: empresa.email || "",
       site: empresa.site || "",
+      endereco: empresa.endereco || "",
+      grupo_empresarial: empresa.grupo_empresarial || "",
       horario_funcionamento: empresa.horario_funcionamento || "",
       responsavel_legal_nome: empresa.responsavel_legal_nome || "",
       responsavel_legal_cpf: empresa.responsavel_legal_cpf || "",
-      responsavel_legal_telefone: empresa.responsavel_legal_telefone || "",
       responsavel_legal_email: empresa.responsavel_legal_email || "",
-      logomarca_url: empresa.logomarca_url || ""
+      responsavel_legal_telefone: empresa.responsavel_legal_telefone || "",
     });
-    setIsDialogOpen(true);
+    setDialogOpen(true);
   };
 
   const handleDelete = async (empresaId: string) => {
-    if (!confirm("Tem certeza que deseja excluir esta empresa? Esta ação não pode ser desfeita.")) return;
-
     try {
       const { error } = await supabase
-        .from('empresas')
+        .from("empresas")
         .delete()
-        .eq('id', empresaId);
+        .eq("id", empresaId);
 
       if (error) throw error;
 
-      toast({
-        title: "Sucesso",
-        description: "Empresa excluída com sucesso"
-      });
-
+      toast.success("Empresa excluída com sucesso");
       fetchEmpresas();
-    } catch (error: any) {
-      console.error('Erro ao excluir empresa:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir a empresa",
-        variant: "destructive"
-      });
+    } catch (error) {
+      console.error("Erro ao excluir empresa:", error);
+      toast.error("Erro ao excluir empresa");
     }
   };
 
   const handleNewEmpresa = () => {
     setEditingEmpresa(null);
-    form.reset({
-      nome_empresa: "",
-      razao_social: "",
-      cnpj: "",
-      grupo_empresarial: "",
-      endereco: "",
-      email: "",
-      site: "",
-      horario_funcionamento: "",
-      responsavel_legal_nome: "",
-      responsavel_legal_cpf: "",
-      responsavel_legal_telefone: "",
-      responsavel_legal_email: "",
-      logomarca_url: ""
-    });
-    setIsDialogOpen(true);
+    form.reset();
+    setDialogOpen(true);
   };
 
+  if (loading) {
+    return (
+      <DashboardLayout title="Empresas">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
-    <DashboardLayout>
+    <DashboardLayout title="Empresas">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Empresas</h1>
+            <h2 className="text-2xl font-bold">Gerenciar Empresas</h2>
             <p className="text-muted-foreground">
-              Gerencie as empresas cadastradas no sistema
+              Cadastre e gerencie as empresas do sistema
             </p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={handleNewEmpresa}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -276,127 +257,95 @@ const Empresas = () => {
                 <DialogTitle>
                   {editingEmpresa ? "Editar Empresa" : "Nova Empresa"}
                 </DialogTitle>
+                <DialogDescription>
+                  {editingEmpresa 
+                    ? "Atualize os dados da empresa"
+                    : "Preencha os dados da nova empresa"
+                  }
+                </DialogDescription>
               </DialogHeader>
+
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-                  
-                  {/* Dados Básicos */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Dados Básicos</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="nome_empresa"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Nome da Empresa *</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="razao_social"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Razão Social *</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="cnpj"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>CNPJ *</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="00.000.000/0001-00" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="grupo_empresarial"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Grupo Empresarial</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Contato e Endereço */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Contato e Endereço</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input type="email" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="site"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Site</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="https://..." />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    
+                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="endereco"
+                      name="nome_empresa"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Endereço</FormLabel>
+                          <FormLabel>Nome da Empresa *</FormLabel>
                           <FormControl>
-                            <Textarea {...field} rows={2} />
+                            <Input placeholder="Digite o nome da empresa" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={form.control}
-                      name="horario_funcionamento"
+                      name="razao_social"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Horário de Funcionamento</FormLabel>
+                          <FormLabel>Razão Social *</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Ex: Segunda a Sexta, 8h às 18h" />
+                            <Input placeholder="Digite a razão social" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="cnpj"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>CNPJ *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="00.000.000/0000-00" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input type="email" placeholder="email@empresa.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="site"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Site</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://www.empresa.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="grupo_empresarial"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Grupo Empresarial</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Nome do grupo empresarial" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -404,60 +353,92 @@ const Empresas = () => {
                     />
                   </div>
 
-                  {/* Responsável Legal */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Responsável Legal</h3>
+                  <FormField
+                    control={form.control}
+                    name="endereco"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Endereço</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Endereço completo da empresa"
+                            className="resize-none"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="horario_funcionamento"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Horário de Funcionamento</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: Segunda a Sexta das 8h às 18h" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="border-t pt-4">
+                    <h4 className="text-lg font-semibold mb-3">Responsável Legal</h4>
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="responsavel_legal_nome"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Nome do Responsável</FormLabel>
+                            <FormLabel>Nome</FormLabel>
                             <FormControl>
-                              <Input {...field} />
+                              <Input placeholder="Nome do responsável legal" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="responsavel_legal_cpf"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>CPF do Responsável</FormLabel>
+                            <FormLabel>CPF</FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="000.000.000-00" />
+                              <Input placeholder="000.000.000-00" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      
-                      <FormField
-                        control={form.control}
-                        name="responsavel_legal_telefone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Telefone do Responsável</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="(11) 99999-9999" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
+
                       <FormField
                         control={form.control}
                         name="responsavel_legal_email"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Email do Responsável</FormLabel>
+                            <FormLabel>Email</FormLabel>
                             <FormControl>
-                              <Input type="email" {...field} />
+                              <Input type="email" placeholder="responsavel@empresa.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="responsavel_legal_telefone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Telefone</FormLabel>
+                            <FormControl>
+                              <Input placeholder="(11) 99999-9999" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -466,35 +447,16 @@ const Empresas = () => {
                     </div>
                   </div>
 
-                  {/* Logomarca */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Logomarca</h3>
-                    <FormField
-                      control={form.control}
-                      name="logomarca_url"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>URL da Logomarca</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="https://..." />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="flex justify-end space-x-2 pt-4 border-t">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => setIsDialogOpen(false)}
+                  <div className="flex justify-end gap-3 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setDialogOpen(false)}
                     >
                       Cancelar
                     </Button>
                     <Button type="submit" disabled={submitting}>
-                      {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      {editingEmpresa ? "Atualizar" : "Criar"} Empresa
+                      {submitting ? "Salvando..." : editingEmpresa ? "Atualizar" : "Criar"}
                     </Button>
                   </div>
                 </form>
@@ -503,118 +465,95 @@ const Empresas = () => {
           </Dialog>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="h-5 w-5" />
-              Empresas Cadastradas
-            </CardTitle>
-            <CardDescription>
-              Lista de todas as empresas no sistema
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {empresas.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhuma empresa encontrada
-                  </div>
-                ) : (
-                  empresas.map((empresa) => (
-                    <div key={empresa.id} className="p-4 border rounded-lg">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-3 flex-1">
-                          <div>
-                            <h3 className="text-lg font-semibold">{empresa.nome_empresa}</h3>
-                            <p className="text-sm text-muted-foreground">{empresa.razao_social}</p>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Building className="h-4 w-4" />
-                                <span>CNPJ: {empresa.cnpj}</span>
-                              </div>
-                              
-                              {empresa.email && (
-                                <div className="flex items-center gap-2">
-                                  <Mail className="h-4 w-4" />
-                                  <span>{empresa.email}</span>
-                                </div>
-                              )}
-                              
-                              {empresa.site && (
-                                <div className="flex items-center gap-2">
-                                  <Globe className="h-4 w-4" />
-                                  <span>{empresa.site}</span>
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="space-y-2">
-                              {empresa.endereco && (
-                                <div className="flex items-center gap-2">
-                                  <MapPin className="h-4 w-4" />
-                                  <span>{empresa.endereco}</span>
-                                </div>
-                              )}
-                              
-                              {empresa.responsavel_legal_nome && (
-                                <div className="flex items-center gap-2">
-                                  <Users className="h-4 w-4" />
-                                  <span>Resp: {empresa.responsavel_legal_nome}</span>
-                                </div>
-                              )}
-                              
-                              {empresa.responsavel_legal_telefone && (
-                                <div className="flex items-center gap-2">
-                                  <Phone className="h-4 w-4" />
-                                  <span>{empresa.responsavel_legal_telefone}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {empresa.grupo_empresarial && (
-                            <div className="text-sm text-muted-foreground">
-                              Grupo: {empresa.grupo_empresarial}
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="flex items-center gap-2 ml-4">
-                          <Badge variant="default">Ativa</Badge>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleEdit(empresa)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleDelete(empresa.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+        {empresas.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Building className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Nenhuma empresa cadastrada</h3>
+              <p className="text-muted-foreground text-center">
+                Comece cadastrando a primeira empresa do sistema
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {empresas.map((empresa) => (
+              <Card key={empresa.id} className="relative">
+                <CardHeader>
+                  <CardTitle className="text-lg">{empresa.nome_empresa}</CardTitle>
+                  <CardDescription>{empresa.razao_social}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <strong>CNPJ:</strong> {empresa.cnpj}
                     </div>
-                  ))
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    {empresa.email && (
+                      <div>
+                        <strong>Email:</strong> {empresa.email}
+                      </div>
+                    )}
+                    {empresa.site && (
+                      <div>
+                        <strong>Site:</strong> 
+                        <a 
+                          href={empresa.site} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline ml-1"
+                        >
+                          {empresa.site}
+                        </a>
+                      </div>
+                    )}
+                    {empresa.grupo_empresarial && (
+                      <div>
+                        <strong>Grupo:</strong> {empresa.grupo_empresarial}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(empresa)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja excluir a empresa "{empresa.nome_empresa}"? 
+                            Esta ação não pode ser desfeita.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(empresa.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Excluir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
-};
-
-export default Empresas;
+}
