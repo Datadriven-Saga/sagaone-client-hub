@@ -12,13 +12,13 @@ password = "postgres"
 shadow_database_url = "postgresql://postgres:postgres@127.0.0.1:54320/postgres"
 
 [functions.prospeccao-status]
-verify_jwt = false
+verify_jwt = true
 
 [functions.prospeccao-anotacao]
-verify_jwt = false
+verify_jwt = true
 
 [functions.trigger-webhook] 
-verify_jwt = false
+verify_jwt = true
 
 [functions.manage-users]
 verify_jwt = true

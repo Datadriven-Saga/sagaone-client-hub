@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://automatemaia.sagadatadriven.com.br',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -14,10 +14,30 @@ serve(async (req) => {
   }
 
   try {
+    // Get user info from JWT
+    const authHeader = req.headers.get('authorization');
+    const jwt = authHeader?.replace('Bearer ', '');
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        auth: {
+          persistSession: false
+        },
+        global: {
+          headers: authHeader ? { authorization: authHeader } : {}
+        }
+      }
     );
+
+    // Get user info for audit logs
+    const { data: { user } } = await supabaseClient.auth.getUser(jwt);
+    const userId = user?.id;
+    const userEmail = user?.email;
+    
+    console.log(`API prospeccao-anotacao accessed by user: ${userEmail} (${userId})`);
+    console.log(`Request data:`, { prospeccao_id: req.url.includes('prospeccao_id') });
 
     if (req.method !== 'POST') {
       return new Response(

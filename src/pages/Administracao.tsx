@@ -6,12 +6,56 @@ import {
   Settings, 
   Code, 
   Zap,
-  FileText
+  FileText,
+  AlertTriangle
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAdminCheck } from "@/hooks/useAdminCheck";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Administracao = () => {
   const navigate = useNavigate();
+  const { isAdmin, loading } = useAdminCheck();
+
+  // Show loading state
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-2 text-sm text-muted-foreground">Verificando permissões...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Block access for non-admin users
+  if (!isAdmin) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              Acesso Negado
+            </h1>
+            <p className="text-muted-foreground">
+              Você não tem permissão para acessar este módulo
+            </p>
+          </div>
+
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              O módulo de Administração é restrito a usuários com perfil de <strong>Administrador</strong>. 
+              Entre em contato com um administrador do sistema se você acredita que deveria ter acesso a esta área.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const adminModules = [
     {
