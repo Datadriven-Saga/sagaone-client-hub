@@ -11,7 +11,7 @@ export interface Contato {
   email?: string;
   status: 'Novo' | 'Enviado' | 'Recebido' | 'Agendado' | 'Confirmado' | 'Cancelado';
   valor_potencial?: number;
-  responsavel_id?: string;
+  responsavel_email?: string;
   cliente_id?: string;
   empresa_id?: string;
   observacoes?: string;
@@ -147,6 +147,7 @@ export const useContatoData = () => {
     origem: Contato['origem'];
     empresa_id?: string;
     observacoes?: string;
+    responsavel_email?: string;
   }[], prospeccaoId?: string) => {
     try {
       // Buscar empresa_id do usuário logado
@@ -377,12 +378,12 @@ export const useContatoData = () => {
   };
 
   // Atribuir responsável ao contato
-  const atribuirResponsavel = async (contatoId: string, userId: string) => {
+  const atribuirResponsavel = async (contatoId: string, userEmail: string) => {
     try {
       const { error } = await supabase
         .from('contatos')
         .update({ 
-          responsavel_id: userId,
+          responsavel_email: userEmail,
           updated_at: new Date().toISOString()
         })
         .eq('id', contatoId);
@@ -391,7 +392,7 @@ export const useContatoData = () => {
 
       setContatos(prev => prev.map(contato => 
         contato.id === contatoId 
-          ? { ...contato, responsavel_id: userId, updated_at: new Date().toISOString() }
+          ? { ...contato, responsavel_email: userEmail, updated_at: new Date().toISOString() }
           : contato
       ));
 

@@ -379,7 +379,7 @@ export function ContatoModal({
                 <Card className="p-6">
                   <h3 className="text-lg font-semibold mb-4">Responsável</h3>
                   
-                  {contato.responsavel_id ? (
+                  {contato.responsavel_email ? (
                     <div className="flex items-center gap-3 p-3 border rounded-lg">
                       <Avatar className="w-10 h-10">
                         <AvatarFallback>

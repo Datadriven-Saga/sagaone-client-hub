@@ -137,7 +137,7 @@ const Prospeccao = () => {
           title: contato.nome,
           description: `${contato.telefone}${contato.email ? ` - ${contato.email}` : ''}`,
           channel: contato.origem,
-          assignee: contato.responsavel_id || undefined,
+          assignee: contato.responsavel_email || undefined,
           prospeccaoNome, // Adicionar nome da prospecção
           prospeccaoCanal, // Adicionar canal da prospecção
           segmentacao: 'Undefined' // Buscar da tabela contatos quando implementar
@@ -204,23 +204,96 @@ const Prospeccao = () => {
         throw new Error(`Prospecção "${campanha}" não encontrada`);
       }
       
-      const novosContatos = clientes.map(cliente => ({
-        nome: cliente.nome,
-        telefone: cliente.telefone,
-        email: cliente.email,
-        origem: 'Outros' as const,
-        observacoes: `Importado da campanha: ${campanha}`,
-      }));
-
-      console.log('Contatos preparados para inserção:', novosContatos);
+      const sucessos: any[] = [];
+      const erros: string[] = [];
       
-      const result = await adicionarContatos(novosContatos, prospeccaoSelecionada?.id);
-      console.log('Resultado da inserção:', result);
+      // Processar cada cliente individualmente para validar email do responsável
+      for (const cliente of clientes) {
+        try {
+          // Preparar dados do contato
+          const clienteComOrigem = {
+            nome: cliente.nome,
+            telefone: cliente.telefone,
+            email: cliente.email,
+            responsavel_email: cliente.responsavel && cliente.responsavel.trim() ? cliente.responsavel : undefined,
+            origem: 'Outros' as const,
+            observacoes: `Importado da campanha: ${campanha}`,
+          };
 
-      toast({
-        title: "Planilha importada",
-        description: `${clientes.length} contatos foram importados e adicionados ao Kanban`,
-      });
+          // Inserir individualmente
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('empresa_id')
+            .eq('id', user?.id)
+            .single();
+
+          if (profileError) throw profileError;
+
+          const { data, error } = await supabase
+            .from('contatos')
+            .insert([{
+              ...clienteComOrigem,
+              status: 'Novo',
+              empresa_id: profile.empresa_id
+            }])
+            .select()
+            .single();
+
+          if (error) throw error;
+          
+          sucessos.push(data);
+          
+        } catch (error) {
+          console.error(`Erro ao processar cliente ${cliente.nome}:`, error);
+          erros.push(`Linha ${clientes.indexOf(cliente) + 1}: ${cliente.nome} - ${error.message || 'Erro desconhecido'}`);
+        }
+      }
+
+      // Atualizar a lista local com os sucessos será feita pelo refetch()
+      if (sucessos.length > 0) {
+        // Disparar webhooks para os contatos inseridos com sucesso
+        for (const contato of sucessos) {
+          try {
+            await supabase.functions.invoke('trigger-webhook', {
+              body: {
+                gatilho: 'novo_contato_prospeccao',
+                dados: {
+                  prospeccao_id: prospeccaoSelecionada.id,
+                  contato_id: contato.id,
+                  nome: contato.nome,
+                  telefone: contato.telefone,
+                  email: contato.email,
+                  status: contato.status
+                }
+              }
+            });
+          } catch (webhookError) {
+            console.error('Erro ao disparar webhook:', webhookError);
+          }
+        }
+      }
+
+      // Mostrar resultado da importação
+      if (sucessos.length > 0 && erros.length === 0) {
+        toast({
+          title: "Planilha importada",
+          description: `${sucessos.length} contatos foram importados e adicionados ao Kanban`,
+        });
+      } else if (sucessos.length > 0 && erros.length > 0) {
+        toast({
+          title: "Importação parcial",
+          description: `${sucessos.length} contatos importados com sucesso, ${erros.length} falharam.`,
+          variant: "destructive"
+        });
+        console.error('Erros durante importação:', erros);
+      } else {
+        toast({
+          title: "Falha na importação",
+          description: `Nenhum contato foi importado. ${erros.length} erros encontrados.`,
+          variant: "destructive"
+        });
+        console.error('Todos os erros:', erros);
+      }
       
       // Forçar atualização dos dados
       refetch();
@@ -355,7 +428,7 @@ const Prospeccao = () => {
     try {
       // Verificar se o usuário tem contatos na coluna "Atribuídos"
       const contatosAtribuidos = contatos.filter(
-        contato => contato.status === 'Enviado' && contato.responsavel_id === user.id
+        contato => contato.status === 'Enviado' && contato.responsavel_email === user.email
       );
 
       if (contatosAtribuidos.length > 0) {
@@ -369,7 +442,7 @@ const Prospeccao = () => {
 
       // Buscar contatos não atribuídos (status 'Novo' e sem responsável)
       const contatosNovos = contatos.filter(
-        contato => contato.status === 'Novo' && !contato.responsavel_id
+        contato => contato.status === 'Novo' && !contato.responsavel_email
       );
 
       if (contatosNovos.length === 0) {
@@ -385,7 +458,7 @@ const Prospeccao = () => {
       const clientesParaAtribuir = contatosNovos.slice(0, 5);
       
       for (const contato of clientesParaAtribuir) {
-        await atribuirResponsavel(contato.id, user.id);
+        await atribuirResponsavel(contato.id, user.email!);
         // Mover para coluna "Atribuídos" (status 'Enviado')
         await atualizarStatusContato(contato.id, 'Enviado');
       }

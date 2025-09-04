@@ -93,7 +93,7 @@ export type Database = {
           nome: string
           observacoes: string | null
           origem: Database["public"]["Enums"]["origem_lead"] | null
-          responsavel_id: string | null
+          responsavel_email: string | null
           status: Database["public"]["Enums"]["status_lead"] | null
           telefone: string | null
           updated_at: string | null
@@ -108,7 +108,7 @@ export type Database = {
           nome: string
           observacoes?: string | null
           origem?: Database["public"]["Enums"]["origem_lead"] | null
-          responsavel_id?: string | null
+          responsavel_email?: string | null
           status?: Database["public"]["Enums"]["status_lead"] | null
           telefone?: string | null
           updated_at?: string | null
@@ -123,7 +123,7 @@ export type Database = {
           nome?: string
           observacoes?: string | null
           origem?: Database["public"]["Enums"]["origem_lead"] | null
-          responsavel_id?: string | null
+          responsavel_email?: string | null
           status?: Database["public"]["Enums"]["status_lead"] | null
           telefone?: string | null
           updated_at?: string | null
@@ -142,13 +142,6 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leads_responsavel_id_fkey"
-            columns: ["responsavel_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
