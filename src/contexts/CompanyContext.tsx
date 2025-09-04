@@ -35,7 +35,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     console.log('CompanyContext: Fetching companies for user:', user.id);
 
     try {
-      // Get user's companies
+      // Get user's companies with better error handling
       const { data: userEmpresasData, error: userEmpresasError } = await supabase
         .from('user_empresas')
         .select(`
@@ -49,16 +49,44 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         `)
         .eq('user_id', user.id);
 
-      if (userEmpresasError) throw userEmpresasError;
+      console.log('CompanyContext: Raw data response:', userEmpresasData);
+      console.log('CompanyContext: Error response:', userEmpresasError);
 
-      const companies = userEmpresasData?.map(ue => ue.empresas).filter(Boolean) || [];
-      const activeCompanyData = userEmpresasData?.find(ue => ue.is_ativa)?.empresas;
+      if (userEmpresasError) {
+        console.error('CompanyContext: Supabase error:', userEmpresasError);
+        throw userEmpresasError;
+      }
+
+      if (!userEmpresasData || userEmpresasData.length === 0) {
+        console.warn('CompanyContext: No companies found for user');
+        setUserCompanies([]);
+        setActiveCompany(null);
+        setLoading(false);
+        return;
+      }
+
+      const companies = userEmpresasData
+        ?.map(ue => ue.empresas)
+        .filter(Boolean) || [];
+      
+      const activeCompanyData = userEmpresasData
+        ?.find(ue => ue.is_ativa)?.empresas;
+
+      console.log('CompanyContext: Processed companies:', companies);
+      console.log('CompanyContext: Active company:', activeCompanyData);
 
       setUserCompanies(companies as Company[]);
       setActiveCompany(activeCompanyData as Company || null);
+      
+      if (companies.length > 0 && !activeCompanyData) {
+        console.warn('CompanyContext: No active company found, but companies exist');
+      }
     } catch (error) {
-      console.error('Error fetching user companies:', error);
-      toast.error('Erro ao carregar empresas do usuário');
+      console.error('CompanyContext: Error fetching user companies:', error);
+      toast.error('Erro ao carregar empresas: ' + (error as Error).message);
+      // Set empty state on error
+      setUserCompanies([]);
+      setActiveCompany(null);
     } finally {
       setLoading(false);
     }
