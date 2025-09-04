@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ArrowLeft, Upload, Save, Power, PowerOff, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -310,21 +311,32 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Foto do agente */}
                   <div className="flex flex-col items-center space-y-4">
-                    <div className="h-32 w-32 relative">
-                      {formData.foto_url ? (
-                        <img 
-                          src={formData.foto_url} 
-                          alt={`Foto do agente ${formData.nome}`}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-primary/10 rounded-lg flex items-center justify-center">
-                          <span className="text-3xl font-semibold text-primary">
-                            {formData.nome.charAt(0).toUpperCase() || "A"}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    {formData.foto_url ? (
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <div className="h-32 w-32 relative cursor-pointer hover:opacity-80 transition-opacity">
+                            <img 
+                              src={formData.foto_url} 
+                              alt={`Foto do agente ${formData.nome}`}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                          </div>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl">
+                          <img 
+                            src={formData.foto_url} 
+                            alt={`Foto completa do agente ${formData.nome}`}
+                            className="w-full h-auto rounded-lg"
+                          />
+                        </DialogContent>
+                      </Dialog>
+                    ) : (
+                      <div className="h-32 w-32 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <span className="text-3xl font-semibold text-primary">
+                          {formData.nome.charAt(0).toUpperCase() || "A"}
+                        </span>
+                      </div>
+                    )}
                     
                     <div className="w-full space-y-2">
                       <Label htmlFor="foto_url">URL da Foto</Label>
