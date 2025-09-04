@@ -15,6 +15,7 @@ import Administracao from "./pages/Administracao";
 import Clientes from "./pages/Clientes";
 import Notificacoes from "./pages/Notificacoes";
 import Prospeccao from "./pages/Prospeccao";
+import ProspeccaoNew from "./pages/ProspeccaoNew";
 import CentralAtendimento from "./pages/CentralAtendimento";
 import Loja from "./pages/Loja";
 import BuscaResgate from "./pages/BuscaResgate";
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
             <Route path="/personas" element={<ProtectedRoute><Personas /></ProtectedRoute>} />
             <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
+            <Route path="/prospeccao-new" element={<ProtectedRoute><ProspeccaoNew /></ProtectedRoute>} />
             <Route path="/central-atendimento" element={<ProtectedRoute><CentralAtendimento /></ProtectedRoute>} />
             <Route path="/loja" element={<ProtectedRoute><Loja /></ProtectedRoute>} />
             <Route path="/busca-resgate" element={<ProtectedRoute><BuscaResgate /></ProtectedRoute>} />

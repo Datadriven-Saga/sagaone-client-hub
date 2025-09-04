@@ -1146,6 +1146,60 @@ export type Database = {
           },
         ]
       }
+      prospect: {
+        Row: {
+          cliente_id: string | null
+          created_at: string
+          email: string | null
+          empresa_id: string
+          id: string
+          nome: string
+          observacoes: string | null
+          origem: string | null
+          responsavel_email: string | null
+          responsavel_id: string | null
+          status: string
+          telefone: string | null
+          updated_at: string
+          user_id: string | null
+          valor_potencial: number | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string
+          email?: string | null
+          empresa_id: string
+          id?: string
+          nome: string
+          observacoes?: string | null
+          origem?: string | null
+          responsavel_email?: string | null
+          responsavel_id?: string | null
+          status?: string
+          telefone?: string | null
+          updated_at?: string
+          user_id?: string | null
+          valor_potencial?: number | null
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string
+          email?: string | null
+          empresa_id?: string
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          origem?: string | null
+          responsavel_email?: string | null
+          responsavel_id?: string | null
+          status?: string
+          telefone?: string | null
+          updated_at?: string
+          user_id?: string | null
+          valor_potencial?: number | null
+        }
+        Relationships: []
+      }
       relatorios: {
         Row: {
           created_at: string | null
