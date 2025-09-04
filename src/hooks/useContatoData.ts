@@ -75,7 +75,10 @@ export const useContatoData = () => {
   // Buscar prospecções da empresa com filtro de data
   const fetchProspeccoes = useCallback(async () => {
     console.log('🎯 fetchProspeccoes called, user:', user?.id);
-    if (!user) return;
+    if (!user?.id) {
+      console.log('❌ No user ID found');
+      return;
+    }
 
     try {
       console.log('📡 Making supabase call to prospeccoes...');
@@ -90,9 +93,11 @@ export const useContatoData = () => {
       }
       
       console.log('✅ fetchProspeccoes success, data:', data?.length);
+      console.log('📋 Sample prospeccao:', data?.[0]);
+      
       setProspeccoes((data || []).map(p => ({
         ...p,
-        canal: p.canal as 'Whatsapp' | 'Ligação'
+        canal: (p.canal as 'Whatsapp' | 'Ligação') || 'Whatsapp'
       })));
     } catch (error) {
       console.error('🚨 Erro ao buscar prospecções:', error);
@@ -101,13 +106,18 @@ export const useContatoData = () => {
         description: "Não foi possível carregar as prospecções",
         variant: "destructive"
       });
+      // Set empty array on error to avoid infinite loading
+      setProspeccoes([]);
     }
   }, [user?.id, toast]);
 
   // Buscar contatos da empresa
   const fetchContatos = useCallback(async () => {
     console.log('👥 fetchContatos called, user:', user?.id);
-    if (!user) return;
+    if (!user?.id) {
+      console.log('❌ No user ID found');
+      return;
+    }
 
     try {
       console.log('📡 Making supabase call to contatos...');
@@ -122,7 +132,7 @@ export const useContatoData = () => {
       }
       
       console.log('✅ fetchContatos success, data:', data?.length);
-      console.log('📋 Sample data:', data?.[0]);
+      console.log('📋 Sample contato:', data?.[0]);
       
       // Mapear dados do banco usando os tipos corretos
       const contatosProcessed = (data || []).map((contato: any) => ({
@@ -145,6 +155,8 @@ export const useContatoData = () => {
         description: "Não foi possível carregar os contatos",
         variant: "destructive"
       });
+      // Set empty array on error to avoid infinite loading
+      setContatos([]);
     }
   }, [user?.id, toast]);
 
@@ -453,9 +465,11 @@ export const useContatoData = () => {
   useEffect(() => {
     console.log('🔥 useContatoData useEffect triggered, user:', user?.id);
     
-    if (!user) {
+    if (!user?.id) {
       console.log('❌ No user found, setting loading to false');
       setLoading(false);
+      setContatos([]);
+      setProspeccoes([]);
       return;
     }
     
@@ -471,6 +485,9 @@ export const useContatoData = () => {
         console.log('✅ Data loaded successfully');
       } catch (error) {
         console.error('❌ Error loading data:', error);
+        // Ensure arrays are set even on error
+        setContatos([]);
+        setProspeccoes([]);
       } finally {
         console.log('🏁 Setting loading to false');
         setLoading(false);
