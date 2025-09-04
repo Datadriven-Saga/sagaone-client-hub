@@ -194,8 +194,15 @@ const Prospeccao = () => {
   // Função para importar clientes como contatos
   const handleClientesImported = async (campanha: string, clientes: ClienteData[]) => {
     try {
+      console.log('Iniciando importação de contatos:', { campanha, quantidade: clientes.length });
+      
       // Buscar o ID da prospecção pela campanha selecionada
       const prospeccaoSelecionada = prospeccoes.find(p => p.titulo === campanha);
+      console.log('Prospecção selecionada:', prospeccaoSelecionada);
+      
+      if (!prospeccaoSelecionada) {
+        throw new Error(`Prospecção "${campanha}" não encontrada`);
+      }
       
       const novosContatos = clientes.map(cliente => ({
         nome: cliente.nome,
@@ -207,14 +214,26 @@ const Prospeccao = () => {
         observacoes: `Importado da campanha: ${campanha}`,
       }));
 
-      await adicionarContatos(novosContatos, prospeccaoSelecionada?.id);
+      console.log('Contatos preparados para inserção:', novosContatos);
+      
+      const result = await adicionarContatos(novosContatos, prospeccaoSelecionada?.id);
+      console.log('Resultado da inserção:', result);
 
       toast({
         title: "Planilha importada",
         description: `${clientes.length} contatos foram importados e adicionados ao Kanban`,
       });
+      
+      // Forçar atualização dos dados
+      refetch();
+      
     } catch (error) {
       console.error('Erro ao importar contatos:', error);
+      toast({
+        title: "Erro na importação",
+        description: `Erro: ${error.message || 'Não foi possível importar os contatos'}`,
+        variant: "destructive"
+      });
     }
   };
 

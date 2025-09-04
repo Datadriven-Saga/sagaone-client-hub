@@ -186,6 +186,7 @@ export const useContatoData = () => {
         
         // Disparar gatilho para cada novo contato adicionado
         if (prospeccaoId) {
+          console.log('Iniciando disparo de webhooks para prospecção:', prospeccaoId);
           for (const contato of data) {
             console.log('Disparando webhook para contato:', contato);
             try {
@@ -203,11 +204,17 @@ export const useContatoData = () => {
                 }
               });
               console.log('Resultado do webhook:', webhookResult);
+              
+              if (webhookResult.error) {
+                console.error('Erro no webhook:', webhookResult.error);
+              }
             } catch (webhookError) {
               console.error('Erro ao disparar webhook:', webhookError);
             }
           }
         }
+        
+        console.log('Contatos adicionados com sucesso:', data.length);
         
         return data;
       }
