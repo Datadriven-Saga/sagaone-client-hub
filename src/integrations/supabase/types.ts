@@ -1153,6 +1153,10 @@ export type Database = {
         Args: { user_id?: string }
         Returns: boolean
       }
+      check_user_email_exists: {
+        Args: { email_to_check: string }
+        Returns: boolean
+      }
       get_current_user_access_type: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["tipo_acesso"]

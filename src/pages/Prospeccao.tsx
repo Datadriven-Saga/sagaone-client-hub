@@ -210,7 +210,18 @@ const Prospeccao = () => {
       // Processar cada cliente individualmente para validar email do responsável
       for (const cliente of clientes) {
         try {
-          // Preparar dados do contato
+          // Validar se o email do responsável existe no sistema (se fornecido)
+          if (cliente.responsavel && cliente.responsavel.trim()) {
+            const { data: emailExists, error: emailError } = await supabase.rpc(
+              'check_user_email_exists',
+              { email_to_check: cliente.responsavel }
+            );
+            
+            if (emailError || !emailExists) {
+              erros.push(`Linha ${clientes.indexOf(cliente) + 1}: Responsável '${cliente.responsavel}' não encontrado no sistema`);
+              continue;
+            }
+          }
           const clienteComOrigem = {
             nome: cliente.nome,
             telefone: cliente.telefone,
