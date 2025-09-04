@@ -210,48 +210,29 @@ const Prospeccao = () => {
       // Processar cada cliente individualmente para validar email do responsável
       for (const cliente of clientes) {
         try {
-          // Validar se o email do responsável existe no sistema (se fornecido)
-          if (cliente.responsavel && cliente.responsavel.trim()) {
-            const { data: emailExists, error: emailError } = await supabase.rpc(
-              'check_user_email_exists',
-              { email_to_check: cliente.responsavel }
-            );
-            
-            if (emailError || !emailExists) {
-              erros.push(`Linha ${clientes.indexOf(cliente) + 1}: Responsável '${cliente.responsavel}' não encontrado no sistema`);
-              continue;
-            }
-          }
-          const clienteComOrigem = {
-            nome: cliente.nome,
-            telefone: cliente.telefone,
-            email: cliente.email,
-            responsavel_email: cliente.responsavel && cliente.responsavel.trim() ? cliente.responsavel : undefined,
-            origem: 'Outros' as const,
-            observacoes: `Importado da campanha: ${campanha}`,
-          };
-
-          // Inserir individualmente
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('empresa_id')
-            .eq('id', user?.id)
-            .single();
-
-          if (profileError) throw profileError;
-
+          console.log(`Processando cliente: ${cliente.nome}`);
+          
+          // Inserir contato diretamente - as políticas RLS garantem empresa_id correto
           const { data, error } = await supabase
             .from('contatos')
             .insert([{
-              ...clienteComOrigem,
-              status: 'Novo',
-              empresa_id: profile.empresa_id
+              nome: cliente.nome,
+              telefone: cliente.telefone,
+              email: cliente.email || null,
+              responsavel_email: cliente.responsavel && cliente.responsavel.trim() ? cliente.responsavel : null,
+              origem: 'Outros',
+              observacoes: `Importado da campanha: ${campanha}`,
+              status: 'Novo'
             }])
             .select()
             .single();
 
-          if (error) throw error;
+          if (error) {
+            console.error(`Erro ao inserir ${cliente.nome}:`, error);
+            throw error;
+          }
           
+          console.log(`Cliente ${cliente.nome} inserido com sucesso:`, data);
           sucessos.push(data);
           
         } catch (error) {
