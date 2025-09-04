@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +35,9 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState("dados-gerais");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     nome: "",
     persona: "",
@@ -188,6 +190,65 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Erro",
+        description: "Por favor, selecione apenas arquivos de imagem",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validar tamanho (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Erro",
+        description: "A imagem deve ter no máximo 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setUploading(true);
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `${user?.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('agent-photos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from('agent-photos')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, foto_url: publicUrlData.publicUrl }));
+
+      toast({
+        title: "Sucesso",
+        description: "Foto enviada com sucesso"
+      });
+    } catch (error) {
+      console.error('Erro ao fazer upload:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível fazer o upload da imagem",
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <DashboardLayout title={isEditing ? `Editando: ${formData.nome}` : "Novo Agente"}>
       <div className="space-y-6">
@@ -258,9 +319,22 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                         onChange={(e) => setFormData(prev => ({ ...prev, foto_url: e.target.value }))}
                         placeholder="https://exemplo.com/foto.jpg"
                       />
-                      <Button variant="outline" size="sm" className="w-full">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                      >
                         <Upload className="h-4 w-4 mr-2" />
-                        Upload de Imagem
+                        {uploading ? "Enviando..." : "Upload de Imagem"}
                       </Button>
                     </div>
                   </div>
