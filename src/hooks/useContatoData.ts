@@ -72,14 +72,10 @@ export const useContatoData = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Buscar prospecções da empresa com filtro de data
+  // Buscar prospecções - Simplificado sem validações desnecessárias
   const fetchProspeccoes = useCallback(async () => {
     console.log('🎯 fetchProspeccoes called, user:', user?.id);
-    if (!user?.id) {
-      console.log('❌ No user ID found');
-      return;
-    }
-
+    
     try {
       console.log('📡 Making supabase call to prospeccoes...');
       const { data, error } = await supabase
@@ -101,24 +97,15 @@ export const useContatoData = () => {
       })));
     } catch (error) {
       console.error('🚨 Erro ao buscar prospecções:', error);
-      toast({
-        title: "Erro ao carregar prospecções",
-        description: "Não foi possível carregar as prospecções",
-        variant: "destructive"
-      });
       // Set empty array on error to avoid infinite loading
       setProspeccoes([]);
     }
-  }, [user?.id, toast]);
+  }, [toast]);
 
-  // Buscar contatos da empresa
+  // Buscar contatos - Simplificado sem validações desnecessárias
   const fetchContatos = useCallback(async () => {
     console.log('👥 fetchContatos called, user:', user?.id);
-    if (!user?.id) {
-      console.log('❌ No user ID found');
-      return;
-    }
-
+    
     try {
       console.log('📡 Making supabase call to contatos...');
       const { data, error } = await supabase
@@ -150,15 +137,10 @@ export const useContatoData = () => {
       setContatos(contatosProcessed);
     } catch (error) {
       console.error('🚨 Erro ao buscar contatos:', error);
-      toast({
-        title: "Erro ao carregar contatos",
-        description: "Não foi possível carregar os contatos",
-        variant: "destructive"
-      });
       // Set empty array on error to avoid infinite loading
       setContatos([]);
     }
-  }, [user?.id, toast]);
+  }, [toast]);
 
   // Adicionar novos contatos ao banco
   const adicionarContatos = async (novosContatos: {
@@ -463,15 +445,7 @@ export const useContatoData = () => {
   };
 
   useEffect(() => {
-    console.log('🔥 useContatoData useEffect triggered, user:', user?.id);
-    
-    if (!user?.id) {
-      console.log('❌ No user found, setting loading to false');
-      setLoading(false);
-      setContatos([]);
-      setProspeccoes([]);
-      return;
-    }
+    console.log('🔥 useContatoData useEffect triggered');
     
     const loadData = async () => {
       console.log('📊 Starting to load data...');
@@ -494,9 +468,8 @@ export const useContatoData = () => {
       }
     };
 
-    console.log('👤 User exists, loading data...');
     loadData();
-  }, [user?.id, fetchProspeccoes, fetchContatos]); // Dependências corretas
+  }, [fetchProspeccoes, fetchContatos]); // Dependências corretas
 
   // Excluir prospecção
   const excluirProspeccao = async (prospeccaoId: string) => {
