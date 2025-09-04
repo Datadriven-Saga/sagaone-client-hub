@@ -185,31 +185,31 @@ const Prospeccao = () => {
       id: 'atribuidos',
       title: 'Atribuídos',
       color: '#8B5FD6',
-      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Enviado'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Negociação'))
     },
     {
       id: 'convidados',
       title: 'Convidados',
       color: '#A679E1',
-      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Recebido'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Em Contato'))
     },
     {
       id: 'agendados',
       title: 'Agendados',
       color: '#C193EC',
-      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Agendado'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Qualificado'))
     },
     {
       id: 'confirmados',
       title: 'Confirmados',
       color: '#10B981',
-      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Confirmado'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Fechado'))
     },
     {
       id: 'checkin',
       title: 'Check-in',
       color: '#22c55e',
-      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Cancelado'))
+      items: contatosToKanbanItems(contatos.filter(contato => contato.status === 'Perdido'))
     },
     {
       id: 'descartados',
@@ -450,7 +450,7 @@ const Prospeccao = () => {
     try {
       // Verificar se o usuário tem contatos na coluna "Atribuídos"
       const contatosAtribuidos = contatos.filter(
-        contato => contato.status === 'Enviado' && contato.responsavel_email === user.email
+        contato => contato.status === 'Negociação' && contato.responsavel_email === user.email
       );
 
       if (contatosAtribuidos.length > 0) {
@@ -481,8 +481,8 @@ const Prospeccao = () => {
       
       for (const contato of clientesParaAtribuir) {
         await atribuirResponsavel(contato.id, user.email!);
-        // Mover para coluna "Atribuídos" (status 'Enviado')
-        await atualizarStatusContato(contato.id, 'Enviado');
+        // Mover para coluna "Atribuídos" (status 'Negociação')
+        await atualizarStatusContato(contato.id, 'Negociação');
       }
 
       toast({

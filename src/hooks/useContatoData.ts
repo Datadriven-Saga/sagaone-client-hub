@@ -3,13 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-// Usando os tipos corretos do banco de dados
 export interface Contato {
   id: string;
   nome: string;
   telefone: string;
   email?: string;
-  status: 'Novo' | 'Enviado' | 'Recebido' | 'Agendado' | 'Confirmado' | 'Cancelado';
+  status: 'Novo' | 'Em Contato' | 'Qualificado' | 'Proposta' | 'Negociação' | 'Fechado' | 'Perdido';
   valor_potencial?: number;
   responsavel_email?: string;
   cliente_id?: string;
@@ -23,20 +22,20 @@ export interface Contato {
 // Mapeamento dos status do banco para as colunas do Kanban
 export const statusKanbanMap = {
   'Novo': 'novo',
-  'Enviado': 'enviados', 
-  'Recebido': 'recebidos',
-  'Agendado': 'agendados',
-  'Confirmado': 'confirmados',
-  'Cancelado': 'cancelados'
+  'Negociação': 'enviados', 
+  'Em Contato': 'recebidos',
+  'Qualificado': 'agendados',
+  'Fechado': 'confirmados',
+  'Perdido': 'cancelados'
 } as const;
 
 export const kanbanStatusMap = {
   'novo': 'Novo',
-  'enviados': 'Enviado',
-  'recebidos': 'Recebido', 
-  'agendados': 'Agendado',
-  'confirmados': 'Confirmado',
-  'cancelados': 'Cancelado'
+  'enviados': 'Negociação',
+  'recebidos': 'Em Contato', 
+  'agendados': 'Qualificado',
+  'confirmados': 'Fechado',
+  'cancelados': 'Perdido'
 } as const;
 
 export interface Prospeccao {
@@ -124,26 +123,22 @@ export const useContatoData = () => {
       }
       
       console.log('✅ fetchContatos success, data:', data?.length);
+      console.log('📋 Sample data:', data?.[0]);
       
-      // Mapear status antigos para novos
-      const contatosWithNewStatus = (data || []).map(contato => ({
+      // Mapear dados do banco usando os tipos corretos
+      const contatosProcessed = (data || []).map((contato: any) => ({
         ...contato,
-        status: (() => {
-          const statusMap: Record<string, Contato['status']> = {
-            'Novo': 'Novo',
-            'Negociação': 'Enviado',
-            'Em Contato': 'Recebido',
-            'Qualificado': 'Agendado',
-            'Proposta': 'Agendado',
-            'Fechado': 'Confirmado',
-            'Perdido': 'Cancelado'
-          };
-          return statusMap[contato.status] || 'Novo';
-        })()
+        // Garantir que os campos opcionais não sejam undefined
+        email: contato.email || undefined,
+        responsavel_email: contato.responsavel_email || undefined,
+        observacoes: contato.observacoes || undefined,
+        valor_potencial: contato.valor_potencial || undefined,
+        cliente_id: contato.cliente_id || undefined,
+        empresa_id: contato.empresa_id || undefined
       }));
       
-      console.log('🔄 Mapped contatos:', contatosWithNewStatus.length);
-      setContatos(contatosWithNewStatus);
+      console.log('🔄 Processed contatos:', contatosProcessed.length);
+      setContatos(contatosProcessed);
     } catch (error) {
       console.error('🚨 Erro ao buscar contatos:', error);
       toast({
@@ -329,20 +324,10 @@ export const useContatoData = () => {
   // Atualizar status do contato
   const atualizarStatusContato = async (contatoId: string, novoStatus: Contato['status']) => {
     try {
-      // Mapear novo status para status do banco
-      const statusMap: Record<Contato['status'], string> = {
-        'Novo': 'Novo',
-        'Enviado': 'Negociação',
-        'Recebido': 'Em Contato',
-        'Agendado': 'Qualificado',
-        'Confirmado': 'Fechado',
-        'Cancelado': 'Perdido'
-      };
-      
       const { error } = await supabase
         .from('contatos')
         .update({ 
-          status: statusMap[novoStatus] as any,
+          status: novoStatus,
           updated_at: new Date().toISOString()
         })
         .eq('id', contatoId);
@@ -436,16 +421,16 @@ export const useContatoData = () => {
 
     const totalBase = contatos.length;
     const novo = metricas['Novo'] || 0;
-    const enviados = metricas['Enviado'] || 0;
-    const recebidos = metricas['Recebido'] || 0;
-    const agendados = metricas['Agendado'] || 0;
-    const confirmados = metricas['Confirmado'] || 0;
-    const cancelados = metricas['Cancelado'] || 0;
+    const enviados = metricas['Negociação'] || 0;
+    const recebidos = metricas['Em Contato'] || 0;
+    const agendados = metricas['Qualificado'] || 0;
+    const confirmados = metricas['Fechado'] || 0;
+    const cancelados = metricas['Perdido'] || 0;
 
     // Novas métricas baseadas no novo funil
-    const atribuidos = enviados; // Atribuídos é mapeado para "Enviado"
-    const convidados = recebidos; // Convidados é mapeado para "Recebido"
-    const checkin = cancelados; // Check-in é mapeado temporariamente para "Cancelado"
+    const atribuidos = enviados; // Atribuídos é mapeado para "Negociação"
+    const convidados = recebidos; // Convidados é mapeado para "Em Contato"
+    const checkin = cancelados; // Check-in é mapeado temporariamente para "Perdido"
     const descartados = 0; // Descartados é uma nova categoria
     const desperdicio = totalBase - checkin - descartados;
 

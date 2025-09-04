@@ -113,7 +113,7 @@ export function ContatoModal({
   }, [contato, isOpen]);
 
   const statusOptions = [
-    'Novo', 'Enviado', 'Recebido', 'Agendado', 'Confirmado', 'Cancelado'
+    'Novo', 'Negociação', 'Em Contato', 'Qualificado', 'Proposta', 'Fechado', 'Perdido'
   ];
 
   const handleAdicionarAnotacao = () => {
@@ -147,10 +147,10 @@ export function ContatoModal({
     if (!contato) return;
 
     // Regras especiais para status específicos
-    if (novoStatus === 'Cancelado') {
+    if (novoStatus === 'Perdido') {
       // TODO: Abrir modal para escolher motivo de insucesso
       console.log('Selecionar motivo de insucesso');
-    } else if (novoStatus === 'Confirmado') {
+    } else if (novoStatus === 'Fechado') {
       // TODO: Criar lead no Central de Atendimento
       console.log('Criar lead no Central de Atendimento');
     }
