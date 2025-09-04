@@ -333,7 +333,7 @@ export type Database = {
           cliente_id: string | null
           created_at: string | null
           email: string | null
-          empresa_id: string | null
+          empresa_id: string
           id: string
           nome: string
           observacoes: string | null
@@ -348,7 +348,7 @@ export type Database = {
           cliente_id?: string | null
           created_at?: string | null
           email?: string | null
-          empresa_id?: string | null
+          empresa_id: string
           id?: string
           nome: string
           observacoes?: string | null
@@ -363,7 +363,7 @@ export type Database = {
           cliente_id?: string | null
           created_at?: string | null
           email?: string | null
-          empresa_id?: string | null
+          empresa_id?: string
           id?: string
           nome?: string
           observacoes?: string | null
@@ -1072,7 +1072,7 @@ export type Database = {
           data_fim: string | null
           data_inicio: string | null
           descricao: string | null
-          empresa_id: string | null
+          empresa_id: string
           id: string
           imagem_divulgacao_url: string | null
           leads_gerados: number | null
@@ -1091,7 +1091,7 @@ export type Database = {
           data_fim?: string | null
           data_inicio?: string | null
           descricao?: string | null
-          empresa_id?: string | null
+          empresa_id: string
           id?: string
           imagem_divulgacao_url?: string | null
           leads_gerados?: number | null
@@ -1110,7 +1110,7 @@ export type Database = {
           data_fim?: string | null
           data_inicio?: string | null
           descricao?: string | null
-          empresa_id?: string | null
+          empresa_id?: string
           id?: string
           imagem_divulgacao_url?: string | null
           leads_gerados?: number | null

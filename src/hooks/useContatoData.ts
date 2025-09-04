@@ -146,17 +146,23 @@ export const useContatoData = () => {
 
   // Carregamento de dados quando empresa ativa muda
   useEffect(() => {
+    console.log('🔄 useContatoData useEffect triggered');
+    console.log('👤 User authenticated:', !!user);
+    console.log('🏢 Active company:', activeCompany);
+
     if (!user) {
-      console.log('👤 User not authenticated, skipping data load');
+      console.log('❌ User not authenticated, clearing data');
+      setContatos([]);
+      setProspeccoes([]);
       setLoading(false);
       return;
     }
 
     if (!activeCompany?.id) {
-      console.log('🏢 No active company, clearing data');
+      console.log('❌ No active company, clearing data and keeping loading');
       setContatos([]);
       setProspeccoes([]);
-      setLoading(false);
+      // Manter loading true para aguardar empresa ativa ser carregada
       return;
     }
 
@@ -169,8 +175,9 @@ export const useContatoData = () => {
           fetchProspeccoes(),
           fetchContatos()
         ]);
+        console.log('✅ Data loaded successfully');
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.error('❌ Error loading data:', error);
       } finally {
         setLoading(false);
       }

@@ -237,90 +237,46 @@ const Prospeccao = () => {
         throw new Error(`Prospecção "${campanha}" não encontrada`);
       }
       
-      const sucessos: any[] = [];
-      const erros: string[] = [];
-      
+      // Processar cada cliente usando o hook useContatoData
+      const novosContatos = clientes.map(cliente => ({
+        nome: cliente.nome,
+        telefone: cliente.telefone,
+        email: cliente.email || undefined,
+        origem: 'Outros' as const,
+        observacoes: `Importado da campanha: ${campanha}`,
+        responsavel_email: cliente.responsavel && cliente.responsavel.trim() ? cliente.responsavel : undefined
+      }));
+
       console.log('=== PROCESSANDO CLIENTES ===');
-      
-      // Processar cada cliente individualmente
-      for (const cliente of clientes) {
+      console.log('Novos contatos a serem adicionados:', novosContatos);
+
+      // Usar a função do hook que já trata empresa_id automaticamente
+      await adicionarContatos(novosContatos, prospeccaoSelecionada.id);
+
+      // Disparar webhooks para os contatos adicionados (usando dados locais)
+      for (const contato of novosContatos) {
         try {
-          console.log(`Processando cliente: ${cliente.nome}`);
-          
-          // Inserir contato diretamente - as políticas RLS garantem empresa_id correto
-          const { data, error } = await supabase
-            .from('contatos')
-            .insert([{
-              nome: cliente.nome,
-              telefone: cliente.telefone,
-              email: cliente.email || null,
-              responsavel_email: cliente.responsavel && cliente.responsavel.trim() ? cliente.responsavel : null,
-              origem: 'Outros',
-              observacoes: `Importado da campanha: ${campanha}`,
-              status: 'Novo'
-            }])
-            .select()
-            .single();
-
-          if (error) {
-            console.error(`Erro ao inserir ${cliente.nome}:`, error);
-            throw error;
-          }
-          
-          console.log(`Cliente ${cliente.nome} inserido com sucesso:`, data);
-          sucessos.push(data);
-          
-        } catch (error) {
-          console.error(`Erro ao processar cliente ${cliente.nome}:`, error);
-          erros.push(`Linha ${clientes.indexOf(cliente) + 1}: ${cliente.nome} - ${error.message || 'Erro desconhecido'}`);
-        }
-      }
-
-      // Atualizar a lista local com os sucessos será feita pelo refetch()
-      if (sucessos.length > 0) {
-        // Disparar webhooks para os contatos inseridos com sucesso
-        for (const contato of sucessos) {
-          try {
-            await supabase.functions.invoke('trigger-webhook', {
-              body: {
-                gatilho: 'novo_contato_prospeccao',
-                dados: {
-                  prospeccao_id: prospeccaoSelecionada.id,
-                  contato_id: contato.id,
-                  nome: contato.nome,
-                  telefone: contato.telefone,
-                  email: contato.email,
-                  status: contato.status
-                }
+          await supabase.functions.invoke('trigger-webhook', {
+            body: {
+              gatilho: 'novo_contato_prospeccao',
+              dados: {
+                prospeccao_id: prospeccaoSelecionada.id,
+                nome: contato.nome,
+                telefone: contato.telefone,
+                email: contato.email,
+                status: 'Novo'
               }
-            });
-          } catch (webhookError) {
-            console.error('Erro ao disparar webhook:', webhookError);
-          }
+            }
+          });
+        } catch (webhookError) {
+          console.error('Erro ao disparar webhook:', webhookError);
         }
       }
 
-      // Mostrar resultado da importação
-      if (sucessos.length > 0 && erros.length === 0) {
-        toast({
-          title: "Planilha importada",
-          description: `${sucessos.length} contatos foram importados e adicionados ao Kanban`,
-        });
-      } else if (sucessos.length > 0 && erros.length > 0) {
-        toast({
-          title: "Importação parcial",
-          description: `${sucessos.length} contatos importados com sucesso, ${erros.length} falharam.`,
-          variant: "destructive"
-        });
-        console.error('Erros durante importação:', erros);
-      } else {
-        toast({
-          title: "Falha na importação",
-          description: `Nenhum contato foi importado. ${erros.length} erros encontrados.`,
-          variant: "destructive"
-        });
-        console.error('Todos os erros:', erros);
-      }
+      toast({
+        title: "Planilha importada",
+        description: `${clientes.length} contatos foram importados e adicionados ao Kanban`,
+      });
       
       // Forçar atualização dos dados
       refetch();
