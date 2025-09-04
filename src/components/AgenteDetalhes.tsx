@@ -310,12 +310,21 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Foto do agente */}
                   <div className="flex flex-col items-center space-y-4">
-                    <Avatar className="h-32 w-32">
-                      <AvatarImage src={formData.foto_url} />
-                      <AvatarFallback className="bg-primary/10 text-2xl">
-                        {formData.nome.charAt(0).toUpperCase() || "A"}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="h-32 w-32 relative">
+                      {formData.foto_url ? (
+                        <img 
+                          src={formData.foto_url} 
+                          alt={`Foto do agente ${formData.nome}`}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-primary/10 rounded-lg flex items-center justify-center">
+                          <span className="text-3xl font-semibold text-primary">
+                            {formData.nome.charAt(0).toUpperCase() || "A"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     
                     <div className="w-full space-y-2">
                       <Label htmlFor="foto_url">URL da Foto</Label>

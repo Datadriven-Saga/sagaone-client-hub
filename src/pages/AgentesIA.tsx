@@ -300,12 +300,21 @@ export default function AgentesIA() {
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-center space-x-4">
-                        <Avatar className="h-16 w-16">
-                          <AvatarImage src={agente.foto_url} />
-                          <AvatarFallback className="bg-primary/10">
-                            {agente.nome.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        <div className="h-16 w-16 relative">
+                          {agente.foto_url ? (
+                            <img 
+                              src={agente.foto_url} 
+                              alt={`Foto do agente ${agente.nome}`}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-primary/10 rounded-lg flex items-center justify-center">
+                              <span className="text-lg font-semibold text-primary">
+                                {agente.nome.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                         <div className="flex-1">
                           <CardTitle className="text-lg">{agente.nome}</CardTitle>
                           <p className="text-sm text-muted-foreground line-clamp-2">
