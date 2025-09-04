@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useCompany } from '@/contexts/CompanyContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface Contato {
   id: string;
@@ -63,59 +65,121 @@ export const useContatoData = () => {
   });
   
   const { toast } = useToast();
+  const { activeCompany } = useCompany();
+  const { user } = useAuth();
 
-  // Buscar prospecções - SUPER SIMPLES
+  console.log('🏢 useContatoData - activeCompany:', activeCompany);
+  console.log('👤 useContatoData - user:', user);
+
+  // Buscar prospecções com filtro de empresa
   const fetchProspeccoes = async () => {
+    if (!activeCompany?.id) {
+      console.warn('useContatoData: No active company found for prospeccoes');
+      setProspeccoes([]);
+      return;
+    }
+
     try {
+      console.log('🔍 Fetching prospeccoes for company:', activeCompany.id);
+      
       const { data, error } = await supabase
         .from('prospeccoes')
         .select('*')
+        .eq('empresa_id', activeCompany.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching prospeccoes:', error);
+        throw error;
+      }
       
+      console.log('📊 Prospeccoes fetched:', data?.length || 0);
       setProspeccoes((data || []).map(p => ({
         ...p,
         canal: (p.canal as 'Whatsapp' | 'Ligação') || 'Whatsapp'
       })));
     } catch (error) {
       console.error('Erro ao buscar prospecções:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar prospecções: " + (error as Error).message,
+        variant: "destructive"
+      });
       setProspeccoes([]);
     }
   };
 
-  // Buscar contatos - SUPER SIMPLES
+  // Buscar contatos com filtro de empresa
   const fetchContatos = async () => {
+    if (!activeCompany?.id) {
+      console.warn('useContatoData: No active company found for contatos');
+      setContatos([]);
+      return;
+    }
+
     try {
+      console.log('🔍 Fetching contatos for company:', activeCompany.id);
+      
       const { data, error } = await supabase
         .from('contatos')
         .select('*')
+        .eq('empresa_id', activeCompany.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching contatos:', error);
+        throw error;
+      }
       
+      console.log('📞 Contatos fetched:', data?.length || 0);
       setContatos(data || []);
     } catch (error) {
       console.error('Erro ao buscar contatos:', error);
+      toast({
+        title: "Erro", 
+        description: "Erro ao carregar contatos: " + (error as Error).message,
+        variant: "destructive"
+      });
       setContatos([]);
     }
   };
 
-  // EFEITO SIMPLES - SEM LOOPS
+  // Carregamento de dados quando empresa ativa muda
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([
-        fetchProspeccoes(),
-        fetchContatos()
-      ]);
+    if (!user) {
+      console.log('👤 User not authenticated, skipping data load');
       setLoading(false);
+      return;
+    }
+
+    if (!activeCompany?.id) {
+      console.log('🏢 No active company, clearing data');
+      setContatos([]);
+      setProspeccoes([]);
+      setLoading(false);
+      return;
+    }
+
+    const loadData = async () => {
+      console.log('🔄 Loading data for company:', activeCompany.id);
+      setLoading(true);
+      
+      try {
+        await Promise.all([
+          fetchProspeccoes(),
+          fetchContatos()
+        ]);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadData();
-  }, []); // SEM DEPENDÊNCIAS - EXECUTA SÓ UMA VEZ
+  }, [activeCompany?.id, user]); // Depende da empresa ativa e do usuário
 
-  // Adicionar novos contatos - SIMPLES
+  // Adicionar novos contatos com empresa_id automático
   const adicionarContatos = async (novosContatos: {
     nome: string;
     telefone: string;
@@ -124,20 +188,48 @@ export const useContatoData = () => {
     observacoes?: string;
     responsavel_email?: string;
   }[], prospeccaoId?: string) => {
+    if (!activeCompany?.id) {
+      toast({ 
+        title: "Erro", 
+        description: "Empresa não selecionada", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     try {
+      const contatosComEmpresa = novosContatos.map(contato => ({
+        ...contato,
+        status: 'Novo' as const,
+        empresa_id: activeCompany.id
+      }));
+
+      console.log('➕ Adding contatos:', contatosComEmpresa);
+
       const { data, error } = await supabase
         .from('contatos')
-        .insert(novosContatos.map(contato => ({
-          ...contato,
-          status: 'Novo' as const
-        })))
+        .insert(contatosComEmpresa)
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error adding contatos:', error);
+        throw error;
+      }
+      
+      console.log('✅ Contatos added successfully:', data?.length);
       if (data) setContatos(prev => [...data, ...prev]);
+      
+      toast({ 
+        title: "Sucesso", 
+        description: `${data?.length || 0} contatos adicionados com sucesso` 
+      });
     } catch (error) {
       console.error('Erro ao adicionar contatos:', error);
-      toast({ title: "Erro", description: "Erro ao adicionar contatos", variant: "destructive" });
+      toast({ 
+        title: "Erro", 
+        description: "Erro ao adicionar contatos: " + (error as Error).message, 
+        variant: "destructive" 
+      });
     }
   };
 
@@ -186,26 +278,52 @@ export const useContatoData = () => {
     }
   };
 
-  // Criar prospecção - SIMPLES
+  // Criar prospecção com empresa_id automático
   const criarProspeccao = async (dadosProspeccao: Omit<Prospeccao, 'id' | 'created_at' | 'updated_at' | 'leads_gerados'>) => {
+    if (!activeCompany?.id) {
+      throw new Error('Empresa não selecionada');
+    }
+
     try {
+      const prospeccaoComEmpresa = {
+        ...dadosProspeccao,
+        leads_gerados: 0,
+        empresa_id: activeCompany.id
+      };
+
+      console.log('➕ Creating prospeccao:', prospeccaoComEmpresa);
+
       const { data, error } = await supabase
         .from('prospeccoes')
-        .insert({ ...dadosProspeccao, leads_gerados: 0 })
+        .insert(prospeccaoComEmpresa)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating prospeccao:', error);
+        throw error;
+      }
+      
       if (data) {
         const prospeccaoFormatada = {
           ...data,
           canal: (data.canal as 'Whatsapp' | 'Ligação') || 'Whatsapp'
         };
+        console.log('✅ Prospeccao created successfully:', prospeccaoFormatada);
         setProspeccoes(prev => [prospeccaoFormatada, ...prev]);
+        toast({ 
+          title: "Sucesso", 
+          description: "Prospecção criada com sucesso" 
+        });
         return prospeccaoFormatada;
       }
     } catch (error) {
       console.error('Erro ao criar prospecção:', error);
+      toast({ 
+        title: "Erro", 
+        description: "Erro ao criar prospecção: " + (error as Error).message, 
+        variant: "destructive" 
+      });
       throw error;
     }
   };
