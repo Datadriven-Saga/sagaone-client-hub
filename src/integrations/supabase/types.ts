@@ -1164,6 +1164,12 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["tipo_acesso"]
       }
+      get_user_accessible_clients: {
+        Args: { user_id_param?: string }
+        Returns: {
+          cliente_id: string
+        }[]
+      }
       get_user_active_company: {
         Args: { user_id_param?: string }
         Returns: string
