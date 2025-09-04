@@ -194,7 +194,10 @@ const Prospeccao = () => {
   // Função para importar clientes como contatos
   const handleClientesImported = async (campanha: string, clientes: ClienteData[]) => {
     try {
-      console.log('Iniciando importação de contatos:', { campanha, quantidade: clientes.length });
+      console.log('=== INICIANDO IMPORTAÇÃO ===');
+      console.log('Campanha:', campanha);
+      console.log('Quantidade de clientes:', clientes.length);
+      console.log('Usuário logado:', user?.id);
       
       // Buscar o ID da prospecção pela campanha selecionada
       const prospeccaoSelecionada = prospeccoes.find(p => p.titulo === campanha);
@@ -207,7 +210,9 @@ const Prospeccao = () => {
       const sucessos: any[] = [];
       const erros: string[] = [];
       
-      // Processar cada cliente individualmente para validar email do responsável
+      console.log('=== PROCESSANDO CLIENTES ===');
+      
+      // Processar cada cliente individualmente
       for (const cliente of clientes) {
         try {
           console.log(`Processando cliente: ${cliente.nome}`);
