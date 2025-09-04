@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface CriarProspeccaoModalProps {
@@ -30,6 +31,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   
   const { toast } = useToast();
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
 
   // Preencher campos quando estiver editando
   useEffect(() => {
@@ -117,17 +119,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         });
       } else {
         // Criando nova prospecção
-        // Primeiro, verificar se o usuário tem um perfil com empresa_id
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('empresa_id')
-          .eq('id', user.id)
-          .single();
-
-        if (profileError || !profile?.empresa_id) {
+        if (!activeCompany?.id) {
           toast({
             title: "Erro de configuração",
-            description: "Seu perfil não está associado a uma empresa. Entre em contato com o administrador.",
+            description: "Nenhuma empresa ativa selecionada. Selecione uma empresa.",
             variant: "destructive"
           });
           return;
@@ -138,7 +133,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           .insert([{
             ...dadosProspeccao,
             responsavel_id: user.id,
-            empresa_id: profile.empresa_id,
+            empresa_id: activeCompany.id,
             leads_gerados: 0
           }])
           .select()

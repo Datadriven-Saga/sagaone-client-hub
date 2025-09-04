@@ -295,6 +295,7 @@ export const useContatoData = () => {
   // Criar prospecção com empresa_id automático
   const criarProspeccao = async (dadosProspeccao: Omit<Prospeccao, 'id' | 'created_at' | 'updated_at' | 'leads_gerados'>) => {
     if (!activeCompany?.id) {
+      console.error('❌ No active company available:', activeCompany);
       throw new Error('Empresa não selecionada');
     }
 
@@ -305,7 +306,8 @@ export const useContatoData = () => {
         empresa_id: activeCompany.id
       };
 
-      console.log('➕ Creating prospeccao:', prospeccaoComEmpresa);
+      console.log('➕ Creating prospeccao with active company:', activeCompany.id);
+      console.log('➕ Prospeccao data:', prospeccaoComEmpresa);
 
       const { data, error } = await supabase
         .from('prospeccoes')
