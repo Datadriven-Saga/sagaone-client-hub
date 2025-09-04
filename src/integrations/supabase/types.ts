@@ -1161,6 +1161,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["tipo_acesso"]
       }
+      get_current_user_email: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_user_accessible_clients: {
         Args: { user_id_param?: string }
         Returns: {
@@ -1178,6 +1182,10 @@ export type Database = {
       set_user_active_company: {
         Args: { new_empresa_id: string }
         Returns: undefined
+      }
+      user_in_same_company: {
+        Args: { target_empresa_id: string }
+        Returns: boolean
       }
     }
     Enums: {
