@@ -17,7 +17,7 @@ const Clientes = () => {
   const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const { clientes: clientesList, kpis: kpisData, loading } = useClientesData();
+  const { clientes: clientesList, kpis: kpisData, distribuicaoGenero, distribuicaoDocumento, loading } = useClientesData();
 
   const kpis = [
     { title: "Clientes", value: loading ? "..." : kpisData.total.toString(), icon: Users },
@@ -111,15 +111,30 @@ const Clientes = () => {
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Masculino</span>
-              <span className="font-medium">45%</span>
+              <span className="font-medium">
+                {kpisData.total > 0 
+                  ? `${((distribuicaoGenero.masculino / kpisData.total) * 100).toFixed(0)}%`
+                  : '0%'
+                }
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Feminino</span>
-              <span className="font-medium">42%</span>
+              <span className="font-medium">
+                {kpisData.total > 0 
+                  ? `${((distribuicaoGenero.feminino / kpisData.total) * 100).toFixed(0)}%`
+                  : '0%'
+                }
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Não informado</span>
-              <span className="font-medium">13%</span>
+              <span className="font-medium">
+                {kpisData.total > 0 
+                  ? `${((distribuicaoGenero.naoInformado / kpisData.total) * 100).toFixed(0)}%`
+                  : '0%'
+                }
+              </span>
             </div>
           </div>
         </Card>
@@ -129,15 +144,30 @@ const Clientes = () => {
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-muted-foreground">CPF</span>
-              <span className="font-medium">78%</span>
+              <span className="font-medium">
+                {kpisData.total > 0 
+                  ? `${((distribuicaoDocumento.cpf / kpisData.total) * 100).toFixed(0)}%`
+                  : '0%'
+                }
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">CNPJ</span>
-              <span className="font-medium">15%</span>
+              <span className="font-medium">
+                {kpisData.total > 0 
+                  ? `${((distribuicaoDocumento.cnpj / kpisData.total) * 100).toFixed(0)}%`
+                  : '0%'
+                }
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Não informado</span>
-              <span className="font-medium">7%</span>
+              <span className="font-medium">
+                {kpisData.total > 0 
+                  ? `${((distribuicaoDocumento.naoInformado / kpisData.total) * 100).toFixed(0)}%`
+                  : '0%'
+                }
+              </span>
             </div>
           </div>
         </Card>

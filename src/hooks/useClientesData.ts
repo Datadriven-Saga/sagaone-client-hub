@@ -11,6 +11,16 @@ export function useClientesData() {
     comEmail: 0,
     realizaramCompra: 0
   });
+  const [distribuicaoGenero, setDistribuicaoGenero] = useState({
+    masculino: 0,
+    feminino: 0,
+    naoInformado: 0
+  });
+  const [distribuicaoDocumento, setDistribuicaoDocumento] = useState({
+    cpf: 0,
+    cnpj: 0,
+    naoInformado: 0
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -55,6 +65,23 @@ export function useClientesData() {
 
         setClientes(clientesFormatted);
         
+        // Calcular distribuição por gênero (baseado na data de nascimento por enquanto)
+        const generoStats = {
+          masculino: 0,
+          feminino: 0,
+          naoInformado: clientesList.length
+        };
+        
+        // Calcular distribuição por tipo de documento
+        const documentoStats = {
+          cpf: clientesList.filter(c => c.cpf_cnpj && c.cpf_cnpj.replace(/\D/g, '').length === 11).length,
+          cnpj: clientesList.filter(c => c.cpf_cnpj && c.cpf_cnpj.replace(/\D/g, '').length === 14).length,
+          naoInformado: clientesList.filter(c => !c.cpf_cnpj).length
+        };
+        
+        setDistribuicaoGenero(generoStats);
+        setDistribuicaoDocumento(documentoStats);
+        
         setKpis({
           total: clientesList.length,
           comTelefone: clientesList.filter(c => c.telefone).length,
@@ -72,5 +99,5 @@ export function useClientesData() {
     fetchClientes();
   }, [activeCompany?.id]);
 
-  return { clientes, kpis, loading };
+  return { clientes, kpis, distribuicaoGenero, distribuicaoDocumento, loading };
 }

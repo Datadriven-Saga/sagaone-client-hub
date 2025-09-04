@@ -352,15 +352,12 @@ const Prospeccao = () => {
   };
 
   const handleAddItem = (columnId: string, item: Omit<KanbanItem, 'id'>) => {
-    // Criar um novo contato quando adicionar item via Kanban
-    const novoContato = {
-      nome: item.title,
-      telefone: item.description || 'N/A',
-      origem: 'Outros' as const,
-      observacoes: 'Adicionado pelo Kanban'
-    };
-
-    adicionarContatos([novoContato]);
+    // Abrir modal para adicionar contato detalhado ao invés de criar básico
+    setModalContato({
+      isOpen: true,
+      contato: null, // Null indica novo contato
+      columnId: columnId
+    });
   };
 
   const handleEditItem = (item: KanbanItem) => {
@@ -781,6 +778,13 @@ const Prospeccao = () => {
         onStatusChange={handleModalStatusChange}
         onDelete={handleModalDelete}
         onAssignResponsible={handleModalAssignResponsible}
+        onCreateContact={(novoContato) => {
+          adicionarContatos([{
+            ...novoContato,
+            origem: 'Outros' as const,
+            observacoes: 'Adicionado via Kanban'
+          }]);
+        }}
       />
     </DashboardLayout>
   );

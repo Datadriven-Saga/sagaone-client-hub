@@ -38,6 +38,7 @@ interface ContatoModalProps {
   onStatusChange?: (contatoId: string, novoStatus: Contato['status']) => void;
   onDelete?: (contatoId: string) => void;
   onAssignResponsible?: (contatoId: string, userId: string) => void;
+  onCreateContact?: (novoContato: { nome: string; telefone: string; email?: string; }) => void;
 }
 
 interface Anotacao {
@@ -75,11 +76,17 @@ export function ContatoModal({
   columnId, 
   onStatusChange,
   onDelete,
-  onAssignResponsible 
+  onAssignResponsible,
+  onCreateContact 
 }: ContatoModalProps) {
   const [activeTab, setActiveTab] = useState('dados-pessoais');
   const [novaAnotacao, setNovaAnotacao] = useState('');
   const [temperaturaAtual, setTemperaturaAtual] = useState<string>('');
+  const [novoContato, setNovoContato] = useState({
+    nome: '',
+    telefone: '',
+    email: ''
+  });
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -189,7 +196,29 @@ export function ContatoModal({
     );
   };
 
-  if (!contato) return null;
+  const isNewContact = !contato;
+
+  const handleCreateContact = () => {
+    if (!novoContato.nome.trim() || !novoContato.telefone.trim()) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Nome e telefone são obrigatórios",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    onCreateContact?.(novoContato);
+    setNovoContato({ nome: '', telefone: '', email: '' });
+    onClose();
+    
+    toast({
+      title: "Contato criado",
+      description: "O contato foi adicionado com sucesso!"
+    });
+  };
+
+  if (!contato && !isNewContact) return null;
 
   const sidebarItems = [
     { id: 'dados-pessoais', label: 'Dados Pessoais', icon: User },
@@ -217,7 +246,7 @@ export function ContatoModal({
         <DialogHeader className="p-6 pb-0">
           <DialogTitle className="flex items-center gap-2">
             <User className="w-5 h-5" />
-            Detalhes do Contato - {contato.nome}
+            {isNewContact ? 'Novo Contato' : `Detalhes do Contato - ${contato.nome}`}
           </DialogTitle>
         </DialogHeader>
 
@@ -253,40 +282,67 @@ export function ContatoModal({
               {activeTab === 'dados-pessoais' && (
                 <div className="space-y-6">
                   <Card className="p-6">
-                    <h3 className="text-lg font-semibold mb-4">Informações Básicas</h3>
+                    <h3 className="text-lg font-semibold mb-4">
+                      {isNewContact ? 'Criar Novo Contato' : 'Informações Básicas'}
+                    </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-sm font-medium flex items-center gap-2">
                           <User className="w-4 h-4" />
                           Nome
                         </label>
-                        <Input value={contato.nome} readOnly />
+                        <Input 
+                          value={isNewContact ? novoContato.nome : contato.nome} 
+                          onChange={(e) => isNewContact && setNovoContato(prev => ({ ...prev, nome: e.target.value }))}
+                          readOnly={!isNewContact}
+                        />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium flex items-center gap-2">
                           <Phone className="w-4 h-4" />
                           Telefone
                         </label>
-                        <Input value={contato.telefone} readOnly />
+                        <Input 
+                          value={isNewContact ? novoContato.telefone : contato.telefone} 
+                          onChange={(e) => isNewContact && setNovoContato(prev => ({ ...prev, telefone: e.target.value }))}
+                          readOnly={!isNewContact}
+                        />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium flex items-center gap-2">
                           <Mail className="w-4 h-4" />
                           E-mail
                         </label>
-                        <Input value={contato.email || 'Não informado'} readOnly />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium flex items-center gap-2">
-                          <CreditCard className="w-4 h-4" />
-                          Segmentação
-                        </label>
                         <Input 
-                          value={contato.observacoes || 'Não definida'} 
-                          readOnly 
+                          value={isNewContact ? novoContato.email : contato.email || 'Não informado'} 
+                          onChange={(e) => isNewContact && setNovoContato(prev => ({ ...prev, email: e.target.value }))}
+                          readOnly={!isNewContact}
                         />
                       </div>
+                      {!isNewContact && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium flex items-center gap-2">
+                            <CreditCard className="w-4 h-4" />
+                            Segmentação
+                          </label>
+                          <Input 
+                            value={contato.observacoes || 'Não definida'} 
+                            readOnly 
+                          />
+                        </div>
+                      )}
                     </div>
+                    
+                    {isNewContact && (
+                      <div className="flex justify-end gap-3 mt-6">
+                        <Button variant="outline" onClick={onClose}>
+                          Cancelar
+                        </Button>
+                        <Button onClick={handleCreateContact}>
+                          Criar Contato
+                        </Button>
+                      </div>
+                    )}
                   </Card>
 
                   <Card className="p-6">
