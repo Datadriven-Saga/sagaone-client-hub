@@ -208,8 +208,6 @@ const Prospeccao = () => {
         nome: cliente.nome,
         telefone: cliente.telefone,
         email: cliente.email,
-        segmentacao: cliente.segmentacao,
-        responsavel_email: cliente.responsavel,
         origem: 'Outros' as const,
         observacoes: `Importado da campanha: ${campanha}`,
       }));
