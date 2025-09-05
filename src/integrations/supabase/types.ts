@@ -606,51 +606,6 @@ export type Database = {
           },
         ]
       }
-      itens_venda: {
-        Row: {
-          created_at: string | null
-          id: string
-          preco_unitario: number
-          produto_id: string | null
-          quantidade: number
-          subtotal: number
-          venda_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          preco_unitario: number
-          produto_id?: string | null
-          quantidade: number
-          subtotal: number
-          venda_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          preco_unitario?: number
-          produto_id?: string | null
-          quantidade?: number
-          subtotal?: number
-          venda_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "itens_venda_produto_id_fkey"
-            columns: ["produto_id"]
-            isOneToOne: false
-            referencedRelation: "produtos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "itens_venda_venda_id_fkey"
-            columns: ["venda_id"]
-            isOneToOne: false
-            referencedRelation: "vendas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       logs_movimentacao_contatos: {
         Row: {
           contato_id: string
@@ -686,72 +641,6 @@ export type Database = {
           usuario_id?: string | null
         }
         Relationships: []
-      }
-      metas: {
-        Row: {
-          created_at: string | null
-          data_fim: string | null
-          data_inicio: string | null
-          descricao: string | null
-          empresa_id: string | null
-          equipe_id: string | null
-          id: string
-          status: Database["public"]["Enums"]["status_meta"] | null
-          tipo: Database["public"]["Enums"]["tipo_meta"] | null
-          titulo: string
-          updated_at: string | null
-          usuario_id: string | null
-          valor_atual: number | null
-          valor_meta: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          data_fim?: string | null
-          data_inicio?: string | null
-          descricao?: string | null
-          empresa_id?: string | null
-          equipe_id?: string | null
-          id?: string
-          status?: Database["public"]["Enums"]["status_meta"] | null
-          tipo?: Database["public"]["Enums"]["tipo_meta"] | null
-          titulo: string
-          updated_at?: string | null
-          usuario_id?: string | null
-          valor_atual?: number | null
-          valor_meta?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          data_fim?: string | null
-          data_inicio?: string | null
-          descricao?: string | null
-          empresa_id?: string | null
-          equipe_id?: string | null
-          id?: string
-          status?: Database["public"]["Enums"]["status_meta"] | null
-          tipo?: Database["public"]["Enums"]["tipo_meta"] | null
-          titulo?: string
-          updated_at?: string | null
-          usuario_id?: string | null
-          valor_atual?: number | null
-          valor_meta?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "metas_empresa_id_fkey"
-            columns: ["empresa_id"]
-            isOneToOne: false
-            referencedRelation: "empresas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "metas_usuario_id_fkey"
-            columns: ["usuario_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       notificacoes: {
         Row: {
@@ -1143,60 +1032,6 @@ export type Database = {
           },
         ]
       }
-      prospect: {
-        Row: {
-          cliente_id: string | null
-          created_at: string
-          email: string | null
-          empresa_id: string
-          id: string
-          nome: string
-          observacoes: string | null
-          origem: string | null
-          responsavel_email: string | null
-          responsavel_id: string | null
-          status: string
-          telefone: string | null
-          updated_at: string
-          user_id: string | null
-          valor_potencial: number | null
-        }
-        Insert: {
-          cliente_id?: string | null
-          created_at?: string
-          email?: string | null
-          empresa_id: string
-          id?: string
-          nome: string
-          observacoes?: string | null
-          origem?: string | null
-          responsavel_email?: string | null
-          responsavel_id?: string | null
-          status?: string
-          telefone?: string | null
-          updated_at?: string
-          user_id?: string | null
-          valor_potencial?: number | null
-        }
-        Update: {
-          cliente_id?: string | null
-          created_at?: string
-          email?: string | null
-          empresa_id?: string
-          id?: string
-          nome?: string
-          observacoes?: string | null
-          origem?: string | null
-          responsavel_email?: string | null
-          responsavel_id?: string | null
-          status?: string
-          telefone?: string | null
-          updated_at?: string
-          user_id?: string | null
-          valor_potencial?: number | null
-        }
-        Relationships: []
-      }
       relatorios: {
         Row: {
           created_at: string | null
@@ -1369,73 +1204,6 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vendas: {
-        Row: {
-          cliente_id: string | null
-          created_at: string | null
-          data_venda: string | null
-          desconto: number | null
-          empresa_id: string | null
-          id: string
-          numero_pedido: string
-          observacoes: string | null
-          updated_at: string | null
-          valor_final: number
-          valor_total: number
-          vendedor_id: string | null
-        }
-        Insert: {
-          cliente_id?: string | null
-          created_at?: string | null
-          data_venda?: string | null
-          desconto?: number | null
-          empresa_id?: string | null
-          id?: string
-          numero_pedido: string
-          observacoes?: string | null
-          updated_at?: string | null
-          valor_final: number
-          valor_total: number
-          vendedor_id?: string | null
-        }
-        Update: {
-          cliente_id?: string | null
-          created_at?: string | null
-          data_venda?: string | null
-          desconto?: number | null
-          empresa_id?: string | null
-          id?: string
-          numero_pedido?: string
-          observacoes?: string | null
-          updated_at?: string | null
-          valor_final?: number
-          valor_total?: number
-          vendedor_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vendas_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: false
-            referencedRelation: "clientes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendas_empresa_id_fkey"
-            columns: ["empresa_id"]
-            isOneToOne: false
-            referencedRelation: "empresas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendas_vendedor_id_fkey"
-            columns: ["vendedor_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
