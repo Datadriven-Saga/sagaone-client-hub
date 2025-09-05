@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Building } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { EmpresasFilter } from "@/components/EmpresasFilter";
 
 // Schema de validação
 const empresaSchema = z.object({
@@ -55,6 +56,13 @@ export default function Empresas() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEmpresa, setEditingEmpresa] = useState<Empresa | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [filters, setFilters] = useState({
+    nome: "",
+    marca: "",
+    uf: "",
+    cnpj: "",
+    crmId: ""
+  });
 
   const form = useForm<EmpresaForm>({
     resolver: zodResolver(empresaSchema),
@@ -217,6 +225,19 @@ export default function Empresas() {
     form.reset();
     setDialogOpen(true);
   };
+
+  // Filtrar empresas com base nos critérios
+  const filteredEmpresas = useMemo(() => {
+    return empresas.filter((empresa) => {
+      const matchNome = empresa.nome_empresa?.toLowerCase().includes(filters.nome.toLowerCase()) ?? true;
+      const matchMarca = empresa.marca?.toLowerCase().includes(filters.marca.toLowerCase()) ?? true;
+      const matchUf = empresa.uf?.toLowerCase().includes(filters.uf.toLowerCase()) ?? true;
+      const matchCnpj = empresa.cnpj?.toLowerCase().includes(filters.cnpj.toLowerCase()) ?? true;
+      const matchCrmId = empresa.crm_id?.toLowerCase().includes(filters.crmId.toLowerCase()) ?? true;
+      
+      return matchNome && matchMarca && matchUf && matchCnpj && matchCrmId;
+    });
+  }, [empresas, filters]);
 
   if (loading) {
     return (
@@ -443,6 +464,9 @@ export default function Empresas() {
           </Dialog>
         </div>
 
+        {/* Filtros */}
+        <EmpresasFilter onFilterChange={setFilters} />
+
         {empresas.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
@@ -453,74 +477,89 @@ export default function Empresas() {
               </p>
             </CardContent>
           </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {empresas.map((empresa) => (
-              <Card key={empresa.id} className="relative">
-                <CardHeader>
-                  <CardTitle className="text-lg">{empresa.nome_empresa}</CardTitle>
-                  <CardDescription>{empresa.marca}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <strong>CNPJ:</strong> {empresa.cnpj}
+        ) : filteredEmpresas.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Building className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Nenhuma empresa encontrada</h3>
+              <p className="text-muted-foreground text-center">
+                Ajuste os filtros para encontrar as empresas desejadas
+              </p>
+            </CardContent>
+          </Card>
+         ) : (
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              Mostrando {filteredEmpresas.length} de {empresas.length} empresas
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredEmpresas.map((empresa) => (
+                <Card key={empresa.id} className="relative">
+                  <CardHeader>
+                    <CardTitle className="text-lg">{empresa.nome_empresa}</CardTitle>
+                    <CardDescription>{empresa.marca}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <strong>CNPJ:</strong> {empresa.cnpj}
+                      </div>
+                      {empresa.crm_id && (
+                        <div>
+                          <strong>CRM ID:</strong> {empresa.crm_id}
+                        </div>
+                      )}
+                      {empresa.uf && (
+                        <div>
+                          <strong>UF:</strong> {empresa.uf}
+                        </div>
+                      )}
+                      {empresa.grupo_empresarial && (
+                        <div>
+                          <strong>Grupo:</strong> {empresa.grupo_empresarial}
+                        </div>
+                      )}
                     </div>
-                    {empresa.crm_id && (
-                      <div>
-                        <strong>CRM ID:</strong> {empresa.crm_id}
-                      </div>
-                    )}
-                    {empresa.uf && (
-                      <div>
-                        <strong>UF:</strong> {empresa.uf}
-                      </div>
-                    )}
-                    {empresa.grupo_empresarial && (
-                      <div>
-                        <strong>Grupo:</strong> {empresa.grupo_empresarial}
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(empresa)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Tem certeza que deseja excluir a empresa "{empresa.nome_empresa}"? 
-                            Esta ação não pode ser desfeita.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(empresa.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Excluir
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(empresa)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Tem certeza que deseja excluir a empresa "{empresa.nome_empresa}"? 
+                              Esta ação não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(empresa.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         )}
       </div>

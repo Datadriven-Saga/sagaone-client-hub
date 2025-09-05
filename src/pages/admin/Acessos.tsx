@@ -7,7 +7,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,6 +14,7 @@ import { Plus, Users, Edit, Trash2, Shield, Loader2, Building2 } from "lucide-re
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { EmpresasSelector } from "@/components/EmpresasSelector";
 
 import { Database } from "@/integrations/supabase/types";
 
@@ -54,6 +54,10 @@ interface Profile {
 interface Company {
   id: string;
   nome_empresa: string;
+  marca?: string;
+  uf?: string;
+  cnpj?: string;
+  crm_id?: string;
 }
 
 const Acessos = () => {
@@ -86,7 +90,7 @@ const Acessos = () => {
       console.log('Acessos: Fetching companies...');
       const { data, error } = await supabase
         .from('empresas')
-        .select('id, nome_empresa')
+        .select('id, nome_empresa, marca, uf, cnpj, crm_id')
         .order('nome_empresa');
 
       if (error) {
@@ -486,38 +490,12 @@ const Acessos = () => {
                     name="empresas"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-base font-semibold flex items-center gap-2">
-                          <Building2 className="h-4 w-4" />
-                          Empresas com Acesso *
-                        </FormLabel>
                         <FormControl>
-                          <Card className="p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-48 overflow-y-auto">
-                              {companies.map((company) => (
-                                <div key={company.id} className="flex items-start space-x-2">
-                                  <Checkbox
-                                    id={`company-${company.id}`}
-                                    checked={field.value.includes(company.id)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        field.onChange([...field.value, company.id]);
-                                      } else {
-                                        field.onChange(field.value.filter((id: string) => id !== company.id));
-                                      }
-                                    }}
-                                  />
-                                  <div className="grid gap-1.5 leading-none">
-                                    <label
-                                      htmlFor={`company-${company.id}`}
-                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                    >
-                                      {company.nome_empresa}
-                                    </label>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </Card>
+                          <EmpresasSelector
+                            companies={companies}
+                            selectedCompanies={field.value}
+                            onSelectionChange={field.onChange}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
