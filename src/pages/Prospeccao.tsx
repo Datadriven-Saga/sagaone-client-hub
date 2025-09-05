@@ -257,28 +257,8 @@ const Prospeccao = () => {
       console.log('=== PROCESSANDO CLIENTES ===');
       console.log('Novos contatos a serem adicionados:', novosContatos);
 
-      // Usar a função do hook que já trata empresa_id automaticamente
+      // Usar a função do hook que já trata empresa_id automaticamente e dispara webhooks
       await adicionarContatos(novosContatos, prospeccaoSelecionada.id);
-
-      // Disparar webhooks para os contatos adicionados (usando dados locais)
-      for (const contato of novosContatos) {
-        try {
-          await supabase.functions.invoke('trigger-webhook', {
-            body: {
-              gatilho: 'novo_contato_prospeccao',
-              dados: {
-                prospeccao_id: prospeccaoSelecionada.id,
-                nome: contato.nome,
-                telefone: contato.telefone,
-                email: contato.email,
-                status: 'Novo'
-              }
-            }
-          });
-        } catch (webhookError) {
-          console.error('Erro ao disparar webhook:', webhookError);
-        }
-      }
 
       toast({
         title: "Planilha importada",

@@ -231,12 +231,42 @@ export const useContatoData = () => {
       }
       
       console.log('✅ Contatos added successfully:', data?.length);
+      
+      // Disparar webhooks para cada contato inserido se prospeccaoId foi fornecido
+      if (data && prospeccaoId) {
+        for (const contato of data) {
+          try {
+            console.log('Disparando webhook para contato:', contato);
+            
+            await supabase.functions.invoke('trigger-webhook', {
+              body: {
+                gatilho: 'novo_contato_prospeccao',
+                dados: {
+                  contato_id: contato.id,
+                  prospeccao_id: prospeccaoId,
+                  nome: contato.nome,
+                  telefone: contato.telefone,
+                  email: contato.email,
+                  status: contato.status || 'Novo'
+                }
+              }
+            });
+            
+            console.log('Webhook disparado com sucesso para contato:', contato.id);
+          } catch (webhookError) {
+            console.error('Erro ao disparar webhook para contato:', contato.id, webhookError);
+          }
+        }
+      }
+      
       if (data) setContatos(prev => [...data, ...prev]);
       
       toast({ 
         title: "Sucesso", 
         description: `${data?.length || 0} contatos adicionados com sucesso` 
       });
+      
+      return data;
     } catch (error) {
       console.error('Erro ao adicionar contatos:', error);
       toast({ 
@@ -244,6 +274,7 @@ export const useContatoData = () => {
         description: "Erro ao adicionar contatos: " + (error as Error).message, 
         variant: "destructive" 
       });
+      throw error;
     }
   };
 
