@@ -21,9 +21,6 @@ const empresaSchema = z.object({
   crm_id: z.string().optional(),
   uf: z.string().optional(),
   marca: z.string().optional(),
-  email: z.string().email("Email inválido").optional().or(z.literal("")),
-  site: z.string().url("URL inválida").optional().or(z.literal("")),
-  endereco: z.string().optional(),
   grupo_empresarial: z.string().optional(),
   horario_funcionamento: z.string().optional(),
   responsavel_legal_nome: z.string().optional(),
@@ -41,9 +38,6 @@ interface Empresa {
   crm_id?: string;
   uf?: string;
   marca?: string;
-  email?: string;
-  site?: string;
-  endereco?: string;
   grupo_empresarial?: string;
   horario_funcionamento?: string;
   responsavel_legal_nome?: string;
@@ -70,9 +64,6 @@ export default function Empresas() {
       crm_id: "",
       uf: "",
       marca: "",
-      email: "",
-      site: "",
-      endereco: "",
       grupo_empresarial: "",
       horario_funcionamento: "",
       responsavel_legal_nome: "",
@@ -125,9 +116,6 @@ export default function Empresas() {
         crm_id: data.crm_id || null,
         uf: data.uf || null,
         marca: data.marca || null,
-        email: data.email || null,
-        site: data.site || null,
-        endereco: data.endereco || null,
         grupo_empresarial: data.grupo_empresarial || null,
         horario_funcionamento: data.horario_funcionamento || null,
         responsavel_legal_nome: data.responsavel_legal_nome || null,
@@ -163,9 +151,6 @@ export default function Empresas() {
         crm_id: data.crm_id || null,
         uf: data.uf || null,
         marca: data.marca || null,
-        email: data.email || null,
-        site: data.site || null,
-        endereco: data.endereco || null,
         grupo_empresarial: data.grupo_empresarial || null,
         horario_funcionamento: data.horario_funcionamento || null,
         responsavel_legal_nome: data.responsavel_legal_nome || null,
@@ -200,9 +185,6 @@ export default function Empresas() {
       crm_id: empresa.crm_id || "",
       uf: empresa.uf || "",
       marca: empresa.marca || "",
-      email: empresa.email || "",
-      site: empresa.site || "",
-      endereco: empresa.endereco || "",
       grupo_empresarial: empresa.grupo_empresarial || "",
       horario_funcionamento: empresa.horario_funcionamento || "",
       responsavel_legal_nome: empresa.responsavel_legal_nome || "",
@@ -352,34 +334,6 @@ export default function Empresas() {
 
                     <FormField
                       control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="email@empresa.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="site"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Site</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://www.empresa.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
                       name="grupo_empresarial"
                       render={({ field }) => (
                         <FormItem>
@@ -392,24 +346,6 @@ export default function Empresas() {
                       )}
                     />
                   </div>
-
-                  <FormField
-                    control={form.control}
-                    name="endereco"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Endereço</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Endereço completo da empresa"
-                            className="resize-none"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
                   <FormField
                     control={form.control}
@@ -536,24 +472,6 @@ export default function Empresas() {
                     {empresa.uf && (
                       <div>
                         <strong>UF:</strong> {empresa.uf}
-                      </div>
-                    )}
-                    {empresa.email && (
-                      <div>
-                        <strong>Email:</strong> {empresa.email}
-                      </div>
-                    )}
-                    {empresa.site && (
-                      <div>
-                        <strong>Site:</strong> 
-                        <a 
-                          href={empresa.site} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline ml-1"
-                        >
-                          {empresa.site}
-                        </a>
                       </div>
                     )}
                     {empresa.grupo_empresarial && (

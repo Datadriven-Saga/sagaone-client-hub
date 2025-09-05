@@ -396,8 +396,6 @@ export type Database = {
           cnpj: string
           created_at: string | null
           crm_id: string | null
-          email: string | null
-          endereco: string | null
           grupo_empresarial: string | null
           horario_funcionamento: string | null
           id: string
@@ -408,7 +406,6 @@ export type Database = {
           responsavel_legal_email: string | null
           responsavel_legal_nome: string | null
           responsavel_legal_telefone: string | null
-          site: string | null
           uf: string | null
           updated_at: string | null
         }
@@ -416,8 +413,6 @@ export type Database = {
           cnpj: string
           created_at?: string | null
           crm_id?: string | null
-          email?: string | null
-          endereco?: string | null
           grupo_empresarial?: string | null
           horario_funcionamento?: string | null
           id?: string
@@ -428,7 +423,6 @@ export type Database = {
           responsavel_legal_email?: string | null
           responsavel_legal_nome?: string | null
           responsavel_legal_telefone?: string | null
-          site?: string | null
           uf?: string | null
           updated_at?: string | null
         }
@@ -436,8 +430,6 @@ export type Database = {
           cnpj?: string
           created_at?: string | null
           crm_id?: string | null
-          email?: string | null
-          endereco?: string | null
           grupo_empresarial?: string | null
           horario_funcionamento?: string | null
           id?: string
@@ -448,7 +440,6 @@ export type Database = {
           responsavel_legal_email?: string | null
           responsavel_legal_nome?: string | null
           responsavel_legal_telefone?: string | null
-          site?: string | null
           uf?: string | null
           updated_at?: string | null
         }
