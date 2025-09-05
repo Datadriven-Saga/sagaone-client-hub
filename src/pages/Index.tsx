@@ -3,10 +3,7 @@ import { DashboardCard } from "@/components/DashboardCard";
 import { 
   Users, 
   Bell, 
-  Target, 
-  Headphones, 
-  Store, 
-  Search
+  Target
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -100,74 +97,6 @@ const Index = () => {
             </div>
           </DashboardCard>
 
-          {/* Central de Atendimento */}
-          <DashboardCard
-            title="Central de Atendimento"
-            icon={Headphones}
-            actionText="Ver Atendimentos"
-            onAction={() => navigate('/central-atendimento')}
-          >
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Leads Abertos:</span>
-                <span className="font-semibold">
-                  {loading ? "..." : data.leadsAbertos}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Em Andamento:</span>
-                <span className="font-semibold text-blue-600">
-                  {loading ? "..." : data.leadsEmAndamento}
-                </span>
-              </div>
-            </div>
-          </DashboardCard>
-
-          {/* Loja */}
-          <DashboardCard
-            title="Loja"
-            icon={Store}
-            actionText="Ver Loja"
-            onAction={() => navigate('/loja')}
-          >
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Vendas Mês:</span>
-                <span className="font-semibold text-green-600">
-                  {loading ? "..." : data.vendasMes}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Em Negociação:</span>
-                <span className="font-semibold text-orange-600">
-                  {loading ? "..." : data.vendasEmNegociacao}
-                </span>
-              </div>
-            </div>
-          </DashboardCard>
-
-          {/* Busca & Resgate */}
-          <DashboardCard
-            title="Busca & Resgate"
-            icon={Search}
-            actionText="Ver B&R"
-            onAction={() => navigate('/busca-resgate')}
-          >
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Eventos Ativos:</span>
-                <span className="font-semibold">
-                  {loading ? "..." : data.eventosAtivos}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Concluídos:</span>
-                <span className="font-semibold text-green-600">
-                  {loading ? "..." : data.eventosConcluidos}
-                </span>
-              </div>
-            </div>
-          </DashboardCard>
         </div>
       </div>
     </DashboardLayout>
