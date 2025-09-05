@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function CompanySelector() {
   const { activeCompany, userCompanies, loading, switchCompany } = useCompany();
@@ -47,21 +48,25 @@ export function CompanySelector() {
         </Button>
       </DropdownMenuTrigger>
       {userCompanies.length > 1 && (
-        <DropdownMenuContent align="end" className="w-64">
-          {userCompanies.map((company) => (
-            <DropdownMenuItem
-              key={company.id}
-              onClick={() => handleCompanySwitch(company.id)}
-              className="flex flex-col items-start p-3 cursor-pointer"
-            >
-              <div className="flex items-center justify-between w-full">
-                <span className="font-medium truncate">{company.nome_empresa}</span>
-                {company.id === activeCompany.id && (
-                  <Badge variant="default" className="ml-2">Ativa</Badge>
-                )}
-              </div>
-            </DropdownMenuItem>
-          ))}
+        <DropdownMenuContent align="end" className="w-64 p-0">
+          <ScrollArea className="max-h-80">
+            <div className="p-1">
+              {userCompanies.map((company) => (
+                <DropdownMenuItem
+                  key={company.id}
+                  onClick={() => handleCompanySwitch(company.id)}
+                  className="flex flex-col items-start p-3 cursor-pointer"
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className="font-medium truncate">{company.nome_empresa}</span>
+                    {company.id === activeCompany.id && (
+                      <Badge variant="default" className="ml-2">Ativa</Badge>
+                    )}
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </div>
+          </ScrollArea>
         </DropdownMenuContent>
       )}
     </DropdownMenu>
