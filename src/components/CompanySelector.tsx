@@ -37,36 +37,46 @@ export function CompanySelector() {
       <DropdownMenuTrigger asChild>
         <Button 
           variant="outline" 
-          className="flex items-center gap-2 max-w-48"
+          className="flex items-center gap-2 max-w-56"
           disabled={switchingCompany}
         >
           <Building2 className="h-4 w-4" />
           <span className="truncate">{activeCompany.nome_empresa}</span>
           {userCompanies.length > 1 && (
-            <ChevronDown className="h-4 w-4" />
+            <>
+              <Badge variant="secondary" className="text-xs ml-1">
+                {userCompanies.length}
+              </Badge>
+              <ChevronDown className="h-4 w-4" />
+            </>
           )}
         </Button>
       </DropdownMenuTrigger>
       {userCompanies.length > 1 && (
-        <DropdownMenuContent align="end" className="w-64 p-0">
-          <ScrollArea className="max-h-80">
-            <div className="p-1">
-              {userCompanies.map((company) => (
-                <DropdownMenuItem
-                  key={company.id}
-                  onClick={() => handleCompanySwitch(company.id)}
-                  className="flex flex-col items-start p-3 cursor-pointer"
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span className="font-medium truncate">{company.nome_empresa}</span>
-                    {company.id === activeCompany.id && (
-                      <Badge variant="default" className="ml-2">Ativa</Badge>
-                    )}
-                  </div>
-                </DropdownMenuItem>
-              ))}
+        <DropdownMenuContent align="end" className="w-80 p-0">
+          <div className="max-h-[70vh] flex flex-col">
+            <div className="p-2 border-b bg-muted/50 text-xs font-medium text-muted-foreground">
+              {userCompanies.length} empresas disponíveis
             </div>
-          </ScrollArea>
+            <ScrollArea className="flex-1">
+              <div className="p-1">
+                {userCompanies.map((company) => (
+                  <DropdownMenuItem
+                    key={company.id}
+                    onClick={() => handleCompanySwitch(company.id)}
+                    className="flex items-center justify-between p-2 cursor-pointer hover:bg-accent rounded-sm"
+                  >
+                    <span className="font-medium truncate text-sm pr-2" title={company.nome_empresa}>
+                      {company.nome_empresa}
+                    </span>
+                    {company.id === activeCompany.id && (
+                      <Badge variant="default" className="text-xs">Ativa</Badge>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
         </DropdownMenuContent>
       )}
     </DropdownMenu>
