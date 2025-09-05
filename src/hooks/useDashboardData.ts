@@ -60,12 +60,8 @@ export function useDashboardData() {
             .select('id, status')
             .eq('empresa_id', activeCompany.id),
           
-          // Vendas do mês atual
-          supabase
-            .from('vendas')
-            .select('id, data_venda')
-            .eq('empresa_id', activeCompany.id)
-            .gte('data_venda', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
+          // Vendas do mês atual - removido pois tabela vendas não existe mais
+          Promise.resolve({ data: [] }),
           
           // Eventos de prospecção
           supabase

@@ -41,13 +41,8 @@ export function useClientesData() {
 
         const clientesList = clientesData || [];
         
-        // Buscar vendas para cada cliente para verificar se realizaram compra
-        const { data: vendasData } = await supabase
-          .from('vendas')
-          .select('cliente_id')
-          .eq('empresa_id', activeCompany.id);
-
-        const clientesComCompra = new Set(vendasData?.map(v => v.cliente_id) || []);
+        // Como a tabela vendas foi removida, vamos considerar todos os clientes como não tendo compras por enquanto
+        const clientesComCompra = new Set();
 
         const clientesFormatted = clientesList.map(cliente => ({
           id: cliente.id,

@@ -13,6 +13,9 @@ import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Building } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAdminCheck } from "@/hooks/useAdminCheck";
+import { EmpresaModulosTab } from "@/components/EmpresaModulosTab";
 import { EmpresasFilter } from "@/components/EmpresasFilter";
 
 // Schema de validação
@@ -51,6 +54,7 @@ interface Empresa {
 }
 
 export default function Empresas() {
+  const { isAdmin } = useAdminCheck();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -283,7 +287,16 @@ export default function Empresas() {
               </DialogHeader>
 
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                <Tabs defaultValue="dados" className="space-y-4">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="dados">Dados da Empresa</TabsTrigger>
+                    {isAdmin && editingEmpresa && (
+                      <TabsTrigger value="modulos">Módulos</TabsTrigger>
+                    )}
+                  </TabsList>
+
+                  <TabsContent value="dados" className="space-y-4">
+                    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -446,19 +459,27 @@ export default function Empresas() {
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-3 pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setDialogOpen(false)}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button type="submit" disabled={submitting}>
-                      {submitting ? "Salvando..." : editingEmpresa ? "Atualizar" : "Criar"}
-                    </Button>
-                  </div>
-                </form>
+                      <div className="flex justify-end gap-3 pt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setDialogOpen(false)}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button type="submit" disabled={submitting}>
+                          {submitting ? "Salvando..." : editingEmpresa ? "Atualizar" : "Criar"}
+                        </Button>
+                      </div>
+                    </form>
+                  </TabsContent>
+
+                  {isAdmin && editingEmpresa && (
+                    <TabsContent value="modulos">
+                      <EmpresaModulosTab empresaId={editingEmpresa.id} />
+                    </TabsContent>
+                  )}
+                </Tabs>
               </Form>
             </DialogContent>
           </Dialog>
