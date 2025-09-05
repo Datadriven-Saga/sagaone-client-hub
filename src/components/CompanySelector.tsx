@@ -60,11 +60,6 @@ export function CompanySelector() {
                   <Badge variant="default" className="ml-2">Ativa</Badge>
                 )}
               </div>
-              {company.razao_social && company.razao_social !== company.nome_empresa && (
-                <span className="text-sm text-muted-foreground truncate">
-                  {company.razao_social}
-                </span>
-              )}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>

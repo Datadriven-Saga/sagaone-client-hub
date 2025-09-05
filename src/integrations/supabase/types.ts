@@ -395,55 +395,61 @@ export type Database = {
         Row: {
           cnpj: string
           created_at: string | null
+          crm_id: string | null
           email: string | null
           endereco: string | null
           grupo_empresarial: string | null
           horario_funcionamento: string | null
           id: string
           logomarca_url: string | null
+          marca: string | null
           nome_empresa: string
-          razao_social: string
           responsavel_legal_cpf: string | null
           responsavel_legal_email: string | null
           responsavel_legal_nome: string | null
           responsavel_legal_telefone: string | null
           site: string | null
+          uf: string | null
           updated_at: string | null
         }
         Insert: {
           cnpj: string
           created_at?: string | null
+          crm_id?: string | null
           email?: string | null
           endereco?: string | null
           grupo_empresarial?: string | null
           horario_funcionamento?: string | null
           id?: string
           logomarca_url?: string | null
+          marca?: string | null
           nome_empresa: string
-          razao_social: string
           responsavel_legal_cpf?: string | null
           responsavel_legal_email?: string | null
           responsavel_legal_nome?: string | null
           responsavel_legal_telefone?: string | null
           site?: string | null
+          uf?: string | null
           updated_at?: string | null
         }
         Update: {
           cnpj?: string
           created_at?: string | null
+          crm_id?: string | null
           email?: string | null
           endereco?: string | null
           grupo_empresarial?: string | null
           horario_funcionamento?: string | null
           id?: string
           logomarca_url?: string | null
+          marca?: string | null
           nome_empresa?: string
-          razao_social?: string
           responsavel_legal_cpf?: string | null
           responsavel_legal_email?: string | null
           responsavel_legal_nome?: string | null
           responsavel_legal_telefone?: string | null
           site?: string | null
+          uf?: string | null
           updated_at?: string | null
         }
         Relationships: []

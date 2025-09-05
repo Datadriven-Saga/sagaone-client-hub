@@ -48,14 +48,12 @@ interface Profile {
   empresas?: Array<{
     id: string;
     nome_empresa: string;
-    razao_social: string;
   }>;
 }
 
 interface Company {
   id: string;
   nome_empresa: string;
-  razao_social: string;
 }
 
 const Acessos = () => {
@@ -88,7 +86,7 @@ const Acessos = () => {
       console.log('Acessos: Fetching companies...');
       const { data, error } = await supabase
         .from('empresas')
-        .select('id, nome_empresa, razao_social')
+        .select('id, nome_empresa')
         .order('nome_empresa');
 
       if (error) {
@@ -515,11 +513,6 @@ const Acessos = () => {
                                     >
                                       {company.nome_empresa}
                                     </label>
-                                    {company.razao_social && company.razao_social !== company.nome_empresa && (
-                                      <p className="text-xs text-muted-foreground">
-                                        {company.razao_social}
-                                      </p>
-                                    )}
                                   </div>
                                 </div>
                               ))}

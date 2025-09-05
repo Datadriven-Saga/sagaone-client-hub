@@ -17,8 +17,10 @@ import { supabase } from "@/integrations/supabase/client";
 // Schema de validação
 const empresaSchema = z.object({
   nome_empresa: z.string().min(1, "Nome da empresa é obrigatório"),
-  razao_social: z.string().min(1, "Razão social é obrigatória"),
   cnpj: z.string().min(1, "CNPJ é obrigatório"),
+  crm_id: z.string().optional(),
+  uf: z.string().optional(),
+  marca: z.string().optional(),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   site: z.string().url("URL inválida").optional().or(z.literal("")),
   endereco: z.string().optional(),
@@ -35,8 +37,10 @@ type EmpresaForm = z.infer<typeof empresaSchema>;
 interface Empresa {
   id: string;
   nome_empresa: string;
-  razao_social: string;
   cnpj: string;
+  crm_id?: string;
+  uf?: string;
+  marca?: string;
   email?: string;
   site?: string;
   endereco?: string;
@@ -62,8 +66,10 @@ export default function Empresas() {
     resolver: zodResolver(empresaSchema),
     defaultValues: {
       nome_empresa: "",
-      razao_social: "",
       cnpj: "",
+      crm_id: "",
+      uf: "",
+      marca: "",
       email: "",
       site: "",
       endereco: "",
@@ -115,8 +121,10 @@ export default function Empresas() {
       // Filter out empty strings for optional fields
       const cleanData: any = {
         nome_empresa: data.nome_empresa,
-        razao_social: data.razao_social,
         cnpj: data.cnpj,
+        crm_id: data.crm_id || null,
+        uf: data.uf || null,
+        marca: data.marca || null,
         email: data.email || null,
         site: data.site || null,
         endereco: data.endereco || null,
@@ -151,8 +159,10 @@ export default function Empresas() {
       // Filter out empty strings for optional fields
       const cleanData: any = {
         nome_empresa: data.nome_empresa,
-        razao_social: data.razao_social,
         cnpj: data.cnpj,
+        crm_id: data.crm_id || null,
+        uf: data.uf || null,
+        marca: data.marca || null,
         email: data.email || null,
         site: data.site || null,
         endereco: data.endereco || null,
@@ -186,8 +196,10 @@ export default function Empresas() {
     setEditingEmpresa(empresa);
     form.reset({
       nome_empresa: empresa.nome_empresa,
-      razao_social: empresa.razao_social,
       cnpj: empresa.cnpj,
+      crm_id: empresa.crm_id || "",
+      uf: empresa.uf || "",
+      marca: empresa.marca || "",
       email: empresa.email || "",
       site: empresa.site || "",
       endereco: empresa.endereco || "",
@@ -284,12 +296,12 @@ export default function Empresas() {
 
                     <FormField
                       control={form.control}
-                      name="razao_social"
+                      name="cnpj"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Razão Social *</FormLabel>
+                          <FormLabel>CNPJ *</FormLabel>
                           <FormControl>
-                            <Input placeholder="Digite a razão social" {...field} />
+                            <Input placeholder="00.000.000/0000-00" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -298,12 +310,40 @@ export default function Empresas() {
 
                     <FormField
                       control={form.control}
-                      name="cnpj"
+                      name="crm_id"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>CNPJ *</FormLabel>
+                          <FormLabel>CRM ID</FormLabel>
                           <FormControl>
-                            <Input placeholder="00.000.000/0000-00" {...field} />
+                            <Input placeholder="ID do CRM" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="uf"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>UF</FormLabel>
+                          <FormControl>
+                            <Input placeholder="SP" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="marca"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Marca</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Nome da marca" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -481,13 +521,23 @@ export default function Empresas() {
               <Card key={empresa.id} className="relative">
                 <CardHeader>
                   <CardTitle className="text-lg">{empresa.nome_empresa}</CardTitle>
-                  <CardDescription>{empresa.razao_social}</CardDescription>
+                  <CardDescription>{empresa.marca}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2 text-sm">
                     <div>
                       <strong>CNPJ:</strong> {empresa.cnpj}
                     </div>
+                    {empresa.crm_id && (
+                      <div>
+                        <strong>CRM ID:</strong> {empresa.crm_id}
+                      </div>
+                    )}
+                    {empresa.uf && (
+                      <div>
+                        <strong>UF:</strong> {empresa.uf}
+                      </div>
+                    )}
                     {empresa.email && (
                       <div>
                         <strong>Email:</strong> {empresa.email}
