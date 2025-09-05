@@ -16,10 +16,6 @@ import Administracao from "./pages/Administracao";
 import Clientes from "./pages/Clientes";
 import Notificacoes from "./pages/Notificacoes";
 import Prospeccao from "./pages/Prospeccao";
-import CentralAtendimento from "./pages/CentralAtendimento";
-import Loja from "./pages/Loja";
-import BuscaResgate from "./pages/BuscaResgate";
-import Metas from "./pages/Metas";
 import Relatorios from "./pages/Relatorios";
 import Treinamentos from "./pages/Treinamentos";
 import Configuracoes from "./pages/Configuracoes";
@@ -50,10 +46,6 @@ const App = () => (
             <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
             <Route path="/personas" element={<ProtectedRoute><Personas /></ProtectedRoute>} />
             <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
-            <Route path="/central-atendimento" element={<ProtectedRoute><CentralAtendimento /></ProtectedRoute>} />
-            <Route path="/loja" element={<ProtectedRoute><Loja /></ProtectedRoute>} />
-            <Route path="/busca-resgate" element={<ProtectedRoute><BuscaResgate /></ProtectedRoute>} />
-            <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />
             <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
             <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
             <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
