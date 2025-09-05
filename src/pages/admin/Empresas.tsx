@@ -13,8 +13,6 @@ import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Building } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { ImportEmpresasButton } from "@/components/ImportEmpresasButton";
-import { UpdateCrmIdsButton } from "@/components/UpdateCrmIdsButton";
 
 // Schema de validação
 const empresaSchema = z.object({
@@ -244,8 +242,6 @@ export default function Empresas() {
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
           <div className="flex gap-2">
-            <ImportEmpresasButton />
-            <UpdateCrmIdsButton />
             <Button onClick={handleNewEmpresa}>
               <Plus className="h-4 w-4 mr-2" />
               Nova Empresa
