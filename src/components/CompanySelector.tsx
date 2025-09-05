@@ -53,29 +53,25 @@ export function CompanySelector() {
         </Button>
       </DropdownMenuTrigger>
       {userCompanies.length > 1 && (
-        <DropdownMenuContent align="end" className="w-80 p-0">
-          <div className="max-h-[70vh] flex flex-col">
-            <div className="p-2 border-b bg-muted/50 text-xs font-medium text-muted-foreground">
-              {userCompanies.length} empresas disponíveis
-            </div>
-            <ScrollArea className="flex-1">
-              <div className="p-1">
-                {userCompanies.map((company) => (
-                  <DropdownMenuItem
-                    key={company.id}
-                    onClick={() => handleCompanySwitch(company.id)}
-                    className="flex items-center justify-between p-2 cursor-pointer hover:bg-accent rounded-sm"
-                  >
-                    <span className="font-medium truncate text-sm pr-2" title={company.nome_empresa}>
-                      {company.nome_empresa}
-                    </span>
-                    {company.id === activeCompany.id && (
-                      <Badge variant="default" className="text-xs">Ativa</Badge>
-                    )}
-                  </DropdownMenuItem>
-                ))}
-              </div>
-            </ScrollArea>
+        <DropdownMenuContent align="end" className="w-80 p-0 max-h-[500px] overflow-hidden">
+          <div className="p-2 border-b bg-muted/50 text-xs font-medium text-muted-foreground">
+            {userCompanies.length} empresas disponíveis
+          </div>
+          <div className="max-h-[400px] overflow-y-auto p-1">
+            {userCompanies.map((company) => (
+              <DropdownMenuItem
+                key={company.id}
+                onClick={() => handleCompanySwitch(company.id)}
+                className="flex items-center justify-between p-2 cursor-pointer hover:bg-accent rounded-sm mb-1"
+              >
+                <span className="font-medium truncate text-sm pr-2" title={company.nome_empresa}>
+                  {company.nome_empresa}
+                </span>
+                {company.id === activeCompany.id && (
+                  <Badge variant="default" className="text-xs">Ativa</Badge>
+                )}
+              </DropdownMenuItem>
+            ))}
           </div>
         </DropdownMenuContent>
       )}
