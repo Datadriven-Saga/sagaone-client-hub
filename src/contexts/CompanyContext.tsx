@@ -40,7 +40,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         .select(`
           empresa_id,
           is_ativa,
-          empresas:empresa_id (
+          empresas!inner (
             id,
             nome_empresa
           )
