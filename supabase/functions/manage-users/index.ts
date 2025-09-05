@@ -86,15 +86,20 @@ serve(async (req) => {
                 .select(`
                   empresa_id,
                   is_ativa,
-                  empresas:empresa_id (
+                  empresas!inner (
                     id,
-                    nome_empresa,
-                    razao_social
+                    nome_empresa
                   )
                 `)
                 .eq('user_id', profile.id);
 
+              if (empresasError) {
+                console.error('Error fetching user companies for user:', profile.id, empresasError);
+              }
+
               const companies = userEmpresas?.map(ue => ue.empresas).filter(Boolean) || [];
+              
+              console.log(`User ${profile.id} has ${companies.length} companies`);
 
               if (userError) {
                 console.error('Error fetching user data for:', profile.id, userError);
