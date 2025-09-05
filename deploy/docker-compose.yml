@@ -1,0 +1,128 @@
+# ==========================================
+# DOCKER COMPOSE PARA DESENVOLVIMENTO LOCAL
+# Sistema de CRM e Prospecção com Agentes IA
+# ==========================================
+
+version: '3.8'
+
+services:
+  # Supabase Local (para desenvolvimento)
+  postgres:
+    image: postgres:15
+    container_name: crm-postgres
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/complete-migration.sql:/docker-entrypoint-initdb.d/01-migration.sql
+      - ./database/rls-policies.sql:/docker-entrypoint-initdb.d/02-rls.sql
+      - ./database/sample-data.sql:/docker-entrypoint-initdb.d/03-sample-data.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - crm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis para cache (opcional)
+  redis:
+    image: redis:7-alpine
+    container_name: crm-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - crm-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Aplicação Frontend (desenvolvimento)
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.dev
+    container_name: crm-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_SUPABASE_URL=http://localhost:54321
+      - VITE_SUPABASE_ANON_KEY=your-anon-key
+    volumes:
+      - ../src:/app/src
+      - ../public:/app/public
+    networks:
+      - crm-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Supabase Local Stack (opcional - para desenvolvimento completo)
+  supabase:
+    image: supabase/supabase:latest
+    container_name: crm-supabase
+    ports:
+      - "54321:54321" # API Gateway
+      - "54323:54323" # Auth
+      - "54324:54324" # Rest API
+      - "54325:54325" # Realtime
+      - "54326:54326" # Storage
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
+      - JWT_SECRET=your-jwt-secret
+      - ANON_KEY=your-anon-key
+      - SERVICE_ROLE_KEY=your-service-role-key
+    volumes:
+      - supabase_data:/var/lib/supabase
+    networks:
+      - crm-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
+  supabase_data:
+    driver: local
+
+networks:
+  crm-network:
+    driver: bridge
+
+# ==========================================
+# COMANDOS ÚTEIS
+# ==========================================
+
+# Iniciar todos os serviços:
+# docker-compose up -d
+
+# Parar todos os serviços:
+# docker-compose down
+
+# Ver logs:
+# docker-compose logs -f
+
+# Executar migrações:
+# docker-compose exec postgres psql -U postgres -d postgres -f /docker-entrypoint-initdb.d/01-migration.sql
+
+# Backup do banco:
+# docker-compose exec postgres pg_dump -U postgres postgres > backup.sql
+
+# Restore do banco:
+# docker-compose exec -T postgres psql -U postgres postgres < backup.sql
+
+# ==========================================
+# NOTAS
+# ==========================================
+
+# Este docker-compose é para desenvolvimento local apenas
+# Para produção, use serviços gerenciados (Supabase.com)
+# Ajuste as variáveis de ambiente conforme necessário
+# Mantenha os secrets seguros

@@ -1,0 +1,32 @@
+{
+  "name": "crm-prospeccao-deploy",
+  "version": "1.0.0",
+  "description": "Pacote de deploy para Sistema de CRM e Prospecção com Agentes IA",
+  "scripts": {
+    "deploy": "./setup-database.sh",
+    "deploy:with-samples": "./setup-database.sh --with-sample-data",
+    "verify": "./verify-deployment.sh",
+    "deploy:functions": "./edge-functions/deploy-functions.sh",
+    "setup:complete": "npm run deploy && npm run deploy:functions && npm run verify"
+  },
+  "devDependencies": {
+    "supabase": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seu-usuario/crm-prospeccao"
+  },
+  "keywords": [
+    "crm",
+    "prospeccao",
+    "agentes-ia",
+    "supabase",
+    "react",
+    "typescript"
+  ],
+  "author": "Seu Nome <seu@email.com>",
+  "license": "MIT"
+}
