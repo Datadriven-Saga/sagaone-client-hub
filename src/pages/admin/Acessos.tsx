@@ -25,7 +25,7 @@ const userSchema = z.object({
   nome_completo: z.string().min(1, "Nome é obrigatório"),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").optional(),
-  tipo_acesso: z.enum(["SDR", "Gerente de Leads", "Vendedor", "Gerente de Loja", "Busca", "Diretor", "Outros", "TI", "Administrador"]),
+  tipo_acesso: z.enum(["SDR", "Gerente de Leads", "Vendedor", "Gerente de Loja", "Busca", "Diretor", "Outros", "TI", "Administrador", "Proprietário"]),
   departamento: z.string().optional(),
   celular: z.string().optional(),
   cpf: z.string().optional(),
@@ -411,6 +411,7 @@ const Acessos = () => {
                               <SelectItem value="Outros">Outros</SelectItem>
                               <SelectItem value="TI">TI</SelectItem>
                               <SelectItem value="Administrador">Administrador</SelectItem>
+                              <SelectItem value="Proprietário">Proprietário</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
