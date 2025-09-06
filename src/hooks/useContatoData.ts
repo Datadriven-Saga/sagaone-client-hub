@@ -238,6 +238,16 @@ export const useContatoData = () => {
       // Disparar webhooks para cada contato inserido se prospeccaoId foi fornecido
       if (data && prospeccaoId) {
         console.log('🚀 Iniciando disparo de webhooks para', data.length, 'contatos');
+        
+        // Buscar dados da prospecção para incluir no webhook
+        const { data: prospeccaoData } = await supabase
+          .from('prospeccoes')
+          .select('id, titulo, data_inicio, data_fim, local_evento, condicoes_especiais')
+          .eq('id', prospeccaoId)
+          .single();
+        
+        console.log('📊 Dados da prospecção para webhook:', prospeccaoData);
+        
         for (const contato of data) {
           try {
             console.log('Disparando webhook para contato:', contato);
@@ -251,7 +261,16 @@ export const useContatoData = () => {
                   nome: contato.nome,
                   telefone: contato.telefone,
                   email: contato.email,
-                  status: contato.status || 'Novo'
+                  status: contato.status || 'Novo',
+                  // Dados da prospecção
+                  prospeccao: {
+                    id: prospeccaoData?.id,
+                    nome: prospeccaoData?.titulo,
+                    data_inicio: prospeccaoData?.data_inicio,
+                    data_fim: prospeccaoData?.data_fim,
+                    local_evento: prospeccaoData?.local_evento,
+                    condicoes_especiais: prospeccaoData?.condicoes_especiais
+                  }
                 }
               }
             });
