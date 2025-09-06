@@ -991,6 +991,45 @@ export type Database = {
           },
         ]
       }
+      proprietario_empresas: {
+        Row: {
+          created_at: string
+          empresa_id: string
+          id: string
+          proprietario_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id: string
+          id?: string
+          proprietario_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          proprietario_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proprietario_empresas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proprietario_empresas_proprietario_id_fkey"
+            columns: ["proprietario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prospeccoes: {
         Row: {
           canal: string
@@ -1278,6 +1317,12 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_owned_companies: {
+        Args: { user_id?: string }
+        Returns: {
+          empresa_id: string
+        }[]
+      }
       get_user_accessible_clients: {
         Args: { user_id_param?: string }
         Returns: {
@@ -1290,6 +1335,10 @@ export type Database = {
       }
       is_admin: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_company_owner: {
+        Args: { company_id: string; user_id?: string }
         Returns: boolean
       }
       mask_sensitive_data: {
