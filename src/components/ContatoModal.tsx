@@ -246,7 +246,7 @@ export function ContatoModal({
         <DialogHeader className="p-6 pb-0">
           <DialogTitle className="flex items-center gap-2">
             <User className="w-5 h-5" />
-            {isNewContact ? 'Novo Contato' : `Detalhes do Contato - ${contato.nome}`}
+            {isNewContact ? 'Novo Contato' : `Detalhes do Contato - ${contato?.nome || 'Sem nome'}`}
           </DialogTitle>
         </DialogHeader>
 
@@ -291,33 +291,33 @@ export function ContatoModal({
                           <User className="w-4 h-4" />
                           Nome
                         </label>
-                        <Input 
-                          value={isNewContact ? novoContato.nome : contato.nome} 
-                          onChange={(e) => isNewContact && setNovoContato(prev => ({ ...prev, nome: e.target.value }))}
-                          readOnly={!isNewContact}
-                        />
+                         <Input 
+                           value={isNewContact ? novoContato.nome : (contato?.nome || '')} 
+                           onChange={(e) => isNewContact && setNovoContato(prev => ({ ...prev, nome: e.target.value }))}
+                           readOnly={!isNewContact}
+                         />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium flex items-center gap-2">
                           <Phone className="w-4 h-4" />
                           Telefone
                         </label>
-                        <Input 
-                          value={isNewContact ? novoContato.telefone : contato.telefone} 
-                          onChange={(e) => isNewContact && setNovoContato(prev => ({ ...prev, telefone: e.target.value }))}
-                          readOnly={!isNewContact}
-                        />
+                         <Input 
+                           value={isNewContact ? novoContato.telefone : (contato?.telefone || '')} 
+                           onChange={(e) => isNewContact && setNovoContato(prev => ({ ...prev, telefone: e.target.value }))}
+                           readOnly={!isNewContact}
+                         />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium flex items-center gap-2">
                           <Mail className="w-4 h-4" />
                           E-mail
                         </label>
-                        <Input 
-                          value={isNewContact ? novoContato.email : contato.email || 'Não informado'} 
-                          onChange={(e) => isNewContact && setNovoContato(prev => ({ ...prev, email: e.target.value }))}
-                          readOnly={!isNewContact}
-                        />
+                         <Input 
+                           value={isNewContact ? novoContato.email : (contato?.email || 'Não informado')} 
+                           onChange={(e) => isNewContact && setNovoContato(prev => ({ ...prev, email: e.target.value }))}
+                           readOnly={!isNewContact}
+                         />
                       </div>
                       {!isNewContact && (
                         <div className="space-y-2">
@@ -325,10 +325,10 @@ export function ContatoModal({
                             <CreditCard className="w-4 h-4" />
                             Segmentação
                           </label>
-                          <Input 
-                            value={contato.observacoes || 'Não definida'} 
-                            readOnly 
-                          />
+                           <Input 
+                             value={contato?.observacoes || 'Não definida'} 
+                             readOnly 
+                           />
                         </div>
                       )}
                     </div>
@@ -389,6 +389,7 @@ export function ContatoModal({
                         <label className="text-sm font-medium mb-2 block">Status Atual (Coluna Kanban)</label>
                         <Badge variant="outline" className="mb-4">
                           {(() => {
+                            if (!contato) return 'N/A';
                             const kanbanColumn = statusKanbanMap[contato.status];
                             const columnNames = {
                               'novo': 'Novo',
@@ -440,7 +441,7 @@ export function ContatoModal({
                 <Card className="p-6">
                   <h3 className="text-lg font-semibold mb-4">Responsável</h3>
                   
-                  {contato.responsavel_email ? (
+                  {contato?.responsavel_email ? (
                     <div className="flex items-center gap-3 p-3 border rounded-lg">
                       <Avatar className="w-10 h-10">
                         <AvatarFallback>
