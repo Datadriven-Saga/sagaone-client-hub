@@ -20,7 +20,6 @@ const MODULOS_SISTEMA = [
   "Clientes",
   "Agentes IA",
   "Personas",
-  "Gatilhos",
   "Treinamentos",
   "Notificações",
   "Relatórios",

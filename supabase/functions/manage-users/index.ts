@@ -46,12 +46,36 @@ serve(async (req) => {
       throw new Error('Invalid token');
     }
 
-    // Check if user can manage users
+    // Check if user can manage users or is a company owner
     const { data: canManage, error: permError } = await supabase
       .rpc('can_manage_users', { user_id: user.id });
 
+    // If not admin/TI, check if user is a company owner (Proprietário)
+    let ownedCompanies = [];
     if (permError || !canManage) {
-      throw new Error('Insufficient permissions to manage users');
+      const { data: userProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('tipo_acesso')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || userProfile?.tipo_acesso !== 'Proprietário') {
+        throw new Error('Insufficient permissions to manage users');
+      }
+
+      // Get owned companies for the proprietário
+      const { data: ownedCompaniesData, error: ownedError } = await supabase
+        .rpc('get_owned_companies', { user_id: user.id });
+
+      if (ownedError) {
+        throw new Error('Error retrieving owned companies');
+      }
+
+      ownedCompanies = ownedCompaniesData?.map(row => row.empresa_id) || [];
+      
+      if (ownedCompanies.length === 0) {
+        throw new Error('No companies owned by this user');
+      }
     }
 
     const { action, ...payload } = await req.json();
@@ -137,6 +161,19 @@ serve(async (req) => {
       case 'create_user': {
         const { email, password, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresas } = payload;
 
+        // If user is not admin/TI, validate they can only create users in their owned companies
+        if (!canManage && ownedCompanies.length > 0) {
+          const invalidCompanies = empresas.filter(empresaId => !ownedCompanies.includes(empresaId));
+          if (invalidCompanies.length > 0) {
+            throw new Error('You can only create users in companies you own');
+          }
+          
+          // Proprietários cannot create other Proprietários or Admins/TI
+          if (['Proprietário', 'Administrador', 'TI'].includes(tipo_acesso)) {
+            throw new Error('Proprietários cannot create users with Proprietário, Administrador or TI access');
+          }
+        }
+
         // Check if user already exists
         const { data: existingUser, error: checkError } = await supabaseAdmin.auth.admin.listUsers();
         
@@ -174,14 +211,22 @@ serve(async (req) => {
         if (authError) throw authError;
 
         if (authData.user) {
-          // Get user's empresa_id from current admin user
-          const { data: adminProfile, error: adminProfileError } = await supabaseAdmin
-            .from('profiles')
-            .select('empresa_id')
-            .eq('id', user.id)
-            .single();
+          // Get user's empresa_id from current admin user or use first owned company for proprietários
+          let defaultEmpresaId;
+          
+          if (canManage) {
+            // Admin/TI users - get their empresa_id
+            const { data: adminProfile, error: adminProfileError } = await supabaseAdmin
+              .from('profiles')
+              .select('empresa_id')
+              .eq('id', user.id)
+              .single();
 
-          const defaultEmpresaId = adminProfile?.empresa_id || '00000000-0000-0000-0000-000000000001';
+            defaultEmpresaId = adminProfile?.empresa_id || '00000000-0000-0000-0000-000000000001';
+          } else {
+            // Proprietários - use first owned company
+            defaultEmpresaId = ownedCompanies[0] || '00000000-0000-0000-0000-000000000001';
+          }
 
           // Update the profile created by trigger using admin client
           const { error: updateError } = await supabaseAdmin
@@ -266,6 +311,39 @@ serve(async (req) => {
 
         if (!user_id) {
           throw new Error('User ID is required');
+        }
+
+        // If user is not admin/TI, validate they can only update users in their owned companies
+        if (!canManage && ownedCompanies.length > 0) {
+          // Check if the user being updated belongs to owned companies
+          const { data: userCompanies, error: userCompaniesError } = await supabaseAdmin
+            .from('user_empresas')
+            .select('empresa_id')
+            .eq('user_id', user_id);
+
+          if (userCompaniesError) {
+            throw new Error('Error checking user companies');
+          }
+
+          const userCompanyIds = userCompanies?.map(uc => uc.empresa_id) || [];
+          const hasPermission = userCompanyIds.some(companyId => ownedCompanies.includes(companyId));
+
+          if (!hasPermission) {
+            throw new Error('You can only update users in companies you own');
+          }
+
+          // Proprietários cannot modify access types to restricted levels
+          if (['Proprietário', 'Administrador', 'TI'].includes(tipo_acesso)) {
+            throw new Error('Proprietários cannot set users as Proprietário, Administrador or TI');
+          }
+
+          // Validate new companies are owned
+          if (empresas) {
+            const invalidCompanies = empresas.filter(empresaId => !ownedCompanies.includes(empresaId));
+            if (invalidCompanies.length > 0) {
+              throw new Error('You can only assign users to companies you own');
+            }
+          }
         }
 
         // Update profile using admin client
