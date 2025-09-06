@@ -211,6 +211,8 @@ export const useContatoData = () => {
       return;
     }
 
+    console.log('🚀 adicionarContatos chamada com:', { novosContatos: novosContatos.length, prospeccaoId });
+
     try {
       const contatosComEmpresa = novosContatos.map(contato => ({
         ...contato,
@@ -231,14 +233,16 @@ export const useContatoData = () => {
       }
       
       console.log('✅ Contatos added successfully:', data?.length);
+      console.log('🔗 Prospeccao ID for webhook:', prospeccaoId);
       
       // Disparar webhooks para cada contato inserido se prospeccaoId foi fornecido
       if (data && prospeccaoId) {
+        console.log('🚀 Iniciando disparo de webhooks para', data.length, 'contatos');
         for (const contato of data) {
           try {
             console.log('Disparando webhook para contato:', contato);
             
-            await supabase.functions.invoke('trigger-webhook', {
+            const webhookResponse = await supabase.functions.invoke('trigger-webhook', {
               body: {
                 gatilho: 'novo_contato_prospeccao',
                 dados: {
@@ -252,11 +256,14 @@ export const useContatoData = () => {
               }
             });
             
+            console.log('Webhook response:', webhookResponse);
             console.log('Webhook disparado com sucesso para contato:', contato.id);
           } catch (webhookError) {
             console.error('Erro ao disparar webhook para contato:', contato.id, webhookError);
           }
         }
+      } else {
+        console.log('⚠️ Webhook não disparado - data:', !!data, 'prospeccaoId:', prospeccaoId);
       }
       
       if (data) setContatos(prev => [...data, ...prev]);

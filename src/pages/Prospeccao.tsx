@@ -257,6 +257,7 @@ const Prospeccao = () => {
 
       console.log('=== PROCESSANDO CLIENTES ===');
       console.log('Novos contatos a serem adicionados:', novosContatos);
+      console.log('Prospeccao selecionada ID:', prospeccaoSelecionada.id);
 
       // Usar a função do hook que já trata empresa_id automaticamente e dispara webhooks
       await adicionarContatos(novosContatos, prospeccaoSelecionada.id);

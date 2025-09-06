@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://automatemaia.sagadatadriven.com.br',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -37,9 +37,12 @@ serve(async (req) => {
     const userEmail = user?.email;
     
     console.log(`API trigger-webhook accessed by user: ${userEmail} (${userId})`);
-    console.log(`Webhook trigger:`, { gatilho: req.url.includes('gatilho') });
+    console.log(`Webhook trigger request body:`, await req.clone().json());
 
     const { gatilho, dados } = await req.json();
+
+    console.log('🎯 Trigger webhook called with:', { gatilho, dados });
+    console.log('🔍 Request body parsed successfully');
 
     if (!gatilho || !dados) {
       return new Response(
