@@ -151,9 +151,10 @@ const Prospeccao = () => {
 
   // Converter contatos para itens do Kanban
   const contatosToKanbanItems = (contatosLista: typeof contatos): KanbanItem[] => {
-    if (!contatos || !Array.isArray(contatos)) return [];
+    if (!contatosLista || !Array.isArray(contatosLista)) return [];
     
     return contatosLista
+      .filter(contato => contato && contato.nome) // Filtrar contatos nulos ou sem nome
       .filter(contato => {
         if (!searchFilter) return true;
         const searchLower = searchFilter.toLowerCase();
@@ -188,37 +189,37 @@ const Prospeccao = () => {
       id: 'novos',
       title: 'Novos',
       color: '#6645EB',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato.status === 'Novo')) : []
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Novo')) : []
     },
     {
       id: 'atribuidos',
       title: 'Atribuídos',
       color: '#8B5FD6',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato.status === 'Negociação')) : []
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Negociação')) : []
     },
     {
       id: 'convidados',
       title: 'Convidados',
       color: '#A679E1',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato.status === 'Em Contato')) : []
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Em Contato')) : []
     },
     {
       id: 'agendados',
       title: 'Agendados',
       color: '#C193EC',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato.status === 'Qualificado')) : []
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Qualificado')) : []
     },
     {
       id: 'confirmados',
       title: 'Confirmados',
       color: '#10B981',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato.status === 'Fechado')) : []
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Fechado')) : []
     },
     {
       id: 'checkin',
       title: 'Check-in',
       color: '#22c55e',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato.status === 'Perdido')) : []
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Perdido')) : []
     },
     {
       id: 'descartados',
@@ -389,7 +390,7 @@ const Prospeccao = () => {
     try {
       // Verificar se o usuário tem contatos na coluna "Atribuídos"
       const contatosAtribuidos = contatos.filter(
-        contato => contato.status === 'Negociação' && contato.responsavel_email === user.email
+        contato => contato && contato.status === 'Negociação' && contato.responsavel_email === user.email
       );
 
       if (contatosAtribuidos.length > 0) {
@@ -403,7 +404,7 @@ const Prospeccao = () => {
 
       // Buscar contatos não atribuídos (status 'Novo' e sem responsável)
       const contatosNovos = contatos.filter(
-        contato => contato.status === 'Novo' && !contato.responsavel_email
+        contato => contato && contato.status === 'Novo' && !contato.responsavel_email
       );
 
       if (contatosNovos.length === 0) {
