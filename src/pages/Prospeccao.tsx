@@ -517,17 +517,23 @@ const Prospeccao = () => {
 
                     <div className="space-y-3 max-h-96 overflow-y-auto">
                       {prospeccoes.map((item) => (
-                        <div key={item.id} className={`border rounded-lg p-4 hover:bg-muted/50 ${
-                          item.canal === 'Whatsapp' 
-                            ? 'border-t-4 border-t-green-500' 
-                            : 'border-t-4 border-t-blue-500'
-                        }`}>
+                        <Card 
+                          key={item.id} 
+                          className={`cursor-pointer hover:shadow-card transition-shadow p-4 ${
+                            item.canal === 'Whatsapp' 
+                              ? 'border-t-4 border-t-green-500' 
+                              : 'border-t-4 border-t-blue-500'
+                          }`}
+                          onClick={() => handleEditProspeccao(item)}
+                        >
                           <div className="flex items-start space-x-3">
-                            <Checkbox 
-                              id={`prospect-${item.id}`}
-                              checked={selectedProspections.includes(item.id)}
-                              onCheckedChange={(checked) => handleProspectionSelection(item.id, !!checked)}
-                            />
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <Checkbox 
+                                id={`prospect-${item.id}`}
+                                checked={selectedProspections.includes(item.id)}
+                                onCheckedChange={(checked) => handleProspectionSelection(item.id, !!checked)}
+                              />
+                            </div>
                             
                              <div className="flex-1">
                                <div className="flex items-center justify-between gap-2 mb-1">
@@ -543,30 +549,32 @@ const Prospeccao = () => {
                                  </div>
                                  
                                  {/* Menu de ações */}
-                                 <DropdownMenu>
-                                   <DropdownMenuTrigger asChild>
-                                     <Button 
-                                       variant="ghost" 
-                                       size="sm"
-                                       className="h-8 w-8 p-0"
-                                     >
-                                       <MoreVertical size={16} />
-                                     </Button>
-                                   </DropdownMenuTrigger>
-                                   <DropdownMenuContent align="end">
-                                     <DropdownMenuItem onClick={() => handleEditProspeccao(item)}>
-                                       <Edit size={16} className="mr-2" />
-                                       Editar
-                                     </DropdownMenuItem>
-                                     <DropdownMenuItem 
-                                       onClick={() => setDeleteProspeccaoId(item.id)}
-                                       className="text-red-600"
-                                     >
-                                       <Trash2 size={16} className="mr-2" />
-                                       Excluir
-                                     </DropdownMenuItem>
-                                   </DropdownMenuContent>
-                                 </DropdownMenu>
+                                 <div onClick={(e) => e.stopPropagation()}>
+                                   <DropdownMenu>
+                                     <DropdownMenuTrigger asChild>
+                                       <Button 
+                                         variant="ghost" 
+                                         size="sm"
+                                         className="h-8 w-8 p-0"
+                                       >
+                                         <MoreVertical size={16} />
+                                       </Button>
+                                     </DropdownMenuTrigger>
+                                     <DropdownMenuContent align="end">
+                                       <DropdownMenuItem onClick={() => handleEditProspeccao(item)}>
+                                         <Edit size={16} className="mr-2" />
+                                         Editar
+                                       </DropdownMenuItem>
+                                       <DropdownMenuItem 
+                                         onClick={() => setDeleteProspeccaoId(item.id)}
+                                         className="text-red-600"
+                                       >
+                                         <Trash2 size={16} className="mr-2" />
+                                         Excluir
+                                       </DropdownMenuItem>
+                                     </DropdownMenuContent>
+                                   </DropdownMenu>
+                                 </div>
                                </div>
                               <p className="text-sm text-muted-foreground">
                                 {item.data_inicio && item.data_fim 
@@ -581,7 +589,7 @@ const Prospeccao = () => {
                               )}
                             </div>
                           </div>
-                        </div>
+                        </Card>
                       ))}
                     </div>
                   </>

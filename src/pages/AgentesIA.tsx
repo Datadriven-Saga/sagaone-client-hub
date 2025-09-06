@@ -20,7 +20,7 @@ interface Agente {
   foto_url?: string;
   ativo: boolean;
   followups_count?: number;
-  cadencias_count?: number;
+  etapas_cadencia_count?: number;
 }
 
 interface Performance {
@@ -83,7 +83,7 @@ export default function AgentesIA() {
       
       if (error) throw error;
       
-      // Buscar contagens de followups e cadências para cada agente
+      // Buscar contagens de followups e total de etapas das cadências para cada agente
       const agentesComContadores = await Promise.all((data || []).map(async (agente) => {
         const [followupsResult, cadenciasResult] = await Promise.all([
           supabase
@@ -92,14 +92,19 @@ export default function AgentesIA() {
             .eq('agente_id', agente.id),
           supabase
             .from('agente_cadencias')
-            .select('id', { count: 'exact' })
+            .select('quantidade_etapas')
             .eq('agente_id', agente.id)
         ]);
+        
+        // Somar total de etapas de todas as cadências
+        const totalEtapas = cadenciasResult.data?.reduce((total, cadencia) => {
+          return total + (cadencia.quantidade_etapas || 0);
+        }, 0) || 0;
         
         return {
           ...agente,
           followups_count: followupsResult.count || 0,
-          cadencias_count: cadenciasResult.count || 0
+          etapas_cadencia_count: totalEtapas
         };
       }));
       
@@ -339,37 +344,10 @@ export default function AgentesIA() {
                         </div>
                         <div>
                           <p className="text-2xl font-bold text-primary">
-                            {agente.cadencias_count}
+                            {agente.etapas_cadencia_count}
                           </p>
-                          <p className="text-xs text-muted-foreground">Cadências</p>
+                          <p className="text-xs text-muted-foreground">Etapas da Cadência</p>
                         </div>
-                      </div>
-                      
-                      <div className="flex gap-2 mt-4" onClick={(e) => e.stopPropagation()}>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleToggleStatus(agente)}
-                          className="flex-1"
-                        >
-                          {agente.ativo ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleEditAgente(agente)}
-                          className="flex-1"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleDeleteAgente(agente)}
-                          className="flex-1"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>

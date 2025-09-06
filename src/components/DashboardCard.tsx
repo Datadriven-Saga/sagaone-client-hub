@@ -21,7 +21,10 @@ export function DashboardCard({
   onAction 
 }: DashboardCardProps) {
   return (
-    <Card className="hover:shadow-card transition-shadow">
+    <Card 
+      className="hover:shadow-card transition-shadow cursor-pointer" 
+      onClick={onAction}
+    >
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
           <div className="p-2 rounded-lg bg-primary/10">
@@ -30,17 +33,8 @@ export function DashboardCard({
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent>
         {children}
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="w-full"
-          onClick={onAction}
-        >
-          {actionText}
-          <ArrowRight className="h-4 w-4 ml-2" />
-        </Button>
       </CardContent>
     </Card>
   );

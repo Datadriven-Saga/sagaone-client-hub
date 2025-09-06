@@ -180,50 +180,39 @@ const Clientes = () => {
             <Button onClick={handleNewClient}>Novo Cliente</Button>
           </div>
 
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Já comprou?</TableHead>
-                  <TableHead>Responsável</TableHead>
-                  <TableHead>Produtos</TableHead>
-                  <TableHead>Última compra</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      Carregando clientes...
-                    </TableCell>
-                  </TableRow>
-                ) : clientesList.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      Nenhum cliente encontrado
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  clientesList.map((client) => (
-                    <TableRow 
-                      key={client.id} 
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleClientRowClick(client)}
-                    >
-                      <TableCell className="font-medium">{client.id}</TableCell>
-                      <TableCell>{client.name}</TableCell>
-                      <TableCell>{client.hasPurchased}</TableCell>
-                      <TableCell>{client.responsible}</TableCell>
-                      <TableCell>{client.products}</TableCell>
-                      <TableCell>{client.lastPurchase}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          {loading ? (
+            <div className="text-center py-8">
+              <p>Carregando clientes...</p>
+            </div>
+          ) : clientesList.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Users className="mx-auto mb-2" size={32} />
+              <p>Nenhum cliente encontrado</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {clientesList.map((client) => (
+                <Card 
+                  key={client.id}
+                  className="cursor-pointer hover:shadow-card transition-shadow p-4"
+                  onClick={() => handleClientRowClick(client)}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold">{client.name}</h4>
+                      <span className="text-xs text-muted-foreground">#{client.id}</span>
+                    </div>
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      <p><strong>Comprou:</strong> {client.hasPurchased}</p>
+                      <p><strong>Responsável:</strong> {client.responsible}</p>
+                      <p><strong>Produtos:</strong> {client.products}</p>
+                      <p><strong>Última compra:</strong> {client.lastPurchase}</p>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* Dialog para Novo/Editar Cliente */}
