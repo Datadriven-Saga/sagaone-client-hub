@@ -3,7 +3,10 @@ import { DashboardCard } from "@/components/DashboardCard";
 import { 
   Users, 
   Bell, 
-  Target
+  Target,
+  Bot,
+  FileText,
+  GraduationCap
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -27,6 +30,48 @@ const Index = () => {
 
         {/* Cards dos Módulos */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {/* Agentes de IA */}
+          <DashboardCard
+            title="Agentes de IA"
+            icon={Bot}
+            actionText="Gerenciar Agentes"
+            onAction={() => navigate('/agentes-ia')}
+          >
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Agentes Ativos:</span>
+                <span className="font-semibold text-green-600">3</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Automações:</span>
+                <span className="font-semibold">12</span>
+              </div>
+            </div>
+          </DashboardCard>
+
+          {/* Prospecção */}
+          <DashboardCard
+            title="Prospecção"
+            icon={Target}
+            actionText="Ver Prospecções"
+            onAction={() => navigate('/prospeccao')}
+          >
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Ativas:</span>
+                <span className="font-semibold">
+                  {loading ? "..." : data.prospeccoesAtivas}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Confirmados:</span>
+                <span className="font-semibold text-green-600">
+                  {loading ? "..." : data.prospeccoesConfirmadas}
+                </span>
+              </div>
+            </div>
+          </DashboardCard>
+
           {/* Carteira de Clientes */}
           <DashboardCard
             title="Carteira de Clientes"
@@ -74,29 +119,43 @@ const Index = () => {
             </div>
           </DashboardCard>
 
-          {/* Prospecção */}
+          {/* Relatórios */}
           <DashboardCard
-            title="Prospecção"
-            icon={Target}
-            actionText="Ver Prospecções"
-            onAction={() => navigate('/prospeccao')}
+            title="Relatórios"
+            icon={FileText}
+            actionText="Ver Relatórios"
+            onAction={() => navigate('/relatorios')}
           >
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span>Ativas:</span>
-                <span className="font-semibold">
-                  {loading ? "..." : data.prospeccoesAtivas}
-                </span>
+                <span>Gerados hoje:</span>
+                <span className="font-semibold">5</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span>Confirmados:</span>
-                <span className="font-semibold text-green-600">
-                  {loading ? "..." : data.prospeccoesConfirmadas}
-                </span>
+                <span>Pendentes:</span>
+                <span className="font-semibold text-orange-600">2</span>
               </div>
             </div>
           </DashboardCard>
 
+          {/* Treinamentos */}
+          <DashboardCard
+            title="Treinamentos"
+            icon={GraduationCap}
+            actionText="Acessar Treinamentos"
+            onAction={() => navigate('/treinamentos')}
+          >
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Cursos Ativos:</span>
+                <span className="font-semibold">8</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Progresso Médio:</span>
+                <span className="font-semibold text-green-600">75%</span>
+              </div>
+            </div>
+          </DashboardCard>
         </div>
       </div>
     </DashboardLayout>
