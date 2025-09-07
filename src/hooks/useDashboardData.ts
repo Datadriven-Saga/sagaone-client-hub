@@ -16,7 +16,13 @@ export function useDashboardData() {
     vendasMes: 0,
     vendasEmNegociacao: 0,
     eventosAtivos: 0,
-    eventosConcluidos: 0
+    eventosConcluidos: 0,
+    agentesAtivos: 0,
+    automacoes: 0,
+    relatoriosHoje: 0,
+    relatoriosPendentes: 0,
+    treinamentosAtivos: 0,
+    progressoMedio: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -34,7 +40,12 @@ export function useDashboardData() {
           prospeccoesResult,
           contatosResult,
           vendasResult,
-          eventosResult
+          eventosResult,
+          agentesResult,
+          followupsResult,
+          relatoriosResult,
+          treinamentosResult,
+          participacoesResult
         ] = await Promise.all([
           // Clientes
           supabase
@@ -67,7 +78,37 @@ export function useDashboardData() {
           supabase
             .from('eventos_prospeccao')
             .select('id, prospeccao_id, data_evento, resultado')
-            .in('prospeccao_id', (await supabase.from('prospeccoes').select('id').eq('empresa_id', activeCompany.id)).data?.map(p => p.id) || [])
+            .in('prospeccao_id', (await supabase.from('prospeccoes').select('id').eq('empresa_id', activeCompany.id)).data?.map(p => p.id) || []),
+          
+          // Agentes IA
+          supabase
+            .from('agentes_ia')
+            .select('id, ativo')
+            .eq('empresa_id', activeCompany.id),
+          
+          // Follow-ups/Automações
+          supabase
+            .from('agente_followups')
+            .select('id, ativo')
+            .eq('empresa_id', activeCompany.id),
+          
+          // Relatórios
+          supabase
+            .from('relatorios')
+            .select('id, data_geracao')
+            .eq('empresa_id', activeCompany.id),
+          
+          // Treinamentos
+          supabase
+            .from('treinamentos')
+            .select('id, ativo')
+            .eq('empresa_id', activeCompany.id),
+          
+          // Participações em treinamentos
+          supabase
+            .from('participacoes_treinamento')
+            .select('id, progresso, participante_id')
+            .in('treinamento_id', (await supabase.from('treinamentos').select('id').eq('empresa_id', activeCompany.id)).data?.map(t => t.id) || [])
         ]);
 
         const clientes = clientesResult.data || [];
@@ -76,6 +117,22 @@ export function useDashboardData() {
         const contatos = contatosResult.data || [];
         const vendas = vendasResult.data || [];
         const eventos = eventosResult.data || [];
+        const agentes = agentesResult.data || [];
+        const followups = followupsResult.data || [];
+        const relatorios = relatoriosResult.data || [];
+        const treinamentos = treinamentosResult.data || [];
+        const participacoes = participacoesResult.data || [];
+
+        // Calcular relatórios de hoje
+        const hoje = new Date();
+        const inicioDoDay = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+        const relatoriosHoje = relatorios.filter(r => 
+          r.data_geracao && new Date(r.data_geracao) >= inicioDoDay
+        ).length;
+
+        // Calcular progresso médio dos treinamentos
+        const progressoTotal = participacoes.reduce((sum, p) => sum + (p.progresso || 0), 0);
+        const progressoMedio = participacoes.length > 0 ? Math.round(progressoTotal / participacoes.length) : 0;
 
         setData({
           totalClientes: clientes.length,
@@ -89,7 +146,13 @@ export function useDashboardData() {
           vendasMes: vendas.length,
           vendasEmNegociacao: contatos.filter(c => c.status === 'Negociação').length,
           eventosAtivos: eventos.filter(e => !e.resultado).length,
-          eventosConcluidos: eventos.filter(e => e.resultado).length
+          eventosConcluidos: eventos.filter(e => e.resultado).length,
+          agentesAtivos: agentes.filter(a => a.ativo).length,
+          automacoes: followups.filter(f => f.ativo).length,
+          relatoriosHoje: relatoriosHoje,
+          relatoriosPendentes: relatorios.length - relatoriosHoje,
+          treinamentosAtivos: treinamentos.filter(t => t.ativo).length,
+          progressoMedio: progressoMedio
         });
 
       } catch (error) {

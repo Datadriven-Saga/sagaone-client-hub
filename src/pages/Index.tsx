@@ -40,11 +40,15 @@ const Index = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Agentes Ativos:</span>
-                <span className="font-semibold text-green-600">3</span>
+                <span className="font-semibold text-green-600">
+                  {loading ? "..." : data.agentesAtivos}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Automações:</span>
-                <span className="font-semibold">12</span>
+                <span className="font-semibold">
+                  {loading ? "..." : data.automacoes}
+                </span>
               </div>
             </div>
           </DashboardCard>
@@ -129,11 +133,15 @@ const Index = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Gerados hoje:</span>
-                <span className="font-semibold">5</span>
+                <span className="font-semibold">
+                  {loading ? "..." : data.relatoriosHoje}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Pendentes:</span>
-                <span className="font-semibold text-orange-600">2</span>
+                <span className="font-semibold text-orange-600">
+                  {loading ? "..." : data.relatoriosPendentes}
+                </span>
               </div>
             </div>
           </DashboardCard>
@@ -148,11 +156,15 @@ const Index = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Cursos Ativos:</span>
-                <span className="font-semibold">8</span>
+                <span className="font-semibold">
+                  {loading ? "..." : data.treinamentosAtivos}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Progresso Médio:</span>
-                <span className="font-semibold text-green-600">75%</span>
+                <span className="font-semibold text-green-600">
+                  {loading ? "..." : `${data.progressoMedio}%`}
+                </span>
               </div>
             </div>
           </DashboardCard>
