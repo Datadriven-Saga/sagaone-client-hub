@@ -62,11 +62,19 @@ serve(async (req) => {
       .eq('status', 'Ativo');
 
     // Buscar também followups ativos de agentes para o tipo de evento
+    // Incluir verificação se o agente está ativo
     const { data: followups, error: followupError } = await supabaseClient
       .from('agente_followups')
-      .select('*')
+      .select(`
+        *,
+        agentes_ia!inner(
+          id,
+          ativo
+        )
+      `)
       .eq('tipo', gatilho)
-      .eq('ativo', true);
+      .eq('ativo', true)
+      .eq('agentes_ia.ativo', true);
 
     // Se for novo contato na prospecção, verificar se é canal Whatsapp
     if (gatilho === 'novo_contato_prospeccao' && dados?.prospeccao_id) {
