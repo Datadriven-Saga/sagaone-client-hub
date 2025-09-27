@@ -8,7 +8,6 @@ import { CompanyProvider } from "@/contexts/CompanyContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
-import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Personas from "./pages/Personas";
 import Gatilhos from "./pages/Gatilhos";
@@ -21,12 +20,14 @@ import Treinamentos from "./pages/Treinamentos";
 import Configuracoes from "./pages/Configuracoes";
 import MinhaConta from "./pages/MinhaConta";
 import Ajuda from "./pages/Ajuda";
+import AgentesIA from "./pages/AgentesIA";
 import Empresas from "./pages/admin/Empresas";
 import Acessos from "./pages/admin/Acessos";
 import CamposObrigatorios from "./pages/admin/CamposObrigatorios";
 import APIs from "./pages/admin/APIs";
 import TestAPIs from "./pages/admin/TestAPIs";
-import AgentesIA from "./pages/AgentesIA";
+import ControleOptOut from "./pages/ControleOptOut";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ const App = () => (
             <Route path="/administracao/campos" element={<ProtectedRoute><CamposObrigatorios /></ProtectedRoute>} />
             <Route path="/administracao/apis" element={<ProtectedRoute><APIs /></ProtectedRoute>} />
             <Route path="/administracao/test-apis" element={<ProtectedRoute><TestAPIs /></ProtectedRoute>} />
+            <Route path="/controle-opt-out" element={<ProtectedRoute><ControleOptOut /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

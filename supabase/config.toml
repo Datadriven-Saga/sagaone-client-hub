@@ -22,3 +22,6 @@ verify_jwt = true
 
 [functions.manage-users]
 verify_jwt = true
+
+[functions.opt-out-check]
+verify_jwt = false
