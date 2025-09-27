@@ -767,6 +767,62 @@ export type Database = {
           },
         ]
       }
+      opt_outs: {
+        Row: {
+          canal: Database["public"]["Enums"]["canal_optout"]
+          created_at: string
+          created_by: string | null
+          data_optout: string
+          dedupe_key: string
+          email_normalizado: string | null
+          empresa_id: string
+          id: string
+          nome: string | null
+          source: string
+          telefone_e164: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          canal: Database["public"]["Enums"]["canal_optout"]
+          created_at?: string
+          created_by?: string | null
+          data_optout: string
+          dedupe_key: string
+          email_normalizado?: string | null
+          empresa_id: string
+          id?: string
+          nome?: string | null
+          source?: string
+          telefone_e164?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          canal?: Database["public"]["Enums"]["canal_optout"]
+          created_at?: string
+          created_by?: string | null
+          data_optout?: string
+          dedupe_key?: string
+          email_normalizado?: string | null
+          empresa_id?: string
+          id?: string
+          nome?: string | null
+          source?: string
+          telefone_e164?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opt_outs_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       participacoes_treinamento: {
         Row: {
           certificado_url: string | null
@@ -1309,6 +1365,14 @@ export type Database = {
         Args: { user_id_param?: string }
         Returns: boolean
       }
+      generate_optout_dedupe_key: {
+        Args: {
+          canal_param?: Database["public"]["Enums"]["canal_optout"]
+          email?: string
+          telefone?: string
+        }
+        Returns: string
+      }
       get_current_user_access_type: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["tipo_acesso"]
@@ -1349,6 +1413,10 @@ export type Database = {
         }
         Returns: string
       }
+      normalize_phone_e164: {
+        Args: { phone_input: string }
+        Returns: string
+      }
       set_user_active_company: {
         Args: { new_empresa_id: string }
         Returns: undefined
@@ -1359,6 +1427,7 @@ export type Database = {
       }
     }
     Enums: {
+      canal_optout: "Whatsapp" | "Ligação" | "SMS" | "E-mail"
       dia_semana:
         | "Segunda"
         | "Terça"
@@ -1542,6 +1611,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      canal_optout: ["Whatsapp", "Ligação", "SMS", "E-mail"],
       dia_semana: [
         "Segunda",
         "Terça",
