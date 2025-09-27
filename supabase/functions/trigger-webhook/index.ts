@@ -160,7 +160,7 @@ serve(async (req) => {
         console.log(`Descrição do gatilho: ${gatilhoItem.descricao}`);
         
         // Preparar dados do webhook baseado na descrição e tipo do gatilho
-        let webhookBody = {
+        let webhookBody: any = {
           gatilho: gatilho,
           gatilho_id: gatilhoItem.id,
           gatilho_nome: gatilhoItem.nome,
@@ -170,6 +170,7 @@ serve(async (req) => {
         // Para gatilho de novo contato na prospecção
         if (gatilho === 'novo_contato_prospeccao' && dados) {
           webhookBody = {
+            ...webhookBody,
             nome: dados.nome || '',
             telefone: dados.telefone || '',
             email: dados.email || '',
@@ -215,7 +216,7 @@ serve(async (req) => {
           gatilho: gatilhoItem.nome,
           url: gatilhoItem.acoes?.webhook_url || 'N/A',
           status: 'erro',
-          error: error.message
+          error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
     }
@@ -232,7 +233,7 @@ serve(async (req) => {
 
         console.log(`Disparando webhook followup para: ${followupItem.nome} em ${webhookUrl}`);
 
-        let webhookBody = {
+        let webhookBody: any = {
           gatilho: gatilho,
           followup_id: followupItem.id,
           followup_nome: followupItem.nome,
@@ -243,6 +244,7 @@ serve(async (req) => {
         // Para gatilho de novo contato na prospecção
         if (gatilho === 'novo_contato_prospeccao' && dados) {
           webhookBody = {
+            ...webhookBody,
             nome: dados.nome || '',
             telefone: dados.telefone || '',
             email: dados.email || '',
@@ -277,7 +279,7 @@ serve(async (req) => {
           gatilho: followupItem.nome,
           url: followupItem.webhook_url || 'N/A',
           status: 'erro',
-          error: error.message
+          error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
     }

@@ -71,7 +71,7 @@ serve(async (req) => {
         throw new Error('Error retrieving owned companies');
       }
 
-      ownedCompanies = ownedCompaniesData?.map(row => row.empresa_id) || [];
+      ownedCompanies = ownedCompaniesData?.map((row: any) => row.empresa_id) || [];
       
       if (ownedCompanies.length === 0) {
         throw new Error('No companies owned by this user');
@@ -163,7 +163,7 @@ serve(async (req) => {
 
         // If user is not admin/TI, validate they can only create users in their owned companies
         if (!canManage && ownedCompanies.length > 0) {
-          const invalidCompanies = empresas.filter(empresaId => !ownedCompanies.includes(empresaId));
+          const invalidCompanies = empresas.filter((empresaId: string) => !ownedCompanies.includes(empresaId));
           if (invalidCompanies.length > 0) {
             throw new Error('You can only create users in companies you own');
           }
@@ -339,7 +339,7 @@ serve(async (req) => {
 
           // Validate new companies are owned
           if (empresas) {
-            const invalidCompanies = empresas.filter(empresaId => !ownedCompanies.includes(empresaId));
+            const invalidCompanies = empresas.filter((empresaId: string) => !ownedCompanies.includes(empresaId));
             if (invalidCompanies.length > 0) {
               throw new Error('You can only assign users to companies you own');
             }
@@ -425,13 +425,14 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in manage-users function:', error);
     
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Internal server error',
+        error: errorMessage,
         success: false
       }),
       {
-        status: error.message.includes('Insufficient permissions') ? 403 : 500,
+        status: errorMessage.includes('Insufficient permissions') ? 403 : 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
