@@ -25,16 +25,13 @@ import { format } from "date-fns";
 
 const optOutSchema = z.object({
   data_optout: z.string().min(1, "Data é obrigatória"),
-  nome: z.string().optional(),
+  nome: z.string().min(1, "Nome é obrigatório"),
   telefone: z.string().optional(),
   email: z.string().email("E-mail inválido").optional().or(z.literal("")),
   canal: z.enum(["Whatsapp", "Ligação", "SMS", "E-mail"], {
     required_error: "Canal é obrigatório",
   }),
   empresa_id: z.string().min(1, "Empresa é obrigatória"),
-}).refine((data) => data.telefone || data.email, {
-  message: "Pelo menos telefone ou e-mail deve ser informado",
-  path: ["telefone"],
 });
 
 type OptOutFormData = z.infer<typeof optOutSchema>;
@@ -89,15 +86,6 @@ export function OptOutModal({ isOpen, onClose, onSuccess, optOut }: OptOutModalP
   };
 
   const onSubmit = async (data: OptOutFormData) => {
-    if (!data.telefone && !data.email) {
-      toast({
-        title: "Erro de validação",
-        description: "Pelo menos telefone ou e-mail deve ser informado",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsSubmitting(true);
     
     try {
@@ -185,35 +173,31 @@ export function OptOutModal({ isOpen, onClose, onSuccess, optOut }: OptOutModalP
           </div>
 
           <div>
-            <Label htmlFor="nome">Nome do Cliente</Label>
+            <Label htmlFor="nome">Nome do Cliente *</Label>
             <Input
               id="nome"
               placeholder="Nome completo do cliente"
               {...register("nome")}
+              className={errors.nome ? "border-destructive" : ""}
             />
-          </div>
-
-          <div>
-            <Label htmlFor="telefone">
-              Telefone {!watch("email") && "*"}
-            </Label>
-            <Input
-              id="telefone"
-              placeholder="+55 62 99999-9999"
-              {...register("telefone")}
-              className={errors.telefone ? "border-destructive" : ""}
-            />
-            {errors.telefone && (
+            {errors.nome && (
               <p className="text-sm text-destructive mt-1">
-                {errors.telefone.message}
+                {errors.nome.message}
               </p>
             )}
           </div>
 
           <div>
-            <Label htmlFor="email">
-              E-mail {!watch("telefone") && "*"}
-            </Label>
+            <Label htmlFor="telefone">Telefone</Label>
+            <Input
+              id="telefone"
+              placeholder="+55 62 99999-9999"
+              {...register("telefone")}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="email">E-mail</Label>
             <Input
               id="email"
               type="email"
