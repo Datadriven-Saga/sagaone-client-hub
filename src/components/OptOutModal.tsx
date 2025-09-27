@@ -76,7 +76,7 @@ export function OptOutModal({ isOpen, onClose, onSuccess, optOut }: OptOutModalP
       telefone: optOut?.telefone_e164 || "",
       email: optOut?.email_normalizado || "",
       canal: optOut?.canal || "Whatsapp",
-      empresa_id: optOut?.empresa_id || "",
+      empresa_id: optOut?.empresa_id || "00000000-0000-0000-0000-000000000001", // Default company
     },
   });
 
