@@ -58,20 +58,22 @@ export function CompanySelector() {
             {userCompanies.length} empresas disponíveis
           </div>
           <div className="max-h-[400px] overflow-y-auto p-1">
-            {userCompanies.map((company) => (
-              <DropdownMenuItem
-                key={company.id}
-                onClick={() => handleCompanySwitch(company.id)}
-                className="flex items-center justify-between p-2 cursor-pointer hover:bg-accent rounded-sm mb-1"
-              >
-                <span className="font-medium truncate text-sm pr-2" title={company.nome_empresa}>
-                  {company.nome_empresa}
-                </span>
-                {company.id === activeCompany.id && (
-                  <Badge variant="default" className="text-xs">Ativa</Badge>
-                )}
-              </DropdownMenuItem>
-            ))}
+            {[...userCompanies]
+              .sort((a, b) => a.nome_empresa.localeCompare(b.nome_empresa))
+              .map((company) => (
+                <DropdownMenuItem
+                  key={company.id}
+                  onClick={() => handleCompanySwitch(company.id)}
+                  className="flex items-center justify-between p-2 cursor-pointer hover:bg-accent rounded-sm mb-1"
+                >
+                  <span className="font-medium truncate text-sm pr-2" title={company.nome_empresa}>
+                    {company.nome_empresa}
+                  </span>
+                  {company.id === activeCompany.id && (
+                    <Badge variant="default" className="text-xs">Ativa</Badge>
+                  )}
+                </DropdownMenuItem>
+              ))}
           </div>
         </DropdownMenuContent>
       )}
