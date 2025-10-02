@@ -36,14 +36,27 @@ export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: Ag
   
   const [loading, setLoading] = useState(false);
   const [cadencia, setCadencia] = useState<Cadencia | null>(null);
+  
+  // Valores padrão baseados no tipo de cadência
+  const defaultValues = tipoCadencia === 'rapida' 
+    ? {
+        quantidade_etapas: 4,
+        delay_inicial_minutos: 0,
+        intervalo_etapas_minutos: 60,
+        dias_semana: ["segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo"]
+      }
+    : {
+        quantidade_etapas: 7,
+        delay_inicial_minutos: 1440,
+        intervalo_etapas_minutos: 1440,
+        dias_semana: ["segunda", "terca", "quarta", "quinta", "sexta", "sabado"]
+      };
+  
   const [formData, setFormData] = useState({
-    quantidade_etapas: 4,
-    delay_inicial_minutos: 0,
-    intervalo_etapas_minutos: 60,
+    ...defaultValues,
     horario_inicio: "09:00",
     horario_fim: "18:00",
     timezone: "America/Sao_Paulo",
-    dias_semana: ["segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo"],
     gatilho_cadencia: "inatividade_cliente",
     ativo: true
   });
