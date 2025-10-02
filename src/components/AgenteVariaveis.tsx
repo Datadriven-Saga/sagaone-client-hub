@@ -185,21 +185,29 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
     const currentIndex = variaveis.findIndex(v => v.id === variavel.id);
     if (currentIndex <= 0) return;
 
-    try {
-      // Criar nova lista com a troca
-      const newVariaveis = [...variaveis];
-      [newVariaveis[currentIndex], newVariaveis[currentIndex - 1]] = 
-        [newVariaveis[currentIndex - 1], newVariaveis[currentIndex]];
+    const prev = variaveis[currentIndex - 1];
 
-      // Atualizar todas as ordens de uma vez
-      for (let i = 0; i < newVariaveis.length; i++) {
-        const { error } = await supabase
-          .from("agente_variaveis")
-          .update({ ordem: i + 1 })
-          .eq("id", newVariaveis[i].id);
-        
-        if (error) throw error;
-      }
+    try {
+      // Passo 1: liberar a ordem anterior usando um valor temporário
+      let { error: e1 } = await supabase
+        .from("agente_variaveis")
+        .update({ ordem: -999999 })
+        .eq("id", variavel.id);
+      if (e1) throw e1;
+
+      // Passo 2: mover o item anterior para a ordem do atual
+      let { error: e2 } = await supabase
+        .from("agente_variaveis")
+        .update({ ordem: variavel.ordem })
+        .eq("id", prev.id);
+      if (e2) throw e2;
+
+      // Passo 3: colocar o item atual na ordem anterior
+      let { error: e3 } = await supabase
+        .from("agente_variaveis")
+        .update({ ordem: prev.ordem })
+        .eq("id", variavel.id);
+      if (e3) throw e3;
 
       toast.success("Ordem alterada com sucesso!");
       carregarVariaveis();
@@ -212,21 +220,29 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
     const currentIndex = variaveis.findIndex(v => v.id === variavel.id);
     if (currentIndex >= variaveis.length - 1) return;
 
-    try {
-      // Criar nova lista com a troca
-      const newVariaveis = [...variaveis];
-      [newVariaveis[currentIndex], newVariaveis[currentIndex + 1]] = 
-        [newVariaveis[currentIndex + 1], newVariaveis[currentIndex]];
+    const next = variaveis[currentIndex + 1];
 
-      // Atualizar todas as ordens de uma vez
-      for (let i = 0; i < newVariaveis.length; i++) {
-        const { error } = await supabase
-          .from("agente_variaveis")
-          .update({ ordem: i + 1 })
-          .eq("id", newVariaveis[i].id);
-        
-        if (error) throw error;
-      }
+    try {
+      // Passo 1: liberar a próxima ordem usando um valor temporário
+      let { error: e1 } = await supabase
+        .from("agente_variaveis")
+        .update({ ordem: -999999 })
+        .eq("id", variavel.id);
+      if (e1) throw e1;
+
+      // Passo 2: mover o item seguinte para a ordem do atual
+      let { error: e2 } = await supabase
+        .from("agente_variaveis")
+        .update({ ordem: variavel.ordem })
+        .eq("id", next.id);
+      if (e2) throw e2;
+
+      // Passo 3: colocar o item atual na próxima ordem
+      let { error: e3 } = await supabase
+        .from("agente_variaveis")
+        .update({ ordem: next.ordem })
+        .eq("id", variavel.id);
+      if (e3) throw e3;
 
       toast.success("Ordem alterada com sucesso!");
       carregarVariaveis();
