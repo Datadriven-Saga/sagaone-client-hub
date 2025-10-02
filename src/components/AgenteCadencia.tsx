@@ -25,9 +25,12 @@ interface Cadencia {
 
 interface AgenteCadenciaProps {
   agenteId: string;
+  tipoCadencia: 'rapida' | 'acompanhamento';
+  titulo: string;
+  descricao: string;
 }
 
-export function AgenteCadencia({ agenteId }: AgenteCadenciaProps) {
+export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: AgenteCadenciaProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -63,6 +66,7 @@ export function AgenteCadencia({ agenteId }: AgenteCadenciaProps) {
         .from('agente_cadencias')
         .select('*')
         .eq('agente_id', agenteId)
+        .eq('tipo_cadencia', tipoCadencia)
         .maybeSingle();
       
       if (error) throw error;
@@ -103,6 +107,7 @@ export function AgenteCadencia({ agenteId }: AgenteCadenciaProps) {
 
       const cadenciaData = {
         agente_id: agenteId,
+        tipo_cadencia: tipoCadencia,
         quantidade_etapas: formData.quantidade_etapas,
         delay_inicial_minutos: formData.delay_inicial_minutos,
         intervalo_etapas_minutos: formData.intervalo_etapas_minutos,
@@ -170,15 +175,15 @@ export function AgenteCadencia({ agenteId }: AgenteCadenciaProps) {
 
   useEffect(() => {
     carregarCadencia();
-  }, [agenteId]);
+  }, [agenteId, tipoCadencia]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Cadência</h2>
+          <h2 className="text-xl font-semibold">{titulo}</h2>
           <p className="text-muted-foreground">
-            Configure a cadência de execução para este agente
+            {descricao}
           </p>
         </div>
         <Button onClick={handleSave} disabled={loading}>

@@ -29,6 +29,7 @@ export type Database = {
           intervalo_etapas_minutos: number
           quantidade_etapas: number
           timezone: string
+          tipo_cadencia: string
           updated_at: string
         }
         Insert: {
@@ -45,6 +46,7 @@ export type Database = {
           intervalo_etapas_minutos?: number
           quantidade_etapas?: number
           timezone?: string
+          tipo_cadencia?: string
           updated_at?: string
         }
         Update: {
@@ -61,6 +63,7 @@ export type Database = {
           intervalo_etapas_minutos?: number
           quantidade_etapas?: number
           timezone?: string
+          tipo_cadencia?: string
           updated_at?: string
         }
         Relationships: [

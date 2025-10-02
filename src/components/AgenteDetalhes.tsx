@@ -297,7 +297,8 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
             {isEditing && (
               <>
                 <TabsTrigger value="variaveis">Informações Necessárias</TabsTrigger>
-                <TabsTrigger value="cadencia">Cadência</TabsTrigger>
+                <TabsTrigger value="cadencia-rapida">Cadência Rápida</TabsTrigger>
+                <TabsTrigger value="cadencia-acompanhamento">Cadência de Acompanhamento</TabsTrigger>
                 <TabsTrigger value="integracao">Integração</TabsTrigger>
                 <TabsTrigger value="followup">Follow-up</TabsTrigger>
               </>
@@ -424,8 +425,22 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                 <AgenteVariaveis agenteId={agente.id} />
               </TabsContent>
 
-              <TabsContent value="cadencia">
-                <AgenteCadencia agenteId={agente.id} />
+              <TabsContent value="cadencia-rapida">
+                <AgenteCadencia 
+                  agenteId={agente.id}
+                  tipoCadencia="rapida"
+                  titulo="Cadência Rápida"
+                  descricao="Configure uma cadência de respostas rápidas para engajamento imediato"
+                />
+              </TabsContent>
+
+              <TabsContent value="cadencia-acompanhamento">
+                <AgenteCadencia 
+                  agenteId={agente.id}
+                  tipoCadencia="acompanhamento"
+                  titulo="Cadência de Acompanhamento"
+                  descricao="Configure uma cadência de acompanhamento contínuo com intervalos maiores"
+                />
               </TabsContent>
 
               <TabsContent value="integracao">
