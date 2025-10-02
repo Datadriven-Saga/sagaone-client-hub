@@ -217,6 +217,50 @@ export type Database = {
           },
         ]
       }
+      agente_variaveis: {
+        Row: {
+          agente_id: string
+          ativo: boolean
+          created_at: string
+          descricao: string
+          empresa_id: string | null
+          id: string
+          nome: string
+          ordem: number
+          updated_at: string
+        }
+        Insert: {
+          agente_id: string
+          ativo?: boolean
+          created_at?: string
+          descricao: string
+          empresa_id?: string | null
+          id?: string
+          nome: string
+          ordem: number
+          updated_at?: string
+        }
+        Update: {
+          agente_id?: string
+          ativo?: boolean
+          created_at?: string
+          descricao?: string
+          empresa_id?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agente_variaveis_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "agentes_ia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agentes_ia: {
         Row: {
           ativo: boolean

@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AgenteFollowups } from "@/components/AgenteFollowups";
 import { AgenteCadencia } from "@/components/AgenteCadencia";
 import { AgenteIntegracao } from "@/components/AgenteIntegracao";
+import AgenteVariaveis from "@/components/AgenteVariaveis";
 
 interface Agente {
   id: string;
@@ -295,6 +296,7 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
             <TabsTrigger value="dados-gerais">Dados Gerais</TabsTrigger>
             {isEditing && (
               <>
+                <TabsTrigger value="variaveis">Informações Necessárias</TabsTrigger>
                 <TabsTrigger value="cadencia">Cadência</TabsTrigger>
                 <TabsTrigger value="integracao">Integração</TabsTrigger>
                 <TabsTrigger value="followup">Follow-up</TabsTrigger>
@@ -418,6 +420,10 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
 
           {isEditing && (
             <>
+              <TabsContent value="variaveis">
+                <AgenteVariaveis agenteId={agente.id} />
+              </TabsContent>
+
               <TabsContent value="cadencia">
                 <AgenteCadencia agenteId={agente.id} />
               </TabsContent>
