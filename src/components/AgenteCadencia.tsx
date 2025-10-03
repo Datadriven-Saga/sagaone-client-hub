@@ -213,6 +213,29 @@ export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: Ag
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Dias da semana */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Dias da Semana que será Executada
+            </h3>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {diasSemana.map((dia) => (
+                <div key={dia.value} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={dia.value}
+                    checked={formData.dias_semana.includes(dia.value)}
+                    onCheckedChange={(checked) => handleDiaChange(dia.value, checked as boolean)}
+                  />
+                  <Label htmlFor={dia.value} className="text-sm">
+                    {dia.label}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Horários de funcionamento */}
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -235,29 +258,6 @@ export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: Ag
                   onChange={(e) => setFormData(prev => ({ ...prev, horario_fim: e.target.value }))}
                 />
               </div>
-            </div>
-          </div>
-
-          {/* Dias da semana */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Dias da Semana que será Executada
-            </h3>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {diasSemana.map((dia) => (
-                <div key={dia.value} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={dia.value}
-                    checked={formData.dias_semana.includes(dia.value)}
-                    onCheckedChange={(checked) => handleDiaChange(dia.value, checked as boolean)}
-                  />
-                  <Label htmlFor={dia.value} className="text-sm">
-                    {dia.label}
-                  </Label>
-                </div>
-              ))}
             </div>
           </div>
 
