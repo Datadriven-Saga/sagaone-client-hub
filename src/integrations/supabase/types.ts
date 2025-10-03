@@ -76,6 +76,62 @@ export type Database = {
           },
         ]
       }
+      agente_cadencias_steps: {
+        Row: {
+          agente_id: string
+          ativa: boolean
+          created_at: string
+          descricao: string | null
+          empresa_id: string | null
+          id: string
+          intervalo_minutos: number
+          mensagem_enviada: string | null
+          nome_cadencia: string
+          ordem: number
+          tipo_disparo: string
+          tipo_mensagem: string
+          updated_at: string
+        }
+        Insert: {
+          agente_id: string
+          ativa?: boolean
+          created_at?: string
+          descricao?: string | null
+          empresa_id?: string | null
+          id?: string
+          intervalo_minutos?: number
+          mensagem_enviada?: string | null
+          nome_cadencia: string
+          ordem: number
+          tipo_disparo: string
+          tipo_mensagem: string
+          updated_at?: string
+        }
+        Update: {
+          agente_id?: string
+          ativa?: boolean
+          created_at?: string
+          descricao?: string | null
+          empresa_id?: string | null
+          id?: string
+          intervalo_minutos?: number
+          mensagem_enviada?: string | null
+          nome_cadencia?: string
+          ordem?: number
+          tipo_disparo?: string
+          tipo_mensagem?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agente_cadencias_steps_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "agentes_ia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agente_followups: {
         Row: {
           acoes: Json | null

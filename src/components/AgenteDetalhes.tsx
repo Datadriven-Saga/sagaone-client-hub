@@ -16,6 +16,7 @@ import { AgenteFollowups } from "@/components/AgenteFollowups";
 import { AgenteCadencia } from "@/components/AgenteCadencia";
 import { AgenteIntegracao } from "@/components/AgenteIntegracao";
 import AgenteVariaveis from "@/components/AgenteVariaveis";
+import { AgenteCadenciasNova } from "@/components/AgenteCadenciasNova";
 
 interface Agente {
   id: string;
@@ -297,6 +298,7 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
             {isEditing && (
               <>
                 <TabsTrigger value="variaveis">Informações Necessárias</TabsTrigger>
+                <TabsTrigger value="nova-cadencia">Nova Cadência</TabsTrigger>
                 <TabsTrigger value="cadencia-rapida">Cadência Rápida</TabsTrigger>
                 <TabsTrigger value="cadencia-acompanhamento">Cadência de Acompanhamento</TabsTrigger>
                 <TabsTrigger value="integracao">Integração</TabsTrigger>
@@ -423,6 +425,10 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
             <>
               <TabsContent value="variaveis">
                 <AgenteVariaveis agenteId={agente.id} />
+              </TabsContent>
+
+              <TabsContent value="nova-cadencia">
+                <AgenteCadenciasNova agenteId={agente.id} />
               </TabsContent>
 
               <TabsContent value="cadencia-rapida">
