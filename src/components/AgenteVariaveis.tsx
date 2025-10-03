@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { 
   ArrowUp, 
@@ -256,85 +257,91 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Variáveis de Qualificação</h3>
-        <Button onClick={() => handleOpenDialog()}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nova Variável
-        </Button>
-      </div>
+    <>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Variáveis de Qualificação</h3>
+              <Button onClick={() => handleOpenDialog()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Variável
+              </Button>
+            </div>
 
-      {variaveis.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
-          Nenhuma variável cadastrada
-        </div>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-16">Ordem</TableHead>
-              <TableHead>Nome</TableHead>
-              <TableHead>Descrição</TableHead>
-              <TableHead className="text-right w-48">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {variaveis.map((variavel, index) => (
-              <TableRow key={variavel.id} className={!variavel.ativo ? "opacity-50" : ""}>
-                <TableCell className="font-medium">{variavel.ordem}</TableCell>
-                <TableCell>{variavel.nome}</TableCell>
-                <TableCell className="max-w-md truncate">{variavel.descricao}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleMoveUp(variavel)}
-                      disabled={index === 0}
-                    >
-                      <ArrowUp className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleMoveDown(variavel)}
-                      disabled={index === variaveis.length - 1}
-                    >
-                      <ArrowDown className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleOpenDialog(variavel)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleToggleAtivo(variavel.id, variavel.ativo)}
-                    >
-                      {variavel.ativo ? (
-                        <Ban className="h-4 w-4" />
-                      ) : (
-                        <CheckCircle className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteId(variavel.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+            {variaveis.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhuma variável cadastrada
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-16">Ordem</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead className="text-right w-48">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {variaveis.map((variavel, index) => (
+                    <TableRow key={variavel.id} className={!variavel.ativo ? "opacity-50" : ""}>
+                      <TableCell className="font-medium">{variavel.ordem}</TableCell>
+                      <TableCell>{variavel.nome}</TableCell>
+                      <TableCell className="max-w-md truncate">{variavel.descricao}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleMoveUp(variavel)}
+                            disabled={index === 0}
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleMoveDown(variavel)}
+                            disabled={index === variaveis.length - 1}
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenDialog(variavel)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleToggleAtivo(variavel.id, variavel.ativo)}
+                          >
+                            {variavel.ativo ? (
+                              <Ban className="h-4 w-4" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteId(variavel.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Dialog para criar/editar variável */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -391,6 +398,6 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }
