@@ -233,7 +233,7 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
                 </TableHeader>
                 <TableBody>
                   {cadencias.map((cadencia) => (
-                    <TableRow key={cadencia.id}>
+                    <TableRow key={cadencia.id} className={!cadencia.ativa ? "opacity-50" : ""}>
                       <TableCell className="font-medium">{cadencia.ordem}</TableCell>
                       <TableCell>{cadencia.nome_cadencia}</TableCell>
                       <TableCell>
