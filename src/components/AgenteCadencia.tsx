@@ -201,7 +201,7 @@ export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: Ag
         </div>
         <Button onClick={handleSave} disabled={loading}>
           <Save className="h-4 w-4 mr-2" />
-          {loading ? "Salvando..." : "Salvar Cadência"}
+          {loading ? "Salvando..." : "Salvar Configuração"}
         </Button>
       </div>
 
@@ -209,50 +209,12 @@ export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: Ag
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            Configurações de Cadência
+            Horário Disponível para Executar
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Configurações básicas */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="quantidade_etapas">Quantidade de Etapas</Label>
-              <Input
-                id="quantidade_etapas"
-                type="number"
-                min="1"
-                value={formData.quantidade_etapas}
-                onChange={(e) => setFormData(prev => ({ ...prev, quantidade_etapas: parseInt(e.target.value) || 1 }))}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="delay_inicial_minutos">Delay Inicial até a 1ª Etapa (minutos)</Label>
-              <Input
-                id="delay_inicial_minutos"
-                type="number"
-                min="0"
-                value={formData.delay_inicial_minutos}
-                onChange={(e) => setFormData(prev => ({ ...prev, delay_inicial_minutos: parseInt(e.target.value) || 0 }))}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="intervalo_etapas_minutos">Intervalo entre Etapas (minutos)</Label>
-              <Input
-                id="intervalo_etapas_minutos"
-                type="number"
-                min="1"
-                value={formData.intervalo_etapas_minutos}
-                onChange={(e) => setFormData(prev => ({ ...prev, intervalo_etapas_minutos: parseInt(e.target.value) || 60 }))}
-              />
-            </div>
-          </div>
-
           {/* Horários de funcionamento */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Horário Disponível para Executar</h3>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="horario_inicio">Hora de Início</Label>
@@ -299,32 +261,6 @@ export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: Ag
             </div>
           </div>
 
-        </CardContent>
-      </Card>
-
-      {/* Resumo da configuração */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Resumo da Configuração</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <p><strong>Etapas:</strong> {formData.quantidade_etapas}</p>
-              <p><strong>Delay inicial:</strong> {formData.delay_inicial_minutos} minutos</p>
-              <p><strong>Intervalo:</strong> {formData.intervalo_etapas_minutos} minutos</p>
-            </div>
-            <div>
-              <p><strong>Horário:</strong> {formData.horario_inicio} às {formData.horario_fim}</p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <p><strong>Dias ativos:</strong> {
-              formData.dias_semana.map(dia => 
-                diasSemana.find(d => d.value === dia)?.label
-              ).join(', ')
-            }</p>
-          </div>
         </CardContent>
       </Card>
     </div>

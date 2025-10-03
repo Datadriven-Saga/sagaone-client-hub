@@ -299,7 +299,7 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
               <>
                 <TabsTrigger value="variaveis">Informações Necessárias</TabsTrigger>
                 <TabsTrigger value="nova-cadencia">Nova Cadência</TabsTrigger>
-                <TabsTrigger value="cadencia-rapida">Cadência Rápida</TabsTrigger>
+                <TabsTrigger value="cadencia-rapida">Período de Trabalho</TabsTrigger>
                 <TabsTrigger value="cadencia-acompanhamento">Cadência de Acompanhamento</TabsTrigger>
                 <TabsTrigger value="integracao">Integração</TabsTrigger>
                 <TabsTrigger value="followup">Follow-up</TabsTrigger>
@@ -435,8 +435,8 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                 <AgenteCadencia 
                   agenteId={agente.id}
                   tipoCadencia="rapida"
-                  titulo="Cadência Rápida"
-                  descricao="Configure uma cadência de respostas rápidas para engajamento imediato"
+                  titulo="Período de Trabalho"
+                  descricao="Configure o horário e dias de trabalho para execução da cadência"
                 />
               </TabsContent>
 
