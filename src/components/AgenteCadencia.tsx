@@ -209,7 +209,7 @@ export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: Ag
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            Horário Disponível para Executar
+            Período de Trabalho
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -238,6 +238,11 @@ export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: Ag
 
           {/* Horários de funcionamento */}
           <div className="space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Horário Disponível para Executar
+            </h3>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="horario_inicio">Hora de Início</Label>
