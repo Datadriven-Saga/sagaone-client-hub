@@ -242,7 +242,7 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={cadencia.tipo_mensagem === 'dinamica' ? 'secondary' : 'default'}>
+                        <Badge variant="outline">
                           {cadencia.tipo_mensagem === 'dinamica' ? 'Dinâmica' : 'Pré-Definida'}
                         </Badge>
                       </TableCell>
