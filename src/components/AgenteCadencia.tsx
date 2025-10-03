@@ -217,7 +217,7 @@ export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: Ag
           <div className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              Dias da Semana que será Executada
+              Dias da Semana
             </h3>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -240,7 +240,7 @@ export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: Ag
           <div className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Horário Disponível para Executar
+              Horário Disponível
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
