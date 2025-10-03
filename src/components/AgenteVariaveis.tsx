@@ -45,6 +45,7 @@ interface Variavel {
   ordem: number;
   nome: string;
   descricao: string;
+  obrigatorio: boolean;
   ativo: boolean;
 }
 
@@ -62,6 +63,7 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
   const [formData, setFormData] = useState({
     nome: "",
     descricao: "",
+    obrigatorio: false,
   });
 
   useEffect(() => {
@@ -91,12 +93,14 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
       setFormData({
         nome: variavel.nome,
         descricao: variavel.descricao,
+        obrigatorio: variavel.obrigatorio,
       });
     } else {
       setEditingVariavel(null);
       setFormData({
         nome: "",
         descricao: "",
+        obrigatorio: false,
       });
     }
     setIsDialogOpen(true);
@@ -116,6 +120,7 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
           .update({
             nome: formData.nome,
             descricao: formData.descricao,
+            obrigatorio: formData.obrigatorio,
           })
           .eq("id", editingVariavel.id);
 
@@ -134,6 +139,7 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
             ordem: maxOrdem + 1,
             nome: formData.nome,
             descricao: formData.descricao,
+            obrigatorio: formData.obrigatorio,
           });
 
         if (error) throw error;
@@ -286,6 +292,7 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
                     <TableHead className="w-16">Ordem</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>Descrição</TableHead>
+                    <TableHead className="w-32">Obrigatório</TableHead>
                     <TableHead className="text-right w-48">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -295,6 +302,7 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
                       <TableCell className="font-medium">{variavel.ordem}</TableCell>
                       <TableCell>{variavel.nome}</TableCell>
                       <TableCell className="max-w-md truncate">{variavel.descricao}</TableCell>
+                      <TableCell>{variavel.obrigatorio ? "Sim" : "Não"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button
@@ -375,6 +383,18 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
                 placeholder="Descreva como esta variável deve ser coletada"
                 rows={6}
               />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="obrigatorio">Obrigatório</Label>
+              <select
+                id="obrigatorio"
+                value={formData.obrigatorio ? "sim" : "nao"}
+                onChange={(e) => setFormData({ ...formData, obrigatorio: e.target.value === "sim" })}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="nao">Não</option>
+                <option value="sim">Sim</option>
+              </select>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>

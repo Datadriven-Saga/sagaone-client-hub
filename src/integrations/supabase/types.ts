@@ -285,6 +285,7 @@ export type Database = {
           empresa_id: string | null
           id: string
           nome: string
+          obrigatorio: boolean
           ordem: number
           updated_at: string
         }
@@ -296,6 +297,7 @@ export type Database = {
           empresa_id?: string | null
           id?: string
           nome: string
+          obrigatorio?: boolean
           ordem: number
           updated_at?: string
         }
@@ -307,6 +309,7 @@ export type Database = {
           empresa_id?: string | null
           id?: string
           nome?: string
+          obrigatorio?: boolean
           ordem?: number
           updated_at?: string
         }
