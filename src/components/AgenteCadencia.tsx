@@ -191,34 +191,28 @@ export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: Ag
   }, [agenteId, tipoCadencia]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">{titulo}</h2>
-          <p className="text-muted-foreground">
-            {descricao}
-          </p>
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>{titulo}</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              {descricao}
+            </p>
+          </div>
+          <Button onClick={handleSave} disabled={loading}>
+            <Save className="h-4 w-4 mr-2" />
+            {loading ? "Salvando..." : "Salvar Configuração"}
+          </Button>
         </div>
-        <Button onClick={handleSave} disabled={loading}>
-          <Save className="h-4 w-4 mr-2" />
-          {loading ? "Salvando..." : "Salvar Configuração"}
-        </Button>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Período de Trabalho
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      </CardHeader>
+      <CardContent className="space-y-6">
           {/* Dias da semana */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
+            <Label className="text-base font-medium flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
               Dias da Semana
-            </h3>
+            </Label>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {diasSemana.map((dia) => (
@@ -238,10 +232,10 @@ export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: Ag
 
           {/* Horários de funcionamento */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Clock className="h-5 w-5" />
+            <Label className="text-base font-medium flex items-center gap-2">
+              <Clock className="h-4 w-4" />
               Horário Disponível
-            </h3>
+            </Label>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -267,7 +261,6 @@ export function AgenteCadencia({ agenteId, tipoCadencia, titulo, descricao }: Ag
           </div>
 
         </CardContent>
-      </Card>
-    </div>
+    </Card>
   );
 }

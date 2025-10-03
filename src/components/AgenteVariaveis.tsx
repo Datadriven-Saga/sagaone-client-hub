@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { 
   ArrowUp, 
@@ -259,15 +259,21 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
   return (
     <>
       <Card>
-        <CardContent className="pt-6">
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Variáveis de Qualificação</h3>
-              <Button onClick={() => handleOpenDialog()}>
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Variável
-              </Button>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Variáveis de Qualificação</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configure as informações que o agente deve coletar durante a conversa
+              </p>
             </div>
+            <Button onClick={() => handleOpenDialog()}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Variável
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
 
             {variaveis.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -339,9 +345,8 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
                 </TableBody>
               </Table>
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
       {/* Dialog para criar/editar variável */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

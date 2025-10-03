@@ -286,18 +286,22 @@ export function AgenteFollowups({ agenteId }: AgenteFollowupsProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">Follow-up - Ação Ativa</h2>
-          <p className="text-muted-foreground">
-            Configure follow-ups automáticos para este agente
-          </p>
-        </div>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Follow-up
-        </Button>
-      </div>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Follow-up - Ação Ativa</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configure follow-ups automáticos para este agente
+              </p>
+            </div>
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Follow-up
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
 
       {showForm && (
         <Card>

@@ -266,26 +266,21 @@ export function AgenteIntegracao({ agenteId }: AgenteIntegracaoProps) {
   }, [agenteId]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">Integração</h2>
-          <p className="text-muted-foreground">
-            Configure os webhooks e integrações para este agente
-          </p>
-        </div>
-        <Button onClick={handleSave} disabled={loading}>
-          <Save className="h-4 w-4 mr-2" />
-          {loading ? "Salvando..." : "Salvar Integração"}
-        </Button>
-      </div>
-
+    <>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Configurações de Integração
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Integração</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configure os webhooks e integrações para este agente
+              </p>
+            </div>
+            <Button onClick={handleSave} disabled={loading}>
+              <Save className="h-4 w-4 mr-2" />
+              {loading ? "Salvando..." : "Salvar Integração"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Configurações básicas */}
@@ -438,7 +433,7 @@ export function AgenteIntegracao({ agenteId }: AgenteIntegracaoProps) {
       </Card>
 
       {/* Resumo da configuração */}
-      <Card>
+      <Card className="mt-6">
         <CardHeader>
           <CardTitle>Resumo da Integração</CardTitle>
         </CardHeader>
@@ -464,6 +459,6 @@ export function AgenteIntegracao({ agenteId }: AgenteIntegracaoProps) {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </>
   );
 }
