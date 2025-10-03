@@ -297,8 +297,8 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
             <TabsTrigger value="dados-gerais">Dados Gerais</TabsTrigger>
             {isEditing && (
               <>
-                <TabsTrigger value="variaveis">Informações Necessárias</TabsTrigger>
-                <TabsTrigger value="nova-cadencia">Nova Cadência</TabsTrigger>
+                <TabsTrigger value="variaveis">Dados para Qualificação</TabsTrigger>
+                <TabsTrigger value="nova-cadencia">Cadência</TabsTrigger>
                 <TabsTrigger value="cadencia-rapida">Período de Trabalho</TabsTrigger>
                 <TabsTrigger value="cadencia-acompanhamento">Cadência de Acompanhamento</TabsTrigger>
                 <TabsTrigger value="integracao">Integração</TabsTrigger>

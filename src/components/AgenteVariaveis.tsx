@@ -262,7 +262,7 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Variáveis de Qualificação</CardTitle>
+              <CardTitle>Dados para Qualificação</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Configure as informações que o agente deve coletar durante a conversa
               </p>

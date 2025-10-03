@@ -204,7 +204,7 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Nova Cadência</CardTitle>
+              <CardTitle>Cadência</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Configure as cadências de mensagens do agente
               </p>
