@@ -83,28 +83,24 @@ export default function AgentesIA() {
       
       if (error) throw error;
       
-      // Buscar contagens de followups e total de etapas das cadências para cada agente
+      // Buscar contagens de followups e etapas ativas das cadências para cada agente
       const agentesComContadores = await Promise.all((data || []).map(async (agente) => {
-        const [followupsResult, cadenciasResult] = await Promise.all([
+        const [followupsResult, stepsResult] = await Promise.all([
           supabase
             .from('agente_followups')
             .select('id', { count: 'exact' })
             .eq('agente_id', agente.id),
           supabase
-            .from('agente_cadencias')
-            .select('quantidade_etapas')
+            .from('agente_cadencias_steps')
+            .select('id', { count: 'exact' })
             .eq('agente_id', agente.id)
+            .eq('ativa', true)
         ]);
-        
-        // Somar total de etapas de todas as cadências
-        const totalEtapas = cadenciasResult.data?.reduce((total, cadencia) => {
-          return total + (cadencia.quantidade_etapas || 0);
-        }, 0) || 0;
         
         return {
           ...agente,
           followups_count: followupsResult.count || 0,
-          etapas_cadencia_count: totalEtapas
+          etapas_cadencia_count: stepsResult.count || 0
         };
       }));
       
