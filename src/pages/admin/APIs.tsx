@@ -56,13 +56,13 @@ const APIs = () => {
   const webhooks = [
     {
       nome: "Webhook Novos Leads",
-      url: "https://tavat.com/webhook/leads",
+      url: "https://supersaga.com/webhook/leads",
       status: "Ativo",
       ultimaExecucao: "2024-01-15 14:28"
     },
     {
       nome: "Webhook Vendas Finalizadas", 
-      url: "https://tavat.com/webhook/sales",
+      url: "https://supersaga.com/webhook/sales",
       status: "Ativo",
       ultimaExecucao: "2024-01-15 13:45"
     }
@@ -91,7 +91,7 @@ const APIs = () => {
               Integrações Externas
             </CardTitle>
             <CardDescription>
-              APIs conectadas ao sistema TAVAT
+              APIs conectadas ao sistema SUPERSAGA
             </CardDescription>
           </CardHeader>
           <CardContent>

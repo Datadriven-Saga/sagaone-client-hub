@@ -86,7 +86,7 @@ const Ajuda = () => {
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold">Central de Ajuda</h1>
           <p className="text-muted-foreground">
-            Encontre respostas para suas dúvidas e aprenda a usar o sistema TAVAT
+            Encontre respostas para suas dúvidas e aprenda a usar o sistema SUPERSAGA
           </p>
         </div>
 
@@ -167,7 +167,7 @@ const Ajuda = () => {
           <CardHeader>
             <CardTitle>Guia dos Módulos</CardTitle>
             <CardDescription>
-              Entenda cada funcionalidade do sistema TAVAT
+              Entenda cada funcionalidade do sistema SUPERSAGA
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -199,7 +199,7 @@ const Ajuda = () => {
                 <Mail className="h-5 w-5 text-primary" />
                 <div>
                   <p className="font-medium">Email</p>
-                  <p className="text-sm text-muted-foreground">suporte@tavat.com.br</p>
+                  <p className="text-sm text-muted-foreground">suporte@supersaga.com.br</p>
                 </div>
               </div>
 
@@ -233,7 +233,7 @@ const Ajuda = () => {
         <div className="text-center space-y-2">
           <Badge variant="outline">Versão 1.0.0</Badge>
           <p className="text-xs text-muted-foreground">
-            Sistema TAVAT - Plataforma de Gestão de Leads e Vendas
+            Sistema SUPERSAGA - Plataforma de Gestão de Leads e Vendas
           </p>
         </div>
       </div>

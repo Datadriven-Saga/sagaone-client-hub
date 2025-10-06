@@ -7,7 +7,7 @@ import { Eye, EyeOff, Lock } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import tavatLogo from "@/assets/tavat-logo.png";
+import supersagaLogo from "@/assets/supersaga-logo.png";
 
 const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -93,8 +93,8 @@ const ResetPassword = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <img 
-            src={tavatLogo} 
-            alt="TAVAT Logo" 
+            src={supersagaLogo} 
+            alt="SUPERSAGA Logo" 
             className="mx-auto mb-4 h-20 w-auto"
           />
           <h1 className="text-2xl font-bold text-white mb-2">
@@ -187,7 +187,7 @@ const ResetPassword = () => {
         </Card>
 
         <p className="text-center text-white/60 text-sm mt-6">
-          © 2024 TAVAT. Todos os direitos reservados.
+          © 2024 SUPERSAGA. Todos os direitos reservados.
         </p>
       </div>
     </div>

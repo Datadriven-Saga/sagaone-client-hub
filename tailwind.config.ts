@@ -66,11 +66,11 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				tavat: {
-					primary: 'hsl(var(--tavat-primary))',
-					dark: 'hsl(var(--tavat-dark))',
-					light: 'hsl(var(--tavat-light))',
-					bg: 'hsl(var(--tavat-bg))'
+				supersaga: {
+					primary: 'hsl(var(--supersaga-primary))',
+					dark: 'hsl(var(--supersaga-dark))',
+					light: 'hsl(var(--supersaga-light))',
+					bg: 'hsl(var(--supersaga-bg))'
 				}
 			},
 			backgroundImage: {

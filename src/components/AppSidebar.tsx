@@ -23,7 +23,7 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
-import tavatLogo from "@/assets/tavat-logo.png";
+import supersagaLogo from "@/assets/supersaga-logo.png";
 
 const menuItems = [
   { title: "Página Inicial", url: "/", icon: Home },
@@ -50,13 +50,13 @@ export function AppSidebar() {
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <img 
-            src={tavatLogo} 
-            alt="TAVAT Logo" 
+            src={supersagaLogo} 
+            alt="SUPERSAGA Logo" 
             className="h-8 w-8 flex-shrink-0 object-contain"
           />
           {!isCollapsed && (
             <span className="text-sidebar-foreground font-bold text-lg">
-              TAVAT
+              SUPERSAGA
             </span>
           )}
         </div>
