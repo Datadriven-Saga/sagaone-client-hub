@@ -21,7 +21,7 @@ const Index = () => {
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Bem-vindo ao SUPERSAGA
+            Bem-vindo ao SAGA X
           </h1>
           <p className="text-muted-foreground">
             Aqui está o resumo das suas atividades e performance.

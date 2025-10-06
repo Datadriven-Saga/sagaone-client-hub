@@ -9,13 +9,13 @@ const Treinamentos = () => {
   const courses = [
     {
       id: 1,
-      title: "Fundamentos do CRM SUPERSAGA",
-      description: "Aprenda os conceitos básicos e navegação no sistema SUPERSAGA",
+      title: "Fundamentos do CRM SAGA X",
+      description: "Aprenda os conceitos básicos e navegação no sistema SAGA X",
       duration: "2h 30min",
       progress: 100,
       status: "Concluído",
       lessons: 8,
-      instructor: "Equipe SUPERSAGA"
+      instructor: "Equipe SAGA X"
     },
     {
       id: 2, 
@@ -178,7 +178,7 @@ const Treinamentos = () => {
             Trilha de Aprendizado Recomendada
           </h3>
           <p className="text-muted-foreground mb-6">
-            Siga esta sequência para obter o máximo aproveitamento do sistema SUPERSAGA.
+            Siga esta sequência para obter o máximo aproveitamento do sistema SAGA X.
           </p>
           
           <div className="space-y-4">

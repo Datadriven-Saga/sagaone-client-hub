@@ -66,11 +66,11 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				supersaga: {
-					primary: 'hsl(var(--supersaga-primary))',
-					dark: 'hsl(var(--supersaga-dark))',
-					light: 'hsl(var(--supersaga-light))',
-					bg: 'hsl(var(--supersaga-bg))'
+				sagax: {
+					primary: 'hsl(var(--sagax-primary))',
+					dark: 'hsl(var(--sagax-dark))',
+					light: 'hsl(var(--sagax-light))',
+					bg: 'hsl(var(--sagax-bg))'
 				}
 			},
 			backgroundImage: {

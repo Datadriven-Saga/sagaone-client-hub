@@ -86,7 +86,7 @@ const Ajuda = () => {
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold">Central de Ajuda</h1>
           <p className="text-muted-foreground">
-            Encontre respostas para suas dúvidas e aprenda a usar o sistema SUPERSAGA
+            Encontre respostas para suas dúvidas e aprenda a usar o sistema SAGA X
           </p>
         </div>
 
@@ -167,7 +167,7 @@ const Ajuda = () => {
           <CardHeader>
             <CardTitle>Guia dos Módulos</CardTitle>
             <CardDescription>
-              Entenda cada funcionalidade do sistema SUPERSAGA
+              Entenda cada funcionalidade do sistema SAGA X
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -233,7 +233,7 @@ const Ajuda = () => {
         <div className="text-center space-y-2">
           <Badge variant="outline">Versão 1.0.0</Badge>
           <p className="text-xs text-muted-foreground">
-            Sistema SUPERSAGA - Plataforma de Gestão de Leads e Vendas
+            Sistema SAGA X - Plataforma de Gestão de Leads e Vendas
           </p>
         </div>
       </div>

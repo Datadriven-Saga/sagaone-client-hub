@@ -7,7 +7,7 @@ import { Eye, EyeOff, Lock } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import supersagaLogo from "@/assets/supersaga-logo.png";
+import sagaxLogo from "@/assets/sagax-logo.png";
 
 const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -92,11 +92,13 @@ const ResetPassword = () => {
     <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img 
-            src={supersagaLogo} 
-            alt="SUPERSAGA Logo" 
-            className="mx-auto mb-4 h-20 w-auto"
-          />
+          <div className="bg-primary/20 backdrop-blur-sm p-4 rounded-2xl inline-block mb-4">
+            <img 
+              src={sagaxLogo} 
+              alt="SAGA X Logo" 
+              className="h-16 w-16"
+            />
+          </div>
           <h1 className="text-2xl font-bold text-white mb-2">
             Redefinir Senha
           </h1>
@@ -187,7 +189,7 @@ const ResetPassword = () => {
         </Card>
 
         <p className="text-center text-white/60 text-sm mt-6">
-          © 2024 SUPERSAGA. Todos os direitos reservados.
+          © 2024 SAGA X. Todos os direitos reservados.
         </p>
       </div>
     </div>
