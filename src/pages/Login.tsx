@@ -8,7 +8,7 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
-import sagaxLogo from "@/assets/sagax-logo.png";
+import sagaxLogo from "@/assets/sagax-logo-home.png";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -103,11 +103,11 @@ const Login = () => {
     <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="bg-primary p-4 rounded-2xl inline-block mb-4">
+          <div className="inline-block mb-4">
             <img 
               src={sagaxLogo} 
               alt="SAGA X Logo" 
-              className="h-16 w-16"
+              className="h-24 w-24 rounded-2xl"
             />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">
