@@ -103,7 +103,7 @@ const Login = () => {
     <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="bg-primary/20 backdrop-blur-sm p-4 rounded-2xl inline-block mb-4">
+          <div className="bg-primary p-4 rounded-2xl inline-block mb-4">
             <img 
               src={sagaxLogo} 
               alt="SAGA X Logo" 
