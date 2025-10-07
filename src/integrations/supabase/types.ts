@@ -329,6 +329,7 @@ export type Database = {
           cerebro: string | null
           created_at: string
           criado_por: string | null
+          dealer_id: string | null
           empresa_id: string | null
           foto_url: string | null
           id: string
@@ -342,6 +343,7 @@ export type Database = {
           cerebro?: string | null
           created_at?: string
           criado_por?: string | null
+          dealer_id?: string | null
           empresa_id?: string | null
           foto_url?: string | null
           id?: string
@@ -355,6 +357,7 @@ export type Database = {
           cerebro?: string | null
           created_at?: string
           criado_por?: string | null
+          dealer_id?: string | null
           empresa_id?: string | null
           foto_url?: string | null
           id?: string

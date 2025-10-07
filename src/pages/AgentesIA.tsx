@@ -17,6 +17,7 @@ interface Agente {
   persona: string;
   cerebro: string;
   telefone: string;
+  dealer_id?: string;
   foto_url?: string;
   ativo: boolean;
   followups_count?: number;

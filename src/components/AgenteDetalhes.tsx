@@ -24,6 +24,7 @@ interface Agente {
   persona: string;
   cerebro: string;
   telefone: string;
+  dealer_id?: string;
   foto_url?: string;
   ativo: boolean;
 }
@@ -46,6 +47,7 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
     persona: "",
     cerebro: "",
     telefone: "",
+    dealer_id: "",
     foto_url: "",
     ativo: true
   });
@@ -59,6 +61,7 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
         persona: agente.persona || "",
         cerebro: agente.cerebro || "",
         telefone: agente.telefone || "",
+        dealer_id: agente.dealer_id || "",
         foto_url: agente.foto_url || "",
         ativo: agente.ativo
       });
@@ -152,6 +155,7 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
             persona: formData.persona,
             cerebro: formData.cerebro,
             telefone: formData.telefone,
+            dealer_id: formData.dealer_id,
             foto_url: formData.foto_url,
             ativo: formData.ativo
           })
@@ -172,6 +176,7 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
             persona: formData.persona,
             cerebro: formData.cerebro,
             telefone: formData.telefone,
+            dealer_id: formData.dealer_id,
             foto_url: formData.foto_url,
             ativo: formData.ativo,
             criado_por: user?.id
@@ -413,6 +418,16 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                         value={formData.telefone}
                         onChange={(e) => setFormData(prev => ({ ...prev, telefone: e.target.value }))}
                         placeholder="+55 11 99999-9999"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="dealer_id">DealerID</Label>
+                      <Input
+                        id="dealer_id"
+                        value={formData.dealer_id}
+                        onChange={(e) => setFormData(prev => ({ ...prev, dealer_id: e.target.value }))}
+                        placeholder="1234"
                       />
                     </div>
                   </div>
