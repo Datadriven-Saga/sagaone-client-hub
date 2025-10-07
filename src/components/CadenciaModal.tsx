@@ -139,10 +139,9 @@ export function CadenciaModal({ open, onClose, cadencia, agenteId, proximaOrdem 
         });
       }
 
-      // Sincronizar com o webhook após salvar
+      // Sincronizar com o webhook após salvar (não fecha o modal ainda)
       await syncWebhook();
 
-      onClose();
     } catch (error) {
       console.error('Erro ao salvar cadência:', error);
       toast({
@@ -428,8 +427,11 @@ export function CadenciaModal({ open, onClose, cadencia, agenteId, proximaOrdem 
               </>
             )}
 
-            <div className="flex justify-end">
-              <Button onClick={() => setWebhookDialogOpen(false)}>
+            <div className="flex justify-end gap-2">
+              <Button onClick={() => {
+                setWebhookDialogOpen(false);
+                onClose(); // Fecha ambos os modais e recarrega a lista
+              }}>
                 Fechar
               </Button>
             </div>
