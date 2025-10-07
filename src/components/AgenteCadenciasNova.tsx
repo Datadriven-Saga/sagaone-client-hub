@@ -1,9 +1,16 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowUp, ArrowDown, Edit, Trash2, Power, PowerOff } from "lucide-react";
+import { Plus, ArrowUp, ArrowDown, Edit, Trash2, Power, PowerOff, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -39,6 +46,9 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
   const [cadencias, setCadencias] = useState<Cadencia[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedCadencia, setSelectedCadencia] = useState<Cadencia | null>(null);
+  const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
+  const [webhookResponse, setWebhookResponse] = useState<any>(null);
+  const [syncingWebhook, setSyncingWebhook] = useState(false);
 
   const carregarCadencias = async () => {
     try {
@@ -198,6 +208,130 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
     carregarCadencias();
   };
 
+  const handleSyncWebhook = async () => {
+    try {
+      setSyncingWebhook(true);
+      
+      // Buscar dados do agente
+      const { data: agenteData, error: agenteError } = await supabase
+        .from('agentes_ia')
+        .select('telefone, dealer_id, nome')
+        .eq('id', agenteId)
+        .single();
+
+      if (agenteError) throw agenteError;
+
+      if (!agenteData?.telefone) {
+        toast({
+          title: "Erro",
+          description: "O agente não possui telefone configurado",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!agenteData?.dealer_id) {
+        toast({
+          title: "Erro",
+          description: "O agente não possui DealerID configurado",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Mapear as cadências/steps conforme o modelo
+      const steps = cadencias.map(cadencia => {
+        const step: any = {
+          step_order: cadencia.ordem,
+          label: cadencia.nome_cadencia,
+          channel: cadencia.tipo_disparo,
+          message_type: cadencia.tipo_mensagem,
+          interval_minutes: cadencia.intervalo_minutos,
+          enabled: cadencia.ativa
+        };
+
+        if (cadencia.tipo_mensagem === 'pre-definida' && cadencia.mensagem_enviada) {
+          step.static_content = cadencia.mensagem_enviada;
+        }
+
+        if (cadencia.tipo_mensagem === 'dinamica') {
+          // Template key é o nome da etapa sem espaços
+          step.template_key = cadencia.nome_cadencia.replace(/\s+/g, '');
+        }
+
+        return step;
+      });
+
+      // Montar o payload
+      const now = new Date();
+      const idempotencyKey = `maia-cfg-v4-${now.toISOString().split('T')[0]}-${Date.now()}`;
+      const configId = `maia-cfg-${agenteId.substring(0, 8)}`;
+
+      const payload = {
+        action: "save_cadence_config",
+        idempotency_key: idempotencyKey,
+        config: {
+          config_id: configId,
+          agent_phone: agenteData.telefone.replace(/\D/g, ''), // Remove caracteres não numéricos
+          dealerid: parseInt(agenteData.dealer_id),
+          name: `Cadência ${agenteData.nome}`,
+          timezone: "America/Sao_Paulo",
+          valid_from: now.toISOString(),
+          valid_to: null,
+          active: true,
+          default_expire_days: 14,
+          steps: steps
+        }
+      };
+
+      // Fazer a chamada para o webhook
+      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/8275b29e-b3b1-494d-a604-b285a8cc0d56', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-token': 'ISVm0pIpF27jfQLP9LCYhnB9eK6rREog'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const responseData = await response.json().catch(() => ({ status: response.status, statusText: response.statusText }));
+
+      setWebhookResponse({
+        success: response.ok,
+        status: response.status,
+        data: responseData
+      });
+      setWebhookDialogOpen(true);
+
+      if (response.ok) {
+        toast({
+          title: "Sincronização concluída",
+          description: "As cadências foram sincronizadas com sucesso"
+        });
+      } else {
+        toast({
+          title: "Erro na sincronização",
+          description: "Houve um problema ao sincronizar as cadências",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao sincronizar webhook:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível sincronizar as cadências",
+        variant: "destructive"
+      });
+      setWebhookResponse({
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+      setWebhookDialogOpen(true);
+    } finally {
+      setSyncingWebhook(false);
+    }
+  };
+
   return (
     <>
       <Card>
@@ -209,10 +343,20 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
                 Configure as cadências de mensagens do agente
               </p>
             </div>
-            <Button onClick={handleCreate}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Cadência
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleCreate}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Cadência
+              </Button>
+              <Button 
+                onClick={handleSyncWebhook} 
+                disabled={syncingWebhook || cadencias.length === 0}
+                variant="secondary"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {syncingWebhook ? "Sincronizando..." : "Sincronizar Webhook"}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -321,6 +465,49 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
         agenteId={agenteId}
         proximaOrdem={cadencias.length + 1}
       />
+
+      <Dialog open={webhookDialogOpen} onOpenChange={setWebhookDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Resultado da Sincronização do Webhook
+            </DialogTitle>
+            <DialogDescription>
+              Resposta recebida do webhook de sincronização
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {webhookResponse && (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Status:</span>
+                  <span className={webhookResponse.success ? "text-green-600" : "text-red-600"}>
+                    {webhookResponse.success ? "✓ Sucesso" : "✗ Erro"}
+                  </span>
+                  {webhookResponse.status && (
+                    <span className="text-muted-foreground">
+                      (HTTP {webhookResponse.status})
+                    </span>
+                  )}
+                </div>
+
+                <div className="bg-muted p-4 rounded-lg">
+                  <pre className="text-sm overflow-x-auto whitespace-pre-wrap">
+                    {JSON.stringify(webhookResponse.data || webhookResponse.error, null, 2)}
+                  </pre>
+                </div>
+              </>
+            )}
+
+            <div className="flex justify-end">
+              <Button onClick={() => setWebhookDialogOpen(false)}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
