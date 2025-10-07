@@ -41,6 +41,7 @@ export function CadenciaModal({ open, onClose, cadencia, agenteId, proximaOrdem 
   const [loading, setLoading] = useState(false);
   const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
   const [webhookResponse, setWebhookResponse] = useState<any>(null);
+  const [webhookPayload, setWebhookPayload] = useState<any>(null);
   const [formData, setFormData] = useState({
     nome_cadencia: "",
     descricao: "",
@@ -223,6 +224,9 @@ export function CadenciaModal({ open, onClose, cadencia, agenteId, proximaOrdem 
         }
       };
 
+      // Salvar o payload para exibir no popup
+      setWebhookPayload(payload);
+
       // Fazer a chamada para o webhook
       const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/8275b29e-b3b1-494d-a604-b285a8cc0d56', {
         method: 'POST',
@@ -379,17 +383,17 @@ export function CadenciaModal({ open, onClose, cadencia, agenteId, proximaOrdem 
       </Dialog>
 
       <Dialog open={webhookDialogOpen} onOpenChange={setWebhookDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Resultado da Sincronização do Webhook
             </DialogTitle>
             <DialogDescription>
-              Resposta recebida do webhook de sincronização
+              Dados enviados e resposta recebida do webhook
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
+          <div className="space-y-6">
             {webhookResponse && (
               <>
                 <div className="flex items-center gap-2">
@@ -404,10 +408,22 @@ export function CadenciaModal({ open, onClose, cadencia, agenteId, proximaOrdem 
                   )}
                 </div>
 
-                <div className="bg-muted p-4 rounded-lg">
-                  <pre className="text-sm overflow-x-auto whitespace-pre-wrap">
-                    {JSON.stringify(webhookResponse.data || webhookResponse.error, null, 2)}
-                  </pre>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2">Payload Enviado:</h3>
+                  <div className="bg-muted p-4 rounded-lg">
+                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                      {JSON.stringify(webhookPayload, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-lg mb-2">Resposta Recebida:</h3>
+                  <div className="bg-muted p-4 rounded-lg">
+                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                      {JSON.stringify(webhookResponse.data || webhookResponse.error, null, 2)}
+                    </pre>
+                  </div>
                 </div>
               </>
             )}
