@@ -228,8 +228,8 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[80px]">Ordem</TableHead>
-                    <TableHead>Nome da Cadência</TableHead>
-                    <TableHead>Tipo de Disparo</TableHead>
+                    <TableHead>Nome da Etapa</TableHead>
+                    <TableHead>Canal</TableHead>
                     <TableHead>Tipo da Mensagem</TableHead>
                     <TableHead>Mensagem Enviada</TableHead>
                     <TableHead className="text-right">Intervalo (min)</TableHead>
