@@ -428,10 +428,7 @@ export function CadenciaModal({ open, onClose, cadencia, agenteId, proximaOrdem 
             )}
 
             <div className="flex justify-end gap-2">
-              <Button onClick={() => {
-                setWebhookDialogOpen(false);
-                onClose(); // Fecha ambos os modais e recarrega a lista
-              }}>
+              <Button onClick={() => setWebhookDialogOpen(false)}>
                 Fechar
               </Button>
             </div>
