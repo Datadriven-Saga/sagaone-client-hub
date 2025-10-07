@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowUp, ArrowDown, Edit, Trash2, Power, PowerOff } from "lucide-react";
+import { Plus, ArrowUp, ArrowDown, Edit, Trash2, Power, PowerOff, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { CadenciaModal } from "./CadenciaModal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface Cadencia {
   id: string;
@@ -39,6 +40,10 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
   const [cadencias, setCadencias] = useState<Cadencia[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedCadencia, setSelectedCadencia] = useState<Cadencia | null>(null);
+  const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
+  const [webhookResponse, setWebhookResponse] = useState<any | null>(null);
+  const [webhookPayload, setWebhookPayload] = useState<any | null>(null);
+  const [syncLoading, setSyncLoading] = useState(false);
 
   const carregarCadencias = async () => {
     try {
@@ -209,10 +214,21 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
                 Configure as cadências de mensagens do agente
               </p>
             </div>
-            <Button onClick={handleCreate}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Cadência
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={handleSync}
+                disabled={loading || cadencias.length === 0 || syncLoading}
+                title="Sincronizar cadência no webhook"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${syncLoading ? 'animate-spin' : ''}`} />
+                {syncLoading ? 'Sincronizando...' : 'Sincronizar'}
+              </Button>
+              <Button onClick={handleCreate}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Cadência
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -321,6 +337,39 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
         agenteId={agenteId}
         proximaOrdem={cadencias.length + 1}
       />
+
+      <Dialog open={webhookDialogOpen} onOpenChange={setWebhookDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Sincronização de Cadência</DialogTitle>
+            <DialogDescription>Payload enviado e resposta do webhook</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {webhookPayload && (
+              <div>
+                <div className="font-semibold mb-2">Payload Enviado</div>
+                <div className="bg-muted p-4 rounded-lg">
+                  <pre className="text-sm overflow-x-auto whitespace-pre-wrap">{JSON.stringify(webhookPayload, null, 2)}</pre>
+                </div>
+              </div>
+            )}
+
+            {webhookResponse && (
+              <div>
+                <div className="font-semibold mb-2">Resposta do Webhook</div>
+                <div className="bg-muted p-4 rounded-lg">
+                  <pre className="text-sm overflow-x-auto whitespace-pre-wrap">{JSON.stringify(webhookResponse, null, 2)}</pre>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <Button onClick={() => setWebhookDialogOpen(false)}>Fechar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

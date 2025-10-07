@@ -138,9 +138,6 @@ export function CadenciaModal({ open, onClose, cadencia, agenteId, proximaOrdem 
         });
       }
 
-      // Sincronizar com o webhook após salvar
-      await syncWebhook();
-
       onClose();
     } catch (error) {
       console.error('Erro ao salvar cadência:', error);
@@ -154,118 +151,6 @@ export function CadenciaModal({ open, onClose, cadencia, agenteId, proximaOrdem 
     }
   };
 
-  const syncWebhook = async () => {
-    try {
-      // Buscar dados do agente
-      const { data: agenteData, error: agenteError } = await supabase
-        .from('agentes_ia')
-        .select('telefone, dealer_id, nome')
-        .eq('id', agenteId)
-        .single();
-
-      if (agenteError) throw agenteError;
-
-      if (!agenteData?.telefone || !agenteData?.dealer_id) {
-        console.warn('Agente sem telefone ou dealer_id configurado');
-        return;
-      }
-
-      // Buscar todas as cadências do agente
-      const { data: cadenciasData, error: cadenciasError } = await supabase
-        .from('agente_cadencias_steps')
-        .select('*')
-        .eq('agente_id', agenteId)
-        .order('ordem', { ascending: true });
-
-      if (cadenciasError) throw cadenciasError;
-
-      // Mapear as cadências/steps conforme o modelo
-      const steps = (cadenciasData || []).map(cad => {
-        const step: any = {
-          step_order: cad.ordem,
-          label: cad.nome_cadencia,
-          channel: cad.tipo_disparo,
-          message_type: cad.tipo_mensagem,
-          interval_minutes: cad.intervalo_minutos,
-          enabled: cad.ativa
-        };
-
-        if (cad.tipo_mensagem === 'pre-definida' && cad.mensagem_enviada) {
-          step.static_content = cad.mensagem_enviada;
-        }
-
-        if (cad.tipo_mensagem === 'dinamica') {
-          step.template_key = cad.nome_cadencia.replace(/\s+/g, '');
-        }
-
-        return step;
-      });
-
-      // Montar o payload
-      const now = new Date();
-      const idempotencyKey = `maia-cfg-v4-${now.toISOString().split('T')[0]}-${Date.now()}`;
-      const configId = `maia-cfg-${agenteId.substring(0, 8)}`;
-
-      const payload = {
-        action: "save_cadence_config",
-        idempotency_key: idempotencyKey,
-        config: {
-          config_id: configId,
-          agent_phone: agenteData.telefone.replace(/\D/g, ''),
-          dealerid: parseInt(agenteData.dealer_id),
-          name: `Cadência ${agenteData.nome}`,
-          timezone: "America/Sao_Paulo",
-          valid_from: now.toISOString(),
-          valid_to: null,
-          active: true,
-          default_expire_days: 14,
-          steps: steps
-        }
-      };
-
-      // Fazer a chamada para o webhook
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/8275b29e-b3b1-494d-a604-b285a8cc0d56', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'api-token': 'ISVm0pIpF27jfQLP9LCYhnB9eK6rREog'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const responseData = await response.json().catch(() => ({ 
-        status: response.status, 
-        statusText: response.statusText 
-      }));
-
-      setWebhookResponse({
-        success: response.ok,
-        status: response.status,
-        data: responseData
-      });
-      setWebhookDialogOpen(true);
-
-      if (response.ok) {
-        toast({
-          title: "Sincronização concluída",
-          description: "As cadências foram sincronizadas com sucesso"
-        });
-      } else {
-        toast({
-          title: "Aviso",
-          description: "Cadência salva, mas houve um problema na sincronização",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao sincronizar webhook:', error);
-      setWebhookResponse({
-        success: false,
-        error: error instanceof Error ? error.message : 'Erro desconhecido'
-      });
-      setWebhookDialogOpen(true);
-    }
-  };
 
   return (
     <>
@@ -378,48 +263,6 @@ export function CadenciaModal({ open, onClose, cadencia, agenteId, proximaOrdem 
         </DialogContent>
       </Dialog>
 
-      <Dialog open={webhookDialogOpen} onOpenChange={setWebhookDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Resultado da Sincronização do Webhook
-            </DialogTitle>
-            <DialogDescription>
-              Resposta recebida do webhook de sincronização
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            {webhookResponse && (
-              <>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">Status:</span>
-                  <span className={webhookResponse.success ? "text-green-600" : "text-red-600"}>
-                    {webhookResponse.success ? "✓ Sucesso" : "✗ Erro"}
-                  </span>
-                  {webhookResponse.status && (
-                    <span className="text-muted-foreground">
-                      (HTTP {webhookResponse.status})
-                    </span>
-                  )}
-                </div>
-
-                <div className="bg-muted p-4 rounded-lg">
-                  <pre className="text-sm overflow-x-auto whitespace-pre-wrap">
-                    {JSON.stringify(webhookResponse.data || webhookResponse.error, null, 2)}
-                  </pre>
-                </div>
-              </>
-            )}
-
-            <div className="flex justify-end">
-              <Button onClick={() => setWebhookDialogOpen(false)}>
-                Fechar
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
