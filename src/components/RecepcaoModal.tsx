@@ -57,10 +57,11 @@ export const RecepcaoModal = ({ isOpen, onClose, onSave, initialData }: Recepcao
         nome_campanha: "",
         empresa_id: activeCompany?.id || "",
       });
-      onClose();
+      
+      // Recarregar a página para atualizar o Kanban
+      window.location.reload();
     } catch (error) {
       console.error("Erro ao salvar visita:", error);
-    } finally {
       setLoading(false);
     }
   };

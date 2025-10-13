@@ -9,7 +9,7 @@ export interface Contato {
   nome: string;
   telefone: string;
   email?: string;
-  status: 'Novo' | 'Em Contato' | 'Qualificado' | 'Proposta' | 'Negociação' | 'Fechado' | 'Perdido';
+  status: 'Novo' | 'Em Contato' | 'Qualificado' | 'Proposta' | 'Negociação' | 'Fechado' | 'Perdido' | 'Atribuído' | 'Convidado' | 'Agendado' | 'Confirmado' | 'Check-in' | 'Descartado' | 'Desperdício';
   valor_potencial?: number;
   responsavel_email?: string;
   cliente_id?: string;
@@ -23,19 +23,33 @@ export interface Contato {
 // Mapeamento dos status do banco para as colunas do Kanban
 export const statusKanbanMap = {
   'Novo': 'novo',
+  'Atribuído': 'atribuidos',
+  'Convidado': 'convidados',
+  'Agendado': 'agendados',
+  'Confirmado': 'confirmados',
+  'Check-in': 'checkin',
+  'Descartado': 'descartados',
+  'Desperdício': 'desperdicio',
   'Negociação': 'enviados', 
   'Em Contato': 'recebidos',
-  'Qualificado': 'agendados',
-  'Fechado': 'confirmados',
+  'Qualificado': 'qualificados',
+  'Fechado': 'fechados',
   'Perdido': 'cancelados'
 } as const;
 
 export const kanbanStatusMap = {
   'novo': 'Novo',
+  'atribuidos': 'Atribuído',
+  'convidados': 'Convidado',
+  'agendados': 'Agendado',
+  'confirmados': 'Confirmado',
+  'checkin': 'Check-in',
+  'descartados': 'Descartado',
+  'desperdicio': 'Desperdício',
   'enviados': 'Negociação',
   'recebidos': 'Em Contato', 
-  'agendados': 'Qualificado',
-  'confirmados': 'Fechado',
+  'qualificados': 'Qualificado',
+  'fechados': 'Fechado',
   'cancelados': 'Perdido'
 } as const;
 

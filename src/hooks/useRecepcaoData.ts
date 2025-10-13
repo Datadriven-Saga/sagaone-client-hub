@@ -83,7 +83,10 @@ export const useRecepcaoData = () => {
         const contatoId = contatosExistentes[0].id;
         const { error: updateError } = await supabase
           .from("contatos")
-          .update({ status: "Check-in", updated_at: new Date().toISOString() })
+          .update({ 
+            status: "Check-in" as any,
+            updated_at: new Date().toISOString() 
+          })
           .eq("id", contatoId);
 
         if (updateError) throw updateError;
@@ -100,8 +103,8 @@ export const useRecepcaoData = () => {
             nome: novaVisita.nome_cliente,
             telefone: novaVisita.telefone_cliente,
             empresa_id: novaVisita.empresa_id,
-            status: "Check-in",
-            origem: "Recepção",
+            status: "Check-in" as any,
+            origem: "Outros" as any,
             observacoes: `Visita registrada via recepção - Campanha: ${novaVisita.nome_campanha}`
           }]);
 

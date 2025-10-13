@@ -768,7 +768,10 @@ const Prospeccao = () => {
             ) : (
               <RecepcaoTable 
                 visitas={visitas} 
-                onDelete={excluirVisita}
+                onDelete={async (visitaId) => {
+                  await excluirVisita(visitaId);
+                  await refetch();
+                }}
                 searchFilter={recepcaoSearchFilter}
               />
             )}

@@ -1605,6 +1605,13 @@ export type Database = {
         | "Negociação"
         | "Fechado"
         | "Perdido"
+        | "Atribuído"
+        | "Convidado"
+        | "Agendado"
+        | "Confirmado"
+        | "Check-in"
+        | "Descartado"
+        | "Desperdício"
       status_meta: "Ativa" | "Pausada" | "Concluída" | "Cancelada"
       status_notificacao: "Enviada" | "Lida" | "Pendente" | "Erro"
       status_persona: "Ativa" | "Inativa" | "Em Desenvolvimento"
@@ -1791,6 +1798,13 @@ export const Constants = {
         "Negociação",
         "Fechado",
         "Perdido",
+        "Atribuído",
+        "Convidado",
+        "Agendado",
+        "Confirmado",
+        "Check-in",
+        "Descartado",
+        "Desperdício",
       ],
       status_meta: ["Ativa", "Pausada", "Concluída", "Cancelada"],
       status_notificacao: ["Enviada", "Lida", "Pendente", "Erro"],
