@@ -47,6 +47,15 @@ const Prospeccao = () => {
     contato: null,
     columnId: undefined
   });
+  const [activeTab, setActiveTab] = useState(() => {
+    // Restaurar aba ativa do sessionStorage se houver
+    const savedTab = sessionStorage.getItem('prospeccao_active_tab');
+    if (savedTab) {
+      sessionStorage.removeItem('prospeccao_active_tab');
+      return savedTab;
+    }
+    return 'visao-geral';
+  });
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [recepcaoInitialData, setRecepcaoInitialData] = useState<any>(null);
   const [recepcaoSearchFilter, setRecepcaoSearchFilter] = useState('');
@@ -98,19 +107,14 @@ const Prospeccao = () => {
         // Aguarda carregamento do company context
         if (companyLoading) return;
 
-        // Se a empresa do pending não bate com a ativa, tenta trocar primeiro
+        // Se a empresa do pending não bate com a ativa, aguardar próximo ciclo
         if (data.empresa_id && activeCompany?.id !== data.empresa_id) {
-          try {
-            await switchCompany(data.empresa_id);
-          } catch (e) {
-            console.error('Erro ao trocar empresa (pending):', e);
-            sessionStorage.removeItem('recepcao_pending_data');
-          }
           return;
         }
 
         // Empresa correta: abrir modal e limpar pending
         sessionStorage.removeItem('recepcao_pending_data');
+        setActiveTab('recepcao'); // Mudar para aba Recepção
         setRecepcaoInitialData({
           nome_cliente: data.nome || '',
           telefone_cliente: data.telefone || '',
@@ -127,7 +131,10 @@ const Prospeccao = () => {
       if (nome || telefone || campanha || empresaId || idMaia) {
         // Se precisa trocar de empresa
         if (empresaId && activeCompany?.id !== empresaId) {
-          // Salvar dados e acionar troca (somente quando não estiver carregando)
+          // Aguardar carregamento
+          if (companyLoading) return;
+          
+          // Salvar dados e aba ativa antes de trocar
           sessionStorage.setItem('recepcao_pending_data', JSON.stringify({
             nome,
             telefone,
@@ -135,27 +142,28 @@ const Prospeccao = () => {
             id_maia: idMaia,
             empresa_id: empresaId
           }));
+          sessionStorage.setItem('prospeccao_active_tab', 'recepcao');
 
-          if (!companyLoading) {
-            try {
-              await switchCompany(empresaId);
-            } catch (e) {
-              console.error('Erro ao trocar empresa (URL):', e);
-              sessionStorage.removeItem('recepcao_pending_data');
-              toast({
-                title: "Erro ao trocar empresa",
-                description: "Não foi possível trocar para a empresa especificada no link.",
-                variant: "destructive"
-              });
-            }
+          try {
+            await switchCompany(empresaId);
+          } catch (e) {
+            console.error('Erro ao trocar empresa (URL):', e);
+            sessionStorage.removeItem('recepcao_pending_data');
+            sessionStorage.removeItem('prospeccao_active_tab');
+            toast({
+              title: "Erro ao trocar empresa",
+              description: "Não foi possível trocar para a empresa especificada no link.",
+              variant: "destructive"
+            });
           }
-          // Sempre retornar aqui para aguardar reload ou próximo ciclo
+          // Sempre retornar aqui para aguardar reload
           return;
         }
 
         // Não precisa trocar empresa: só abrir quando empresa estiver carregada
         if (companyLoading) return;
 
+        setActiveTab('recepcao'); // Mudar para aba Recepção
         setRecepcaoInitialData({
           nome_cliente: nome || '',
           telefone_cliente: telefone || '',
@@ -574,7 +582,7 @@ const Prospeccao = () => {
 
   return (
     <DashboardLayout title="Prospecção">
-      <Tabs defaultValue="visao-geral" className="space-y-3">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
         <TabsList className="inline-flex">
           <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
           <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
