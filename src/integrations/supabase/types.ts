@@ -1277,6 +1277,47 @@ export type Database = {
           },
         ]
       }
+      recepcao_visitas: {
+        Row: {
+          created_at: string
+          data_hora_visita: string
+          empresa_id: string
+          id: string
+          nome_campanha: string
+          nome_cliente: string
+          telefone_cliente: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_hora_visita?: string
+          empresa_id: string
+          id?: string
+          nome_campanha: string
+          nome_cliente: string
+          telefone_cliente: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_hora_visita?: string
+          empresa_id?: string
+          id?: string
+          nome_campanha?: string
+          nome_cliente?: string
+          telefone_cliente?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recepcao_visitas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       relatorios: {
         Row: {
           created_at: string | null
