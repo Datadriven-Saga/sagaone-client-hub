@@ -54,7 +54,7 @@ const Prospeccao = () => {
   // ✅ HOOKS DE CONTEXTO E CUSTOM HOOKS
   const { toast } = useToast();
   const { user } = useAuth();
-  const { activeCompany } = useCompany();
+  const { activeCompany, loading: companyLoading, switchCompany } = useCompany();
   const { registrarMovimentacao } = useProspeccaoLogs();
   const { 
     contatos, 
@@ -91,75 +91,84 @@ const Prospeccao = () => {
     const idMaia = params.get('id_maia');
 
     const handleRecepcaoLink = async () => {
-      // Verificar se há dados pendentes no sessionStorage (após reload de troca de empresa)
-      const pendingData = sessionStorage.getItem('recepcao_pending_data');
-      if (pendingData) {
-        const data = JSON.parse(pendingData);
+      // 1) Após reload: abrir popup somente quando a empresa ativa estiver carregada e correta
+      const pending = sessionStorage.getItem('recepcao_pending_data');
+      if (pending) {
+        const data = JSON.parse(pending);
+        // Aguarda carregamento do company context
+        if (companyLoading) return;
+
+        // Se a empresa do pending não bate com a ativa, tenta trocar primeiro
+        if (data.empresa_id && activeCompany?.id !== data.empresa_id) {
+          try {
+            await switchCompany(data.empresa_id);
+          } catch (e) {
+            console.error('Erro ao trocar empresa (pending):', e);
+            sessionStorage.removeItem('recepcao_pending_data');
+          }
+          return;
+        }
+
+        // Empresa correta: abrir modal e limpar pending
         sessionStorage.removeItem('recepcao_pending_data');
-        
         setRecepcaoInitialData({
-          nome_cliente: data.nome,
-          telefone_cliente: data.telefone,
-          nome_campanha: data.campanha,
-          id_maia: data.id_maia,
+          nome_cliente: data.nome || '',
+          telefone_cliente: data.telefone || '',
+          nome_campanha: data.campanha || '',
+          id_maia: data.id_maia || ''
         });
         setIsRecepcaoModalOpen(true);
+        // Limpar querystring
+        window.history.replaceState({}, '', window.location.pathname);
         return;
       }
 
+      // 2) Primeira chamada via URL: trocar empresa antes de abrir modal
       if (nome || telefone || campanha || empresaId || idMaia) {
-        // Se empresa_id veio na URL, salvar dados e trocar a empresa ativa
+        // Se precisa trocar de empresa
         if (empresaId && activeCompany?.id !== empresaId) {
-          try {
-            // Salvar dados no sessionStorage antes de recarregar
-            sessionStorage.setItem('recepcao_pending_data', JSON.stringify({
-              nome,
-              telefone,
-              campanha,
-              id_maia: idMaia
-            }));
+          // Salvar dados e acionar troca (somente quando não estiver carregando)
+          sessionStorage.setItem('recepcao_pending_data', JSON.stringify({
+            nome,
+            telefone,
+            campanha,
+            id_maia: idMaia,
+            empresa_id: empresaId
+          }));
 
-            const { error } = await supabase.rpc('set_user_active_company', {
-              new_empresa_id: empresaId
-            });
-            
-            if (error) {
-              console.error('Erro ao trocar empresa ativa:', error);
+          if (!companyLoading) {
+            try {
+              await switchCompany(empresaId);
+            } catch (e) {
+              console.error('Erro ao trocar empresa (URL):', e);
               sessionStorage.removeItem('recepcao_pending_data');
               toast({
                 title: "Erro ao trocar empresa",
                 description: "Não foi possível trocar para a empresa especificada no link.",
                 variant: "destructive"
               });
-              return;
             }
-            
-            // Recarregar a página para aplicar a nova empresa ativa
-            window.location.href = window.location.pathname;
-            return;
-          } catch (err) {
-            console.error('Erro ao processar troca de empresa:', err);
-            sessionStorage.removeItem('recepcao_pending_data');
-            return;
           }
+          // Sempre retornar aqui para aguardar reload ou próximo ciclo
+          return;
         }
-        
-        // Se não precisa trocar empresa, abrir modal diretamente
+
+        // Não precisa trocar empresa: só abrir quando empresa estiver carregada
+        if (companyLoading) return;
+
         setRecepcaoInitialData({
-          nome_cliente: nome,
-          telefone_cliente: telefone,
-          nome_campanha: campanha,
-          id_maia: idMaia,
+          nome_cliente: nome || '',
+          telefone_cliente: telefone || '',
+          nome_campanha: campanha || '',
+          id_maia: idMaia || ''
         });
         setIsRecepcaoModalOpen(true);
-        
-        // Clean URL parameters
         window.history.replaceState({}, '', window.location.pathname);
       }
     };
-    
+
     handleRecepcaoLink();
-  }, [activeCompany]);
+  }, [activeCompany, companyLoading, switchCompany, toast]);
 
   // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
