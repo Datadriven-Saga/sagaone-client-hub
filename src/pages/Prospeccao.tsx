@@ -48,6 +48,7 @@ const Prospeccao = () => {
   });
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [recepcaoInitialData, setRecepcaoInitialData] = useState<any>(null);
+  const [recepcaoSearchFilter, setRecepcaoSearchFilter] = useState('');
   
   // ✅ HOOKS DE CONTEXTO E CUSTOM HOOKS
   const { toast } = useToast();
@@ -733,15 +734,20 @@ const Prospeccao = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="recepcao" className="space-y-4">
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-6">
+        <TabsContent value="recepcao" className="space-y-3">
+          <FilterBar
+            searchPlaceholder="Buscar por cliente, telefone, campanha ou empresa..."
+            onSearchChange={setRecepcaoSearchFilter}
+          />
+
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <UserCheck className="text-primary" size={24} />
+                <UserCheck className="text-primary" size={20} />
                 <div>
                   <h3 className="text-lg font-semibold text-foreground">Recepção de Visitas</h3>
                   <p className="text-sm text-muted-foreground">
-                    Registre as visitas dos clientes que passaram na recepção
+                    {visitas.length} {visitas.length === 1 ? 'visita registrada' : 'visitas registradas'}
                   </p>
                 </div>
               </div>
@@ -763,6 +769,7 @@ const Prospeccao = () => {
               <RecepcaoTable 
                 visitas={visitas} 
                 onDelete={excluirVisita}
+                searchFilter={recepcaoSearchFilter}
               />
             )}
           </Card>

@@ -8,14 +8,37 @@ import { ptBR } from "date-fns/locale";
 interface RecepcaoTableProps {
   visitas: RecepcaoVisita[];
   onDelete: (visitaId: string) => void;
+  searchFilter?: string;
 }
 
-export const RecepcaoTable = ({ visitas, onDelete }: RecepcaoTableProps) => {
-  if (visitas.length === 0) {
+export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: RecepcaoTableProps) => {
+  // Filtrar visitas baseado no searchFilter
+  const visitasFiltradas = visitas.filter(visita => {
+    if (!searchFilter) return true;
+    
+    const searchLower = searchFilter.toLowerCase();
+    return (
+      visita.nome_cliente.toLowerCase().includes(searchLower) ||
+      visita.telefone_cliente.includes(searchLower) ||
+      visita.nome_campanha.toLowerCase().includes(searchLower) ||
+      visita.empresa_id.toLowerCase().includes(searchLower)
+    );
+  });
+
+  if (visitasFiltradas.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        <p>Nenhuma visita registrada ainda</p>
-        <p className="text-sm mt-2">Clique em "Registrar Visita" para começar</p>
+        {searchFilter ? (
+          <>
+            <p>Nenhuma visita encontrada</p>
+            <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>
+          </>
+        ) : (
+          <>
+            <p>Nenhuma visita registrada ainda</p>
+            <p className="text-sm mt-2">Clique em "Registrar Visita" para começar</p>
+          </>
+        )}
       </div>
     );
   }
@@ -34,7 +57,7 @@ export const RecepcaoTable = ({ visitas, onDelete }: RecepcaoTableProps) => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {visitas.map((visita) => (
+          {visitasFiltradas.map((visita) => (
             <TableRow key={visita.id}>
               <TableCell className="font-medium">{visita.nome_cliente}</TableCell>
               <TableCell>{visita.telefone_cliente}</TableCell>
