@@ -12,6 +12,7 @@ export interface RecepcaoVisita {
   empresa_id: string;
   data_hora_visita: string;
   created_at: string;
+  id_maia?: string;
 }
 
 export interface NovaVisita {
@@ -19,6 +20,7 @@ export interface NovaVisita {
   telefone_cliente: string;
   nome_campanha: string;
   empresa_id: string;
+  id_maia?: string;
 }
 
 export const useRecepcaoData = () => {

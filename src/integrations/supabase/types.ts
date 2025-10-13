@@ -1283,6 +1283,7 @@ export type Database = {
           data_hora_visita: string
           empresa_id: string
           id: string
+          id_maia: string | null
           nome_campanha: string
           nome_cliente: string
           telefone_cliente: string
@@ -1293,6 +1294,7 @@ export type Database = {
           data_hora_visita?: string
           empresa_id: string
           id?: string
+          id_maia?: string | null
           nome_campanha: string
           nome_cliente: string
           telefone_cliente: string
@@ -1303,6 +1305,7 @@ export type Database = {
           data_hora_visita?: string
           empresa_id?: string
           id?: string
+          id_maia?: string | null
           nome_campanha?: string
           nome_cliente?: string
           telefone_cliente?: string

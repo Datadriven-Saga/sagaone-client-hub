@@ -15,6 +15,7 @@ interface RecepcaoModalProps {
     telefone_cliente?: string;
     nome_campanha?: string;
     empresa_id?: string;
+    id_maia?: string;
   };
 }
 
@@ -25,6 +26,7 @@ export const RecepcaoModal = ({ isOpen, onClose, onSave, initialData }: Recepcao
     telefone_cliente: "",
     nome_campanha: "",
     empresa_id: activeCompany?.id || "",
+    id_maia: "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -35,6 +37,7 @@ export const RecepcaoModal = ({ isOpen, onClose, onSave, initialData }: Recepcao
         telefone_cliente: initialData.telefone_cliente || "",
         nome_campanha: initialData.nome_campanha || "",
         empresa_id: initialData.empresa_id || activeCompany?.id || "",
+        id_maia: initialData.id_maia || "",
       });
     } else if (activeCompany) {
       setFormData(prev => ({ ...prev, empresa_id: activeCompany.id }));
@@ -56,6 +59,7 @@ export const RecepcaoModal = ({ isOpen, onClose, onSave, initialData }: Recepcao
         telefone_cliente: "",
         nome_campanha: "",
         empresa_id: activeCompany?.id || "",
+        id_maia: "",
       });
       
       // Recarregar a página para atualizar o Kanban
@@ -115,6 +119,16 @@ export const RecepcaoModal = ({ isOpen, onClose, onSave, initialData }: Recepcao
                 onChange={(e) => setFormData({ ...formData, empresa_id: e.target.value })}
                 placeholder="ID da empresa"
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="id_maia">ID da Maia</Label>
+              <Input
+                id="id_maia"
+                value={formData.id_maia}
+                onChange={(e) => setFormData({ ...formData, id_maia: e.target.value })}
+                placeholder="ID da Maia"
               />
             </div>
           </div>

@@ -21,7 +21,8 @@ export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: Recepcao
       visita.nome_cliente.toLowerCase().includes(searchLower) ||
       visita.telefone_cliente.includes(searchLower) ||
       visita.nome_campanha.toLowerCase().includes(searchLower) ||
-      visita.empresa_id.toLowerCase().includes(searchLower)
+      visita.empresa_id.toLowerCase().includes(searchLower) ||
+      (visita.id_maia && visita.id_maia.toLowerCase().includes(searchLower))
     );
   });
 
@@ -52,6 +53,7 @@ export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: Recepcao
             <TableHead>Telefone</TableHead>
             <TableHead>Campanha</TableHead>
             <TableHead>ID da Empresa</TableHead>
+            <TableHead>ID da Maia</TableHead>
             <TableHead>Data/Hora da Visita</TableHead>
             <TableHead className="w-[100px]">Ações</TableHead>
           </TableRow>
@@ -63,6 +65,7 @@ export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: Recepcao
               <TableCell>{visita.telefone_cliente}</TableCell>
               <TableCell>{visita.nome_campanha}</TableCell>
               <TableCell className="font-mono text-sm">{visita.empresa_id}</TableCell>
+              <TableCell className="font-mono text-sm">{visita.id_maia || "-"}</TableCell>
               <TableCell>
                 {format(new Date(visita.data_hora_visita), "dd/MM/yyyy HH:mm", { locale: ptBR })}
               </TableCell>
