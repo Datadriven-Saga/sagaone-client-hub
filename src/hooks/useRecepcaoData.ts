@@ -60,6 +60,7 @@ export const useRecepcaoData = () => {
 
   const adicionarVisita = async (novaVisita: NovaVisita): Promise<void> => {
     try {
+      // 1. Inserir a visita na tabela recepcao_visitas
       const { data, error } = await supabase
         .from("recepcao_visitas")
         .insert([novaVisita])
@@ -68,10 +69,49 @@ export const useRecepcaoData = () => {
 
       if (error) throw error;
 
-      toast({
-        title: "Visita registrada",
-        description: "A visita foi registrada com sucesso.",
-      });
+      // 2. Buscar contato existente com o mesmo telefone
+      const { data: contatosExistentes, error: searchError } = await supabase
+        .from("contatos")
+        .select("id, status")
+        .eq("empresa_id", novaVisita.empresa_id)
+        .eq("telefone", novaVisita.telefone_cliente);
+
+      if (searchError) throw searchError;
+
+      if (contatosExistentes && contatosExistentes.length > 0) {
+        // 3a. Se existe, atualizar status para Check-in
+        const contatoId = contatosExistentes[0].id;
+        const { error: updateError } = await supabase
+          .from("contatos")
+          .update({ status: "Check-in", updated_at: new Date().toISOString() })
+          .eq("id", contatoId);
+
+        if (updateError) throw updateError;
+
+        toast({
+          title: "Visita registrada",
+          description: "Cliente movido para Check-in no Kanban.",
+        });
+      } else {
+        // 3b. Se não existe, criar novo contato com status Check-in
+        const { error: insertError } = await supabase
+          .from("contatos")
+          .insert([{
+            nome: novaVisita.nome_cliente,
+            telefone: novaVisita.telefone_cliente,
+            empresa_id: novaVisita.empresa_id,
+            status: "Check-in",
+            origem: "Recepção",
+            observacoes: `Visita registrada via recepção - Campanha: ${novaVisita.nome_campanha}`
+          }]);
+
+        if (insertError) throw insertError;
+
+        toast({
+          title: "Visita registrada",
+          description: "Novo cliente criado na coluna Check-in do Kanban.",
+        });
+      }
 
       await fetchVisitas();
     } catch (error) {
