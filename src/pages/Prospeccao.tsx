@@ -86,19 +86,51 @@ const Prospeccao = () => {
     const telefone = params.get('telefone');
     const campanha = params.get('campanha');
     const empresaId = params.get('empresa_id');
+    const idMaia = params.get('id_maia');
 
-    if (nome || telefone || campanha || empresaId) {
-      setRecepcaoInitialData({
-        nome_cliente: nome,
-        telefone_cliente: telefone,
-        nome_campanha: campanha,
-        empresa_id: empresaId,
-      });
-      setIsRecepcaoModalOpen(true);
-      
-      // Clean URL parameters
-      window.history.replaceState({}, '', window.location.pathname);
-    }
+    const handleRecepcaoLink = async () => {
+      if (nome || telefone || campanha || empresaId || idMaia) {
+        // Se empresa_id veio na URL, trocar a empresa ativa
+        if (empresaId) {
+          try {
+            const { error } = await supabase.rpc('set_user_active_company', {
+              new_empresa_id: empresaId
+            });
+            
+            if (error) {
+              console.error('Erro ao trocar empresa ativa:', error);
+              toast({
+                title: "Erro ao trocar empresa",
+                description: "Não foi possível trocar para a empresa especificada no link.",
+                variant: "destructive"
+              });
+              return;
+            }
+            
+            // Recarregar a página para aplicar a nova empresa ativa
+            window.location.href = window.location.pathname;
+            return;
+          } catch (err) {
+            console.error('Erro ao processar troca de empresa:', err);
+            return;
+          }
+        }
+        
+        setRecepcaoInitialData({
+          nome_cliente: nome,
+          telefone_cliente: telefone,
+          nome_campanha: campanha,
+          empresa_id: empresaId,
+          id_maia: idMaia,
+        });
+        setIsRecepcaoModalOpen(true);
+        
+        // Clean URL parameters
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    };
+    
+    handleRecepcaoLink();
   }, []);
 
   // Função para registrar movimentações dos contatos
