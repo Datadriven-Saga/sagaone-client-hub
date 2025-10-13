@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,15 +6,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { SalesFunnel, FunnelStage } from "@/components/SalesFunnel";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Target, CheckCircle, Edit, Trash2, MoreVertical } from "lucide-react";
+import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck } from "lucide-react";
 import { FilterBar } from "@/components/FilterBar";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
 import { CriarProspeccaoModal } from "@/components/CriarProspeccaoModal";
 import { ContatoModal } from "@/components/ContatoModal";
+import { RecepcaoModal } from "@/components/RecepcaoModal";
+import { RecepcaoTable } from "@/components/RecepcaoTable";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
 import { useContatoData, kanbanStatusMap, Contato } from "@/hooks/useContatoData";
+import { useRecepcaoData } from "@/hooks/useRecepcaoData";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -43,6 +46,8 @@ const Prospeccao = () => {
     contato: null,
     columnId: undefined
   });
+  const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
+  const [recepcaoInitialData, setRecepcaoInitialData] = useState<any>(null);
   
   // ✅ HOOKS DE CONTEXTO E CUSTOM HOOKS
   const { toast } = useToast();
@@ -63,8 +68,37 @@ const Prospeccao = () => {
     refetch 
   } = useContatoData();
   
+  const { 
+    visitas, 
+    loading: loadingVisitas, 
+    adicionarVisita, 
+    excluirVisita 
+  } = useRecepcaoData();
+  
   console.log('🔑 User from auth:', user);
   console.log('📊 Data from hooks - contatos:', contatos?.length, 'prospeccoes:', prospeccoes?.length, 'loading:', loading);
+
+  // Check URL parameters for recepcao auto-fill
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const nome = params.get('nome');
+    const telefone = params.get('telefone');
+    const campanha = params.get('campanha');
+    const empresaId = params.get('empresa_id');
+
+    if (nome || telefone || campanha || empresaId) {
+      setRecepcaoInitialData({
+        nome_cliente: nome,
+        telefone_cliente: telefone,
+        nome_campanha: campanha,
+        empresa_id: empresaId,
+      });
+      setIsRecepcaoModalOpen(true);
+      
+      // Clean URL parameters
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
@@ -475,6 +509,7 @@ const Prospeccao = () => {
           <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
           <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
+          <TabsTrigger value="recepcao">Recepção</TabsTrigger>
         </TabsList>
 
         <TabsContent value="visao-geral" className="space-y-3">
@@ -697,6 +732,41 @@ const Prospeccao = () => {
             />
           </div>
         </TabsContent>
+
+        <TabsContent value="recepcao" className="space-y-4">
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <UserCheck className="text-primary" size={24} />
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Recepção de Visitas</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Registre as visitas dos clientes que passaram na recepção
+                  </p>
+                </div>
+              </div>
+              <Button 
+                onClick={() => {
+                  setRecepcaoInitialData(null);
+                  setIsRecepcaoModalOpen(true);
+                }}
+              >
+                Registrar Visita
+              </Button>
+            </div>
+
+            {loadingVisitas ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <RecepcaoTable 
+                visitas={visitas} 
+                onDelete={excluirVisita}
+              />
+            )}
+          </Card>
+        </TabsContent>
       </Tabs>
 
       <CriarProspeccaoModal
@@ -747,6 +817,16 @@ const Prospeccao = () => {
             observacoes: 'Adicionado via Kanban'
           }]);
         }}
+      />
+
+      <RecepcaoModal
+        isOpen={isRecepcaoModalOpen}
+        onClose={() => {
+          setIsRecepcaoModalOpen(false);
+          setRecepcaoInitialData(null);
+        }}
+        onSave={adicionarVisita}
+        initialData={recepcaoInitialData}
       />
     </DashboardLayout>
   );
