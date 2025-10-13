@@ -48,13 +48,8 @@ const Prospeccao = () => {
     columnId: undefined
   });
   const [activeTab, setActiveTab] = useState(() => {
-    // Restaurar aba ativa do sessionStorage se houver
     const savedTab = sessionStorage.getItem('prospeccao_active_tab');
-    if (savedTab) {
-      sessionStorage.removeItem('prospeccao_active_tab');
-      return savedTab;
-    }
-    return 'visao-geral';
+    return savedTab || 'visao-geral';
   });
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [recepcaoInitialData, setRecepcaoInitialData] = useState<any>(null);
@@ -89,6 +84,18 @@ const Prospeccao = () => {
   
   console.log('🔑 User from auth:', user);
   console.log('📊 Data from hooks - contatos:', contatos?.length, 'prospeccoes:', prospeccoes?.length, 'loading:', loading);
+
+  // Persistir aba ativa
+  useEffect(() => {
+    sessionStorage.setItem('prospeccao_active_tab', activeTab);
+  }, [activeTab]);
+
+  // Garantir que a popup de Recepção mantém a aba correta
+  useEffect(() => {
+    if (isRecepcaoModalOpen && activeTab !== 'recepcao') {
+      setActiveTab('recepcao');
+    }
+  }, [isRecepcaoModalOpen, activeTab]);
 
   // Check URL parameters for recepcao auto-fill
   useEffect(() => {
