@@ -15,6 +15,7 @@ import { ContatoModal } from "@/components/ContatoModal";
 import { RecepcaoModal } from "@/components/RecepcaoModal";
 import { RecepcaoTable } from "@/components/RecepcaoTable";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
 import { useContatoData, kanbanStatusMap, Contato } from "@/hooks/useContatoData";
 import { useRecepcaoData } from "@/hooks/useRecepcaoData";
@@ -53,6 +54,7 @@ const Prospeccao = () => {
   // ✅ HOOKS DE CONTEXTO E CUSTOM HOOKS
   const { toast } = useToast();
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
   const { registrarMovimentacao } = useProspeccaoLogs();
   const { 
     contatos, 
@@ -89,16 +91,41 @@ const Prospeccao = () => {
     const idMaia = params.get('id_maia');
 
     const handleRecepcaoLink = async () => {
+      // Verificar se há dados pendentes no sessionStorage (após reload de troca de empresa)
+      const pendingData = sessionStorage.getItem('recepcao_pending_data');
+      if (pendingData) {
+        const data = JSON.parse(pendingData);
+        sessionStorage.removeItem('recepcao_pending_data');
+        
+        setRecepcaoInitialData({
+          nome_cliente: data.nome,
+          telefone_cliente: data.telefone,
+          nome_campanha: data.campanha,
+          id_maia: data.id_maia,
+        });
+        setIsRecepcaoModalOpen(true);
+        return;
+      }
+
       if (nome || telefone || campanha || empresaId || idMaia) {
-        // Se empresa_id veio na URL, trocar a empresa ativa
-        if (empresaId) {
+        // Se empresa_id veio na URL, salvar dados e trocar a empresa ativa
+        if (empresaId && activeCompany?.id !== empresaId) {
           try {
+            // Salvar dados no sessionStorage antes de recarregar
+            sessionStorage.setItem('recepcao_pending_data', JSON.stringify({
+              nome,
+              telefone,
+              campanha,
+              id_maia: idMaia
+            }));
+
             const { error } = await supabase.rpc('set_user_active_company', {
               new_empresa_id: empresaId
             });
             
             if (error) {
               console.error('Erro ao trocar empresa ativa:', error);
+              sessionStorage.removeItem('recepcao_pending_data');
               toast({
                 title: "Erro ao trocar empresa",
                 description: "Não foi possível trocar para a empresa especificada no link.",
@@ -112,15 +139,16 @@ const Prospeccao = () => {
             return;
           } catch (err) {
             console.error('Erro ao processar troca de empresa:', err);
+            sessionStorage.removeItem('recepcao_pending_data');
             return;
           }
         }
         
+        // Se não precisa trocar empresa, abrir modal diretamente
         setRecepcaoInitialData({
           nome_cliente: nome,
           telefone_cliente: telefone,
           nome_campanha: campanha,
-          empresa_id: empresaId,
           id_maia: idMaia,
         });
         setIsRecepcaoModalOpen(true);
@@ -131,7 +159,7 @@ const Prospeccao = () => {
     };
     
     handleRecepcaoLink();
-  }, []);
+  }, [activeCompany]);
 
   // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
