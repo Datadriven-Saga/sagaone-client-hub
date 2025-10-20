@@ -107,7 +107,7 @@ const Login = () => {
             <img 
               src={sagaOneLogo} 
               alt="Saga One Logo" 
-              className="h-32 w-auto"
+              className="h-96 w-auto"
             />
           </div>
           <h1 className="text-2xl font-bold text-sagaone-dark mb-2">
