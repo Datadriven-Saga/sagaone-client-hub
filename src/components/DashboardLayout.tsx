@@ -17,9 +17,11 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
         <div className="flex-1 flex flex-col">
           {/* Header */}
           <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
-            {title && (
-              <h1 className="text-xl font-semibold text-foreground">{title}</h1>
-            )}
+            <div className="flex-1">
+              {title && (
+                <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+              )}
+            </div>
             
             <UserMenu />
           </header>
