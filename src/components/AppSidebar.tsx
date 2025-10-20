@@ -23,7 +23,7 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
-import sagaxLogo from "@/assets/sagax-logo-menu.png";
+import sagaOneLogo from "@/assets/saga-one-logo.png";
 
 const menuItems = [
   { title: "Página Inicial", url: "/", icon: Home },
@@ -50,9 +50,9 @@ export function AppSidebar() {
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <img 
-            src={sagaxLogo} 
+            src={sagaOneLogo} 
             alt="Saga One Logo" 
-            className="h-10 w-10 flex-shrink-0 object-contain rounded-lg"
+            className="h-10 w-auto flex-shrink-0 object-contain rounded-lg"
           />
           {!isCollapsed && (
             <span className="text-sidebar-foreground font-bold text-lg">
