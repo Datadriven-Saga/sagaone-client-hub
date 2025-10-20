@@ -171,7 +171,7 @@ const Login = () => {
 
               <Button 
                 type="submit" 
-                className="w-full bg-primary hover:bg-primary/90"
+                className="w-full bg-sagaone-login-button hover:bg-sagaone-login-button/90 text-white"
                 disabled={loading}
               >
                 {loading ? "Entrando..." : "Entrar no Sistema"}
@@ -181,7 +181,7 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={openResetDialog}
-                  className="text-sm text-primary hover:underline"
+                  className="text-sm text-sagaone-login-button hover:underline font-medium"
                 >
                   Esqueceu sua senha?
                 </button>

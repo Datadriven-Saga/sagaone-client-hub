@@ -72,7 +72,8 @@ export default {
 					light: 'hsl(var(--sagaone-light))',
 					bg: 'hsl(var(--sagaone-bg))',
 					'login-bg': 'hsl(var(--sagaone-login-bg))',
-					'login-card': 'hsl(var(--sagaone-login-card))'
+					'login-card': 'hsl(var(--sagaone-login-card))',
+					'login-button': 'hsl(var(--sagaone-login-button))'
 				}
 			},
 			backgroundImage: {
