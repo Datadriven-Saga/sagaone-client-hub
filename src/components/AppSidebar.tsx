@@ -50,19 +50,24 @@ export function AppSidebar() {
     >
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 group relative">
             <img 
               src={sagaOneLogo} 
               alt="Saga One Logo" 
-              className="h-12 w-auto flex-shrink-0 object-contain rounded-lg"
+              className={`h-12 w-auto flex-shrink-0 object-contain rounded-lg transition-opacity ${
+                isCollapsed ? 'group-hover:opacity-0' : ''
+              }`}
             />
+            {isCollapsed && (
+              <SidebarTrigger className="h-8 w-8 absolute left-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+            )}
             {!isCollapsed && (
               <span className="text-sidebar-foreground font-bold text-lg">
                 SAGA One
               </span>
             )}
           </div>
-          <SidebarTrigger className="h-8 w-8" />
+          {!isCollapsed && <SidebarTrigger className="h-8 w-8" />}
         </div>
       </SidebarHeader>
 
