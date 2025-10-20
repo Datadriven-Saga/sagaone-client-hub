@@ -103,11 +103,11 @@ const Login = () => {
     <div className="min-h-screen bg-gradient-login flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-block mb-4">
+          <div className="inline-block mb-4 bg-sagaone-login-bg p-4 rounded-lg">
             <img 
               src={sagaOneLogo} 
               alt="SAGA One Logo" 
-              className="h-96 w-auto"
+              className="max-w-md w-full h-auto"
             />
           </div>
           <h1 className="text-2xl font-bold text-sagaone-dark mb-2">
