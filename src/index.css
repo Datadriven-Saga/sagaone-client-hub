@@ -44,6 +44,7 @@
     --sagaone-light: 0 0% 100%; /* #FFFFFF */
     --sagaone-bg: 0 0% 96%; /* #F4F4F4 */
     --sagaone-login-bg: 0 0% 97%; /* #F7F7F7 - Cor de fundo da logo */
+    --sagaone-login-card: 190 97% 43%; /* #04bbda - Cor de fundo do card de login */
 
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--sagaone-primary)), hsl(251 85% 65%));

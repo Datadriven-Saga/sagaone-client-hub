@@ -118,7 +118,7 @@ const Login = () => {
           </p>
         </div>
 
-        <Card className="shadow-card border-0">
+        <Card className="shadow-card border-0 bg-sagaone-login-card">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center font-medium">
               Faça seu login
