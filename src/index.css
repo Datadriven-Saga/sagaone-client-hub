@@ -2,11 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* SAGA X Design System - All colors must be HSL */
+/* Saga One Design System - All colors must be HSL */
 
 @layer base {
   :root {
-    /* SAGA X Color Palette - HSL values */
+    /* Saga One Color Palette - HSL values */
     --background: 0 0% 96%; /* #F4F4F4 */
     --foreground: 240 55% 12%; /* #130D30 */
     --card: 0 0% 100%; /* #FFFFFF */
@@ -38,9 +38,9 @@
     --sidebar-border: 240 50% 15%;
     --sidebar-ring: 251 79% 58%;
 
-    /* SAGA X specific design tokens */
-    --sagax-primary: 251 79% 58%; /* #6645EB */
-    --sagax-dark: 240 55% 12%; /* #130D30 */
+    /* Saga One specific design tokens */
+    --sagaone-primary: 251 79% 58%; /* #6645EB */
+    --sagaone-dark: 240 55% 12%; /* #130D30 */
     --sagax-light: 0 0% 100%; /* #FFFFFF */
     --sagax-bg: 0 0% 96%; /* #F4F4F4 */
 

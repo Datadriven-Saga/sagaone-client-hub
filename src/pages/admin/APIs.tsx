@@ -91,7 +91,7 @@ const APIs = () => {
               Integrações Externas
             </CardTitle>
             <CardDescription>
-              APIs conectadas ao sistema SAGA X
+              APIs conectadas ao sistema Saga One
             </CardDescription>
           </CardHeader>
           <CardContent>

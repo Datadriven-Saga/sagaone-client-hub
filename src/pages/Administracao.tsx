@@ -105,7 +105,7 @@ const Administracao = () => {
             Administração
           </h1>
           <p className="text-muted-foreground">
-            Gerencie configurações avançadas do sistema SAGA X
+            Gerencie configurações avançadas do sistema Saga One
           </p>
         </div>
 

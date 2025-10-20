@@ -106,12 +106,12 @@ const Login = () => {
           <div className="inline-block mb-4">
             <img 
               src={sagaxLogo} 
-              alt="SAGA X Logo" 
+              alt="Saga One Logo" 
               className="h-24 w-24 rounded-2xl"
             />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">
-            Bem-vindo ao SAGA X
+            Bem-vindo ao Saga One
           </h1>
           <p className="text-white/80">
             Sistema de CRM e Prospecção de Clientes
@@ -238,7 +238,7 @@ const Login = () => {
         </Dialog>
 
         <p className="text-center text-white/60 text-sm mt-6">
-          © 2024 SAGA X. Todos os direitos reservados.
+          © 2024 Saga One. Todos os direitos reservados.
         </p>
       </div>
     </div>

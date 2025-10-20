@@ -51,12 +51,12 @@ export function AppSidebar() {
         <div className="flex items-center gap-3">
           <img 
             src={sagaxLogo} 
-            alt="SAGA X Logo" 
+            alt="Saga One Logo" 
             className="h-10 w-10 flex-shrink-0 object-contain rounded-lg"
           />
           {!isCollapsed && (
             <span className="text-sidebar-foreground font-bold text-lg">
-              SAGA X
+              Saga One
             </span>
           )}
         </div>
