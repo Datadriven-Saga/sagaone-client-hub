@@ -21,6 +21,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import sagaOneLogo from "@/assets/saga-one-menu-logo.png";
@@ -48,17 +49,20 @@ export function AppSidebar() {
       collapsible="icon"
     >
       <SidebarHeader className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <img 
-            src={sagaOneLogo} 
-            alt="Saga One Logo" 
-            className="h-12 w-auto flex-shrink-0 object-contain rounded-lg"
-          />
-          {!isCollapsed && (
-            <span className="text-sidebar-foreground font-bold text-lg">
-              SAGA One
-            </span>
-          )}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <img 
+              src={sagaOneLogo} 
+              alt="Saga One Logo" 
+              className="h-12 w-auto flex-shrink-0 object-contain rounded-lg"
+            />
+            {!isCollapsed && (
+              <span className="text-sidebar-foreground font-bold text-lg">
+                SAGA One
+              </span>
+            )}
+          </div>
+          <SidebarTrigger className="h-8 w-8" />
         </div>
       </SidebarHeader>
 
