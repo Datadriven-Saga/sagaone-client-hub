@@ -44,7 +44,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className="transition-all duration-300"
+      className="transition-all duration-300 data-[state=expanded]:w-[12.8rem] data-[state=collapsed]:w-[3.2rem]"
       collapsible="icon"
     >
       <SidebarHeader className="p-4 border-b border-sidebar-border">
