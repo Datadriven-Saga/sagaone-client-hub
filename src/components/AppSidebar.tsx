@@ -73,10 +73,10 @@ export function AppSidebar() {
                       to={item.url} 
                       end
                       className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
+                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                           isActive 
                             ? "bg-sidebar-accent text-sidebar-accent-foreground" 
-                            : "hover:bg-[#ffffff] hover:scale-105 text-sidebar-foreground hover:text-white"
+                            : "hover:bg-sidebar-accent/50 text-sidebar-foreground hover:text-sidebar-accent-foreground"
                         }`
                       }
                     >
