@@ -110,12 +110,6 @@ const Login = () => {
               className="max-w-md w-full h-auto"
             />
           </div>
-          <h1 className="text-2xl font-bold text-sagaone-dark mb-2">
-            Bem-vindo ao SAGA One
-          </h1>
-          <p className="text-foreground/70">
-            Sistema de CRM e Prospecção de Clientes
-          </p>
         </div>
 
         <Card className="shadow-card border-0 bg-sagaone-login-card">
