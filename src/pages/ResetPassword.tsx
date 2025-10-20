@@ -95,7 +95,7 @@ const ResetPassword = () => {
           <div className="bg-primary/20 backdrop-blur-sm p-4 rounded-2xl inline-block mb-4">
             <img 
               src={sagaOneLogo} 
-              alt="Saga One Logo" 
+              alt="SAGA One Logo" 
               className="h-24 w-auto"
             />
           </div>
@@ -189,7 +189,7 @@ const ResetPassword = () => {
         </Card>
 
         <p className="text-center text-foreground/60 text-sm mt-6">
-          © 2024 Saga One. Todos os direitos reservados.
+          © 2024 SAGA One. Todos os direitos reservados.
         </p>
       </div>
     </div>
