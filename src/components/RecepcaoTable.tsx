@@ -74,7 +74,7 @@ export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: Recepcao
                   variant="ghost"
                   size="sm"
                   onClick={() => onDelete(visita.id)}
-                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
                 >
                   <Trash2 size={16} />
                 </Button>
