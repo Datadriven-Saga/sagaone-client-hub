@@ -23,7 +23,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import sagaOneLogo from "@/assets/saga-one-menu-logo.png";
+import sagaOneLogo from "@/assets/saga-one-logo.png";
 
 const menuItems = [
   { title: "Página Inicial", url: "/", icon: Home },
@@ -56,18 +56,13 @@ export function AppSidebar() {
                 className={`object-contain rounded-lg transition-all ${
                   isCollapsed 
                     ? 'w-5 h-5 group-hover:opacity-0' 
-                    : 'w-auto h-12'
+                    : 'w-auto h-12 rounded-lg'
                 }`}
               />
               {isCollapsed && (
                 <SidebarTrigger className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity absolute" />
               )}
             </div>
-            {!isCollapsed && (
-              <span className="text-sidebar-foreground font-bold text-lg">
-                SAGA One
-              </span>
-            )}
           </div>
           {!isCollapsed && <SidebarTrigger className="h-8 w-8" />}
         </div>
