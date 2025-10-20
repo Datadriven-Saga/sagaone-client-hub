@@ -46,17 +46,17 @@ export function AppSidebar() {
       className="transition-all duration-300"
       collapsible="icon"
     >
-      <SidebarHeader className="p-4 border-b border-sidebar-border">
+      <SidebarHeader className="p-0 border-b border-sidebar-border">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 group relative">
-            <div className={`relative flex items-center justify-center ${isCollapsed ? 'w-5 h-5' : 'w-24 h-24'}`}>
+            <div className={`relative flex items-center justify-center ${isCollapsed ? 'w-5 h-5' : 'w-32 h-32'}`}>
               <img 
                 src={sagaOneLogo} 
                 alt="Saga One Logo" 
                 className={`object-contain rounded-lg transition-all ${
                   isCollapsed 
                     ? 'w-5 h-5 group-hover:opacity-0' 
-                    : 'w-auto h-24 rounded-lg'
+                    : 'w-auto h-32 rounded-lg'
                 }`}
               />
               {isCollapsed && (
