@@ -23,7 +23,6 @@ import Configuracoes from "./pages/Configuracoes";
 import MinhaConta from "./pages/MinhaConta";
 import Ajuda from "./pages/Ajuda";
 import AgentesIA from "./pages/AgentesIA";
-import ControleOptOut from "./pages/ControleOptOut";
 import NotFound from "./pages/NotFound";
 
 // Admin page imports
@@ -58,7 +57,6 @@ const App = () => (
               <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
               <Route path="/gatilhos" element={<ProtectedRoute><Gatilhos /></ProtectedRoute>} />
               <Route path="/agentes-ia" element={<ProtectedRoute><AgentesIA /></ProtectedRoute>} />
-              <Route path="/controle-opt-out" element={<ProtectedRoute><ControleOptOut /></ProtectedRoute>} />
               <Route path="/administracao" element={<ProtectedRoute><Administracao /></ProtectedRoute>} />
               <Route path="/administracao/empresas" element={<ProtectedRoute><Empresas /></ProtectedRoute>} />
               <Route path="/administracao/acessos" element={<ProtectedRoute><Acessos /></ProtectedRoute>} />
