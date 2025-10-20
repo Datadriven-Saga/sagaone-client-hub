@@ -7,7 +7,7 @@ import { Eye, EyeOff, Lock } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import sagaxLogo from "@/assets/sagax-logo.png";
+import sagaOneLogo from "@/assets/saga-one-logo.png";
 
 const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -89,20 +89,20 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-login flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="bg-primary/20 backdrop-blur-sm p-4 rounded-2xl inline-block mb-4">
             <img 
-              src={sagaxLogo} 
+              src={sagaOneLogo} 
               alt="Saga One Logo" 
-              className="h-16 w-16"
+              className="h-24 w-auto"
             />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">
+          <h1 className="text-2xl font-bold text-sagaone-dark mb-2">
             Redefinir Senha
           </h1>
-          <p className="text-white/80">
+          <p className="text-foreground/70">
             Digite sua nova senha
           </p>
         </div>
@@ -188,7 +188,7 @@ const ResetPassword = () => {
           </CardContent>
         </Card>
 
-        <p className="text-center text-white/60 text-sm mt-6">
+        <p className="text-center text-foreground/60 text-sm mt-6">
           © 2024 Saga One. Todos os direitos reservados.
         </p>
       </div>

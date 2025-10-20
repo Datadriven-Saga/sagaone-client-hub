@@ -8,7 +8,7 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
-import sagaxLogo from "@/assets/sagax-logo-home.png";
+import sagaOneLogo from "@/assets/saga-one-logo.png";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -100,20 +100,20 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-login flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-block mb-4">
             <img 
-              src={sagaxLogo} 
+              src={sagaOneLogo} 
               alt="Saga One Logo" 
-              className="h-24 w-24 rounded-2xl"
+              className="h-32 w-auto"
             />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">
+          <h1 className="text-2xl font-bold text-sagaone-dark mb-2">
             Bem-vindo ao Saga One
           </h1>
-          <p className="text-white/80">
+          <p className="text-foreground/70">
             Sistema de CRM e Prospecção de Clientes
           </p>
         </div>
@@ -237,7 +237,7 @@ const Login = () => {
           </DialogContent>
         </Dialog>
 
-        <p className="text-center text-white/60 text-sm mt-6">
+        <p className="text-center text-foreground/60 text-sm mt-6">
           © 2024 Saga One. Todos os direitos reservados.
         </p>
       </div>

@@ -66,16 +66,18 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				sagax: {
-					primary: 'hsl(var(--sagax-primary))',
-					dark: 'hsl(var(--sagax-dark))',
-					light: 'hsl(var(--sagax-light))',
-					bg: 'hsl(var(--sagax-bg))'
+				sagaone: {
+					primary: 'hsl(var(--sagaone-primary))',
+					dark: 'hsl(var(--sagaone-dark))',
+					light: 'hsl(var(--sagaone-light))',
+					bg: 'hsl(var(--sagaone-bg))',
+					'login-bg': 'hsl(var(--sagaone-login-bg))'
 				}
 			},
 			backgroundImage: {
 				'gradient-primary': 'var(--gradient-primary)',
-				'gradient-dark': 'var(--gradient-dark)'
+				'gradient-dark': 'var(--gradient-dark)',
+				'gradient-login': 'var(--gradient-login)'
 			},
 			boxShadow: {
 				'primary': 'var(--shadow-primary)',
