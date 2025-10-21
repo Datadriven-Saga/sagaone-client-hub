@@ -13,33 +13,33 @@
     --card-foreground: 240 55% 12%; /* #130D30 */
     --popover: 0 0% 100%;
     --popover-foreground: 240 55% 12%;
-    --primary: 190 91% 44%; /* #0ab9d8 */
+    --primary: 210 64% 16%; /* #0f2a45 */
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96%;
     --secondary-foreground: 240 55% 12%;
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 45%;
-    --accent: 190 91% 44%; /* #0ab9d8 */
+    --accent: 210 64% 16%; /* #0f2a45 */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 90%;
     --input: 0 0% 95%;
-    --ring: 190 91% 44%; /* #0ab9d8 */
+    --ring: 210 64% 16%; /* #0f2a45 */
     --radius: 0.5rem;
 
     /* Sidebar colors */
     --sidebar-background: 210 67% 16%; /* #0d2b47 */
     --sidebar-foreground: 0 0% 100%; /* #FFFFFF */
-    --sidebar-primary: 190 91% 44%; /* #0ab9d8 */
+    --sidebar-primary: 210 64% 16%; /* #0f2a45 */
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 50% 18%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 240 50% 15%;
-    --sidebar-ring: 190 91% 44%; /* #0ab9d8 */
+    --sidebar-ring: 210 64% 16%; /* #0f2a45 */
 
     /* Saga One specific design tokens */
-    --sagaone-primary: 190 91% 44%; /* #0ab9d8 */
+    --sagaone-primary: 210 64% 16%; /* #0f2a45 */
     --sagaone-dark: 240 55% 12%; /* #130D30 */
     --sagaone-light: 0 0% 100%; /* #FFFFFF */
     --sagaone-bg: 0 0% 96%; /* #F4F4F4 */
@@ -67,7 +67,7 @@
     --card-foreground: 0 0% 100%;
     --popover: 240 50% 15%;
     --popover-foreground: 0 0% 100%;
-    --primary: 190 91% 44%; /* #0ab9d8 */
+    --primary: 210 64% 16%; /* #0f2a45 */
     --primary-foreground: 0 0% 100%;
     --secondary: 240 50% 18%;
     --secondary-foreground: 0 0% 100%;
@@ -79,15 +79,15 @@
     --destructive-foreground: 0 0% 100%;
     --border: 240 50% 20%;
     --input: 240 50% 18%;
-    --ring: 190 91% 44%; /* #0ab9d8 */
+    --ring: 210 64% 16%; /* #0f2a45 */
     --sidebar-background: 210 67% 16%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 190 91% 44%; /* #0ab9d8 */
+    --sidebar-primary: 210 64% 16%; /* #0f2a45 */
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 50% 18%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 240 50% 15%;
-    --sidebar-ring: 190 91% 44%; /* #0ab9d8 */
+    --sidebar-ring: 210 64% 16%; /* #0f2a45 */
   }
 }
 
