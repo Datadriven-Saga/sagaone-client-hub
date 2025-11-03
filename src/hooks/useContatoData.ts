@@ -256,7 +256,7 @@ export const useContatoData = () => {
         // Buscar dados da prospecção para incluir no webhook
         const { data: prospeccaoData } = await supabase
           .from('prospeccoes')
-          .select('id, titulo, data_inicio, data_fim, local_evento, condicoes_especiais')
+          .select('id, titulo, data_inicio, data_fim')
           .eq('id', prospeccaoId)
           .single();
         
@@ -281,9 +281,7 @@ export const useContatoData = () => {
                     id: prospeccaoData?.id,
                     nome: prospeccaoData?.titulo,
                     data_inicio: prospeccaoData?.data_inicio,
-                    data_fim: prospeccaoData?.data_fim,
-                    local_evento: prospeccaoData?.local_evento,
-                    condicoes_especiais: prospeccaoData?.condicoes_especiais
+                    data_fim: prospeccaoData?.data_fim
                   }
                 }
               }

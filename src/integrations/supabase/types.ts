@@ -1198,7 +1198,6 @@ export type Database = {
       prospeccoes: {
         Row: {
           canal: string
-          condicoes_especiais: string | null
           created_at: string | null
           data_fim: string | null
           data_inicio: string | null
@@ -1207,17 +1206,17 @@ export type Database = {
           id: string
           imagem_divulgacao_url: string | null
           leads_gerados: number | null
-          local_evento: string | null
           meta_leads: number | null
-          objetivo_vendas: string | null
           persona_id: string | null
           responsavel_id: string | null
+          template_agendado: string | null
+          template_nao_agendado: string | null
+          template_prospeccao: string | null
           titulo: string
           updated_at: string | null
         }
         Insert: {
           canal?: string
-          condicoes_especiais?: string | null
           created_at?: string | null
           data_fim?: string | null
           data_inicio?: string | null
@@ -1226,17 +1225,17 @@ export type Database = {
           id?: string
           imagem_divulgacao_url?: string | null
           leads_gerados?: number | null
-          local_evento?: string | null
           meta_leads?: number | null
-          objetivo_vendas?: string | null
           persona_id?: string | null
           responsavel_id?: string | null
+          template_agendado?: string | null
+          template_nao_agendado?: string | null
+          template_prospeccao?: string | null
           titulo: string
           updated_at?: string | null
         }
         Update: {
           canal?: string
-          condicoes_especiais?: string | null
           created_at?: string | null
           data_fim?: string | null
           data_inicio?: string | null
@@ -1245,11 +1244,12 @@ export type Database = {
           id?: string
           imagem_divulgacao_url?: string | null
           leads_gerados?: number | null
-          local_evento?: string | null
           meta_leads?: number | null
-          objetivo_vendas?: string | null
           persona_id?: string | null
           responsavel_id?: string | null
+          template_agendado?: string | null
+          template_nao_agendado?: string | null
+          template_prospeccao?: string | null
           titulo?: string
           updated_at?: string | null
         }
@@ -1502,14 +1502,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      can_manage_users: {
-        Args: { user_id?: string }
-        Returns: boolean
-      }
-      check_password_protection_status: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      can_manage_users: { Args: { user_id?: string }; Returns: boolean }
+      check_password_protection_status: { Args: never; Returns: string }
       check_user_email_exists: {
         Args: { email_to_check: string }
         Returns: boolean
@@ -1527,13 +1521,10 @@ export type Database = {
         Returns: string
       }
       get_current_user_access_type: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: Database["public"]["Enums"]["tipo_acesso"]
       }
-      get_current_user_email: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_current_user_email: { Args: never; Returns: string }
       get_owned_companies: {
         Args: { user_id?: string }
         Returns: {
@@ -1550,10 +1541,7 @@ export type Database = {
         Args: { user_id_param?: string }
         Returns: string
       }
-      is_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      is_admin: { Args: never; Returns: boolean }
       is_company_owner: {
         Args: { company_id: string; user_id?: string }
         Returns: boolean
@@ -1566,10 +1554,7 @@ export type Database = {
         }
         Returns: string
       }
-      normalize_phone_e164: {
-        Args: { phone_input: string }
-        Returns: string
-      }
+      normalize_phone_e164: { Args: { phone_input: string }; Returns: string }
       set_user_active_company: {
         Args: { new_empresa_id: string }
         Returns: undefined
