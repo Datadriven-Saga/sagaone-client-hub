@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FileText } from "lucide-react";
 
 interface CriarProspeccaoModalProps {
   isOpen: boolean;
@@ -223,6 +224,25 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
 
+  const aplicarModeloDescricao = () => {
+    const modeloDescricao = `🚗 MEGA FEIRÃO PRIMEIRA MÃO!
+O maior feirão de seminovos da Saga está de volta com condições imperdíveis!
+
+✨ Destaques:
+• Centenas de veículos disponíveis
+• Taxas especiais de financiamento
+• Avaliação do seu usado na hora
+• Equipe especializada para atendimento
+
+📅 Não perca essa oportunidade!`;
+    
+    setDescricao(modeloDescricao);
+    toast({
+      title: "Modelo aplicado",
+      description: "Descrição padrão foi inserida no campo"
+    });
+  };
+
   const handleCancel = () => {
     clearForm();
     onOpenChange(false);
@@ -250,7 +270,19 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           </div>
 
           <div>
-            <Label htmlFor="descricao">Descrição</Label>
+            <div className="flex items-center justify-between mb-2">
+              <Label htmlFor="descricao">Descrição</Label>
+              <Button 
+                type="button" 
+                variant="ghost" 
+                size="sm"
+                className="h-auto py-1 px-2 text-xs"
+                onClick={aplicarModeloDescricao}
+              >
+                <FileText className="h-3 w-3 mr-1" />
+                Aplicar modelo
+              </Button>
+            </div>
             <Textarea
               id="descricao"
               placeholder="Descrição da campanha..."
