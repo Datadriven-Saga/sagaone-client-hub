@@ -191,11 +191,32 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         .eq('nome', 'Pri')
         .single();
 
+      // Formatar telefone: remover +55 e o 9 adicional, deixar apenas DD + número
+      const formatarTelefone = (telefone: string) => {
+        if (!telefone) return "";
+        // Remove todos os caracteres não numéricos
+        const numeros = telefone.replace(/\D/g, '');
+        // Remove o código do país (55) se existir
+        let telefoneFormatado = numeros.startsWith('55') ? numeros.substring(2) : numeros;
+        // Se tiver 11 dígitos (DD + 9 + 8 dígitos), remove o 9
+        if (telefoneFormatado.length === 11) {
+          telefoneFormatado = telefoneFormatado.substring(0, 2) + telefoneFormatado.substring(3);
+        }
+        return telefoneFormatado;
+      };
+
+      // Formatar data para ISO 8601
+      const formatarDataISO = (data: string) => {
+        if (!data) return "";
+        // Converte YYYY-MM-DD para ISO 8601
+        return new Date(data + 'T11:00:00.000Z').toISOString();
+      };
+
       const webhookPayload = {
-        maia_id: agenteData?.telefone || "",
+        maia_id: formatarTelefone(agenteData?.telefone || ""),
         nome_evento: prospeccaoData.titulo || "",
-        data_inicio: prospeccaoData.data_inicio || "",
-        data_fim: prospeccaoData.data_fim || "",
+        data_inicio: formatarDataISO(prospeccaoData.data_inicio || ""),
+        data_fim: formatarDataISO(prospeccaoData.data_fim || ""),
         descricao: prospeccaoData.descricao || "",
         dealerid: empresaData?.crm_id || "",
         template_descoberta: prospeccaoData.template_prospeccao || "",
