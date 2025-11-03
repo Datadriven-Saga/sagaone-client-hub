@@ -24,7 +24,7 @@ type StatusUsuario = Database["public"]["Enums"]["status_usuario"];
 const userSchema = z.object({
   nome_completo: z.string().min(1, "Nome é obrigatório"),
   email: z.string().email("Email inválido"),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").optional(),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").optional().or(z.literal("")),
   tipo_acesso: z.enum(["SDR", "Gerente de Leads", "Vendedor", "Gerente de Loja", "Busca", "Diretor", "Outros", "TI", "Administrador", "Proprietário"]),
   departamento: z.string().optional(),
   celular: z.string().optional(),
@@ -203,18 +203,25 @@ const Acessos = () => {
 
     setSubmitting(true);
     try {
+      const updatePayload: any = {
+        action: 'update_user',
+        user_id: editingUser.id,
+        nome_completo: data.nome_completo,
+        tipo_acesso: data.tipo_acesso,
+        departamento: data.departamento,
+        celular: data.celular,
+        cpf: data.cpf,
+        status: data.status,
+        empresas: data.empresas
+      };
+
+      // Only include password if provided
+      if (data.password && data.password.trim() !== "") {
+        updatePayload.password = data.password;
+      }
+
       const { data: result, error } = await supabase.functions.invoke('manage-users', {
-        body: {
-          action: 'update_user',
-          user_id: editingUser.id,
-          nome_completo: data.nome_completo,
-          tipo_acesso: data.tipo_acesso,
-          departamento: data.departamento,
-          celular: data.celular,
-          cpf: data.cpf,
-          status: data.status,
-          empresas: data.empresas
-        }
+        body: updatePayload
       });
 
       if (error) throw error;
@@ -358,36 +365,40 @@ const Acessos = () => {
                     />
                     
                     {!editingUser && (
-                      <>
-                        <FormField
-                          control={form.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Email *</FormLabel>
-                              <FormControl>
-                                <Input type="email" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="password"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Senha *</FormLabel>
-                              <FormControl>
-                                <Input type="password" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </>
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email *</FormLabel>
+                            <FormControl>
+                              <Input type="email" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
+                    
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            {editingUser ? "Nova Senha (deixe em branco para não alterar)" : "Senha *"}
+                          </FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="password" 
+                              placeholder={editingUser ? "Digite apenas se quiser alterar" : ""}
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     
                     <FormField
                       control={form.control}

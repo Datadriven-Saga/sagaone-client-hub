@@ -307,7 +307,7 @@ serve(async (req) => {
       }
 
       case 'update_user': {
-        const { user_id, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresas } = payload;
+        const { user_id, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresas, password } = payload;
 
         if (!user_id) {
           throw new Error('User ID is required');
@@ -391,15 +391,22 @@ serve(async (req) => {
           }
         }
 
-        // Also update the user metadata
+        // Update user metadata and password if provided
+        const authUpdateData: any = {
+          user_metadata: {
+            nome_completo,
+            full_name: nome_completo
+          }
+        };
+
+        // Include password update if provided
+        if (password && password.trim() !== '') {
+          authUpdateData.password = password;
+        }
+
         const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
           user_id,
-          {
-            user_metadata: {
-              nome_completo,
-              full_name: nome_completo
-            }
-          }
+          authUpdateData
         );
 
         if (authUpdateError) {
