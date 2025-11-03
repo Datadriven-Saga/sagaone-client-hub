@@ -23,9 +23,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [descricao, setDescricao] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
-  const [localEvento, setLocalEvento] = useState("");
-  const [condicoesEspeciais, setCondicoesEspeciais] = useState("");
-  const [objetivoVendas, setObjetivoVendas] = useState("");
+  const [templateProspeccao, setTemplateProspeccao] = useState("");
+  const [templateAgendado, setTemplateAgendado] = useState("");
+  const [templateNaoAgendado, setTemplateNaoAgendado] = useState("");
   const [imagemDivulgacao, setImagemDivulgacao] = useState("");
   const [canal, setCanal] = useState<'Whatsapp' | 'Ligação'>('Whatsapp');
   
@@ -40,9 +40,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       setDescricao(editingProspeccao.descricao || "");
       setDataInicio(editingProspeccao.data_inicio || "");
       setDataFim(editingProspeccao.data_fim || "");
-      setLocalEvento(editingProspeccao.local_evento || "");
-      setCondicoesEspeciais(editingProspeccao.condicoes_especiais || "");
-      setObjetivoVendas(editingProspeccao.objetivo_vendas || "");
+      setTemplateProspeccao(editingProspeccao.template_prospeccao || "");
+      setTemplateAgendado(editingProspeccao.template_agendado || "");
+      setTemplateNaoAgendado(editingProspeccao.template_nao_agendado || "");
       setImagemDivulgacao(editingProspeccao.imagem_divulgacao_url || "");
       setCanal(editingProspeccao.canal || 'Whatsapp');
     } else if (!editingProspeccao && isOpen) {
@@ -56,9 +56,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setDescricao("");
     setDataInicio("");
     setDataFim("");
-    setLocalEvento("");
-    setCondicoesEspeciais("");
-    setObjetivoVendas("");
+    setTemplateProspeccao("");
+    setTemplateAgendado("");
+    setTemplateNaoAgendado("");
     setImagemDivulgacao("");
     setCanal('Whatsapp');
   };
@@ -92,9 +92,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         descricao: descricao.trim() || null,
         data_inicio: dataInicio || null,
         data_fim: dataFim || null,
-        local_evento: localEvento.trim() || null,
-        condicoes_especiais: condicoesEspeciais.trim() || null,
-        objetivo_vendas: objetivoVendas.trim() || null,
+        template_prospeccao: templateProspeccao.trim() || null,
+        template_agendado: templateAgendado.trim() || null,
+        template_nao_agendado: templateNaoAgendado.trim() || null,
         imagem_divulgacao_url: imagemDivulgacao.trim() || null,
         canal: canal,
       };
@@ -112,6 +112,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           console.error('Erro do Supabase:', error);
           throw error;
         }
+
+        // Chamar webhook após atualização
+        await callWebhook(data);
 
         toast({
           title: "Sucesso",
@@ -144,6 +147,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           throw error;
         }
 
+        // Chamar webhook após criação
+        await callWebhook(data);
+
         toast({
           title: "Sucesso",
           description: "Prospecção criada com sucesso!"
@@ -164,6 +170,56 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const callWebhook = async (prospeccaoData: any) => {
+    try {
+      // Buscar dados da empresa para pegar o crm_id e telefone da Pri
+      const { data: empresaData } = await supabase
+        .from('empresas')
+        .select('crm_id')
+        .eq('id', activeCompany?.id)
+        .single();
+
+      // Buscar telefone do agente IA (Pri) da empresa
+      const { data: agenteData } = await supabase
+        .from('agentes_ia')
+        .select('telefone')
+        .eq('empresa_id', activeCompany?.id)
+        .eq('nome', 'Pri')
+        .single();
+
+      const webhookPayload = {
+        maia_id: agenteData?.telefone || "",
+        nome_evento: prospeccaoData.titulo || "",
+        data_inicio: prospeccaoData.data_inicio || "",
+        data_fim: prospeccaoData.data_fim || "",
+        descricao: prospeccaoData.descricao || "",
+        dealerid: empresaData?.crm_id || "",
+        template_descoberta: prospeccaoData.template_prospeccao || "",
+        template_conf_agendado: prospeccaoData.template_agendado || "",
+        template_conf_nao_agendado: prospeccaoData.template_nao_agendado || ""
+      };
+
+      console.log('📤 Enviando webhook:', webhookPayload);
+
+      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/pri-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookPayload)
+      });
+
+      if (!response.ok) {
+        console.error('Erro na resposta do webhook:', response.status);
+      } else {
+        console.log('✅ Webhook enviado com sucesso');
+      }
+    } catch (error) {
+      console.error('Erro ao enviar webhook:', error);
+      // Não mostramos erro ao usuário para não interromper o fluxo
     }
   };
 
@@ -227,34 +283,48 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           </div>
 
           <div>
-            <Label htmlFor="local_evento">Local do Evento</Label>
-            <Input
-              id="local_evento"
-              placeholder="Ex: Centro de Convenções SP"
-              value={localEvento}
-              onChange={(e) => setLocalEvento(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="condicoes_especiais">Condições Especiais</Label>
+            <Label htmlFor="template_prospeccao">Template Prospecção</Label>
             <Textarea
-              id="condicoes_especiais"
-              placeholder="Condições especiais do evento..."
-              rows={3}
-              value={condicoesEspeciais}
-              onChange={(e) => setCondicoesEspeciais(e.target.value)}
+              id="template_prospeccao"
+              placeholder="Mensagem de prospecção (máx. 120 caracteres)"
+              rows={2}
+              maxLength={120}
+              value={templateProspeccao}
+              onChange={(e) => setTemplateProspeccao(e.target.value)}
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              {templateProspeccao.length}/120 caracteres
+            </p>
           </div>
 
           <div>
-            <Label htmlFor="objetivo_vendas">Objetivo de Vendas</Label>
-            <Input
-              id="objetivo_vendas"
-              placeholder="Ex: Aumentar vendas em 30%"
-              value={objetivoVendas}
-              onChange={(e) => setObjetivoVendas(e.target.value)}
+            <Label htmlFor="template_agendado">Template Agendado</Label>
+            <Textarea
+              id="template_agendado"
+              placeholder="Mensagem para agendamentos (máx. 120 caracteres)"
+              rows={2}
+              maxLength={120}
+              value={templateAgendado}
+              onChange={(e) => setTemplateAgendado(e.target.value)}
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              {templateAgendado.length}/120 caracteres
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="template_nao_agendado">Template Não Agendado</Label>
+            <Textarea
+              id="template_nao_agendado"
+              placeholder="Mensagem para não agendamentos (máx. 120 caracteres)"
+              rows={2}
+              maxLength={120}
+              value={templateNaoAgendado}
+              onChange={(e) => setTemplateNaoAgendado(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              {templateNaoAgendado.length}/120 caracteres
+            </p>
           </div>
 
           <div>
