@@ -225,16 +225,25 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   };
 
   const aplicarModeloDescricao = () => {
-    const modeloDescricao = `🚗 MEGA FEIRÃO PRIMEIRA MÃO!
-O maior feirão de seminovos da Saga está de volta com condições imperdíveis!
+    const modeloDescricao = `🔥 Noite RAM na Saga BR-153!
+Potência, exclusividade e oportunidades imperdíveis. 🚗💨
 
-✨ Destaques:
-• Centenas de veículos disponíveis
-• Taxas especiais de financiamento
-• Avaliação do seu usado na hora
-• Equipe especializada para atendimento
+Chegou o momento que todo apaixonado por RAM esperava!
+A Saga RAM BR-153 convida você para uma noite exclusiva de vendas, com atendimento VIP e condições únicas válidas apenas neste evento especial.
 
-📅 Não perca essa oportunidade!`;
+🌙 Evento noturno exclusivo
+🛞 Chassis selecionados com preços imperdíveis
+🤝 Atendimento personalizado com o gerente
+🚗 Oportunidades disponíveis só no dia
+
+🗓️ 28 de outubro, a partir das 18h
+📍 Saga RAM BR-153
+
+Viva uma experiência premium, com atendimento prioritário e condições feitas sob medida para quem valoriza potência e sofisticação.
+Garanta sua presença e não perca essa oportunidade única de sair de RAM nova!
+
+A PRI deve apenas convidar, confirmar interesse, e confirmar o endereço da loja.
+Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações ou detalhes técnicos de veículos.`;
     
     setDescricao(modeloDescricao);
     toast({
