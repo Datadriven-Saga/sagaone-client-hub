@@ -314,37 +314,37 @@ const Prospeccao = () => {
       id: 'atribuidos',
       title: 'Atribuídos',
       color: '#8B5FD6',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Negociação')) : []
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Atribuído')) : []
     },
     {
       id: 'convidados',
       title: 'Convidados',
       color: '#A679E1',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Em Contato')) : []
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Convidado')) : []
     },
     {
       id: 'agendados',
       title: 'Agendados',
       color: '#C193EC',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Qualificado')) : []
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Agendado')) : []
     },
     {
       id: 'confirmados',
       title: 'Confirmados',
       color: '#10B981',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Fechado')) : []
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Confirmado')) : []
     },
     {
       id: 'checkin',
       title: 'Check-in',
       color: '#22c55e',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Perdido')) : []
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Check-in')) : []
     },
     {
       id: 'descartados',
       title: 'Descartados',
       color: '#ef4444',
-      items: []
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Descartado')) : []
     }
   ];
 
