@@ -901,6 +901,7 @@ const Prospeccao = () => {
         onClose={handleCloseModal}
         contato={modalContato.contato}
         columnId={modalContato.columnId}
+        prospeccaoId={prospeccoes[0]?.id}
         onStatusChange={handleModalStatusChange}
         onDelete={handleModalDelete}
         onAssignResponsible={handleModalAssignResponsible}
