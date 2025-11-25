@@ -1622,6 +1622,7 @@ export type Database = {
         | "Reunião Agendada"
         | "Negociação"
         | "Fechamento"
+        | "Anotação"
       tipo_gatilho:
         | "Temporal"
         | "Evento"
@@ -1817,6 +1818,7 @@ export const Constants = {
         "Reunião Agendada",
         "Negociação",
         "Fechamento",
+        "Anotação",
       ],
       tipo_gatilho: [
         "Temporal",

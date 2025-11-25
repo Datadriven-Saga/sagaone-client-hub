@@ -29,12 +29,14 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Contato, statusKanbanMap } from '@/hooks/useContatoData';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ContatoModalProps {
   isOpen: boolean;
   onClose: () => void;
   contato: Contato | null;
   columnId?: string;
+  prospeccaoId?: string;
   onStatusChange?: (contatoId: string, novoStatus: Contato['status']) => void;
   onDelete?: (contatoId: string) => void;
   onAssignResponsible?: (contatoId: string, userId: string) => void;
@@ -73,7 +75,8 @@ export function ContatoModal({
   isOpen, 
   onClose, 
   contato, 
-  columnId, 
+  columnId,
+  prospeccaoId, 
   onStatusChange,
   onDelete,
   onAssignResponsible,
@@ -104,19 +107,41 @@ export function ContatoModal({
 
   // Buscar dados reais ao abrir o modal
   useEffect(() => {
-    if (contato && isOpen) {
-      // TODO: Buscar anotações reais do contato
-      // TODO: Buscar produtos disponíveis
-      // TODO: Buscar log de auditoria
-      console.log('Carregando dados do contato:', contato.id);
-    }
-  }, [contato, isOpen]);
+    const carregarDados = async () => {
+      if (contato && isOpen && prospeccaoId) {
+        try {
+          // Buscar anotações do contato
+          const { data: eventos, error } = await supabase
+            .from('eventos_prospeccao')
+            .select('*')
+            .eq('contato_id', contato.id)
+            .eq('prospeccao_id', prospeccaoId)
+            .eq('tipo_evento', 'Anotação')
+            .order('created_at', { ascending: false });
+
+          if (!error && eventos) {
+            const anotacoesFormatadas = eventos.map(evento => ({
+              id: evento.id,
+              texto: evento.descricao || '',
+              usuario: user?.email || 'Usuário',
+              timestamp: evento.created_at || new Date().toISOString()
+            }));
+            setAnotacoes(anotacoesFormatadas);
+          }
+        } catch (error) {
+          console.error('Erro ao carregar anotações:', error);
+        }
+      }
+    };
+
+    carregarDados();
+  }, [contato, isOpen, prospeccaoId, user]);
 
   const statusOptions = [
     'Novo', 'Negociação', 'Em Contato', 'Qualificado', 'Proposta', 'Fechado', 'Perdido'
   ];
 
-  const handleAdicionarAnotacao = () => {
+  const handleAdicionarAnotacao = async () => {
     if (novaAnotacao.trim().length === 0) {
       toast({
         title: "Erro",
@@ -135,12 +160,52 @@ export function ContatoModal({
       return;
     }
 
-    // TODO: Salvar anotação no banco
-    toast({
-      title: "Sucesso",
-      description: "Anotação adicionada com sucesso"
-    });
-    setNovaAnotacao('');
+    if (!contato || !prospeccaoId) {
+      toast({
+        title: "Erro",
+        description: "Dados do contato não disponíveis",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Salvar anotação no banco via edge function
+      const { data, error } = await supabase.functions.invoke('prospeccao-anotacao', {
+        body: {
+          prospeccao_id: prospeccaoId,
+          contato_id: contato.id,
+          mensagem: novaAnotacao
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Anotação adicionada com sucesso"
+      });
+
+      // Adicionar a nova anotação à lista local
+      const novaAnotacaoObj: Anotacao = {
+        id: data.evento_id,
+        texto: novaAnotacao,
+        usuario: user?.email || 'Usuário',
+        timestamp: new Date().toISOString()
+      };
+
+      setAnotacoes(prev => [novaAnotacaoObj, ...prev]);
+      setNovaAnotacao('');
+    } catch (error) {
+      console.error('Erro ao adicionar anotação:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao adicionar anotação. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleStatusChange = (novoStatus: Contato['status']) => {
@@ -495,21 +560,27 @@ export function ContatoModal({
                     </div>
                   </Card>
 
-                  <Card className="p-6">
+                   <Card className="p-6">
                     <h3 className="text-lg font-semibold mb-4">Anotações Existentes</h3>
                     <ScrollArea className="h-64">
                       <div className="space-y-4">
-                        {anotacoes.map((anotacao) => (
-                          <div key={anotacao.id} className="border-l-4 border-primary pl-4">
-                            <div className="flex justify-between items-start mb-2">
-                              <span className="font-medium text-sm">{anotacao.usuario}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(anotacao.timestamp).toLocaleString()}
-                              </span>
+                        {anotacoes.length > 0 ? (
+                          anotacoes.map((anotacao) => (
+                            <div key={anotacao.id} className="border-l-4 border-primary pl-4">
+                              <div className="flex justify-between items-start mb-2">
+                                <span className="font-medium text-sm">{anotacao.usuario}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(anotacao.timestamp).toLocaleString('pt-BR')}
+                                </span>
+                              </div>
+                              <p className="text-sm">{anotacao.texto}</p>
                             </div>
-                            <p className="text-sm">{anotacao.texto}</p>
-                          </div>
-                        ))}
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground text-center py-8">
+                            Nenhuma anotação registrada ainda
+                          </p>
+                        )}
                       </div>
                     </ScrollArea>
                   </Card>
