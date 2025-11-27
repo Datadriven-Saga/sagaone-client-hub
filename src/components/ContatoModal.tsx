@@ -98,6 +98,8 @@ export function ContatoModal({
   const [produtosDisponiveis, setProdutosDisponiveis] = useState<Produto[]>([]);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [produtosSelecionados, setProdutosSelecionados] = useState<string[]>([]);
+  const [usuariosDisponiveis, setUsuariosDisponiveis] = useState<Array<{ id: string; nome: string; email: string }>>([]);
+  const [responsavelSelecionado, setResponsavelSelecionado] = useState<string>('');
 
   const temperaturas: TemperaturaOption[] = [
     { id: 'frio', nome: 'Frio', cor: '#3b82f6' },
@@ -108,28 +110,55 @@ export function ContatoModal({
   // Buscar dados reais ao abrir o modal
   useEffect(() => {
     const carregarDados = async () => {
-      if (contato && isOpen && prospeccaoId) {
+      if (isOpen) {
         try {
-          // Buscar anotações do contato
-          const { data: eventos, error } = await supabase
-            .from('eventos_prospeccao')
-            .select('*')
-            .eq('contato_id', contato.id)
-            .eq('prospeccao_id', prospeccaoId)
-            .eq('tipo_evento', 'Anotação')
-            .order('created_at', { ascending: false });
+          // Buscar usuários disponíveis da empresa com perfis adequados
+          const { data: usuarios, error: usuariosError } = await supabase
+            .from('profiles')
+            .select('id, nome_completo, celular')
+            .in('tipo_acesso', ['Administrador', 'Gerente de Leads', 'Gerente de Loja', 'Vendedor'])
+            .eq('status', 'Ativo');
 
-          if (!error && eventos) {
-            const anotacoesFormatadas = eventos.map(evento => ({
-              id: evento.id,
-              texto: evento.descricao || '',
-              usuario: user?.email || 'Usuário',
-              timestamp: evento.created_at || new Date().toISOString()
+          if (!usuariosError && usuarios) {
+            const usuariosFormatados = usuarios.map(u => ({
+              id: u.id,
+              nome: u.nome_completo,
+              email: u.celular || ''
             }));
-            setAnotacoes(anotacoesFormatadas);
+            setUsuariosDisponiveis(usuariosFormatados);
+          }
+
+          // Se há um contato, buscar dados dele
+          if (contato && prospeccaoId) {
+            // Buscar anotações do contato
+            const { data: eventos, error } = await supabase
+              .from('eventos_prospeccao')
+              .select('*')
+              .eq('contato_id', contato.id)
+              .eq('prospeccao_id', prospeccaoId)
+              .eq('tipo_evento', 'Anotação')
+              .order('created_at', { ascending: false });
+
+            if (!error && eventos) {
+              const anotacoesFormatadas = eventos.map(evento => ({
+                id: evento.id,
+                texto: evento.descricao || '',
+                usuario: user?.email || 'Usuário',
+                timestamp: evento.created_at || new Date().toISOString()
+              }));
+              setAnotacoes(anotacoesFormatadas);
+            }
+
+            // Definir responsável atual se existir
+            if (contato.responsavel_email) {
+              const responsavelAtual = usuarios?.find(u => u.celular === contato.responsavel_email);
+              if (responsavelAtual) {
+                setResponsavelSelecionado(responsavelAtual.id);
+              }
+            }
           }
         } catch (error) {
-          console.error('Erro ao carregar anotações:', error);
+          console.error('Erro ao carregar dados:', error);
         }
       }
     };
@@ -228,15 +257,37 @@ export function ContatoModal({
     });
   };
 
-  const handleAtribuirResponsavel = () => {
-    if (!contato || !user || columnId !== 'novo') return;
+  const handleAtribuirResponsavel = async (userId: string) => {
+    if (!contato || !userId) return;
     
-    onAssignResponsible?.(contato.id, user.id);
-    
-    toast({
-      title: "Responsável atribuído",
-      description: "Você foi definido como responsável por este contato"
-    });
+    try {
+      const usuarioSelecionado = usuariosDisponiveis.find(u => u.id === userId);
+      if (!usuarioSelecionado) {
+        toast({
+          title: "Erro",
+          description: "Usuário não encontrado",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Atualizar no banco via função parent
+      await onAssignResponsible?.(contato.id, usuarioSelecionado.email || usuarioSelecionado.id);
+      
+      setResponsavelSelecionado(userId);
+      
+      toast({
+        title: "Responsável atribuído",
+        description: `${usuarioSelecionado.nome} foi definido como responsável por este contato`
+      });
+    } catch (error) {
+      console.error('Erro ao atribuir responsável:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atribuir responsável. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleExcluirContato = () => {
@@ -503,38 +554,73 @@ export function ContatoModal({
               )}
 
               {activeTab === 'responsavel' && (
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Responsável</h3>
-                  
-                  {contato?.responsavel_email ? (
-                    <div className="flex items-center gap-3 p-3 border rounded-lg">
-                      <Avatar className="w-10 h-10">
-                        <AvatarFallback>
-                          {getInitials('João Silva')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">João Silva</p>
-                        <p className="text-sm text-muted-foreground">SDR</p>
+                <div className="space-y-6">
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4">Atribuir Responsável</h3>
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Atribua este contato a um membro da equipe para acompanhamento.
+                      </p>
+                      <div className="space-y-4">
+                        {/* Responsável atual */}
+                        {contato?.responsavel_email && (
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Responsável Atual</label>
+                            <div className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
+                              <Avatar className="h-10 w-10">
+                                <AvatarFallback>
+                                  {getInitials(usuariosDisponiveis.find(u => u.email === contato.responsavel_email)?.nome || contato.responsavel_email)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium text-sm">
+                                  {usuariosDisponiveis.find(u => u.email === contato.responsavel_email)?.nome || contato.responsavel_email}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {contato.responsavel_email}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Seletor de novo responsável */}
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">
+                            {contato?.responsavel_email ? 'Alterar Responsável' : 'Selecionar Responsável'}
+                          </label>
+                          <Select 
+                            value={responsavelSelecionado} 
+                            onValueChange={handleAtribuirResponsavel}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Selecione um usuário..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {usuariosDisponiveis.map((usuario) => (
+                                <SelectItem key={usuario.id} value={usuario.id}>
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarFallback className="text-xs">
+                                        {getInitials(usuario.nome)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <p className="font-medium text-sm">{usuario.nome}</p>
+                                      {usuario.email && (
+                                        <p className="text-xs text-muted-foreground">{usuario.email}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground mb-4">Nenhum responsável atribuído</p>
-                      {columnId === 'novo' && (
-                        <Button onClick={handleAtribuirResponsavel}>
-                          <UserCheck className="w-4 h-4 mr-2" />
-                          Assumir Responsabilidade
-                        </Button>
-                      )}
-                      {columnId !== 'novo' && (
-                        <p className="text-sm text-muted-foreground">
-                          Só é possível atribuir responsabilidade para contatos na coluna "Novo"
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </Card>
+                  </Card>
+                </div>
               )}
 
               {activeTab === 'anotacoes' && (
