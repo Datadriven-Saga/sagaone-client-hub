@@ -1,39 +1,18 @@
-
-import React, { useState } from 'react';
+import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { KanbanItem } from './KanbanBoard';
-import { 
-  Calendar, 
-  MessageSquare, 
-  Paperclip, 
-  MoreHorizontal,
-  Edit,
-  Trash2,
-  User
-} from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface KanbanCardProps {
   item: KanbanItem;
   isDragging?: boolean;
-  onEdit?: (item: KanbanItem) => void;
-  onDelete?: (itemId: string) => void;
   onCardClick?: (item: KanbanItem) => void;
 }
 
-export function KanbanCard({ item, isDragging, onEdit, onDelete, onCardClick }: KanbanCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
-
+export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -49,135 +28,98 @@ export function KanbanCard({ item, isDragging, onEdit, onDelete, onCardClick }: 
     opacity: isDragging || isSortableDragging ? 0.5 : 1,
   };
 
-  const getPriorityColor = (priority?: string) => {
-    switch (priority) {
-      case 'high': return 'bg-red-500';
-      case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-green-500';
-      default: return 'bg-muted';
+  const getOrigemBadgeStyle = (origem?: string) => {
+    switch (origem?.toLowerCase()) {
+      case 'whatsapp':
+        return 'bg-green-100 text-green-700 border-green-200';
+      case 'instagram':
+        return 'bg-pink-100 text-pink-700 border-pink-200';
+      case 'facebook':
+        return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'google':
+        return 'bg-red-100 text-red-700 border-red-200';
+      case 'site':
+        return 'bg-purple-100 text-purple-700 border-purple-200';
+      case 'indicação':
+        return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'telefone':
+        return 'bg-cyan-100 text-cyan-700 border-cyan-200';
+      case 'webhook':
+        return 'bg-gray-100 text-gray-700 border-gray-200';
+      default:
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+  const formatRelativeTime = (dateString?: string) => {
+    if (!dateString) return null;
+    try {
+      const date = new Date(dateString);
+      return formatDistanceToNow(date, { addSuffix: false, locale: ptBR });
+    } catch {
+      return null;
+    }
+  };
+
+  const getIdShort = (id: string) => {
+    return `#${id.slice(0, 8).toUpperCase()}`;
   };
 
   return (
-    <Card
+    <div
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
-      className={`p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group ${
-        isDragging ? 'rotate-3 shadow-lg' : ''
-      } ${
-        item.prospeccaoCanal === 'Whatsapp' 
-          ? 'border-t-4 border-t-green-500' 
-          : item.prospeccaoCanal === 'Ligação' 
-          ? 'border-t-4 border-t-blue-500' 
-          : ''
+      className={`bg-background border border-border rounded-lg p-4 cursor-grab active:cursor-grabbing hover:shadow-md transition-all ${
+        isDragging ? 'rotate-2 shadow-lg scale-105' : ''
       }`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       onClick={() => onCardClick?.(item)}
     >
-      <div className="space-y-2 w-full overflow-hidden">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-medium text-foreground leading-tight break-words">
-              {item.title}
-            </h4>
-            {item.description && (
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-2 break-words">
-                {item.description}
-              </p>
-            )}
-          </div>
-          
-          {(isHovered || isDragging) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit?.(item)}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Editar
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => onDelete?.(item.id)}
-                  className="text-destructive"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Excluir
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+      <div className="space-y-2">
+        {/* Nome e ID */}
+        <div className="flex items-start justify-between gap-2">
+          <h4 className="text-sm font-medium text-foreground leading-tight">
+            {item.title}
+          </h4>
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono shrink-0">
+            {getIdShort(item.id)}
+          </Badge>
         </div>
 
-        {/* Tags */}
-        {item.tags && item.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 w-full">
-            {item.tags.map((tag, index) => (
-              <Badge key={index} variant="secondary" className="text-xs break-words max-w-full">
-                {tag}
+        {/* Telefone */}
+        {item.channel && (
+          <p className="text-sm text-muted-foreground">
+            {item.channel}
+          </p>
+        )}
+
+        {/* Origem e Tempo */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            {item.tags && item.tags[0] && (
+              <Badge 
+                variant="outline" 
+                className={`text-[10px] px-2 py-0.5 font-normal ${getOrigemBadgeStyle(item.tags[0])}`}
+              >
+                {item.tags[0].toLowerCase()}
               </Badge>
-            ))}
-          </div>
-        )}
-
-        {/* Prospecção info */}
-        {item.prospeccaoNome && (
-          <div className="flex items-center gap-1 w-full">
-            <Badge variant="outline" className="text-xs break-words max-w-full">
-              {item.prospeccaoNome}
-            </Badge>
-          </div>
-        )}
-
-        {/* Segmentação */}
-        {item.segmentacao && (
-          <div className="flex items-center gap-1 w-full">
-            <Badge variant="outline" className="text-xs break-words max-w-full">
-              {item.segmentacao}
-            </Badge>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="flex items-center justify-between pt-2 w-full">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            {item.dueDate && (
-              <div className="flex items-center gap-1 text-muted-foreground min-w-0">
-                <Calendar className="w-3 h-3 flex-shrink-0" />
-                <span className="text-xs break-words">{item.dueDate}</span>
-              </div>
             )}
           </div>
-
-          {item.assignee && (
-            <Avatar className="w-6 h-6 flex-shrink-0">
-              <AvatarImage src="" />
-              <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                {getInitials(item.assignee)}
-              </AvatarFallback>
-            </Avatar>
+          {item.dueDate && (
+            <span className="text-xs text-muted-foreground">
+              há {formatRelativeTime(item.dueDate)}
+            </span>
           )}
         </div>
+
+        {/* Descrição/Observação */}
+        {item.description && (
+          <p className="text-xs text-muted-foreground pt-1 border-t border-border/50">
+            {item.description}
+          </p>
+        )}
       </div>
-    </Card>
+    </div>
   );
 }

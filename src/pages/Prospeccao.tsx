@@ -273,7 +273,7 @@ const Prospeccao = () => {
     if (!contatosLista || !Array.isArray(contatosLista)) return [];
     
     return contatosLista
-      .filter(contato => contato && contato.nome) // Filtrar contatos nulos ou sem nome
+      .filter(contato => contato && contato.nome)
       .filter(contato => {
         if (!searchFilter) return true;
         const searchLower = searchFilter.toLowerCase();
@@ -285,15 +285,16 @@ const Prospeccao = () => {
         );
       })
       .map(contato => {
-        // Valores padrão seguros
         const prospeccaoNome = (prospeccoes && prospeccoes.length > 0) ? prospeccoes[0].titulo : 'Sem prospecção';
         const prospeccaoCanal = (prospeccoes && prospeccoes.length > 0) ? prospeccoes[0].canal : 'Whatsapp';
         
         return {
           id: contato.id || '',
           title: contato.nome || 'Sem nome',
-          description: `${contato.telefone || ''}${contato.email ? ` - ${contato.email}` : ''}`,
-          channel: contato.origem || 'Outros',
+          description: contato.observacoes || undefined,
+          channel: contato.telefone || '',
+          tags: contato.origem ? [contato.origem] : undefined,
+          dueDate: contato.created_at || undefined,
           assignee: contato.responsavel_email || undefined,
           prospeccaoNome,
           prospeccaoCanal,
@@ -808,10 +809,7 @@ const Prospeccao = () => {
           <div className="flex-1 overflow-hidden">
             <KanbanBoard
               columns={kanbanColumns}
-              onUpdateColumns={() => {}} // Será atualizado automaticamente pelos dados do banco
-              onAddItem={handleAddItem}
-              onEditItem={handleEditItem}
-              onDeleteItem={handleDeleteItem}
+              onUpdateColumns={() => {}}
               onCardClick={handleCardClick}
               onStatusChange={handleStatusChange}
             />
