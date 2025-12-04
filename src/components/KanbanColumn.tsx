@@ -1,169 +1,94 @@
-
-import React, { useState } from 'react';
+import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { KanbanCard } from './KanbanCard';
 import { KanbanColumnData, KanbanItem } from './KanbanBoard';
-import { Plus, MoreHorizontal } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 interface KanbanColumnProps {
   column: KanbanColumnData;
-  onAddItem?: (columnId: string, item: Omit<KanbanItem, 'id'>) => void;
-  onEditItem?: (item: KanbanItem) => void;
-  onDeleteItem?: (itemId: string) => void;
   onCardClick?: (item: KanbanItem) => void;
 }
 
-export function KanbanColumn({ column, onAddItem, onEditItem, onDeleteItem, onCardClick }: KanbanColumnProps) {
-  const [isAddingItem, setIsAddingItem] = useState(false);
-  const [newItemTitle, setNewItemTitle] = useState('');
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editTitle, setEditTitle] = useState(column.title);
-
+export function KanbanColumn({ column, onCardClick }: KanbanColumnProps) {
   const { setNodeRef } = useDroppable({
     id: column.id,
   });
 
-  const handleAddItem = () => {
-    if (newItemTitle.trim() && onAddItem) {
-      onAddItem(column.id, {
-        title: newItemTitle.trim(),
-        description: '',
-      });
-      setNewItemTitle('');
-      setIsAddingItem(false);
+  const getColumnBadgeColor = (columnId: string) => {
+    switch (columnId.toLowerCase()) {
+      case 'novo':
+        return 'bg-blue-500';
+      case 'em contato':
+      case 'em_contato':
+        return 'bg-yellow-500';
+      case 'qualificado':
+        return 'bg-green-500';
+      case 'proposta':
+        return 'bg-purple-500';
+      case 'negociação':
+      case 'negociacao':
+        return 'bg-orange-500';
+      case 'fechado':
+        return 'bg-emerald-600';
+      case 'perdido':
+        return 'bg-red-500';
+      case 'atribuído':
+      case 'atribuido':
+        return 'bg-indigo-500';
+      case 'convidado':
+        return 'bg-cyan-500';
+      case 'agendado':
+        return 'bg-teal-500';
+      case 'confirmado':
+        return 'bg-lime-500';
+      case 'check-in':
+        return 'bg-emerald-500';
+      case 'descartado':
+        return 'bg-gray-500';
+      case 'desperdício':
+      case 'desperdicio':
+        return 'bg-rose-500';
+      default:
+        return 'bg-primary';
     }
   };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleAddItem();
-    } else if (e.key === 'Escape') {
-      setIsAddingItem(false);
-      setNewItemTitle('');
-    }
-  };
-
-  const isAtLimit = column.limit && column.items.length >= column.limit;
 
   return (
-    <Card className="w-64 bg-muted/30 border-muted-foreground/20 flex-shrink-0 overflow-hidden">
-      <div className="p-4 border-b border-muted-foreground/20">
+    <div className="w-72 bg-muted/40 border border-border rounded-lg flex flex-col min-h-[400px] max-h-[calc(100vh-280px)]">
+      {/* Header */}
+      <div className="p-4 border-b border-border/50">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-1">
-            {isEditingTitle ? (
-              <Input
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                onBlur={() => setIsEditingTitle(false)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') setIsEditingTitle(false);
-                  if (e.key === 'Escape') {
-                    setEditTitle(column.title);
-                    setIsEditingTitle(false);
-                  }
-                }}
-                className="text-sm font-semibold border-none p-0 h-auto bg-transparent"
-                autoFocus
-              />
-            ) : (
-              <h3 
-                className="text-sm font-semibold cursor-pointer hover:text-primary"
-                onClick={() => setIsEditingTitle(true)}
-              >
-                {column.title}
-              </h3>
-            )}
-            
-            <Badge variant="secondary" className="text-xs">
-              {column.items.length}
-              {column.limit && `/${column.limit}`}
-            </Badge>
-          </div>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsEditingTitle(true)}>
-                Editar título
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                Definir limite
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">
-                Excluir coluna
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <h3 className="text-sm font-semibold text-foreground">
+            {column.title}
+          </h3>
+          <span 
+            className={`${getColumnBadgeColor(column.id)} text-white text-xs font-medium px-2.5 py-0.5 rounded-full min-w-[24px] text-center`}
+          >
+            {column.items.length}
+          </span>
         </div>
       </div>
 
+      {/* Content */}
       <div 
         ref={setNodeRef}
-        className="p-4 space-y-3 min-h-[200px] max-h-[calc(60vh-120px)] overflow-y-auto overflow-x-hidden"
+        className="flex-1 p-3 space-y-3 overflow-y-auto"
       >
-        {column.items.map((item) => (
-                <KanbanCard
-                  key={item.id}
-                  item={item}
-                  onEdit={onEditItem}
-                  onDelete={onDeleteItem}
-                  onCardClick={onCardClick}
-                />
-        ))}
-
-        {isAddingItem ? (
-          <Card className="p-3 border-dashed border-2 border-primary/50">
-            <Input
-              value={newItemTitle}
-              onChange={(e) => setNewItemTitle(e.target.value)}
-              placeholder="Digite o título do item..."
-              onKeyDown={handleKeyPress}
-              className="border-none p-0 focus-visible:ring-0 break-words"
-              autoFocus
-            />
-            <div className="flex gap-2 mt-2">
-              <Button size="sm" onClick={handleAddItem}>
-                Adicionar
-              </Button>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                onClick={() => {
-                  setIsAddingItem(false);
-                  setNewItemTitle('');
-                }}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </Card>
+        {column.items.length === 0 ? (
+          <div className="flex items-center justify-center h-full min-h-[100px]">
+            <p className="text-sm text-muted-foreground">
+              Nenhum lead nesta etapa
+            </p>
+          </div>
         ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsAddingItem(true)}
-            disabled={isAtLimit}
-            className="w-full justify-start text-muted-foreground hover:text-foreground border-dashed border-2 border-transparent hover:border-muted-foreground/30 break-words"
-          >
-            <Plus className="w-4 h-4 mr-2 flex-shrink-0" />
-            <span className="break-words">{isAtLimit ? 'Limite atingido' : 'Adicionar item'}</span>
-          </Button>
+          column.items.map((item) => (
+            <KanbanCard
+              key={item.id}
+              item={item}
+              onCardClick={onCardClick}
+            />
+          ))
         )}
       </div>
-    </Card>
+    </div>
   );
 }
