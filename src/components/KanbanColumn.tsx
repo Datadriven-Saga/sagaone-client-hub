@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { KanbanCard } from './KanbanCard';
 import { KanbanColumnData, KanbanItem } from './KanbanBoard';
@@ -20,10 +20,7 @@ const COLUMN_COLORS: Record<string, string> = {
   'desperdicio': 'bg-rose-500',
 };
 
-export const KanbanColumn = memo(function KanbanColumn({ 
-  column, 
-  onCardClick 
-}: KanbanColumnProps) {
+export function KanbanColumn({ column, onCardClick }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -73,4 +70,4 @@ export const KanbanColumn = memo(function KanbanColumn({
       </div>
     </div>
   );
-});
+}
