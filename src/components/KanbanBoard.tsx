@@ -1,4 +1,4 @@
-import React, { useState, useCallback, memo } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -45,7 +45,7 @@ interface KanbanBoardProps {
   onStatusChange?: (itemId: string, fromStatus: string, toStatus: string) => void;
 }
 
-export const KanbanBoard = memo(function KanbanBoard({ 
+export function KanbanBoard({ 
   columns, 
   onUpdateColumns, 
   onCardClick,
@@ -160,7 +160,7 @@ export const KanbanBoard = memo(function KanbanBoard({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-full overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+      <div className="h-full overflow-x-auto scrollbar-thin">
         <div className="inline-flex gap-4 p-1 min-w-full">
           {columns.map((column) => (
             <SortableContext
@@ -184,4 +184,4 @@ export const KanbanBoard = memo(function KanbanBoard({
       </DragOverlay>
     </DndContext>
   );
-});
+}

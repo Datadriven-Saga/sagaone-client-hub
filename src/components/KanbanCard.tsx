@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { KanbanItem } from './KanbanBoard';
@@ -25,11 +25,7 @@ const ORIGIN_STYLES: Record<string, string> = {
   'outros': 'bg-slate-50 text-slate-700 border-slate-200',
 };
 
-export const KanbanCard = memo(function KanbanCard({ 
-  item, 
-  isDragging, 
-  onCardClick 
-}: KanbanCardProps) {
+export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -121,4 +117,4 @@ export const KanbanCard = memo(function KanbanCard({
       )}
     </div>
   );
-});
+}
