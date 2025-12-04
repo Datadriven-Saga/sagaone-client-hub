@@ -590,7 +590,7 @@ const Prospeccao = () => {
 
   return (
     <DashboardLayout title="Prospecção">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-1.5">
         <TabsList className="inline-flex">
           <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
           <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
@@ -726,20 +726,20 @@ const Prospeccao = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="automacao" className="space-y-6">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Adicionar Contatos à Prospecção</h3>
+        <TabsContent value="automacao" className="space-y-3">
+          <Card className="p-4">
+            <h3 className="text-base font-semibold text-foreground mb-3">Adicionar Contatos à Prospecção</h3>
             
             {/* Contador de Contatos */}
             {contatos.length > 0 && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="mb-3 p-2.5 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center space-x-2">
-                  <CheckCircle className="text-green-600" size={20} />
+                  <CheckCircle className="text-green-600" size={18} />
                   <div>
-                    <p className="font-medium text-green-800">
+                    <p className="font-medium text-green-800 text-sm">
                       {contatos.length} contatos cadastrados no sistema
                     </p>
-                    <p className="text-sm text-green-600">
+                    <p className="text-xs text-green-600">
                       Todos os contatos estão disponíveis no Kanban para gestão
                     </p>
                   </div>
@@ -747,10 +747,10 @@ const Prospeccao = () => {
               </div>
             )}
             
-            <div className="space-y-6">
+            <div className="space-y-3">
               <div>
-                <h4 className="font-semibold mb-3">Carga de Clientes</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <h4 className="font-medium text-sm mb-2">Carga de Clientes</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <BaseExistente 
                     onClientesSelected={handleClientesSelected}
                     prospeccoes={prospeccoes}
@@ -763,16 +763,16 @@ const Prospeccao = () => {
               </div>
 
               <div>
-                <h4 className="font-semibold mb-3">Configuração de Automação</h4>
-                <div className="border rounded-lg p-4">
+                <h4 className="font-medium text-sm mb-2">Configuração de Automação</h4>
+                <div className="border rounded-lg p-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">Disparar via Meta Ads</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="font-medium text-sm">Disparar via Meta Ads</p>
+                      <p className="text-xs text-muted-foreground">
                         Configurar integração com gerenciador de anúncios
                       </p>
                     </div>
-                    <Button>Configurar</Button>
+                    <Button size="sm">Configurar</Button>
                   </div>
                 </div>
               </div>
@@ -816,36 +816,40 @@ const Prospeccao = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="recepcao" className="space-y-3">
-          <FilterBar
-            searchPlaceholder="Buscar por cliente, telefone, campanha ou empresa..."
-            onSearchChange={setRecepcaoSearchFilter}
-          />
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <UserCheck className="text-primary" size={20} />
+        <TabsContent value="recepcao" className="space-y-1.5">
+          <Card className="p-3">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <UserCheck className="text-primary" size={18} />
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Recepção de Visitas</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <h3 className="text-base font-semibold text-foreground">Recepção de Visitas</h3>
+                  <p className="text-xs text-muted-foreground">
                     {visitas.length} {visitas.length === 1 ? 'visita registrada' : 'visitas registradas'}
                   </p>
                 </div>
               </div>
-              <Button 
-                onClick={() => {
-                  setRecepcaoInitialData(null);
-                  setIsRecepcaoModalOpen(true);
-                }}
-              >
-                Registrar Visita
-              </Button>
+              <div className="flex items-center gap-2">
+                <FilterBar
+                  searchPlaceholder="Buscar..."
+                  onSearchChange={setRecepcaoSearchFilter}
+                  className="w-64"
+                  compact
+                />
+                <Button 
+                  size="sm"
+                  onClick={() => {
+                    setRecepcaoInitialData(null);
+                    setIsRecepcaoModalOpen(true);
+                  }}
+                >
+                  Registrar Visita
+                </Button>
+              </div>
             </div>
 
             {loadingVisitas ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <div className="flex items-center justify-center h-24">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
               </div>
             ) : (
               <RecepcaoTable 

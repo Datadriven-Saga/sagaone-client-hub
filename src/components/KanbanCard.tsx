@@ -68,7 +68,7 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
       {...listeners}
       onClick={() => onCardClick?.(item)}
       className={cn(
-        "bg-background border border-border rounded-lg p-3.5 cursor-grab active:cursor-grabbing",
+        "bg-white border border-border rounded-lg p-3.5 cursor-grab active:cursor-grabbing",
         "hover:shadow-md hover:border-border/80 transition-all duration-150",
         isBeingDragged && "shadow-xl scale-[1.02] rotate-1 opacity-90 border-primary/40"
       )}

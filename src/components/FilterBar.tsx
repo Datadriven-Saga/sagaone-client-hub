@@ -2,7 +2,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Calendar } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface FilterBarProps {
   onSearchChange?: (value: string) => void;
@@ -15,6 +16,8 @@ interface FilterBarProps {
     options: Array<{ value: string; label: string }>;
   }>;
   showDateFilter?: boolean;
+  className?: string;
+  compact?: boolean;
 }
 
 export function FilterBar({
@@ -23,7 +26,9 @@ export function FilterBar({
   onFilterChange,
   searchPlaceholder = "Buscar...",
   additionalFilters = [],
-  showDateFilter = true
+  showDateFilter = true,
+  className,
+  compact = false
 }: FilterBarProps) {
   // Data padrão: primeiro dia do mês atual até hoje
   const getDefaultDates = () => {
@@ -54,8 +59,18 @@ export function FilterBar({
   //   onDateRangeChange?.(defaultDates.start, defaultDates.end);
   // }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  if (compact) {
+    return (
+      <Input
+        placeholder={searchPlaceholder}
+        onChange={(e) => onSearchChange?.(e.target.value)}
+        className={cn("h-8", className)}
+      />
+    );
+  }
+
   return (
-    <Card className="p-3">
+    <Card className={cn("p-3", className)}>
       <div className="flex flex-wrap gap-3 items-center">
         {/* Search Input */}
         <div className="flex-1 min-w-[200px]">
