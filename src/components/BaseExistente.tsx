@@ -189,11 +189,9 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="p-6 h-auto">
-          <div className="text-center">
-            <Users className="mx-auto mb-2" size={24} />
-            <p>Usar Base Existente</p>
-          </div>
+        <Button variant="outline" className="p-3 h-auto flex items-center gap-2">
+          <Users size={18} />
+          <span className="text-sm">Usar Base Existente</span>
         </Button>
       </DialogTrigger>
       

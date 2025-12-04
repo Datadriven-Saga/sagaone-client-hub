@@ -150,11 +150,9 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="p-6 h-auto">
-          <div className="text-center">
-            <FileSpreadsheet className="mx-auto mb-2" size={24} />
-            <p>Upload de Planilha</p>
-          </div>
+        <Button variant="outline" className="p-3 h-auto flex items-center gap-2">
+          <FileSpreadsheet size={18} />
+          <span className="text-sm">Upload de Planilha</span>
         </Button>
       </DialogTrigger>
       
