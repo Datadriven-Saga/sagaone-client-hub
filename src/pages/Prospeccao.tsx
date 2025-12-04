@@ -590,7 +590,7 @@ const Prospeccao = () => {
 
   return (
     <DashboardLayout title="Prospecção">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-1.5">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0.5">
         <TabsList className="inline-flex">
           <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
           <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
@@ -781,14 +781,14 @@ const Prospeccao = () => {
         </TabsContent>
 
         <TabsContent value="kanban" className="flex flex-col h-[calc(100vh-200px)] overflow-hidden">
-          <div className="flex-shrink-0 space-y-3">
+          <div className="flex-shrink-0 space-y-1">
             <FilterBar
               searchPlaceholder="Buscar por cliente, campanha ou status..."
               onSearchChange={setSearchFilter}
             />
             
-            <Card className="p-4">
-              <div className="flex items-center justify-between mb-4">
+            <Card className="p-2">
+              <div className="flex items-center justify-between mb-1.5">
                 <h3 className="text-lg font-semibold text-foreground">Kanban - Gestão da Prospecção</h3>
                 <div className="flex items-center space-x-4">
                   <div className="text-sm text-muted-foreground">
