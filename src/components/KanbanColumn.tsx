@@ -1,83 +1,65 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { KanbanCard } from './KanbanCard';
 import { KanbanColumnData, KanbanItem } from './KanbanBoard';
+import { cn } from '@/lib/utils';
 
 interface KanbanColumnProps {
   column: KanbanColumnData;
   onCardClick?: (item: KanbanItem) => void;
 }
 
-export function KanbanColumn({ column, onCardClick }: KanbanColumnProps) {
-  const { setNodeRef } = useDroppable({
+const COLUMN_COLORS: Record<string, string> = {
+  'novos': 'bg-blue-500',
+  'atribuidos': 'bg-indigo-500',
+  'convidados': 'bg-violet-500',
+  'agendados': 'bg-purple-500',
+  'confirmados': 'bg-emerald-500',
+  'checkin': 'bg-green-500',
+  'descartados': 'bg-red-500',
+  'desperdicio': 'bg-rose-500',
+};
+
+export const KanbanColumn = memo(function KanbanColumn({ 
+  column, 
+  onCardClick 
+}: KanbanColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
 
-  const getColumnBadgeColor = (columnId: string) => {
-    switch (columnId.toLowerCase()) {
-      case 'novo':
-        return 'bg-blue-500';
-      case 'em contato':
-      case 'em_contato':
-        return 'bg-yellow-500';
-      case 'qualificado':
-        return 'bg-green-500';
-      case 'proposta':
-        return 'bg-purple-500';
-      case 'negociação':
-      case 'negociacao':
-        return 'bg-orange-500';
-      case 'fechado':
-        return 'bg-emerald-600';
-      case 'perdido':
-        return 'bg-red-500';
-      case 'atribuído':
-      case 'atribuido':
-        return 'bg-indigo-500';
-      case 'convidado':
-        return 'bg-cyan-500';
-      case 'agendado':
-        return 'bg-teal-500';
-      case 'confirmado':
-        return 'bg-lime-500';
-      case 'check-in':
-        return 'bg-emerald-500';
-      case 'descartado':
-        return 'bg-gray-500';
-      case 'desperdício':
-      case 'desperdicio':
-        return 'bg-rose-500';
-      default:
-        return 'bg-primary';
-    }
-  };
+  const badgeColor = COLUMN_COLORS[column.id] || 'bg-primary';
 
   return (
-    <div className="w-72 bg-muted/40 border border-border rounded-lg flex flex-col min-h-[400px] max-h-[calc(100vh-280px)]">
+    <div 
+      className={cn(
+        "w-72 flex-shrink-0 flex flex-col rounded-xl border border-border bg-muted/30 transition-colors",
+        isOver && "border-primary/50 bg-primary/5"
+      )}
+    >
       {/* Header */}
-      <div className="p-4 border-b border-border/50">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">
-            {column.title}
-          </h3>
-          <span 
-            className={`${getColumnBadgeColor(column.id)} text-white text-xs font-medium px-2.5 py-0.5 rounded-full min-w-[24px] text-center`}
-          >
-            {column.items.length}
-          </span>
-        </div>
+      <div className="flex items-center justify-between p-4 border-b border-border/50">
+        <h3 className="text-sm font-semibold text-foreground truncate">
+          {column.title}
+        </h3>
+        <span 
+          className={cn(
+            "text-xs font-medium text-white px-2.5 py-1 rounded-full min-w-[28px] text-center",
+            badgeColor
+          )}
+        >
+          {column.items.length}
+        </span>
       </div>
 
-      {/* Content */}
+      {/* Cards Container */}
       <div 
         ref={setNodeRef}
-        className="flex-1 p-3 space-y-3 overflow-y-auto"
+        className="flex-1 p-3 space-y-2.5 overflow-y-auto min-h-[120px] max-h-[calc(100vh-320px)]"
       >
         {column.items.length === 0 ? (
-          <div className="flex items-center justify-center h-full min-h-[100px]">
-            <p className="text-sm text-muted-foreground">
-              Nenhum lead nesta etapa
-            </p>
+          <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
+            Nenhum lead nesta etapa
           </div>
         ) : (
           column.items.map((item) => (
@@ -91,4 +73,4 @@ export function KanbanColumn({ column, onCardClick }: KanbanColumnProps) {
       </div>
     </div>
   );
-}
+});

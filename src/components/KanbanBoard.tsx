@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -7,6 +7,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  closestCorners,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -40,45 +41,37 @@ export interface KanbanColumnData {
 interface KanbanBoardProps {
   columns: KanbanColumnData[];
   onUpdateColumns: (columns: KanbanColumnData[]) => void;
-  onAddItem?: (columnId: string, item: Omit<KanbanItem, 'id'>) => void;
-  onEditItem?: (item: KanbanItem) => void;
-  onDeleteItem?: (itemId: string) => void;
   onCardClick?: (item: KanbanItem) => void;
   onStatusChange?: (itemId: string, fromStatus: string, toStatus: string) => void;
 }
 
-export function KanbanBoard({ 
+export const KanbanBoard = memo(function KanbanBoard({ 
   columns, 
   onUpdateColumns, 
   onCardClick,
   onStatusChange
 }: KanbanBoardProps) {
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [activeItem, setActiveItem] = useState<KanbanItem | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 5,
       },
     })
   );
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-    
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     const item = columns
       .flatMap(col => col.items)
       .find(item => item.id === event.active.id);
-    
     setActiveItem(item || null);
-  };
+  }, [columns]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     
     if (!over) {
-      setActiveId(null);
       setActiveItem(null);
       return;
     }
@@ -87,7 +80,6 @@ export function KanbanBoard({
     const overId = over.id as string;
 
     if (activeId === overId) {
-      setActiveId(null);
       setActiveItem(null);
       return;
     }
@@ -98,7 +90,6 @@ export function KanbanBoard({
     const sourceItem = sourceColumn?.items.find(item => item.id === activeId);
 
     if (!sourceColumn || !sourceItem) {
-      setActiveId(null);
       setActiveItem(null);
       return;
     }
@@ -111,7 +102,6 @@ export function KanbanBoard({
     }
 
     if (!targetColumn) {
-      setActiveId(null);
       setActiveItem(null);
       return;
     }
@@ -134,9 +124,7 @@ export function KanbanBoard({
         onUpdateColumns(newColumns);
       }
     } else {
-      if (onStatusChange) {
-        onStatusChange(activeId, sourceColumn.id, targetColumn.id);
-      }
+      onStatusChange?.(activeId, sourceColumn.id, targetColumn.id);
       
       const newColumns = columns.map(col => {
         if (col.id === sourceColumn.id) {
@@ -144,7 +132,7 @@ export function KanbanBoard({
             ...col,
             items: col.items.filter(item => item.id !== activeId)
           };
-        } else if (col.id === targetColumn.id) {
+        } else if (col.id === targetColumn!.id) {
           const targetIndex = col.items.findIndex(item => item.id === overId);
           const newItems = [...col.items];
           
@@ -154,10 +142,7 @@ export function KanbanBoard({
             newItems.push(sourceItem);
           }
           
-          return {
-            ...col,
-            items: newItems
-          };
+          return { ...col, items: newItems };
         }
         return col;
       });
@@ -165,40 +150,38 @@ export function KanbanBoard({
       onUpdateColumns(newColumns);
     }
     
-    setActiveId(null);
     setActiveItem(null);
-  };
+  }, [columns, onUpdateColumns, onStatusChange]);
 
   return (
-    <div className="h-full">
-      <DndContext
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="overflow-x-auto pb-4">
-          <div className="flex gap-4 min-w-max">
-            {columns.map((column) => (
-              <SortableContext
-                key={column.id}
-                items={column.items.map(item => item.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <KanbanColumn
-                  column={column}
-                  onCardClick={onCardClick}
-                />
-              </SortableContext>
-            ))}
-          </div>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="h-full overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+        <div className="inline-flex gap-4 p-1 min-w-full">
+          {columns.map((column) => (
+            <SortableContext
+              key={column.id}
+              items={column.items.map(item => item.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <KanbanColumn
+                column={column}
+                onCardClick={onCardClick}
+              />
+            </SortableContext>
+          ))}
         </div>
+      </div>
 
-        <DragOverlay>
-          {activeItem ? (
-            <KanbanCard item={activeItem} isDragging />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
-    </div>
+      <DragOverlay dropAnimation={{ duration: 200, easing: 'ease-out' }}>
+        {activeItem && (
+          <KanbanCard item={activeItem} isDragging />
+        )}
+      </DragOverlay>
+    </DndContext>
   );
-}
+});
