@@ -15,12 +15,10 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
-  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import sagaOneLogo from "@/assets/saga-one-menu-logo.png";
@@ -47,29 +45,23 @@ export function AppSidebar() {
       collapsible="icon"
     >
       <SidebarHeader className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 group relative">
-            <div className={`relative flex items-center justify-center ${isCollapsed ? 'w-5 h-5' : 'w-[2.7rem] h-[2.7rem]'}`}>
-              <img 
-                src={sagaOneLogo} 
-                alt="Saga One Logo" 
-                className={`object-contain rounded-lg transition-all ${
-                  isCollapsed 
-                    ? 'w-5 h-5 group-hover:opacity-0' 
-                    : 'w-auto h-[2.7rem]'
-                }`}
-              />
-              {isCollapsed && (
-                <SidebarTrigger className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity absolute" />
-              )}
-            </div>
-            {!isCollapsed && (
-              <span className="text-sidebar-foreground font-bold text-lg">
-                SAGA One
-              </span>
-            )}
+        <div className="flex items-center gap-3">
+          <div className={`relative flex items-center justify-center ${isCollapsed ? 'w-5 h-5' : 'w-[2.7rem] h-[2.7rem]'}`}>
+            <img 
+              src={sagaOneLogo} 
+              alt="Saga One Logo" 
+              className={`object-contain rounded-lg transition-all ${
+                isCollapsed 
+                  ? 'w-5 h-5' 
+                  : 'w-auto h-[2.7rem]'
+              }`}
+            />
           </div>
-          {!isCollapsed && <SidebarTrigger className="h-8 w-8" />}
+          {!isCollapsed && (
+            <span className="text-sidebar-foreground font-bold text-lg">
+              SAGA One
+            </span>
+          )}
         </div>
       </SidebarHeader>
 
