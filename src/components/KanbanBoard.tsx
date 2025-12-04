@@ -161,7 +161,7 @@ export function KanbanBoard({
       onDragEnd={handleDragEnd}
     >
       <div className="h-full overflow-x-auto scrollbar-thin">
-        <div className="inline-flex gap-4 p-1 min-w-full">
+        <div className="inline-flex gap-2 p-0.5 min-w-full">
           {columns.map((column) => (
             <SortableContext
               key={column.id}

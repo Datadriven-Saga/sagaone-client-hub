@@ -35,7 +35,7 @@ export function KanbanColumn({ column, onCardClick }: KanbanColumnProps) {
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border/50">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
         <h3 className="text-sm font-semibold text-foreground truncate">
           {column.title}
         </h3>
@@ -52,7 +52,7 @@ export function KanbanColumn({ column, onCardClick }: KanbanColumnProps) {
       {/* Cards Container */}
       <div 
         ref={setNodeRef}
-        className="flex-1 p-3 space-y-2.5 overflow-y-auto min-h-[120px] max-h-[calc(100vh-320px)]"
+        className="flex-1 p-1.5 space-y-1.5 overflow-y-auto min-h-[80px] max-h-[calc(100vh-280px)]"
       >
         {column.items.length === 0 ? (
           <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
