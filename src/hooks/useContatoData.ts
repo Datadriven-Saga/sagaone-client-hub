@@ -9,7 +9,7 @@ export interface Contato {
   nome: string;
   telefone: string;
   email?: string;
-  status: 'Novo' | 'Em Contato' | 'Qualificado' | 'Proposta' | 'Negociação' | 'Fechado' | 'Perdido' | 'Atribuído' | 'Convidado' | 'Agendado' | 'Confirmado' | 'Check-in' | 'Descartado' | 'Desperdício';
+  status: 'Novo' | 'Em Contato' | 'Qualificado' | 'Proposta' | 'Negociação' | 'Fechado' | 'Perdido' | 'Atribuído' | 'Convidado' | 'Agendado' | 'Confirmado' | 'Check-in' | 'Descartado' | 'Desperdício' | 'Em Espera' | 'Opt Out';
   valor_potencial?: number;
   responsavel_email?: string;
   cliente_id?: string;
@@ -22,13 +22,15 @@ export interface Contato {
 
 // Mapeamento dos status do banco para as colunas do Kanban
 export const statusKanbanMap = {
-  'Novo': 'novo',
+  'Novo': 'novos',
   'Atribuído': 'atribuidos',
+  'Em Espera': 'emespera',
   'Convidado': 'convidados',
   'Agendado': 'agendados',
   'Confirmado': 'confirmados',
   'Check-in': 'checkin',
   'Descartado': 'descartados',
+  'Opt Out': 'optout',
   'Desperdício': 'desperdicio',
   'Negociação': 'enviados', 
   'Em Contato': 'recebidos',
@@ -38,13 +40,15 @@ export const statusKanbanMap = {
 } as const;
 
 export const kanbanStatusMap = {
-  'novo': 'Novo',
+  'novos': 'Novo',
   'atribuidos': 'Atribuído',
+  'emespera': 'Em Espera',
   'convidados': 'Convidado',
   'agendados': 'Agendado',
   'confirmados': 'Confirmado',
   'checkin': 'Check-in',
   'descartados': 'Descartado',
+  'optout': 'Opt Out',
   'desperdicio': 'Desperdício',
   'enviados': 'Negociação',
   'recebidos': 'Em Contato', 
@@ -453,28 +457,36 @@ export const useContatoData = () => {
     }
   };
 
-  // Métricas - SIMPLES
+  // Métricas - Corrigido com status corretos
   const getMetricas = () => {
     const totalBase = contatos.length;
-    const novo = contatos.filter(c => c.status === 'Novo').length;
-    const atribuidos = contatos.filter(c => c.status === 'Negociação').length;
-    const convidados = contatos.filter(c => c.status === 'Em Contato').length;
-    const agendados = contatos.filter(c => c.status === 'Qualificado').length;
-    const confirmados = contatos.filter(c => c.status === 'Fechado').length;
-    const checkin = contatos.filter(c => c.status === 'Perdido').length;
-    const descartados = 0;
-    const desperdicio = 0;
+    const novos = contatos.filter(c => c.status === 'Novo').length;
+    const atribuidos = contatos.filter(c => c.status === 'Atribuído').length;
+    const emEspera = contatos.filter(c => c.status === 'Em Espera').length;
+    const convidados = contatos.filter(c => c.status === 'Convidado').length;
+    const agendados = contatos.filter(c => c.status === 'Agendado').length;
+    const confirmados = contatos.filter(c => c.status === 'Confirmado').length;
+    const checkin = contatos.filter(c => c.status === 'Check-in').length;
+    const descartados = contatos.filter(c => c.status === 'Descartado').length;
+    const optOut = contatos.filter(c => c.status === 'Opt Out').length;
+    const desperdicio = contatos.filter(c => c.status === 'Desperdício').length;
+    
+    // Disponíveis = Total - Atribuídos (que já foram distribuídos a alguém)
+    const disponiveisDistribuicao = totalBase - atribuidos - emEspera - convidados - agendados - confirmados - checkin - descartados - optOut;
 
     return {
       totalBase,
-      novo,
+      novos,
       atribuidos,
+      emEspera,
       convidados,
       agendados,
       confirmados,
       checkin,
       descartados,
-      desperdicio
+      optOut,
+      desperdicio,
+      disponiveisDistribuicao
     };
   };
 

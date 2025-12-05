@@ -1603,6 +1603,8 @@ export type Database = {
         | "Check-in"
         | "Descartado"
         | "Desperdício"
+        | "Em Espera"
+        | "Opt Out"
       status_meta: "Ativa" | "Pausada" | "Concluída" | "Cancelada"
       status_notificacao: "Enviada" | "Lida" | "Pendente" | "Erro"
       status_persona: "Ativa" | "Inativa" | "Em Desenvolvimento"
@@ -1797,6 +1799,8 @@ export const Constants = {
         "Check-in",
         "Descartado",
         "Desperdício",
+        "Em Espera",
+        "Opt Out",
       ],
       status_meta: ["Ativa", "Pausada", "Concluída", "Cancelada"],
       status_notificacao: ["Enviada", "Lida", "Pendente", "Erro"],
