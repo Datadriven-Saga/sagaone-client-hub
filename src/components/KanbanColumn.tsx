@@ -3,10 +3,12 @@ import { useDroppable } from '@dnd-kit/core';
 import { KanbanCard } from './KanbanCard';
 import { KanbanColumnData, KanbanItem } from './KanbanBoard';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface KanbanColumnProps {
   column: KanbanColumnData;
   onCardClick?: (item: KanbanItem) => void;
+  onSolicitarClientes?: () => void;
 }
 
 const COLUMN_COLORS: Record<string, string> = {
@@ -20,7 +22,7 @@ const COLUMN_COLORS: Record<string, string> = {
   'desperdicio': 'bg-rose-500',
 };
 
-export function KanbanColumn({ column, onCardClick }: KanbanColumnProps) {
+export function KanbanColumn({ column, onCardClick, onSolicitarClientes }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -36,17 +38,29 @@ export function KanbanColumn({ column, onCardClick }: KanbanColumnProps) {
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
-        <h3 className="text-sm font-semibold text-foreground truncate">
-          {column.title}
-        </h3>
-        <span 
-          className={cn(
-            "text-xs font-medium text-white px-2.5 py-1 rounded-full min-w-[28px] text-center",
-            badgeColor
-          )}
-        >
-          {column.items.length}
-        </span>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-foreground truncate">
+            {column.title}
+          </h3>
+          <span 
+            className={cn(
+              "text-xs font-medium text-white px-2 py-0.5 rounded-full min-w-[24px] text-center",
+              badgeColor
+            )}
+          >
+            {column.items.length}
+          </span>
+        </div>
+        {onSolicitarClientes && (
+          <Button
+            onClick={onSolicitarClientes}
+            variant="outline"
+            size="sm"
+            className="text-xs h-6 px-2"
+          >
+            Solicitar
+          </Button>
+        )}
       </div>
 
       {/* Cards Container */}

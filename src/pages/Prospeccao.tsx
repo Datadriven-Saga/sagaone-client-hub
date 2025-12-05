@@ -781,29 +781,11 @@ const Prospeccao = () => {
         </TabsContent>
 
         <TabsContent value="kanban" className="flex flex-col h-[calc(100vh-200px)] overflow-hidden">
-          <div className="flex-shrink-0 space-y-1">
+          <div className="flex-shrink-0 mb-1">
             <FilterBar
               searchPlaceholder="Buscar por cliente, campanha ou status..."
               onSearchChange={setSearchFilter}
             />
-            
-            <Card className="p-2">
-              <div className="flex items-center justify-between mb-1.5">
-                <h3 className="text-lg font-semibold text-foreground">Kanban - Gestão da Prospecção</h3>
-                <div className="flex items-center space-x-4">
-                  <div className="text-sm text-muted-foreground">
-                    Total de contatos: {contatos.length}
-                  </div>
-                  <Button
-                    onClick={solicitarClientes}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Solicitar Clientes
-                  </Button>
-                </div>
-              </div>
-            </Card>
           </div>
           
           <div className="flex-1 overflow-hidden">
@@ -812,6 +794,7 @@ const Prospeccao = () => {
               onUpdateColumns={() => {}}
               onCardClick={handleCardClick}
               onStatusChange={handleStatusChange}
+              onSolicitarClientes={solicitarClientes}
             />
           </div>
         </TabsContent>

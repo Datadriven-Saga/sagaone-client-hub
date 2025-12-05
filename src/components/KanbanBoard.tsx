@@ -43,13 +43,15 @@ interface KanbanBoardProps {
   onUpdateColumns: (columns: KanbanColumnData[]) => void;
   onCardClick?: (item: KanbanItem) => void;
   onStatusChange?: (itemId: string, fromStatus: string, toStatus: string) => void;
+  onSolicitarClientes?: () => void;
 }
 
 export function KanbanBoard({ 
   columns, 
   onUpdateColumns, 
   onCardClick,
-  onStatusChange
+  onStatusChange,
+  onSolicitarClientes
 }: KanbanBoardProps) {
   const [activeItem, setActiveItem] = useState<KanbanItem | null>(null);
 
@@ -171,6 +173,7 @@ export function KanbanBoard({
               <KanbanColumn
                 column={column}
                 onCardClick={onCardClick}
+                onSolicitarClientes={column.id === 'novos' ? onSolicitarClientes : undefined}
               />
             </SortableContext>
           ))}
