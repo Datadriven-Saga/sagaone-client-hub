@@ -24,11 +24,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [descricao, setDescricao] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+  const [canal, setCanal] = useState<'Whatsapp' | 'Ligação'>('Whatsapp');
   const [templateProspeccao, setTemplateProspeccao] = useState("");
   const [templateAgendado, setTemplateAgendado] = useState("");
   const [templateNaoAgendado, setTemplateNaoAgendado] = useState("");
+  const [convite, setConvite] = useState("");
   const [imagemDivulgacao, setImagemDivulgacao] = useState("");
-  const [canal, setCanal] = useState<'Whatsapp' | 'Ligação'>('Whatsapp');
   
   const { toast } = useToast();
   const { user } = useAuth();
@@ -41,11 +42,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       setDescricao(editingProspeccao.descricao || "");
       setDataInicio(editingProspeccao.data_inicio || "");
       setDataFim(editingProspeccao.data_fim || "");
+      setCanal(editingProspeccao.canal || 'Whatsapp');
       setTemplateProspeccao(editingProspeccao.template_prospeccao || "");
       setTemplateAgendado(editingProspeccao.template_agendado || "");
       setTemplateNaoAgendado(editingProspeccao.template_nao_agendado || "");
+      setConvite((editingProspeccao as any).convite || "");
       setImagemDivulgacao(editingProspeccao.imagem_divulgacao_url || "");
-      setCanal(editingProspeccao.canal || 'Whatsapp');
     } else if (!editingProspeccao && isOpen) {
       // Limpar campos quando criar nova prospecção
       clearForm();
@@ -57,11 +59,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setDescricao("");
     setDataInicio("");
     setDataFim("");
+    setCanal('Whatsapp');
     setTemplateProspeccao("");
     setTemplateAgendado("");
     setTemplateNaoAgendado("");
+    setConvite("");
     setImagemDivulgacao("");
-    setCanal('Whatsapp');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,17 +91,27 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setLoading(true);
     
     try {
-      const dadosProspeccao = {
+      const dadosProspeccao: any = {
         titulo: titulo.trim(),
         descricao: descricao.trim() || null,
         data_inicio: dataInicio || null,
         data_fim: dataFim || null,
-        template_prospeccao: templateProspeccao.trim() || null,
-        template_agendado: templateAgendado.trim() || null,
-        template_nao_agendado: templateNaoAgendado.trim() || null,
-        imagem_divulgacao_url: imagemDivulgacao.trim() || null,
         canal: canal,
+        imagem_divulgacao_url: imagemDivulgacao.trim() || null,
       };
+
+      // Adicionar campos específicos do canal
+      if (canal === 'Whatsapp') {
+        dadosProspeccao.template_prospeccao = templateProspeccao.trim() || null;
+        dadosProspeccao.template_agendado = templateAgendado.trim() || null;
+        dadosProspeccao.template_nao_agendado = templateNaoAgendado.trim() || null;
+        dadosProspeccao.convite = null;
+      } else {
+        dadosProspeccao.template_prospeccao = null;
+        dadosProspeccao.template_agendado = null;
+        dadosProspeccao.template_nao_agendado = null;
+        dadosProspeccao.convite = convite.trim() || null;
+      }
 
       if (editingProspeccao) {
         // Editando prospecção existente
@@ -345,51 +358,6 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
           </div>
 
           <div>
-            <Label htmlFor="template_prospeccao">Template Prospecção</Label>
-            <Textarea
-              id="template_prospeccao"
-              placeholder="Mensagem de prospecção (máx. 120 caracteres)"
-              rows={2}
-              maxLength={120}
-              value={templateProspeccao}
-              onChange={(e) => setTemplateProspeccao(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              {templateProspeccao.length}/120 caracteres
-            </p>
-          </div>
-
-          <div>
-            <Label htmlFor="template_agendado">Template Agendado</Label>
-            <Textarea
-              id="template_agendado"
-              placeholder="Mensagem para agendamentos (máx. 120 caracteres)"
-              rows={2}
-              maxLength={120}
-              value={templateAgendado}
-              onChange={(e) => setTemplateAgendado(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              {templateAgendado.length}/120 caracteres
-            </p>
-          </div>
-
-          <div>
-            <Label htmlFor="template_nao_agendado">Template Não Agendado</Label>
-            <Textarea
-              id="template_nao_agendado"
-              placeholder="Mensagem para não agendamentos (máx. 120 caracteres)"
-              rows={2}
-              maxLength={120}
-              value={templateNaoAgendado}
-              onChange={(e) => setTemplateNaoAgendado(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              {templateNaoAgendado.length}/120 caracteres
-            </p>
-          </div>
-
-          <div>
             <Label htmlFor="canal">Canal *</Label>
             <Select value={canal} onValueChange={(value: 'Whatsapp' | 'Ligação') => setCanal(value)}>
               <SelectTrigger>
@@ -401,6 +369,67 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
               </SelectContent>
             </Select>
           </div>
+
+          {canal === 'Whatsapp' && (
+            <>
+              <div>
+                <Label htmlFor="template_prospeccao">Template Prospecção</Label>
+                <Textarea
+                  id="template_prospeccao"
+                  placeholder="Mensagem de prospecção (máx. 120 caracteres)"
+                  rows={2}
+                  maxLength={120}
+                  value={templateProspeccao}
+                  onChange={(e) => setTemplateProspeccao(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {templateProspeccao.length}/120 caracteres
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="template_agendado">Template Agendado</Label>
+                <Textarea
+                  id="template_agendado"
+                  placeholder="Mensagem para agendamentos (máx. 120 caracteres)"
+                  rows={2}
+                  maxLength={120}
+                  value={templateAgendado}
+                  onChange={(e) => setTemplateAgendado(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {templateAgendado.length}/120 caracteres
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="template_nao_agendado">Template Não Agendado</Label>
+                <Textarea
+                  id="template_nao_agendado"
+                  placeholder="Mensagem para não agendamentos (máx. 120 caracteres)"
+                  rows={2}
+                  maxLength={120}
+                  value={templateNaoAgendado}
+                  onChange={(e) => setTemplateNaoAgendado(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {templateNaoAgendado.length}/120 caracteres
+                </p>
+              </div>
+            </>
+          )}
+
+          {canal === 'Ligação' && (
+            <div>
+              <Label htmlFor="convite">Convite</Label>
+              <Input
+                id="convite"
+                placeholder="Nome do convite para campanhas de ligação"
+                value={convite}
+                onChange={(e) => setConvite(e.target.value)}
+              />
+            </div>
+          )}
 
           <div>
             <Label htmlFor="imagem_divulgacao">Imagem de Divulgação (Opcional)</Label>
