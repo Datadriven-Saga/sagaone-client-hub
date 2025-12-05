@@ -1198,6 +1198,7 @@ export type Database = {
       prospeccoes: {
         Row: {
           canal: string
+          convite: string | null
           created_at: string | null
           data_fim: string | null
           data_inicio: string | null
@@ -1217,6 +1218,7 @@ export type Database = {
         }
         Insert: {
           canal?: string
+          convite?: string | null
           created_at?: string | null
           data_fim?: string | null
           data_inicio?: string | null
@@ -1236,6 +1238,7 @@ export type Database = {
         }
         Update: {
           canal?: string
+          convite?: string | null
           created_at?: string | null
           data_fim?: string | null
           data_inicio?: string | null
