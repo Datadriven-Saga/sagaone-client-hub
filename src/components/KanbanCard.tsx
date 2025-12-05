@@ -109,12 +109,6 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
         )}
       </div>
 
-      {/* Description */}
-      {item.description && (
-        <p className="text-xs text-muted-foreground mt-2.5 pt-2.5 border-t border-border/50 line-clamp-2">
-          {item.description}
-        </p>
-      )}
     </div>
   );
 }
