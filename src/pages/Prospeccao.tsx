@@ -590,7 +590,7 @@ const Prospeccao = () => {
 
   return (
     <DashboardLayout title="Prospecção">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0.5">
         <TabsList className="inline-flex">
           <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
           <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
@@ -598,7 +598,7 @@ const Prospeccao = () => {
           <TabsTrigger value="recepcao">Recepção</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="visao-geral" className="space-y-3 flex-1 overflow-y-auto">
+        <TabsContent value="visao-geral" className="space-y-3">
           <FilterBar
             searchPlaceholder="Filtrar prospecções por nome, marca ou status..."
           />
@@ -726,7 +726,7 @@ const Prospeccao = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="automacao" className="space-y-3 flex-1 overflow-y-auto">
+        <TabsContent value="automacao" className="space-y-3">
           <Card className="p-4">
             <h3 className="text-base font-semibold text-foreground mb-3">Adicionar Contatos à Prospecção</h3>
             
@@ -780,15 +780,15 @@ const Prospeccao = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="kanban" className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="flex-shrink-0 mb-1">
+        <TabsContent value="kanban" className="mt-0">
+          <div className="mb-1">
             <FilterBar
               searchPlaceholder="Buscar por cliente, campanha ou status..."
               onSearchChange={setSearchFilter}
             />
           </div>
           
-          <div className="flex-1 min-h-0 overflow-auto">
+          <div className="h-[calc(100vh-220px)] overflow-auto">
             <KanbanBoard
               columns={kanbanColumns}
               onUpdateColumns={() => {}}
@@ -799,7 +799,7 @@ const Prospeccao = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="recepcao" className="space-y-1.5 flex-1 overflow-y-auto">
+        <TabsContent value="recepcao" className="space-y-1.5">
           <Card className="p-3">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
