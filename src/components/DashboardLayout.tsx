@@ -32,7 +32,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 px-6 pt-3 pb-6 overflow-y-auto overflow-x-hidden">
+          <main className="flex-1 px-6 pt-3 pb-6 overflow-hidden flex flex-col">
             {children}
           </main>
         </div>
