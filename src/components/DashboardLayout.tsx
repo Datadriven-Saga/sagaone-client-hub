@@ -12,12 +12,12 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="h-screen flex w-full bg-background overflow-hidden">
         <AppSidebar />
         
-        <div className="flex-1 flex flex-col">
-          {/* Header */}
-          <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Header - Fixed */}
+          <header className="h-16 flex-shrink-0 border-b border-border bg-card flex items-center justify-between px-6">
             <div className="flex items-center gap-4">
               <SidebarTrigger className="h-9 w-9 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-muted transition-colors">
                 <PanelLeft className="h-5 w-5" />
@@ -31,8 +31,8 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
             <UserMenu />
           </header>
 
-          {/* Main Content */}
-          <main className="flex-1 p-6 overflow-auto">
+          {/* Main Content - Scrollable */}
+          <main className="flex-1 p-6 overflow-auto min-h-0">
             {children}
           </main>
         </div>
