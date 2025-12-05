@@ -4,9 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
-import { SalesFunnel, FunnelStage } from "@/components/SalesFunnel";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck } from "lucide-react";
+import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus } from "lucide-react";
 import { FilterBar } from "@/components/FilterBar";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
@@ -14,6 +13,9 @@ import { CriarProspeccaoModal } from "@/components/CriarProspeccaoModal";
 import { ContatoModal } from "@/components/ContatoModal";
 import { RecepcaoModal } from "@/components/RecepcaoModal";
 import { RecepcaoTable } from "@/components/RecepcaoTable";
+import { ProspeccaoVisaoGeral } from "@/components/ProspeccaoVisaoGeral";
+import { HistoricoImportacaoModal } from "@/components/HistoricoImportacaoModal";
+import { ClientesPorUsuarioModal } from "@/components/ClientesPorUsuarioModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
@@ -54,6 +56,8 @@ const Prospeccao = () => {
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [recepcaoInitialData, setRecepcaoInitialData] = useState<any>(null);
   const [recepcaoSearchFilter, setRecepcaoSearchFilter] = useState('');
+  const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
+  const [isClientesPorUsuarioModalOpen, setIsClientesPorUsuarioModalOpen] = useState(false);
   
   // ✅ HOOKS DE CONTEXTO E CUSTOM HOOKS
   const { toast } = useToast();
@@ -223,50 +227,52 @@ const Prospeccao = () => {
   console.log('📈 Calculating metricas...');
   const metricas = getMetricas();
   console.log('📊 Metricas calculated:', metricas);
-  const funnelData: FunnelStage[] = [
-    {
-      id: 'total-base',
-      title: 'Total da Base',
-      value: metricas.totalBase,
-      color: '#1f2937'
-    },
-    {
-      id: 'atribuidos',
-      title: 'Atribuídos',
-      value: metricas.atribuidos,
-      color: '#8B5FD6'
-    },
-    {
-      id: 'convidados',
-      title: 'Convidados',
-      value: metricas.convidados,
-      color: '#A679E1'
-    },
-    {
-      id: 'agendados',
-      title: 'Agendados',
-      value: metricas.agendados,
-      color: '#C193EC'
-    },
-    {
-      id: 'confirmados',
-      title: 'Confirmados',
-      value: metricas.confirmados,
-      color: '#10b981'
-    },
-    {
-      id: 'check-in',
-      title: 'Check-in',
-      value: metricas.checkin,
-      color: '#22c55e'
-    },
-    {
-      id: 'descartados',
-      title: 'Descartados',
-      value: metricas.descartados,
-      color: '#ef4444'
-    }
-  ];
+  
+  // Dados para o novo layout da Visão Geral
+  const visaoGeralMetrics = {
+    ativosNaProspeccao: metricas.totalBase,
+    disponiveisDistribuicao: metricas.disponiveisDistribuicao,
+    emEspera: metricas.emEspera,
+    descartados: metricas.descartados,
+    paraExclusao: metricas.optOut
+  };
+
+  const funnelDataNew = {
+    distribuidosSemAcao: metricas.atribuidos,
+    contatados: metricas.convidados,
+    semContato: metricas.emEspera,
+    convidados: metricas.convidados,
+    confirmados: metricas.confirmados,
+    checkIns: metricas.checkin
+  };
+
+  // Dados mock para histórico (implementar busca real depois)
+  const historicoImportacao: any[] = [];
+  
+  // Dados de clientes por usuário (implementar busca real depois)
+  const getClientesPorUsuario = () => {
+    const usuariosMap = new Map<string, { novos: number; atribuidos: number; emEspera: number; convidados: number }>();
+    
+    contatos.forEach(contato => {
+      const responsavel = contato.responsavel_email || 'Não atribuído';
+      const current = usuariosMap.get(responsavel) || { novos: 0, atribuidos: 0, emEspera: 0, convidados: 0 };
+      
+      if (contato.status === 'Novo') current.novos++;
+      if (contato.status === 'Atribuído') current.atribuidos++;
+      if (contato.status === 'Em Espera') current.emEspera++;
+      if (contato.status === 'Convidado') current.convidados++;
+      
+      usuariosMap.set(responsavel, current);
+    });
+
+    return Array.from(usuariosMap.entries()).map(([email, counts]) => ({
+      id: email,
+      nome: email.split('@')[0] || email,
+      email: email,
+      totalClientes: counts.novos + counts.atribuidos + counts.emEspera + counts.convidados,
+      ...counts
+    }));
+  };
 
   // Converter contatos para itens do Kanban
   const contatosToKanbanItems = (contatosLista: typeof contatos): KanbanItem[] => {
@@ -318,6 +324,12 @@ const Prospeccao = () => {
       items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Atribuído')) : []
     },
     {
+      id: 'emespera',
+      title: 'Em Espera',
+      color: '#F59E0B',
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Em Espera')) : []
+    },
+    {
       id: 'convidados',
       title: 'Convidados',
       color: '#A679E1',
@@ -346,6 +358,12 @@ const Prospeccao = () => {
       title: 'Descartados',
       color: '#ef4444',
       items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Descartado')) : []
+    },
+    {
+      id: 'optout',
+      title: 'Opt Out',
+      color: '#6B7280',
+      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Opt Out')) : []
     }
   ];
 
@@ -599,131 +617,25 @@ const Prospeccao = () => {
         </TabsList>
 
         <TabsContent value="visao-geral" className="space-y-3">
-          <FilterBar
-            searchPlaceholder="Filtrar prospecções por nome, marca ou status..."
-          />
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Funil de Vendas */}
-            <div className="order-2 lg:order-1">
-              <SalesFunnel 
-                stages={funnelData}
-                title="Funil de Vendas Geral"
-              />
-            </div>
-
-            {/* Lista de Prospecções */}
-            <div className="order-1 lg:order-2 space-y-4">
-              <Card className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-foreground">Prospecções</h3>
-                  <Button onClick={() => setIsModalOpen(true)}>Nova Prospecção</Button>
-                </div>
-
-                {prospeccoes.length > 0 ? (
-                  <>
-                    <div className="flex items-center space-x-2 mb-4 pb-2 border-b border-muted">
-                      <Checkbox 
-                        id="select-all"
-                        checked={selectedProspections.length === prospeccoes.length}
-                        onCheckedChange={handleSelectAll}
-                      />
-                      <label 
-                        htmlFor="select-all" 
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        Selecionar todas ({prospeccoes.length})
-                      </label>
-                    </div>
-
-                    <div className="space-y-3 max-h-96 overflow-y-auto">
-                      {prospeccoes.map((item) => (
-                        <Card 
-                          key={item.id} 
-                          className={`cursor-pointer hover:shadow-card transition-shadow p-4 ${
-                            item.canal === 'Whatsapp' 
-                              ? 'border-t-4 border-t-green-500' 
-                              : 'border-t-4 border-t-blue-500'
-                          }`}
-                          onClick={() => handleEditProspeccao(item)}
-                        >
-                          <div className="flex items-start space-x-3">
-                            <div onClick={(e) => e.stopPropagation()}>
-                              <Checkbox 
-                                id={`prospect-${item.id}`}
-                                checked={selectedProspections.includes(item.id)}
-                                onCheckedChange={(checked) => handleProspectionSelection(item.id, !!checked)}
-                              />
-                            </div>
-                            
-                             <div className="flex-1">
-                               <div className="flex items-center justify-between gap-2 mb-1">
-                                 <div className="flex items-center gap-2">
-                                   <h4 className="font-semibold">{item.titulo}</h4>
-                                   <span className={`px-2 py-1 text-xs rounded-full ${
-                                     item.canal === 'Whatsapp'
-                                       ? 'bg-green-100 text-green-700'
-                                       : 'bg-blue-100 text-blue-700'
-                                   }`}>
-                                     {item.canal}
-                                   </span>
-                                 </div>
-                                 
-                                 {/* Menu de ações */}
-                                 <div onClick={(e) => e.stopPropagation()}>
-                                   <DropdownMenu>
-                                     <DropdownMenuTrigger asChild>
-                                       <Button 
-                                         variant="ghost" 
-                                         size="sm"
-                                         className="h-8 w-8 p-0"
-                                       >
-                                         <MoreVertical size={16} />
-                                       </Button>
-                                     </DropdownMenuTrigger>
-                                     <DropdownMenuContent align="end">
-                                       <DropdownMenuItem onClick={() => handleEditProspeccao(item)}>
-                                         <Edit size={16} className="mr-2" />
-                                         Editar
-                                       </DropdownMenuItem>
-                                       <DropdownMenuItem 
-                                         onClick={() => setDeleteProspeccaoId(item.id)}
-                                         className="text-red-600"
-                                       >
-                                         <Trash2 size={16} className="mr-2" />
-                                         Excluir
-                                       </DropdownMenuItem>
-                                     </DropdownMenuContent>
-                                   </DropdownMenu>
-                                 </div>
-                               </div>
-                              <p className="text-sm text-muted-foreground">
-                                {item.data_inicio && item.data_fim 
-                                  ? `${item.data_inicio} - ${item.data_fim}` 
-                                  : 'Datas não definidas'
-                                }
-                              </p>
-                              <p className="text-sm">Meta: {item.meta_leads || 0} contatos</p>
-                              <p className="text-sm">Gerados: {item.leads_gerados}</p>
-                              {item.descricao && (
-                                <p className="text-xs text-muted-foreground mt-1">{item.descricao}</p>
-                              )}
-                            </div>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Target className="mx-auto mb-2" size={32} />
-                    <p>Nenhuma prospecção encontrada</p>
-                    <p className="text-sm">Crie sua primeira prospecção para começar</p>
-                  </div>
-                )}
-              </Card>
-            </div>
+          <div className="flex items-center justify-between mb-2">
+            <div />
+            <Button onClick={() => setIsModalOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Prospecção
+            </Button>
           </div>
+
+          <ProspeccaoVisaoGeral
+            metrics={visaoGeralMetrics}
+            funnelData={funnelDataNew}
+            onImportarLeads={() => setActiveTab('automacao')}
+            onHistoricoImportacao={() => setIsHistoricoModalOpen(true)}
+            onClientesPorUsuario={() => setIsClientesPorUsuarioModalOpen(true)}
+            onMetricClick={(metricType) => {
+              console.log('Metric clicked:', metricType);
+              // Pode navegar para filtro específico no Kanban
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="automacao" className="space-y-3">
@@ -907,6 +819,18 @@ const Prospeccao = () => {
         }}
         onSave={adicionarVisita}
         initialData={recepcaoInitialData}
+      />
+
+      <HistoricoImportacaoModal
+        isOpen={isHistoricoModalOpen}
+        onClose={() => setIsHistoricoModalOpen(false)}
+        historico={historicoImportacao}
+      />
+
+      <ClientesPorUsuarioModal
+        isOpen={isClientesPorUsuarioModalOpen}
+        onClose={() => setIsClientesPorUsuarioModalOpen(false)}
+        usuarios={getClientesPorUsuario()}
       />
     </DashboardLayout>
   );

@@ -14,11 +14,13 @@ interface KanbanColumnProps {
 const COLUMN_COLORS: Record<string, string> = {
   'novos': 'bg-blue-500',
   'atribuidos': 'bg-indigo-500',
+  'emespera': 'bg-amber-500',
   'convidados': 'bg-violet-500',
   'agendados': 'bg-purple-500',
   'confirmados': 'bg-emerald-500',
   'checkin': 'bg-green-500',
   'descartados': 'bg-red-500',
+  'optout': 'bg-gray-500',
   'desperdicio': 'bg-rose-500',
 };
 
