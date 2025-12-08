@@ -5,6 +5,7 @@ import { KanbanItem } from './KanbanBoard';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { UserCheck, UserX } from 'lucide-react';
 
 interface KanbanCardProps {
   item: KanbanItem;
@@ -90,18 +91,36 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
         </p>
       )}
 
-      {/* Origin + Time */}
+      {/* Origin + Responsável + Time */}
       <div className="flex items-center justify-between gap-2">
-        {origin && (
-          <span 
-            className={cn(
-              "text-[10px] font-medium px-2 py-0.5 rounded border",
-              getOriginStyle(origin)
-            )}
-          >
-            {origin.toLowerCase()}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {origin && (
+            <span 
+              className={cn(
+                "text-[10px] font-medium px-2 py-0.5 rounded border",
+                getOriginStyle(origin)
+              )}
+            >
+              {origin.toLowerCase()}
+            </span>
+          )}
+          {/* Indicador de responsável */}
+          {item.assignee ? (
+            <span 
+              className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200"
+              title={`Responsável: ${item.assignee}`}
+            >
+              <UserCheck className="h-3 w-3" />
+            </span>
+          ) : (
+            <span 
+              className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200"
+              title="Sem responsável"
+            >
+              <UserX className="h-3 w-3" />
+            </span>
+          )}
+        </div>
         {timeAgo && (
           <span className="text-[11px] text-muted-foreground ml-auto">
             {timeAgo}
