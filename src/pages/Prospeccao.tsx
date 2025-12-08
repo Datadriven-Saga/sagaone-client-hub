@@ -112,7 +112,7 @@ const Prospeccao = () => {
         // Buscar emails dos usuários via edge function
         try {
           const { data: usersData } = await supabase.functions.invoke('manage-users', {
-            body: { action: 'list' }
+            body: { action: 'list_users' }
           });
           
           if (usersData?.users) {
