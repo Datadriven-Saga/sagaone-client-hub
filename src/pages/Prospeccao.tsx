@@ -58,7 +58,7 @@ const Prospeccao = () => {
   const [recepcaoSearchFilter, setRecepcaoSearchFilter] = useState('');
   const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
   const [isClientesPorUsuarioModalOpen, setIsClientesPorUsuarioModalOpen] = useState(false);
-  const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; email?: string }[]>([]);
+  const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string }[]>([]);
   
   // ✅ HOOKS DE CONTEXTO E CUSTOM HOOKS
   const { toast } = useToast();
@@ -90,13 +90,13 @@ const Prospeccao = () => {
   console.log('🔑 User from auth:', user);
   console.log('📊 Data from hooks - contatos:', contatos?.length, 'prospeccoes:', prospeccoes?.length, 'loading:', loading);
 
-  // Buscar profiles com email do usuário para mapear responsavel_email
+  // Buscar profiles com email e celular para mapear responsavel_email
   useEffect(() => {
     const fetchProfiles = async () => {
-      // Buscar profiles
+      // Buscar profiles com celular
       const { data: profilesData, error } = await supabase
         .from('profiles')
-        .select('id, nome_completo, tipo_acesso');
+        .select('id, nome_completo, tipo_acesso, celular');
       
       if (error) {
         console.error('Error fetching profiles:', error);
@@ -293,18 +293,23 @@ const Prospeccao = () => {
   // Dados mock para histórico (implementar busca real depois)
   const historicoImportacao: any[] = [];
   
-  // Dados de clientes por usuário (baseado em responsavel_email que contém o email do usuário)
+  // Dados de clientes por usuário (baseado em responsavel_email que pode ser email ou celular)
   const getClientesPorUsuario = () => {
     const usuariosMap = new Map<string, { nome: string; tipoAcesso: string; novos: number; atribuidos: number; emEspera: number; convidados: number }>();
     
     contatos.forEach(contato => {
-      const responsavelEmail = contato.responsavel_email || 'nao_atribuido';
+      const responsavel = contato.responsavel_email || 'nao_atribuido';
       
-      // Buscar profile correspondente pelo EMAIL
-      const profile = profiles.find(p => p.email === responsavelEmail);
+      // Buscar profile correspondente pelo EMAIL ou CELULAR
+      const profile = profiles.find(p => 
+        p.email === responsavel || 
+        p.celular === responsavel ||
+        // Tentar match sem formatação (apenas dígitos)
+        p.celular?.replace(/\D/g, '') === responsavel.replace(/\D/g, '')
+      );
       
-      const current = usuariosMap.get(responsavelEmail) || { 
-        nome: profile?.nome_completo || (responsavelEmail === 'nao_atribuido' ? 'Não atribuído' : responsavelEmail), 
+      const current = usuariosMap.get(responsavel) || { 
+        nome: profile?.nome_completo || (responsavel === 'nao_atribuido' ? 'Não atribuído' : responsavel), 
         tipoAcesso: profile?.tipo_acesso || '-',
         novos: 0, 
         atribuidos: 0, 
@@ -317,7 +322,7 @@ const Prospeccao = () => {
       if (contato.status === 'Em Espera') current.emEspera++;
       if (contato.status === 'Convidado') current.convidados++;
       
-      usuariosMap.set(responsavelEmail, current);
+      usuariosMap.set(responsavel, current);
     });
 
     return Array.from(usuariosMap.entries()).map(([key, data]) => ({
