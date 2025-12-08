@@ -102,7 +102,6 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
 
   return (
     <Card className="p-6 h-full">
-      <h3 className="text-lg font-semibold text-foreground mb-6 text-center">Funil de Vendas</h3>
       
       <div className="flex flex-col items-center space-y-2">
         {stages.map((stage, index) => {
@@ -317,7 +316,8 @@ export const ResumoTab = ({ prospeccaoId, empresaId }: ResumoTabProps) => {
       </div>
 
       {/* Lado Direito - Funil de Vendas */}
-      <div>
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Funil de Vendas</h3>
         <SalesFunnel stages={funnelStages} />
       </div>
     </div>
