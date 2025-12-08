@@ -26,7 +26,36 @@ interface VendedorDesempenho {
   descartes: number;
 }
 
-type SortColumn = 'nomeCompleto' | 'atribuidos' | 'convidados' | 'agendados' | 'confirmados' | 'checkins' | 'vendas' | 'descartes';
+type SortColumn = 'nomeCompleto' | 'atribuidos' | 'convidados' | 'agendados' | 'confirmados' | 'checkins' | 'vendas' | 'descartes' | 'pontuacao';
+
+// Função para calcular pontuação
+const calcularPontuacao = (vendedor: VendedorDesempenho): number => {
+  // Taxa de conversão de Confirmações: (confirmados / convidados) * 200. (Máximo: 200 pontos)
+  const taxaConfirmacoes = vendedor.convidados > 0 
+    ? Math.min((vendedor.confirmados / vendedor.convidados) * 200, 200)
+    : 0;
+  
+  // Taxa de Check-in: (check-in / confirmados) * 600. (Máximo: 600 pontos)
+  const taxaCheckin = vendedor.confirmados > 0 
+    ? Math.min((vendedor.checkins / vendedor.confirmados) * 600, 600)
+    : 0;
+  
+  // Taxa de Vendas: (vendas / confirmados) * 200. (Máximo: 200 pontos)
+  const taxaVendas = vendedor.confirmados > 0 
+    ? Math.min((vendedor.vendas / vendedor.confirmados) * 200, 200)
+    : 0;
+  
+  // Quantidade de Confirmados: Cada confirmação é 10 pontos
+  const pontosConfirmados = vendedor.confirmados * 10;
+  
+  // Quantidade de Check-ins: Cada check-in é 50 pontos
+  const pontosCheckins = vendedor.checkins * 50;
+  
+  // Quantidade de Vendas: Cada venda é 200 pontos
+  const pontosVendas = vendedor.vendas * 200;
+  
+  return Math.round(taxaConfirmacoes + taxaCheckin + taxaVendas + pontosConfirmados + pontosCheckins + pontosVendas);
+};
 type SortDirection = 'asc' | 'desc';
 
 export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
@@ -200,6 +229,8 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
       
       if (sortColumn === 'nomeCompleto') {
         comparison = a.nomeCompleto.localeCompare(b.nomeCompleto);
+      } else if (sortColumn === 'pontuacao') {
+        comparison = calcularPontuacao(a) - calcularPontuacao(b);
       } else {
         comparison = a[sortColumn] - b[sortColumn];
       }
@@ -387,6 +418,15 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                     <SortIcon column="descartes" />
                   </div>
                 </TableHead>
+                <TableHead 
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => handleSort('pontuacao')}
+                >
+                  <div className="flex items-center justify-center font-semibold text-amber-600">
+                    Pontuação
+                    <SortIcon column="pontuacao" />
+                  </div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -420,6 +460,9 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </TableCell>
                   <TableCell className="text-center text-muted-foreground">
                     {vendedor.descartes}
+                  </TableCell>
+                  <TableCell className="text-center font-bold text-amber-600">
+                    {calcularPontuacao(vendedor).toLocaleString('pt-BR')}
                   </TableCell>
                 </TableRow>
               ))}
