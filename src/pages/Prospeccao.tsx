@@ -609,21 +609,20 @@ const Prospeccao = () => {
   return (
     <DashboardLayout title="Prospecção">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0.5">
-        <TabsList className="inline-flex">
-          <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
-          <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
-          <TabsTrigger value="kanban">Kanban</TabsTrigger>
-          <TabsTrigger value="recepcao">Recepção</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList className="inline-flex">
+            <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
+            <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
+            <TabsTrigger value="kanban">Kanban</TabsTrigger>
+            <TabsTrigger value="recepcao">Recepção</TabsTrigger>
+          </TabsList>
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Nova Prospecção
+          </Button>
+        </div>
 
         <TabsContent value="visao-geral" className="space-y-3">
-          <div className="flex items-center justify-between mb-2">
-            <div />
-            <Button onClick={() => setIsModalOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Prospecção
-            </Button>
-          </div>
 
           <ProspeccaoVisaoGeral
             metrics={visaoGeralMetrics}
