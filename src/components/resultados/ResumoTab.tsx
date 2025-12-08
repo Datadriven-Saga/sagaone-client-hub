@@ -280,7 +280,13 @@ export const ResumoTab = ({ prospeccaoId, empresaId }: ResumoTabProps) => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Lado Esquerdo - Gráficos de Meta */}
+      {/* Lado Esquerdo - Funil de Vendas */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Funil de Vendas</h3>
+        <SalesFunnel stages={funnelStages} />
+      </div>
+
+      {/* Lado Direito - Gráficos de Meta */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Metas vs Realizado</h3>
         
@@ -317,12 +323,6 @@ export const ResumoTab = ({ prospeccaoId, empresaId }: ResumoTabProps) => {
             color="bg-green-100"
           />
         </div>
-      </div>
-
-      {/* Lado Direito - Funil de Vendas */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Funil de Vendas</h3>
-        <SalesFunnel stages={funnelStages} />
       </div>
     </div>
   );
