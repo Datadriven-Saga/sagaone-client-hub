@@ -80,7 +80,7 @@ serve(async (req) => {
       );
     }
 
-    // Inserir evento de prospecção (anotação)
+    // Inserir evento de prospecção (anotação) - salvar userId em observacoes para referência
     const { data: evento, error: eventoError } = await supabaseClient
       .from('eventos_prospeccao')
       .insert({
@@ -88,7 +88,7 @@ serve(async (req) => {
         contato_id: contato_id,
         tipo_evento: 'Anotação',
         descricao: mensagem,
-        observacoes: 'Adicionado via API',
+        observacoes: userId || null,
         data_evento: new Date().toISOString()
       })
       .select()

@@ -46,7 +46,8 @@ interface ContatoModalProps {
 interface Anotacao {
   id: string;
   texto: string;
-  usuario: string;
+  usuarioNome: string;
+  usuarioCargo: string;
   timestamp: string;
 }
 
@@ -142,11 +143,32 @@ export function ContatoModal({
               .order('created_at', { ascending: false });
 
             if (!error && eventos) {
-              const anotacoesFormatadas = eventos.map(evento => ({
-                id: evento.id,
-                texto: evento.descricao || '',
-                usuario: user?.email || 'Usuário',
-                timestamp: evento.created_at || new Date().toISOString()
+              // Buscar informações do perfil do usuário que criou cada anotação
+              const anotacoesFormatadas = await Promise.all(eventos.map(async (evento) => {
+                let usuarioNome = 'Usuário';
+                let usuarioCargo = '';
+                
+                // O campo observacoes contém o ID do usuário que criou a anotação
+                if (evento.observacoes && evento.observacoes !== 'Adicionado via API') {
+                  const { data: perfil } = await supabase
+                    .from('profiles')
+                    .select('nome_completo, tipo_acesso')
+                    .eq('id', evento.observacoes)
+                    .maybeSingle();
+                  
+                  if (perfil) {
+                    usuarioNome = perfil.nome_completo || 'Usuário';
+                    usuarioCargo = perfil.tipo_acesso || '';
+                  }
+                }
+                
+                return {
+                  id: evento.id,
+                  texto: evento.descricao || '',
+                  usuarioNome,
+                  usuarioCargo,
+                  timestamp: evento.created_at || new Date().toISOString()
+                };
               }));
               setAnotacoes(anotacoesFormatadas);
             }
@@ -231,11 +253,28 @@ export function ContatoModal({
         description: "Anotação adicionada com sucesso"
       });
 
+      // Buscar nome e cargo do usuário atual
+      let usuarioNome = 'Usuário';
+      let usuarioCargo = '';
+      if (user?.id) {
+        const { data: perfil } = await supabase
+          .from('profiles')
+          .select('nome_completo, tipo_acesso')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        if (perfil) {
+          usuarioNome = perfil.nome_completo || 'Usuário';
+          usuarioCargo = perfil.tipo_acesso || '';
+        }
+      }
+
       // Adicionar a nova anotação à lista local
       const novaAnotacaoObj: Anotacao = {
         id: data.evento_id,
         texto: novaAnotacao,
-        usuario: user?.email || 'Usuário',
+        usuarioNome,
+        usuarioCargo,
         timestamp: new Date().toISOString()
       };
 
@@ -680,7 +719,14 @@ export function ContatoModal({
                           anotacoes.map((anotacao) => (
                             <div key={anotacao.id} className="border-l-4 border-primary pl-4">
                               <div className="flex justify-between items-start mb-2">
-                                <span className="font-medium text-sm">{anotacao.usuario}</span>
+                                <div>
+                                  <span className="font-medium text-sm">{anotacao.usuarioNome}</span>
+                                  {anotacao.usuarioCargo && (
+                                    <span className="text-xs text-muted-foreground ml-2">
+                                      ({anotacao.usuarioCargo})
+                                    </span>
+                                  )}
+                                </div>
                                 <span className="text-xs text-muted-foreground">
                                   {new Date(anotacao.timestamp).toLocaleString('pt-BR')}
                                 </span>
