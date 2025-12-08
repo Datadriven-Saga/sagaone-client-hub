@@ -559,14 +559,15 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
     const premiacao = premiacoes[premioKey];
     
     return (
-      <div className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${premiacao.ativo ? 'bg-primary/5 border-primary/20' : 'bg-muted/30 border-transparent'}`}>
+      <div className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${premiacao.ativo ? 'bg-green-50 border-green-200' : 'bg-gray-100 border-gray-300'}`}>
         <Switch
           checked={premiacao.ativo}
           onCheckedChange={(checked) => handlePremiacaoToggle(premioKey, checked)}
+          className={premiacao.ativo ? 'data-[state=checked]:bg-green-500' : 'data-[state=unchecked]:bg-gray-400'}
         />
         <div className="flex-1 flex items-center gap-2 min-w-0">
-          <Icon className={`h-4 w-4 flex-shrink-0 ${premiacao.ativo ? 'text-primary' : 'text-muted-foreground'}`} />
-          <span className={`text-sm truncate ${premiacao.ativo ? 'font-medium' : 'text-muted-foreground'}`}>{config.nome}</span>
+          <Icon className={`h-4 w-4 flex-shrink-0 ${premiacao.ativo ? 'text-green-600' : 'text-gray-500'}`} />
+          <span className={`text-sm truncate ${premiacao.ativo ? 'font-medium text-green-700' : 'text-gray-600'}`}>{config.nome}</span>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
