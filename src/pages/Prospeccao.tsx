@@ -357,10 +357,13 @@ const Prospeccao = () => {
         const prospeccaoNome = (prospeccoes && prospeccoes.length > 0) ? prospeccoes[0].titulo : 'Sem prospecção';
         const prospeccaoCanal = (prospeccoes && prospeccoes.length > 0) ? prospeccoes[0].canal : 'Whatsapp';
         
-        // Mapear responsavel_email para o nome completo do usuário
+        // Mapear responsavel_email (que contém o ID do usuário) para o nome completo
         let assigneeName: string | undefined = undefined;
         if (contato.responsavel_email) {
-          const responsavelProfile = profiles.find(p => p.email === contato.responsavel_email);
+          // responsavel_email pode conter tanto ID quanto email - tentar ambos
+          const responsavelProfile = profiles.find(p => 
+            p.id === contato.responsavel_email || p.email === contato.responsavel_email
+          );
           assigneeName = responsavelProfile?.nome_completo || undefined;
         }
         
