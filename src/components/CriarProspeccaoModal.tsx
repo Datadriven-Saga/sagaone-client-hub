@@ -554,19 +554,20 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
     }));
   };
 
-  const PremiacaoField = ({ premioKey, icon: Icon }: { premioKey: keyof typeof premiacaoConfigs; icon: React.ElementType }) => {
-    const config = premiacaoConfigs[premioKey];
+  // Config das premiações inline para evitar re-render
+  const renderPremiacaoField = (premioKey: string, IconComponent: React.ElementType) => {
+    const config = premiacaoConfigs[premioKey as keyof typeof premiacaoConfigs];
     const premiacao = premiacoes[premioKey];
     
     return (
-      <div className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${premiacao.ativo ? 'bg-green-50 border-green-200' : 'bg-gray-100 border-gray-300'}`}>
+      <div key={premioKey} className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${premiacao.ativo ? 'bg-green-50 border-green-200' : 'bg-gray-100 border-gray-300'}`}>
         <Switch
           checked={premiacao.ativo}
           onCheckedChange={(checked) => handlePremiacaoToggle(premioKey, checked)}
           className={premiacao.ativo ? 'data-[state=checked]:bg-green-500' : 'data-[state=unchecked]:bg-gray-400'}
         />
         <div className="flex-1 flex items-center gap-2 min-w-0">
-          <Icon className={`h-4 w-4 flex-shrink-0 ${premiacao.ativo ? 'text-green-600' : 'text-gray-500'}`} />
+          <IconComponent className={`h-4 w-4 flex-shrink-0 ${premiacao.ativo ? 'text-green-600' : 'text-gray-500'}`} />
           <span className={`text-sm truncate ${premiacao.ativo ? 'font-medium text-green-700' : 'text-gray-600'}`}>{config.nome}</span>
           <TooltipProvider>
             <Tooltip>
@@ -929,9 +930,9 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   <span className="text-sm font-semibold">Premiações para Equipes</span>
                 </div>
                 <div className="space-y-2">
-                  <PremiacaoField premioKey="equipe_campea" icon={Trophy} />
-                  <PremiacaoField premioKey="equipe_2lugar" icon={Award} />
-                  <PremiacaoField premioKey="equipe_3lugar" icon={Award} />
+                  {renderPremiacaoField("equipe_campea", Trophy)}
+                  {renderPremiacaoField("equipe_2lugar", Award)}
+                  {renderPremiacaoField("equipe_3lugar", Award)}
                 </div>
               </div>
 
@@ -942,9 +943,9 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   <span className="text-sm font-semibold">Premiações para Vendedores</span>
                 </div>
                 <div className="space-y-2">
-                  <PremiacaoField premioKey="vendedor_ouro" icon={Trophy} />
-                  <PremiacaoField premioKey="vendedor_prata" icon={Award} />
-                  <PremiacaoField premioKey="vendedor_bronze" icon={Award} />
+                  {renderPremiacaoField("vendedor_ouro", Trophy)}
+                  {renderPremiacaoField("vendedor_prata", Award)}
+                  {renderPremiacaoField("vendedor_bronze", Award)}
                 </div>
               </div>
 
@@ -955,9 +956,9 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   <span className="text-sm font-semibold">Premiação para Vendedor Prospector</span>
                 </div>
                 <div className="space-y-2">
-                  <PremiacaoField premioKey="prospector_ouro" icon={Trophy} />
-                  <PremiacaoField premioKey="prospector_prata" icon={Award} />
-                  <PremiacaoField premioKey="prospector_bronze" icon={Award} />
+                  {renderPremiacaoField("prospector_ouro", Trophy)}
+                  {renderPremiacaoField("prospector_prata", Award)}
+                  {renderPremiacaoField("prospector_bronze", Award)}
                 </div>
               </div>
 
@@ -968,9 +969,9 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   <span className="text-sm font-semibold">Premiações para Equipe de Apoio</span>
                 </div>
                 <div className="space-y-2">
-                  <PremiacaoField premioKey="checkin_ouro" icon={Trophy} />
-                  <PremiacaoField premioKey="checkin_prata" icon={Award} />
-                  <PremiacaoField premioKey="checkin_bronze" icon={Award} />
+                  {renderPremiacaoField("checkin_ouro", Trophy)}
+                  {renderPremiacaoField("checkin_prata", Award)}
+                  {renderPremiacaoField("checkin_bronze", Award)}
                 </div>
               </div>
 
@@ -981,8 +982,8 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   <span className="text-sm font-semibold">Premiações por Participação ou Indicação</span>
                 </div>
                 <div className="space-y-2">
-                  <PremiacaoField premioKey="participacao_apoio" icon={Gift} />
-                  <PremiacaoField premioKey="indicacao_venda" icon={Gift} />
+                  {renderPremiacaoField("participacao_apoio", Gift)}
+                  {renderPremiacaoField("indicacao_venda", Gift)}
                 </div>
               </div>
             </TabsContent>
