@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,6 +12,7 @@ import { User, Mail, Phone, Calendar, Building, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { AvatarSelector } from "@/components/AvatarSelector";
 
 const profileSchema = z.object({
   nome_completo: z.string().min(1, "Nome é obrigatório"),
@@ -72,6 +72,32 @@ const MinhaConta = () => {
     }
   };
 
+  const handleAvatarChange = async (avatarUrl: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ foto_url: avatarUrl })
+        .eq("id", user.id);
+
+      if (error) throw error;
+
+      setProfile({ ...profile, foto_url: avatarUrl });
+      toast({
+        title: "Sucesso",
+        description: "Foto de perfil atualizada com sucesso!",
+      });
+    } catch (error) {
+      console.error("Error updating avatar:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a foto de perfil.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const onSubmit = async (values: ProfileForm) => {
     if (!user) return;
 
@@ -118,16 +144,11 @@ const MinhaConta = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center space-x-4">
-              <Avatar className="h-20 w-20">
-                <AvatarImage src={profile?.foto_url} alt={profile?.nome_completo} />
-                <AvatarFallback className="text-lg">
-                  {profile?.nome_completo
-                    ?.split(" ")
-                    .map((n: string) => n[0])
-                    .join("")
-                    .toUpperCase() || "U"}
-                </AvatarFallback>
-              </Avatar>
+              <AvatarSelector
+                currentAvatar={profile?.foto_url}
+                userName={profile?.nome_completo}
+                onAvatarChange={handleAvatarChange}
+              />
               <div className="space-y-2">
                 <h2 className="text-2xl font-semibold">{profile?.nome_completo}</h2>
                 <div className="flex items-center space-x-2">
