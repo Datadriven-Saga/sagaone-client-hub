@@ -1207,7 +1207,13 @@ export type Database = {
           id: string
           imagem_divulgacao_url: string | null
           leads_gerados: number | null
+          meta_checkins: number | null
+          meta_confirmacoes: number | null
+          meta_convites: number | null
+          meta_diretas: number | null
           meta_leads: number | null
+          meta_novos: number | null
+          meta_seminovos: number | null
           persona_id: string | null
           responsavel_id: string | null
           template_agendado: string | null
@@ -1227,7 +1233,13 @@ export type Database = {
           id?: string
           imagem_divulgacao_url?: string | null
           leads_gerados?: number | null
+          meta_checkins?: number | null
+          meta_confirmacoes?: number | null
+          meta_convites?: number | null
+          meta_diretas?: number | null
           meta_leads?: number | null
+          meta_novos?: number | null
+          meta_seminovos?: number | null
           persona_id?: string | null
           responsavel_id?: string | null
           template_agendado?: string | null
@@ -1247,7 +1259,13 @@ export type Database = {
           id?: string
           imagem_divulgacao_url?: string | null
           leads_gerados?: number | null
+          meta_checkins?: number | null
+          meta_confirmacoes?: number | null
+          meta_convites?: number | null
+          meta_diretas?: number | null
           meta_leads?: number | null
+          meta_novos?: number | null
+          meta_seminovos?: number | null
           persona_id?: string | null
           responsavel_id?: string | null
           template_agendado?: string | null

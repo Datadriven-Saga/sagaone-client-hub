@@ -9,7 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileText, Target, Users, MapPin, ThumbsUp, Phone } from "lucide-react";
+import { Card } from "@/components/ui/card";
 
 interface CriarProspeccaoModalProps {
   isOpen: boolean;
@@ -20,6 +22,9 @@ interface CriarProspeccaoModalProps {
 
 export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, editingProspeccao }: CriarProspeccaoModalProps) => {
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("dados-gerais");
+  
+  // Dados Gerais
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [dataInicio, setDataInicio] = useState("");
@@ -30,6 +35,15 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [templateNaoAgendado, setTemplateNaoAgendado] = useState("");
   const [convite, setConvite] = useState("");
   const [imagemDivulgacao, setImagemDivulgacao] = useState("");
+  
+  // Metas
+  const [metaNovos, setMetaNovos] = useState<number | "">("");
+  const [metaSeminovos, setMetaSeminovos] = useState<number | "">("");
+  const [metaDiretas, setMetaDiretas] = useState<number | "">("");
+  const [metaCheckins, setMetaCheckins] = useState<number | "">("");
+  const [metaConfirmacoes, setMetaConfirmacoes] = useState<number | "">("");
+  const [metaConvites, setMetaConvites] = useState<number | "">("");
+  const [tamanhoBase, setTamanhoBase] = useState<number>(0);
   
   const { toast } = useToast();
   const { user } = useAuth();
@@ -48,11 +62,44 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       setTemplateNaoAgendado(editingProspeccao.template_nao_agendado || "");
       setConvite((editingProspeccao as any).convite || "");
       setImagemDivulgacao(editingProspeccao.imagem_divulgacao_url || "");
+      
+      // Metas
+      setMetaNovos(editingProspeccao.meta_novos ?? "");
+      setMetaSeminovos(editingProspeccao.meta_seminovos ?? "");
+      setMetaDiretas(editingProspeccao.meta_diretas ?? "");
+      setMetaCheckins(editingProspeccao.meta_checkins ?? "");
+      setMetaConfirmacoes(editingProspeccao.meta_confirmacoes ?? "");
+      setMetaConvites(editingProspeccao.meta_convites ?? "");
     } else if (!editingProspeccao && isOpen) {
       // Limpar campos quando criar nova prospecção
       clearForm();
     }
   }, [editingProspeccao, isOpen]);
+
+  // Buscar tamanho da base quando editando
+  useEffect(() => {
+    const fetchTamanhoBase = async () => {
+      if (editingProspeccao?.id && activeCompany?.id) {
+        const { count } = await supabase
+          .from('contatos')
+          .select('*', { count: 'exact', head: true })
+          .eq('empresa_id', activeCompany.id);
+        
+        setTamanhoBase(count || 0);
+      }
+    };
+    
+    if (isOpen && editingProspeccao) {
+      fetchTamanhoBase();
+    }
+  }, [editingProspeccao, activeCompany?.id, isOpen]);
+
+  // Reset aba ao abrir modal
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab("dados-gerais");
+    }
+  }, [isOpen]);
 
   const clearForm = () => {
     setTitulo("");
@@ -65,6 +112,13 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setTemplateNaoAgendado("");
     setConvite("");
     setImagemDivulgacao("");
+    setMetaNovos("");
+    setMetaSeminovos("");
+    setMetaDiretas("");
+    setMetaCheckins("");
+    setMetaConfirmacoes("");
+    setMetaConvites("");
+    setTamanhoBase(0);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,6 +152,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         data_fim: dataFim || null,
         canal: canal,
         imagem_divulgacao_url: imagemDivulgacao.trim() || null,
+        meta_novos: metaNovos === "" ? null : metaNovos,
+        meta_seminovos: metaSeminovos === "" ? null : metaSeminovos,
+        meta_diretas: metaDiretas === "" ? null : metaDiretas,
+        meta_checkins: metaCheckins === "" ? null : metaCheckins,
+        meta_confirmacoes: metaConfirmacoes === "" ? null : metaConfirmacoes,
+        meta_convites: metaConvites === "" ? null : metaConvites,
       };
 
       // Adicionar campos específicos do canal
@@ -291,158 +351,301 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
     onOpenChange(false);
   };
 
+  // Calcular meta total de vendas
+  const metaTotalVendas = (Number(metaNovos) || 0) + (Number(metaSeminovos) || 0) + (Number(metaDiretas) || 0);
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editingProspeccao ? 'Editar Prospecção' : 'Nova Prospecção'}
           </DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="titulo">Título *</Label>
-            <Input
-              id="titulo"
-              placeholder="Ex: Campanha Black Friday 2024"
-              value={titulo}
-              onChange={(e) => setTitulo(e.target.value)}
-              required
-            />
-          </div>
+        <form onSubmit={handleSubmit}>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="dados-gerais">Dados Gerais</TabsTrigger>
+              <TabsTrigger value="meta">Meta</TabsTrigger>
+            </TabsList>
 
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label htmlFor="descricao">Descrição</Label>
-              <Button 
-                type="button" 
-                variant="ghost" 
-                size="sm"
-                className="h-auto py-1 px-2 text-xs"
-                onClick={aplicarModeloDescricao}
-              >
-                <FileText className="h-3 w-3 mr-1" />
-                Aplicar modelo
-              </Button>
-            </div>
-            <Textarea
-              id="descricao"
-              placeholder="Descrição da campanha..."
-              rows={3}
-              value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="data_inicio">Data de Início</Label>
-              <Input
-                id="data_inicio"
-                type="date"
-                value={dataInicio}
-                onChange={(e) => setDataInicio(e.target.value)}
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="data_fim">Data de Fim</Label>
-              <Input
-                id="data_fim"
-                type="date"
-                value={dataFim}
-                onChange={(e) => setDataFim(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="canal">Canal *</Label>
-            <Select value={canal} onValueChange={(value: 'Whatsapp' | 'Ligação') => setCanal(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o canal" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Whatsapp">Whatsapp</SelectItem>
-                <SelectItem value="Ligação">Ligação</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {canal === 'Whatsapp' && (
-            <>
+            <TabsContent value="dados-gerais" className="space-y-4 mt-0">
               <div>
-                <Label htmlFor="template_prospeccao">Template Prospecção</Label>
-                <Textarea
-                  id="template_prospeccao"
-                  placeholder="Mensagem de prospecção (máx. 120 caracteres)"
-                  rows={2}
-                  maxLength={120}
-                  value={templateProspeccao}
-                  onChange={(e) => setTemplateProspeccao(e.target.value)}
+                <Label htmlFor="titulo">Título *</Label>
+                <Input
+                  id="titulo"
+                  placeholder="Ex: Campanha Black Friday 2024"
+                  value={titulo}
+                  onChange={(e) => setTitulo(e.target.value)}
+                  required
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {templateProspeccao.length}/120 caracteres
-                </p>
               </div>
 
               <div>
-                <Label htmlFor="template_agendado">Template Agendado</Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="descricao">Descrição</Label>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm"
+                    className="h-auto py-1 px-2 text-xs"
+                    onClick={aplicarModeloDescricao}
+                  >
+                    <FileText className="h-3 w-3 mr-1" />
+                    Aplicar modelo
+                  </Button>
+                </div>
                 <Textarea
-                  id="template_agendado"
-                  placeholder="Mensagem para agendamentos (máx. 120 caracteres)"
-                  rows={2}
-                  maxLength={120}
-                  value={templateAgendado}
-                  onChange={(e) => setTemplateAgendado(e.target.value)}
+                  id="descricao"
+                  placeholder="Descrição da campanha..."
+                  rows={3}
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {templateAgendado.length}/120 caracteres
-                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="data_inicio">Data de Início</Label>
+                  <Input
+                    id="data_inicio"
+                    type="date"
+                    value={dataInicio}
+                    onChange={(e) => setDataInicio(e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="data_fim">Data de Fim</Label>
+                  <Input
+                    id="data_fim"
+                    type="date"
+                    value={dataFim}
+                    onChange={(e) => setDataFim(e.target.value)}
+                  />
+                </div>
               </div>
 
               <div>
-                <Label htmlFor="template_nao_agendado">Template Não Agendado</Label>
-                <Textarea
-                  id="template_nao_agendado"
-                  placeholder="Mensagem para não agendamentos (máx. 120 caracteres)"
-                  rows={2}
-                  maxLength={120}
-                  value={templateNaoAgendado}
-                  onChange={(e) => setTemplateNaoAgendado(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {templateNaoAgendado.length}/120 caracteres
-                </p>
+                <Label htmlFor="canal">Canal *</Label>
+                <Select value={canal} onValueChange={(value: 'Whatsapp' | 'Ligação') => setCanal(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o canal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Whatsapp">Whatsapp</SelectItem>
+                    <SelectItem value="Ligação">Ligação</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </>
-          )}
 
-          {canal === 'Ligação' && (
-            <div>
-              <Label htmlFor="convite">Convite</Label>
-              <Input
-                id="convite"
-                placeholder="Nome do convite para campanhas de ligação"
-                value={convite}
-                onChange={(e) => setConvite(e.target.value)}
-              />
-            </div>
-          )}
+              {canal === 'Whatsapp' && (
+                <>
+                  <div>
+                    <Label htmlFor="template_prospeccao">Template Prospecção</Label>
+                    <Textarea
+                      id="template_prospeccao"
+                      placeholder="Mensagem de prospecção (máx. 120 caracteres)"
+                      rows={2}
+                      maxLength={120}
+                      value={templateProspeccao}
+                      onChange={(e) => setTemplateProspeccao(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {templateProspeccao.length}/120 caracteres
+                    </p>
+                  </div>
 
-          <div>
-            <Label htmlFor="imagem_divulgacao">Imagem de Divulgação (Opcional)</Label>
-            <Input
-              id="imagem_divulgacao"
-              type="url"
-              placeholder="https://exemplo.com/imagem.jpg"
-              value={imagemDivulgacao}
-              onChange={(e) => setImagemDivulgacao(e.target.value)}
-            />
-          </div>
+                  <div>
+                    <Label htmlFor="template_agendado">Template Agendado</Label>
+                    <Textarea
+                      id="template_agendado"
+                      placeholder="Mensagem para agendamentos (máx. 120 caracteres)"
+                      rows={2}
+                      maxLength={120}
+                      value={templateAgendado}
+                      onChange={(e) => setTemplateAgendado(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {templateAgendado.length}/120 caracteres
+                    </p>
+                  </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t">
+                  <div>
+                    <Label htmlFor="template_nao_agendado">Template Não Agendado</Label>
+                    <Textarea
+                      id="template_nao_agendado"
+                      placeholder="Mensagem para não agendamentos (máx. 120 caracteres)"
+                      rows={2}
+                      maxLength={120}
+                      value={templateNaoAgendado}
+                      onChange={(e) => setTemplateNaoAgendado(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {templateNaoAgendado.length}/120 caracteres
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {canal === 'Ligação' && (
+                <div>
+                  <Label htmlFor="convite">Convite</Label>
+                  <Input
+                    id="convite"
+                    placeholder="Nome do convite para campanhas de ligação"
+                    value={convite}
+                    onChange={(e) => setConvite(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="imagem_divulgacao">Imagem de Divulgação (Opcional)</Label>
+                <Input
+                  id="imagem_divulgacao"
+                  type="url"
+                  placeholder="https://exemplo.com/imagem.jpg"
+                  value={imagemDivulgacao}
+                  onChange={(e) => setImagemDivulgacao(e.target.value)}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="meta" className="space-y-4 mt-0">
+              {/* Meta Total de Vendas */}
+              <Card className="p-4 bg-gradient-to-r from-primary/80 to-primary text-primary-foreground">
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="h-4 w-4" />
+                  <span className="text-sm font-medium">Meta Total de Vendas</span>
+                </div>
+                <div className="text-center">
+                  <span className="text-3xl font-bold">{metaTotalVendas}</span>
+                  <p className="text-xs opacity-80 mt-1">Soma das metas de Novos, Seminovos e Diretas</p>
+                </div>
+              </Card>
+
+              {/* Grid de Metas de Vendas */}
+              <div className="grid grid-cols-3 gap-3">
+                <Card className="p-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-xs font-medium text-muted-foreground">Meta de Novos</span>
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={metaNovos}
+                    onChange={(e) => setMetaNovos(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="text-center font-semibold"
+                  />
+                  <p className="text-xs text-muted-foreground text-center mt-1">Novos</p>
+                </Card>
+
+                <Card className="p-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    <span className="text-xs font-medium text-muted-foreground">Meta de Seminovos</span>
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={metaSeminovos}
+                    onChange={(e) => setMetaSeminovos(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="text-center font-semibold"
+                  />
+                  <p className="text-xs text-muted-foreground text-center mt-1">Seminovos</p>
+                </Card>
+
+                <Card className="p-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-purple-500" />
+                    <span className="text-xs font-medium text-muted-foreground">Meta de Diretas</span>
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={metaDiretas}
+                    onChange={(e) => setMetaDiretas(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="text-center font-semibold"
+                  />
+                  <p className="text-xs text-muted-foreground text-center mt-1">Diretas</p>
+                </Card>
+              </div>
+
+              {/* Grid de Metas de Funil */}
+              <div className="grid grid-cols-3 gap-3">
+                <Card className="p-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <MapPin className="h-3 w-3 text-orange-500" />
+                    <span className="text-xs font-medium text-muted-foreground">Check-ins</span>
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={metaCheckins}
+                    onChange={(e) => setMetaCheckins(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="text-center font-semibold"
+                  />
+                  <p className="text-xs text-muted-foreground text-center mt-1">Check-ins</p>
+                </Card>
+
+                <Card className="p-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <ThumbsUp className="h-3 w-3 text-blue-500" />
+                    <span className="text-xs font-medium text-muted-foreground">Confirmações</span>
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={metaConfirmacoes}
+                    onChange={(e) => setMetaConfirmacoes(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="text-center font-semibold"
+                  />
+                  <p className="text-xs text-muted-foreground text-center mt-1">Confirmados</p>
+                </Card>
+
+                <Card className="p-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Phone className="h-3 w-3 text-green-500" />
+                    <span className="text-xs font-medium text-muted-foreground">Agendamentos/Convites</span>
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={metaConvites}
+                    onChange={(e) => setMetaConvites(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="text-center font-semibold"
+                  />
+                  <p className="text-xs text-muted-foreground text-center mt-1">Convites</p>
+                </Card>
+              </div>
+
+              {/* Tamanho da Base */}
+              <Card className="p-4 bg-muted/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Tamanho da Base</span>
+                </div>
+                <div className="text-center">
+                  <span className="text-2xl font-bold text-primary">{tamanhoBase.toLocaleString('pt-BR')}</span>
+                  <p className="text-xs text-muted-foreground mt-1">Contatos Distribuídos</p>
+                </div>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  Valor calculado com base nos contatos importados
+                </p>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          <div className="flex justify-end gap-2 pt-4 border-t mt-4">
             <Button type="button" variant="outline" onClick={handleCancel} disabled={loading}>
               Cancelar
             </Button>
