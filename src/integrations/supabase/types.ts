@@ -1382,6 +1382,84 @@ export type Database = {
           },
         ]
       }
+      prospeccao_paginas: {
+        Row: {
+          cor_destaque: string | null
+          cor_fundo: string | null
+          cor_texto: string | null
+          created_at: string
+          dia_final_evento: string | null
+          empresa_id: string
+          final_frase: string | null
+          hora_inicio: string | null
+          hora_termino: string | null
+          id: string
+          imagem_evento_url: string | null
+          inicio_frase: string | null
+          link_politica_privacidade: string | null
+          palavra_destaque: string | null
+          primeiro_dia_evento: string | null
+          prospeccao_id: string
+          texto_apoio: string | null
+          updated_at: string
+        }
+        Insert: {
+          cor_destaque?: string | null
+          cor_fundo?: string | null
+          cor_texto?: string | null
+          created_at?: string
+          dia_final_evento?: string | null
+          empresa_id: string
+          final_frase?: string | null
+          hora_inicio?: string | null
+          hora_termino?: string | null
+          id?: string
+          imagem_evento_url?: string | null
+          inicio_frase?: string | null
+          link_politica_privacidade?: string | null
+          palavra_destaque?: string | null
+          primeiro_dia_evento?: string | null
+          prospeccao_id: string
+          texto_apoio?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cor_destaque?: string | null
+          cor_fundo?: string | null
+          cor_texto?: string | null
+          created_at?: string
+          dia_final_evento?: string | null
+          empresa_id?: string
+          final_frase?: string | null
+          hora_inicio?: string | null
+          hora_termino?: string | null
+          id?: string
+          imagem_evento_url?: string | null
+          inicio_frase?: string | null
+          link_politica_privacidade?: string | null
+          palavra_destaque?: string | null
+          primeiro_dia_evento?: string | null
+          prospeccao_id?: string
+          texto_apoio?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospeccao_paginas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccao_paginas_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: true
+            referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prospeccoes: {
         Row: {
           canal: string

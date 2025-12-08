@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound, Image, FileImage, Megaphone, Upload, QrCode, User, Building, CalendarDays } from "lucide-react";
+import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound, Image, FileImage, Megaphone, Upload, QrCode, User, Building, CalendarDays, Clock, Link, Palette } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -72,6 +72,22 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [conviteImagem, setConviteImagem] = useState<string | null>(null);
   const [conviteImagemFile, setConviteImagemFile] = useState<File | null>(null);
   const [uploadingConvite, setUploadingConvite] = useState(false);
+  
+  // Páginas de Captura
+  const [paginaInicioFrase, setPaginaInicioFrase] = useState("");
+  const [paginaPalavraDestaque, setPaginaPalavraDestaque] = useState("");
+  const [paginaFinalFrase, setPaginaFinalFrase] = useState("");
+  const [paginaTextoApoio, setPaginaTextoApoio] = useState("");
+  const [paginaPrimeiroDia, setPaginaPrimeiroDia] = useState("");
+  const [paginaDiaFinal, setPaginaDiaFinal] = useState("");
+  const [paginaHoraInicio, setPaginaHoraInicio] = useState("");
+  const [paginaHoraTermino, setPaginaHoraTermino] = useState("");
+  const [paginaLinkPolitica, setPaginaLinkPolitica] = useState("");
+  const [paginaCorFundo, setPaginaCorFundo] = useState("#0d2b47");
+  const [paginaCorTexto, setPaginaCorTexto] = useState("#ffffff");
+  const [paginaCorDestaque, setPaginaCorDestaque] = useState("#0ab9d8");
+  const [paginaImagemEvento, setPaginaImagemEvento] = useState<string | null>(null);
+  const [paginaImagemEventoFile, setPaginaImagemEventoFile] = useState<File | null>(null);
   
   // Premiações - Estado com ativo/valor
   const [premiacoes, setPremiacoes] = useState<Record<string, { ativo: boolean; valor: number | "" }>>({
@@ -209,6 +225,21 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setCriarNovaEquipe(false);
     setConviteImagem(null);
     setConviteImagemFile(null);
+    // Páginas
+    setPaginaInicioFrase("");
+    setPaginaPalavraDestaque("");
+    setPaginaFinalFrase("");
+    setPaginaTextoApoio("");
+    setPaginaPrimeiroDia("");
+    setPaginaDiaFinal("");
+    setPaginaHoraInicio("");
+    setPaginaHoraTermino("");
+    setPaginaLinkPolitica("");
+    setPaginaCorFundo("#0d2b47");
+    setPaginaCorTexto("#ffffff");
+    setPaginaCorDestaque("#0ab9d8");
+    setPaginaImagemEvento(null);
+    setPaginaImagemEventoFile(null);
   };
   
   // Buscar usuários com acesso à empresa ativa
@@ -333,10 +364,38 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       }
     };
     
+    // Buscar página de captura quando editando
+    const fetchPagina = async () => {
+      if (!editingProspeccao?.id || !activeCompany?.id) return;
+      
+      const { data, error } = await supabase
+        .from('prospeccao_paginas')
+        .select('*')
+        .eq('prospeccao_id', editingProspeccao.id)
+        .single();
+      
+      if (!error && data) {
+        setPaginaInicioFrase(data.inicio_frase || "");
+        setPaginaPalavraDestaque(data.palavra_destaque || "");
+        setPaginaFinalFrase(data.final_frase || "");
+        setPaginaTextoApoio(data.texto_apoio || "");
+        setPaginaPrimeiroDia(data.primeiro_dia_evento || "");
+        setPaginaDiaFinal(data.dia_final_evento || "");
+        setPaginaHoraInicio(data.hora_inicio || "");
+        setPaginaHoraTermino(data.hora_termino || "");
+        setPaginaLinkPolitica(data.link_politica_privacidade || "");
+        setPaginaCorFundo(data.cor_fundo || "#0d2b47");
+        setPaginaCorTexto(data.cor_texto || "#ffffff");
+        setPaginaCorDestaque(data.cor_destaque || "#0ab9d8");
+        setPaginaImagemEvento(data.imagem_evento_url || null);
+      }
+    };
+    
     if (editingProspeccao && isOpen) {
       fetchMetasIndividuais();
       fetchEquipes();
       fetchConvite();
+      fetchPagina();
     }
   }, [editingProspeccao?.id, activeCompany?.id, isOpen]);
   
@@ -488,6 +547,60 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
   
+  // Salvar página de captura
+  const savePagina = async (prospeccaoId: string) => {
+    if (!activeCompany?.id) return;
+    
+    let imagemUrl = paginaImagemEvento;
+    
+    // Se tem arquivo novo, faz upload
+    if (paginaImagemEventoFile) {
+      const fileExt = paginaImagemEventoFile.name.split('.').pop();
+      const fileName = `pagina-${prospeccaoId}-${Date.now()}.${fileExt}`;
+      const filePath = `${activeCompany.id}/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('convites-prospeccao')
+        .upload(filePath, paginaImagemEventoFile, { upsert: true });
+      
+      if (uploadError) {
+        console.error('Erro ao fazer upload da imagem da página:', uploadError);
+        return;
+      }
+      
+      const { data: publicUrlData } = supabase.storage
+        .from('convites-prospeccao')
+        .getPublicUrl(filePath);
+      
+      imagemUrl = publicUrlData.publicUrl;
+    }
+    
+    // Upsert página
+    const { error } = await supabase
+      .from('prospeccao_paginas')
+      .upsert({
+        prospeccao_id: prospeccaoId,
+        empresa_id: activeCompany.id,
+        inicio_frase: paginaInicioFrase || null,
+        palavra_destaque: paginaPalavraDestaque || null,
+        final_frase: paginaFinalFrase || null,
+        texto_apoio: paginaTextoApoio || null,
+        primeiro_dia_evento: paginaPrimeiroDia || null,
+        dia_final_evento: paginaDiaFinal || null,
+        hora_inicio: paginaHoraInicio || null,
+        hora_termino: paginaHoraTermino || null,
+        link_politica_privacidade: paginaLinkPolitica || null,
+        cor_fundo: paginaCorFundo,
+        cor_texto: paginaCorTexto,
+        cor_destaque: paginaCorDestaque,
+        imagem_evento_url: imagemUrl
+      }, { onConflict: 'prospeccao_id' });
+    
+    if (error) {
+      console.error('Erro ao salvar página:', error);
+    }
+  };
+  
   // Filtrar usuários
   const filteredUsers = usersComAcesso.filter(user => {
     const searchLower = metasIndividuaisFilter.toLowerCase();
@@ -587,6 +700,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         
         // Salvar convite
         await saveConvite(data.id);
+        
+        // Salvar página de captura
+        await savePagina(data.id);
 
         toast({
           title: "Sucesso",
@@ -630,6 +746,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         
         // Salvar convite
         await saveConvite(data.id);
+        
+        // Salvar página de captura
+        await savePagina(data.id);
 
         toast({
           title: "Sucesso",
@@ -1876,11 +1995,340 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
 
             {/* Aba Páginas */}
             <TabsContent value="paginas" className="space-y-4 mt-0">
-              <Card className="p-8 text-center">
-                <FileImage className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
-                <p className="text-muted-foreground font-medium">Páginas</p>
-                <p className="text-sm text-muted-foreground">Em breve</p>
+              <Card className="p-4 bg-gradient-to-r from-teal-500/80 to-teal-600 text-white">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileImage className="h-4 w-4" />
+                  <span className="text-sm font-medium">Página de Captura de Leads</span>
+                </div>
+                <p className="text-xs opacity-80">
+                  Configure o texto e cores da página de captura para o evento
+                </p>
               </Card>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Coluna de Formulário */}
+                <div className="space-y-4">
+                  <Card className="p-4 space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-semibold">Textos da Página</span>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <Label className="text-xs">Início da Frase (até 200 caracteres)</Label>
+                      <Input
+                        value={paginaInicioFrase}
+                        onChange={(e) => setPaginaInicioFrase(e.target.value.slice(0, 200))}
+                        placeholder="Ex: A melhor oportunidade de"
+                        maxLength={200}
+                      />
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <Label className="text-xs">Palavra Destaque (até 200 caracteres)</Label>
+                      <Input
+                        value={paginaPalavraDestaque}
+                        onChange={(e) => setPaginaPalavraDestaque(e.target.value.slice(0, 200))}
+                        placeholder="Ex: Cidade e região"
+                        maxLength={200}
+                      />
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <Label className="text-xs">Final da Frase (até 200 caracteres)</Label>
+                      <Input
+                        value={paginaFinalFrase}
+                        onChange={(e) => setPaginaFinalFrase(e.target.value.slice(0, 200))}
+                        placeholder="Ex: para sair de carro novo!"
+                        maxLength={200}
+                      />
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <Label className="text-xs">Texto de Apoio (até 200 caracteres)</Label>
+                      <Textarea
+                        value={paginaTextoApoio}
+                        onChange={(e) => setPaginaTextoApoio(e.target.value.slice(0, 200))}
+                        placeholder="Ex: Você e sua família são nossos convidados..."
+                        maxLength={200}
+                        className="h-16 resize-none text-sm"
+                      />
+                    </div>
+                  </Card>
+                  
+                  <Card className="p-4 space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CalendarDays className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-semibold">Datas e Horários</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Primeiro Dia do Evento</Label>
+                        <Input
+                          type="date"
+                          value={paginaPrimeiroDia}
+                          onChange={(e) => setPaginaPrimeiroDia(e.target.value)}
+                        />
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <Label className="text-xs">Dia Final do Evento</Label>
+                        <Input
+                          type="date"
+                          value={paginaDiaFinal}
+                          onChange={(e) => setPaginaDiaFinal(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Horário de Início</Label>
+                        <Input
+                          type="time"
+                          value={paginaHoraInicio}
+                          onChange={(e) => setPaginaHoraInicio(e.target.value)}
+                        />
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <Label className="text-xs">Horário de Término</Label>
+                        <Input
+                          type="time"
+                          value={paginaHoraTermino}
+                          onChange={(e) => setPaginaHoraTermino(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  <Card className="p-4 space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Link className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-semibold">Link da Política de Privacidade</span>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <Label className="text-xs">URL (opcional)</Label>
+                      <Input
+                        value={paginaLinkPolitica}
+                        onChange={(e) => setPaginaLinkPolitica(e.target.value.slice(0, 200))}
+                        placeholder="https://..."
+                        maxLength={200}
+                      />
+                    </div>
+                  </Card>
+                  
+                  <Card className="p-4 space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Palette className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-semibold">Cores</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs">Cor de Fundo</Label>
+                        <input
+                          type="color"
+                          value={paginaCorFundo}
+                          onChange={(e) => setPaginaCorFundo(e.target.value)}
+                          className="w-8 h-8 rounded-full cursor-pointer border-0"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs">Cor do Texto</Label>
+                        <input
+                          type="color"
+                          value={paginaCorTexto}
+                          onChange={(e) => setPaginaCorTexto(e.target.value)}
+                          className="w-8 h-8 rounded-full cursor-pointer border-0"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs">Cor Destaque</Label>
+                        <input
+                          type="color"
+                          value={paginaCorDestaque}
+                          onChange={(e) => setPaginaCorDestaque(e.target.value)}
+                          className="w-8 h-8 rounded-full cursor-pointer border-0"
+                        />
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  <Card className="p-4 space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Image className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-semibold">Imagem do Evento</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Clique para alterar a imagem. Recomendação: 400x400 pixels
+                    </p>
+                    
+                    {paginaImagemEvento ? (
+                      <div className="relative">
+                        <img 
+                          src={paginaImagemEvento} 
+                          alt="Imagem do evento" 
+                          className="w-24 h-24 object-cover rounded-lg border cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => document.getElementById('paginaImagemInput')?.click()}
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute -top-2 -right-2 h-6 w-6 p-0"
+                          onClick={() => {
+                            setPaginaImagemEvento(null);
+                            setPaginaImagemEventoFile(null);
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                        <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                        <span className="text-xs text-muted-foreground">Upload</span>
+                      </label>
+                    )}
+                    <input
+                      id="paginaImagemInput"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setPaginaImagemEventoFile(file);
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setPaginaImagemEvento(reader.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </Card>
+                </div>
+                
+                {/* Coluna de Preview */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Preview da Página</Label>
+                  <div 
+                    className="rounded-lg overflow-hidden border shadow-lg"
+                    style={{ backgroundColor: paginaCorFundo }}
+                  >
+                    <div className="p-4 min-h-[450px]">
+                      {/* Header com logo e vendedor */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                          <Building className="h-4 w-4" style={{ color: paginaCorTexto }} />
+                        </div>
+                        <span className="text-sm font-medium" style={{ color: paginaCorTexto }}>
+                          {activeCompany?.nome_empresa || "Nome da Loja"}
+                        </span>
+                      </div>
+                      
+                      {/* Título do evento */}
+                      <h2 
+                        className="text-lg font-bold italic mb-1" 
+                        style={{ color: paginaCorDestaque }}
+                      >
+                        {titulo || "NOME DO EVENTO"}
+                      </h2>
+                      <p className="text-sm mb-3" style={{ color: paginaCorTexto }}>
+                        {activeCompany?.nome_empresa || "Nome da Loja"}
+                      </p>
+                      
+                      {/* Imagem do evento */}
+                      <div className="mb-3">
+                        {paginaImagemEvento ? (
+                          <img 
+                            src={paginaImagemEvento} 
+                            alt="Evento" 
+                            className="w-32 h-32 object-cover rounded-lg border-4"
+                            style={{ borderColor: paginaCorFundo }}
+                          />
+                        ) : (
+                          <div 
+                            className="w-32 h-32 rounded-lg flex items-center justify-center"
+                            style={{ backgroundColor: `${paginaCorTexto}20` }}
+                          >
+                            <Image className="h-8 w-8" style={{ color: paginaCorTexto }} />
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Data e hora */}
+                      <div className="flex items-center gap-1 text-xs mb-4" style={{ color: paginaCorTexto }}>
+                        <CalendarDays className="h-3 w-3" />
+                        <span>
+                          {paginaPrimeiroDia ? new Date(paginaPrimeiroDia + 'T12:00:00').toLocaleDateString('pt-BR') : "DD/MM/AAAA"}
+                          {paginaHoraInicio && ` - ${paginaHoraInicio}`}
+                          {paginaHoraTermino && ` às ${paginaHoraTermino}`}
+                        </span>
+                      </div>
+                      
+                      {/* Frase principal */}
+                      <div className="mb-3">
+                        <p className="text-lg font-bold" style={{ color: paginaCorTexto }}>
+                          {paginaInicioFrase || "A melhor oportunidade de "}
+                          <span style={{ color: paginaCorDestaque }}>
+                            {paginaPalavraDestaque || "Cidade e região"}
+                          </span>
+                          {" "}{paginaFinalFrase || "para sair de carro novo!"}
+                        </p>
+                      </div>
+                      
+                      {/* Texto instrução */}
+                      <p className="text-xs mb-3" style={{ color: paginaCorTexto }}>
+                        Insira seus dados abaixo e <strong style={{ color: paginaCorDestaque }}>GARANTA O SEU INGRESSO!</strong>
+                      </p>
+                      
+                      {/* Campos de formulário (preview) */}
+                      <div className="space-y-2 mb-3">
+                        <div className="bg-white rounded-lg px-3 py-2 text-sm text-gray-400">
+                          Seu nome
+                        </div>
+                        <div className="bg-white rounded-lg px-3 py-2 text-sm text-gray-400">
+                          Seu WhatsApp
+                        </div>
+                        <div className="bg-white rounded-lg px-3 py-2 text-sm text-gray-400">
+                          Modelo de Interesse
+                        </div>
+                      </div>
+                      
+                      {/* Botão */}
+                      <button 
+                        className="w-full py-3 rounded-lg font-semibold text-sm mb-2"
+                        style={{ backgroundColor: paginaCorDestaque, color: paginaCorFundo }}
+                      >
+                        Quero participar!
+                      </button>
+                      
+                      {/* Links de política */}
+                      <p className="text-[10px] text-center" style={{ color: paginaCorTexto }}>
+                        Ao clicar em "Quero participar!" você concorda com os nossos{" "}
+                        <span className="underline">Termos de Uso</span> e{" "}
+                        <span className="underline">Política de Privacidade</span>
+                      </p>
+                    </div>
+                    
+                    {/* Texto de apoio na parte inferior */}
+                    {paginaTextoApoio && (
+                      <div className="border-t px-4 py-2" style={{ borderColor: `${paginaCorTexto}30` }}>
+                        <p className="text-[10px] text-center" style={{ color: paginaCorTexto }}>
+                          {paginaTextoApoio}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </TabsContent>
 
             {/* Aba Marketing */}
