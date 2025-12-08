@@ -1195,6 +1195,48 @@ export type Database = {
           },
         ]
       }
+      prospeccao_convites: {
+        Row: {
+          created_at: string
+          empresa_id: string
+          id: string
+          imagem_url: string | null
+          prospeccao_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id: string
+          id?: string
+          imagem_url?: string | null
+          prospeccao_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          imagem_url?: string | null
+          prospeccao_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospeccao_convites_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccao_convites_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: true
+            referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prospeccao_equipe_membros: {
         Row: {
           created_at: string

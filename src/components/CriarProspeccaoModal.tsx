@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound } from "lucide-react";
+import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound, Image, FileImage, Megaphone, Upload, QrCode, User, Building, CalendarDays } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -67,6 +67,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [novaEquipeCor, setNovaEquipeCor] = useState(coresPadrao[0]);
   const [novaEquipeMembros, setNovaEquipeMembros] = useState<string[]>([]);
   const [criarNovaEquipe, setCriarNovaEquipe] = useState(false);
+  
+  // Convite
+  const [conviteImagem, setConviteImagem] = useState<string | null>(null);
+  const [conviteImagemFile, setConviteImagemFile] = useState<File | null>(null);
+  const [uploadingConvite, setUploadingConvite] = useState(false);
   
   // Premiações - Estado com ativo/valor
   const [premiacoes, setPremiacoes] = useState<Record<string, { ativo: boolean; valor: number | "" }>>({
@@ -202,6 +207,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setNovaEquipeCor(coresPadrao[0]);
     setNovaEquipeMembros([]);
     setCriarNovaEquipe(false);
+    setConviteImagem(null);
+    setConviteImagemFile(null);
   };
   
   // Buscar usuários com acesso à empresa ativa
@@ -311,9 +318,25 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       setEquipes(equipesComMembros);
     };
     
+    // Buscar convite quando editando
+    const fetchConvite = async () => {
+      if (!editingProspeccao?.id || !activeCompany?.id) return;
+      
+      const { data, error } = await supabase
+        .from('prospeccao_convites')
+        .select('*')
+        .eq('prospeccao_id', editingProspeccao.id)
+        .single();
+      
+      if (!error && data?.imagem_url) {
+        setConviteImagem(data.imagem_url);
+      }
+    };
+    
     if (editingProspeccao && isOpen) {
       fetchMetasIndividuais();
       fetchEquipes();
+      fetchConvite();
     }
   }, [editingProspeccao?.id, activeCompany?.id, isOpen]);
   
@@ -419,6 +442,52 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
   
+  // Salvar convite
+  const saveConvite = async (prospeccaoId: string) => {
+    if (!activeCompany?.id) return;
+    
+    // Se não tem arquivo novo para upload, verifica se já existe imagem
+    if (!conviteImagemFile && !conviteImagem) return;
+    
+    let imagemUrl = conviteImagem;
+    
+    // Se tem arquivo novo, faz upload
+    if (conviteImagemFile) {
+      const fileExt = conviteImagemFile.name.split('.').pop();
+      const fileName = `${prospeccaoId}-${Date.now()}.${fileExt}`;
+      const filePath = `${activeCompany.id}/${fileName}`;
+      
+      const { error: uploadError, data: uploadData } = await supabase.storage
+        .from('convites-prospeccao')
+        .upload(filePath, conviteImagemFile, { upsert: true });
+      
+      if (uploadError) {
+        console.error('Erro ao fazer upload do convite:', uploadError);
+        return;
+      }
+      
+      // Obter URL pública
+      const { data: publicUrlData } = supabase.storage
+        .from('convites-prospeccao')
+        .getPublicUrl(filePath);
+      
+      imagemUrl = publicUrlData.publicUrl;
+    }
+    
+    // Upsert convite
+    const { error } = await supabase
+      .from('prospeccao_convites')
+      .upsert({
+        prospeccao_id: prospeccaoId,
+        empresa_id: activeCompany.id,
+        imagem_url: imagemUrl
+      }, { onConflict: 'prospeccao_id' });
+    
+    if (error) {
+      console.error('Erro ao salvar convite:', error);
+    }
+  };
+  
   // Filtrar usuários
   const filteredUsers = usersComAcesso.filter(user => {
     const searchLower = metasIndividuaisFilter.toLowerCase();
@@ -515,6 +584,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         
         // Salvar equipes
         await saveEquipes(data.id);
+        
+        // Salvar convite
+        await saveConvite(data.id);
 
         toast({
           title: "Sucesso",
@@ -555,6 +627,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         
         // Salvar equipes
         await saveEquipes(data.id);
+        
+        // Salvar convite
+        await saveConvite(data.id);
 
         toast({
           title: "Sucesso",
@@ -882,12 +957,15 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                 </DialogTitle>
               </DialogHeader>
               
-              <TabsList className="grid w-full grid-cols-5 mt-4">
-                <TabsTrigger value="dados-gerais">Dados Gerais</TabsTrigger>
-                <TabsTrigger value="meta">Metas</TabsTrigger>
-                <TabsTrigger value="metas-individuais">Metas Individuais</TabsTrigger>
-                <TabsTrigger value="equipes">Equipes</TabsTrigger>
-                <TabsTrigger value="premiacoes">Premiações</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-8 mt-4">
+                <TabsTrigger value="dados-gerais" className="text-xs px-1">Dados Gerais</TabsTrigger>
+                <TabsTrigger value="meta" className="text-xs px-1">Metas</TabsTrigger>
+                <TabsTrigger value="metas-individuais" className="text-xs px-1">Metas Ind.</TabsTrigger>
+                <TabsTrigger value="equipes" className="text-xs px-1">Equipes</TabsTrigger>
+                <TabsTrigger value="premiacoes" className="text-xs px-1">Premiações</TabsTrigger>
+                <TabsTrigger value="convite" className="text-xs px-1">Convite</TabsTrigger>
+                <TabsTrigger value="paginas" className="text-xs px-1">Páginas</TabsTrigger>
+                <TabsTrigger value="marketing" className="text-xs px-1">Marketing</TabsTrigger>
               </TabsList>
             </div>
             
@@ -1645,6 +1723,173 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   {renderPremiacaoField("indicacao_venda", Gift)}
                 </div>
               </div>
+            </TabsContent>
+
+            {/* Aba Convite */}
+            <TabsContent value="convite" className="space-y-4 mt-0">
+              <Card className="p-4 bg-gradient-to-r from-purple-500/80 to-purple-600 text-white">
+                <div className="flex items-center gap-2 mb-2">
+                  <Image className="h-4 w-4" />
+                  <span className="text-sm font-medium">Convite do Evento</span>
+                </div>
+                <p className="text-xs opacity-80">
+                  O convite possui 4 páginas: Imagem do Evento, Informações, QR Code e Dados do Cliente
+                </p>
+              </Card>
+
+              {/* Upload de Imagem */}
+              <Card className="p-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <FileImage className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-semibold">Página 1: Imagem do Evento</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Faça upload de uma imagem de 400x400 pixels para o convite
+                  </p>
+
+                  {conviteImagem ? (
+                    <div className="relative">
+                      <img 
+                        src={conviteImagem} 
+                        alt="Preview do convite" 
+                        className="w-48 h-48 object-cover rounded-lg border mx-auto"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-1/2 translate-x-[100px]"
+                        onClick={() => {
+                          setConviteImagem(null);
+                          setConviteImagemFile(null);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-48 h-48 mx-auto border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                      <span className="text-sm text-muted-foreground">Clique para enviar</span>
+                      <span className="text-xs text-muted-foreground mt-1">400x400 pixels</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setConviteImagemFile(file);
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setConviteImagem(reader.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+              </Card>
+
+              {/* Preview das outras páginas */}
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Info className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Página 2: Informações do Evento</span>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-4 space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Building className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Nome do Evento:</span>
+                    <span className="font-medium">{titulo || "—"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Building className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Nome da Loja:</span>
+                    <span className="font-medium">{activeCompany?.nome_empresa || "—"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Data de Início:</span>
+                    <span className="font-medium">{dataInicio ? new Date(dataInicio + 'T12:00:00').toLocaleDateString('pt-BR') : "—"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Data de Fim:</span>
+                    <span className="font-medium">{dataFim ? new Date(dataFim + 'T12:00:00').toLocaleDateString('pt-BR') : "—"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Endereço:</span>
+                    <span className="font-medium text-xs">Endereço da loja será exibido</span>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <QrCode className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Página 3: QR Code da Recepção</span>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-4 text-center">
+                  <div className="w-24 h-24 bg-white border-2 rounded-lg mx-auto flex items-center justify-center">
+                    <QrCode className="h-16 w-16 text-gray-800" />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    QR Code será gerado automaticamente para abrir a página de recepção
+                  </p>
+                </div>
+              </Card>
+
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <User className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Página 4: Informações do Cliente</span>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-4 space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Convidado (Cliente):</span>
+                    <span className="text-xs italic text-muted-foreground">Será preenchido dinamicamente</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Quem Convidou:</span>
+                    <span className="text-xs italic text-muted-foreground">Pessoa que enviou o convite</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <UsersRound className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Equipe:</span>
+                    <span className="text-xs italic text-muted-foreground">Equipe do vendedor</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">Vendedor Indicado:</span>
+                    <span className="text-xs italic text-muted-foreground">Vendedor atribuído ao cliente</span>
+                  </div>
+                </div>
+              </Card>
+            </TabsContent>
+
+            {/* Aba Páginas */}
+            <TabsContent value="paginas" className="space-y-4 mt-0">
+              <Card className="p-8 text-center">
+                <FileImage className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
+                <p className="text-muted-foreground font-medium">Páginas</p>
+                <p className="text-sm text-muted-foreground">Em breve</p>
+              </Card>
+            </TabsContent>
+
+            {/* Aba Marketing */}
+            <TabsContent value="marketing" className="space-y-4 mt-0">
+              <Card className="p-8 text-center">
+                <Megaphone className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
+                <p className="text-muted-foreground font-medium">Marketing</p>
+                <p className="text-sm text-muted-foreground">Em breve</p>
+              </Card>
             </TabsContent>
             </div>
 
