@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
-import { Target, Users, UserCheck, TrendingUp } from "lucide-react";
+import { Target, Users, UserCheck, TrendingUp, UserPlus } from "lucide-react";
 
 interface ResumoTabProps {
   prospeccaoId: string | null;
@@ -20,6 +20,7 @@ interface ProspeccaoMetas {
 
 interface StatusCounts {
   totalBase: number;
+  distribuidos: number;
   atribuidos: number;
   convidados: number;
   agendados: number;
@@ -160,6 +161,7 @@ export const ResumoTab = ({ prospeccaoId, empresaId }: ResumoTabProps) => {
   const [metas, setMetas] = useState<ProspeccaoMetas | null>(null);
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({
     totalBase: 0,
+    distribuidos: 0,
     atribuidos: 0,
     convidados: 0,
     agendados: 0,
@@ -193,12 +195,13 @@ export const ResumoTab = ({ prospeccaoId, empresaId }: ResumoTabProps) => {
         // Buscar contatos e contar por status
         const { data: contatosData } = await supabase
           .from('contatos')
-          .select('status')
+          .select('status, responsavel_email')
           .eq('empresa_id', empresaId);
 
         if (contatosData) {
           const counts: StatusCounts = {
             totalBase: contatosData.length,
+            distribuidos: 0,
             atribuidos: 0,
             convidados: 0,
             agendados: 0,
@@ -208,6 +211,10 @@ export const ResumoTab = ({ prospeccaoId, empresaId }: ResumoTabProps) => {
           };
 
           contatosData.forEach(contato => {
+            // Contar clientes distribuídos (que têm responsável atribuído)
+            if (contato.responsavel_email) {
+              counts.distribuidos++;
+            }
             switch (contato.status) {
               case 'Atribuído':
                 counts.atribuidos++;
@@ -287,41 +294,58 @@ export const ResumoTab = ({ prospeccaoId, empresaId }: ResumoTabProps) => {
       </div>
 
       {/* Lado Direito - Gráficos de Meta */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Metas vs Realizado</h3>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <MetaCard
-            title="Meta de Agendamentos"
-            icon={<Target className="h-4 w-4 text-blue-600" />}
-            realizado={statusCounts.agendados}
-            meta={metas?.meta_convites || 0}
-            color="bg-blue-100"
-          />
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Metas vs Realizado</h3>
           
-          <MetaCard
-            title="Meta de Confirmações"
-            icon={<Users className="h-4 w-4 text-purple-600" />}
-            realizado={statusCounts.confirmados}
-            meta={metas?.meta_confirmacoes || 0}
-            color="bg-purple-100"
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <MetaCard
+              title="Meta de Agendamentos"
+              icon={<Target className="h-4 w-4 text-blue-600" />}
+              realizado={statusCounts.agendados}
+              meta={metas?.meta_convites || 0}
+              color="bg-blue-100"
+            />
+            
+            <MetaCard
+              title="Meta de Confirmações"
+              icon={<Users className="h-4 w-4 text-purple-600" />}
+              realizado={statusCounts.confirmados}
+              meta={metas?.meta_confirmacoes || 0}
+              color="bg-purple-100"
+            />
+            
+            <MetaCard
+              title="Meta de Check-Ins"
+              icon={<UserCheck className="h-4 w-4 text-amber-600" />}
+              realizado={statusCounts.checkins}
+              meta={metas?.meta_checkins || 0}
+              color="bg-amber-100"
+            />
+            
+            <MetaCard
+              title="Meta de Vendas"
+              icon={<TrendingUp className="h-4 w-4 text-green-600" />}
+              realizado={statusCounts.vendas}
+              meta={metaVendas}
+              color="bg-green-100"
+            />
+          </div>
+        </div>
+
+        {/* Demais Indicadores */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Demais Indicadores</h3>
           
-          <MetaCard
-            title="Meta de Check-Ins"
-            icon={<UserCheck className="h-4 w-4 text-amber-600" />}
-            realizado={statusCounts.checkins}
-            meta={metas?.meta_checkins || 0}
-            color="bg-amber-100"
-          />
-          
-          <MetaCard
-            title="Meta de Vendas"
-            icon={<TrendingUp className="h-4 w-4 text-green-600" />}
-            realizado={statusCounts.vendas}
-            meta={metaVendas}
-            color="bg-green-100"
-          />
+          <div className="grid grid-cols-1 gap-4">
+            <MetaCard
+              title="Distribuição aos Vendedores"
+              icon={<UserPlus className="h-4 w-4 text-cyan-600" />}
+              realizado={statusCounts.distribuidos}
+              meta={statusCounts.totalBase}
+              color="bg-cyan-100"
+            />
+          </div>
         </div>
       </div>
     </div>
