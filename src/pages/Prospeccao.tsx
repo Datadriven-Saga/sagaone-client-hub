@@ -685,6 +685,7 @@ const Prospeccao = () => {
         <div className="flex items-center justify-between">
           <TabsList className="inline-flex">
             <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
+            <TabsTrigger value="eventos">Eventos</TabsTrigger>
             <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
             <TabsTrigger value="kanban">Kanban</TabsTrigger>
             <TabsTrigger value="recepcao">Recepção</TabsTrigger>
@@ -708,6 +709,102 @@ const Prospeccao = () => {
               // Pode navegar para filtro específico no Kanban
             }}
           />
+        </TabsContent>
+
+        <TabsContent value="eventos" className="space-y-3">
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-foreground">Lista de Eventos</h3>
+              <span className="text-sm text-muted-foreground">{prospeccoes.length} {prospeccoes.length === 1 ? 'evento' : 'eventos'}</span>
+            </div>
+            
+            {prospeccoes.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Target className="mx-auto h-12 w-12 mb-3 opacity-50" />
+                <p>Nenhum evento cadastrado</p>
+                <p className="text-sm">Clique em "Nova Prospecção" para criar um evento</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Título</th>
+                      <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Data Início</th>
+                      <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Data Fim</th>
+                      <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Canal</th>
+                      <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Status</th>
+                      <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {prospeccoes.map((prospeccao) => {
+                      const hoje = new Date();
+                      const dataInicio = prospeccao.data_inicio ? new Date(prospeccao.data_inicio) : null;
+                      const dataFim = prospeccao.data_fim ? new Date(prospeccao.data_fim) : null;
+                      
+                      let status = 'Ativo';
+                      let statusColor = 'bg-green-100 text-green-700';
+                      
+                      if (dataFim && hoje > dataFim) {
+                        status = 'Encerrado';
+                        statusColor = 'bg-gray-100 text-gray-700';
+                      } else if (dataInicio && hoje < dataInicio) {
+                        status = 'Agendado';
+                        statusColor = 'bg-blue-100 text-blue-700';
+                      }
+                      
+                      return (
+                        <tr key={prospeccao.id} className="border-b hover:bg-muted/50 transition-colors">
+                          <td className="py-3 px-3">
+                            <span className="font-medium text-sm">{prospeccao.titulo}</span>
+                          </td>
+                          <td className="py-3 px-3 text-sm text-muted-foreground">
+                            {prospeccao.data_inicio ? new Date(prospeccao.data_inicio).toLocaleDateString('pt-BR') : '-'}
+                          </td>
+                          <td className="py-3 px-3 text-sm text-muted-foreground">
+                            {prospeccao.data_fim ? new Date(prospeccao.data_fim).toLocaleDateString('pt-BR') : '-'}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
+                              {prospeccao.canal}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusColor}`}>
+                              {status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => setDeleteProspeccaoId(prospeccao.id)}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Excluir
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
         </TabsContent>
 
         <TabsContent value="automacao" className="space-y-3">
