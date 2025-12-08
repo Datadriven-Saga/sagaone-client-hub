@@ -124,7 +124,7 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
                 className={cn(
                   "flex items-center justify-center text-[10px] font-semibold w-6 h-6 rounded-full cursor-default",
                   item.assignee 
-                    ? "bg-primary/10 text-primary border border-primary/20" 
+                    ? "bg-green-100 text-green-700 border border-green-200" 
                     : "bg-muted text-muted-foreground border border-border"
                 )}
               >
