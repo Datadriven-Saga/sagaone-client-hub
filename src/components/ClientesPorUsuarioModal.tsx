@@ -12,7 +12,7 @@ import { User } from 'lucide-react';
 interface UsuarioClientes {
   id: string;
   nome: string;
-  email: string;
+  tipoAcesso: string;
   totalClientes: number;
   novos: number;
   atribuidos: number;
@@ -65,8 +65,8 @@ export const ClientesPorUsuarioModal: React.FC<ClientesPorUsuarioModalProps> = (
                   <TableRow key={usuario.id}>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{usuario.nome}</div>
-                        <div className="text-sm text-muted-foreground">{usuario.email}</div>
+                        <div className="font-bold">{usuario.nome}</div>
+                        <div className="text-sm text-muted-foreground">{usuario.tipoAcesso}</div>
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
