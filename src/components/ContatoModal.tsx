@@ -563,9 +563,9 @@ export function ContatoModal({
                       </p>
                       <div className="space-y-4">
                         {/* Responsável atual */}
-                        {contato?.responsavel_email && (
-                          <div>
-                            <label className="text-sm font-medium mb-2 block">Responsável Atual</label>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Responsável Atual</label>
+                          {contato?.responsavel_email ? (
                             <div className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
                               <Avatar className="h-10 w-10">
                                 <AvatarFallback>
@@ -581,8 +581,12 @@ export function ContatoModal({
                                 </p>
                               </div>
                             </div>
-                          </div>
-                        )}
+                          ) : (
+                            <div className="p-3 border rounded-md bg-muted/30">
+                              <p className="text-sm text-muted-foreground">Não informado</p>
+                            </div>
+                          )}
+                        </div>
                         
                         {/* Seletor de novo responsável */}
                         <div>
