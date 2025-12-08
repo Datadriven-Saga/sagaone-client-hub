@@ -548,10 +548,20 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
   };
 
   const handlePremiacaoValorChange = (key: string, valor: string) => {
+    // Remove tudo que não é número
+    const numericValue = valor.replace(/\D/g, '');
+    const numberValue = numericValue === "" ? "" : Number(numericValue) / 100;
+    
     setPremiacoes(prev => ({
       ...prev,
-      [key]: { ...prev[key], valor: valor === "" ? "" : Number(valor) }
+      [key]: { ...prev[key], valor: numberValue }
     }));
+  };
+
+  // Formatar valor como moeda brasileira
+  const formatCurrency = (value: number | "") => {
+    if (value === "" || value === 0) return "";
+    return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
   // Config das premiações inline para evitar re-render
@@ -580,16 +590,16 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
             </Tooltip>
           </TooltipProvider>
         </div>
-        <div className="w-28 flex-shrink-0">
+        <div className="w-32 flex-shrink-0 relative">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
           <Input
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="R$ 0,00"
+            type="text"
+            inputMode="numeric"
+            placeholder="0,00"
             disabled={!premiacao.ativo}
-            value={premiacao.valor}
+            value={formatCurrency(premiacao.valor)}
             onChange={(e) => handlePremiacaoValorChange(premioKey, e.target.value)}
-            className="text-right text-sm h-8"
+            className="text-right text-sm h-8 pl-7"
           />
         </div>
       </div>
