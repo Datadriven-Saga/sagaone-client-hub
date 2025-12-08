@@ -444,28 +444,24 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[750px] w-[95vw] h-[90vh] max-h-[90vh] flex flex-col p-0 overflow-hidden">
-        {/* Header fixo */}
-        <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b bg-background">
-          <DialogHeader>
-            <DialogTitle>
-              {editingProspeccao ? 'Editar Prospecção' : 'Nova Prospecção'}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <TabsList className="grid w-full grid-cols-2 mt-4">
-            <TabsTrigger value="dados-gerais" onClick={() => setActiveTab("dados-gerais")} data-state={activeTab === "dados-gerais" ? "active" : "inactive"}>
-              Dados Gerais
-            </TabsTrigger>
-            <TabsTrigger value="meta" onClick={() => setActiveTab("meta")} data-state={activeTab === "meta" ? "active" : "inactive"}>
-              Meta
-            </TabsTrigger>
-          </TabsList>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-          {/* Conteúdo com scroll */}
-          <div className="flex-1 overflow-y-auto px-6 py-4">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <form onSubmit={handleSubmit} className="flex flex-col h-full min-h-0">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
+            {/* Header fixo */}
+            <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b bg-background">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingProspeccao ? 'Editar Prospecção' : 'Nova Prospecção'}
+                </DialogTitle>
+              </DialogHeader>
+              
+              <TabsList className="grid w-full grid-cols-2 mt-4">
+                <TabsTrigger value="dados-gerais">Dados Gerais</TabsTrigger>
+                <TabsTrigger value="meta">Meta</TabsTrigger>
+              </TabsList>
+            </div>
+            
+            {/* Conteúdo com scroll */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
               <TabsContent value="dados-gerais" className="space-y-4 mt-0">
                 <div>
                   <Label htmlFor="titulo">Título *</Label>
@@ -754,21 +750,21 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                 </p>
               </Card>
             </TabsContent>
-          </Tabs>
-          </div>
+            </div>
 
-          {/* Footer fixo */}
-          <div className="flex-shrink-0 flex justify-end gap-2 px-6 py-4 border-t bg-background">
-            <Button type="button" variant="outline" onClick={handleCancel} disabled={loading}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading 
-                ? (editingProspeccao ? "Salvando..." : "Criando...") 
-                : (editingProspeccao ? "Salvar Alterações" : "Criar Prospecção")
-              }
-            </Button>
-          </div>
+            {/* Footer fixo */}
+            <div className="flex-shrink-0 flex justify-end gap-2 px-6 py-4 border-t bg-background">
+              <Button type="button" variant="outline" onClick={handleCancel} disabled={loading}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading 
+                  ? (editingProspeccao ? "Salvando..." : "Criando...") 
+                  : (editingProspeccao ? "Salvar Alterações" : "Criar Prospecção")
+                }
+              </Button>
+            </div>
+          </Tabs>
         </form>
       </DialogContent>
     </Dialog>
