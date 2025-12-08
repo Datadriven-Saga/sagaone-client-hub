@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search } from "lucide-react";
+import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -51,6 +51,22 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [metasIndividuais, setMetasIndividuais] = useState<Record<string, { meta_vendas: number; meta_checkins: number; meta_confirmacoes: number; meta_convites: number }>>({});
   const [usersComAcesso, setUsersComAcesso] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null }[]>([]);
   const [metasIndividuaisFilter, setMetasIndividuaisFilter] = useState("");
+  
+  // Equipes
+  interface Equipe {
+    id?: string;
+    nome: string;
+    cor: string;
+    ativo: boolean;
+    membros: string[];
+  }
+  const coresPadrao = ['#EF4444', '#3B82F6', '#22C55E', '#EAB308', '#F97316', '#EC4899', '#8B5CF6'];
+  const [equipes, setEquipes] = useState<Equipe[]>([]);
+  const [equipeEditando, setEquipeEditando] = useState<number | null>(null);
+  const [novaEquipeNome, setNovaEquipeNome] = useState("");
+  const [novaEquipeCor, setNovaEquipeCor] = useState(coresPadrao[0]);
+  const [novaEquipeMembros, setNovaEquipeMembros] = useState<string[]>([]);
+  const [criarNovaEquipe, setCriarNovaEquipe] = useState(false);
   
   // Premiações - Estado com ativo/valor
   const [premiacoes, setPremiacoes] = useState<Record<string, { ativo: boolean; valor: number | "" }>>({
@@ -180,6 +196,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     });
     setMetasIndividuais({});
     setMetasIndividuaisFilter("");
+    setEquipes([]);
+    setEquipeEditando(null);
+    setNovaEquipeNome("");
+    setNovaEquipeCor(coresPadrao[0]);
+    setNovaEquipeMembros([]);
+    setCriarNovaEquipe(false);
   };
   
   // Buscar usuários com acesso à empresa ativa
@@ -251,8 +273,47 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       setMetasIndividuais(metasMap);
     };
     
+    // Buscar equipes quando editando
+    const fetchEquipes = async () => {
+      if (!editingProspeccao?.id || !activeCompany?.id || !isOpen) return;
+      
+      const { data: equipesData, error: equipesError } = await supabase
+        .from('prospeccao_equipes')
+        .select('*')
+        .eq('prospeccao_id', editingProspeccao.id)
+        .eq('empresa_id', activeCompany.id);
+      
+      if (equipesError) {
+        console.error('Erro ao buscar equipes:', equipesError);
+        return;
+      }
+      
+      if (!equipesData) return;
+      
+      // Buscar membros de cada equipe
+      const equipesComMembros = await Promise.all(
+        equipesData.map(async (equipe) => {
+          const { data: membrosData } = await supabase
+            .from('prospeccao_equipe_membros')
+            .select('user_id')
+            .eq('equipe_id', equipe.id);
+          
+          return {
+            id: equipe.id,
+            nome: equipe.nome,
+            cor: equipe.cor,
+            ativo: equipe.ativo,
+            membros: membrosData?.map(m => m.user_id) || []
+          };
+        })
+      );
+      
+      setEquipes(equipesComMembros);
+    };
+    
     if (editingProspeccao && isOpen) {
       fetchMetasIndividuais();
+      fetchEquipes();
     }
   }, [editingProspeccao?.id, activeCompany?.id, isOpen]);
   
@@ -293,6 +354,68 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     
     if (error) {
       console.error('Erro ao salvar metas individuais:', error);
+    }
+  };
+  
+  // Salvar equipes
+  const saveEquipes = async (prospeccaoId: string) => {
+    if (!activeCompany?.id) return;
+    
+    for (const equipe of equipes) {
+      if (equipe.id) {
+        // Atualizar equipe existente
+        await supabase
+          .from('prospeccao_equipes')
+          .update({
+            nome: equipe.nome,
+            cor: equipe.cor,
+            ativo: equipe.ativo
+          })
+          .eq('id', equipe.id);
+        
+        // Remover membros antigos e adicionar novos
+        await supabase
+          .from('prospeccao_equipe_membros')
+          .delete()
+          .eq('equipe_id', equipe.id);
+        
+        if (equipe.membros.length > 0) {
+          await supabase
+            .from('prospeccao_equipe_membros')
+            .insert(equipe.membros.map(userId => ({
+              equipe_id: equipe.id,
+              user_id: userId
+            })));
+        }
+      } else {
+        // Criar nova equipe
+        const { data: newEquipe, error: equipeError } = await supabase
+          .from('prospeccao_equipes')
+          .insert({
+            prospeccao_id: prospeccaoId,
+            empresa_id: activeCompany.id,
+            nome: equipe.nome,
+            cor: equipe.cor,
+            ativo: equipe.ativo
+          })
+          .select()
+          .single();
+        
+        if (equipeError || !newEquipe) {
+          console.error('Erro ao criar equipe:', equipeError);
+          continue;
+        }
+        
+        // Adicionar membros
+        if (equipe.membros.length > 0) {
+          await supabase
+            .from('prospeccao_equipe_membros')
+            .insert(equipe.membros.map(userId => ({
+              equipe_id: newEquipe.id,
+              user_id: userId
+            })));
+        }
+      }
     }
   };
   
@@ -389,6 +512,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         
         // Salvar metas individuais
         await saveMetasIndividuais(data.id);
+        
+        // Salvar equipes
+        await saveEquipes(data.id);
 
         toast({
           title: "Sucesso",
@@ -426,6 +552,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         
         // Salvar metas individuais
         await saveMetasIndividuais(data.id);
+        
+        // Salvar equipes
+        await saveEquipes(data.id);
 
         toast({
           title: "Sucesso",
@@ -753,10 +882,11 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                 </DialogTitle>
               </DialogHeader>
               
-              <TabsList className="grid w-full grid-cols-4 mt-4">
+              <TabsList className="grid w-full grid-cols-5 mt-4">
                 <TabsTrigger value="dados-gerais">Dados Gerais</TabsTrigger>
                 <TabsTrigger value="meta">Metas</TabsTrigger>
                 <TabsTrigger value="metas-individuais">Metas Individuais</TabsTrigger>
+                <TabsTrigger value="equipes">Equipes</TabsTrigger>
                 <TabsTrigger value="premiacoes">Premiações</TabsTrigger>
               </TabsList>
             </div>
@@ -1157,6 +1287,283 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
               <p className="text-xs text-muted-foreground text-center">
                 Defina metas individuais para cada usuário participante da prospecção.
               </p>
+            </TabsContent>
+
+            {/* Aba Equipes */}
+            <TabsContent value="equipes" className="space-y-4 mt-0">
+              <Card className="p-4 bg-gradient-to-r from-violet-500/80 to-violet-600 text-white">
+                <div className="flex items-center gap-2 mb-2">
+                  <UsersRound className="h-4 w-4" />
+                  <span className="text-sm font-medium">Gestão de Equipes</span>
+                </div>
+                <div className="text-center">
+                  <span className="text-3xl font-bold">{equipes.filter(e => e.ativo).length}</span>
+                  <p className="text-xs opacity-80 mt-1">Equipes ativas nesta prospecção</p>
+                </div>
+              </Card>
+              
+              {/* Botão Nova Equipe */}
+              {!criarNovaEquipe && equipeEditando === null && (
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  className="w-full border-dashed"
+                  onClick={() => {
+                    setCriarNovaEquipe(true);
+                    setNovaEquipeNome("");
+                    setNovaEquipeCor(coresPadrao[equipes.length % coresPadrao.length]);
+                    setNovaEquipeMembros([]);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Nova Equipe
+                </Button>
+              )}
+              
+              {/* Formulário Nova Equipe */}
+              {criarNovaEquipe && (
+                <Card className="p-4 border-2 border-primary/30">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">Nova Equipe</span>
+                      <Button 
+                        type="button"
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setCriarNovaEquipe(false)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Nome da Equipe</Label>
+                        <Input
+                          placeholder="Ex: Equipe Alpha"
+                          value={novaEquipeNome}
+                          onChange={(e) => setNovaEquipeNome(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Cor da Equipe</Label>
+                        <div className="flex gap-1 mt-1">
+                          {coresPadrao.map((cor) => (
+                            <button
+                              key={cor}
+                              type="button"
+                              className={`w-7 h-7 rounded-full border-2 transition-all ${novaEquipeCor === cor ? 'border-primary scale-110' : 'border-transparent hover:border-muted-foreground/30'}`}
+                              style={{ backgroundColor: cor }}
+                              onClick={() => setNovaEquipeCor(cor)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-xs">Integrantes</Label>
+                      <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
+                        {usersComAcesso.map((userItem) => (
+                          <label 
+                            key={userItem.id}
+                            className="flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={novaEquipeMembros.includes(userItem.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setNovaEquipeMembros([...novaEquipeMembros, userItem.id]);
+                                } else {
+                                  setNovaEquipeMembros(novaEquipeMembros.filter(id => id !== userItem.id));
+                                }
+                              }}
+                              className="rounded border-primary"
+                            />
+                            <span className="text-sm">{userItem.nome_completo}</span>
+                            <span className="text-xs text-muted-foreground">({userItem.tipo_acesso})</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end gap-2">
+                      <Button 
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCriarNovaEquipe(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button 
+                        type="button"
+                        size="sm"
+                        disabled={!novaEquipeNome.trim()}
+                        onClick={() => {
+                          setEquipes([...equipes, {
+                            nome: novaEquipeNome.trim(),
+                            cor: novaEquipeCor,
+                            ativo: true,
+                            membros: novaEquipeMembros
+                          }]);
+                          setCriarNovaEquipe(false);
+                          setNovaEquipeNome("");
+                          setNovaEquipeMembros([]);
+                        }}
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Adicionar Equipe
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
+              
+              {/* Lista de Equipes */}
+              {equipes.length === 0 && !criarNovaEquipe ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <UsersRound className="mx-auto h-12 w-12 mb-3 opacity-50" />
+                  <p>Nenhuma equipe criada</p>
+                  <p className="text-xs">Clique no botão acima para criar sua primeira equipe</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {equipes.map((equipe, index) => (
+                    <Card 
+                      key={index}
+                      className={`p-3 border-l-4 ${!equipe.ativo ? 'opacity-60' : ''}`}
+                      style={{ borderLeftColor: equipe.cor }}
+                    >
+                      {equipeEditando === index ? (
+                        // Modo edição
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs">Nome da Equipe</Label>
+                              <Input
+                                value={equipe.nome}
+                                onChange={(e) => {
+                                  const updated = [...equipes];
+                                  updated[index].nome = e.target.value;
+                                  setEquipes(updated);
+                                }}
+                                className="h-9"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Cor</Label>
+                              <div className="flex gap-1 mt-1">
+                                {coresPadrao.map((cor) => (
+                                  <button
+                                    key={cor}
+                                    type="button"
+                                    className={`w-6 h-6 rounded-full border-2 transition-all ${equipe.cor === cor ? 'border-primary scale-110' : 'border-transparent hover:border-muted-foreground/30'}`}
+                                    style={{ backgroundColor: cor }}
+                                    onClick={() => {
+                                      const updated = [...equipes];
+                                      updated[index].cor = cor;
+                                      setEquipes(updated);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <Label className="text-xs">Integrantes</Label>
+                            <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
+                              {usersComAcesso.map((userItem) => (
+                                <label 
+                                  key={userItem.id}
+                                  className="flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={equipe.membros.includes(userItem.id)}
+                                    onChange={(e) => {
+                                      const updated = [...equipes];
+                                      if (e.target.checked) {
+                                        updated[index].membros = [...updated[index].membros, userItem.id];
+                                      } else {
+                                        updated[index].membros = updated[index].membros.filter(id => id !== userItem.id);
+                                      }
+                                      setEquipes(updated);
+                                    }}
+                                    className="rounded border-primary"
+                                  />
+                                  <span className="text-sm">{userItem.nome_completo}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          <div className="flex justify-end">
+                            <Button 
+                              type="button"
+                              size="sm"
+                              onClick={() => setEquipeEditando(null)}
+                            >
+                              <Check className="h-4 w-4 mr-1" />
+                              Concluir
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        // Modo visualização
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div 
+                              className="w-4 h-4 rounded-full"
+                              style={{ backgroundColor: equipe.cor }}
+                            />
+                            <div>
+                              <p className="font-medium text-sm">{equipe.nome}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {equipe.membros.length} integrante{equipe.membros.length !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={equipe.ativo}
+                              onCheckedChange={(checked) => {
+                                const updated = [...equipes];
+                                updated[index].ativo = checked;
+                                setEquipes(updated);
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => setEquipeEditando(index)}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:text-destructive"
+                              onClick={() => {
+                                setEquipes(equipes.filter((_, i) => i !== index));
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              )}
             </TabsContent>
 
             {/* Aba Premiações */}
