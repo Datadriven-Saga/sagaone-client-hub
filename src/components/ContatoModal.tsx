@@ -100,6 +100,7 @@ export function ContatoModal({
   const [produtosSelecionados, setProdutosSelecionados] = useState<string[]>([]);
   const [usuariosDisponiveis, setUsuariosDisponiveis] = useState<Array<{ id: string; nome: string; email: string; tipoAcesso: string | null }>>([]);
   const [responsavelSelecionado, setResponsavelSelecionado] = useState<string>('');
+  const [responsavelAtualId, setResponsavelAtualId] = useState<string | null>(null);
 
   const temperaturas: TemperaturaOption[] = [
     { id: 'frio', nome: 'Frio', cor: '#3b82f6' },
@@ -152,11 +153,23 @@ export function ContatoModal({
 
             // Definir responsável atual se existir
             if (contato.responsavel_email) {
-              const responsavelAtual = usuarios?.find(u => u.celular === contato.responsavel_email);
+              // Buscar por id, email ou celular
+              const responsavelAtual = usuarios?.find(u => 
+                u.id === contato.responsavel_email ||
+                u.celular === contato.responsavel_email ||
+                u.celular?.replace(/\D/g, '') === contato.responsavel_email?.replace(/\D/g, '')
+              );
               if (responsavelAtual) {
-                setResponsavelSelecionado(responsavelAtual.id);
+                setResponsavelAtualId(responsavelAtual.id);
+              } else {
+                // Se não encontrou por id/celular, pode ser um UUID diretamente
+                setResponsavelAtualId(contato.responsavel_email);
               }
+            } else {
+              setResponsavelAtualId(null);
             }
+            // Sempre iniciar o dropdown vazio
+            setResponsavelSelecionado('');
           }
         } catch (error) {
           console.error('Erro ao carregar dados:', error);
@@ -272,10 +285,13 @@ export function ContatoModal({
         return;
       }
 
-      // Atualizar no banco via função parent
-      await onAssignResponsible?.(contato.id, usuarioSelecionado.email || usuarioSelecionado.id);
+      // Atualizar no banco - salvar o ID do usuário (não o celular/email)
+      await onAssignResponsible?.(contato.id, userId);
       
-      setResponsavelSelecionado(userId);
+      // Atualizar o estado do responsável atual para refletir a mudança imediatamente
+      setResponsavelAtualId(userId);
+      // Limpar o dropdown de seleção
+      setResponsavelSelecionado('');
       
       toast({
         title: "Responsável atribuído",
@@ -566,24 +582,20 @@ export function ContatoModal({
                         {/* Responsável atual */}
                         <div>
                           <label className="text-sm font-medium mb-2 block">Responsável Atual</label>
-                          {contato?.responsavel_email ? (() => {
-                            // Buscar profile por id, email ou celular
-                            const responsavelProfile = usuariosDisponiveis.find(u => 
-                              u.id === contato.responsavel_email || 
-                              u.email === contato.responsavel_email ||
-                              u.email?.replace(/\D/g, '') === contato.responsavel_email?.replace(/\D/g, '')
-                            );
+                          {responsavelAtualId ? (() => {
+                            // Buscar profile por id
+                            const responsavelProfile = usuariosDisponiveis.find(u => u.id === responsavelAtualId);
                             
                             return (
                               <div className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
                                 <Avatar className="h-10 w-10">
                                   <AvatarFallback>
-                                    {getInitials(responsavelProfile?.nome || contato.responsavel_email)}
+                                    {getInitials(responsavelProfile?.nome || responsavelAtualId)}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
                                   <p className="font-semibold text-sm">
-                                    {responsavelProfile?.nome || contato.responsavel_email}
+                                    {responsavelProfile?.nome || responsavelAtualId}
                                   </p>
                                   <p className="text-xs text-muted-foreground">
                                     {responsavelProfile?.tipoAcesso || 'Não informado'}
@@ -601,7 +613,7 @@ export function ContatoModal({
                         {/* Seletor de novo responsável */}
                         <div>
                           <label className="text-sm font-medium mb-2 block">
-                            {contato?.responsavel_email ? 'Alterar Responsável' : 'Selecionar Responsável'}
+                            {responsavelAtualId ? 'Alterar Responsável' : 'Selecionar Responsável'}
                           </label>
                           <Select 
                             value={responsavelSelecionado} 
