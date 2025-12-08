@@ -67,6 +67,7 @@ const Acessos = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [filterEmpresaId, setFilterEmpresaId] = useState<string>("");
   const { user: authUser, session } = useAuth();
   const { toast } = useToast();
 
@@ -535,13 +536,32 @@ const Acessos = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Usuários do Sistema
-            </CardTitle>
-            <CardDescription>
-              Lista de todos os usuários e suas permissões
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Usuários do Sistema
+                </CardTitle>
+                <CardDescription>
+                  Lista de todos os usuários e suas permissões
+                </CardDescription>
+              </div>
+              <div className="w-64">
+                <Select value={filterEmpresaId} onValueChange={setFilterEmpresaId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por empresa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as empresas</SelectItem>
+                    {companies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.nome_empresa}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -550,12 +570,22 @@ const Acessos = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {profiles.length === 0 ? (
+                {profiles
+                  .filter(profile => {
+                    if (!filterEmpresaId || filterEmpresaId === "all") return true;
+                    return profile.empresas?.some(e => e.id === filterEmpresaId);
+                  })
+                  .length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     Nenhum usuário encontrado
                   </div>
                 ) : (
-                  profiles.map((profile: Profile) => (
+                  profiles
+                    .filter(profile => {
+                      if (!filterEmpresaId || filterEmpresaId === "all") return true;
+                      return profile.empresas?.some(e => e.id === filterEmpresaId);
+                    })
+                    .map((profile: Profile) => (
                     <div key={profile.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -575,11 +605,16 @@ const Acessos = () => {
                         {profile.empresas && profile.empresas.length > 0 && (
                           <div className="flex items-center gap-2 flex-wrap">
                             <Building2 className="h-4 w-4 text-muted-foreground" />
-                            {profile.empresas.map((empresa) => (
+                            {profile.empresas.slice(0, 3).map((empresa) => (
                               <Badge key={empresa.id} variant="secondary" className="text-xs">
                                 {empresa.nome_empresa}
                               </Badge>
                             ))}
+                            {profile.empresas.length > 3 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{profile.empresas.length - 3}
+                              </Badge>
+                            )}
                           </div>
                         )}
                       </div>
