@@ -733,6 +733,8 @@ const Prospeccao = () => {
                       <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Data Início</th>
                       <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Data Fim</th>
                       <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Canal</th>
+                      <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Meta Vendas</th>
+                      <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Premiações</th>
                       <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Status</th>
                       <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Ações</th>
                     </tr>
@@ -754,6 +756,27 @@ const Prospeccao = () => {
                         statusColor = 'bg-blue-100 text-blue-700';
                       }
                       
+                      // Calcular meta total de vendas
+                      const metaTotalVendas = (prospeccao.meta_novos || 0) + (prospeccao.meta_seminovos || 0) + (prospeccao.meta_diretas || 0);
+                      
+                      // Calcular total de premiações
+                      const totalPremiacoes = [
+                        prospeccao.premio_equipe_campea,
+                        prospeccao.premio_equipe_2lugar,
+                        prospeccao.premio_equipe_3lugar,
+                        prospeccao.premio_vendedor_ouro,
+                        prospeccao.premio_vendedor_prata,
+                        prospeccao.premio_vendedor_bronze,
+                        prospeccao.premio_prospector_ouro,
+                        prospeccao.premio_prospector_prata,
+                        prospeccao.premio_prospector_bronze,
+                        prospeccao.premio_checkin_ouro,
+                        prospeccao.premio_checkin_prata,
+                        prospeccao.premio_checkin_bronze,
+                        prospeccao.premio_participacao_apoio,
+                        prospeccao.premio_indicacao_venda,
+                      ].reduce((acc, val) => acc + (val || 0), 0);
+                      
                       return (
                         <tr key={prospeccao.id} className="border-b hover:bg-muted/50 transition-colors">
                           <td className="py-3 px-3">
@@ -768,6 +791,14 @@ const Prospeccao = () => {
                           <td className="py-3 px-3">
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
                               {prospeccao.canal}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <span className="font-medium text-sm">{metaTotalVendas > 0 ? metaTotalVendas : '-'}</span>
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <span className="font-medium text-sm text-amber-600">
+                              {totalPremiacoes > 0 ? totalPremiacoes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-'}
                             </span>
                           </td>
                           <td className="py-3 px-3">
