@@ -343,11 +343,11 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
             </p>
           </div>
         ) : (
-          <Table>
+          <Table className="text-sm">
             <TableHeader>
               <TableRow>
                 <TableHead 
-                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="cursor-pointer hover:bg-muted/50 transition-colors min-w-[140px]"
                   onClick={() => handleSort('nomeCompleto')}
                 >
                   <div className="flex items-center">
@@ -356,74 +356,74 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[60px]"
                   onClick={() => handleSort('atribuidos')}
                 >
-                  <div className="flex items-center justify-center">
-                    Atribuídos
+                  <div className="flex items-center justify-center text-xs">
+                    Atrib.
                     <SortIcon column="atribuidos" />
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[60px]"
                   onClick={() => handleSort('convidados')}
                 >
-                  <div className="flex items-center justify-center">
-                    Convidados
+                  <div className="flex items-center justify-center text-xs">
+                    Conv.
                     <SortIcon column="convidados" />
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[60px]"
                   onClick={() => handleSort('agendados')}
                 >
-                  <div className="flex items-center justify-center">
-                    Agendados
+                  <div className="flex items-center justify-center text-xs">
+                    Agend.
                     <SortIcon column="agendados" />
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[65px]"
                   onClick={() => handleSort('confirmados')}
                 >
-                  <div className="flex items-center justify-center">
-                    Confirmados
+                  <div className="flex items-center justify-center text-xs">
+                    Conf.
                     <SortIcon column="confirmados" />
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[70px]"
                   onClick={() => handleSort('checkins')}
                 >
-                  <div className="flex items-center justify-center">
-                    Check-Ins
+                  <div className="flex items-center justify-center text-xs">
+                    Check-In
                     <SortIcon column="checkins" />
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[65px]"
                   onClick={() => handleSort('vendas')}
                 >
-                  <div className="flex items-center justify-center font-semibold text-primary">
+                  <div className="flex items-center justify-center text-xs font-semibold text-primary">
                     Vendas
                     <SortIcon column="vendas" />
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[60px]"
                   onClick={() => handleSort('descartes')}
                 >
-                  <div className="flex items-center justify-center">
-                    Descartes
+                  <div className="flex items-center justify-center text-xs">
+                    Desc.
                     <SortIcon column="descartes" />
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[80px]"
                   onClick={() => handleSort('pontuacao')}
                 >
-                  <div className="flex items-center justify-center font-semibold text-amber-600">
-                    Pontuação
+                  <div className="flex items-center justify-center text-xs font-semibold text-amber-600">
+                    Pontos
                     <SortIcon column="pontuacao" />
                   </div>
                 </TableHead>
@@ -432,36 +432,36 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
             <TableBody>
               {sortedAndFilteredVendedores.map((vendedor) => (
                 <TableRow key={vendedor.userId}>
-                  <TableCell>
-                    <div>
-                      <span className="font-medium">{vendedor.nomeCompleto}</span>
-                      <span className="text-xs text-muted-foreground ml-2">
-                        ({vendedor.tipoAcesso})
+                  <TableCell className="py-2">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-sm truncate max-w-[180px]">{vendedor.nomeCompleto}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {vendedor.tipoAcesso}
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-center font-medium">
+                  <TableCell className="text-center font-medium py-2 px-1">
                     {vendedor.atribuidos}
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="text-center py-2 px-1">
                     {vendedor.convidados}
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="text-center py-2 px-1">
                     {vendedor.agendados}
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="text-center py-2 px-1">
                     {vendedor.confirmados}
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="text-center py-2 px-1">
                     {vendedor.checkins}
                   </TableCell>
-                  <TableCell className="text-center font-semibold text-primary">
+                  <TableCell className="text-center font-semibold text-primary py-2 px-1">
                     {vendedor.vendas}
                   </TableCell>
-                  <TableCell className="text-center text-muted-foreground">
+                  <TableCell className="text-center text-muted-foreground py-2 px-1">
                     {vendedor.descartes}
                   </TableCell>
-                  <TableCell className="text-center font-bold text-amber-600">
+                  <TableCell className="text-center font-bold text-amber-600 py-2 px-1">
                     {calcularPontuacao(vendedor).toLocaleString('pt-BR')}
                   </TableCell>
                 </TableRow>
