@@ -1489,33 +1489,33 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
             {/* Aba Equipes */}
             <TabsContent value="equipes" className="space-y-4 mt-0">
               <Card className="p-4 bg-gradient-to-r from-violet-500/80 to-violet-600 text-white">
-                <div className="flex items-center gap-2 mb-2">
-                  <UsersRound className="h-4 w-4" />
-                  <span className="text-sm font-medium">Gestão de Equipes</span>
-                </div>
-                <div className="text-center">
-                  <span className="text-3xl font-bold">{equipes.filter(e => e.ativo).length}</span>
-                  <p className="text-xs opacity-80 mt-1">Equipes ativas nesta prospecção</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <UsersRound className="h-4 w-4" />
+                      <span className="text-sm font-medium">Gestão de Equipes</span>
+                    </div>
+                    <p className="text-xs opacity-80">{equipes.filter(e => e.ativo).length} equipes ativas</p>
+                  </div>
+                  {!criarNovaEquipe && equipeEditando === null && (
+                    <Button 
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="bg-white/20 hover:bg-white/30 text-white border-0"
+                      onClick={() => {
+                        setCriarNovaEquipe(true);
+                        setNovaEquipeNome("");
+                        setNovaEquipeCor(coresPadrao[equipes.length % coresPadrao.length]);
+                        setNovaEquipeMembros([]);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Nova Equipe
+                    </Button>
+                  )}
                 </div>
               </Card>
-              
-              {/* Botão Nova Equipe */}
-              {!criarNovaEquipe && equipeEditando === null && (
-                <Button 
-                  type="button"
-                  variant="outline" 
-                  className="w-full border-dashed"
-                  onClick={() => {
-                    setCriarNovaEquipe(true);
-                    setNovaEquipeNome("");
-                    setNovaEquipeCor(coresPadrao[equipes.length % coresPadrao.length]);
-                    setNovaEquipeMembros([]);
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Criar Nova Equipe
-                </Button>
-              )}
               
               {/* Formulário Nova Equipe */}
               {criarNovaEquipe && (
