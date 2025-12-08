@@ -130,58 +130,58 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Left Column - Metrics and Actions */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {/* Metric Cards */}
         {metricCards.map((card) => (
           <Card
             key={card.id}
             className={cn(
-              "p-4 cursor-pointer transition-all hover:shadow-md flex items-center justify-between",
+              "py-2 px-3 cursor-pointer transition-all hover:shadow-md flex items-center justify-between",
               card.bgColor,
               card.highlight && "shadow-lg"
             )}
             onClick={() => onMetricClick?.(card.id)}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <div className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center",
+                "w-7 h-7 rounded-full flex items-center justify-center",
                 card.highlight ? "bg-white/20" : "bg-primary/10"
               )}>
                 <card.icon className={cn(
-                  "w-5 h-5",
+                  "w-4 h-4",
                   card.highlight ? "text-white" : "text-primary"
                 )} />
               </div>
-              <span className={cn("font-medium", card.textColor)}>
+              <span className={cn("text-sm font-medium", card.textColor)}>
                 {card.label}
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className={cn("text-xl font-bold", card.textColor)}>
+              <span className={cn("text-lg font-bold", card.textColor)}>
                 {card.value.toLocaleString('pt-BR')}
               </span>
-              <ChevronRight className={cn("w-5 h-5", card.textColor)} />
+              <ChevronRight className={cn("w-4 h-4", card.textColor)} />
             </div>
           </Card>
         ))}
 
         {/* Action Buttons */}
-        <div className="mt-6 space-y-3">
+        <div className="mt-4 space-y-2">
           {actionButtons.map((action) => (
             <Card
               key={action.id}
-              className="p-4 cursor-pointer transition-all hover:shadow-md hover:bg-muted/50 flex items-center justify-between"
+              className="py-2 px-3 cursor-pointer transition-all hover:shadow-md hover:bg-muted/50 flex items-center justify-between"
               onClick={action.onClick}
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <action.icon className="w-5 h-5 text-primary" />
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+                  <action.icon className="w-4 h-4 text-primary" />
                 </div>
-                <span className="font-medium text-foreground">
+                <span className="text-sm font-medium text-foreground">
                   {action.label}
                 </span>
               </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </Card>
           ))}
         </div>
@@ -194,24 +194,24 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
           <h3 className="font-semibold text-lg">Funil de Clientes Ativos</h3>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           {/* Distribuídos sem ação */}
           <div 
-            className="bg-primary rounded-lg py-4 px-6 text-center text-white"
+            className="bg-primary rounded-lg py-3 px-6 text-center text-white"
             style={{ width: '100%' }}
           >
-            <div className="text-2xl font-bold">{funnelData.distribuidosSemAcao.toLocaleString('pt-BR')}</div>
-            <div className="text-sm opacity-90">Distribuídos sem ação</div>
+            <div className="text-xl font-bold">{funnelData.distribuidosSemAcao.toLocaleString('pt-BR')}</div>
+            <div className="text-xs opacity-90">Distribuídos sem ação</div>
           </div>
 
           {/* Contatados / Sem contato */}
-          <div className="flex gap-2" style={{ width: '85%', margin: '0 auto' }}>
+          <div className="flex gap-3" style={{ width: '85%', margin: '0 auto' }}>
             <div className="flex-1 bg-primary/80 rounded-lg py-3 px-4 text-center text-white">
-              <div className="text-xl font-bold">{funnelData.contatados.toLocaleString('pt-BR')}</div>
+              <div className="text-lg font-bold">{funnelData.contatados.toLocaleString('pt-BR')}</div>
               <div className="text-xs opacity-90">Contatados</div>
             </div>
             <div className="flex-1 bg-primary/60 rounded-lg py-3 px-4 text-center text-white">
-              <div className="text-xl font-bold">{funnelData.semContato.toLocaleString('pt-BR')}</div>
+              <div className="text-lg font-bold">{funnelData.semContato.toLocaleString('pt-BR')}</div>
               <div className="text-xs opacity-90">Sem contato</div>
             </div>
           </div>
@@ -221,7 +221,7 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
             className="bg-primary/50 rounded-lg py-3 px-4 text-center text-white mx-auto"
             style={{ width: '70%' }}
           >
-            <div className="text-xl font-bold">{funnelData.convidados.toLocaleString('pt-BR')}</div>
+            <div className="text-lg font-bold">{funnelData.convidados.toLocaleString('pt-BR')}</div>
             <div className="text-xs opacity-90">Convidados</div>
           </div>
 
@@ -230,7 +230,7 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
             className="bg-primary/40 rounded-lg py-3 px-4 text-center text-foreground mx-auto"
             style={{ width: '55%' }}
           >
-            <div className="text-xl font-bold">{funnelData.confirmados.toLocaleString('pt-BR')}</div>
+            <div className="text-lg font-bold">{funnelData.confirmados.toLocaleString('pt-BR')}</div>
             <div className="text-xs">Confirmados</div>
           </div>
 
@@ -239,7 +239,7 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
             className="bg-primary/30 rounded-lg py-3 px-4 text-center text-foreground mx-auto"
             style={{ width: '40%' }}
           >
-            <div className="text-xl font-bold">{funnelData.checkIns.toLocaleString('pt-BR')}</div>
+            <div className="text-lg font-bold">{funnelData.checkIns.toLocaleString('pt-BR')}</div>
             <div className="text-xs">Check-Ins</div>
           </div>
         </div>
