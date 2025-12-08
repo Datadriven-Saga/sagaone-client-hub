@@ -64,6 +64,12 @@ export interface Prospeccao {
   data_inicio?: string;
   data_fim?: string;
   meta_leads?: number;
+  meta_novos?: number;
+  meta_seminovos?: number;
+  meta_diretas?: number;
+  meta_checkins?: number;
+  meta_confirmacoes?: number;
+  meta_convites?: number;
   leads_gerados: number;
   responsavel_id?: string;
   empresa_id?: string;
@@ -71,6 +77,21 @@ export interface Prospeccao {
   persona_id?: string;
   created_at: string;
   updated_at: string;
+  // Premiações
+  premio_equipe_campea?: number;
+  premio_equipe_2lugar?: number;
+  premio_equipe_3lugar?: number;
+  premio_vendedor_ouro?: number;
+  premio_vendedor_prata?: number;
+  premio_vendedor_bronze?: number;
+  premio_prospector_ouro?: number;
+  premio_prospector_prata?: number;
+  premio_prospector_bronze?: number;
+  premio_checkin_ouro?: number;
+  premio_checkin_prata?: number;
+  premio_checkin_bronze?: number;
+  premio_participacao_apoio?: number;
+  premio_indicacao_venda?: number;
 }
 
 export const useContatoData = () => {
