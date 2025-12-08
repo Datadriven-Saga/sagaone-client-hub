@@ -58,6 +58,7 @@ const Prospeccao = () => {
   const [recepcaoSearchFilter, setRecepcaoSearchFilter] = useState('');
   const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
   const [isClientesPorUsuarioModalOpen, setIsClientesPorUsuarioModalOpen] = useState(false);
+  const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null }[]>([]);
   
   // ✅ HOOKS DE CONTEXTO E CUSTOM HOOKS
   const { toast } = useToast();
@@ -88,6 +89,17 @@ const Prospeccao = () => {
   
   console.log('🔑 User from auth:', user);
   console.log('📊 Data from hooks - contatos:', contatos?.length, 'prospeccoes:', prospeccoes?.length, 'loading:', loading);
+
+  // Buscar profiles para exibir nome e tipo de acesso
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, nome_completo, tipo_acesso');
+      if (data) setProfiles(data);
+    };
+    fetchProfiles();
+  }, []);
 
   // Persistir aba ativa
   useEffect(() => {
@@ -249,28 +261,42 @@ const Prospeccao = () => {
   // Dados mock para histórico (implementar busca real depois)
   const historicoImportacao: any[] = [];
   
-  // Dados de clientes por usuário (implementar busca real depois)
+  // Dados de clientes por usuário (baseado em responsavel_email que contém o user_id)
   const getClientesPorUsuario = () => {
-    const usuariosMap = new Map<string, { novos: number; atribuidos: number; emEspera: number; convidados: number }>();
+    const usuariosMap = new Map<string, { nome: string; tipoAcesso: string; novos: number; atribuidos: number; emEspera: number; convidados: number }>();
     
     contatos.forEach(contato => {
-      const responsavel = contato.responsavel_email || 'Não atribuído';
-      const current = usuariosMap.get(responsavel) || { novos: 0, atribuidos: 0, emEspera: 0, convidados: 0 };
+      const responsavelId = contato.responsavel_email || 'nao_atribuido';
+      
+      // Buscar profile correspondente
+      const profile = profiles.find(p => p.id === responsavelId);
+      
+      const current = usuariosMap.get(responsavelId) || { 
+        nome: profile?.nome_completo || (responsavelId === 'nao_atribuido' ? 'Não atribuído' : responsavelId), 
+        tipoAcesso: profile?.tipo_acesso || '-',
+        novos: 0, 
+        atribuidos: 0, 
+        emEspera: 0, 
+        convidados: 0 
+      };
       
       if (contato.status === 'Novo') current.novos++;
       if (contato.status === 'Atribuído') current.atribuidos++;
       if (contato.status === 'Em Espera') current.emEspera++;
       if (contato.status === 'Convidado') current.convidados++;
       
-      usuariosMap.set(responsavel, current);
+      usuariosMap.set(responsavelId, current);
     });
 
-    return Array.from(usuariosMap.entries()).map(([email, counts]) => ({
-      id: email,
-      nome: email.split('@')[0] || email,
-      email: email,
-      totalClientes: counts.novos + counts.atribuidos + counts.emEspera + counts.convidados,
-      ...counts
+    return Array.from(usuariosMap.entries()).map(([key, data]) => ({
+      id: key,
+      nome: data.nome,
+      tipoAcesso: data.tipoAcesso,
+      totalClientes: data.novos + data.atribuidos + data.emEspera + data.convidados,
+      novos: data.novos,
+      atribuidos: data.atribuidos,
+      emEspera: data.emEspera,
+      convidados: data.convidados
     }));
   };
 
