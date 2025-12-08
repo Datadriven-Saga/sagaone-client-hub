@@ -122,6 +122,17 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     indicacao_venda: { ativo: false, valor: "" },
   });
   
+  // Outras Premiações (personalizadas)
+  interface OutraPremiacao {
+    id?: string;
+    nome: string;
+    valor: number | "";
+    ativo: boolean;
+  }
+  const [outrasPremiacoes, setOutrasPremiacoes] = useState<OutraPremiacao[]>([]);
+  const [novaOutraPremiacao, setNovaOutraPremiacao] = useState({ nome: "", valor: "" as number | "" });
+  const [mostrarFormOutraPremiacao, setMostrarFormOutraPremiacao] = useState(false);
+  
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeCompany } = useCompany();
@@ -257,6 +268,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setPaginaImagemEventoFile(null);
     // Marketing
     setMarketingAssets([]);
+    // Outras Premiações
+    setOutrasPremiacoes([]);
+    setNovaOutraPremiacao({ nome: "", valor: "" });
+    setMostrarFormOutraPremiacao(false);
   };
   
   // Buscar usuários com acesso à empresa ativa
@@ -432,12 +447,33 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       }
     };
     
+    // Buscar outras premiações quando editando
+    const fetchOutrasPremiacoes = async () => {
+      if (!editingProspeccao?.id || !activeCompany?.id) return;
+      
+      const { data, error } = await supabase
+        .from('prospeccao_outras_premiacoes')
+        .select('*')
+        .eq('prospeccao_id', editingProspeccao.id)
+        .eq('empresa_id', activeCompany.id);
+      
+      if (!error && data) {
+        setOutrasPremiacoes(data.map(item => ({
+          id: item.id,
+          nome: item.nome,
+          valor: item.valor || 0,
+          ativo: item.ativo,
+        })));
+      }
+    };
+    
     if (editingProspeccao && isOpen) {
       fetchMetasIndividuais();
       fetchEquipes();
       fetchConvite();
       fetchPagina();
       fetchMarketingAssets();
+      fetchOutrasPremiacoes();
     }
   }, [editingProspeccao?.id, activeCompany?.id, isOpen]);
   
@@ -702,6 +738,35 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
   
+  // Salvar outras premiações
+  const saveOutrasPremiacoes = async (prospeccaoId: string) => {
+    if (!activeCompany?.id) return;
+    
+    // Deletar premiações existentes para esta prospecção
+    await supabase
+      .from('prospeccao_outras_premiacoes')
+      .delete()
+      .eq('prospeccao_id', prospeccaoId)
+      .eq('empresa_id', activeCompany.id);
+    
+    // Inserir novas premiações
+    for (const premiacao of outrasPremiacoes) {
+      const { error } = await supabase
+        .from('prospeccao_outras_premiacoes')
+        .insert({
+          prospeccao_id: prospeccaoId,
+          empresa_id: activeCompany.id,
+          nome: premiacao.nome,
+          valor: Number(premiacao.valor) || 0,
+          ativo: premiacao.ativo,
+        });
+      
+      if (error) {
+        console.error('Erro ao salvar outra premiação:', error);
+      }
+    }
+  };
+  
   // Filtrar usuários
   const filteredUsers = usersComAcesso.filter(user => {
     const searchLower = metasIndividuaisFilter.toLowerCase();
@@ -807,6 +872,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         
         // Salvar marketing assets
         await saveMarketingAssets(data.id);
+        
+        // Salvar outras premiações
+        await saveOutrasPremiacoes(data.id);
 
         toast({
           title: "Sucesso",
@@ -856,6 +924,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         
         // Salvar marketing assets
         await saveMarketingAssets(data.id);
+        
+        // Salvar outras premiações
+        await saveOutrasPremiacoes(data.id);
 
         toast({
           title: "Sucesso",
@@ -1096,8 +1167,13 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
     indicacao_venda: { nome: "Indicação de Venda", tooltip: "Premiação destinada à cada indicação de venda." },
   };
 
-  // Calcular total de premiações ativas
+  // Calcular total de premiações ativas (inclui outras premiações)
   const totalPremiacoes = Object.values(premiacoes).reduce((acc, p) => {
+    if (p.ativo && p.valor !== "") {
+      return acc + Number(p.valor);
+    }
+    return acc;
+  }, 0) + outrasPremiacoes.reduce((acc, p) => {
     if (p.ativo && p.valor !== "") {
       return acc + Number(p.valor);
     }
@@ -1948,6 +2024,157 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   {renderPremiacaoField("participacao_apoio", Gift)}
                   {renderPremiacaoField("indicacao_venda", Gift)}
                 </div>
+              </div>
+
+              {/* Outras Premiações (personalizadas) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Plus className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-semibold">Outras Premiações</span>
+                  </div>
+                  {!mostrarFormOutraPremiacao && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setMostrarFormOutraPremiacao(true)}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Adicionar
+                    </Button>
+                  )}
+                </div>
+                
+                {/* Formulário para adicionar nova premiação */}
+                {mostrarFormOutraPremiacao && (
+                  <Card className="p-3 border-dashed">
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Nome da Premiação</Label>
+                          <Input
+                            value={novaOutraPremiacao.nome}
+                            onChange={(e) => setNovaOutraPremiacao(prev => ({ ...prev, nome: e.target.value }))}
+                            placeholder="Ex: Bônus especial"
+                            className="h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Valor (R$)</Label>
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="0,00"
+                              value={formatCurrency(novaOutraPremiacao.valor)}
+                              onChange={(e) => {
+                                const numericValue = e.target.value.replace(/\D/g, '');
+                                const numberValue = numericValue === "" ? "" : Number(numericValue) / 100;
+                                setNovaOutraPremiacao(prev => ({ ...prev, valor: numberValue }));
+                              }}
+                              className="text-right text-sm h-9 pl-7"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setMostrarFormOutraPremiacao(false);
+                            setNovaOutraPremiacao({ nome: "", valor: "" });
+                          }}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={!novaOutraPremiacao.nome.trim() || novaOutraPremiacao.valor === "" || novaOutraPremiacao.valor === 0}
+                          onClick={() => {
+                            setOutrasPremiacoes([...outrasPremiacoes, {
+                              nome: novaOutraPremiacao.nome.trim(),
+                              valor: novaOutraPremiacao.valor,
+                              ativo: true
+                            }]);
+                            setNovaOutraPremiacao({ nome: "", valor: "" });
+                            setMostrarFormOutraPremiacao(false);
+                          }}
+                        >
+                          <Check className="h-3.5 w-3.5 mr-1" />
+                          Adicionar
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+                
+                {/* Lista de outras premiações */}
+                {outrasPremiacoes.length > 0 && (
+                  <div className="space-y-2">
+                    {outrasPremiacoes.map((premiacao, index) => (
+                      <div 
+                        key={index}
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${premiacao.ativo ? 'bg-green-50 border-green-200' : 'bg-gray-100 border-gray-300'}`}
+                      >
+                        <Switch
+                          checked={premiacao.ativo}
+                          onCheckedChange={(checked) => {
+                            const updated = [...outrasPremiacoes];
+                            updated[index].ativo = checked;
+                            setOutrasPremiacoes(updated);
+                          }}
+                          className={premiacao.ativo ? 'data-[state=checked]:bg-green-500' : 'data-[state=unchecked]:bg-gray-400'}
+                        />
+                        <div className="flex-1 flex items-center gap-2 min-w-0">
+                          <Star className={`h-4 w-4 flex-shrink-0 ${premiacao.ativo ? 'text-green-600' : 'text-gray-500'}`} />
+                          <span className={`text-sm truncate ${premiacao.ativo ? 'font-medium text-green-700' : 'text-gray-600'}`}>
+                            {premiacao.nome}
+                          </span>
+                        </div>
+                        <div className="w-32 flex-shrink-0 relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="0,00"
+                            disabled={!premiacao.ativo}
+                            value={formatCurrency(premiacao.valor)}
+                            onChange={(e) => {
+                              const numericValue = e.target.value.replace(/\D/g, '');
+                              const numberValue = numericValue === "" ? "" : Number(numericValue) / 100;
+                              const updated = [...outrasPremiacoes];
+                              updated[index].valor = numberValue;
+                              setOutrasPremiacoes(updated);
+                            }}
+                            className="text-right text-sm h-8 pl-7"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:text-destructive"
+                          onClick={() => {
+                            setOutrasPremiacoes(outrasPremiacoes.filter((_, i) => i !== index));
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {outrasPremiacoes.length === 0 && !mostrarFormOutraPremiacao && (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    Nenhuma premiação personalizada adicionada
+                  </p>
+                )}
               </div>
             </TabsContent>
 
