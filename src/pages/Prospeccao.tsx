@@ -58,7 +58,7 @@ const Prospeccao = () => {
   const [recepcaoSearchFilter, setRecepcaoSearchFilter] = useState('');
   const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
   const [isClientesPorUsuarioModalOpen, setIsClientesPorUsuarioModalOpen] = useState(false);
-  const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null }[]>([]);
+  const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; email?: string }[]>([]);
   
   // ✅ HOOKS DE CONTEXTO E CUSTOM HOOKS
   const { toast } = useToast();
@@ -90,16 +90,48 @@ const Prospeccao = () => {
   console.log('🔑 User from auth:', user);
   console.log('📊 Data from hooks - contatos:', contatos?.length, 'prospeccoes:', prospeccoes?.length, 'loading:', loading);
 
-  // Buscar profiles para exibir nome e tipo de acesso
+  // Buscar profiles com email do usuário para mapear responsavel_email
   useEffect(() => {
     const fetchProfiles = async () => {
-      const { data } = await supabase
+      // Buscar profiles
+      const { data: profilesData, error } = await supabase
         .from('profiles')
         .select('id, nome_completo, tipo_acesso');
-      if (data) setProfiles(data);
+      
+      if (error) {
+        console.error('Error fetching profiles:', error);
+        return;
+      }
+      
+      if (profilesData) {
+        const profilesWithEmail = profilesData.map(p => ({
+          ...p,
+          email: undefined as string | undefined
+        }));
+        
+        // Buscar emails dos usuários via edge function
+        try {
+          const { data: usersData } = await supabase.functions.invoke('manage-users', {
+            body: { action: 'list' }
+          });
+          
+          if (usersData?.users) {
+            usersData.users.forEach((user: any) => {
+              const profileIndex = profilesWithEmail.findIndex(p => p.id === user.id);
+              if (profileIndex !== -1) {
+                profilesWithEmail[profileIndex].email = user.email;
+              }
+            });
+          }
+        } catch (e) {
+          console.error('Error fetching users emails:', e);
+        }
+        
+        setProfiles(profilesWithEmail);
+      }
     };
     fetchProfiles();
-  }, []);
+  }, [activeCompany?.id]);
 
   // Persistir aba ativa
   useEffect(() => {
@@ -261,18 +293,18 @@ const Prospeccao = () => {
   // Dados mock para histórico (implementar busca real depois)
   const historicoImportacao: any[] = [];
   
-  // Dados de clientes por usuário (baseado em responsavel_email que contém o user_id)
+  // Dados de clientes por usuário (baseado em responsavel_email que contém o email do usuário)
   const getClientesPorUsuario = () => {
     const usuariosMap = new Map<string, { nome: string; tipoAcesso: string; novos: number; atribuidos: number; emEspera: number; convidados: number }>();
     
     contatos.forEach(contato => {
-      const responsavelId = contato.responsavel_email || 'nao_atribuido';
+      const responsavelEmail = contato.responsavel_email || 'nao_atribuido';
       
-      // Buscar profile correspondente
-      const profile = profiles.find(p => p.id === responsavelId);
+      // Buscar profile correspondente pelo EMAIL
+      const profile = profiles.find(p => p.email === responsavelEmail);
       
-      const current = usuariosMap.get(responsavelId) || { 
-        nome: profile?.nome_completo || (responsavelId === 'nao_atribuido' ? 'Não atribuído' : responsavelId), 
+      const current = usuariosMap.get(responsavelEmail) || { 
+        nome: profile?.nome_completo || (responsavelEmail === 'nao_atribuido' ? 'Não atribuído' : responsavelEmail), 
         tipoAcesso: profile?.tipo_acesso || '-',
         novos: 0, 
         atribuidos: 0, 
@@ -285,7 +317,7 @@ const Prospeccao = () => {
       if (contato.status === 'Em Espera') current.emEspera++;
       if (contato.status === 'Convidado') current.convidados++;
       
-      usuariosMap.set(responsavelId, current);
+      usuariosMap.set(responsavelEmail, current);
     });
 
     return Array.from(usuariosMap.entries()).map(([key, data]) => ({
