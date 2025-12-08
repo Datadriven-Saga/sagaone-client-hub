@@ -194,7 +194,7 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
           <h3 className="font-semibold text-lg">Funil de Clientes Ativos</h3>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {/* Distribuídos sem ação */}
           <div 
             className="bg-primary rounded-lg py-2 px-6 text-center text-white"
