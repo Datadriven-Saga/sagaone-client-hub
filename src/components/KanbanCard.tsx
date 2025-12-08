@@ -5,7 +5,11 @@ import { KanbanItem } from './KanbanBoard';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { UserCheck, UserX } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface KanbanCardProps {
   item: KanbanItem;
@@ -61,6 +65,15 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
 
   const isBeingDragged = isDragging || isSortableDragging;
 
+  // Extrai as iniciais do nome do responsável
+  const getInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -104,22 +117,24 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
               {origin.toLowerCase()}
             </span>
           )}
-          {/* Indicador de responsável */}
-          {item.assignee ? (
-            <span 
-              className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200"
-              title={`Responsável: ${item.assignee}`}
-            >
-              <UserCheck className="h-3 w-3" />
-            </span>
-          ) : (
-            <span 
-              className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200"
-              title="Sem responsável"
-            >
-              <UserX className="h-3 w-3" />
-            </span>
-          )}
+          {/* Indicador de responsável com iniciais */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span 
+                className={cn(
+                  "flex items-center justify-center text-[10px] font-semibold w-6 h-6 rounded-full cursor-default",
+                  item.assignee 
+                    ? "bg-primary/10 text-primary border border-primary/20" 
+                    : "bg-muted text-muted-foreground border border-border"
+                )}
+              >
+                {item.assignee ? getInitials(item.assignee) : "--"}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{item.assignee || "Sem responsável"}</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
         {timeAgo && (
           <span className="text-[11px] text-muted-foreground ml-auto">
