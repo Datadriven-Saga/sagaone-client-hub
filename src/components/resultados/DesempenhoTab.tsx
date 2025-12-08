@@ -347,7 +347,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
             <TableHeader>
               <TableRow>
                 <TableHead 
-                  className="cursor-pointer hover:bg-muted/50 transition-colors min-w-[140px]"
+                  className="cursor-pointer hover:bg-muted/50 transition-colors min-w-[210px]"
                   onClick={() => handleSort('nomeCompleto')}
                 >
                   <div className="flex items-center">
@@ -356,7 +356,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[60px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[90px]"
                   onClick={() => handleSort('atribuidos')}
                 >
                   <div className="flex items-center justify-center text-xs">
@@ -365,7 +365,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[60px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[90px]"
                   onClick={() => handleSort('convidados')}
                 >
                   <div className="flex items-center justify-center text-xs">
@@ -374,7 +374,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[60px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[90px]"
                   onClick={() => handleSort('agendados')}
                 >
                   <div className="flex items-center justify-center text-xs">
@@ -383,7 +383,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[65px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[98px]"
                   onClick={() => handleSort('confirmados')}
                 >
                   <div className="flex items-center justify-center text-xs">
@@ -392,7 +392,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[70px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[105px]"
                   onClick={() => handleSort('checkins')}
                 >
                   <div className="flex items-center justify-center text-xs">
@@ -401,7 +401,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[65px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[98px]"
                   onClick={() => handleSort('vendas')}
                 >
                   <div className="flex items-center justify-center text-xs font-semibold text-primary">
@@ -410,7 +410,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[60px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[90px]"
                   onClick={() => handleSort('descartes')}
                 >
                   <div className="flex items-center justify-center text-xs">
@@ -419,7 +419,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-1 w-[80px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[120px]"
                   onClick={() => handleSort('pontuacao')}
                 >
                   <div className="flex items-center justify-center text-xs font-semibold text-amber-600">
@@ -434,38 +434,68 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                 <TableRow key={vendedor.userId}>
                   <TableCell className="py-2">
                     <div className="flex flex-col">
-                      <span className="font-medium text-sm truncate max-w-[180px]">{vendedor.nomeCompleto}</span>
+                      <span className="font-medium text-sm truncate max-w-[200px]">{vendedor.nomeCompleto}</span>
                       <span className="text-xs text-muted-foreground">
                         {vendedor.tipoAcesso}
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-center font-medium py-2 px-1">
+                  <TableCell className="text-center font-medium py-2 px-2">
                     {vendedor.atribuidos}
                   </TableCell>
-                  <TableCell className="text-center py-2 px-1">
+                  <TableCell className="text-center py-2 px-2">
                     {vendedor.convidados}
                   </TableCell>
-                  <TableCell className="text-center py-2 px-1">
+                  <TableCell className="text-center py-2 px-2">
                     {vendedor.agendados}
                   </TableCell>
-                  <TableCell className="text-center py-2 px-1">
+                  <TableCell className="text-center py-2 px-2">
                     {vendedor.confirmados}
                   </TableCell>
-                  <TableCell className="text-center py-2 px-1">
+                  <TableCell className="text-center py-2 px-2">
                     {vendedor.checkins}
                   </TableCell>
-                  <TableCell className="text-center font-semibold text-primary py-2 px-1">
+                  <TableCell className="text-center font-semibold text-primary py-2 px-2">
                     {vendedor.vendas}
                   </TableCell>
-                  <TableCell className="text-center text-muted-foreground py-2 px-1">
+                  <TableCell className="text-center text-muted-foreground py-2 px-2">
                     {vendedor.descartes}
                   </TableCell>
-                  <TableCell className="text-center font-bold text-amber-600 py-2 px-1">
+                  <TableCell className="text-center font-bold text-amber-600 py-2 px-2">
                     {calcularPontuacao(vendedor).toLocaleString('pt-BR')}
                   </TableCell>
                 </TableRow>
               ))}
+              {/* Linha de Totais */}
+              <TableRow className="bg-muted/50 font-semibold border-t-2">
+                <TableCell className="py-3">
+                  <span className="font-bold">TOTAL</span>
+                </TableCell>
+                <TableCell className="text-center py-3 px-2">
+                  {sortedAndFilteredVendedores.reduce((sum, v) => sum + v.atribuidos, 0)}
+                </TableCell>
+                <TableCell className="text-center py-3 px-2">
+                  {sortedAndFilteredVendedores.reduce((sum, v) => sum + v.convidados, 0)}
+                </TableCell>
+                <TableCell className="text-center py-3 px-2">
+                  {sortedAndFilteredVendedores.reduce((sum, v) => sum + v.agendados, 0)}
+                </TableCell>
+                <TableCell className="text-center py-3 px-2">
+                  {sortedAndFilteredVendedores.reduce((sum, v) => sum + v.confirmados, 0)}
+                </TableCell>
+                <TableCell className="text-center py-3 px-2">
+                  {sortedAndFilteredVendedores.reduce((sum, v) => sum + v.checkins, 0)}
+                </TableCell>
+                <TableCell className="text-center py-3 px-2 text-primary">
+                  {sortedAndFilteredVendedores.reduce((sum, v) => sum + v.vendas, 0)}
+                </TableCell>
+                <TableCell className="text-center py-3 px-2 text-muted-foreground">
+                  {sortedAndFilteredVendedores.reduce((sum, v) => sum + v.descartes, 0)}
+                </TableCell>
+                <TableCell className="text-center py-3 px-2 text-amber-600">
+                  {sortedAndFilteredVendedores.reduce((sum, v) => sum + calcularPontuacao(v), 0).toLocaleString('pt-BR')}
+                </TableCell>
+              </TableRow>
             </TableBody>
           </Table>
         )}
