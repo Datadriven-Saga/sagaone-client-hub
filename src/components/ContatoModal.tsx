@@ -608,7 +608,7 @@ export function ContatoModal({
                             onValueChange={handleAtribuirResponsavel}
                           >
                             <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Selecione um usuário..." />
+                              <SelectValue placeholder="Selecione o usuário" />
                             </SelectTrigger>
                             <SelectContent>
                               {usuariosDisponiveis.map((usuario) => (
