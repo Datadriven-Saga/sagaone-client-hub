@@ -229,13 +229,14 @@ serve(async (req) => {
           }
 
           // Update the profile created by trigger using admin client
+          // Use null instead of empty string for cpf to avoid unique constraint violations
           const { error: updateError } = await supabaseAdmin
             .from('profiles')
             .update({
               tipo_acesso,
               departamento,
-              celular,
-              cpf,
+              celular: celular || null,
+              cpf: cpf || null,
               status,
               empresa_id: defaultEmpresaId
             })
@@ -347,14 +348,15 @@ serve(async (req) => {
         }
 
         // Update profile using admin client
+        // Use null instead of empty string for cpf to avoid unique constraint violations
         const { error: updateError } = await supabaseAdmin
           .from('profiles')
           .update({
             nome_completo,
             tipo_acesso,
             departamento,
-            celular,
-            cpf,
+            celular: celular || null,
+            cpf: cpf || null,
             status
           })
           .eq('id', user_id);
