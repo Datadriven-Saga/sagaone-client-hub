@@ -17,6 +17,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
+import { ResumoTab } from "@/components/resultados/ResumoTab";
 
 interface Prospeccao {
   id: string;
@@ -126,16 +127,10 @@ const Resultados = () => {
 
           {/* Tab Resumo */}
           <TabsContent value="resumo" className="mt-4">
-            <Card className="p-8 text-center">
-              <LayoutDashboard className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
-              <h3 className="text-lg font-semibold mb-2">Resumo Geral</h3>
-              <p className="text-sm text-muted-foreground">
-                {selectedProspeccaoData 
-                  ? `Visualizando resultados de: ${selectedProspeccaoData.titulo}`
-                  : "Selecione um evento para visualizar os resultados"
-                }
-              </p>
-            </Card>
+            <ResumoTab 
+              prospeccaoId={selectedProspeccao || null} 
+              empresaId={activeCompany?.id || null} 
+            />
           </TabsContent>
 
           {/* Tab Prospecção */}
