@@ -357,6 +357,13 @@ const Prospeccao = () => {
         const prospeccaoNome = (prospeccoes && prospeccoes.length > 0) ? prospeccoes[0].titulo : 'Sem prospecção';
         const prospeccaoCanal = (prospeccoes && prospeccoes.length > 0) ? prospeccoes[0].canal : 'Whatsapp';
         
+        // Mapear responsavel_email para o nome completo do usuário
+        let assigneeName: string | undefined = undefined;
+        if (contato.responsavel_email) {
+          const responsavelProfile = profiles.find(p => p.email === contato.responsavel_email);
+          assigneeName = responsavelProfile?.nome_completo || undefined;
+        }
+        
         return {
           id: contato.id || '',
           title: contato.nome || 'Sem nome',
@@ -364,7 +371,7 @@ const Prospeccao = () => {
           channel: contato.telefone || '',
           tags: contato.origem ? [contato.origem] : undefined,
           dueDate: contato.created_at || undefined,
-          assignee: contato.responsavel_email || undefined,
+          assignee: assigneeName,
           prospeccaoNome,
           prospeccaoCanal,
           segmentacao: 'Undefined'
