@@ -19,6 +19,7 @@ interface ProspeccaoMetas {
 }
 
 interface StatusCounts {
+  totalBase: number;
   atribuidos: number;
   convidados: number;
   agendados: number;
@@ -105,7 +106,7 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
       
       <div className="flex flex-col items-center space-y-2">
         {stages.map((stage, index) => {
-          const funnelWidths = [100, 82, 66, 50, 36];
+          const funnelWidths = [100, 85, 70, 55, 42, 30];
           const widthPercentage = funnelWidths[Math.min(index, funnelWidths.length - 1)];
           const previousStage = index > 0 ? stages[index - 1] : null;
           const conversionRate = previousStage ? getConversionRate(stage.value, previousStage.value) : 100;
@@ -158,6 +159,7 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
 export const ResumoTab = ({ prospeccaoId, empresaId }: ResumoTabProps) => {
   const [metas, setMetas] = useState<ProspeccaoMetas | null>(null);
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({
+    totalBase: 0,
     atribuidos: 0,
     convidados: 0,
     agendados: 0,
@@ -196,6 +198,7 @@ export const ResumoTab = ({ prospeccaoId, empresaId }: ResumoTabProps) => {
 
         if (contatosData) {
           const counts: StatusCounts = {
+            totalBase: contatosData.length,
             atribuidos: 0,
             convidados: 0,
             agendados: 0,
@@ -247,6 +250,7 @@ export const ResumoTab = ({ prospeccaoId, empresaId }: ResumoTabProps) => {
 
   // Dados do funil
   const funnelStages: FunnelStage[] = useMemo(() => [
+    { id: 'totalBase', title: 'Total da Base', value: statusCounts.totalBase, color: '#64748B' },
     { id: 'distribuidos', title: 'Distribuídos', value: statusCounts.atribuidos, color: '#3B82F6' },
     { id: 'convidados', title: 'Convidados', value: statusCounts.convidados, color: '#8B5CF6' },
     { id: 'confirmados', title: 'Confirmados', value: statusCounts.confirmados, color: '#F59E0B' },
