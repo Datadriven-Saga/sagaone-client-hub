@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { ResumoTab } from "@/components/resultados/ResumoTab";
+import { DesempenhoTab } from "@/components/resultados/DesempenhoTab";
 
 interface Prospeccao {
   id: string;
@@ -179,13 +180,10 @@ const Resultados = () => {
 
           {/* Tab Desempenho */}
           <TabsContent value="desempenho" className="mt-4">
-            <Card className="p-8 text-center">
-              <BarChart3 className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
-              <h3 className="text-lg font-semibold mb-2">Desempenho</h3>
-              <p className="text-sm text-muted-foreground">
-                Análise de desempenho geral
-              </p>
-            </Card>
+            <DesempenhoTab 
+              prospeccaoId={selectedProspeccao || null} 
+              empresaId={activeCompany?.id || null} 
+            />
           </TabsContent>
 
           {/* Tab Individual */}
