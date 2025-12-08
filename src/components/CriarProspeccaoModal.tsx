@@ -10,7 +10,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info } from "lucide-react";
+import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -46,6 +47,24 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [metaConvites, setMetaConvites] = useState<number | "">("");
   const [tamanhoBase, setTamanhoBase] = useState<number>(0);
   
+  // Premiações - Estado com ativo/valor
+  const [premiacoes, setPremiacoes] = useState<Record<string, { ativo: boolean; valor: number | "" }>>({
+    equipe_campea: { ativo: false, valor: "" },
+    equipe_2lugar: { ativo: false, valor: "" },
+    equipe_3lugar: { ativo: false, valor: "" },
+    vendedor_ouro: { ativo: false, valor: "" },
+    vendedor_prata: { ativo: false, valor: "" },
+    vendedor_bronze: { ativo: false, valor: "" },
+    prospector_ouro: { ativo: false, valor: "" },
+    prospector_prata: { ativo: false, valor: "" },
+    prospector_bronze: { ativo: false, valor: "" },
+    checkin_ouro: { ativo: false, valor: "" },
+    checkin_prata: { ativo: false, valor: "" },
+    checkin_bronze: { ativo: false, valor: "" },
+    participacao_apoio: { ativo: false, valor: "" },
+    indicacao_venda: { ativo: false, valor: "" },
+  });
+  
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeCompany } = useCompany();
@@ -71,6 +90,24 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       setMetaCheckins(editingProspeccao.meta_checkins ?? "");
       setMetaConfirmacoes(editingProspeccao.meta_confirmacoes ?? "");
       setMetaConvites(editingProspeccao.meta_convites ?? "");
+      
+      // Premiações
+      setPremiacoes({
+        equipe_campea: { ativo: !!editingProspeccao.premio_equipe_campea, valor: editingProspeccao.premio_equipe_campea ?? "" },
+        equipe_2lugar: { ativo: !!editingProspeccao.premio_equipe_2lugar, valor: editingProspeccao.premio_equipe_2lugar ?? "" },
+        equipe_3lugar: { ativo: !!editingProspeccao.premio_equipe_3lugar, valor: editingProspeccao.premio_equipe_3lugar ?? "" },
+        vendedor_ouro: { ativo: !!editingProspeccao.premio_vendedor_ouro, valor: editingProspeccao.premio_vendedor_ouro ?? "" },
+        vendedor_prata: { ativo: !!editingProspeccao.premio_vendedor_prata, valor: editingProspeccao.premio_vendedor_prata ?? "" },
+        vendedor_bronze: { ativo: !!editingProspeccao.premio_vendedor_bronze, valor: editingProspeccao.premio_vendedor_bronze ?? "" },
+        prospector_ouro: { ativo: !!editingProspeccao.premio_prospector_ouro, valor: editingProspeccao.premio_prospector_ouro ?? "" },
+        prospector_prata: { ativo: !!editingProspeccao.premio_prospector_prata, valor: editingProspeccao.premio_prospector_prata ?? "" },
+        prospector_bronze: { ativo: !!editingProspeccao.premio_prospector_bronze, valor: editingProspeccao.premio_prospector_bronze ?? "" },
+        checkin_ouro: { ativo: !!editingProspeccao.premio_checkin_ouro, valor: editingProspeccao.premio_checkin_ouro ?? "" },
+        checkin_prata: { ativo: !!editingProspeccao.premio_checkin_prata, valor: editingProspeccao.premio_checkin_prata ?? "" },
+        checkin_bronze: { ativo: !!editingProspeccao.premio_checkin_bronze, valor: editingProspeccao.premio_checkin_bronze ?? "" },
+        participacao_apoio: { ativo: !!editingProspeccao.premio_participacao_apoio, valor: editingProspeccao.premio_participacao_apoio ?? "" },
+        indicacao_venda: { ativo: !!editingProspeccao.premio_indicacao_venda, valor: editingProspeccao.premio_indicacao_venda ?? "" },
+      });
     } else if (!editingProspeccao && isOpen) {
       // Limpar campos quando criar nova prospecção
       clearForm();
@@ -120,6 +157,22 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setMetaConfirmacoes("");
     setMetaConvites("");
     setTamanhoBase(0);
+    setPremiacoes({
+      equipe_campea: { ativo: false, valor: "" },
+      equipe_2lugar: { ativo: false, valor: "" },
+      equipe_3lugar: { ativo: false, valor: "" },
+      vendedor_ouro: { ativo: false, valor: "" },
+      vendedor_prata: { ativo: false, valor: "" },
+      vendedor_bronze: { ativo: false, valor: "" },
+      prospector_ouro: { ativo: false, valor: "" },
+      prospector_prata: { ativo: false, valor: "" },
+      prospector_bronze: { ativo: false, valor: "" },
+      checkin_ouro: { ativo: false, valor: "" },
+      checkin_prata: { ativo: false, valor: "" },
+      checkin_bronze: { ativo: false, valor: "" },
+      participacao_apoio: { ativo: false, valor: "" },
+      indicacao_venda: { ativo: false, valor: "" },
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -159,6 +212,21 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         meta_checkins: metaCheckins === "" ? null : metaCheckins,
         meta_confirmacoes: metaConfirmacoes === "" ? null : metaConfirmacoes,
         meta_convites: metaConvites === "" ? null : metaConvites,
+        // Premiações
+        premio_equipe_campea: premiacoes.equipe_campea.ativo && premiacoes.equipe_campea.valor !== "" ? Number(premiacoes.equipe_campea.valor) : null,
+        premio_equipe_2lugar: premiacoes.equipe_2lugar.ativo && premiacoes.equipe_2lugar.valor !== "" ? Number(premiacoes.equipe_2lugar.valor) : null,
+        premio_equipe_3lugar: premiacoes.equipe_3lugar.ativo && premiacoes.equipe_3lugar.valor !== "" ? Number(premiacoes.equipe_3lugar.valor) : null,
+        premio_vendedor_ouro: premiacoes.vendedor_ouro.ativo && premiacoes.vendedor_ouro.valor !== "" ? Number(premiacoes.vendedor_ouro.valor) : null,
+        premio_vendedor_prata: premiacoes.vendedor_prata.ativo && premiacoes.vendedor_prata.valor !== "" ? Number(premiacoes.vendedor_prata.valor) : null,
+        premio_vendedor_bronze: premiacoes.vendedor_bronze.ativo && premiacoes.vendedor_bronze.valor !== "" ? Number(premiacoes.vendedor_bronze.valor) : null,
+        premio_prospector_ouro: premiacoes.prospector_ouro.ativo && premiacoes.prospector_ouro.valor !== "" ? Number(premiacoes.prospector_ouro.valor) : null,
+        premio_prospector_prata: premiacoes.prospector_prata.ativo && premiacoes.prospector_prata.valor !== "" ? Number(premiacoes.prospector_prata.valor) : null,
+        premio_prospector_bronze: premiacoes.prospector_bronze.ativo && premiacoes.prospector_bronze.valor !== "" ? Number(premiacoes.prospector_bronze.valor) : null,
+        premio_checkin_ouro: premiacoes.checkin_ouro.ativo && premiacoes.checkin_ouro.valor !== "" ? Number(premiacoes.checkin_ouro.valor) : null,
+        premio_checkin_prata: premiacoes.checkin_prata.ativo && premiacoes.checkin_prata.valor !== "" ? Number(premiacoes.checkin_prata.valor) : null,
+        premio_checkin_bronze: premiacoes.checkin_bronze.ativo && premiacoes.checkin_bronze.valor !== "" ? Number(premiacoes.checkin_bronze.valor) : null,
+        premio_participacao_apoio: premiacoes.participacao_apoio.ativo && premiacoes.participacao_apoio.valor !== "" ? Number(premiacoes.participacao_apoio.valor) : null,
+        premio_indicacao_venda: premiacoes.indicacao_venda.ativo && premiacoes.indicacao_venda.valor !== "" ? Number(premiacoes.indicacao_venda.valor) : null,
       };
 
       // Adicionar campos específicos do canal
@@ -441,6 +509,91 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
     </TooltipProvider>
   );
 
+  // Config das premiações
+  const premiacaoConfigs = {
+    // Equipes
+    equipe_campea: { nome: "Equipe Campeã", tooltip: "Premiação para a Equipe com mais vendas. Prêmio válido por Nº de vendas e desempate pelo VGV." },
+    equipe_2lugar: { nome: "Equipe 2º Lugar", tooltip: "Premiação para a Equipe com a segunda maior quantidade de vendas." },
+    equipe_3lugar: { nome: "Equipe 3º Lugar", tooltip: "Premiação para a Equipe com a terceira maior quantidade de vendas." },
+    // Vendedores
+    vendedor_ouro: { nome: "Vendedor Ouro", tooltip: "Premiação para o melhor vendedor do evento, considerando o número de vendas e desempate pelo VGV." },
+    vendedor_prata: { nome: "Vendedor Prata", tooltip: "Premiação para o segundo melhor vendedor do evento." },
+    vendedor_bronze: { nome: "Vendedor Bronze", tooltip: "Premiação para o terceiro melhor vendedor do evento." },
+    // Prospectors
+    prospector_ouro: { nome: "Prospector Ouro", tooltip: "Premiação destinada ao vendedor que mais prospectar clientes com presença registrada no evento." },
+    prospector_prata: { nome: "Prospector Prata", tooltip: "Premiação destinada ao vendedor que possuir o segundo maior número de prospecções com presença registrada no evento." },
+    prospector_bronze: { nome: "Prospector Bronze", tooltip: "Premiação destinada ao vendedor que possuir o terceiro maior número de prospecções com presença registrada no evento." },
+    // Check-ins
+    checkin_ouro: { nome: "Check-ins Ouro", tooltip: "Premiação destinada à pessoa que mais possuir registro de comparecimento no dia do evento (exceto vendedor)." },
+    checkin_prata: { nome: "Check-ins Prata", tooltip: "Premiação destinada à pessoa que possuir o segundo maior registro de comparecimento no dia do evento (exceto vendedor)." },
+    checkin_bronze: { nome: "Check-ins Bronze", tooltip: "Premiação destinada à pessoa que possuir o terceiro maior registro de comparecimento no dia do evento (exceto vendedor)." },
+    // Participação
+    participacao_apoio: { nome: "Participação Equipe de Apoio", tooltip: "Premiação destinada à cada membro da equipe de apoio." },
+    indicacao_venda: { nome: "Indicação de Venda", tooltip: "Premiação destinada à cada indicação de venda." },
+  };
+
+  // Calcular total de premiações ativas
+  const totalPremiacoes = Object.values(premiacoes).reduce((acc, p) => {
+    if (p.ativo && p.valor !== "") {
+      return acc + Number(p.valor);
+    }
+    return acc;
+  }, 0);
+
+  const handlePremiacaoToggle = (key: string, checked: boolean) => {
+    setPremiacoes(prev => ({
+      ...prev,
+      [key]: { ...prev[key], ativo: checked, valor: checked ? prev[key].valor : "" }
+    }));
+  };
+
+  const handlePremiacaoValorChange = (key: string, valor: string) => {
+    setPremiacoes(prev => ({
+      ...prev,
+      [key]: { ...prev[key], valor: valor === "" ? "" : Number(valor) }
+    }));
+  };
+
+  const PremiacaoField = ({ premioKey, icon: Icon }: { premioKey: keyof typeof premiacaoConfigs; icon: React.ElementType }) => {
+    const config = premiacaoConfigs[premioKey];
+    const premiacao = premiacoes[premioKey];
+    
+    return (
+      <div className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${premiacao.ativo ? 'bg-primary/5 border-primary/20' : 'bg-muted/30 border-transparent'}`}>
+        <Switch
+          checked={premiacao.ativo}
+          onCheckedChange={(checked) => handlePremiacaoToggle(premioKey, checked)}
+        />
+        <div className="flex-1 flex items-center gap-2 min-w-0">
+          <Icon className={`h-4 w-4 flex-shrink-0 ${premiacao.ativo ? 'text-primary' : 'text-muted-foreground'}`} />
+          <span className={`text-sm truncate ${premiacao.ativo ? 'font-medium' : 'text-muted-foreground'}`}>{config.nome}</span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-primary cursor-help flex-shrink-0" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[280px] p-3">
+                <p className="text-xs">{config.tooltip}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <div className="w-28 flex-shrink-0">
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="R$ 0,00"
+            disabled={!premiacao.ativo}
+            value={premiacao.valor}
+            onChange={(e) => handlePremiacaoValorChange(premioKey, e.target.value)}
+            className="text-right text-sm h-8"
+          />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[750px] w-[95vw] h-[90vh] max-h-[90vh] flex flex-col p-0 overflow-hidden">
@@ -454,9 +607,10 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                 </DialogTitle>
               </DialogHeader>
               
-              <TabsList className="grid w-full grid-cols-2 mt-4">
+              <TabsList className="grid w-full grid-cols-3 mt-4">
                 <TabsTrigger value="dados-gerais">Dados Gerais</TabsTrigger>
                 <TabsTrigger value="meta">Meta</TabsTrigger>
+                <TabsTrigger value="premiacoes">Premiações</TabsTrigger>
               </TabsList>
             </div>
             
@@ -749,6 +903,87 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   Valor calculado com base nos contatos importados
                 </p>
               </Card>
+            </TabsContent>
+
+            {/* Aba Premiações */}
+            <TabsContent value="premiacoes" className="space-y-4 mt-0">
+              {/* Total em Premiações */}
+              <Card className="p-4 bg-gradient-to-r from-amber-500/80 to-amber-600 text-white">
+                <div className="flex items-center gap-2 mb-2">
+                  <Trophy className="h-4 w-4" />
+                  <span className="text-sm font-medium">Total em Premiações</span>
+                </div>
+                <div className="text-center">
+                  <span className="text-3xl font-bold">
+                    {totalPremiacoes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </span>
+                  <p className="text-xs opacity-80 mt-1">Soma de todas as premiações ativas</p>
+                </div>
+              </Card>
+
+              {/* Premiações para Equipes */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Premiações para Equipes</span>
+                </div>
+                <div className="space-y-2">
+                  <PremiacaoField premioKey="equipe_campea" icon={Trophy} />
+                  <PremiacaoField premioKey="equipe_2lugar" icon={Award} />
+                  <PremiacaoField premioKey="equipe_3lugar" icon={Award} />
+                </div>
+              </div>
+
+              {/* Premiações para Vendedores */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Premiações para Vendedores</span>
+                </div>
+                <div className="space-y-2">
+                  <PremiacaoField premioKey="vendedor_ouro" icon={Trophy} />
+                  <PremiacaoField premioKey="vendedor_prata" icon={Award} />
+                  <PremiacaoField premioKey="vendedor_bronze" icon={Award} />
+                </div>
+              </div>
+
+              {/* Premiação para Vendedor Prospector */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Premiação para Vendedor Prospector</span>
+                </div>
+                <div className="space-y-2">
+                  <PremiacaoField premioKey="prospector_ouro" icon={Trophy} />
+                  <PremiacaoField premioKey="prospector_prata" icon={Award} />
+                  <PremiacaoField premioKey="prospector_bronze" icon={Award} />
+                </div>
+              </div>
+
+              {/* Premiações para Equipe de Apoio */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Premiações para Equipe de Apoio</span>
+                </div>
+                <div className="space-y-2">
+                  <PremiacaoField premioKey="checkin_ouro" icon={Trophy} />
+                  <PremiacaoField premioKey="checkin_prata" icon={Award} />
+                  <PremiacaoField premioKey="checkin_bronze" icon={Award} />
+                </div>
+              </div>
+
+              {/* Premiações por Participação ou Indicação */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Gift className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Premiações por Participação ou Indicação</span>
+                </div>
+                <div className="space-y-2">
+                  <PremiacaoField premioKey="participacao_apoio" icon={Gift} />
+                  <PremiacaoField premioKey="indicacao_venda" icon={Gift} />
+                </div>
+              </div>
             </TabsContent>
             </div>
 
