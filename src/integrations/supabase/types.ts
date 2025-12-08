@@ -1215,6 +1215,20 @@ export type Database = {
           meta_novos: number | null
           meta_seminovos: number | null
           persona_id: string | null
+          premio_checkin_bronze: number | null
+          premio_checkin_ouro: number | null
+          premio_checkin_prata: number | null
+          premio_equipe_2lugar: number | null
+          premio_equipe_3lugar: number | null
+          premio_equipe_campea: number | null
+          premio_indicacao_venda: number | null
+          premio_participacao_apoio: number | null
+          premio_prospector_bronze: number | null
+          premio_prospector_ouro: number | null
+          premio_prospector_prata: number | null
+          premio_vendedor_bronze: number | null
+          premio_vendedor_ouro: number | null
+          premio_vendedor_prata: number | null
           responsavel_id: string | null
           template_agendado: string | null
           template_nao_agendado: string | null
@@ -1241,6 +1255,20 @@ export type Database = {
           meta_novos?: number | null
           meta_seminovos?: number | null
           persona_id?: string | null
+          premio_checkin_bronze?: number | null
+          premio_checkin_ouro?: number | null
+          premio_checkin_prata?: number | null
+          premio_equipe_2lugar?: number | null
+          premio_equipe_3lugar?: number | null
+          premio_equipe_campea?: number | null
+          premio_indicacao_venda?: number | null
+          premio_participacao_apoio?: number | null
+          premio_prospector_bronze?: number | null
+          premio_prospector_ouro?: number | null
+          premio_prospector_prata?: number | null
+          premio_vendedor_bronze?: number | null
+          premio_vendedor_ouro?: number | null
+          premio_vendedor_prata?: number | null
           responsavel_id?: string | null
           template_agendado?: string | null
           template_nao_agendado?: string | null
@@ -1267,6 +1295,20 @@ export type Database = {
           meta_novos?: number | null
           meta_seminovos?: number | null
           persona_id?: string | null
+          premio_checkin_bronze?: number | null
+          premio_checkin_ouro?: number | null
+          premio_checkin_prata?: number | null
+          premio_equipe_2lugar?: number | null
+          premio_equipe_3lugar?: number | null
+          premio_equipe_campea?: number | null
+          premio_indicacao_venda?: number | null
+          premio_participacao_apoio?: number | null
+          premio_prospector_bronze?: number | null
+          premio_prospector_ouro?: number | null
+          premio_prospector_prata?: number | null
+          premio_vendedor_bronze?: number | null
+          premio_vendedor_ouro?: number | null
+          premio_vendedor_prata?: number | null
           responsavel_id?: string | null
           template_agendado?: string | null
           template_nao_agendado?: string | null
