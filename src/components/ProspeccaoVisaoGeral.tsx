@@ -194,52 +194,52 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
           <h3 className="font-semibold text-lg">Funil de Clientes Ativos</h3>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Distribuídos sem ação */}
           <div 
-            className="bg-primary rounded-lg py-3 px-6 text-center text-white"
+            className="bg-primary rounded-lg py-2 px-6 text-center text-white"
             style={{ width: '100%' }}
           >
-            <div className="text-xl font-bold">{funnelData.distribuidosSemAcao.toLocaleString('pt-BR')}</div>
+            <div className="text-lg font-bold">{funnelData.distribuidosSemAcao.toLocaleString('pt-BR')}</div>
             <div className="text-xs opacity-90">Distribuídos sem ação</div>
           </div>
 
           {/* Contatados / Sem contato */}
-          <div className="flex gap-3" style={{ width: '85%', margin: '0 auto' }}>
-            <div className="flex-1 bg-primary/80 rounded-lg py-3 px-4 text-center text-white">
-              <div className="text-lg font-bold">{funnelData.contatados.toLocaleString('pt-BR')}</div>
+          <div className="flex gap-3 mx-auto" style={{ width: '85%' }}>
+            <div className="flex-1 bg-primary/80 rounded-lg py-2 px-4 text-center text-white">
+              <div className="text-base font-bold">{funnelData.contatados.toLocaleString('pt-BR')}</div>
               <div className="text-xs opacity-90">Contatados</div>
             </div>
-            <div className="flex-1 bg-primary/60 rounded-lg py-3 px-4 text-center text-white">
-              <div className="text-lg font-bold">{funnelData.semContato.toLocaleString('pt-BR')}</div>
+            <div className="flex-1 bg-primary/60 rounded-lg py-2 px-4 text-center text-white">
+              <div className="text-base font-bold">{funnelData.semContato.toLocaleString('pt-BR')}</div>
               <div className="text-xs opacity-90">Sem contato</div>
             </div>
           </div>
 
           {/* Convidados */}
           <div 
-            className="bg-primary/50 rounded-lg py-3 px-4 text-center text-white mx-auto"
+            className="bg-primary/50 rounded-lg py-2 px-4 text-center text-white mx-auto"
             style={{ width: '70%' }}
           >
-            <div className="text-lg font-bold">{funnelData.convidados.toLocaleString('pt-BR')}</div>
+            <div className="text-base font-bold">{funnelData.convidados.toLocaleString('pt-BR')}</div>
             <div className="text-xs opacity-90">Convidados</div>
           </div>
 
           {/* Confirmados */}
           <div 
-            className="bg-primary/40 rounded-lg py-3 px-4 text-center text-foreground mx-auto"
+            className="bg-primary/40 rounded-lg py-2 px-4 text-center text-foreground mx-auto"
             style={{ width: '55%' }}
           >
-            <div className="text-lg font-bold">{funnelData.confirmados.toLocaleString('pt-BR')}</div>
+            <div className="text-base font-bold">{funnelData.confirmados.toLocaleString('pt-BR')}</div>
             <div className="text-xs">Confirmados</div>
           </div>
 
           {/* Check-Ins */}
           <div 
-            className="bg-primary/30 rounded-lg py-3 px-4 text-center text-foreground mx-auto"
+            className="bg-primary/30 rounded-lg py-2 px-4 text-center text-foreground mx-auto"
             style={{ width: '40%' }}
           >
-            <div className="text-lg font-bold">{funnelData.checkIns.toLocaleString('pt-BR')}</div>
+            <div className="text-base font-bold">{funnelData.checkIns.toLocaleString('pt-BR')}</div>
             <div className="text-xs">Check-Ins</div>
           </div>
         </div>
