@@ -7,7 +7,8 @@ import {
   BookOpen, 
   Settings, 
   Shield,
-  Bot
+  Bot,
+  Trophy
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
@@ -27,6 +28,7 @@ const menuItems = [
   { title: "Página Inicial", url: "/", icon: Home },
   { title: "Agentes de IA", url: "/agentes-ia", icon: Bot },
   { title: "Prospecção", url: "/prospeccao", icon: Target },
+  { title: "Resultados", url: "/resultados", icon: Trophy },
   { title: "Carteira de Clientes", url: "/clientes", icon: Users },
   { title: "Notificações", url: "/notificacoes", icon: Bell },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
