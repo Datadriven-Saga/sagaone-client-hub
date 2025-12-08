@@ -98,7 +98,7 @@ export function ContatoModal({
   const [produtosDisponiveis, setProdutosDisponiveis] = useState<Produto[]>([]);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [produtosSelecionados, setProdutosSelecionados] = useState<string[]>([]);
-  const [usuariosDisponiveis, setUsuariosDisponiveis] = useState<Array<{ id: string; nome: string; email: string }>>([]);
+  const [usuariosDisponiveis, setUsuariosDisponiveis] = useState<Array<{ id: string; nome: string; email: string; tipoAcesso: string | null }>>([]);
   const [responsavelSelecionado, setResponsavelSelecionado] = useState<string>('');
 
   const temperaturas: TemperaturaOption[] = [
@@ -115,7 +115,7 @@ export function ContatoModal({
           // Buscar usuários disponíveis da empresa com perfis adequados
           const { data: usuarios, error: usuariosError } = await supabase
             .from('profiles')
-            .select('id, nome_completo, celular')
+            .select('id, nome_completo, celular, tipo_acesso')
             .in('tipo_acesso', ['Administrador', 'Gerente de Leads', 'Gerente de Loja', 'Vendedor'])
             .eq('status', 'Ativo');
 
@@ -123,7 +123,8 @@ export function ContatoModal({
             const usuariosFormatados = usuarios.map(u => ({
               id: u.id,
               nome: u.nome_completo,
-              email: u.celular || ''
+              email: u.celular || '',
+              tipoAcesso: u.tipo_acesso
             }));
             setUsuariosDisponiveis(usuariosFormatados);
           }
@@ -565,23 +566,32 @@ export function ContatoModal({
                         {/* Responsável atual */}
                         <div>
                           <label className="text-sm font-medium mb-2 block">Responsável Atual</label>
-                          {contato?.responsavel_email ? (
-                            <div className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
-                              <Avatar className="h-10 w-10">
-                                <AvatarFallback>
-                                  {getInitials(usuariosDisponiveis.find(u => u.email === contato.responsavel_email)?.nome || contato.responsavel_email)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium text-sm">
-                                  {usuariosDisponiveis.find(u => u.email === contato.responsavel_email)?.nome || contato.responsavel_email}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {contato.responsavel_email}
-                                </p>
+                          {contato?.responsavel_email ? (() => {
+                            // Buscar profile por id, email ou celular
+                            const responsavelProfile = usuariosDisponiveis.find(u => 
+                              u.id === contato.responsavel_email || 
+                              u.email === contato.responsavel_email ||
+                              u.email?.replace(/\D/g, '') === contato.responsavel_email?.replace(/\D/g, '')
+                            );
+                            
+                            return (
+                              <div className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
+                                <Avatar className="h-10 w-10">
+                                  <AvatarFallback>
+                                    {getInitials(responsavelProfile?.nome || contato.responsavel_email)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-semibold text-sm">
+                                    {responsavelProfile?.nome || contato.responsavel_email}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {responsavelProfile?.tipoAcesso || 'Não informado'}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          ) : (
+                            );
+                          })() : (
                             <div className="p-3 border rounded-md bg-muted/30">
                               <p className="text-sm text-muted-foreground">Não informado</p>
                             </div>
