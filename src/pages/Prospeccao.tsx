@@ -59,6 +59,8 @@ const Prospeccao = () => {
   const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
   const [isClientesPorUsuarioModalOpen, setIsClientesPorUsuarioModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string }[]>([]);
+  const [eventosNomeFilter, setEventosNomeFilter] = useState('');
+  const [eventosStatusFilter, setEventosStatusFilter] = useState<'todos' | 'Ativo' | 'Encerrado' | 'Agendado'>('todos');
   
   // ✅ HOOKS DE CONTEXTO E CUSTOM HOOKS
   const { toast } = useToast();
@@ -715,7 +717,46 @@ const Prospeccao = () => {
           <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-foreground">Lista de Eventos</h3>
-              <span className="text-sm text-muted-foreground">{prospeccoes.length} {prospeccoes.length === 1 ? 'evento' : 'eventos'}</span>
+            </div>
+            
+            {/* Filtros */}
+            <div className="flex flex-wrap gap-3 mb-4">
+              <div className="flex-1 min-w-[200px]">
+                <input
+                  type="text"
+                  placeholder="Buscar por nome..."
+                  value={eventosNomeFilter}
+                  onChange={(e) => setEventosNomeFilter(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <select
+                value={eventosStatusFilter}
+                onChange={(e) => setEventosStatusFilter(e.target.value as any)}
+                className="px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="todos">Todos os status</option>
+                <option value="Ativo">Ativo</option>
+                <option value="Encerrado">Encerrado</option>
+                <option value="Agendado">Agendado</option>
+              </select>
+              <span className="text-sm text-muted-foreground self-center">
+                {(() => {
+                  const filtered = prospeccoes.filter((p) => {
+                    const hoje = new Date();
+                    const dataInicio = p.data_inicio ? new Date(p.data_inicio) : null;
+                    const dataFim = p.data_fim ? new Date(p.data_fim) : null;
+                    let status = 'Ativo';
+                    if (dataFim && hoje > dataFim) status = 'Encerrado';
+                    else if (dataInicio && hoje < dataInicio) status = 'Agendado';
+                    
+                    const matchesNome = p.titulo.toLowerCase().includes(eventosNomeFilter.toLowerCase());
+                    const matchesStatus = eventosStatusFilter === 'todos' || status === eventosStatusFilter;
+                    return matchesNome && matchesStatus;
+                  });
+                  return `${filtered.length} ${filtered.length === 1 ? 'evento' : 'eventos'}`;
+                })()}
+              </span>
             </div>
             
             {prospeccoes.length === 0 ? (
@@ -740,21 +781,34 @@ const Prospeccao = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {prospeccoes.map((prospeccao) => {
-                      const hoje = new Date();
-                      const dataInicio = prospeccao.data_inicio ? new Date(prospeccao.data_inicio) : null;
-                      const dataFim = prospeccao.data_fim ? new Date(prospeccao.data_fim) : null;
-                      
-                      let status = 'Ativo';
-                      let statusColor = 'bg-green-100 text-green-700';
-                      
-                      if (dataFim && hoje > dataFim) {
-                        status = 'Encerrado';
-                        statusColor = 'bg-gray-100 text-gray-700';
-                      } else if (dataInicio && hoje < dataInicio) {
-                        status = 'Agendado';
-                        statusColor = 'bg-blue-100 text-blue-700';
-                      }
+                    {prospeccoes
+                      .filter((prospeccao) => {
+                        const hoje = new Date();
+                        const dataInicio = prospeccao.data_inicio ? new Date(prospeccao.data_inicio) : null;
+                        const dataFim = prospeccao.data_fim ? new Date(prospeccao.data_fim) : null;
+                        let status = 'Ativo';
+                        if (dataFim && hoje > dataFim) status = 'Encerrado';
+                        else if (dataInicio && hoje < dataInicio) status = 'Agendado';
+                        
+                        const matchesNome = prospeccao.titulo.toLowerCase().includes(eventosNomeFilter.toLowerCase());
+                        const matchesStatus = eventosStatusFilter === 'todos' || status === eventosStatusFilter;
+                        return matchesNome && matchesStatus;
+                      })
+                      .map((prospeccao) => {
+                        const hoje = new Date();
+                        const dataInicio = prospeccao.data_inicio ? new Date(prospeccao.data_inicio) : null;
+                        const dataFim = prospeccao.data_fim ? new Date(prospeccao.data_fim) : null;
+                        
+                        let status = 'Ativo';
+                        let statusColor = 'bg-green-100 text-green-700';
+                        
+                        if (dataFim && hoje > dataFim) {
+                          status = 'Encerrado';
+                          statusColor = 'bg-gray-100 text-gray-700';
+                        } else if (dataInicio && hoje < dataInicio) {
+                          status = 'Agendado';
+                          statusColor = 'bg-blue-100 text-blue-700';
+                        }
                       
                       // Calcular meta total de vendas
                       const metaTotalVendas = (prospeccao.meta_novos || 0) + (prospeccao.meta_seminovos || 0) + (prospeccao.meta_diretas || 0);
