@@ -10,8 +10,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Target, Users, MapPin, ThumbsUp, Phone } from "lucide-react";
+import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CriarProspeccaoModalProps {
   isOpen: boolean;
@@ -354,6 +355,92 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
   // Calcular meta total de vendas
   const metaTotalVendas = (Number(metaNovos) || 0) + (Number(metaSeminovos) || 0) + (Number(metaDiretas) || 0);
 
+  // Calcular metas automaticamente com base nas vendas
+  // Check-in: 30% dos comparecimentos são convertidos em vendas → check-in = vendas / 0.30
+  // Confirmações: 30% dos confirmados comparecem → confirmações = check-in / 0.30
+  // Agendamentos: 33% dos agendados confirmam → agendamentos = confirmações / 0.33
+  const calcularMetasFunil = (totalVendas: number) => {
+    if (totalVendas <= 0) return { checkins: 0, confirmacoes: 0, convites: 0 };
+    
+    const checkins = Math.ceil(totalVendas / 0.30);
+    const confirmacoes = Math.ceil(checkins / 0.30);
+    const convites = Math.ceil(confirmacoes / 0.33);
+    
+    return { checkins, confirmacoes, convites };
+  };
+
+  // Handler para alteração de metas de vendas - recalcula as metas de funil
+  const handleMetaVendaChange = (
+    setter: React.Dispatch<React.SetStateAction<number | "">>,
+    value: string,
+    otherMetas: { novos?: number | ""; seminovos?: number | ""; diretas?: number | "" }
+  ) => {
+    const numValue = value === "" ? "" : Number(value);
+    setter(numValue);
+    
+    // Calcular total considerando o novo valor
+    const novoTotal = 
+      (otherMetas.novos !== undefined ? (Number(otherMetas.novos) || 0) : (Number(metaNovos) || 0)) +
+      (otherMetas.seminovos !== undefined ? (Number(otherMetas.seminovos) || 0) : (Number(metaSeminovos) || 0)) +
+      (otherMetas.diretas !== undefined ? (Number(otherMetas.diretas) || 0) : (Number(metaDiretas) || 0));
+    
+    if (novoTotal > 0) {
+      const calculado = calcularMetasFunil(novoTotal);
+      setMetaCheckins(calculado.checkins);
+      setMetaConfirmacoes(calculado.confirmacoes);
+      setMetaConvites(calculado.convites);
+    }
+  };
+
+  // Tooltip configs para cada meta
+  const tooltipConfigs = {
+    novos: {
+      title: "Meta de Novos",
+      description: "Quantidade de veículos novos que você espera vender durante a prospecção.",
+      exemplo: "Ex: Para um evento de 2 dias, meta de 4-6 novos é comum."
+    },
+    seminovos: {
+      title: "Meta de Seminovos",
+      description: "Quantidade de veículos seminovos/usados que você espera vender durante a prospecção.",
+      exemplo: "Ex: Para um evento de 2 dias, meta de 6-10 seminovos é comum."
+    },
+    diretas: {
+      title: "Meta de Vendas Diretas",
+      description: "Quantidade de vendas diretas (frotistas, PJ, vendas corporativas) esperadas.",
+      exemplo: "Ex: Para eventos B2B, meta de 2-4 diretas é comum."
+    },
+    checkins: {
+      title: "Meta de Check-ins",
+      description: "Quantidade de clientes que devem comparecer ao evento. Em média, 30% dos check-ins resultam em vendas.",
+      exemplo: "Ex: Para vender 10 carros, você precisa de ~34 check-ins."
+    },
+    confirmacoes: {
+      title: "Meta de Confirmações",
+      description: "Quantidade de clientes que devem confirmar presença. Em média, 30% dos confirmados comparecem.",
+      exemplo: "Ex: Para ter 34 check-ins, você precisa de ~112 confirmações."
+    },
+    convites: {
+      title: "Meta de Convites/Agendamentos",
+      description: "Quantidade de clientes que devem ser convidados/agendados. Em média, 33% dos convidados confirmam.",
+      exemplo: "Ex: Para ter 112 confirmações, você precisa de ~340 convites."
+    }
+  };
+
+  const MetaTooltip = ({ config }: { config: typeof tooltipConfigs.novos }) => (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-primary cursor-help ml-1" />
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[280px] p-3">
+          <p className="font-medium text-sm mb-1">{config.title}</p>
+          <p className="text-xs text-muted-foreground mb-2">{config.description}</p>
+          <p className="text-xs text-primary font-medium">{config.exemplo}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
@@ -532,13 +619,16 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   <div className="flex items-center gap-1.5 mb-2">
                     <div className="w-2 h-2 rounded-full bg-green-500" />
                     <span className="text-xs font-medium text-muted-foreground">Meta de Novos</span>
+                    <MetaTooltip config={tooltipConfigs.novos} />
                   </div>
                   <Input
                     type="number"
                     min="0"
                     placeholder="0"
                     value={metaNovos}
-                    onChange={(e) => setMetaNovos(e.target.value === "" ? "" : Number(e.target.value))}
+                    onChange={(e) => handleMetaVendaChange(setMetaNovos, e.target.value, { 
+                      novos: e.target.value === "" ? 0 : Number(e.target.value)
+                    })}
                     className="text-center font-semibold"
                   />
                   <p className="text-xs text-muted-foreground text-center mt-1">Novos</p>
@@ -548,13 +638,16 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   <div className="flex items-center gap-1.5 mb-2">
                     <div className="w-2 h-2 rounded-full bg-blue-500" />
                     <span className="text-xs font-medium text-muted-foreground">Meta de Seminovos</span>
+                    <MetaTooltip config={tooltipConfigs.seminovos} />
                   </div>
                   <Input
                     type="number"
                     min="0"
                     placeholder="0"
                     value={metaSeminovos}
-                    onChange={(e) => setMetaSeminovos(e.target.value === "" ? "" : Number(e.target.value))}
+                    onChange={(e) => handleMetaVendaChange(setMetaSeminovos, e.target.value, { 
+                      seminovos: e.target.value === "" ? 0 : Number(e.target.value)
+                    })}
                     className="text-center font-semibold"
                   />
                   <p className="text-xs text-muted-foreground text-center mt-1">Seminovos</p>
@@ -564,13 +657,16 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   <div className="flex items-center gap-1.5 mb-2">
                     <div className="w-2 h-2 rounded-full bg-purple-500" />
                     <span className="text-xs font-medium text-muted-foreground">Meta de Diretas</span>
+                    <MetaTooltip config={tooltipConfigs.diretas} />
                   </div>
                   <Input
                     type="number"
                     min="0"
                     placeholder="0"
                     value={metaDiretas}
-                    onChange={(e) => setMetaDiretas(e.target.value === "" ? "" : Number(e.target.value))}
+                    onChange={(e) => handleMetaVendaChange(setMetaDiretas, e.target.value, { 
+                      diretas: e.target.value === "" ? 0 : Number(e.target.value)
+                    })}
                     className="text-center font-semibold"
                   />
                   <p className="text-xs text-muted-foreground text-center mt-1">Diretas</p>
@@ -578,11 +674,15 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
               </div>
 
               {/* Grid de Metas de Funil */}
+              <p className="text-xs text-muted-foreground text-center">
+                Calculado automaticamente com base nas metas de vendas. Você pode editar manualmente.
+              </p>
               <div className="grid grid-cols-3 gap-3">
                 <Card className="p-3">
                   <div className="flex items-center gap-1.5 mb-2">
                     <MapPin className="h-3 w-3 text-orange-500" />
                     <span className="text-xs font-medium text-muted-foreground">Check-ins</span>
+                    <MetaTooltip config={tooltipConfigs.checkins} />
                   </div>
                   <Input
                     type="number"
@@ -599,6 +699,7 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   <div className="flex items-center gap-1.5 mb-2">
                     <ThumbsUp className="h-3 w-3 text-blue-500" />
                     <span className="text-xs font-medium text-muted-foreground">Confirmações</span>
+                    <MetaTooltip config={tooltipConfigs.confirmacoes} />
                   </div>
                   <Input
                     type="number"
@@ -614,7 +715,8 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                 <Card className="p-3">
                   <div className="flex items-center gap-1.5 mb-2">
                     <Phone className="h-3 w-3 text-green-500" />
-                    <span className="text-xs font-medium text-muted-foreground">Agendamentos/Convites</span>
+                    <span className="text-xs font-medium text-muted-foreground">Convites</span>
+                    <MetaTooltip config={tooltipConfigs.convites} />
                   </div>
                   <Input
                     type="number"
