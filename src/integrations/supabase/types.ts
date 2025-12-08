@@ -1195,6 +1195,67 @@ export type Database = {
           },
         ]
       }
+      prospeccao_metas_individuais: {
+        Row: {
+          created_at: string
+          empresa_id: string
+          id: string
+          meta_checkins: number | null
+          meta_confirmacoes: number | null
+          meta_convites: number | null
+          meta_vendas: number | null
+          prospeccao_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id: string
+          id?: string
+          meta_checkins?: number | null
+          meta_confirmacoes?: number | null
+          meta_convites?: number | null
+          meta_vendas?: number | null
+          prospeccao_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          meta_checkins?: number | null
+          meta_confirmacoes?: number | null
+          meta_convites?: number | null
+          meta_vendas?: number | null
+          prospeccao_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospeccao_metas_individuais_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccao_metas_individuais_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccao_metas_individuais_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prospeccoes: {
         Row: {
           canal: string

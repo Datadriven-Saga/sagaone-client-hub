@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star } from "lucide-react";
+import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -46,6 +46,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [metaConfirmacoes, setMetaConfirmacoes] = useState<number | "">("");
   const [metaConvites, setMetaConvites] = useState<number | "">("");
   const [tamanhoBase, setTamanhoBase] = useState<number>(0);
+  
+  // Metas Individuais
+  const [metasIndividuais, setMetasIndividuais] = useState<Record<string, { meta_vendas: number; meta_checkins: number; meta_confirmacoes: number; meta_convites: number }>>({});
+  const [usersComAcesso, setUsersComAcesso] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null }[]>([]);
+  const [metasIndividuaisFilter, setMetasIndividuaisFilter] = useState("");
   
   // Premiações - Estado com ativo/valor
   const [premiacoes, setPremiacoes] = useState<Record<string, { ativo: boolean; valor: number | "" }>>({
@@ -173,7 +178,130 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       participacao_apoio: { ativo: false, valor: "" },
       indicacao_venda: { ativo: false, valor: "" },
     });
+    setMetasIndividuais({});
+    setMetasIndividuaisFilter("");
   };
+  
+  // Buscar usuários com acesso à empresa ativa
+  useEffect(() => {
+    const fetchUsersComAcesso = async () => {
+      if (!activeCompany?.id || !isOpen) return;
+      
+      // Buscar usuários que têm acesso via user_empresas
+      const { data: userEmpresasData, error: userEmpresasError } = await supabase
+        .from('user_empresas')
+        .select('user_id')
+        .eq('empresa_id', activeCompany.id);
+      
+      if (userEmpresasError) {
+        console.error('Erro ao buscar user_empresas:', userEmpresasError);
+        return;
+      }
+      
+      const userIds = userEmpresasData?.map(ue => ue.user_id) || [];
+      
+      if (userIds.length === 0) {
+        setUsersComAcesso([]);
+        return;
+      }
+      
+      // Buscar profiles dos usuários com status ativo
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, nome_completo, tipo_acesso, status')
+        .in('id', userIds)
+        .eq('status', 'Ativo');
+      
+      if (profilesError) {
+        console.error('Erro ao buscar profiles:', profilesError);
+        return;
+      }
+      
+      setUsersComAcesso(profilesData || []);
+    };
+    
+    fetchUsersComAcesso();
+  }, [activeCompany?.id, isOpen]);
+  
+  // Buscar metas individuais quando editando
+  useEffect(() => {
+    const fetchMetasIndividuais = async () => {
+      if (!editingProspeccao?.id || !activeCompany?.id || !isOpen) return;
+      
+      const { data, error } = await supabase
+        .from('prospeccao_metas_individuais')
+        .select('*')
+        .eq('prospeccao_id', editingProspeccao.id)
+        .eq('empresa_id', activeCompany.id);
+      
+      if (error) {
+        console.error('Erro ao buscar metas individuais:', error);
+        return;
+      }
+      
+      const metasMap: Record<string, { meta_vendas: number; meta_checkins: number; meta_confirmacoes: number; meta_convites: number }> = {};
+      data?.forEach(meta => {
+        metasMap[meta.user_id] = {
+          meta_vendas: meta.meta_vendas || 0,
+          meta_checkins: meta.meta_checkins || 0,
+          meta_confirmacoes: meta.meta_confirmacoes || 0,
+          meta_convites: meta.meta_convites || 0,
+        };
+      });
+      setMetasIndividuais(metasMap);
+    };
+    
+    if (editingProspeccao && isOpen) {
+      fetchMetasIndividuais();
+    }
+  }, [editingProspeccao?.id, activeCompany?.id, isOpen]);
+  
+  // Handler para atualizar meta individual
+  const handleMetaIndividualChange = (userId: string, field: string, value: string) => {
+    const numValue = value === "" ? 0 : Number(value);
+    setMetasIndividuais(prev => ({
+      ...prev,
+      [userId]: {
+        ...prev[userId] || { meta_vendas: 0, meta_checkins: 0, meta_confirmacoes: 0, meta_convites: 0 },
+        [field]: numValue
+      }
+    }));
+  };
+  
+  // Salvar metas individuais
+  const saveMetasIndividuais = async (prospeccaoId: string) => {
+    if (!activeCompany?.id) return;
+    
+    const metasToSave = Object.entries(metasIndividuais)
+      .filter(([_, meta]) => meta.meta_vendas > 0 || meta.meta_checkins > 0 || meta.meta_confirmacoes > 0 || meta.meta_convites > 0)
+      .map(([userId, meta]) => ({
+        prospeccao_id: prospeccaoId,
+        user_id: userId,
+        empresa_id: activeCompany.id,
+        meta_vendas: meta.meta_vendas,
+        meta_checkins: meta.meta_checkins,
+        meta_confirmacoes: meta.meta_confirmacoes,
+        meta_convites: meta.meta_convites,
+      }));
+    
+    if (metasToSave.length === 0) return;
+    
+    // Upsert metas individuais
+    const { error } = await supabase
+      .from('prospeccao_metas_individuais')
+      .upsert(metasToSave, { onConflict: 'prospeccao_id,user_id' });
+    
+    if (error) {
+      console.error('Erro ao salvar metas individuais:', error);
+    }
+  };
+  
+  // Filtrar usuários
+  const filteredUsers = usersComAcesso.filter(user => {
+    const searchLower = metasIndividuaisFilter.toLowerCase();
+    return user.nome_completo.toLowerCase().includes(searchLower) ||
+           (user.tipo_acesso?.toLowerCase().includes(searchLower) ?? false);
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,6 +386,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
         // Chamar webhook após atualização
         await callWebhook(data);
+        
+        // Salvar metas individuais
+        await saveMetasIndividuais(data.id);
 
         toast({
           title: "Sucesso",
@@ -292,6 +423,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
         // Chamar webhook após criação
         await callWebhook(data);
+        
+        // Salvar metas individuais
+        await saveMetasIndividuais(data.id);
 
         toast({
           title: "Sucesso",
@@ -619,9 +753,10 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                 </DialogTitle>
               </DialogHeader>
               
-              <TabsList className="grid w-full grid-cols-3 mt-4">
+              <TabsList className="grid w-full grid-cols-4 mt-4">
                 <TabsTrigger value="dados-gerais">Dados Gerais</TabsTrigger>
-                <TabsTrigger value="meta">Meta</TabsTrigger>
+                <TabsTrigger value="meta">Metas</TabsTrigger>
+                <TabsTrigger value="metas-individuais">Metas Individuais</TabsTrigger>
                 <TabsTrigger value="premiacoes">Premiações</TabsTrigger>
               </TabsList>
             </div>
@@ -915,6 +1050,113 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   Valor calculado com base nos contatos importados
                 </p>
               </Card>
+            </TabsContent>
+
+            {/* Aba Metas Individuais */}
+            <TabsContent value="metas-individuais" className="space-y-4 mt-0">
+              <Card className="p-4 bg-gradient-to-r from-blue-500/80 to-blue-600 text-white">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4" />
+                  <span className="text-sm font-medium">Metas Individuais por Usuário</span>
+                </div>
+                <div className="text-center">
+                  <span className="text-3xl font-bold">{usersComAcesso.length}</span>
+                  <p className="text-xs opacity-80 mt-1">Usuários com acesso ativo à empresa</p>
+                </div>
+              </Card>
+              
+              {/* Filtro */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Filtrar por nome ou perfil..."
+                  value={metasIndividuaisFilter}
+                  onChange={(e) => setMetasIndividuaisFilter(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              
+              {/* Lista de usuários */}
+              {filteredUsers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="mx-auto h-12 w-12 mb-3 opacity-50" />
+                  <p>Nenhum usuário encontrado</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredUsers.map((userItem) => {
+                    const userMetas = metasIndividuais[userItem.id] || { meta_vendas: 0, meta_checkins: 0, meta_confirmacoes: 0, meta_convites: 0 };
+                    
+                    return (
+                      <Card key={userItem.id} className="p-3">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
+                              {userItem.nome_completo.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{userItem.nome_completo}</p>
+                              <p className="text-xs text-muted-foreground">{userItem.tipo_acesso || 'Sem perfil'}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-4 gap-2">
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Vendas</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                value={userMetas.meta_vendas || ""}
+                                onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_vendas', e.target.value)}
+                                className="h-8 text-center text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Check-ins</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                value={userMetas.meta_checkins || ""}
+                                onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_checkins', e.target.value)}
+                                className="h-8 text-center text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Confirmações</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                value={userMetas.meta_confirmacoes || ""}
+                                onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_confirmacoes', e.target.value)}
+                                className="h-8 text-center text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Convites</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                value={userMetas.meta_convites || ""}
+                                onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_convites', e.target.value)}
+                                className="h-8 text-center text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+              
+              <p className="text-xs text-muted-foreground text-center">
+                Defina metas individuais para cada usuário participante da prospecção.
+              </p>
             </TabsContent>
 
             {/* Aba Premiações */}
