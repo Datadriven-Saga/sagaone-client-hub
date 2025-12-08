@@ -237,15 +237,15 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
               
               <div>
                 <Label>Sexo</Label>
-                <Select 
-                  value={filtros.sexo || ''} 
-                  onValueChange={(value) => setFiltros({...filtros, sexo: value as 'M' | 'F' | ''})}
+              <Select 
+                  value={filtros.sexo || 'todos'} 
+                  onValueChange={(value) => setFiltros({...filtros, sexo: value === 'todos' ? '' : value as 'M' | 'F'})}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="todos">Todos</SelectItem>
                     <SelectItem value="M">Masculino</SelectItem>
                     <SelectItem value="F">Feminino</SelectItem>
                   </SelectContent>
