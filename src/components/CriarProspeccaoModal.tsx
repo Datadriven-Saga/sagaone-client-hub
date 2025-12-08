@@ -73,6 +73,21 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [conviteImagemFile, setConviteImagemFile] = useState<File | null>(null);
   const [uploadingConvite, setUploadingConvite] = useState(false);
   
+  // Marketing
+  interface MarketingAsset {
+    id?: string;
+    tipo_formato: string;
+    plataforma: string;
+    largura: number;
+    altura: number;
+    imagem_url: string | null;
+    nome_arquivo?: string;
+    tamanho_arquivo?: number;
+    file?: File;
+  }
+  const [marketingAssets, setMarketingAssets] = useState<MarketingAsset[]>([]);
+  const [uploadingMarketing, setUploadingMarketing] = useState(false);
+  
   // Páginas de Captura
   const [paginaInicioFrase, setPaginaInicioFrase] = useState("");
   const [paginaPalavraDestaque, setPaginaPalavraDestaque] = useState("");
@@ -240,6 +255,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setPaginaCorDestaque("#0ab9d8");
     setPaginaImagemEvento(null);
     setPaginaImagemEventoFile(null);
+    // Marketing
+    setMarketingAssets([]);
   };
   
   // Buscar usuários com acesso à empresa ativa
@@ -391,11 +408,36 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       }
     };
     
+    // Buscar marketing assets quando editando
+    const fetchMarketingAssets = async () => {
+      if (!editingProspeccao?.id || !activeCompany?.id) return;
+      
+      const { data, error } = await supabase
+        .from('prospeccao_marketing')
+        .select('*')
+        .eq('prospeccao_id', editingProspeccao.id)
+        .eq('empresa_id', activeCompany.id);
+      
+      if (!error && data) {
+        setMarketingAssets(data.map(item => ({
+          id: item.id,
+          tipo_formato: item.tipo_formato,
+          plataforma: item.plataforma,
+          largura: item.largura,
+          altura: item.altura,
+          imagem_url: item.imagem_url,
+          nome_arquivo: item.nome_arquivo || undefined,
+          tamanho_arquivo: item.tamanho_arquivo || undefined,
+        })));
+      }
+    };
+    
     if (editingProspeccao && isOpen) {
       fetchMetasIndividuais();
       fetchEquipes();
       fetchConvite();
       fetchPagina();
+      fetchMarketingAssets();
     }
   }, [editingProspeccao?.id, activeCompany?.id, isOpen]);
   
@@ -601,6 +643,65 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
   
+  // Salvar marketing assets
+  const saveMarketingAssets = async (prospeccaoId: string) => {
+    if (!activeCompany?.id) return;
+    
+    // Deletar assets existentes para esta prospecção
+    await supabase
+      .from('prospeccao_marketing')
+      .delete()
+      .eq('prospeccao_id', prospeccaoId)
+      .eq('empresa_id', activeCompany.id);
+    
+    // Inserir novos assets
+    for (const asset of marketingAssets) {
+      let imagemUrl = asset.imagem_url;
+      
+      // Se tem arquivo novo, faz upload
+      if (asset.file) {
+        const fileExt = asset.file.name.split('.').pop();
+        const fileName = `marketing-${prospeccaoId}-${asset.tipo_formato}-${Date.now()}.${fileExt}`;
+        const filePath = `${activeCompany.id}/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('convites-prospeccao')
+          .upload(filePath, asset.file, { upsert: true });
+        
+        if (uploadError) {
+          console.error('Erro ao fazer upload do asset:', uploadError);
+          continue;
+        }
+        
+        const { data: publicUrlData } = supabase.storage
+          .from('convites-prospeccao')
+          .getPublicUrl(filePath);
+        
+        imagemUrl = publicUrlData.publicUrl;
+      }
+      
+      if (imagemUrl) {
+        const { error } = await supabase
+          .from('prospeccao_marketing')
+          .insert({
+            prospeccao_id: prospeccaoId,
+            empresa_id: activeCompany.id,
+            tipo_formato: asset.tipo_formato,
+            plataforma: asset.plataforma,
+            largura: asset.largura,
+            altura: asset.altura,
+            imagem_url: imagemUrl,
+            nome_arquivo: asset.nome_arquivo,
+            tamanho_arquivo: asset.tamanho_arquivo,
+          });
+        
+        if (error) {
+          console.error('Erro ao salvar asset de marketing:', error);
+        }
+      }
+    }
+  };
+  
   // Filtrar usuários
   const filteredUsers = usersComAcesso.filter(user => {
     const searchLower = metasIndividuaisFilter.toLowerCase();
@@ -703,6 +804,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         
         // Salvar página de captura
         await savePagina(data.id);
+        
+        // Salvar marketing assets
+        await saveMarketingAssets(data.id);
 
         toast({
           title: "Sucesso",
@@ -749,6 +853,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         
         // Salvar página de captura
         await savePagina(data.id);
+        
+        // Salvar marketing assets
+        await saveMarketingAssets(data.id);
 
         toast({
           title: "Sucesso",
@@ -2333,10 +2440,409 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
 
             {/* Aba Marketing */}
             <TabsContent value="marketing" className="space-y-4 mt-0">
-              <Card className="p-8 text-center">
-                <Megaphone className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
-                <p className="text-muted-foreground font-medium">Marketing</p>
-                <p className="text-sm text-muted-foreground">Em breve</p>
+              <Card className="p-4 bg-gradient-to-r from-orange-500/80 to-orange-600 text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Megaphone className="h-4 w-4" />
+                      <span className="text-sm font-medium">Conteúdo para Redes Sociais</span>
+                    </div>
+                    <p className="text-xs opacity-80">{marketingAssets.length} {marketingAssets.length === 1 ? 'imagem' : 'imagens'} criadas</p>
+                  </div>
+                </div>
+              </Card>
+              
+              {/* Formatos disponíveis */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Stories (1080x1920) */}
+                <Card className="p-4 border-dashed">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-pink-500 to-purple-500 flex items-center justify-center text-white">
+                      <FileImage className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold">Stories</h4>
+                      <p className="text-xs text-muted-foreground">1080 × 1920px (9:16)</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Instagram, Facebook, TikTok • Máx. 4MB
+                  </p>
+                  {marketingAssets.find(a => a.tipo_formato === 'stories') ? (
+                    <div className="relative group">
+                      <img 
+                        src={marketingAssets.find(a => a.tipo_formato === 'stories')?.imagem_url || ''}
+                        alt="Stories"
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setMarketingAssets(prev => prev.filter(a => a.tipo_formato !== 'stories'))}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+                      <span className="text-xs text-muted-foreground">Fazer upload</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setMarketingAssets(prev => [...prev, {
+                                tipo_formato: 'stories',
+                                plataforma: 'todos',
+                                largura: 1080,
+                                altura: 1920,
+                                imagem_url: reader.result as string,
+                                nome_arquivo: file.name,
+                                tamanho_arquivo: file.size,
+                                file
+                              }]);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </Card>
+
+                {/* Feed Quadrado (1080x1080) */}
+                <Card className="p-4 border-dashed">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-white">
+                      <FileImage className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold">Feed Quadrado</h4>
+                      <p className="text-xs text-muted-foreground">1080 × 1080px (1:1)</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Instagram, Facebook • Máx. 8MB
+                  </p>
+                  {marketingAssets.find(a => a.tipo_formato === 'feed_quadrado') ? (
+                    <div className="relative group">
+                      <img 
+                        src={marketingAssets.find(a => a.tipo_formato === 'feed_quadrado')?.imagem_url || ''}
+                        alt="Feed Quadrado"
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setMarketingAssets(prev => prev.filter(a => a.tipo_formato !== 'feed_quadrado'))}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+                      <span className="text-xs text-muted-foreground">Fazer upload</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setMarketingAssets(prev => [...prev, {
+                                tipo_formato: 'feed_quadrado',
+                                plataforma: 'instagram_facebook',
+                                largura: 1080,
+                                altura: 1080,
+                                imagem_url: reader.result as string,
+                                nome_arquivo: file.name,
+                                tamanho_arquivo: file.size,
+                                file
+                              }]);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </Card>
+
+                {/* Feed Retrato (1080x1350) */}
+                <Card className="p-4 border-dashed">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center text-white">
+                      <FileImage className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold">Feed Retrato</h4>
+                      <p className="text-xs text-muted-foreground">1080 × 1350px (4:5)</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Instagram, Facebook • Máx. 8MB
+                  </p>
+                  {marketingAssets.find(a => a.tipo_formato === 'feed_retrato') ? (
+                    <div className="relative group">
+                      <img 
+                        src={marketingAssets.find(a => a.tipo_formato === 'feed_retrato')?.imagem_url || ''}
+                        alt="Feed Retrato"
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setMarketingAssets(prev => prev.filter(a => a.tipo_formato !== 'feed_retrato'))}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+                      <span className="text-xs text-muted-foreground">Fazer upload</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setMarketingAssets(prev => [...prev, {
+                                tipo_formato: 'feed_retrato',
+                                plataforma: 'instagram_facebook',
+                                largura: 1080,
+                                altura: 1350,
+                                imagem_url: reader.result as string,
+                                nome_arquivo: file.name,
+                                tamanho_arquivo: file.size,
+                                file
+                              }]);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </Card>
+
+                {/* Feed Paisagem (1200x630) */}
+                <Card className="p-4 border-dashed">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 flex items-center justify-center text-white">
+                      <FileImage className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold">Feed Paisagem</h4>
+                      <p className="text-xs text-muted-foreground">1200 × 630px (1.91:1)</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Facebook, Links • Máx. 8MB
+                  </p>
+                  {marketingAssets.find(a => a.tipo_formato === 'feed_paisagem') ? (
+                    <div className="relative group">
+                      <img 
+                        src={marketingAssets.find(a => a.tipo_formato === 'feed_paisagem')?.imagem_url || ''}
+                        alt="Feed Paisagem"
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setMarketingAssets(prev => prev.filter(a => a.tipo_formato !== 'feed_paisagem'))}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+                      <span className="text-xs text-muted-foreground">Fazer upload</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setMarketingAssets(prev => [...prev, {
+                                tipo_formato: 'feed_paisagem',
+                                plataforma: 'facebook',
+                                largura: 1200,
+                                altura: 630,
+                                imagem_url: reader.result as string,
+                                nome_arquivo: file.name,
+                                tamanho_arquivo: file.size,
+                                file
+                              }]);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </Card>
+
+                {/* Reels/TikTok (1080x1920) */}
+                <Card className="p-4 border-dashed">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-red-500 to-pink-500 flex items-center justify-center text-white">
+                      <FileImage className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold">Reels / TikTok</h4>
+                      <p className="text-xs text-muted-foreground">1080 × 1920px (9:16)</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Vídeos verticais • Thumbnail ou capa
+                  </p>
+                  {marketingAssets.find(a => a.tipo_formato === 'reels') ? (
+                    <div className="relative group">
+                      <img 
+                        src={marketingAssets.find(a => a.tipo_formato === 'reels')?.imagem_url || ''}
+                        alt="Reels"
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setMarketingAssets(prev => prev.filter(a => a.tipo_formato !== 'reels'))}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+                      <span className="text-xs text-muted-foreground">Fazer upload</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setMarketingAssets(prev => [...prev, {
+                                tipo_formato: 'reels',
+                                plataforma: 'instagram_tiktok',
+                                largura: 1080,
+                                altura: 1920,
+                                imagem_url: reader.result as string,
+                                nome_arquivo: file.name,
+                                tamanho_arquivo: file.size,
+                                file
+                              }]);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </Card>
+
+                {/* Capa de Vídeo (1280x720) */}
+                <Card className="p-4 border-dashed">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 flex items-center justify-center text-white">
+                      <FileImage className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold">Capa de Vídeo</h4>
+                      <p className="text-xs text-muted-foreground">1280 × 720px (16:9)</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    YouTube, Facebook Video • Máx. 8MB
+                  </p>
+                  {marketingAssets.find(a => a.tipo_formato === 'capa_video') ? (
+                    <div className="relative group">
+                      <img 
+                        src={marketingAssets.find(a => a.tipo_formato === 'capa_video')?.imagem_url || ''}
+                        alt="Capa de Vídeo"
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setMarketingAssets(prev => prev.filter(a => a.tipo_formato !== 'capa_video'))}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+                      <span className="text-xs text-muted-foreground">Fazer upload</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setMarketingAssets(prev => [...prev, {
+                                tipo_formato: 'capa_video',
+                                plataforma: 'youtube_facebook',
+                                largura: 1280,
+                                altura: 720,
+                                imagem_url: reader.result as string,
+                                nome_arquivo: file.name,
+                                tamanho_arquivo: file.size,
+                                file
+                              }]);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </Card>
+              </div>
+
+              {/* Informações */}
+              <Card className="p-4 bg-muted/30">
+                <div className="flex items-start gap-3">
+                  <Info className="h-4 w-4 text-primary mt-0.5" />
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p><strong>Dica:</strong> Para melhores resultados, use imagens com as dimensões exatas recomendadas.</p>
+                    <p><strong>Stories/Reels:</strong> 1080×1920px • <strong>Feed Quadrado:</strong> 1080×1080px • <strong>Feed Retrato:</strong> 1080×1350px</p>
+                    <p><strong>Formatos aceitos:</strong> JPG, PNG, WebP • <strong>Tamanho máximo:</strong> 8MB por imagem</p>
+                  </div>
+                </div>
               </Card>
             </TabsContent>
             </div>

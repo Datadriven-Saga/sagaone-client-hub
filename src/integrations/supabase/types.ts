@@ -1321,6 +1321,66 @@ export type Database = {
           },
         ]
       }
+      prospeccao_marketing: {
+        Row: {
+          altura: number
+          created_at: string
+          empresa_id: string
+          id: string
+          imagem_url: string | null
+          largura: number
+          nome_arquivo: string | null
+          plataforma: string
+          prospeccao_id: string
+          tamanho_arquivo: number | null
+          tipo_formato: string
+          updated_at: string
+        }
+        Insert: {
+          altura: number
+          created_at?: string
+          empresa_id: string
+          id?: string
+          imagem_url?: string | null
+          largura: number
+          nome_arquivo?: string | null
+          plataforma: string
+          prospeccao_id: string
+          tamanho_arquivo?: number | null
+          tipo_formato: string
+          updated_at?: string
+        }
+        Update: {
+          altura?: number
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          imagem_url?: string | null
+          largura?: number
+          nome_arquivo?: string | null
+          plataforma?: string
+          prospeccao_id?: string
+          tamanho_arquivo?: number | null
+          tipo_formato?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospeccao_marketing_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccao_marketing_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prospeccao_metas_individuais: {
         Row: {
           created_at: string
