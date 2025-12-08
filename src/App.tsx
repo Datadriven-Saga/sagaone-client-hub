@@ -19,6 +19,7 @@ import Notificacoes from "./pages/Notificacoes";
 import Prospeccao from "./pages/Prospeccao";
 import Relatorios from "./pages/Relatorios";
 import Treinamentos from "./pages/Treinamentos";
+import Carros from "./pages/Carros";
 import Configuracoes from "./pages/Configuracoes";
 import MinhaConta from "./pages/MinhaConta";
 import Ajuda from "./pages/Ajuda";
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
               <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
               <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
+              <Route path="/carros" element={<ProtectedRoute><Carros /></ProtectedRoute>} />
               <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
               <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
               <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />

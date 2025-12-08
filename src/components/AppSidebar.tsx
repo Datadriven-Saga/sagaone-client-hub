@@ -7,7 +7,8 @@ import {
   BookOpen, 
   Settings, 
   Shield,
-  Bot
+  Bot,
+  Car
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
@@ -31,6 +32,7 @@ const menuItems = [
   { title: "Notificações", url: "/notificacoes", icon: Bell },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
   { title: "Treinamentos", url: "/treinamentos", icon: BookOpen },
+  { title: "Carros", url: "/carros", icon: Car },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
   { title: "Administração", url: "/administracao", icon: Shield },
 ];
