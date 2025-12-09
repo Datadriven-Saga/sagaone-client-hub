@@ -442,8 +442,8 @@ export function ContatoModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
-          <div className="flex items-center justify-between">
+        <DialogHeader className="p-6 pb-4 pr-12 border-b flex-shrink-0">
+          <div className="flex items-center justify-between gap-4">
             <DialogTitle className="flex items-center gap-2">
               <User className="w-5 h-5" />
               {isNewContact ? 'Novo Contato' : `Detalhes do Contato - ${contato?.nome || 'Sem nome'}`}
@@ -451,7 +451,7 @@ export function ContatoModal({
             
             {/* Botões de ação no header */}
             {!isNewContact && contato && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <Button
                   variant="outline"
                   size="sm"
