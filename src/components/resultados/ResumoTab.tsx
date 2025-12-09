@@ -109,7 +109,7 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
   };
 
   return (
-    <Card className="p-6 h-full">
+    <Card className="p-4">
       <div className="flex justify-end mb-2">
         <TooltipProvider>
           <Tooltip>
@@ -122,7 +122,7 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
           </Tooltip>
         </TooltipProvider>
       </div>
-      <div className="flex flex-col items-center space-y-2">
+      <div className="flex flex-col items-center space-y-1">
         {stages.map((stage, index) => {
           const funnelWidths = [100, 85, 70, 55, 42, 30];
           const widthPercentage = funnelWidths[Math.min(index, funnelWidths.length - 1)];
@@ -138,13 +138,13 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
                   style={{
                     backgroundColor: stage.color,
                     width: `${widthPercentage}%`,
-                    height: '56px',
+                    height: '48px',
                     borderRadius: '8px'
                   }}
                 >
                   <div className="text-center">
-                    <div className="text-xl font-bold">{stage.value.toLocaleString()}</div>
-                    <div className="text-xs font-medium opacity-90">{stage.title}</div>
+                    <div className="text-lg font-bold">{stage.value.toLocaleString()}</div>
+                    <div className="text-[10px] font-medium opacity-90">{stage.title}</div>
                   </div>
                 </div>
               </div>
