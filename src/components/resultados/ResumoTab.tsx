@@ -392,11 +392,18 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
               color="bg-green-100"
             />
             <MetaCard
-              title="% Vendas"
+              title="% Vendas / Check-in"
               icon={<ShoppingCart className="h-4 w-4 text-blue-600" />}
               realizado={statusCounts.vendas}
               meta={statusCounts.checkins}
               color="bg-blue-100"
+            />
+            <MetaCard
+              title="% Vendas / Total da Base"
+              icon={<TrendingUp className="h-4 w-4 text-indigo-600" />}
+              realizado={statusCounts.vendas}
+              meta={statusCounts.totalBase}
+              color="bg-indigo-100"
             />
           </div>
         </div>
