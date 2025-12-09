@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CompanyProvider } from "@/contexts/CompanyContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useUserColors } from "@/hooks/useUserColors";
 
 // Page imports
 import Index from "./pages/Index";
@@ -35,41 +36,50 @@ import TestAPIs from "./pages/admin/TestAPIs";
 
 const queryClient = new QueryClient();
 
+const AppContent = () => {
+  // Load user color preferences on app start
+  useUserColors();
+  
+  return (
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+          <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
+          <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
+          <Route path="/personas" element={<ProtectedRoute><Personas /></ProtectedRoute>} />
+          <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
+          <Route path="/resultados" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
+          <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
+          <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
+          <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+          <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
+          <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
+          <Route path="/gatilhos" element={<ProtectedRoute><Gatilhos /></ProtectedRoute>} />
+          <Route path="/agentes-ia" element={<ProtectedRoute><AgentesIA /></ProtectedRoute>} />
+          <Route path="/administracao" element={<ProtectedRoute><Administracao /></ProtectedRoute>} />
+          <Route path="/administracao/empresas" element={<ProtectedRoute><Empresas /></ProtectedRoute>} />
+          <Route path="/administracao/acessos" element={<ProtectedRoute><Acessos /></ProtectedRoute>} />
+          <Route path="/administracao/campos" element={<ProtectedRoute><CamposObrigatorios /></ProtectedRoute>} />
+          <Route path="/administracao/apis" element={<ProtectedRoute><APIs /></ProtectedRoute>} />
+          <Route path="/administracao/test-apis" element={<ProtectedRoute><TestAPIs /></ProtectedRoute>} />
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <CompanyProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
-              <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
-              <Route path="/personas" element={<ProtectedRoute><Personas /></ProtectedRoute>} />
-              <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
-              <Route path="/resultados" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
-              <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
-              <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
-              <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-              <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
-              <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
-              <Route path="/gatilhos" element={<ProtectedRoute><Gatilhos /></ProtectedRoute>} />
-              <Route path="/agentes-ia" element={<ProtectedRoute><AgentesIA /></ProtectedRoute>} />
-              <Route path="/administracao" element={<ProtectedRoute><Administracao /></ProtectedRoute>} />
-              <Route path="/administracao/empresas" element={<ProtectedRoute><Empresas /></ProtectedRoute>} />
-              <Route path="/administracao/acessos" element={<ProtectedRoute><Acessos /></ProtectedRoute>} />
-              <Route path="/administracao/campos" element={<ProtectedRoute><CamposObrigatorios /></ProtectedRoute>} />
-              <Route path="/administracao/apis" element={<ProtectedRoute><APIs /></ProtectedRoute>} />
-              <Route path="/administracao/test-apis" element={<ProtectedRoute><TestAPIs /></ProtectedRoute>} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+        <AppContent />
       </CompanyProvider>
     </AuthProvider>
   </QueryClientProvider>

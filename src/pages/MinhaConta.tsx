@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { AvatarBuilder } from "@/components/AvatarBuilder";
+import { ColorCustomizer } from "@/components/ColorCustomizer";
 
 const profileSchema = z.object({
   nome_completo: z.string().min(1, "Nome é obrigatório"),
@@ -274,6 +275,9 @@ const MinhaConta = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Color Customization */}
+        <ColorCustomizer />
       </div>
     </DashboardLayout>
   );
