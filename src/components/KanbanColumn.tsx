@@ -34,7 +34,7 @@ export function KanbanColumn({ column, onCardClick, onSolicitarClientes }: Kanba
   return (
     <div 
       className={cn(
-        "min-w-[280px] flex-1 max-w-[320px] flex-shrink-0 flex flex-col rounded-xl border border-border bg-muted/30 transition-colors",
+        "min-w-[280px] flex-1 max-w-[320px] flex-shrink-0 flex flex-col h-full rounded-xl border border-border bg-muted/30 transition-colors",
         isOver && "border-primary/50 bg-primary/5"
       )}
     >
@@ -68,7 +68,7 @@ export function KanbanColumn({ column, onCardClick, onSolicitarClientes }: Kanba
       {/* Cards Container */}
       <div 
         ref={setNodeRef}
-        className="flex-1 p-1.5 space-y-1.5 overflow-y-auto min-h-[80px] max-h-[calc(100vh-220px)]"
+        className="flex-1 p-1.5 space-y-1.5 overflow-y-auto min-h-[80px]"
       >
         {column.items.length === 0 ? (
           <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
