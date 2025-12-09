@@ -19,6 +19,7 @@ const COLUMN_COLORS: Record<string, string> = {
   'agendados': 'bg-purple-500',
   'confirmados': 'bg-emerald-500',
   'checkin': 'bg-green-500',
+  'venda': 'bg-green-600',
   'descartados': 'bg-red-500',
   'optout': 'bg-gray-500',
   'desperdicio': 'bg-rose-500',
