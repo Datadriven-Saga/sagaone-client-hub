@@ -415,14 +415,65 @@ export function ContatoModal({
       .slice(0, 2);
   };
 
+  // Função para formatar telefone para WhatsApp
+  const formatPhoneForWhatsApp = (telefone: string): string => {
+    // Remove todos os caracteres não numéricos
+    let phone = telefone.replace(/\D/g, '');
+    
+    // Adiciona 55 se não começar com 55
+    if (!phone.startsWith('55')) {
+      phone = '55' + phone;
+    }
+    
+    // Se tem 13 caracteres, remove o 9 que é o 5º dígito (índice 4)
+    if (phone.length === 13) {
+      phone = phone.slice(0, 4) + phone.slice(5);
+    }
+    
+    return phone;
+  };
+
+  const handleChamarWhatsApp = () => {
+    if (!contato?.telefone) return;
+    const formattedPhone = formatPhoneForWhatsApp(contato.telefone);
+    window.open(`https://wa.me/${formattedPhone}`, '_blank');
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-0">
-          <DialogTitle className="flex items-center gap-2">
-            <User className="w-5 h-5" />
-            {isNewContact ? 'Novo Contato' : `Detalhes do Contato - ${contato?.nome || 'Sem nome'}`}
-          </DialogTitle>
+        <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <User className="w-5 h-5" />
+              {isNewContact ? 'Novo Contato' : `Detalhes do Contato - ${contato?.nome || 'Sem nome'}`}
+            </DialogTitle>
+            
+            {/* Botões de ação no header */}
+            {!isNewContact && contato && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleChamarWhatsApp}
+                  disabled={!contato.telefone}
+                  className="gap-2"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Chamar no WhatsApp
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setContatoRealizadoOpen(true)}
+                  disabled={!prospeccaoId}
+                  className="gap-2"
+                >
+                  <PhoneCall className="w-4 h-4" />
+                  Contato Realizado
+                </Button>
+              </div>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden">
@@ -557,25 +608,6 @@ export function ContatoModal({
 
               {activeTab === 'status' && (
                 <div className="space-y-6">
-                  {/* Botão Contato Realizado */}
-                  <Card className="p-6 border-primary/20 bg-primary/5">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <PhoneCall className="w-5 h-5 text-primary" />
-                      Registrar Contato
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Registre o resultado do contato com o cliente, incluindo confirmação de participação ou motivo de não comparecimento.
-                    </p>
-                    <Button 
-                      onClick={() => setContatoRealizadoOpen(true)}
-                      className="w-full"
-                      disabled={!contato || !prospeccaoId}
-                    >
-                      <PhoneCall className="w-4 h-4 mr-2" />
-                      Contato Realizado
-                    </Button>
-                  </Card>
-
                   <Card className="p-6">
                     <h3 className="text-lg font-semibold mb-4">Alterar Status</h3>
                     <div className="space-y-4">
