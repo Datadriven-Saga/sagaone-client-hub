@@ -29,7 +29,7 @@
     --radius: 0.5rem;
 
     /* Sidebar colors */
-    --sidebar-background: 210 67% 16%; /* #0d2b47 */
+    --sidebar-background: 210 64% 16%; /* #0f2a45 */
     --sidebar-foreground: 0 0% 100%; /* #FFFFFF */
     --sidebar-primary: 210 64% 16%; /* #0f2a45 */
     --sidebar-primary-foreground: 0 0% 100%;
@@ -45,7 +45,7 @@
     --sagaone-bg: 0 0% 96%; /* #F4F4F4 */
     --sagaone-login-bg: 0 0% 97%; /* #F7F7F7 - Cor de fundo da logo */
     --sagaone-login-card: 190 97% 43%; /* #04bbda - Cor de fundo do card de login */
-    --sagaone-login-button: 210 67% 16%; /* #0d2b47 - Cor do botão e link */
+    --sagaone-login-button: 210 64% 16%; /* #0f2a45 - Cor do botão e link */
 
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--sagaone-primary)), hsl(190 95% 50%));
