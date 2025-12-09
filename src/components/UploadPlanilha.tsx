@@ -179,26 +179,26 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
             </Select>
           </Card>
 
-          {/* Instruções */}
-          <Card className="p-4 bg-blue-50 border-blue-200">
-            <div className="flex items-start space-x-2">
-              <AlertCircle className="text-blue-600 mt-0.5" size={16} />
-              <div className="text-sm">
-                <p className="font-medium text-blue-800 mb-1">Formato da planilha:</p>
-                <p className="text-blue-700">
-                  • Colunas: Nome*, Telefone*, E-mail, CPF, Segmentação, Responsável (* = obrigatório)<br/>
-                  • Formato: Excel (.xlsx ou .xls)<br/>
-                  • Primeira linha deve conter os cabeçalhos<br/>
-                  • Responsável deve ser o e-mail do responsável
-                </p>
+          {/* Instruções e Upload lado a lado */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Instruções */}
+            <Card className="p-4 bg-blue-50 border-blue-200">
+              <div className="flex items-start space-x-2">
+                <AlertCircle className="text-blue-600 mt-0.5 flex-shrink-0" size={16} />
+                <div className="text-sm">
+                  <p className="font-medium text-blue-800 mb-1">Formato da planilha:</p>
+                  <p className="text-blue-700">
+                    • Colunas: Nome*, Telefone*, E-mail, CPF, Segmentação, Responsável (* = obrigatório)<br/>
+                    • Formato: Excel (.xlsx ou .xls)<br/>
+                    • Primeira linha deve conter os cabeçalhos<br/>
+                    • Responsável deve ser o e-mail do responsável
+                  </p>
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
 
-          {/* Upload área */}
-          <div className="space-y-4">
-            <Label>Selecionar arquivo Excel</Label>
-            <div className="border-2 border-dashed border-muted rounded-lg p-6 text-center">
+            {/* Upload área */}
+            <Card className="p-4 border-dashed border-2 border-muted flex flex-col justify-center">
               <Input
                 ref={fileInputRef}
                 type="file"
@@ -207,10 +207,10 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
                 className="hidden"
                 id="file-upload"
               />
-              <Label htmlFor="file-upload" className="cursor-pointer">
+              <Label htmlFor="file-upload" className="cursor-pointer text-center">
                 <Upload className="mx-auto mb-2 text-muted-foreground" size={24} />
                 <p className="text-sm text-muted-foreground">
-                  Clique para selecionar ou arraste o arquivo aqui
+                  Clique para selecionar ou arraste o arquivo
                 </p>
                 {file && (
                   <p className="text-sm font-medium mt-2 text-primary">
@@ -218,7 +218,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
                   </p>
                 )}
               </Label>
-            </div>
+            </Card>
           </div>
 
           {/* Preview dos dados */}
