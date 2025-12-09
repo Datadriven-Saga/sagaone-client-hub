@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
 import { EmpresaModulosTab } from "@/components/EmpresaModulosTab";
 import { EmpresasFilter } from "@/components/EmpresasFilter";
+import { EmpresaMotivosTab } from "@/components/EmpresaMotivosTab";
 
 // Schema de validação
 const empresaSchema = z.object({
@@ -288,10 +289,13 @@ export default function Empresas() {
 
               <Form {...form}>
                 <Tabs defaultValue="dados" className="space-y-4">
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className={`grid w-full ${isAdmin && editingEmpresa ? 'grid-cols-3' : 'grid-cols-1'}`}>
                     <TabsTrigger value="dados">Dados da Empresa</TabsTrigger>
                     {isAdmin && editingEmpresa && (
-                      <TabsTrigger value="modulos">Módulos</TabsTrigger>
+                      <>
+                        <TabsTrigger value="modulos">Módulos</TabsTrigger>
+                        <TabsTrigger value="motivos">Motivos Não Participação</TabsTrigger>
+                      </>
                     )}
                   </TabsList>
 
@@ -475,9 +479,14 @@ export default function Empresas() {
                   </TabsContent>
 
                   {isAdmin && editingEmpresa && (
-                    <TabsContent value="modulos">
-                      <EmpresaModulosTab empresaId={editingEmpresa.id} />
-                    </TabsContent>
+                    <>
+                      <TabsContent value="modulos">
+                        <EmpresaModulosTab empresaId={editingEmpresa.id} />
+                      </TabsContent>
+                      <TabsContent value="motivos">
+                        <EmpresaMotivosTab empresaId={editingEmpresa.id} />
+                      </TabsContent>
+                    </>
                   )}
                 </Tabs>
               </Form>
