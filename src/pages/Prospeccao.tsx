@@ -248,6 +248,11 @@ const Prospeccao = () => {
       await atualizarStatusContato(itemId, novoStatusDb);
     }
 
+    // Auto-atribuir responsável quando sair da coluna "novos"
+    if (fromStatus === 'novos' && user?.email) {
+      await atribuirResponsavel(itemId, user.email);
+    }
+
     if (registrarMovimentacao && user && prospeccoes?.length > 0) {
       await registrarMovimentacao({
         leadId: itemId,
