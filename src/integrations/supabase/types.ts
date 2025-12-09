@@ -792,6 +792,44 @@ export type Database = {
         }
         Relationships: []
       }
+      motivos_nao_participacao: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string
+          empresa_id: string
+          id: string
+          ordem: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao: string
+          empresa_id: string
+          id?: string
+          ordem?: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string
+          empresa_id?: string
+          id?: string
+          ordem?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "motivos_nao_participacao_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notificacoes: {
         Row: {
           cliente_id: string | null

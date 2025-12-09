@@ -24,12 +24,14 @@ import {
   Trash2,
   UserCheck,
   Plus,
-  Settings
+  Settings,
+  PhoneCall
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Contato, statusKanbanMap } from '@/hooks/useContatoData';
 import { supabase } from '@/integrations/supabase/client';
+import { ContatoRealizadoDialog } from './ContatoRealizadoDialog';
 
 interface ContatoModalProps {
   isOpen: boolean;
@@ -91,6 +93,7 @@ export function ContatoModal({
     telefone: '',
     email: ''
   });
+  const [contatoRealizadoOpen, setContatoRealizadoOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -554,6 +557,25 @@ export function ContatoModal({
 
               {activeTab === 'status' && (
                 <div className="space-y-6">
+                  {/* Botão Contato Realizado */}
+                  <Card className="p-6 border-primary/20 bg-primary/5">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <PhoneCall className="w-5 h-5 text-primary" />
+                      Registrar Contato
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Registre o resultado do contato com o cliente, incluindo confirmação de participação ou motivo de não comparecimento.
+                    </p>
+                    <Button 
+                      onClick={() => setContatoRealizadoOpen(true)}
+                      className="w-full"
+                      disabled={!contato || !prospeccaoId}
+                    >
+                      <PhoneCall className="w-4 h-4 mr-2" />
+                      Contato Realizado
+                    </Button>
+                  </Card>
+
                   <Card className="p-6">
                     <h3 className="text-lg font-semibold mb-4">Alterar Status</h3>
                     <div className="space-y-4">
@@ -607,6 +629,58 @@ export function ContatoModal({
                     </Button>
                   </Card>
                 </div>
+              )}
+
+              {/* Dialog Contato Realizado */}
+              {contato && prospeccaoId && (
+                <ContatoRealizadoDialog
+                  isOpen={contatoRealizadoOpen}
+                  onClose={() => setContatoRealizadoOpen(false)}
+                  contatoId={contato.id}
+                  prospeccaoId={prospeccaoId}
+                  onSuccess={() => {
+                    // Recarregar anotações após registro
+                    const reloadAnotacoes = async () => {
+                      const { data: eventos } = await supabase
+                        .from('eventos_prospeccao')
+                        .select('*')
+                        .eq('contato_id', contato.id)
+                        .eq('prospeccao_id', prospeccaoId)
+                        .eq('tipo_evento', 'Anotação')
+                        .order('created_at', { ascending: false });
+
+                      if (eventos) {
+                        const anotacoesFormatadas = await Promise.all(eventos.map(async (evento) => {
+                          let usuarioNome = 'Usuário';
+                          let usuarioCargo = '';
+                          
+                          if (evento.observacoes && evento.observacoes !== 'Adicionado via API') {
+                            const { data: perfil } = await supabase
+                              .from('profiles')
+                              .select('nome_completo, tipo_acesso')
+                              .eq('id', evento.observacoes)
+                              .maybeSingle();
+                            
+                            if (perfil) {
+                              usuarioNome = perfil.nome_completo || 'Usuário';
+                              usuarioCargo = perfil.tipo_acesso || '';
+                            }
+                          }
+                          
+                          return {
+                            id: evento.id,
+                            texto: evento.descricao || '',
+                            usuarioNome,
+                            usuarioCargo,
+                            timestamp: evento.created_at || new Date().toISOString()
+                          };
+                        }));
+                        setAnotacoes(anotacoesFormatadas);
+                      }
+                    };
+                    reloadAnotacoes();
+                  }}
+                />
               )}
 
               {activeTab === 'responsavel' && (
