@@ -294,8 +294,7 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
         </div>
 
         {/* Lado Direito - Demais Indicadores */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Demais Indicadores</h3>
+        <div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <MetaCard
@@ -346,7 +345,7 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
 
       {/* Metas vs Realizado - Full Width */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Metas vs Realizado</h3>
+        <h3 className="text-lg font-semibold">Meta vs Realizado</h3>
         
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <MetaCard
