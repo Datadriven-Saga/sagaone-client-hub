@@ -775,19 +775,13 @@ const Prospeccao = () => {
   return (
     <DashboardLayout title="Prospecção">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0.5">
-        <div className="flex items-center justify-between">
-          <TabsList className="inline-flex">
-            <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
-            <TabsTrigger value="eventos">Eventos</TabsTrigger>
-            <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
-            <TabsTrigger value="kanban">Kanban</TabsTrigger>
-            <TabsTrigger value="recepcao">Recepção</TabsTrigger>
-          </TabsList>
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Prospecção
-          </Button>
-        </div>
+        <TabsList className="inline-flex">
+          <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
+          <TabsTrigger value="eventos">Eventos</TabsTrigger>
+          <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
+          <TabsTrigger value="kanban">Kanban</TabsTrigger>
+          <TabsTrigger value="recepcao">Recepção</TabsTrigger>
+        </TabsList>
 
         {/* Filtro Global Unificado */}
         <ProspeccaoGlobalFilter
@@ -815,10 +809,16 @@ const Prospeccao = () => {
         <TabsContent value="eventos" className="space-y-3">
           <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-foreground">Lista de Eventos</h3>
-              <span className="text-sm text-muted-foreground">
-                {filteredProspeccoes.length} {filteredProspeccoes.length === 1 ? 'evento' : 'eventos'}
-              </span>
+              <div className="flex items-center gap-3">
+                <h3 className="text-base font-semibold text-foreground">Lista de Eventos</h3>
+                <span className="text-sm text-muted-foreground">
+                  {filteredProspeccoes.length} {filteredProspeccoes.length === 1 ? 'evento' : 'eventos'}
+                </span>
+              </div>
+              <Button onClick={() => setIsModalOpen(true)} size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Nova Prospecção
+              </Button>
             </div>
             
             {prospeccoes.length === 0 ? (

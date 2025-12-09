@@ -138,16 +138,24 @@ export function ProspeccaoGlobalFilter({
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-medium">Filtros</h4>
-                {hasActiveFilters && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={clearFilters}
-                    className="h-6 text-xs text-muted-foreground hover:text-foreground"
+                <div className="flex items-center gap-2">
+                  {hasActiveFilters && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={clearFilters}
+                      className="h-6 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Limpar todos
+                    </Button>
+                  )}
+                  <button
+                    onClick={() => setOpen(false)}
+                    className="p-1 hover:bg-muted rounded"
                   >
-                    Limpar todos
-                  </Button>
-                )}
+                    <X className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
