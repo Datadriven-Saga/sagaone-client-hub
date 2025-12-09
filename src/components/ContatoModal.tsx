@@ -425,11 +425,7 @@ export function ContatoModal({
       phone = '55' + phone;
     }
     
-    // Se tem 13 caracteres, remove o 9 que é o 5º dígito (índice 4)
-    if (phone.length === 13) {
-      phone = phone.slice(0, 4) + phone.slice(5);
-    }
-    
+    // Resultado esperado: 5562987654321 (13 dígitos: 55 + DDD + 9 + 8 dígitos)
     return phone;
   };
 
