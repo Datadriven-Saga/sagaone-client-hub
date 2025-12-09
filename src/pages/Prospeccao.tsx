@@ -411,12 +411,6 @@ const Prospeccao = () => {
       items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Convidado')) : []
     },
     {
-      id: 'agendados',
-      title: 'Agendados',
-      color: '#C193EC',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Agendado')) : []
-    },
-    {
       id: 'confirmados',
       title: 'Confirmados',
       color: '#10B981',
