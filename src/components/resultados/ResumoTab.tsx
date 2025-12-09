@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
-import { Target, Users, UserCheck, TrendingUp, UserPlus, Info } from "lucide-react";
+import { Target, Users, UserCheck, TrendingUp, UserPlus, Info, Filter, MessageSquare, CalendarCheck, Store, ShoppingCart } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -113,7 +113,7 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="p-2 rounded-lg bg-primary/10">
-            <TrendingUp className="h-4 w-4 text-primary" />
+            <Filter className="h-4 w-4 text-primary" />
           </div>
           <h4 className="font-semibold text-sm">Funil de Vendas</h4>
         </div>
@@ -362,13 +362,41 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Demais Indicadores</h3>
           
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <MetaCard
               title="Distribuição aos Vendedores"
               icon={<UserPlus className="h-4 w-4 text-cyan-600" />}
               realizado={statusCounts.distribuidos}
               meta={statusCounts.totalBase}
               color="bg-cyan-100"
+            />
+            <MetaCard
+              title="% Clientes Convidados"
+              icon={<MessageSquare className="h-4 w-4 text-orange-600" />}
+              realizado={statusCounts.convidados}
+              meta={statusCounts.atribuidos}
+              color="bg-orange-100"
+            />
+            <MetaCard
+              title="% Clientes Confirmados"
+              icon={<CalendarCheck className="h-4 w-4 text-lime-600" />}
+              realizado={statusCounts.confirmados}
+              meta={statusCounts.convidados}
+              color="bg-lime-100"
+            />
+            <MetaCard
+              title="% Clientes Presentes na Loja"
+              icon={<Store className="h-4 w-4 text-green-600" />}
+              realizado={statusCounts.checkins}
+              meta={statusCounts.confirmados}
+              color="bg-green-100"
+            />
+            <MetaCard
+              title="% Vendas"
+              icon={<ShoppingCart className="h-4 w-4 text-blue-600" />}
+              realizado={statusCounts.vendas}
+              meta={statusCounts.checkins}
+              color="bg-blue-100"
             />
           </div>
         </div>
