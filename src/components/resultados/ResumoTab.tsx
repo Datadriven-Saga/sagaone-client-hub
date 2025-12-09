@@ -122,7 +122,7 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
           </Tooltip>
         </TooltipProvider>
       </div>
-      <div className="flex flex-col items-center space-y-1">
+      <div className="flex flex-col items-center space-y-2">
         {stages.map((stage, index) => {
           const funnelWidths = [100, 85, 70, 55, 42, 30];
           const widthPercentage = funnelWidths[Math.min(index, funnelWidths.length - 1)];
