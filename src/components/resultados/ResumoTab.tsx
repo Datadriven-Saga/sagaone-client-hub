@@ -130,7 +130,7 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
                 style={{
                   backgroundColor: stage.color,
                   width: `${widthPercentage}%`,
-                  height: '57px',
+                  height: '54px',
                   borderRadius: '8px'
                 }}
               >
