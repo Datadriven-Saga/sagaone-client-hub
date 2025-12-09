@@ -329,7 +329,7 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId, prospeccoes,
           {prospeccoes && prospeccoes.length > 0 && onProspeccaoChange && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-[280px] justify-between">
+                <Button variant="outline" className="w-[280px] h-7 text-sm justify-between">
                   <span className="truncate">
                     {selectedProspeccoes && selectedProspeccoes.length > 0
                       ? selectedProspeccoes.length === 1
