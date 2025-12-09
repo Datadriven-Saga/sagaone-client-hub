@@ -12,16 +12,15 @@ interface KanbanColumnProps {
 }
 
 const COLUMN_COLORS: Record<string, string> = {
-  'novos': 'bg-blue-500',
-  'atribuidos': 'bg-indigo-500',
-  'emespera': 'bg-amber-500',
-  'convidados': 'bg-violet-500',
-  'agendados': 'bg-purple-500',
-  'confirmados': 'bg-emerald-500',
-  'checkin': 'bg-green-500',
-  'venda': 'bg-green-600',
-  'descartados': 'bg-red-500',
-  'optout': 'bg-gray-500',
+  'novos': 'bg-red-500',         // #EF4444 - Total da Base
+  'atribuidos': 'bg-orange-500', // #F97316 - Distribuídos
+  'emespera': 'bg-orange-500',   // #F97316 - Distribuídos
+  'convidados': 'bg-lime-500',   // #84CC16 - Convidados
+  'confirmados': 'bg-green-500', // #22C55E - Confirmados
+  'checkin': 'bg-green-600',     // #16A34A - Check-ins
+  'venda': 'bg-blue-500',        // #3B82F6 - Vendas
+  'descartados': 'bg-gray-400',  // Cinza
+  'optout': 'bg-gray-600',       // Cinza escuro
   'desperdicio': 'bg-rose-500',
 };
 
