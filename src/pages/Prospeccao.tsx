@@ -291,7 +291,8 @@ const Prospeccao = () => {
     convidados: metricas.convidados,
     confirmados: metricas.confirmados,
     checkIns: metricas.checkin,
-    vendas: metricas.vendas
+    vendas: metricas.vendas,
+    descartados: metricas.descartados
   };
 
   // Dados mock para histórico (implementar busca real depois)

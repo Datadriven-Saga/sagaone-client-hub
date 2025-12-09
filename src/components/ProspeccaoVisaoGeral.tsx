@@ -31,6 +31,7 @@ interface FunnelData {
   confirmados: number;
   checkIns: number;
   vendas: number;
+  descartados: number;
 }
 
 interface ProspeccaoVisaoGeralProps {
@@ -260,13 +261,56 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
             <div className="text-xs opacity-90">Check-Ins</div>
           </div>
 
-          {/* Vendas */}
-          <div 
-            className="rounded-lg py-2 px-4 text-center text-white mx-auto"
-            style={{ width: '28%', backgroundColor: '#3B82F6' }}
-          >
-            <div className="text-base font-bold">{funnelData.vendas.toLocaleString('pt-BR')}</div>
-            <div className="text-xs opacity-90">Vendas</div>
+          {/* Vendas + Balde Descartados */}
+          <div className="flex items-end justify-center gap-4">
+            {/* Vendas */}
+            <div 
+              className="rounded-lg py-2 px-4 text-center text-white"
+              style={{ width: '28%', backgroundColor: '#3B82F6' }}
+            >
+              <div className="text-base font-bold">{funnelData.vendas.toLocaleString('pt-BR')}</div>
+              <div className="text-xs opacity-90">Vendas</div>
+            </div>
+
+            {/* Balde Descartados */}
+            <div className="flex flex-col items-center">
+              <div 
+                className="relative flex items-center justify-center"
+                style={{ width: '70px', height: '60px' }}
+              >
+                {/* Balde SVG */}
+                <svg 
+                  viewBox="0 0 64 64" 
+                  className="w-full h-full"
+                  fill="none"
+                >
+                  {/* Borda superior do balde */}
+                  <ellipse cx="32" cy="12" rx="26" ry="6" fill="#6B7280" />
+                  <ellipse cx="32" cy="12" rx="22" ry="4" fill="#9CA3AF" />
+                  
+                  {/* Corpo do balde */}
+                  <path 
+                    d="M6 12 L12 54 C12 58 21 60 32 60 C43 60 52 58 52 54 L58 12" 
+                    fill="#6B7280" 
+                  />
+                  <path 
+                    d="M10 12 L15 52 C15 55 22 57 32 57 C42 57 49 55 49 52 L54 12" 
+                    fill="#9CA3AF" 
+                  />
+                  
+                  {/* Base do balde */}
+                  <ellipse cx="32" cy="54" rx="18" ry="4" fill="#6B7280" />
+                </svg>
+                
+                {/* Número dentro do balde */}
+                <div className="absolute inset-0 flex items-center justify-center pt-3">
+                  <span className="text-white font-bold text-sm drop-shadow-md">
+                    {funnelData.descartados.toLocaleString('pt-BR')}
+                  </span>
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground mt-1">Descartados</span>
+            </div>
           </div>
         </div>
       </Card>
