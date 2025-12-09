@@ -30,7 +30,7 @@ interface Prospeccao {
 const Resultados = () => {
   const [activeTab, setActiveTab] = useState("resumo");
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
-  const [selectedProspeccao, setSelectedProspeccao] = useState<string>("");
+  const [selectedProspeccoes, setSelectedProspeccoes] = useState<string[]>([]);
   const { activeCompany } = useCompany();
 
   // Buscar prospecções da empresa
@@ -46,8 +46,8 @@ const Resultados = () => {
 
       if (!error && data) {
         setProspeccoes(data);
-        if (data.length > 0 && !selectedProspeccao) {
-          setSelectedProspeccao(data[0].id);
+        if (data.length > 0 && selectedProspeccoes.length === 0) {
+          setSelectedProspeccoes([data[0].id]);
         }
       }
     };
@@ -55,7 +55,7 @@ const Resultados = () => {
     fetchProspeccoes();
   }, [activeCompany?.id]);
 
-  const selectedProspeccaoData = prospeccoes.find(p => p.id === selectedProspeccao);
+  const selectedProspeccaoData = prospeccoes.filter(p => selectedProspeccoes.includes(p.id));
 
   return (
     <DashboardLayout title="Resultados">
@@ -105,11 +105,11 @@ const Resultados = () => {
           {/* Tab Resumo */}
           <TabsContent value="resumo" className="mt-4">
             <ResumoTab 
-              prospeccaoId={selectedProspeccao || null} 
+              prospeccaoIds={selectedProspeccoes} 
               empresaId={activeCompany?.id || null}
               prospeccoes={prospeccoes}
-              selectedProspeccao={selectedProspeccao}
-              onProspeccaoChange={setSelectedProspeccao}
+              selectedProspeccoes={selectedProspeccoes}
+              onProspeccaoChange={setSelectedProspeccoes}
             />
           </TabsContent>
 
@@ -160,7 +160,7 @@ const Resultados = () => {
           {/* Tab Desempenho */}
           <TabsContent value="desempenho" className="mt-4">
             <DesempenhoTab 
-              prospeccaoId={selectedProspeccao || null} 
+              prospeccaoId={selectedProspeccoes[0] || null} 
               empresaId={activeCompany?.id || null} 
             />
           </TabsContent>
