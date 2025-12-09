@@ -2284,6 +2284,7 @@ export type Database = {
         | "Agendado"
         | "Confirmado"
         | "Check-in"
+        | "Venda"
         | "Descartado"
         | "Desperdício"
         | "Em Espera"
@@ -2480,6 +2481,7 @@ export const Constants = {
         "Agendado",
         "Confirmado",
         "Check-in",
+        "Venda",
         "Descartado",
         "Desperdício",
         "Em Espera",

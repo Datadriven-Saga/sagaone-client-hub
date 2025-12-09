@@ -9,7 +9,7 @@ export interface Contato {
   nome: string;
   telefone: string;
   email?: string;
-  status: 'Novo' | 'Em Contato' | 'Qualificado' | 'Proposta' | 'Negociação' | 'Fechado' | 'Perdido' | 'Atribuído' | 'Convidado' | 'Agendado' | 'Confirmado' | 'Check-in' | 'Descartado' | 'Desperdício' | 'Em Espera' | 'Opt Out';
+  status: 'Novo' | 'Em Contato' | 'Qualificado' | 'Proposta' | 'Negociação' | 'Fechado' | 'Perdido' | 'Atribuído' | 'Convidado' | 'Agendado' | 'Confirmado' | 'Check-in' | 'Venda' | 'Descartado' | 'Desperdício' | 'Em Espera' | 'Opt Out';
   valor_potencial?: number;
   responsavel_email?: string;
   cliente_id?: string;
@@ -29,6 +29,7 @@ export const statusKanbanMap = {
   'Agendado': 'agendados',
   'Confirmado': 'confirmados',
   'Check-in': 'checkin',
+  'Venda': 'venda',
   'Descartado': 'descartados',
   'Opt Out': 'optout',
   'Desperdício': 'desperdicio',
@@ -47,6 +48,7 @@ export const kanbanStatusMap = {
   'agendados': 'Agendado',
   'confirmados': 'Confirmado',
   'checkin': 'Check-in',
+  'venda': 'Venda',
   'descartados': 'Descartado',
   'optout': 'Opt Out',
   'desperdicio': 'Desperdício',
