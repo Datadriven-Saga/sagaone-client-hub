@@ -232,7 +232,7 @@ const Login = () => {
         </Dialog>
 
         <p className="text-center text-foreground/60 text-sm mt-6">
-          © 2024 SAGA One. Todos os direitos reservados.
+          © 2025 SAGA One. Todos os direitos reservados.
         </p>
       </div>
     </div>
