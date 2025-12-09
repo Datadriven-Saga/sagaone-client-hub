@@ -297,15 +297,16 @@ const Prospeccao = () => {
   // Dados mock para histórico (implementar busca real depois)
   const historicoImportacao: any[] = [];
   
-  // Dados de clientes por usuário (baseado em responsavel_email que pode ser email ou celular)
+  // Dados de clientes por usuário (baseado em responsavel_email que pode ser ID, email ou celular)
   const getClientesPorUsuario = () => {
     const usuariosMap = new Map<string, { nome: string; tipoAcesso: string; novos: number; atribuidos: number; emEspera: number; convidados: number }>();
     
     contatos.forEach(contato => {
       const responsavel = contato.responsavel_email || 'nao_atribuido';
       
-      // Buscar profile correspondente pelo EMAIL ou CELULAR
+      // Buscar profile correspondente pelo ID, EMAIL ou CELULAR
       const profile = profiles.find(p => 
+        p.id === responsavel ||
         p.email === responsavel || 
         p.celular === responsavel ||
         // Tentar match sem formatação (apenas dígitos)
