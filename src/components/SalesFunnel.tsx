@@ -1,4 +1,11 @@
 import { Card } from "@/components/ui/card";
+import { Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export interface FunnelStage {
   id: string;
@@ -24,7 +31,22 @@ export const SalesFunnel = ({ stages, title = "Funil de Vendas" }: SalesFunnelPr
 
   return (
     <Card className="p-6">
-      <h3 className="text-lg font-semibold text-foreground mb-6 text-center">{title}</h3>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex-1" />
+        <h3 className="text-lg font-semibold text-foreground text-center">{title}</h3>
+        <div className="flex-1 flex justify-end">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-[200px]">
+                <p className="text-xs">Os percentuais à direita indicam a taxa de conversão em relação à etapa anterior.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </div>
       
       <div className="flex flex-col items-center space-y-1 max-w-md mx-auto">
         {stages.map((stage, index) => {
