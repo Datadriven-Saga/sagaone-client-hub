@@ -9,25 +9,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronDown } from "lucide-react";
-
-interface Prospeccao {
-  id: string;
-  titulo: string;
-  data_inicio: string | null;
-  data_fim: string | null;
-}
-
 interface ResumoTabProps {
   prospeccaoIds?: string[];
   prospeccaoId?: string | null; // backward compatibility
   empresaId: string | null;
-  prospeccoes?: Prospeccao[];
-  selectedProspeccoes?: string[];
-  onProspeccaoChange?: (value: string[]) => void;
 }
 
 interface ProspeccaoMetas {
@@ -125,7 +110,13 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
 
   return (
     <Card className="p-4">
-      <div className="flex justify-end mb-2">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <TrendingUp className="h-4 w-4 text-primary" />
+          </div>
+          <h4 className="font-semibold text-sm">Funil de Vendas</h4>
+        </div>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -183,7 +174,7 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
   );
 };
 
-export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId, prospeccoes, selectedProspeccoes, onProspeccaoChange }: ResumoTabProps) => {
+export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabProps) => {
   const activeIds = prospeccaoIds || (prospeccaoId ? [prospeccaoId] : []);
   const [metas, setMetas] = useState<ProspeccaoMetas | null>(null);
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({
@@ -323,56 +314,7 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId, prospeccoes,
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Lado Esquerdo - Funil de Vendas */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Funil de Vendas</h3>
-          {prospeccoes && prospeccoes.length > 0 && onProspeccaoChange && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-[280px] h-7 text-sm justify-between">
-                  <span className="truncate">
-                    {selectedProspeccoes && selectedProspeccoes.length > 0
-                      ? selectedProspeccoes.length === 1
-                        ? prospeccoes.find(p => p.id === selectedProspeccoes[0])?.titulo || "Selecione"
-                        : `${selectedProspeccoes.length} eventos selecionados`
-                      : "Selecione eventos"}
-                  </span>
-                  <ChevronDown className="h-4 w-4 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[280px] p-2" align="end">
-                <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                  {prospeccoes.map((prospeccao) => {
-                    const isSelected = selectedProspeccoes?.includes(prospeccao.id) || false;
-                    return (
-                      <div
-                        key={prospeccao.id}
-                        className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer"
-                        onClick={() => {
-                          if (isSelected) {
-                            onProspeccaoChange(selectedProspeccoes?.filter(id => id !== prospeccao.id) || []);
-                          } else {
-                            onProspeccaoChange([...(selectedProspeccoes || []), prospeccao.id]);
-                          }
-                        }}
-                      >
-                        <Checkbox checked={isSelected} />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm truncate">{prospeccao.titulo}</div>
-                          {prospeccao.data_inicio && (
-                            <div className="text-xs text-muted-foreground">
-                              {new Date(prospeccao.data_inicio + 'T12:00:00').toLocaleDateString('pt-BR')}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
-        </div>
+      <div>
         <SalesFunnel stages={funnelStages} />
       </div>
 
