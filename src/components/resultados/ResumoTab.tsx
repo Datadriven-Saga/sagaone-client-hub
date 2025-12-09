@@ -9,7 +9,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ChevronDown } from "lucide-react";
 
 interface Prospeccao {
   id: string;
@@ -19,11 +22,12 @@ interface Prospeccao {
 }
 
 interface ResumoTabProps {
-  prospeccaoId: string | null;
+  prospeccaoIds?: string[];
+  prospeccaoId?: string | null; // backward compatibility
   empresaId: string | null;
   prospeccoes?: Prospeccao[];
-  selectedProspeccao?: string;
-  onProspeccaoChange?: (value: string) => void;
+  selectedProspeccoes?: string[];
+  onProspeccaoChange?: (value: string[]) => void;
 }
 
 interface ProspeccaoMetas {
@@ -179,7 +183,8 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
   );
 };
 
-export const ResumoTab = ({ prospeccaoId, empresaId, prospeccoes, selectedProspeccao, onProspeccaoChange }: ResumoTabProps) => {
+export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId, prospeccoes, selectedProspeccoes, onProspeccaoChange }: ResumoTabProps) => {
+  const activeIds = prospeccaoIds || (prospeccaoId ? [prospeccaoId] : []);
   const [metas, setMetas] = useState<ProspeccaoMetas | null>(null);
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({
     totalBase: 0,
@@ -195,7 +200,7 @@ export const ResumoTab = ({ prospeccaoId, empresaId, prospeccoes, selectedProspe
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!prospeccaoId || !empresaId) {
+      if (activeIds.length === 0 || !empresaId) {
         setLoading(false);
         return;
       }
@@ -203,15 +208,23 @@ export const ResumoTab = ({ prospeccaoId, empresaId, prospeccoes, selectedProspe
       setLoading(true);
 
       try {
-        // Buscar metas da prospecção
+        // Buscar metas das prospecções selecionadas
         const { data: prospeccaoData } = await supabase
           .from('prospeccoes')
           .select('meta_convites, meta_confirmacoes, meta_checkins, meta_novos, meta_seminovos, meta_diretas')
-          .eq('id', prospeccaoId)
-          .single();
+          .in('id', activeIds);
 
-        if (prospeccaoData) {
-          setMetas(prospeccaoData);
+        if (prospeccaoData && prospeccaoData.length > 0) {
+          // Somar metas de todas as prospecções selecionadas
+          const aggregatedMetas: ProspeccaoMetas = {
+            meta_convites: prospeccaoData.reduce((sum, p) => sum + (p.meta_convites || 0), 0),
+            meta_confirmacoes: prospeccaoData.reduce((sum, p) => sum + (p.meta_confirmacoes || 0), 0),
+            meta_checkins: prospeccaoData.reduce((sum, p) => sum + (p.meta_checkins || 0), 0),
+            meta_novos: prospeccaoData.reduce((sum, p) => sum + (p.meta_novos || 0), 0),
+            meta_seminovos: prospeccaoData.reduce((sum, p) => sum + (p.meta_seminovos || 0), 0),
+            meta_diretas: prospeccaoData.reduce((sum, p) => sum + (p.meta_diretas || 0), 0),
+          };
+          setMetas(aggregatedMetas);
         }
 
         // Buscar contatos e contar por status
@@ -269,7 +282,7 @@ export const ResumoTab = ({ prospeccaoId, empresaId, prospeccoes, selectedProspe
     };
 
     fetchData();
-  }, [prospeccaoId, empresaId]);
+  }, [activeIds.join(','), empresaId]);
 
   // Calcular meta de vendas total
   const metaVendas = useMemo(() => {
@@ -295,13 +308,13 @@ export const ResumoTab = ({ prospeccaoId, empresaId, prospeccoes, selectedProspe
     );
   }
 
-  if (!prospeccaoId) {
+  if (activeIds.length === 0) {
     return (
       <Card className="p-8 text-center">
         <Target className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
         <h3 className="text-lg font-semibold mb-2">Selecione um Evento</h3>
         <p className="text-sm text-muted-foreground">
-          Escolha um evento para visualizar o resumo dos resultados
+          Escolha um ou mais eventos para visualizar o resumo dos resultados
         </p>
       </Card>
     );
@@ -314,23 +327,50 @@ export const ResumoTab = ({ prospeccaoId, empresaId, prospeccoes, selectedProspe
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Funil de Vendas</h3>
           {prospeccoes && prospeccoes.length > 0 && onProspeccaoChange && (
-            <Select value={selectedProspeccao || ""} onValueChange={onProspeccaoChange}>
-              <SelectTrigger className="w-[280px]">
-                <SelectValue placeholder="Selecione um evento" />
-              </SelectTrigger>
-              <SelectContent>
-                {prospeccoes.map((prospeccao) => (
-                  <SelectItem key={prospeccao.id} value={prospeccao.id}>
-                    {prospeccao.titulo}
-                    {prospeccao.data_inicio && (
-                      <span className="text-muted-foreground ml-2 text-xs">
-                        ({new Date(prospeccao.data_inicio + 'T12:00:00').toLocaleDateString('pt-BR')})
-                      </span>
-                    )}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-[280px] justify-between">
+                  <span className="truncate">
+                    {selectedProspeccoes && selectedProspeccoes.length > 0
+                      ? selectedProspeccoes.length === 1
+                        ? prospeccoes.find(p => p.id === selectedProspeccoes[0])?.titulo || "Selecione"
+                        : `${selectedProspeccoes.length} eventos selecionados`
+                      : "Selecione eventos"}
+                  </span>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[280px] p-2" align="end">
+                <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                  {prospeccoes.map((prospeccao) => {
+                    const isSelected = selectedProspeccoes?.includes(prospeccao.id) || false;
+                    return (
+                      <div
+                        key={prospeccao.id}
+                        className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer"
+                        onClick={() => {
+                          if (isSelected) {
+                            onProspeccaoChange(selectedProspeccoes?.filter(id => id !== prospeccao.id) || []);
+                          } else {
+                            onProspeccaoChange([...(selectedProspeccoes || []), prospeccao.id]);
+                          }
+                        }}
+                      >
+                        <Checkbox checked={isSelected} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm truncate">{prospeccao.titulo}</div>
+                          {prospeccao.data_inicio && (
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(prospeccao.data_inicio + 'T12:00:00').toLocaleDateString('pt-BR')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
           )}
         </div>
         <SalesFunnel stages={funnelStages} />
