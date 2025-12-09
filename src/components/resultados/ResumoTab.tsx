@@ -110,60 +110,34 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
 
   return (
     <Card className="p-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center mb-4">
         <div className="flex items-center gap-2">
           <div className="p-2 rounded-lg bg-primary/10">
             <Filter className="h-4 w-4 text-primary" />
           </div>
           <h4 className="font-semibold text-sm">Funil de Vendas</h4>
         </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-            </TooltipTrigger>
-            <TooltipContent side="left" className="max-w-[200px]">
-              <p className="text-xs">Os percentuais à direita indicam a taxa de conversão em relação à etapa anterior.</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
       </div>
       <div className="flex flex-col items-center justify-center space-y-2 h-full">
         {stages.map((stage, index) => {
           const funnelWidths = [100, 85, 70, 55, 42, 30];
           const widthPercentage = funnelWidths[Math.min(index, funnelWidths.length - 1)];
-          const previousStage = index > 0 ? stages[index - 1] : null;
-          const conversionRate = previousStage ? getConversionRate(stage.value, previousStage.value) : 100;
           
           return (
-            <div key={stage.id} className="w-full flex items-center justify-center gap-4">
-              {/* Estágio do funil */}
-              <div className="flex-1 flex justify-center">
-                <div
-                  className="relative flex items-center justify-center text-white font-semibold shadow-sm transition-all duration-300 hover:shadow-md"
-                  style={{
-                    backgroundColor: stage.color,
-                    width: `${widthPercentage}%`,
-                    height: '57px',
-                    borderRadius: '8px'
-                  }}
-                >
-                  <div className="text-center">
-                    <div className="text-xl font-bold">{stage.value.toLocaleString()}</div>
-                    <div className="text-xs font-medium opacity-90">{stage.title}</div>
-                  </div>
+            <div key={stage.id} className="w-full flex items-center justify-center">
+              <div
+                className="relative flex items-center justify-center text-white font-semibold shadow-sm transition-all duration-300 hover:shadow-md"
+                style={{
+                  backgroundColor: stage.color,
+                  width: `${widthPercentage}%`,
+                  height: '57px',
+                  borderRadius: '8px'
+                }}
+              >
+                <div className="text-center">
+                  <div className="text-xl font-bold">{stage.value.toLocaleString()}</div>
+                  <div className="text-xs font-medium opacity-90">{stage.title}</div>
                 </div>
-              </div>
-              
-              {/* Percentual de conversão */}
-              <div className="w-16 text-right">
-                {index > 0 ? (
-                  <span className={`text-sm font-semibold ${conversionRate >= 50 ? 'text-green-600' : conversionRate >= 30 ? 'text-amber-600' : 'text-red-600'}`}>
-                    {conversionRate}%
-                  </span>
-                ) : (
-                  <span className="text-sm text-muted-foreground">-</span>
-                )}
               </div>
             </div>
           );
