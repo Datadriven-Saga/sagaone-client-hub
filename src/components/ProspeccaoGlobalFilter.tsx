@@ -87,8 +87,8 @@ export function ProspeccaoGlobalFilter({
   return (
     <Card className={cn("p-3", className)}>
       <div className="flex flex-wrap gap-3 items-end">
-        {/* Prospecção/Evento */}
-        <div className="flex flex-col gap-1 min-w-[180px]">
+        {/* Prospecção/Evento - Dobro da largura */}
+        <div className="flex flex-col gap-1 min-w-[360px]">
           <label className="text-xs font-medium text-muted-foreground">Prospecção/Evento</label>
           <Select 
             value={filters.prospeccaoId} 
@@ -101,6 +101,46 @@ export function ProspeccaoGlobalFilter({
               <SelectItem value="todos">Todas</SelectItem>
               {prospeccoes.map((p) => (
                 <SelectItem key={p.id} value={p.id}>{p.titulo}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Status */}
+        <div className="flex flex-col gap-1 min-w-[140px]">
+          <label className="text-xs font-medium text-muted-foreground">Status</label>
+          <Select 
+            value={filters.status} 
+            onValueChange={(value) => updateFilter('status', value)}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {statusOptions.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Vendedor/Responsável */}
+        <div className="flex flex-col gap-1 min-w-[180px]">
+          <label className="text-xs font-medium text-muted-foreground">Vendedor/Responsável</label>
+          <Select 
+            value={filters.responsavelId} 
+            onValueChange={(value) => updateFilter('responsavelId', value)}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {responsaveis.map((r) => (
+                <SelectItem key={r.id} value={r.id}>
+                  {r.nome_completo}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -129,46 +169,6 @@ export function ProspeccaoGlobalFilter({
             onChange={(e) => updateFilter('dataFim', e.target.value)}
             className="w-36 h-9"
           />
-        </div>
-
-        {/* Vendedor/Responsável */}
-        <div className="flex flex-col gap-1 min-w-[180px]">
-          <label className="text-xs font-medium text-muted-foreground">Vendedor/Responsável</label>
-          <Select 
-            value={filters.responsavelId} 
-            onValueChange={(value) => updateFilter('responsavelId', value)}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              {responsaveis.map((r) => (
-                <SelectItem key={r.id} value={r.id}>
-                  {r.nome_completo}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Status */}
-        <div className="flex flex-col gap-1 min-w-[140px]">
-          <label className="text-xs font-medium text-muted-foreground">Status</label>
-          <Select 
-            value={filters.status} 
-            onValueChange={(value) => updateFilter('status', value)}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              {statusOptions.map((s) => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         {/* Telefone do Cliente */}
