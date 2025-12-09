@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Search, Filter, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -12,8 +11,7 @@ export interface ProspeccaoGlobalFilters {
   dataFim: string;
   responsavelId: string;
   status: string;
-  telefone: string;
-  nomeCliente: string;
+  dadosLead: string; // Campo unificado para nome, telefone, email, id, produto
 }
 
 interface Prospeccao {
@@ -70,8 +68,7 @@ export function ProspeccaoGlobalFilter({
       dataFim: "",
       responsavelId: "todos",
       status: "todos",
-      telefone: "",
-      nomeCliente: ""
+      dadosLead: ""
     });
   };
 
@@ -81,13 +78,12 @@ export function ProspeccaoGlobalFilter({
     filters.dataFim !== "" ||
     filters.responsavelId !== "todos" ||
     filters.status !== "todos" ||
-    filters.telefone !== "" ||
-    filters.nomeCliente !== "";
+    filters.dadosLead !== "";
 
   return (
     <Card className={cn("p-3", className)}>
       <div className="flex flex-wrap gap-3 items-end">
-        {/* Prospecção/Evento - Dobro da largura */}
+        {/* Prospecção/Evento */}
         <div className="flex flex-col gap-1 min-w-[292px]">
           <label className="text-xs font-medium text-muted-foreground">Prospecção/Evento</label>
           <Select 
@@ -149,15 +145,12 @@ export function ProspeccaoGlobalFilter({
         {/* Período - Data Início */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">Data Início</label>
-          <div className="flex items-center gap-1">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-            <Input
-              type="date"
-              value={filters.dataInicio}
-              onChange={(e) => updateFilter('dataInicio', e.target.value)}
-              className="w-36 h-9"
-            />
-          </div>
+          <Input
+            type="date"
+            value={filters.dataInicio}
+            onChange={(e) => updateFilter('dataInicio', e.target.value)}
+            className="w-36 h-9"
+          />
         </div>
 
         {/* Período - Data Fim */}
@@ -171,28 +164,16 @@ export function ProspeccaoGlobalFilter({
           />
         </div>
 
-        {/* Telefone do Cliente */}
-        <div className="flex flex-col gap-1 min-w-[150px]">
-          <label className="text-xs font-medium text-muted-foreground">Telefone</label>
-          <Input
-            type="text"
-            placeholder="Ex: 61999..."
-            value={filters.telefone}
-            onChange={(e) => updateFilter('telefone', e.target.value)}
-            className="h-9"
-          />
-        </div>
-
-        {/* Nome do Cliente */}
-        <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
-          <label className="text-xs font-medium text-muted-foreground">Nome do Cliente</label>
+        {/* Dados do Lead - Campo unificado */}
+        <div className="flex flex-col gap-1 flex-1 min-w-[220px]">
+          <label className="text-xs font-medium text-muted-foreground">Dados do Lead</label>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Buscar por nome..."
-              value={filters.nomeCliente}
-              onChange={(e) => updateFilter('nomeCliente', e.target.value)}
+              placeholder="Nome, telefone, e-mail, ID, produto..."
+              value={filters.dadosLead}
+              onChange={(e) => updateFilter('dadosLead', e.target.value)}
               className="h-9 pl-8"
             />
           </div>

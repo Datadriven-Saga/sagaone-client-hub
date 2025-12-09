@@ -65,8 +65,7 @@ const Prospeccao = () => {
     dataFim: "",
     responsavelId: "todos",
     status: "todos",
-    telefone: "",
-    nomeCliente: ""
+    dadosLead: ""
   });
   
   // ✅ HOOKS DE CONTEXTO E CUSTOM HOOKS
@@ -293,16 +292,15 @@ const Prospeccao = () => {
       if (globalFilters.status !== "todos" && contato.status !== globalFilters.status) {
         return false;
       }
-      if (globalFilters.telefone && contato.telefone) {
-        const telefoneNormalizado = contato.telefone.replace(/\D/g, '');
-        const filtroNormalizado = globalFilters.telefone.replace(/\D/g, '');
-        if (!telefoneNormalizado.includes(filtroNormalizado)) return false;
-      } else if (globalFilters.telefone && !contato.telefone) {
-        return false;
-      }
-      if (globalFilters.nomeCliente) {
-        const nomeSearch = globalFilters.nomeCliente.toLowerCase();
-        if (!contato.nome?.toLowerCase().includes(nomeSearch)) return false;
+      // Filtro unificado: Dados do Lead (nome, telefone, email, id, produto)
+      if (globalFilters.dadosLead) {
+        const search = globalFilters.dadosLead.toLowerCase();
+        const matchNome = contato.nome?.toLowerCase().includes(search);
+        const matchTelefone = contato.telefone?.replace(/\D/g, '').includes(search.replace(/\D/g, ''));
+        const matchEmail = contato.email?.toLowerCase().includes(search);
+        const matchId = contato.id?.toLowerCase().includes(search);
+        // TODO: adicionar match de produto quando disponível
+        if (!matchNome && !matchTelefone && !matchEmail && !matchId) return false;
       }
       return true;
     });
@@ -324,9 +322,9 @@ const Prospeccao = () => {
         const eventoInicio = new Date(prospeccao.data_inicio);
         if (eventoInicio > filtroFim) return false;
       }
-      if (globalFilters.nomeCliente) {
-        const nomeSearch = globalFilters.nomeCliente.toLowerCase();
-        if (!prospeccao.titulo?.toLowerCase().includes(nomeSearch)) return false;
+      if (globalFilters.dadosLead) {
+        const search = globalFilters.dadosLead.toLowerCase();
+        if (!prospeccao.titulo?.toLowerCase().includes(search)) return false;
       }
       return true;
     });
@@ -346,14 +344,12 @@ const Prospeccao = () => {
         const visitaData = new Date(visita.data_hora_visita);
         if (visitaData > dataFim) return false;
       }
-      if (globalFilters.telefone) {
-        const telefoneNormalizado = visita.telefone_cliente.replace(/\D/g, '');
-        const filtroNormalizado = globalFilters.telefone.replace(/\D/g, '');
-        if (!telefoneNormalizado.includes(filtroNormalizado)) return false;
-      }
-      if (globalFilters.nomeCliente) {
-        const nomeSearch = globalFilters.nomeCliente.toLowerCase();
-        if (!visita.nome_cliente?.toLowerCase().includes(nomeSearch)) return false;
+      // Filtro unificado: Dados do Lead (nome, telefone)
+      if (globalFilters.dadosLead) {
+        const search = globalFilters.dadosLead.toLowerCase();
+        const matchNome = visita.nome_cliente?.toLowerCase().includes(search);
+        const matchTelefone = visita.telefone_cliente?.replace(/\D/g, '').includes(search.replace(/\D/g, ''));
+        if (!matchNome && !matchTelefone) return false;
       }
       return true;
     });
