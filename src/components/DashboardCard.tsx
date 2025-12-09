@@ -27,8 +27,8 @@ export function DashboardCard({
     >
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Icon className="h-5 w-5 text-primary" />
+          <div className="p-2 rounded-lg bg-[hsl(190,97%,43%)]">
+            <Icon className="h-5 w-5 text-white" />
           </div>
           {title}
         </CardTitle>
