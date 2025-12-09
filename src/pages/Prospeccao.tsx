@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus } from "lucide-react";
-import { FilterBar } from "@/components/FilterBar";
+import { ProspeccaoGlobalFilter, ProspeccaoGlobalFilters } from "@/components/ProspeccaoGlobalFilter";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
 import { CriarProspeccaoModal } from "@/components/CriarProspeccaoModal";
@@ -41,7 +41,6 @@ const Prospeccao = () => {
   // ✅ TODOS OS HOOKS DEVEM VIR PRIMEIRO - ANTES DE QUALQUER LÓGICA
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [searchFilter, setSearchFilter] = useState('');
   const [editingProspeccao, setEditingProspeccao] = useState<any>(null);
   const [deleteProspeccaoId, setDeleteProspeccaoId] = useState<string | null>(null);
   const [modalContato, setModalContato] = useState<{ isOpen: boolean; contato: Contato | null; columnId?: string }>({
@@ -55,12 +54,20 @@ const Prospeccao = () => {
   });
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [recepcaoInitialData, setRecepcaoInitialData] = useState<any>(null);
-  const [recepcaoSearchFilter, setRecepcaoSearchFilter] = useState('');
   const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
   const [isClientesPorUsuarioModalOpen, setIsClientesPorUsuarioModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string }[]>([]);
-  const [eventosNomeFilter, setEventosNomeFilter] = useState('');
-  const [eventosStatusFilter, setEventosStatusFilter] = useState<'todos' | 'Ativo' | 'Encerrado' | 'Agendado'>('todos');
+  
+  // Filtro global unificado para todas as abas
+  const [globalFilters, setGlobalFilters] = useState<ProspeccaoGlobalFilters>({
+    prospeccaoId: "todos",
+    dataInicio: "",
+    dataFim: "",
+    responsavelId: "todos",
+    status: "todos",
+    telefone: "",
+    nomeCliente: ""
+  });
   
   // ✅ HOOKS DE CONTEXTO E CUSTOM HOOKS
   const { toast } = useToast();
@@ -273,6 +280,126 @@ const Prospeccao = () => {
   console.log('📈 Calculating metricas...');
   const metricas = getMetricas();
   console.log('📊 Metricas calculated:', metricas);
+
+  // Função de filtragem global para contatos
+  const filteredContatos = useMemo(() => {
+    return contatos.filter(contato => {
+      // Filtro por prospecção
+      // TODO: quando houver relação prospeccao_id em contatos, implementar
+      
+      // Filtro por período (data de criação do contato)
+      if (globalFilters.dataInicio) {
+        const dataInicio = new Date(globalFilters.dataInicio);
+        const contatoData = new Date(contato.created_at || '');
+        if (contatoData < dataInicio) return false;
+      }
+      if (globalFilters.dataFim) {
+        const dataFim = new Date(globalFilters.dataFim);
+        dataFim.setHours(23, 59, 59, 999);
+        const contatoData = new Date(contato.created_at || '');
+        if (contatoData > dataFim) return false;
+      }
+      
+      // Filtro por responsável
+      if (globalFilters.responsavelId !== "todos") {
+        const profile = profiles.find(p => p.id === globalFilters.responsavelId);
+        if (profile) {
+          const matchResponsavel = 
+            contato.responsavel_email === profile.id ||
+            contato.responsavel_email === profile.email ||
+            contato.responsavel_email === profile.celular;
+          if (!matchResponsavel) return false;
+        } else {
+          return false;
+        }
+      }
+      
+      // Filtro por status
+      if (globalFilters.status !== "todos" && contato.status !== globalFilters.status) {
+        return false;
+      }
+      
+      // Filtro por telefone
+      if (globalFilters.telefone && contato.telefone) {
+        const telefoneNormalizado = contato.telefone.replace(/\D/g, '');
+        const filtroNormalizado = globalFilters.telefone.replace(/\D/g, '');
+        if (!telefoneNormalizado.includes(filtroNormalizado)) return false;
+      } else if (globalFilters.telefone && !contato.telefone) {
+        return false;
+      }
+      
+      // Filtro por nome do cliente
+      if (globalFilters.nomeCliente) {
+        const nomeSearch = globalFilters.nomeCliente.toLowerCase();
+        if (!contato.nome?.toLowerCase().includes(nomeSearch)) return false;
+      }
+      
+      return true;
+    });
+  }, [contatos, globalFilters, profiles]);
+
+  // Função de filtragem global para prospecções/eventos
+  const filteredProspeccoes = useMemo(() => {
+    return prospeccoes.filter(prospeccao => {
+      // Filtro por prospecção selecionada
+      if (globalFilters.prospeccaoId !== "todos" && prospeccao.id !== globalFilters.prospeccaoId) {
+        return false;
+      }
+      
+      // Filtro por período (data de início/fim do evento)
+      if (globalFilters.dataInicio && prospeccao.data_fim) {
+        const filtroInicio = new Date(globalFilters.dataInicio);
+        const eventoFim = new Date(prospeccao.data_fim);
+        if (eventoFim < filtroInicio) return false;
+      }
+      if (globalFilters.dataFim && prospeccao.data_inicio) {
+        const filtroFim = new Date(globalFilters.dataFim);
+        const eventoInicio = new Date(prospeccao.data_inicio);
+        if (eventoInicio > filtroFim) return false;
+      }
+      
+      // Filtro por nome (usando nomeCliente como busca geral)
+      if (globalFilters.nomeCliente) {
+        const nomeSearch = globalFilters.nomeCliente.toLowerCase();
+        if (!prospeccao.titulo?.toLowerCase().includes(nomeSearch)) return false;
+      }
+      
+      return true;
+    });
+  }, [prospeccoes, globalFilters]);
+
+  // Função de filtragem global para visitas (recepção)
+  const filteredVisitas = useMemo(() => {
+    return visitas.filter(visita => {
+      // Filtro por período
+      if (globalFilters.dataInicio) {
+        const dataInicio = new Date(globalFilters.dataInicio);
+        const visitaData = new Date(visita.data_hora_visita);
+        if (visitaData < dataInicio) return false;
+      }
+      if (globalFilters.dataFim) {
+        const dataFim = new Date(globalFilters.dataFim);
+        dataFim.setHours(23, 59, 59, 999);
+        const visitaData = new Date(visita.data_hora_visita);
+        if (visitaData > dataFim) return false;
+      }
+      
+      // Filtro por telefone
+      if (globalFilters.telefone) {
+        const telefoneNormalizado = visita.telefone_cliente.replace(/\D/g, '');
+        const filtroNormalizado = globalFilters.telefone.replace(/\D/g, '');
+        if (!telefoneNormalizado.includes(filtroNormalizado)) return false;
+      }
+      
+      // Filtro por nome do cliente
+      if (globalFilters.nomeCliente) {
+        const nomeSearch = globalFilters.nomeCliente.toLowerCase();
+        if (!visita.nome_cliente?.toLowerCase().includes(nomeSearch)) return false;
+      }
+      
+      return true;
+    });
+  }, [visitas, globalFilters]);
   
   // Dados para o novo layout da Visão Geral
   const visaoGeralMetrics = {
@@ -354,16 +481,6 @@ const Prospeccao = () => {
     
     return contatosLista
       .filter(contato => contato && contato.nome)
-      .filter(contato => {
-        if (!searchFilter) return true;
-        const searchLower = searchFilter.toLowerCase();
-        return (
-          contato.nome?.toLowerCase().includes(searchLower) ||
-          contato.telefone?.includes(searchLower) ||
-          contato.email?.toLowerCase().includes(searchLower) ||
-          contato.origem?.toLowerCase().includes(searchLower)
-        );
-      })
       .map(contato => {
         const prospeccaoNome = (prospeccoes && prospeccoes.length > 0) ? prospeccoes[0].titulo : 'Sem prospecção';
         const prospeccaoCanal = (prospeccoes && prospeccoes.length > 0) ? prospeccoes[0].canal : 'Whatsapp';
@@ -393,61 +510,61 @@ const Prospeccao = () => {
       });
   };
 
-  // Configurar colunas do Kanban com dados reais - com verificações de segurança
+  // Configurar colunas do Kanban com dados filtrados globalmente
   const kanbanColumns: KanbanColumnData[] = [
     {
       id: 'novos',
       title: 'Novos',
       color: '#6645EB',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Novo')) : []
+      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Novo')) : []
     },
     {
       id: 'atribuidos',
       title: 'Atribuídos',
       color: '#8B5FD6',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Atribuído')) : []
+      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Atribuído')) : []
     },
     {
       id: 'emespera',
       title: 'Em Espera',
       color: '#F59E0B',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Em Espera')) : []
+      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Em Espera')) : []
     },
     {
       id: 'convidados',
       title: 'Convidados',
       color: '#A679E1',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Convidado')) : []
+      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Convidado')) : []
     },
     {
       id: 'confirmados',
       title: 'Confirmados',
       color: '#10B981',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Confirmado')) : []
+      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Confirmado')) : []
     },
     {
       id: 'checkin',
       title: 'Check-ins',
       color: '#22c55e',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Check-in')) : []
+      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Check-in')) : []
     },
     {
       id: 'venda',
       title: 'Vendas',
       color: '#16a34a',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Venda')) : []
+      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Venda')) : []
     },
     {
       id: 'descartados',
       title: 'Descartados',
       color: '#ef4444',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Descartado')) : []
+      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Descartado')) : []
     },
     {
       id: 'optout',
       title: 'Opt Out',
       color: '#6B7280',
-      items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Opt Out')) : []
+      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Opt Out')) : []
     }
   ];
 
@@ -707,6 +824,14 @@ const Prospeccao = () => {
           </Button>
         </div>
 
+        {/* Filtro Global Unificado */}
+        <ProspeccaoGlobalFilter
+          prospeccoes={prospeccoes.map(p => ({ id: p.id, titulo: p.titulo }))}
+          responsaveis={profiles.map(p => ({ id: p.id, nome_completo: p.nome_completo, tipo_acesso: p.tipo_acesso }))}
+          filters={globalFilters}
+          onFiltersChange={setGlobalFilters}
+        />
+
         <TabsContent value="visao-geral" className="space-y-3">
 
           <ProspeccaoVisaoGeral
@@ -726,45 +851,8 @@ const Prospeccao = () => {
           <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-foreground">Lista de Eventos</h3>
-            </div>
-            
-            {/* Filtros */}
-            <div className="flex flex-wrap gap-3 mb-4">
-              <div className="flex-1 min-w-[200px]">
-                <input
-                  type="text"
-                  placeholder="Buscar por nome..."
-                  value={eventosNomeFilter}
-                  onChange={(e) => setEventosNomeFilter(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              <select
-                value={eventosStatusFilter}
-                onChange={(e) => setEventosStatusFilter(e.target.value as any)}
-                className="px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="todos">Todos os status</option>
-                <option value="Ativo">Ativo</option>
-                <option value="Encerrado">Encerrado</option>
-                <option value="Agendado">Agendado</option>
-              </select>
-              <span className="text-sm text-muted-foreground self-center">
-                {(() => {
-                  const filtered = prospeccoes.filter((p) => {
-                    const hoje = new Date();
-                    const dataInicio = p.data_inicio ? new Date(p.data_inicio) : null;
-                    const dataFim = p.data_fim ? new Date(p.data_fim) : null;
-                    let status = 'Ativo';
-                    if (dataFim && hoje > dataFim) status = 'Encerrado';
-                    else if (dataInicio && hoje < dataInicio) status = 'Agendado';
-                    
-                    const matchesNome = p.titulo.toLowerCase().includes(eventosNomeFilter.toLowerCase());
-                    const matchesStatus = eventosStatusFilter === 'todos' || status === eventosStatusFilter;
-                    return matchesNome && matchesStatus;
-                  });
-                  return `${filtered.length} ${filtered.length === 1 ? 'evento' : 'eventos'}`;
-                })()}
+              <span className="text-sm text-muted-foreground">
+                {filteredProspeccoes.length} {filteredProspeccoes.length === 1 ? 'evento' : 'eventos'}
               </span>
             </div>
             
@@ -790,19 +878,7 @@ const Prospeccao = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {prospeccoes
-                      .filter((prospeccao) => {
-                        const hoje = new Date();
-                        const dataInicio = prospeccao.data_inicio ? new Date(prospeccao.data_inicio) : null;
-                        const dataFim = prospeccao.data_fim ? new Date(prospeccao.data_fim) : null;
-                        let status = 'Ativo';
-                        if (dataFim && hoje > dataFim) status = 'Encerrado';
-                        else if (dataInicio && hoje < dataInicio) status = 'Agendado';
-                        
-                        const matchesNome = prospeccao.titulo.toLowerCase().includes(eventosNomeFilter.toLowerCase());
-                        const matchesStatus = eventosStatusFilter === 'todos' || status === eventosStatusFilter;
-                        return matchesNome && matchesStatus;
-                      })
+                    {filteredProspeccoes
                       .map((prospeccao) => {
                         const hoje = new Date();
                         const dataInicio = prospeccao.data_inicio ? new Date(prospeccao.data_inicio) : null;
@@ -956,14 +1032,7 @@ const Prospeccao = () => {
         </TabsContent>
 
         <TabsContent value="kanban" className="mt-0">
-          <div className="mb-1">
-            <FilterBar
-              searchPlaceholder="Buscar por cliente, campanha ou status..."
-              onSearchChange={setSearchFilter}
-            />
-          </div>
-          
-          <div className="h-[calc(100vh-220px)] overflow-auto">
+          <div className="h-[calc(100vh-260px)] overflow-auto">
             <KanbanBoard
               columns={kanbanColumns}
               onUpdateColumns={() => {}}
@@ -982,27 +1051,19 @@ const Prospeccao = () => {
                 <div>
                   <h3 className="text-base font-semibold text-foreground">Recepção de Visitas</h3>
                   <p className="text-xs text-muted-foreground">
-                    {visitas.length} {visitas.length === 1 ? 'visita registrada' : 'visitas registradas'}
+                    {filteredVisitas.length} {filteredVisitas.length === 1 ? 'visita registrada' : 'visitas registradas'}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <FilterBar
-                  searchPlaceholder="Buscar..."
-                  onSearchChange={setRecepcaoSearchFilter}
-                  className="w-64"
-                  compact
-                />
-                <Button 
-                  size="sm"
-                  onClick={() => {
-                    setRecepcaoInitialData(null);
-                    setIsRecepcaoModalOpen(true);
-                  }}
-                >
-                  Registrar Visita
-                </Button>
-              </div>
+              <Button 
+                size="sm"
+                onClick={() => {
+                  setRecepcaoInitialData(null);
+                  setIsRecepcaoModalOpen(true);
+                }}
+              >
+                Registrar Visita
+              </Button>
             </div>
 
             {loadingVisitas ? (
@@ -1011,12 +1072,12 @@ const Prospeccao = () => {
               </div>
             ) : (
               <RecepcaoTable 
-                visitas={visitas} 
+                visitas={filteredVisitas} 
                 onDelete={async (visitaId) => {
                   await excluirVisita(visitaId);
                   await refetch();
                 }}
-                searchFilter={recepcaoSearchFilter}
+                searchFilter=""
               />
             )}
           </Card>
