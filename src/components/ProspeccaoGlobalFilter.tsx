@@ -115,9 +115,9 @@ export function ProspeccaoGlobalFilter({
   const hasActiveFilters = activeFilters.length > 0;
 
   return (
-    <div className={cn("flex flex-col gap-1", className)}>
+    <div className={cn("flex flex-col gap-1 w-full", className)}>
       {/* Linha de filtros aplicados */}
-      <div className="flex items-center gap-2 min-h-[28px]">
+      <div className="flex items-center gap-2 min-h-[28px] flex-wrap">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button 

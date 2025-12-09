@@ -774,7 +774,7 @@ const Prospeccao = () => {
 
   return (
     <DashboardLayout title="Prospecção">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0.5">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0.5 w-full">
         <TabsList className="inline-flex">
           <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
           <TabsTrigger value="eventos">Eventos</TabsTrigger>
@@ -791,7 +791,7 @@ const Prospeccao = () => {
           onFiltersChange={setGlobalFilters}
         />
 
-        <TabsContent value="visao-geral" className="space-y-3">
+        <TabsContent value="visao-geral" className="space-y-3 w-full">
 
           <ProspeccaoVisaoGeral
             metrics={visaoGeralMetrics}
@@ -806,7 +806,7 @@ const Prospeccao = () => {
           />
         </TabsContent>
 
-        <TabsContent value="eventos" className="space-y-3">
+        <TabsContent value="eventos" className="space-y-3 w-full">
           <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -942,7 +942,7 @@ const Prospeccao = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="automacao" className="space-y-3">
+        <TabsContent value="automacao" className="space-y-3 w-full">
           <Card className="p-4">
             <h3 className="text-base font-semibold text-foreground mb-3">Adicionar Contatos à Prospecção</h3>
             
@@ -996,8 +996,8 @@ const Prospeccao = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="kanban" className="mt-0">
-          <div className="h-[calc(100vh-260px)] overflow-auto">
+        <TabsContent value="kanban" className="mt-0 w-full">
+          <div className="h-[calc(100vh-220px)] w-full overflow-hidden">
             <KanbanBoard
               columns={kanbanColumns}
               onUpdateColumns={() => {}}
@@ -1008,7 +1008,7 @@ const Prospeccao = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="recepcao" className="space-y-1.5">
+        <TabsContent value="recepcao" className="space-y-1.5 w-full">
           <Card className="p-3">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
