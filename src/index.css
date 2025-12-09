@@ -8,15 +8,15 @@
   :root {
     /* Saga One Color Palette - HSL values */
     --background: 0 0% 96%; /* #F4F4F4 */
-    --foreground: 240 55% 12%; /* #130D30 */
+    --foreground: 210 64% 16%; /* #0f2a45 */
     --card: 0 0% 100%; /* #FFFFFF */
-    --card-foreground: 240 55% 12%; /* #130D30 */
+    --card-foreground: 210 64% 16%; /* #0f2a45 */
     --popover: 0 0% 100%;
-    --popover-foreground: 240 55% 12%;
+    --popover-foreground: 210 64% 16%;
     --primary: 210 64% 16%; /* #0f2a45 */
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96%;
-    --secondary-foreground: 240 55% 12%;
+    --secondary-foreground: 210 64% 16%;
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 45%;
     --accent: 210 64% 16%; /* #0f2a45 */
@@ -40,7 +40,7 @@
 
     /* Saga One specific design tokens */
     --sagaone-primary: 210 64% 16%; /* #0f2a45 */
-    --sagaone-dark: 240 55% 12%; /* #130D30 */
+    --sagaone-dark: 210 64% 16%; /* #0f2a45 */
     --sagaone-light: 0 0% 100%; /* #FFFFFF */
     --sagaone-bg: 0 0% 96%; /* #F4F4F4 */
     --sagaone-login-bg: 0 0% 97%; /* #F7F7F7 - Cor de fundo da logo */
