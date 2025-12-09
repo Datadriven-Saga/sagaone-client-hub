@@ -32,8 +32,6 @@ interface Produto {
   nome: string;
   descricao: string | null;
   categoria: string | null;
-  preco: number | null;
-  estoque: number | null;
   ativo: boolean | null;
   imagem_url: string | null;
   fotos: string[] | null;
@@ -131,13 +129,6 @@ export function ProdutosTab() {
     produto.categoria?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const formatCurrency = (value: number | null) => {
-    if (value === null) return "-";
-    return new Intl.NumberFormat('pt-BR', { 
-      style: 'currency', 
-      currency: 'BRL' 
-    }).format(value);
-  };
 
   const getMainImage = (produto: Produto) => {
     if (produto.fotos && produto.fotos.length > 0) {
@@ -235,31 +226,21 @@ export function ProdutosTab() {
                     </p>
                   )}
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-lg font-bold text-primary">
-                        {formatCurrency(produto.preco)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Estoque: {produto.estoque ?? 0}
-                      </p>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleEdit(produto)}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => confirmDelete(produto)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
+                  <div className="flex justify-end gap-1">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => handleEdit(produto)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => confirmDelete(produto)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
               </Card>

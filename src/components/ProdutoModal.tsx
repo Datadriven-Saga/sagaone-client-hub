@@ -26,8 +26,6 @@ export function ProdutoModal({ open, onOpenChange, produto, onSuccess }: Produto
     nome: "",
     descricao: "",
     categoria: "",
-    preco: "",
-    estoque: "0",
     ativo: true,
     ficha_tecnica: "",
     fotos: [] as string[],
@@ -40,8 +38,6 @@ export function ProdutoModal({ open, onOpenChange, produto, onSuccess }: Produto
         nome: produto.nome || "",
         descricao: produto.descricao || "",
         categoria: produto.categoria || "",
-        preco: produto.preco?.toString() || "",
-        estoque: produto.estoque?.toString() || "0",
         ativo: produto.ativo ?? true,
         ficha_tecnica: produto.ficha_tecnica || "",
         fotos: produto.fotos || [],
@@ -52,8 +48,6 @@ export function ProdutoModal({ open, onOpenChange, produto, onSuccess }: Produto
         nome: "",
         descricao: "",
         categoria: "",
-        preco: "",
-        estoque: "0",
         ativo: true,
         ficha_tecnica: "",
         fotos: [],
@@ -153,8 +147,6 @@ export function ProdutoModal({ open, onOpenChange, produto, onSuccess }: Produto
         nome: formData.nome.trim(),
         descricao: formData.descricao.trim() || null,
         categoria: formData.categoria.trim() || null,
-        preco: formData.preco ? parseFloat(formData.preco) : null,
-        estoque: parseInt(formData.estoque) || 0,
         ativo: formData.ativo,
         ficha_tecnica: formData.ficha_tecnica.trim() || null,
         fotos: formData.fotos,
@@ -295,29 +287,6 @@ export function ProdutoModal({ open, onOpenChange, produto, onSuccess }: Produto
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="preco">Preço</Label>
-              <Input
-                id="preco"
-                type="number"
-                step="0.01"
-                value={formData.preco}
-                onChange={(e) => setFormData(prev => ({ ...prev, preco: e.target.value }))}
-                placeholder="0,00"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="estoque">Estoque</Label>
-              <Input
-                id="estoque"
-                type="number"
-                value={formData.estoque}
-                onChange={(e) => setFormData(prev => ({ ...prev, estoque: e.target.value }))}
-                placeholder="0"
-              />
-            </div>
-          </div>
 
           <div className="space-y-2">
             <Label htmlFor="descricao">Descrição</Label>
