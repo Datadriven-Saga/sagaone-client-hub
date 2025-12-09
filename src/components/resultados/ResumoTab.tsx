@@ -122,7 +122,7 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
           </Tooltip>
         </TooltipProvider>
       </div>
-      <div className="flex flex-col items-center space-y-2">
+      <div className="flex flex-col items-center justify-center space-y-2 h-full">
         {stages.map((stage, index) => {
           const funnelWidths = [100, 85, 70, 55, 42, 30];
           const widthPercentage = funnelWidths[Math.min(index, funnelWidths.length - 1)];
@@ -130,7 +130,7 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
           const conversionRate = previousStage ? getConversionRate(stage.value, previousStage.value) : 100;
           
           return (
-            <div key={stage.id} className="w-full flex items-center gap-4">
+            <div key={stage.id} className="w-full flex items-center justify-center gap-4">
               {/* Estágio do funil */}
               <div className="flex-1 flex justify-center">
                 <div
@@ -143,8 +143,8 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
                   }}
                 >
                   <div className="text-center">
-                    <div className="text-lg font-bold">{stage.value.toLocaleString()}</div>
-                    <div className="text-[10px] font-medium opacity-90">{stage.title}</div>
+                    <div className="text-xl font-bold">{stage.value.toLocaleString()}</div>
+                    <div className="text-xs font-medium opacity-90">{stage.title}</div>
                   </div>
                 </div>
               </div>
