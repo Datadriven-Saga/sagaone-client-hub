@@ -5,14 +5,11 @@ import { Card } from "@/components/ui/card";
 import { 
   LayoutDashboard, 
   Medal, 
-  UserCheck, 
-  TrendingUp, 
   Package, 
   BarChart3, 
   User, 
   Trophy, 
-  FileText,
-  Calendar
+  FileText
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
@@ -64,7 +61,7 @@ const Resultados = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-9 h-auto p-1">
+          <TabsList className="grid w-full grid-cols-7 h-auto p-1">
             <TabsTrigger value="resumo" className="flex items-center gap-1.5 text-xs py-2">
               <LayoutDashboard className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Resumo</span>
@@ -72,14 +69,6 @@ const Resultados = () => {
             <TabsTrigger value="ranking" className="flex items-center gap-1.5 text-xs py-2">
               <Medal className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Ranking</span>
-            </TabsTrigger>
-            <TabsTrigger value="checkin" className="flex items-center gap-1.5 text-xs py-2">
-              <UserCheck className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Check-In</span>
-            </TabsTrigger>
-            <TabsTrigger value="vendas" className="flex items-center gap-1.5 text-xs py-2">
-              <TrendingUp className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Vendas</span>
             </TabsTrigger>
             <TabsTrigger value="produtos" className="flex items-center gap-1.5 text-xs py-2">
               <Package className="h-3.5 w-3.5" />
@@ -122,27 +111,6 @@ const Resultados = () => {
             />
           </TabsContent>
 
-          {/* Tab Check-In */}
-          <TabsContent value="checkin" className="mt-4">
-            <Card className="p-8 text-center">
-              <UserCheck className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
-              <h3 className="text-lg font-semibold mb-2">Check-Ins</h3>
-              <p className="text-sm text-muted-foreground">
-                Registro e análise de check-ins do evento
-              </p>
-            </Card>
-          </TabsContent>
-
-          {/* Tab Vendas */}
-          <TabsContent value="vendas" className="mt-4">
-            <Card className="p-8 text-center">
-              <TrendingUp className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
-              <h3 className="text-lg font-semibold mb-2">Vendas</h3>
-              <p className="text-sm text-muted-foreground">
-                Resultados de vendas do evento
-              </p>
-            </Card>
-          </TabsContent>
 
           {/* Tab Produtos */}
           <TabsContent value="produtos" className="mt-4">
