@@ -59,7 +59,7 @@ const Resultados = () => {
 
   return (
     <DashboardLayout title="Resultados">
-      <div className="space-y-4">
+      <div className="space-y-2">
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -103,7 +103,7 @@ const Resultados = () => {
           </TabsList>
 
           {/* Tab Resumo */}
-          <TabsContent value="resumo" className="mt-4">
+          <TabsContent value="resumo" className="mt-2">
             <ResumoTab 
               prospeccaoIds={selectedProspeccoes} 
               empresaId={activeCompany?.id || null}
