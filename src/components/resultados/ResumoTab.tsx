@@ -9,10 +9,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+interface Prospeccao {
+  id: string;
+  titulo: string;
+  data_inicio: string | null;
+  data_fim: string | null;
+}
 
 interface ResumoTabProps {
   prospeccaoId: string | null;
   empresaId: string | null;
+  prospeccoes?: Prospeccao[];
+  selectedProspeccao?: string;
+  onProspeccaoChange?: (value: string) => void;
 }
 
 interface ProspeccaoMetas {
@@ -168,7 +179,7 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
   );
 };
 
-export const ResumoTab = ({ prospeccaoId, empresaId }: ResumoTabProps) => {
+export const ResumoTab = ({ prospeccaoId, empresaId, prospeccoes, selectedProspeccao, onProspeccaoChange }: ResumoTabProps) => {
   const [metas, setMetas] = useState<ProspeccaoMetas | null>(null);
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({
     totalBase: 0,
@@ -300,7 +311,28 @@ export const ResumoTab = ({ prospeccaoId, empresaId }: ResumoTabProps) => {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Lado Esquerdo - Funil de Vendas */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Funil de Vendas</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Funil de Vendas</h3>
+          {prospeccoes && prospeccoes.length > 0 && onProspeccaoChange && (
+            <Select value={selectedProspeccao || ""} onValueChange={onProspeccaoChange}>
+              <SelectTrigger className="w-[280px]">
+                <SelectValue placeholder="Selecione um evento" />
+              </SelectTrigger>
+              <SelectContent>
+                {prospeccoes.map((prospeccao) => (
+                  <SelectItem key={prospeccao.id} value={prospeccao.id}>
+                    {prospeccao.titulo}
+                    {prospeccao.data_inicio && (
+                      <span className="text-muted-foreground ml-2 text-xs">
+                        ({new Date(prospeccao.data_inicio + 'T12:00:00').toLocaleDateString('pt-BR')})
+                      </span>
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
         <SalesFunnel stages={funnelStages} />
       </div>
 

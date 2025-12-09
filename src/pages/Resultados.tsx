@@ -60,30 +60,6 @@ const Resultados = () => {
   return (
     <DashboardLayout title="Resultados">
       <div className="space-y-4">
-        {/* Seletor de Prospecção */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Evento:</span>
-          </div>
-          <Select value={selectedProspeccao} onValueChange={setSelectedProspeccao}>
-            <SelectTrigger className="w-[350px]">
-              <SelectValue placeholder="Selecione um evento" />
-            </SelectTrigger>
-            <SelectContent>
-              {prospeccoes.map((prospeccao) => (
-                <SelectItem key={prospeccao.id} value={prospeccao.id}>
-                  {prospeccao.titulo}
-                  {prospeccao.data_inicio && (
-                    <span className="text-muted-foreground ml-2 text-xs">
-                      ({new Date(prospeccao.data_inicio + 'T12:00:00').toLocaleDateString('pt-BR')})
-                    </span>
-                  )}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -130,7 +106,10 @@ const Resultados = () => {
           <TabsContent value="resumo" className="mt-4">
             <ResumoTab 
               prospeccaoId={selectedProspeccao || null} 
-              empresaId={activeCompany?.id || null} 
+              empresaId={activeCompany?.id || null}
+              prospeccoes={prospeccoes}
+              selectedProspeccao={selectedProspeccao}
+              onProspeccaoChange={setSelectedProspeccao}
             />
           </TabsContent>
 
