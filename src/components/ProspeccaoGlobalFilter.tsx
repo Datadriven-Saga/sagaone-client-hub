@@ -88,7 +88,7 @@ export function ProspeccaoGlobalFilter({
     <Card className={cn("p-3", className)}>
       <div className="flex flex-wrap gap-3 items-end">
         {/* Prospecção/Evento - Dobro da largura */}
-        <div className="flex flex-col gap-1 min-w-[324px]">
+        <div className="flex flex-col gap-1 min-w-[292px]">
           <label className="text-xs font-medium text-muted-foreground">Prospecção/Evento</label>
           <Select 
             value={filters.prospeccaoId} 
@@ -107,7 +107,7 @@ export function ProspeccaoGlobalFilter({
         </div>
 
         {/* Status */}
-        <div className="flex flex-col gap-1 min-w-[140px]">
+        <div className="flex flex-col gap-1 min-w-[126px]">
           <label className="text-xs font-medium text-muted-foreground">Status</label>
           <Select 
             value={filters.status} 
