@@ -61,7 +61,7 @@ const Resultados = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-7 h-auto p-1">
+          <TabsList className="inline-flex h-auto p-1 w-auto">
             <TabsTrigger value="resumo" className="flex items-center gap-1.5 text-xs py-2">
               <LayoutDashboard className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Resumo</span>
