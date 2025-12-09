@@ -476,35 +476,38 @@ export function ContatoModal({
           </div>
         </DialogHeader>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Sidebar */}
-          <div className="w-64 border-r bg-muted/30 overflow-y-auto">
-            <div className="p-4">
-              <nav className="space-y-1">
-                {sidebarItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setActiveTab(item.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors ${
-                        activeTab === item.id
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
+          <div className="w-56 border-r bg-muted/30 flex-shrink-0">
+            <ScrollArea className="h-full">
+              <div className="p-3">
+                <nav className="space-y-1">
+                  {sidebarItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors ${
+                          activeTab === item.id
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+            </ScrollArea>
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-6">
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="p-4">
               {activeTab === 'dados-pessoais' && (
                 <div className="space-y-6">
                   <Card className="p-6">
@@ -992,7 +995,8 @@ export function ContatoModal({
                   </ScrollArea>
                 </Card>
               )}
-            </div>
+              </div>
+            </ScrollArea>
           </div>
         </div>
       </DialogContent>
