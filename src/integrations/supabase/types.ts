@@ -1086,6 +1086,9 @@ export type Database = {
           descricao: string | null
           empresa_id: string | null
           estoque: number | null
+          ficha_tecnica: string | null
+          foto_principal_index: number | null
+          fotos: Json | null
           id: string
           imagem_url: string | null
           nome: string
@@ -1099,6 +1102,9 @@ export type Database = {
           descricao?: string | null
           empresa_id?: string | null
           estoque?: number | null
+          ficha_tecnica?: string | null
+          foto_principal_index?: number | null
+          fotos?: Json | null
           id?: string
           imagem_url?: string | null
           nome: string
@@ -1112,6 +1118,9 @@ export type Database = {
           descricao?: string | null
           empresa_id?: string | null
           estoque?: number | null
+          ficha_tecnica?: string | null
+          foto_principal_index?: number | null
+          fotos?: Json | null
           id?: string
           imagem_url?: string | null
           nome?: string

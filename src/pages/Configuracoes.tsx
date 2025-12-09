@@ -6,15 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Settings, Package, X, Users, MessageSquare, Thermometer, Phone } from "lucide-react";
+import { Plus, Trash2, X, Users, MessageSquare, Thermometer, Phone } from "lucide-react";
+import { ProdutosTab } from "@/components/ProdutosTab";
 
 const Configuracoes = () => {
-  const mockProducts = [
-    { id: "001", brand: "Honda", name: "Civic", version: "2024", stock: 5 },
-    { id: "002", brand: "Toyota", name: "Corolla", version: "2024", stock: 3 },
-    { id: "003", brand: "VW", name: "Jetta", version: "2023", stock: 8 }
-  ];
-
   const mockReasons = [
     { id: "001", reason: "Cliente não tem interesse" },
     { id: "002", reason: "Cliente já realizou a compra" },
@@ -37,8 +32,8 @@ const Configuracoes = () => {
 
   return (
     <DashboardLayout title="Configurações">
-      <Tabs defaultValue="produtos" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+      <Tabs defaultValue="produtos" className="space-y-3">
+        <TabsList className="justify-start w-auto inline-flex">
           <TabsTrigger value="produtos">Produtos</TabsTrigger>
           <TabsTrigger value="motivos">Motivos</TabsTrigger>
           <TabsTrigger value="departamentos">Departamentos</TabsTrigger>
@@ -48,50 +43,7 @@ const Configuracoes = () => {
         </TabsList>
 
         <TabsContent value="produtos" className="space-y-6">
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Produtos</h3>
-              </div>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Produto
-              </Button>
-            </div>
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Marca</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Versão</TableHead>
-                  <TableHead>Estoque</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockProducts.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-medium">{product.id}</TableCell>
-                    <TableCell>{product.brand}</TableCell>
-                    <TableCell>{product.name}</TableCell>
-                    <TableCell>{product.version}</TableCell>
-                    <TableCell>{product.stock}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline">Editar</Button>
-                        <Button size="sm" variant="outline">
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+          <ProdutosTab />
         </TabsContent>
 
         <TabsContent value="motivos" className="space-y-6">
