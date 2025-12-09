@@ -424,13 +424,13 @@ const Prospeccao = () => {
     },
     {
       id: 'checkin',
-      title: 'Check-in',
+      title: 'Check-ins',
       color: '#22c55e',
       items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Check-in')) : []
     },
     {
       id: 'venda',
-      title: 'Venda',
+      title: 'Vendas',
       color: '#16a34a',
       items: contatos ? contatosToKanbanItems(contatos.filter(contato => contato && contato.status === 'Venda')) : []
     },
