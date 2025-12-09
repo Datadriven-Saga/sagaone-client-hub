@@ -290,13 +290,13 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId, prospeccoes,
     return (metas.meta_novos || 0) + (metas.meta_seminovos || 0) + (metas.meta_diretas || 0);
   }, [metas]);
 
-  // Dados do funil - Cores: roxo, vermelho, laranja, verde claro, verde, azul
+  // Dados do funil - Cores: vermelho, laranja, verde claro, verde, verde escuro, azul
   const funnelStages: FunnelStage[] = useMemo(() => [
-    { id: 'totalBase', title: 'Total da Base', value: statusCounts.totalBase, color: '#8B5CF6' },      // Roxo
-    { id: 'distribuidos', title: 'Distribuídos', value: statusCounts.atribuidos, color: '#EF4444' },   // Vermelho
-    { id: 'convidados', title: 'Convidados', value: statusCounts.convidados, color: '#F97316' },       // Laranja
-    { id: 'confirmados', title: 'Confirmados', value: statusCounts.confirmados, color: '#84CC16' },    // Verde claro
-    { id: 'checkins', title: 'Check-Ins', value: statusCounts.checkins, color: '#22C55E' },            // Verde
+    { id: 'totalBase', title: 'Total da Base', value: statusCounts.totalBase, color: '#EF4444' },      // Vermelho
+    { id: 'distribuidos', title: 'Distribuídos', value: statusCounts.atribuidos, color: '#F97316' },   // Laranja
+    { id: 'convidados', title: 'Convidados', value: statusCounts.convidados, color: '#84CC16' },       // Verde claro
+    { id: 'confirmados', title: 'Confirmados', value: statusCounts.confirmados, color: '#22C55E' },    // Verde
+    { id: 'checkins', title: 'Check-Ins', value: statusCounts.checkins, color: '#16A34A' },            // Verde escuro
     { id: 'vendas', title: 'Vendas', value: statusCounts.vendas, color: '#3B82F6' },                   // Azul
   ], [statusCounts]);
 
