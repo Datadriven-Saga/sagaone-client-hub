@@ -1745,27 +1745,40 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                     <div>
                       <Label className="text-xs">Integrantes</Label>
                       <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
-                        {usersComAcesso.map((userItem) => (
-                          <label 
-                            key={userItem.id}
-                            className="flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={novaEquipeMembros.includes(userItem.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setNovaEquipeMembros([...novaEquipeMembros, userItem.id]);
-                                } else {
-                                  setNovaEquipeMembros(novaEquipeMembros.filter(id => id !== userItem.id));
-                                }
-                              }}
-                              className="rounded border-primary"
-                            />
-                            <span className="text-sm">{userItem.nome_completo}</span>
-                            <span className="text-xs text-muted-foreground">({userItem.tipo_acesso})</span>
-                          </label>
-                        ))}
+                        {usersComAcesso.map((userItem) => {
+                          // Verificar se o usuário já está em outra equipe
+                          const jaEmOutraEquipe = equipes.some(eq => eq.membros.includes(userItem.id));
+                          
+                          return (
+                            <label 
+                              key={userItem.id}
+                              className={`flex items-center gap-2 p-1.5 rounded cursor-pointer ${
+                                jaEmOutraEquipe 
+                                  ? 'opacity-40 cursor-not-allowed' 
+                                  : 'hover:bg-muted/50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={novaEquipeMembros.includes(userItem.id)}
+                                disabled={jaEmOutraEquipe}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setNovaEquipeMembros([...novaEquipeMembros, userItem.id]);
+                                  } else {
+                                    setNovaEquipeMembros(novaEquipeMembros.filter(id => id !== userItem.id));
+                                  }
+                                }}
+                                className="rounded border-primary"
+                              />
+                              <span className="text-sm">{userItem.nome_completo}</span>
+                              <span className="text-xs text-muted-foreground">
+                                ({userItem.tipo_acesso})
+                                {jaEmOutraEquipe && ' - já em outra equipe'}
+                              </span>
+                            </label>
+                          );
+                        })}
                       </div>
                     </div>
                     
@@ -1856,28 +1869,43 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                           <div>
                             <Label className="text-xs">Integrantes</Label>
                             <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
-                              {usersComAcesso.map((userItem) => (
-                                <label 
-                                  key={userItem.id}
-                                  className="flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={equipe.membros.includes(userItem.id)}
-                                    onChange={(e) => {
-                                      const updated = [...equipes];
-                                      if (e.target.checked) {
-                                        updated[index].membros = [...updated[index].membros, userItem.id];
-                                      } else {
-                                        updated[index].membros = updated[index].membros.filter(id => id !== userItem.id);
-                                      }
-                                      setEquipes(updated);
-                                    }}
-                                    className="rounded border-primary"
-                                  />
-                                  <span className="text-sm">{userItem.nome_completo}</span>
-                                </label>
-                              ))}
+                              {usersComAcesso.map((userItem) => {
+                                // Verificar se o usuário já está em outra equipe (exceto a atual sendo editada)
+                                const jaEmOutraEquipe = equipes.some((eq, eqIndex) => 
+                                  eqIndex !== index && eq.membros.includes(userItem.id)
+                                );
+                                
+                                return (
+                                  <label 
+                                    key={userItem.id}
+                                    className={`flex items-center gap-2 p-1.5 rounded cursor-pointer ${
+                                      jaEmOutraEquipe 
+                                        ? 'opacity-40 cursor-not-allowed' 
+                                        : 'hover:bg-muted/50'
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={equipe.membros.includes(userItem.id)}
+                                      disabled={jaEmOutraEquipe}
+                                      onChange={(e) => {
+                                        const updated = [...equipes];
+                                        if (e.target.checked) {
+                                          updated[index].membros = [...updated[index].membros, userItem.id];
+                                        } else {
+                                          updated[index].membros = updated[index].membros.filter(id => id !== userItem.id);
+                                        }
+                                        setEquipes(updated);
+                                      }}
+                                      className="rounded border-primary"
+                                    />
+                                    <span className="text-sm">{userItem.nome_completo}</span>
+                                    {jaEmOutraEquipe && (
+                                      <span className="text-xs text-muted-foreground">- já em outra equipe</span>
+                                    )}
+                                  </label>
+                                );
+                              })}
                             </div>
                           </div>
                           
