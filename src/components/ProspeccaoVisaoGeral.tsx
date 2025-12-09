@@ -131,65 +131,7 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Left Column - Metrics and Actions */}
-      <div className="space-y-2">
-        {/* Metric Cards */}
-        {metricCards.map((card) => (
-          <Card
-            key={card.id}
-            className={cn(
-              "py-2 px-3 cursor-pointer transition-all hover:shadow-md flex items-center justify-between",
-              card.bgColor,
-              card.highlight && "shadow-lg"
-            )}
-            onClick={() => onMetricClick?.(card.id)}
-          >
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "w-7 h-7 rounded-full flex items-center justify-center",
-                card.highlight ? "bg-white/20" : "bg-primary/10"
-              )}>
-                <card.icon className={cn(
-                  "w-4 h-4",
-                  card.highlight ? "text-white" : "text-primary"
-                )} />
-              </div>
-              <span className={cn("text-sm font-medium", card.textColor)}>
-                {card.label}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={cn("text-lg font-bold", card.textColor)}>
-                {card.value.toLocaleString('pt-BR')}
-              </span>
-              <ChevronRight className={cn("w-4 h-4", card.textColor)} />
-            </div>
-          </Card>
-        ))}
-
-        {/* Action Buttons */}
-        <div className="mt-4 space-y-2">
-          {actionButtons.map((action) => (
-            <Card
-              key={action.id}
-              className="py-2 px-3 cursor-pointer transition-all hover:shadow-md hover:bg-muted/50 flex items-center justify-between"
-              onClick={action.onClick}
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
-                  <action.icon className="w-4 h-4 text-primary" />
-                </div>
-                <span className="text-sm font-medium text-foreground">
-                  {action.label}
-                </span>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* Right Column - Funnel */}
+      {/* Left Column - Funnel */}
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-6">
           <Filter className="w-5 h-5 text-primary" />
@@ -270,6 +212,64 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
           </div>
         </div>
       </Card>
+
+      {/* Right Column - Metrics and Actions */}
+      <div className="space-y-2">
+        {/* Metric Cards */}
+        {metricCards.map((card) => (
+          <Card
+            key={card.id}
+            className={cn(
+              "py-2 px-3 cursor-pointer transition-all hover:shadow-md flex items-center justify-between",
+              card.bgColor,
+              card.highlight && "shadow-lg"
+            )}
+            onClick={() => onMetricClick?.(card.id)}
+          >
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                "w-7 h-7 rounded-full flex items-center justify-center",
+                card.highlight ? "bg-white/20" : "bg-primary/10"
+              )}>
+                <card.icon className={cn(
+                  "w-4 h-4",
+                  card.highlight ? "text-white" : "text-primary"
+                )} />
+              </div>
+              <span className={cn("text-sm font-medium", card.textColor)}>
+                {card.label}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={cn("text-lg font-bold", card.textColor)}>
+                {card.value.toLocaleString('pt-BR')}
+              </span>
+              <ChevronRight className={cn("w-4 h-4", card.textColor)} />
+            </div>
+          </Card>
+        ))}
+
+        {/* Action Buttons */}
+        <div className="mt-4 space-y-2">
+          {actionButtons.map((action) => (
+            <Card
+              key={action.id}
+              className="py-2 px-3 cursor-pointer transition-all hover:shadow-md hover:bg-muted/50 flex items-center justify-between"
+              onClick={action.onClick}
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+                  <action.icon className="w-4 h-4 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-foreground">
+                  {action.label}
+                </span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </Card>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
