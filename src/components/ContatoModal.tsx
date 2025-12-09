@@ -420,12 +420,12 @@ export function ContatoModal({
     // Remove todos os caracteres não numéricos
     let phone = telefone.replace(/\D/g, '');
     
-    // Adiciona 55 se não começar com 55
-    if (!phone.startsWith('55')) {
+    // Se tem 10 ou 11 caracteres, adiciona 55
+    // Se tem 12 ou 13 caracteres, assume que já tem o 55
+    if (phone.length === 10 || phone.length === 11) {
       phone = '55' + phone;
     }
     
-    // Resultado esperado: 5562987654321 (13 dígitos: 55 + DDD + 9 + 8 dígitos)
     return phone;
   };
 
