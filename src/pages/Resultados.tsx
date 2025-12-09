@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { 
   LayoutDashboard, 
-  Target, 
+  Medal, 
   UserCheck, 
   TrendingUp, 
   Package, 
@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { ResumoTab } from "@/components/resultados/ResumoTab";
 import { DesempenhoTab } from "@/components/resultados/DesempenhoTab";
+import { RankingTab } from "@/components/resultados/RankingTab";
 
 interface Prospeccao {
   id: string;
@@ -68,9 +69,9 @@ const Resultados = () => {
               <LayoutDashboard className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Resumo</span>
             </TabsTrigger>
-            <TabsTrigger value="prospeccao" className="flex items-center gap-1.5 text-xs py-2">
-              <Target className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Prospecção</span>
+            <TabsTrigger value="ranking" className="flex items-center gap-1.5 text-xs py-2">
+              <Medal className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Ranking</span>
             </TabsTrigger>
             <TabsTrigger value="checkin" className="flex items-center gap-1.5 text-xs py-2">
               <UserCheck className="h-3.5 w-3.5" />
@@ -113,15 +114,12 @@ const Resultados = () => {
             />
           </TabsContent>
 
-          {/* Tab Prospecção */}
-          <TabsContent value="prospeccao" className="mt-4">
-            <Card className="p-8 text-center">
-              <Target className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
-              <h3 className="text-lg font-semibold mb-2">Resultados de Prospecção</h3>
-              <p className="text-sm text-muted-foreground">
-                Métricas e análises da prospecção
-              </p>
-            </Card>
+          {/* Tab Ranking */}
+          <TabsContent value="ranking" className="mt-4">
+            <RankingTab 
+              prospeccaoId={selectedProspeccoes[0] || null} 
+              empresaId={activeCompany?.id || null} 
+            />
           </TabsContent>
 
           {/* Tab Check-In */}
