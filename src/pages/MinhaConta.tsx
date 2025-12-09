@@ -12,7 +12,7 @@ import { User, Mail, Phone, Calendar, Building, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { AvatarSelector } from "@/components/AvatarSelector";
+import { AvatarBuilder } from "@/components/AvatarBuilder";
 
 const profileSchema = z.object({
   nome_completo: z.string().min(1, "Nome é obrigatório"),
@@ -144,7 +144,7 @@ const MinhaConta = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center space-x-4">
-              <AvatarSelector
+              <AvatarBuilder
                 currentAvatar={profile?.foto_url}
                 userName={profile?.nome_completo}
                 onAvatarChange={handleAvatarChange}
