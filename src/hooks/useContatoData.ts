@@ -490,12 +490,13 @@ export const useContatoData = () => {
     const agendados = contatos.filter(c => c.status === 'Agendado').length;
     const confirmados = contatos.filter(c => c.status === 'Confirmado').length;
     const checkin = contatos.filter(c => c.status === 'Check-in').length;
+    const vendas = contatos.filter(c => c.status === 'Venda').length;
     const descartados = contatos.filter(c => c.status === 'Descartado').length;
     const optOut = contatos.filter(c => c.status === 'Opt Out').length;
     const desperdicio = contatos.filter(c => c.status === 'Desperdício').length;
     
     // Disponíveis = Total - Atribuídos (que já foram distribuídos a alguém)
-    const disponiveisDistribuicao = totalBase - atribuidos - emEspera - convidados - agendados - confirmados - checkin - descartados - optOut;
+    const disponiveisDistribuicao = totalBase - atribuidos - emEspera - convidados - agendados - confirmados - checkin - vendas - descartados - optOut;
 
     return {
       totalBase,
@@ -506,6 +507,7 @@ export const useContatoData = () => {
       agendados,
       confirmados,
       checkin,
+      vendas,
       descartados,
       optOut,
       desperdicio,

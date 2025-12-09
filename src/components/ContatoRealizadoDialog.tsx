@@ -120,6 +120,27 @@ export function ContatoRealizadoDialog({
         }
       });
 
+      // Atualizar status do contato baseado no tipo de contato
+      if (tipoContato === 'vai_participar') {
+        const { error: updateError } = await supabase
+          .from('contatos')
+          .update({ status: 'Confirmado' })
+          .eq('id', contatoId);
+
+        if (updateError) {
+          console.error('Erro ao atualizar status:', updateError);
+        }
+      } else if (tipoContato === 'nao_vai_participar') {
+        const { error: updateError } = await supabase
+          .from('contatos')
+          .update({ status: 'Descartado' })
+          .eq('id', contatoId);
+
+        if (updateError) {
+          console.error('Erro ao atualizar status:', updateError);
+        }
+      }
+
       if (error) throw error;
 
       toast({

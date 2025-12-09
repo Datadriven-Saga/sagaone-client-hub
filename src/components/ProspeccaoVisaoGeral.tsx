@@ -29,6 +29,7 @@ interface FunnelData {
   convidados: number;
   confirmados: number;
   checkIns: number;
+  vendas: number;
 }
 
 interface ProspeccaoVisaoGeralProps {
@@ -197,20 +198,26 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
         <div className="space-y-2">
           {/* Distribuídos sem ação */}
           <div 
-            className="bg-primary rounded-lg py-2 px-6 text-center text-white"
-            style={{ width: '100%' }}
+            className="rounded-lg py-2 px-6 text-center text-white"
+            style={{ width: '100%', backgroundColor: '#F97316' }}
           >
             <div className="text-lg font-bold">{funnelData.distribuidosSemAcao.toLocaleString('pt-BR')}</div>
             <div className="text-xs opacity-90">Distribuídos sem ação</div>
           </div>
 
           {/* Contatados / Sem contato */}
-          <div className="flex gap-3 mx-auto" style={{ width: '85%' }}>
-            <div className="flex-1 bg-primary/80 rounded-lg py-2 px-4 text-center text-white">
+          <div className="flex gap-3 mx-auto" style={{ width: '90%' }}>
+            <div 
+              className="flex-1 rounded-lg py-2 px-4 text-center text-white"
+              style={{ backgroundColor: '#F97316' }}
+            >
               <div className="text-base font-bold">{funnelData.contatados.toLocaleString('pt-BR')}</div>
               <div className="text-xs opacity-90">Contatados</div>
             </div>
-            <div className="flex-1 bg-primary/60 rounded-lg py-2 px-4 text-center text-white">
+            <div 
+              className="flex-1 rounded-lg py-2 px-4 text-center text-white"
+              style={{ backgroundColor: '#F97316' }}
+            >
               <div className="text-base font-bold">{funnelData.semContato.toLocaleString('pt-BR')}</div>
               <div className="text-xs opacity-90">Sem contato</div>
             </div>
@@ -218,8 +225,8 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
 
           {/* Convidados */}
           <div 
-            className="bg-primary/50 rounded-lg py-2 px-4 text-center text-white mx-auto"
-            style={{ width: '70%' }}
+            className="rounded-lg py-2 px-4 text-center text-white mx-auto"
+            style={{ width: '75%', backgroundColor: '#84CC16' }}
           >
             <div className="text-base font-bold">{funnelData.convidados.toLocaleString('pt-BR')}</div>
             <div className="text-xs opacity-90">Convidados</div>
@@ -227,20 +234,29 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
 
           {/* Confirmados */}
           <div 
-            className="bg-primary/40 rounded-lg py-2 px-4 text-center text-foreground mx-auto"
-            style={{ width: '55%' }}
+            className="rounded-lg py-2 px-4 text-center text-white mx-auto"
+            style={{ width: '60%', backgroundColor: '#22C55E' }}
           >
             <div className="text-base font-bold">{funnelData.confirmados.toLocaleString('pt-BR')}</div>
-            <div className="text-xs">Confirmados</div>
+            <div className="text-xs opacity-90">Confirmados</div>
           </div>
 
           {/* Check-Ins */}
           <div 
-            className="bg-primary/30 rounded-lg py-2 px-4 text-center text-foreground mx-auto"
-            style={{ width: '40%' }}
+            className="rounded-lg py-2 px-4 text-center text-white mx-auto"
+            style={{ width: '45%', backgroundColor: '#16A34A' }}
           >
             <div className="text-base font-bold">{funnelData.checkIns.toLocaleString('pt-BR')}</div>
-            <div className="text-xs">Check-Ins</div>
+            <div className="text-xs opacity-90">Check-Ins</div>
+          </div>
+
+          {/* Vendas */}
+          <div 
+            className="rounded-lg py-2 px-4 text-center text-white mx-auto"
+            style={{ width: '30%', backgroundColor: '#3B82F6' }}
+          >
+            <div className="text-base font-bold">{funnelData.vendas.toLocaleString('pt-BR')}</div>
+            <div className="text-xs opacity-90">Vendas</div>
           </div>
         </div>
       </Card>
