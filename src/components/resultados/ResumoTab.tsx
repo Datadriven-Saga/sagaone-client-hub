@@ -2,7 +2,13 @@ import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
-import { Target, Users, UserCheck, TrendingUp, UserPlus } from "lucide-react";
+import { Target, Users, UserCheck, TrendingUp, UserPlus, Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ResumoTabProps {
   prospeccaoId: string | null;
@@ -104,7 +110,18 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
 
   return (
     <Card className="p-6 h-full">
-      
+      <div className="flex justify-end mb-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-[200px]">
+              <p className="text-xs">Os percentuais à direita indicam a taxa de conversão em relação à etapa anterior.</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
       <div className="flex flex-col items-center space-y-2">
         {stages.map((stage, index) => {
           const funnelWidths = [100, 85, 70, 55, 42, 30];
@@ -147,12 +164,6 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
         })}
       </div>
 
-      {/* Legenda */}
-      <div className="mt-6 pt-4 border-t border-muted">
-        <p className="text-xs text-muted-foreground text-center">
-          Os percentuais à direita indicam a taxa de conversão em relação à etapa anterior
-        </p>
-      </div>
     </Card>
   );
 };
