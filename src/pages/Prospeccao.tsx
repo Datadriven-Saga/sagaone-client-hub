@@ -260,34 +260,13 @@ const Prospeccao = () => {
     }
   };
 
-  // ✅ AGORA EARLY RETURN PODE VIR APÓS TODOS OS HOOKS
-  console.log('⏳ Loading status check:', loading);
-  
-  if (loading) {
-    console.log('🔄 Rendering loading state...');
-    return (
-      <DashboardLayout title="Prospecção">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  console.log('✅ All data loaded, rendering main component...');
-  
-  // Calcular métricas dos contatos após verificar loading
-  console.log('📈 Calculating metricas...');
+  // Calcular métricas dos contatos (antes do early return para uso nos useMemo)
   const metricas = getMetricas();
-  console.log('📊 Metricas calculated:', metricas);
 
+  // ✅ TODOS OS USEMEMO DEVEM VIR ANTES DO EARLY RETURN
   // Função de filtragem global para contatos
   const filteredContatos = useMemo(() => {
     return contatos.filter(contato => {
-      // Filtro por prospecção
-      // TODO: quando houver relação prospeccao_id em contatos, implementar
-      
-      // Filtro por período (data de criação do contato)
       if (globalFilters.dataInicio) {
         const dataInicio = new Date(globalFilters.dataInicio);
         const contatoData = new Date(contato.created_at || '');
@@ -299,8 +278,6 @@ const Prospeccao = () => {
         const contatoData = new Date(contato.created_at || '');
         if (contatoData > dataFim) return false;
       }
-      
-      // Filtro por responsável
       if (globalFilters.responsavelId !== "todos") {
         const profile = profiles.find(p => p.id === globalFilters.responsavelId);
         if (profile) {
@@ -313,13 +290,9 @@ const Prospeccao = () => {
           return false;
         }
       }
-      
-      // Filtro por status
       if (globalFilters.status !== "todos" && contato.status !== globalFilters.status) {
         return false;
       }
-      
-      // Filtro por telefone
       if (globalFilters.telefone && contato.telefone) {
         const telefoneNormalizado = contato.telefone.replace(/\D/g, '');
         const filtroNormalizado = globalFilters.telefone.replace(/\D/g, '');
@@ -327,13 +300,10 @@ const Prospeccao = () => {
       } else if (globalFilters.telefone && !contato.telefone) {
         return false;
       }
-      
-      // Filtro por nome do cliente
       if (globalFilters.nomeCliente) {
         const nomeSearch = globalFilters.nomeCliente.toLowerCase();
         if (!contato.nome?.toLowerCase().includes(nomeSearch)) return false;
       }
-      
       return true;
     });
   }, [contatos, globalFilters, profiles]);
@@ -341,12 +311,9 @@ const Prospeccao = () => {
   // Função de filtragem global para prospecções/eventos
   const filteredProspeccoes = useMemo(() => {
     return prospeccoes.filter(prospeccao => {
-      // Filtro por prospecção selecionada
       if (globalFilters.prospeccaoId !== "todos" && prospeccao.id !== globalFilters.prospeccaoId) {
         return false;
       }
-      
-      // Filtro por período (data de início/fim do evento)
       if (globalFilters.dataInicio && prospeccao.data_fim) {
         const filtroInicio = new Date(globalFilters.dataInicio);
         const eventoFim = new Date(prospeccao.data_fim);
@@ -357,13 +324,10 @@ const Prospeccao = () => {
         const eventoInicio = new Date(prospeccao.data_inicio);
         if (eventoInicio > filtroFim) return false;
       }
-      
-      // Filtro por nome (usando nomeCliente como busca geral)
       if (globalFilters.nomeCliente) {
         const nomeSearch = globalFilters.nomeCliente.toLowerCase();
         if (!prospeccao.titulo?.toLowerCase().includes(nomeSearch)) return false;
       }
-      
       return true;
     });
   }, [prospeccoes, globalFilters]);
@@ -371,7 +335,6 @@ const Prospeccao = () => {
   // Função de filtragem global para visitas (recepção)
   const filteredVisitas = useMemo(() => {
     return visitas.filter(visita => {
-      // Filtro por período
       if (globalFilters.dataInicio) {
         const dataInicio = new Date(globalFilters.dataInicio);
         const visitaData = new Date(visita.data_hora_visita);
@@ -383,23 +346,29 @@ const Prospeccao = () => {
         const visitaData = new Date(visita.data_hora_visita);
         if (visitaData > dataFim) return false;
       }
-      
-      // Filtro por telefone
       if (globalFilters.telefone) {
         const telefoneNormalizado = visita.telefone_cliente.replace(/\D/g, '');
         const filtroNormalizado = globalFilters.telefone.replace(/\D/g, '');
         if (!telefoneNormalizado.includes(filtroNormalizado)) return false;
       }
-      
-      // Filtro por nome do cliente
       if (globalFilters.nomeCliente) {
         const nomeSearch = globalFilters.nomeCliente.toLowerCase();
         if (!visita.nome_cliente?.toLowerCase().includes(nomeSearch)) return false;
       }
-      
       return true;
     });
   }, [visitas, globalFilters]);
+
+  // ✅ AGORA EARLY RETURN PODE VIR APÓS TODOS OS HOOKS
+  if (loading) {
+    return (
+      <DashboardLayout title="Prospecção">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
   
   // Dados para o novo layout da Visão Geral
   const visaoGeralMetrics = {
