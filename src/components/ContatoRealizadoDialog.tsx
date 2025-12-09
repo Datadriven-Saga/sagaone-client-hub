@@ -186,8 +186,9 @@ export function ContatoRealizadoDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="max-w-lg h-[80vh] max-h-[600px] flex flex-col p-0">
+        {/* Header fixo */}
+        <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Phone className="w-5 h-5" />
             Contato Realizado
@@ -197,90 +198,94 @@ export function ContatoRealizadoDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Tipo de Contato */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Resultado do Contato</Label>
-            <RadioGroup
-              value={tipoContato}
-              onValueChange={(value) => setTipoContato(value as TipoContato)}
-              className="space-y-2"
-            >
-              {opcoes.map((opcao) => {
-                const Icon = opcao.icon;
-                return (
-                  <div
-                    key={opcao.value}
-                    className={`flex items-start space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                      tipoContato === opcao.value 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-border hover:bg-muted/50'
-                    }`}
-                    onClick={() => setTipoContato(opcao.value)}
-                  >
-                    <RadioGroupItem value={opcao.value} id={opcao.value} className="mt-0.5" />
-                    <div className="flex-1">
-                      <label
-                        htmlFor={opcao.value}
-                        className="flex items-center gap-2 font-medium text-sm cursor-pointer"
-                      >
-                        <Icon className={`w-4 h-4 ${opcao.color}`} />
-                        {opcao.label}
-                      </label>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {opcao.description}
-                      </p>
+        {/* Conteúdo com scroll */}
+        <div className="flex-1 overflow-y-auto p-6 py-4">
+          <div className="space-y-5">
+            {/* Tipo de Contato */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Resultado do Contato</Label>
+              <RadioGroup
+                value={tipoContato}
+                onValueChange={(value) => setTipoContato(value as TipoContato)}
+                className="space-y-2"
+              >
+                {opcoes.map((opcao) => {
+                  const Icon = opcao.icon;
+                  return (
+                    <div
+                      key={opcao.value}
+                      className={`flex items-start space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                        tipoContato === opcao.value 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:bg-muted/50'
+                      }`}
+                      onClick={() => setTipoContato(opcao.value)}
+                    >
+                      <RadioGroupItem value={opcao.value} id={opcao.value} className="mt-0.5" />
+                      <div className="flex-1">
+                        <label
+                          htmlFor={opcao.value}
+                          className="flex items-center gap-2 font-medium text-sm cursor-pointer"
+                        >
+                          <Icon className={`w-4 h-4 ${opcao.color}`} />
+                          {opcao.label}
+                        </label>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {opcao.description}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </RadioGroup>
-          </div>
-
-          {/* Motivo de Não Participação */}
-          {tipoContato === 'nao_vai_participar' && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Motivo da Não Participação *</Label>
-              <Select value={motivoId} onValueChange={setMotivoId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o motivo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {loadingMotivos ? (
-                    <SelectItem value="loading" disabled>
-                      Carregando...
-                    </SelectItem>
-                  ) : (
-                    motivos.map((motivo) => (
-                      <SelectItem key={motivo.id} value={motivo.id}>
-                        {motivo.descricao}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+                  );
+                })}
+              </RadioGroup>
             </div>
-          )}
 
-          {/* Anotação */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">
-              Detalhes do Contato *
-            </Label>
-            <Textarea
-              placeholder="Descreva os detalhes do contato realizado..."
-              value={anotacao}
-              onChange={(e) => setAnotacao(e.target.value)}
-              maxLength={500}
-              rows={4}
-            />
-            <p className="text-xs text-muted-foreground text-right">
-              {anotacao.length}/500 caracteres
-            </p>
+            {/* Motivo de Não Participação */}
+            {tipoContato === 'nao_vai_participar' && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Motivo da Não Participação *</Label>
+                <Select value={motivoId} onValueChange={setMotivoId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o motivo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loadingMotivos ? (
+                      <SelectItem value="loading" disabled>
+                        Carregando...
+                      </SelectItem>
+                    ) : (
+                      motivos.map((motivo) => (
+                        <SelectItem key={motivo.id} value={motivo.id}>
+                          {motivo.descricao}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Anotação */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                Detalhes do Contato *
+              </Label>
+              <Textarea
+                placeholder="Descreva os detalhes do contato realizado..."
+                value={anotacao}
+                onChange={(e) => setAnotacao(e.target.value)}
+                maxLength={500}
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {anotacao.length}/500 caracteres
+              </p>
+            </div>
           </div>
         </div>
 
-        <DialogFooter>
+        {/* Footer fixo */}
+        <DialogFooter className="p-6 pt-4 border-t flex-shrink-0">
           <Button variant="outline" onClick={handleClose} disabled={loading}>
             Cancelar
           </Button>
