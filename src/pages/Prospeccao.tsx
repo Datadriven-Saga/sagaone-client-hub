@@ -299,13 +299,14 @@ const Prospeccao = () => {
       }
       // Filtro unificado: Dados do Lead (nome, telefone, email, id, produto)
       if (globalFilters.dadosLead) {
-        const search = globalFilters.dadosLead.toLowerCase();
-        const matchNome = contato.nome?.toLowerCase().includes(search);
-        const matchTelefone = contato.telefone?.replace(/\D/g, '').includes(search.replace(/\D/g, ''));
-        const matchEmail = contato.email?.toLowerCase().includes(search);
-        const matchId = contato.id?.toLowerCase().includes(search);
-        // TODO: adicionar match de produto quando disponível
-        if (!matchNome && !matchTelefone && !matchEmail && !matchId) return false;
+        const search = globalFilters.dadosLead.toLowerCase().trim();
+        if (search) {
+          const matchNome = contato.nome?.toLowerCase().includes(search);
+          const matchTelefone = contato.telefone?.replace(/\D/g, '').includes(search.replace(/\D/g, ''));
+          const matchEmail = contato.email?.toLowerCase().includes(search);
+          const matchId = contato.id?.toLowerCase().includes(search);
+          if (!matchNome && !matchTelefone && !matchEmail && !matchId) return false;
+        }
       }
       return true;
     });
