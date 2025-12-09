@@ -15,6 +15,8 @@ interface AvatarOptions {
   hasGlasses: boolean;
   glassesStyle?: string;
   faceShape: string;
+  clothingColor: string;
+  backgroundColor: string;
 }
 
 serve(async (req) => {
@@ -71,6 +73,30 @@ serve(async (req) => {
     };
     const faceText = faceShapeMap[options.faceShape] || "rosto oval";
 
+    const clothingColorMap: Record<string, string> = {
+      "navy": "roupa azul marinho",
+      "black": "roupa preta",
+      "white": "roupa branca",
+      "gray": "roupa cinza",
+      "blue": "roupa azul",
+      "green": "roupa verde",
+      "red": "roupa vermelha",
+      "purple": "roupa roxa",
+    };
+    const clothingText = clothingColorMap[options.clothingColor] || "roupa azul marinho";
+
+    const backgroundColorMap: Record<string, string> = {
+      "light-gray": "fundo cinza claro sólido",
+      "light-blue": "fundo azul claro sólido",
+      "white": "fundo branco sólido",
+      "light-green": "fundo verde claro sólido",
+      "light-yellow": "fundo amarelo claro sólido",
+      "light-purple": "fundo roxo claro sólido",
+      "navy": "fundo azul marinho sólido",
+      "dark": "fundo cinza escuro sólido",
+    };
+    const backgroundText = backgroundColorMap[options.backgroundColor] || "fundo cinza claro sólido";
+
     let extraFeatures = "";
     if (options.hasBeard && options.gender === "male") {
       const beardMap: Record<string, string> = {
@@ -94,12 +120,12 @@ serve(async (req) => {
       extraFeatures += `, ${glassesMap[options.glassesStyle || "square"] || "óculos"}`;
     }
 
-    const prompt = `Create a professional 3D Pixar-style avatar portrait of a ${genderText} with ${skinText}, ${faceText}, ${hairText}${hairColorText ? `, ${hairColorText}` : ""}${extraFeatures}. 
+    const prompt = `Create a professional 3D Pixar-style avatar portrait of a ${genderText} with ${skinText}, ${faceText}, ${hairText}${hairColorText ? `, ${hairColorText}` : ""}${extraFeatures}, wearing ${clothingText}. 
 The avatar should be:
 - High quality 3D render in Pixar/Disney animation style
 - Head and shoulders portrait only
 - Neutral/friendly expression
-- Clean solid color background (light gray or soft blue)
+- ${backgroundText}
 - Professional and suitable for a business profile
 - Square aspect ratio 1:1
 - Ultra high resolution`;

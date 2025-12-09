@@ -286,15 +286,14 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Lado Esquerdo - Funil de Vendas */}
-      <div>
-        <SalesFunnel stages={funnelStages} />
-      </div>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Lado Esquerdo - Funil de Vendas */}
+        <div>
+          <SalesFunnel stages={funnelStages} />
+        </div>
 
-      {/* Lado Direito - Indicadores */}
-      <div className="space-y-6">
-        {/* Demais Indicadores */}
+        {/* Lado Direito - Demais Indicadores */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Demais Indicadores</h3>
           
@@ -343,44 +342,44 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
             />
           </div>
         </div>
+      </div>
 
-        {/* Metas vs Realizado */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Metas vs Realizado</h3>
+      {/* Metas vs Realizado - Full Width */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Metas vs Realizado</h3>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <MetaCard
+            title="Meta de Agendamentos"
+            icon={<Target className="h-4 w-4 text-blue-600" />}
+            realizado={statusCounts.agendados}
+            meta={metas?.meta_convites || 0}
+            color="bg-blue-100"
+          />
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <MetaCard
-              title="Meta de Agendamentos"
-              icon={<Target className="h-4 w-4 text-blue-600" />}
-              realizado={statusCounts.agendados}
-              meta={metas?.meta_convites || 0}
-              color="bg-blue-100"
-            />
-            
-            <MetaCard
-              title="Meta de Confirmações"
-              icon={<Users className="h-4 w-4 text-purple-600" />}
-              realizado={statusCounts.confirmados}
-              meta={metas?.meta_confirmacoes || 0}
-              color="bg-purple-100"
-            />
-            
-            <MetaCard
-              title="Meta de Check-Ins"
-              icon={<UserCheck className="h-4 w-4 text-amber-600" />}
-              realizado={statusCounts.checkins}
-              meta={metas?.meta_checkins || 0}
-              color="bg-amber-100"
-            />
-            
-            <MetaCard
-              title="Meta de Vendas"
-              icon={<TrendingUp className="h-4 w-4 text-green-600" />}
-              realizado={statusCounts.vendas}
-              meta={metaVendas}
-              color="bg-green-100"
-            />
-          </div>
+          <MetaCard
+            title="Meta de Confirmações"
+            icon={<Users className="h-4 w-4 text-purple-600" />}
+            realizado={statusCounts.confirmados}
+            meta={metas?.meta_confirmacoes || 0}
+            color="bg-purple-100"
+          />
+          
+          <MetaCard
+            title="Meta de Check-Ins"
+            icon={<UserCheck className="h-4 w-4 text-amber-600" />}
+            realizado={statusCounts.checkins}
+            meta={metas?.meta_checkins || 0}
+            color="bg-amber-100"
+          />
+          
+          <MetaCard
+            title="Meta de Vendas"
+            icon={<TrendingUp className="h-4 w-4 text-green-600" />}
+            realizado={statusCounts.vendas}
+            meta={metaVendas}
+            color="bg-green-100"
+          />
         </div>
       </div>
     </div>

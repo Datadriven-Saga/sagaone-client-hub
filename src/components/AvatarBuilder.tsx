@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Camera, Loader2, Sparkles, User, Palette, Scissors, Eye, CircleUser, Upload } from "lucide-react";
+import { Camera, Loader2, Sparkles, User, Palette, Scissors, Eye, CircleUser, Upload, Shirt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -29,6 +29,8 @@ interface AvatarOptions {
   hasGlasses: boolean;
   glassesStyle: string;
   faceShape: string;
+  clothingColor: string;
+  backgroundColor: string;
 }
 
 const skinTones = [
@@ -37,6 +39,28 @@ const skinTones = [
   { id: "medium", color: "#C68642", label: "Morena" },
   { id: "medium-dark", color: "#8D5524", label: "Morena Escura" },
   { id: "dark", color: "#5C3317", label: "Negra" },
+];
+
+const clothingColors = [
+  { id: "navy", color: "#1e3a5f", label: "Azul Marinho" },
+  { id: "black", color: "#1a1a1a", label: "Preto" },
+  { id: "white", color: "#f5f5f5", label: "Branco" },
+  { id: "gray", color: "#6b7280", label: "Cinza" },
+  { id: "blue", color: "#3b82f6", label: "Azul" },
+  { id: "green", color: "#22c55e", label: "Verde" },
+  { id: "red", color: "#ef4444", label: "Vermelho" },
+  { id: "purple", color: "#8b5cf6", label: "Roxo" },
+];
+
+const backgroundColors = [
+  { id: "light-gray", color: "#e5e7eb", label: "Cinza Claro" },
+  { id: "light-blue", color: "#dbeafe", label: "Azul Claro" },
+  { id: "white", color: "#ffffff", label: "Branco" },
+  { id: "light-green", color: "#dcfce7", label: "Verde Claro" },
+  { id: "light-yellow", color: "#fef9c3", label: "Amarelo Claro" },
+  { id: "light-purple", color: "#f3e8ff", label: "Roxo Claro" },
+  { id: "navy", color: "#1e3a5f", label: "Azul Marinho" },
+  { id: "dark", color: "#374151", label: "Escuro" },
 ];
 
 const hairStyles = [
@@ -99,6 +123,8 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
     hasGlasses: false,
     glassesStyle: "square",
     faceShape: "oval",
+    clothingColor: "navy",
+    backgroundColor: "light-gray",
   });
 
   const initials = userName
@@ -376,6 +402,56 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
                       </SelectContent>
                     </Select>
                   )}
+                </div>
+
+                {/* Clothing Color */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-sm font-medium">
+                    <Shirt className="h-4 w-4" />
+                    Cor da Roupa
+                  </Label>
+                  <div className="flex gap-2 flex-wrap">
+                    {clothingColors.map((color) => (
+                      <button
+                        key={color.id}
+                        type="button"
+                        className={cn(
+                          "w-8 h-8 rounded-full border-2 transition-all",
+                          options.clothingColor === color.id
+                            ? "border-primary ring-2 ring-primary/30 scale-110"
+                            : "border-muted-foreground/30 hover:scale-105"
+                        )}
+                        style={{ backgroundColor: color.color }}
+                        onClick={() => updateOption("clothingColor", color.id)}
+                        title={color.label}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Background Color */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-sm font-medium">
+                    <Palette className="h-4 w-4" />
+                    Cor do Fundo
+                  </Label>
+                  <div className="flex gap-2 flex-wrap">
+                    {backgroundColors.map((color) => (
+                      <button
+                        key={color.id}
+                        type="button"
+                        className={cn(
+                          "w-8 h-8 rounded-full border-2 transition-all",
+                          options.backgroundColor === color.id
+                            ? "border-primary ring-2 ring-primary/30 scale-110"
+                            : "border-muted-foreground/30 hover:scale-105"
+                        )}
+                        style={{ backgroundColor: color.color }}
+                        onClick={() => updateOption("backgroundColor", color.id)}
+                        title={color.label}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
 
