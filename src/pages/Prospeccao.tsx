@@ -313,7 +313,11 @@ const Prospeccao = () => {
         p.celular?.replace(/\D/g, '') === responsavel.replace(/\D/g, '')
       );
       
-      const current = usuariosMap.get(responsavel) || { 
+      // Usar o ID do profile como chave para evitar duplicatas quando o mesmo usuário
+      // é referenciado por diferentes identificadores (UUID, email, celular)
+      const mapKey = profile?.id || responsavel;
+      
+      const current = usuariosMap.get(mapKey) || { 
         nome: profile?.nome_completo || (responsavel === 'nao_atribuido' ? 'Não atribuído' : responsavel), 
         tipoAcesso: profile?.tipo_acesso || '-',
         novos: 0, 
@@ -327,7 +331,7 @@ const Prospeccao = () => {
       if (contato.status === 'Em Espera') current.emEspera++;
       if (contato.status === 'Convidado') current.convidados++;
       
-      usuariosMap.set(responsavel, current);
+      usuariosMap.set(mapKey, current);
     });
 
     return Array.from(usuariosMap.entries()).map(([key, data]) => ({
