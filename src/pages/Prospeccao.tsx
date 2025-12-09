@@ -284,6 +284,7 @@ const Prospeccao = () => {
   };
 
   const funnelDataNew = {
+    novos: metricas.novos,
     distribuidosSemAcao: metricas.atribuidos,
     contatados: metricas.convidados,
     semContato: metricas.emEspera,
