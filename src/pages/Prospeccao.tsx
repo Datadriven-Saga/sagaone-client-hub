@@ -305,13 +305,15 @@ const Prospeccao = () => {
       const responsavel = contato.responsavel_email || 'nao_atribuido';
       
       // Buscar profile correspondente pelo ID, EMAIL ou CELULAR
-      const profile = profiles.find(p => 
+      // Apenas buscar se responsavel não for 'nao_atribuido'
+      const profile = responsavel !== 'nao_atribuido' ? profiles.find(p => 
         p.id === responsavel ||
         p.email === responsavel || 
-        p.celular === responsavel ||
-        // Tentar match sem formatação (apenas dígitos)
-        p.celular?.replace(/\D/g, '') === responsavel.replace(/\D/g, '')
-      );
+        (p.celular && p.celular.length > 0 && p.celular === responsavel) ||
+        // Tentar match sem formatação (apenas dígitos) - apenas se ambos tiverem valor
+        (p.celular && p.celular.length > 0 && responsavel.length > 0 && 
+         p.celular.replace(/\D/g, '') === responsavel.replace(/\D/g, ''))
+      ) : undefined;
       
       // Usar o ID do profile como chave para evitar duplicatas quando o mesmo usuário
       // é referenciado por diferentes identificadores (UUID, email, celular)
