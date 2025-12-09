@@ -52,7 +52,6 @@ const applyColors = (colors: ColorConfig) => {
   root.style.setProperty('--popover-foreground', primaryHsl);
   root.style.setProperty('--primary', primaryHsl);
   root.style.setProperty('--secondary-foreground', primaryHsl);
-  root.style.setProperty('--accent', primaryHsl);
   root.style.setProperty('--ring', primaryHsl);
   root.style.setProperty('--sidebar-background', primaryHsl);
   root.style.setProperty('--sidebar-primary', primaryHsl);
@@ -61,8 +60,9 @@ const applyColors = (colors: ColorConfig) => {
   root.style.setProperty('--sagaone-dark', primaryHsl);
   root.style.setProperty('--sagaone-login-button', primaryHsl);
   
-  // Button color
+  // Button color (icons, interactive elements)
   const buttonHsl = hexToHsl(colors.button);
+  root.style.setProperty('--accent', buttonHsl);
   root.style.setProperty('--sagaone-login-card', buttonHsl);
   
   // Background color
