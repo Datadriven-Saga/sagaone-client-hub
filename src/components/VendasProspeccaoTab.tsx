@@ -286,12 +286,12 @@ export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps)
       const clienteY = imgHeight * 0.38 + yOffset - 85;
       ctx.fillText(venda.cliente_nome, textStartX + imgWidth * 0.2, clienteY);
 
-      // RESPONSÁVEL - 90px abaixo do cliente
+      // RESPONSÁVEL - 95px abaixo do cliente (desceu 5px)
       const responsavelNome = venda.responsavel?.nome_completo || '-';
-      ctx.fillText(responsavelNome, textStartX + imgWidth * 0.2, clienteY + 90);
+      ctx.fillText(responsavelNome, textStartX + imgWidth * 0.2, clienteY + 95);
 
-      // MODELO/PRODUTO - terceira linha (sobe 10px)
-      ctx.fillText(venda.produto?.nome || '-', textStartX + imgWidth * 0.2, imgHeight * 0.51 + yOffset - 10);
+      // MODELO/PRODUTO - terceira linha (sobe 15px)
+      ctx.fillText(venda.produto?.nome || '-', textStartX + imgWidth * 0.2, imgHeight * 0.51 + yOffset - 15);
 
       // EQUIPE - quarta linha
       ctx.fillText(equipeNome, textStartX + imgWidth * 0.2, imgHeight * 0.64 + yOffset);
