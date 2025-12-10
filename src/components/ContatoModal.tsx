@@ -44,6 +44,8 @@ interface ContatoModalProps {
   onDelete?: (contatoId: string) => void;
   onAssignResponsible?: (contatoId: string, userId: string) => void;
   onCreateContact?: (novoContato: { nome: string; telefone: string; email?: string; }) => void;
+  requireProdutoVendido?: boolean;
+  onConfirmVenda?: (contatoId: string, produtoVendidoId: string) => void;
 }
 
 interface Anotacao {
@@ -84,7 +86,9 @@ export function ContatoModal({
   onStatusChange,
   onDelete,
   onAssignResponsible,
-  onCreateContact 
+  onCreateContact,
+  requireProdutoVendido = false,
+  onConfirmVenda
 }: ContatoModalProps) {
   const [activeTab, setActiveTab] = useState('dados-pessoais');
   const [novaAnotacao, setNovaAnotacao] = useState('');
@@ -113,6 +117,15 @@ export function ContatoModal({
     { id: 'morno', nome: 'Morno', cor: '#f59e0b' },
     { id: 'quente', nome: 'Quente', cor: '#ef4444' }
   ];
+
+  // Abrir na aba produtos se requireProdutoVendido
+  useEffect(() => {
+    if (isOpen && requireProdutoVendido) {
+      setActiveTab('produtos');
+    } else if (isOpen) {
+      setActiveTab('dados-pessoais');
+    }
+  }, [isOpen, requireProdutoVendido]);
 
   // Buscar dados reais ao abrir o modal
   useEffect(() => {
@@ -313,6 +326,19 @@ export function ContatoModal({
 
   const handleStatusChange = (novoStatus: Contato['status']) => {
     if (!contato) return;
+
+    // Se tentar mudar para Venda, exigir produto vendido
+    if (novoStatus === 'Venda') {
+      if (!produtoVendidoId) {
+        setActiveTab('produtos');
+        toast({
+          title: "Produto Vendido Obrigatório",
+          description: "Para registrar como Venda, selecione o produto vendido na aba Produtos.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
 
     // Regras especiais para status específicos
     if (novoStatus === 'Perdido') {
@@ -997,6 +1023,40 @@ export function ContatoModal({
                       )}
                     </div>
                   </Card>
+
+                  {/* Botão de confirmar venda quando obrigatório */}
+                  {requireProdutoVendido && (
+                    <Card className="p-6 border-primary">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-primary">
+                          <Package className="w-5 h-5" />
+                          <h3 className="text-lg font-semibold">Confirmar Venda</h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Para mover este lead para Vendas, é obrigatório selecionar o produto vendido acima.
+                        </p>
+                        <Button
+                          onClick={() => {
+                            if (!produtoVendidoId) {
+                              toast({
+                                title: "Produto obrigatório",
+                                description: "Selecione o produto vendido para confirmar a venda.",
+                                variant: "destructive"
+                              });
+                              return;
+                            }
+                            if (contato && onConfirmVenda) {
+                              onConfirmVenda(contato.id, produtoVendidoId);
+                            }
+                          }}
+                          disabled={!produtoVendidoId}
+                          className="w-full"
+                        >
+                          Confirmar Venda
+                        </Button>
+                      </div>
+                    </Card>
+                  )}
                 </div>
               )}
 
