@@ -24,7 +24,7 @@ interface ContatoRealizadoDialogProps {
   onSuccess?: (novoStatus: string) => void;
 }
 
-type TipoContato = 'vai_participar' | 'registrar_contato' | 'tentativa_sem_sucesso' | 'nao_vai_participar';
+type TipoContato = 'vai_participar' | 'registrar_contato' | 'tentativa_sem_sucesso' | 'nao_vai_participar' | 'opt_out';
 
 export function ContatoRealizadoDialog({
   isOpen,
@@ -135,6 +135,8 @@ export function ContatoRealizadoDialog({
         novoStatus = 'Em Espera';
       } else if (tipoContato === 'nao_vai_participar') {
         novoStatus = 'Descartado';
+      } else if (tipoContato === 'opt_out') {
+        novoStatus = 'Opt Out';
       }
 
       if (novoStatus) {
@@ -212,6 +214,13 @@ export function ContatoRealizadoDialog({
       description: 'Cliente informou que não participará',
       icon: XCircle,
       color: 'text-red-600'
+    },
+    {
+      value: 'opt_out' as TipoContato,
+      label: 'O cliente solicitou Opt Out',
+      description: 'O cliente deixou explícito que não deseja mais contatos desse tipo',
+      icon: XCircle,
+      color: 'text-gray-600'
     }
   ];
 
@@ -239,7 +248,7 @@ export function ContatoRealizadoDialog({
                 <RadioGroup
                   value={tipoContato}
                   onValueChange={(value) => setTipoContato(value as TipoContato)}
-                  className="space-y-2"
+                  className="space-y-1"
                 >
                   {opcoes.map((opcao) => {
                     const Icon = opcao.icon;
