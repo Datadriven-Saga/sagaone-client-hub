@@ -103,6 +103,7 @@ export function ContatoModal({
   const [produtosDisponiveis, setProdutosDisponiveis] = useState<Produto[]>([]);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [produtosSelecionados, setProdutosSelecionados] = useState<string[]>([]);
+  const [produtoVendidoId, setProdutoVendidoId] = useState<string>('');
   const [usuariosDisponiveis, setUsuariosDisponiveis] = useState<Array<{ id: string; nome: string; email: string; tipoAcesso: string | null }>>([]);
   const [responsavelSelecionado, setResponsavelSelecionado] = useState<string>('');
   const [responsavelAtualId, setResponsavelAtualId] = useState<string | null>(null);
@@ -133,6 +134,22 @@ export function ContatoModal({
               tipoAcesso: u.tipo_acesso
             }));
             setUsuariosDisponiveis(usuariosFormatados);
+          }
+
+          // Buscar produtos disponíveis da empresa
+          const { data: produtos, error: produtosError } = await supabase
+            .from('produtos')
+            .select('id, nome, preco, categoria')
+            .eq('ativo', true)
+            .order('nome');
+
+          if (!produtosError && produtos) {
+            setProdutosDisponiveis(produtos.map(p => ({
+              id: p.id,
+              nome: p.nome,
+              preco: p.preco || undefined,
+              categoria: p.categoria || undefined
+            })));
           }
 
           // Se há um contato, buscar dados dele
@@ -856,52 +873,131 @@ export function ContatoModal({
               )}
 
               {activeTab === 'produtos' && (
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Produtos de Interesse</h3>
-                  
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Selecione os produtos que podem interessar ao cliente:
-                    </p>
+                <div className="space-y-6">
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4">Produtos de Interesse</h3>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {produtosDisponiveis.map((produto) => (
-                        <div
-                          key={produto.id}
-                          className={`border rounded-lg p-3 cursor-pointer transition-colors ${
-                            produtosSelecionados.includes(produto.id)
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                          onClick={() => toggleProduto(produto.id)}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h4 className="font-medium">{produto.nome}</h4>
-                              <p className="text-sm text-muted-foreground">{produto.categoria}</p>
-                              {produto.preco && (
-                                <p className="text-sm font-medium text-green-600">
-                                  R$ {produto.preco.toFixed(2)}
-                                </p>
-                              )}
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Selecione os produtos que podem interessar ao cliente:
+                      </p>
+                      
+                      {produtosDisponiveis.length > 0 ? (
+                        <>
+                          <Select
+                            value={produtosSelecionados.length > 0 ? produtosSelecionados[produtosSelecionados.length - 1] : ''}
+                            onValueChange={(value) => {
+                              if (!produtosSelecionados.includes(value)) {
+                                setProdutosSelecionados(prev => [...prev, value]);
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione um produto" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {produtosDisponiveis
+                                .filter(p => !produtosSelecionados.includes(p.id))
+                                .map((produto) => (
+                                  <SelectItem key={produto.id} value={produto.id}>
+                                    <div className="flex items-center gap-2">
+                                      <span>{produto.nome}</span>
+                                      {produto.categoria && (
+                                        <span className="text-xs text-muted-foreground">({produto.categoria})</span>
+                                      )}
+                                      {produto.preco && (
+                                        <span className="text-xs text-green-600 font-medium">
+                                          R$ {produto.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+
+                          {produtosSelecionados.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">Produtos selecionados:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {produtosSelecionados.map((produtoId) => {
+                                  const produto = produtosDisponiveis.find(p => p.id === produtoId);
+                                  return produto ? (
+                                    <Badge
+                                      key={produtoId}
+                                      variant="secondary"
+                                      className="flex items-center gap-1 cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                                      onClick={() => setProdutosSelecionados(prev => prev.filter(id => id !== produtoId))}
+                                    >
+                                      {produto.nome}
+                                      <span className="ml-1">×</span>
+                                    </Badge>
+                                  ) : null;
+                                })}
+                              </div>
                             </div>
-                            {produtosSelecionados.includes(produto.id) && (
-                              <Badge variant="default">Selecionado</Badge>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {produtosSelecionados.length > 0 && (
-                      <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-sm font-medium text-green-800">
-                          {produtosSelecionados.length} produto(s) selecionado(s)
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          Nenhum produto cadastrado. Cadastre produtos em Configurações.
                         </p>
-                      </div>
-                    )}
-                  </div>
-                </Card>
+                      )}
+                    </div>
+                  </Card>
+
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4">Produto Vendido</h3>
+                    
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Registre o produto que foi efetivamente vendido ao cliente (pode ser diferente do interesse inicial):
+                      </p>
+                      
+                      {produtosDisponiveis.length > 0 ? (
+                        <>
+                          <Select
+                            value={produtoVendidoId}
+                            onValueChange={setProdutoVendidoId}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o produto vendido" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {produtosDisponiveis.map((produto) => (
+                                <SelectItem key={produto.id} value={produto.id}>
+                                  <div className="flex items-center gap-2">
+                                    <span>{produto.nome}</span>
+                                    {produto.categoria && (
+                                      <span className="text-xs text-muted-foreground">({produto.categoria})</span>
+                                    )}
+                                    {produto.preco && (
+                                      <span className="text-xs text-green-600 font-medium">
+                                        R$ {produto.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                      </span>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          {produtoVendidoId && (
+                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <p className="text-sm font-medium text-green-800">
+                                Produto vendido: {produtosDisponiveis.find(p => p.id === produtoVendidoId)?.nome}
+                              </p>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          Nenhum produto cadastrado. Cadastre produtos em Configurações.
+                        </p>
+                      )}
+                    </div>
+                  </Card>
+                </div>
               )}
 
               {activeTab === 'temperatura' && (
