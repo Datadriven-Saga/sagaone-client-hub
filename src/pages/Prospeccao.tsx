@@ -17,6 +17,8 @@ import { RecepcaoTable } from "@/components/RecepcaoTable";
 import { ProspeccaoVisaoGeral } from "@/components/ProspeccaoVisaoGeral";
 import { HistoricoImportacaoModal } from "@/components/HistoricoImportacaoModal";
 import { ClientesPorUsuarioModal } from "@/components/ClientesPorUsuarioModal";
+import { FloatingActionButton } from "@/components/FloatingActionButton";
+import { NovoLeadModal } from "@/components/NovoLeadModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
@@ -65,6 +67,7 @@ const Prospeccao = () => {
   const [recepcaoInitialData, setRecepcaoInitialData] = useState<any>(null);
   const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
   const [isClientesPorUsuarioModalOpen, setIsClientesPorUsuarioModalOpen] = useState(false);
+  const [isNovoLeadModalOpen, setIsNovoLeadModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string }[]>([]);
   
   // Filtro global unificado para todas as abas
@@ -758,6 +761,32 @@ const Prospeccao = () => {
     await atribuirResponsavel(contatoId, userId);
   };
 
+  // FAB Handlers
+  const handleNovoLead = () => {
+    setIsNovoLeadModalOpen(true);
+  };
+
+  const handleNovoCheckin = () => {
+    // Abrir modal de recepção para registrar check-in
+    setRecepcaoInitialData(null);
+    setIsRecepcaoModalOpen(true);
+  };
+
+  const handleNovaVenda = () => {
+    // Abrir modal de novo lead mas para venda (mesmo fluxo, status final será Venda)
+    setIsNovoLeadModalOpen(true);
+  };
+
+  const handleOpenContatoFromFab = (contato: Contato) => {
+    setModalContato({
+      isOpen: true,
+      contato: contato,
+      columnId: undefined,
+      requireProdutoVendido: false,
+      pendingVendaStatus: undefined
+    });
+  };
+
   const solicitarClientes = async () => {
     if (!user) return;
 
@@ -1206,6 +1235,20 @@ const Prospeccao = () => {
         isOpen={isClientesPorUsuarioModalOpen}
         onClose={() => setIsClientesPorUsuarioModalOpen(false)}
         usuarios={getClientesPorUsuario()}
+      />
+
+      <NovoLeadModal
+        isOpen={isNovoLeadModalOpen}
+        onClose={() => setIsNovoLeadModalOpen(false)}
+        onLeadCreated={refetch}
+        onOpenContato={handleOpenContatoFromFab}
+        profiles={profiles}
+      />
+
+      <FloatingActionButton
+        onNovoLead={handleNovoLead}
+        onNovoCheckin={handleNovoCheckin}
+        onNovaVenda={handleNovaVenda}
       />
     </DashboardLayout>
   );
