@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -25,7 +25,8 @@ import {
   UserCheck,
   Plus,
   Settings,
-  PhoneCall
+  PhoneCall,
+  ChevronDown
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -94,8 +95,30 @@ export function ContatoModal({
     email: ''
   });
   const [contatoRealizadoOpen, setContatoRealizadoOpen] = useState(false);
+  const [showScrollIndicator, setShowScrollIndicator] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Reset scroll indicator when tab changes
+  useEffect(() => {
+    setShowScrollIndicator(true);
+  }, [activeTab]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    if (target.scrollTop > 0) {
+      setShowScrollIndicator(false);
+    }
+  };
+
+  const handleScrollIndicatorClick = () => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const scrollAmount = container.scrollHeight * 0.2;
+      container.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   // Dados mockados removidos - buscar dados reais do banco
   const [anotacoes, setAnotacoes] = useState<Anotacao[]>([]);
@@ -501,8 +524,12 @@ export function ContatoModal({
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <ScrollArea className="h-full">
+          <div className="flex-1 min-h-0 overflow-hidden relative">
+            <div 
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+              className="h-full overflow-y-auto"
+            >
               <div className="p-4">
               {activeTab === 'dados-pessoais' && (
                 <div className="space-y-6">
@@ -603,6 +630,17 @@ export function ContatoModal({
                     </div>
                   </Card>
                 </div>
+              )}
+
+              {/* Scroll Indicator */}
+              {activeTab === 'dados-pessoais' && showScrollIndicator && (
+                <button
+                  onClick={handleScrollIndicatorClick}
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 w-10 h-10 rounded-full bg-primary/50 flex items-center justify-center cursor-pointer transition-opacity duration-300 hover:bg-primary/70"
+                  aria-label="Rolar para baixo"
+                >
+                  <ChevronDown className="w-6 h-6 text-primary-foreground/50" />
+                </button>
               )}
 
               {activeTab === 'status' && (
@@ -992,7 +1030,7 @@ export function ContatoModal({
                 </Card>
               )}
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </div>
       </DialogContent>
