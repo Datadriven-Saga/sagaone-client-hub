@@ -282,16 +282,16 @@ export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps)
       // Nº VENDA - primeira linha de texto (sobe 40px em relação aos outros)
       ctx.fillText(`${venda.numero_venda}`, textStartX + imgWidth * 0.25, imgHeight * 0.25 + yOffset - 40);
 
-      // CLIENTE - segunda linha (sobe 80px)
-      const clienteY = imgHeight * 0.38 + yOffset - 80;
+      // CLIENTE - segunda linha (sobe 85px)
+      const clienteY = imgHeight * 0.38 + yOffset - 85;
       ctx.fillText(venda.cliente_nome, textStartX + imgWidth * 0.2, clienteY);
 
       // RESPONSÁVEL - 90px abaixo do cliente
       const responsavelNome = venda.responsavel?.nome_completo || '-';
       ctx.fillText(responsavelNome, textStartX + imgWidth * 0.2, clienteY + 90);
 
-      // MODELO/PRODUTO - terceira linha
-      ctx.fillText(venda.produto?.nome || '-', textStartX + imgWidth * 0.2, imgHeight * 0.51 + yOffset);
+      // MODELO/PRODUTO - terceira linha (sobe 10px)
+      ctx.fillText(venda.produto?.nome || '-', textStartX + imgWidth * 0.2, imgHeight * 0.51 + yOffset - 10);
 
       // EQUIPE - quarta linha
       ctx.fillText(equipeNome, textStartX + imgWidth * 0.2, imgHeight * 0.64 + yOffset);
