@@ -708,22 +708,40 @@ const Prospeccao = () => {
 
   // Handler para confirmar venda com produto
   const handleConfirmVenda = async (contatoId: string, produtoVendidoId: string, departamentoId?: string, responsavelId?: string) => {
-    if (!modalContato.pendingVendaStatus) return;
-    
-    const { fromStatus, toStatus } = modalContato.pendingVendaStatus;
-    const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
-    
     // Get the contato data for creating sale
     const contato = contatos.find(c => c.id === contatoId);
     if (!contato) return;
     
-    if (novoStatusDb) {
-      await atualizarStatusContato(contatoId, novoStatusDb);
-    }
+    // Se tem pendingVendaStatus, estamos vindo de drag-and-drop e precisamos atualizar o status
+    if (modalContato.pendingVendaStatus) {
+      const { fromStatus, toStatus } = modalContato.pendingVendaStatus;
+      const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
+      
+      if (novoStatusDb) {
+        await atualizarStatusContato(contatoId, novoStatusDb);
+      }
 
-    // Auto-atribuir responsável quando sair da coluna "novos"
-    if (fromStatus === 'novos' && user?.email) {
-      await atribuirResponsavel(contatoId, user.email);
+      // Auto-atribuir responsável quando sair da coluna "novos"
+      if (fromStatus === 'novos' && user?.email) {
+        await atribuirResponsavel(contatoId, user.email);
+      }
+
+      if (registrarMovimentacao && user && prospeccoes?.length > 0) {
+        await registrarMovimentacao({
+          leadId: contatoId,
+          prospeccaoId: prospeccoes[0].id, 
+          statusAnterior: fromStatus,
+          statusNovo: toStatus,
+          usuarioId: user.id,
+          observacoes: `Produto vendido: ${produtoVendidoId}`
+        });
+      }
+    } else {
+      // Se não tem pendingVendaStatus, o contato já está em status de venda
+      // Apenas verificar e garantir que está em Venda
+      if (contato.status !== 'Venda') {
+        await atualizarStatusContato(contatoId, 'Venda');
+      }
     }
 
     // Find prospeccao for this contact (use the first one for now, or from filters)
@@ -746,27 +764,26 @@ const Prospeccao = () => {
         
         // Refresh vendas list
         await refetchVendas();
+        
+        toast({
+          title: "Venda Registrada",
+          description: "A venda foi registrada com sucesso.",
+        });
       } catch (error) {
         console.error('Erro ao criar venda:', error);
-        // Continue even if sale creation fails - the lead status was already updated
+        toast({
+          title: "Erro ao criar venda",
+          description: "Não foi possível registrar a venda. Tente novamente.",
+          variant: "destructive"
+        });
       }
-    }
-
-    if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-      await registrarMovimentacao({
-        leadId: contatoId,
-        prospeccaoId: prospeccoes[0].id, 
-        statusAnterior: fromStatus,
-        statusNovo: toStatus,
-        usuarioId: user.id,
-        observacoes: `Produto vendido: ${produtoVendidoId}`
+    } else {
+      toast({
+        title: "Erro",
+        description: "Nenhuma prospecção selecionada para registrar a venda.",
+        variant: "destructive"
       });
     }
-
-    toast({
-      title: "Venda Registrada",
-      description: "O lead foi movido para Vendas e a venda foi registrada automaticamente.",
-    });
 
     handleCloseModal();
   };
