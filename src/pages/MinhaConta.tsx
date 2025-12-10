@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { AvatarBuilder } from "@/components/AvatarBuilder";
 import { ColorCustomizer } from "@/components/ColorCustomizer";
+import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 
 const profileSchema = z.object({
   nome_completo: z.string().min(1, "Nome é obrigatório"),
@@ -140,9 +141,10 @@ const MinhaConta = () => {
 
   return (
     <DashboardLayout title="Minha Conta">
-      <div className="space-y-6">
-        {/* Profile Header */}
-        <Card>
+      <ScrollIndicator className="h-full">
+        <div className="space-y-6 pb-6">
+          {/* Profile Header */}
+          <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center space-x-4">
               <AvatarBuilder
@@ -276,9 +278,10 @@ const MinhaConta = () => {
           </Card>
         </div>
 
-        {/* Color Customization */}
-        <ColorCustomizer />
-      </div>
+          {/* Color Customization */}
+          <ColorCustomizer />
+        </div>
+      </ScrollIndicator>
     </DashboardLayout>
   );
 };
