@@ -259,9 +259,13 @@ const Prospeccao = () => {
 
   // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string): Promise<boolean> => {
-    // Se destino é "vendas", verificar campos obrigatórios
-    if (toStatus === 'vendas') {
+    console.log('handleStatusChange called:', { itemId, fromStatus, toStatus });
+    
+    // Se destino é "venda", verificar campos obrigatórios
+    if (toStatus === 'venda') {
       const contatoCompleto = contatos.find(c => c.id === itemId);
+      console.log('Moving to venda, contato:', contatoCompleto);
+      
       if (contatoCompleto) {
         // Verificar se responsável está preenchido
         const temResponsavel = !!contatoCompleto.responsavel_email;
@@ -272,9 +276,6 @@ const Prospeccao = () => {
           await atribuirResponsavel(itemId, user.id);
           responsavelId = user.id;
         }
-        
-        // Buscar se existe produto vendido e departamento já associados ao contato
-        // (por enquanto não temos esses campos no contato, então sempre abrir o modal)
         
         // Abrir modal na aba de produtos para confirmar venda
         setModalContato({
