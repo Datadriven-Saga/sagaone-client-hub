@@ -47,7 +47,7 @@ interface ContatoModalProps {
   onAssignResponsible?: (contatoId: string, userId: string) => void;
   onCreateContact?: (novoContato: { nome: string; telefone: string; email?: string; }) => void;
   requireProdutoVendido?: boolean;
-  onConfirmVenda?: (contatoId: string, produtoVendidoId: string) => void;
+  onConfirmVenda?: (contatoId: string, produtoVendidoId: string, departamentoId?: string) => void;
 }
 
 interface Anotacao {
@@ -1138,7 +1138,7 @@ export function ContatoModal({
                               return;
                             }
                             if (contato && onConfirmVenda) {
-                              onConfirmVenda(contato.id, produtoVendidoId);
+                              onConfirmVenda(contato.id, produtoVendidoId, departamentoSelecionado || undefined);
                             }
                           }}
                           disabled={!produtoVendidoId}
