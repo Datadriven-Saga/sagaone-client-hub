@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 import { User } from 'lucide-react';
 
 interface UsuarioClientes {
@@ -35,15 +36,15 @@ export const ClientesPorUsuarioModal: React.FC<ClientesPorUsuarioModalProps> = (
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <User className="w-5 h-5" />
             Clientes por Usuário
           </DialogTitle>
         </DialogHeader>
 
-        <div className="max-h-96 overflow-auto">
+        <ScrollIndicator className="flex-1 min-h-0">
           {usuarios.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               Nenhum usuário com clientes atribuídos.
@@ -99,7 +100,7 @@ export const ClientesPorUsuarioModal: React.FC<ClientesPorUsuarioModalProps> = (
               </TableBody>
             </Table>
           )}
-        </div>
+        </ScrollIndicator>
       </DialogContent>
     </Dialog>
   );

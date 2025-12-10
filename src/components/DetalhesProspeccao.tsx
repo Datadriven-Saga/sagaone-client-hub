@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 import { Eye, Download, Calendar, Target, Users, TrendingUp } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -149,7 +150,7 @@ export const DetalhesProspeccao = ({ prospeccao }: DetalhesProspeccaoProps) => {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-6xl h-[85vh] flex flex-col">
+      <DialogContent className="max-w-6xl h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center space-x-2">
             <Target className="h-5 w-5" />
@@ -157,7 +158,8 @@ export const DetalhesProspeccao = ({ prospeccao }: DetalhesProspeccaoProps) => {
           </DialogTitle>
         </DialogHeader>
         
-        <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+        <ScrollIndicator className="flex-1 min-h-0">
+          <div className="space-y-6 pr-2">
           {/* Informações Gerais */}
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Informações da Campanha</h3>
@@ -263,8 +265,9 @@ export const DetalhesProspeccao = ({ prospeccao }: DetalhesProspeccaoProps) => {
                 </Table>
               </div>
             </div>
-          </Card>
-        </div>
+            </Card>
+          </div>
+        </ScrollIndicator>
 
         <div className="flex-shrink-0 flex justify-end space-x-2 pt-4 border-t">
           <Button variant="outline" onClick={() => setIsOpen(false)}>

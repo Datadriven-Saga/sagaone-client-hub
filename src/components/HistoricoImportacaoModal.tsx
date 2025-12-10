@@ -6,6 +6,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -30,12 +31,12 @@ export const HistoricoImportacaoModal: React.FC<HistoricoImportacaoModalProps> =
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Histórico de Importação</DialogTitle>
         </DialogHeader>
 
-        <div className="max-h-96 overflow-auto">
+        <ScrollIndicator className="flex-1 min-h-0">
           {historico.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               Nenhuma importação realizada ainda.
@@ -64,7 +65,7 @@ export const HistoricoImportacaoModal: React.FC<HistoricoImportacaoModalProps> =
               </TableBody>
             </Table>
           )}
-        </div>
+        </ScrollIndicator>
       </DialogContent>
     </Dialog>
   );

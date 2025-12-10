@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -184,13 +185,14 @@ export function ProdutoModal({ open, onOpenChange, produto, onSuccess }: Produto
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>{produto ? "Editar Produto" : "Novo Produto"}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Fotos */}
+        <ScrollIndicator className="flex-1 min-h-0">
+          <form onSubmit={handleSubmit} className="space-y-6 p-1">
+            {/* Fotos */}
           <div className="space-y-3">
             <Label>Fotos do Produto (máximo 10)</Label>
             <div className="grid grid-cols-5 gap-2">
@@ -319,20 +321,21 @@ export function ProdutoModal({ open, onOpenChange, produto, onSuccess }: Produto
             <Label htmlFor="ativo">Produto ativo</Label>
           </div>
 
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Salvando...
-                </>
-              ) : produto ? "Salvar Alterações" : "Criar Produto"}
-            </Button>
-          </div>
-        </form>
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : produto ? "Salvar Alterações" : "Criar Produto"}
+              </Button>
+            </div>
+          </form>
+        </ScrollIndicator>
       </DialogContent>
     </Dialog>
   );

@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 import { KanbanItem } from './KanbanBoard';
 import { User, Phone, Mail, MessageSquare, Package, Thermometer, Clock, Settings } from 'lucide-react';
 import { toast } from 'sonner';
@@ -179,7 +180,7 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
           </div>
 
           {/* Conteúdo principal */}
-          <div className="flex-1 overflow-y-auto">
+          <ScrollIndicator className="flex-1">
             {activeTab === 'dados-pessoais' && (
               <div className="space-y-6">
                 <Card>
@@ -447,7 +448,7 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
                 </CardContent>
               </Card>
             )}
-          </div>
+          </ScrollIndicator>
         </div>
       </DialogContent>
     </Dialog>
