@@ -2138,6 +2138,103 @@ export type Database = {
           },
         ]
       }
+      vendas_prospeccao: {
+        Row: {
+          cliente_nome: string
+          cliente_telefone: string | null
+          comprovante_url: string | null
+          contato_id: string
+          created_at: string
+          data_venda: string
+          departamento_id: string | null
+          empresa_id: string
+          id: string
+          numero_venda: number
+          produto_id: string | null
+          prospeccao_id: string
+          responsavel_id: string | null
+          updated_at: string
+          valor_venda: number | null
+        }
+        Insert: {
+          cliente_nome: string
+          cliente_telefone?: string | null
+          comprovante_url?: string | null
+          contato_id: string
+          created_at?: string
+          data_venda?: string
+          departamento_id?: string | null
+          empresa_id: string
+          id?: string
+          numero_venda: number
+          produto_id?: string | null
+          prospeccao_id: string
+          responsavel_id?: string | null
+          updated_at?: string
+          valor_venda?: number | null
+        }
+        Update: {
+          cliente_nome?: string
+          cliente_telefone?: string | null
+          comprovante_url?: string | null
+          contato_id?: string
+          created_at?: string
+          data_venda?: string
+          departamento_id?: string | null
+          empresa_id?: string
+          id?: string
+          numero_venda?: number
+          produto_id?: string | null
+          prospeccao_id?: string
+          responsavel_id?: string | null
+          updated_at?: string
+          valor_venda?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendas_prospeccao_contato_id_fkey"
+            columns: ["contato_id"]
+            isOneToOne: false
+            referencedRelation: "contatos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_prospeccao_departamento_id_fkey"
+            columns: ["departamento_id"]
+            isOneToOne: false
+            referencedRelation: "departamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_prospeccao_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_prospeccao_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_prospeccao_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_prospeccao_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_vinculados: {
         Row: {
           created_at: string
@@ -2211,6 +2308,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["tipo_acesso"]
       }
       get_current_user_email: { Args: never; Returns: string }
+      get_next_venda_numero: {
+        Args: { p_prospeccao_id: string }
+        Returns: number
+      }
       get_owned_companies: {
         Args: { user_id?: string }
         Returns: {

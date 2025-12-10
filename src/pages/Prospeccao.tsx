@@ -19,6 +19,8 @@ import { HistoricoImportacaoModal } from "@/components/HistoricoImportacaoModal"
 import { ClientesPorUsuarioModal } from "@/components/ClientesPorUsuarioModal";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
 import { NovoLeadModal } from "@/components/NovoLeadModal";
+import { VendasProspeccaoTab } from "@/components/VendasProspeccaoTab";
+import { useVendasProspeccao } from "@/hooks/useVendasProspeccao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
@@ -97,8 +99,10 @@ const Prospeccao = () => {
     criarProspeccao,
     editarProspeccao,
     excluirProspeccao,
-    refetch 
+    refetch
   } = useContatoData();
+  
+  const { criarVenda, refetch: refetchVendas } = useVendasProspeccao();
   
   const { 
     visitas, 
@@ -701,11 +705,15 @@ const Prospeccao = () => {
   };
 
   // Handler para confirmar venda com produto
-  const handleConfirmVenda = async (contatoId: string, produtoVendidoId: string) => {
+  const handleConfirmVenda = async (contatoId: string, produtoVendidoId: string, departamentoId?: string) => {
     if (!modalContato.pendingVendaStatus) return;
     
     const { fromStatus, toStatus } = modalContato.pendingVendaStatus;
     const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
+    
+    // Get the contato data for creating sale
+    const contato = contatos.find(c => c.id === contatoId);
+    if (!contato) return;
     
     if (novoStatusDb) {
       await atualizarStatusContato(contatoId, novoStatusDb);
@@ -714,6 +722,41 @@ const Prospeccao = () => {
     // Auto-atribuir responsável quando sair da coluna "novos"
     if (fromStatus === 'novos' && user?.email) {
       await atribuirResponsavel(contatoId, user.email);
+    }
+
+    // Find prospeccao for this contact (use the first one for now, or from filters)
+    const prospeccaoId = globalFilters.prospeccaoId !== 'todos' && globalFilters.prospeccaoId 
+      ? globalFilters.prospeccaoId 
+      : prospeccoes[0]?.id;
+
+    // Get responsavel ID from the profiles list
+    const responsavelProfile = contato.responsavel_email 
+      ? profiles.find(p => 
+          p.id === contato.responsavel_email || 
+          p.email === contato.responsavel_email ||
+          p.celular === contato.responsavel_email
+        )
+      : profiles.find(p => p.id === user?.id);
+
+    // Create the sale record automatically
+    if (prospeccaoId) {
+      try {
+        await criarVenda({
+          prospeccaoId,
+          contatoId,
+          clienteNome: contato.nome,
+          clienteTelefone: contato.telefone || null,
+          responsavelId: responsavelProfile?.id || user?.id || null,
+          produtoId: produtoVendidoId,
+          departamentoId: departamentoId || null,
+        });
+        
+        // Refresh vendas list
+        await refetchVendas();
+      } catch (error) {
+        console.error('Erro ao criar venda:', error);
+        // Continue even if sale creation fails - the lead status was already updated
+      }
     }
 
     if (registrarMovimentacao && user && prospeccoes?.length > 0) {
@@ -729,7 +772,7 @@ const Prospeccao = () => {
 
     toast({
       title: "Venda Registrada",
-      description: "O lead foi movido para Vendas com o produto registrado.",
+      description: "O lead foi movido para Vendas e a venda foi registrada automaticamente.",
     });
 
     handleCloseModal();
@@ -879,6 +922,7 @@ const Prospeccao = () => {
           <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
           <TabsTrigger value="recepcao">Recepção</TabsTrigger>
+          <TabsTrigger value="vendas">Vendas</TabsTrigger>
         </TabsList>
 
         {/* Filtro Global Unificado */}
@@ -1159,6 +1203,10 @@ const Prospeccao = () => {
               </Card>
             </div>
           </ScrollIndicator>
+        </TabsContent>
+
+        <TabsContent value="vendas" className="flex-1 min-h-0 overflow-hidden w-full">
+          <VendasProspeccaoTab globalFilters={globalFilters} />
         </TabsContent>
       </Tabs>
 
