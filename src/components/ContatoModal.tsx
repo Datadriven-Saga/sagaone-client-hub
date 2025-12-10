@@ -113,6 +113,8 @@ export function ContatoModal({
   const [usuariosDisponiveis, setUsuariosDisponiveis] = useState<Array<{ id: string; nome: string; email: string; tipoAcesso: string | null }>>([]);
   const [responsavelSelecionado, setResponsavelSelecionado] = useState<string>('');
   const [responsavelAtualId, setResponsavelAtualId] = useState<string | null>(null);
+  const [departamentosDisponiveis, setDepartamentosDisponiveis] = useState<Array<{ id: string; nome: string }>>([]);
+  const [departamentoSelecionado, setDepartamentoSelecionado] = useState<string>('');
 
   const temperaturas: TemperaturaOption[] = [
     { id: 'frio', nome: 'Frio', cor: '#3b82f6' },
@@ -167,6 +169,20 @@ export function ContatoModal({
               tipoAcesso: u.tipo_acesso
             }));
             setUsuariosDisponiveis(usuariosFormatados);
+          }
+
+          // Buscar departamentos da empresa
+          const { data: departamentos, error: departamentosError } = await supabase
+            .from('departamentos')
+            .select('id, nome')
+            .eq('ativo', true)
+            .order('nome');
+
+          if (!departamentosError && departamentos) {
+            setDepartamentosDisponiveis(departamentos.map(d => ({
+              id: d.id,
+              nome: d.nome
+            })));
           }
 
           // Buscar produtos disponíveis da empresa
@@ -873,6 +889,35 @@ export function ContatoModal({
                               ))}
                             </SelectContent>
                           </Select>
+                        </div>
+
+                        {/* Departamento */}
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Departamento</label>
+                          {departamentosDisponiveis.length > 0 ? (
+                            <Select 
+                              value={departamentoSelecionado} 
+                              onValueChange={setDepartamentoSelecionado}
+                              disabled={isLeadBloqueado}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Selecione o departamento" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {departamentosDisponiveis.map((dept) => (
+                                  <SelectItem key={dept.id} value={dept.id}>
+                                    {dept.nome}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <div className="p-3 border rounded-md bg-amber-50 border-amber-200">
+                              <p className="text-sm text-amber-700">
+                                Nenhum departamento cadastrado. Solicite ao administrador a criação de departamentos em Administração &gt; Empresas &gt; Configurações.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
