@@ -282,19 +282,20 @@ export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps)
       // Nº VENDA - primeira linha de texto (sobe 40px em relação aos outros)
       ctx.fillText(`${venda.numero_venda}`, textStartX + imgWidth * 0.25, imgHeight * 0.25 + yOffset - 40);
 
-      // CLIENTE - segunda linha (sobe 85px)
-      const clienteY = imgHeight * 0.38 + yOffset - 85;
-      ctx.fillText(venda.cliente_nome, textStartX + imgWidth * 0.2, clienteY);
+      // CLIENTE - segunda linha (sobe 84px, 2px à esquerda)
+      const clienteY = imgHeight * 0.38 + yOffset - 84;
+      const textLeftOffset = textStartX + imgWidth * 0.2 - 2;
+      ctx.fillText(venda.cliente_nome, textLeftOffset, clienteY);
 
-      // RESPONSÁVEL - 95px abaixo do cliente (desceu 5px)
+      // RESPONSÁVEL - 97px abaixo do cliente (desceu 2px, 2px à esquerda)
       const responsavelNome = venda.responsavel?.nome_completo || '-';
-      ctx.fillText(responsavelNome, textStartX + imgWidth * 0.2, clienteY + 95);
+      ctx.fillText(responsavelNome, textLeftOffset, clienteY + 97);
 
-      // MODELO/PRODUTO - terceira linha (sobe 15px)
-      ctx.fillText(venda.produto?.nome || '-', textStartX + imgWidth * 0.2, imgHeight * 0.51 + yOffset - 15);
+      // MODELO/PRODUTO - terceira linha (sobe 14px, 2px à esquerda)
+      ctx.fillText(venda.produto?.nome || '-', textLeftOffset, imgHeight * 0.51 + yOffset - 14);
 
-      // EQUIPE - quarta linha (sobe 50px)
-      ctx.fillText(equipeNome, textStartX + imgWidth * 0.2, imgHeight * 0.64 + yOffset - 50);
+      // EQUIPE - quarta linha (sobe 50px, 2px à esquerda)
+      ctx.fillText(equipeNome, textLeftOffset, imgHeight * 0.64 + yOffset - 50);
 
       // 5. Converter para imagem e fazer download
       const dataUrl = canvas.toDataURL('image/png');
