@@ -153,23 +153,39 @@ export function ContatoModal({
     }
   }, [isOpen, requireProdutoVendido, contato?.status, vendaExistente]);
 
-  // Verificar se existe venda para este contato
+  // Verificar se existe venda para este contato e pré-popular campos
   useEffect(() => {
     const verificarVenda = async () => {
       if (isOpen && contato?.id) {
         const { data, error } = await supabase
           .from('vendas_prospeccao')
-          .select('id')
+          .select('id, departamento_id, produto_id, responsavel_id')
           .eq('contato_id', contato.id)
           .maybeSingle();
         
-        setVendaExistente(!!data && !error);
+        if (data && !error) {
+          setVendaExistente(true);
+          // Pré-popular campos da venda existente
+          if (data.departamento_id) {
+            setDepartamentoSelecionado(data.departamento_id);
+          }
+          if (data.produto_id) {
+            setProdutoVendidoId(data.produto_id);
+          }
+        } else {
+          setVendaExistente(false);
+          // Resetar campos apenas se não há venda
+          if (!requireProdutoVendido) {
+            setDepartamentoSelecionado('');
+            setProdutoVendidoId('');
+          }
+        }
       } else {
         setVendaExistente(false);
       }
     };
     verificarVenda();
-  }, [isOpen, contato?.id]);
+  }, [isOpen, contato?.id, requireProdutoVendido]);
 
   // Buscar dados reais ao abrir o modal
   useEffect(() => {
