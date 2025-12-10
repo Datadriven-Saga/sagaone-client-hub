@@ -258,8 +258,8 @@ const Prospeccao = () => {
   }, [activeCompany, companyLoading, switchCompany, toast]);
 
   // Função para registrar movimentações dos contatos
-  const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
-    // Se destino é "vendas", exigir produto vendido
+  const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string): Promise<boolean> => {
+    // Se destino é "vendas", exigir produto vendido - NÃO mover o card ainda
     if (toStatus === 'vendas') {
       const contatoCompleto = contatos.find(c => c.id === itemId);
       if (contatoCompleto) {
@@ -271,10 +271,10 @@ const Prospeccao = () => {
           pendingVendaStatus: { fromStatus, toStatus }
         });
         toast({
-          title: "Produto Vendido Obrigatório",
-          description: "Para mover para Vendas, selecione o produto vendido na aba Produtos.",
+          title: "Confirmar Venda",
+          description: "Para registrar a venda, preencha os campos obrigatórios: Responsável, Departamento e Produto Vendido.",
         });
-        return; // Não processa a mudança ainda
+        return false; // Não mover o card visualmente ainda
       }
     }
 
@@ -297,6 +297,8 @@ const Prospeccao = () => {
         usuarioId: user.id,
       });
     }
+    
+    return true; // Permitir mover o card
   };
 
   // Calcular métricas dos contatos (antes do early return para uso nos useMemo)
@@ -705,7 +707,7 @@ const Prospeccao = () => {
   };
 
   // Handler para confirmar venda com produto
-  const handleConfirmVenda = async (contatoId: string, produtoVendidoId: string, departamentoId?: string) => {
+  const handleConfirmVenda = async (contatoId: string, produtoVendidoId: string, departamentoId?: string, responsavelId?: string) => {
     if (!modalContato.pendingVendaStatus) return;
     
     const { fromStatus, toStatus } = modalContato.pendingVendaStatus;
@@ -729,15 +731,6 @@ const Prospeccao = () => {
       ? globalFilters.prospeccaoId 
       : prospeccoes[0]?.id;
 
-    // Get responsavel ID from the profiles list
-    const responsavelProfile = contato.responsavel_email 
-      ? profiles.find(p => 
-          p.id === contato.responsavel_email || 
-          p.email === contato.responsavel_email ||
-          p.celular === contato.responsavel_email
-        )
-      : profiles.find(p => p.id === user?.id);
-
     // Create the sale record automatically
     if (prospeccaoId) {
       try {
@@ -746,7 +739,7 @@ const Prospeccao = () => {
           contatoId,
           clienteNome: contato.nome,
           clienteTelefone: contato.telefone || null,
-          responsavelId: responsavelProfile?.id || user?.id || null,
+          responsavelId: responsavelId || user?.id || null,
           produtoId: produtoVendidoId,
           departamentoId: departamentoId || null,
         });
