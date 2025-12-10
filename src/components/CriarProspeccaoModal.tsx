@@ -14,6 +14,7 @@ import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, 
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 
 interface CriarProspeccaoModalProps {
   isOpen: boolean;
@@ -1272,7 +1273,7 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
             </div>
             
             {/* Conteúdo com scroll */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
+            <ScrollIndicator className="flex-1 min-h-0 px-6 py-4">
               <TabsContent value="dados-gerais" className="space-y-4 mt-0">
                 <div>
                   <Label htmlFor="titulo">Título *</Label>
@@ -3100,7 +3101,7 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                 </div>
               </Card>
             </TabsContent>
-            </div>
+            </ScrollIndicator>
 
             {/* Footer fixo */}
             <div className="flex-shrink-0 flex justify-end gap-2 px-6 py-4 border-t bg-background">
