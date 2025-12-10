@@ -259,20 +259,35 @@ const Prospeccao = () => {
 
   // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string): Promise<boolean> => {
-    // Se destino é "vendas", exigir produto vendido - NÃO mover o card ainda
+    // Se destino é "vendas", verificar campos obrigatórios
     if (toStatus === 'vendas') {
       const contatoCompleto = contatos.find(c => c.id === itemId);
       if (contatoCompleto) {
+        // Verificar se responsável está preenchido
+        const temResponsavel = !!contatoCompleto.responsavel_email;
+        
+        // Se não tem responsável, atribuir automaticamente o usuário atual
+        let responsavelId = contatoCompleto.responsavel_email;
+        if (!temResponsavel && user?.id) {
+          await atribuirResponsavel(itemId, user.id);
+          responsavelId = user.id;
+        }
+        
+        // Buscar se existe produto vendido e departamento já associados ao contato
+        // (por enquanto não temos esses campos no contato, então sempre abrir o modal)
+        
+        // Abrir modal na aba de produtos para confirmar venda
         setModalContato({
           isOpen: true,
-          contato: contatoCompleto,
+          contato: { ...contatoCompleto, responsavel_email: responsavelId },
           columnId: fromStatus,
           requireProdutoVendido: true,
           pendingVendaStatus: { fromStatus, toStatus }
         });
+        
         toast({
           title: "Confirmar Venda",
-          description: "Para registrar a venda, preencha os campos obrigatórios: Responsável, Departamento e Produto Vendido.",
+          description: "Selecione o Produto Vendido e Departamento para registrar a venda.",
         });
         return false; // Não mover o card visualmente ainda
       }
