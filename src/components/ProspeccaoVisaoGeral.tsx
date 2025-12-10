@@ -50,6 +50,9 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
   onClientesPorUsuario,
   onMetricClick
 }) => {
+  // Calcular "Em Andamento" = Distribuídos sem ação + Contatados + Convidados + Confirmados + Check-ins
+  const emAndamento = funnelData.distribuidosSemAcao + funnelData.contatados + funnelData.convidados + funnelData.confirmados + funnelData.checkIns;
+
   const metricCards = [
     {
       id: 'ativos',
@@ -64,6 +67,15 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
       id: 'disponiveis',
       label: 'Disponíveis para Distribuição',
       value: metrics.disponiveisDistribuicao,
+      icon: RefreshCw,
+      highlight: false,
+      bgColor: 'bg-card',
+      textColor: 'text-foreground'
+    },
+    {
+      id: 'emAndamento',
+      label: 'Em Andamento',
+      value: emAndamento,
       icon: RefreshCw,
       highlight: false,
       bgColor: 'bg-card',
