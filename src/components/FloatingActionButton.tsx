@@ -61,15 +61,15 @@ export const FloatingActionButton = ({
       <Button
         onClick={toggleExpanded}
         className={cn(
-          "h-14 w-14 rounded-full shadow-xl transition-all duration-300",
+          "h-10 w-10 rounded-full shadow-xl transition-all duration-300",
           "bg-primary hover:bg-primary/90",
           isExpanded && "rotate-45"
         )}
       >
         {isExpanded ? (
-          <X className="h-6 w-6 text-white" />
+          <X className="h-4 w-4 text-white" />
         ) : (
-          <Plus className="h-6 w-6 text-white" />
+          <Plus className="h-4 w-4 text-white" />
         )}
       </Button>
     </div>
