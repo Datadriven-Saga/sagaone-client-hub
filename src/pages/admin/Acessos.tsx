@@ -7,6 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -327,7 +328,8 @@ const Acessos = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <ScrollIndicator className="flex-1 h-full">
+        <div className="space-y-6 pb-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Acessos</h1>
@@ -642,7 +644,8 @@ const Acessos = () => {
             )}
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </ScrollIndicator>
     </DashboardLayout>
   );
 };
