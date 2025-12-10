@@ -233,20 +233,19 @@ export function DocumentosTab() {
             <div className="flex items-center gap-2">
               {documento.arquivo_url ? (
                 <>
-                  <a
-                    href={documento.arquivo_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex"
-                  >
-                    <Button variant="outline" size="sm">
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Visualizar
-                    </Button>
-                  </a>
                   <Button
                     variant="outline"
                     size="sm"
+                    className="cursor-pointer"
+                    onClick={() => window.open(documento.arquivo_url!, '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Visualizar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="cursor-pointer"
                     onClick={() => handleRemoveFile(documento)}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
