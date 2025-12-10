@@ -115,6 +115,7 @@ export function ContatoModal({
   const [responsavelAtualId, setResponsavelAtualId] = useState<string | null>(null);
   const [departamentosDisponiveis, setDepartamentosDisponiveis] = useState<Array<{ id: string; nome: string }>>([]);
   const [departamentoSelecionado, setDepartamentoSelecionado] = useState<string>('');
+  const [vendaExistente, setVendaExistente] = useState<boolean>(false);
 
   const temperaturas: TemperaturaOption[] = [
     { id: 'frio', nome: 'Frio', cor: '#3b82f6' },
@@ -140,14 +141,35 @@ export function ContatoModal({
     return diffHoras > 24;
   })();
 
-  // Abrir na aba produtos se requireProdutoVendido
+  // Mostrar card de confirmar venda quando: obrigatório OU (status Venda sem venda registrada)
+  const mostrarConfirmarVenda = requireProdutoVendido || (contato?.status === 'Venda' && !vendaExistente && !isLeadBloqueado);
+
+  // Abrir na aba produtos se requireProdutoVendido ou se precisa registrar venda
   useEffect(() => {
-    if (isOpen && requireProdutoVendido) {
+    if (isOpen && (requireProdutoVendido || (contato?.status === 'Venda' && !vendaExistente))) {
       setActiveTab('produtos');
     } else if (isOpen) {
       setActiveTab('dados-pessoais');
     }
-  }, [isOpen, requireProdutoVendido]);
+  }, [isOpen, requireProdutoVendido, contato?.status, vendaExistente]);
+
+  // Verificar se existe venda para este contato
+  useEffect(() => {
+    const verificarVenda = async () => {
+      if (isOpen && contato?.id) {
+        const { data, error } = await supabase
+          .from('vendas_prospeccao')
+          .select('id')
+          .eq('contato_id', contato.id)
+          .maybeSingle();
+        
+        setVendaExistente(!!data && !error);
+      } else {
+        setVendaExistente(false);
+      }
+    };
+    verificarVenda();
+  }, [isOpen, contato?.id]);
 
   // Buscar dados reais ao abrir o modal
   useEffect(() => {
@@ -1116,8 +1138,8 @@ export function ContatoModal({
                     </div>
                   </Card>
 
-                  {/* Botão de confirmar venda quando obrigatório */}
-                  {requireProdutoVendido && (
+                  {/* Botão de confirmar venda quando obrigatório ou status Venda sem registro */}
+                  {mostrarConfirmarVenda && (
                     <Card className="p-6 border-primary">
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 text-primary">
