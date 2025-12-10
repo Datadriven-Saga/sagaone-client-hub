@@ -26,7 +26,9 @@ import {
   UserCheck,
   Plus,
   Settings,
-  PhoneCall
+  PhoneCall,
+  Lock,
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -117,6 +119,24 @@ export function ContatoModal({
     { id: 'morno', nome: 'Morno', cor: '#f59e0b' },
     { id: 'quente', nome: 'Quente', cor: '#ef4444' }
   ];
+
+  // Status de conclusão do lead
+  const statusConclusao = ['Venda', 'Descartado', 'Opt Out'];
+  
+  // Verificar se o lead está bloqueado (concluído há mais de 24h)
+  const isLeadBloqueado = (() => {
+    if (!contato) return false;
+    
+    // Verificar se está em status de conclusão
+    if (!statusConclusao.includes(contato.status)) return false;
+    
+    // Verificar se passou 24h desde o updated_at
+    const updatedAt = new Date(contato.updated_at);
+    const agora = new Date();
+    const diffHoras = (agora.getTime() - updatedAt.getTime()) / (1000 * 60 * 60);
+    
+    return diffHoras > 24;
+  })();
 
   // Abrir na aba produtos se requireProdutoVendido
   useEffect(() => {
@@ -505,7 +525,7 @@ export function ContatoModal({
                 <Button
                   size="sm"
                   onClick={() => setContatoRealizadoOpen(true)}
-                  disabled={!prospeccaoId}
+                  disabled={!prospeccaoId || isLeadBloqueado}
                   className="gap-2"
                 >
                   <PhoneCall className="w-4 h-4" />
@@ -547,6 +567,20 @@ export function ContatoModal({
           {/* Main Content */}
           <ScrollIndicator className="flex-1 min-h-0 overflow-hidden">
             <div className="p-4">
+              {/* Aviso de lead bloqueado */}
+              {isLeadBloqueado && (
+                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                  <Lock className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-amber-800">Lead Bloqueado para Edição</p>
+                    <p className="text-sm text-amber-700 mt-1">
+                      Este lead foi concluído há mais de 24 horas e não pode mais ser editado. 
+                      Status final: <strong>{contato?.status}</strong>
+                    </p>
+                  </div>
+                </div>
+              )}
+              
               {activeTab === 'dados-pessoais' && (
                 <div className="space-y-6">
                   <Card className="p-6">
@@ -675,7 +709,10 @@ export function ContatoModal({
                       
                       <div>
                         <label className="text-sm font-medium mb-2 block">Novo Status</label>
-                        <Select onValueChange={(value) => handleStatusChange(value as Contato['status'])}>
+                        <Select 
+                          onValueChange={(value) => handleStatusChange(value as Contato['status'])}
+                          disabled={isLeadBloqueado}
+                        >
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione o novo status" />
                           </SelectTrigger>
@@ -697,6 +734,7 @@ export function ContatoModal({
                       variant="destructive" 
                       onClick={handleExcluirContato}
                       className="w-full"
+                      disabled={isLeadBloqueado}
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Excluir Contato da Prospecção
@@ -810,6 +848,7 @@ export function ContatoModal({
                           <Select 
                             value={responsavelSelecionado} 
                             onValueChange={handleAtribuirResponsavel}
+                            disabled={isLeadBloqueado}
                           >
                             <SelectTrigger className="w-full">
                               <SelectValue placeholder="Selecione o usuário" />
@@ -847,16 +886,17 @@ export function ContatoModal({
                     <h3 className="text-lg font-semibold mb-4">Nova Anotação</h3>
                     <div className="space-y-4">
                       <Textarea
-                        placeholder="Digite sua anotação aqui (máximo 1000 caracteres)..."
+                        placeholder={isLeadBloqueado ? "Lead bloqueado - não é possível adicionar anotações" : "Digite sua anotação aqui (máximo 1000 caracteres)..."}
                         value={novaAnotacao}
                         onChange={(e) => setNovaAnotacao(e.target.value)}
                         maxLength={1000}
+                        disabled={isLeadBloqueado}
                       />
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">
                           {novaAnotacao.length}/1000 caracteres
                         </span>
-                        <Button onClick={handleAdicionarAnotacao} disabled={!novaAnotacao.trim()}>
+                        <Button onClick={handleAdicionarAnotacao} disabled={!novaAnotacao.trim() || isLeadBloqueado}>
                           <Plus className="w-4 h-4 mr-2" />
                           Adicionar Anotação
                         </Button>
@@ -917,6 +957,7 @@ export function ContatoModal({
                                 setProdutosSelecionados(prev => [...prev, value]);
                               }
                             }}
+                            disabled={isLeadBloqueado}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione um produto" />
@@ -985,6 +1026,7 @@ export function ContatoModal({
                           <Select
                             value={produtoVendidoId}
                             onValueChange={(value) => setProdutoVendidoId(value === '__clear__' ? '' : value)}
+                            disabled={isLeadBloqueado}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione o produto vendido" />
@@ -1078,12 +1120,13 @@ export function ContatoModal({
                       {temperaturas.map((temp) => (
                         <button
                           key={temp.id}
-                          onClick={() => setTemperaturaAtual(temp.id)}
+                          onClick={() => !isLeadBloqueado && setTemperaturaAtual(temp.id)}
+                          disabled={isLeadBloqueado}
                           className={`w-full p-3 border rounded-lg text-left transition-colors ${
                             temperaturaAtual === temp.id
                               ? 'border-primary bg-primary/5'
                               : 'border-border hover:border-primary/50'
-                          }`}
+                          } ${isLeadBloqueado ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                           <div className="flex items-center gap-3">
                             <div 
