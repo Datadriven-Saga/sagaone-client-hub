@@ -268,7 +268,7 @@ export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps)
 
       // Posição do logo (quadrado do lado esquerdo - ajustado para alinhar com quadrado branco)
       if (logoImg) {
-        const logoSize = Math.min(imgWidth * 0.15, imgHeight * 0.25);
+        const logoSize = Math.min(imgWidth * 0.15, imgHeight * 0.25) * 2; // 200% do tamanho original
         const logoX = imgWidth * 0.05 - 21; // 21px para a esquerda
         const logoY = imgHeight * 0.35 + 75; // 75px para baixo
         ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
