@@ -669,7 +669,12 @@ export function ContatoModal({
                   onClose={() => setContatoRealizadoOpen(false)}
                   contatoId={contato.id}
                   prospeccaoId={prospeccaoId}
-                  onSuccess={() => {
+                  onSuccess={(novoStatus) => {
+                    // Atualizar status no Kanban
+                    if (onStatusChange && novoStatus) {
+                      onStatusChange(contato.id, novoStatus as Contato['status']);
+                    }
+                    
                     // Recarregar anotações após registro
                     const reloadAnotacoes = async () => {
                       const { data: eventos } = await supabase
