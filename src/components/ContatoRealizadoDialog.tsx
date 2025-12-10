@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Phone, CheckCircle, XCircle, PhoneOff, MessageSquare } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
+import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 
 interface MotivoNaoParticipacao {
   id: string;
@@ -216,7 +217,7 @@ export function ContatoRealizadoDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg h-[80vh] max-h-[600px] flex flex-col p-0">
+      <DialogContent className="max-w-3xl h-[80vh] max-h-[600px] flex flex-col p-0">
         {/* Header fixo */}
         <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
@@ -229,90 +230,93 @@ export function ContatoRealizadoDialog({
         </DialogHeader>
 
         {/* Conteúdo com scroll */}
-        <div className="flex-1 overflow-y-auto p-6 py-4">
-          <div className="space-y-5">
-            {/* Tipo de Contato */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">Resultado do Contato</Label>
-              <RadioGroup
-                value={tipoContato}
-                onValueChange={(value) => setTipoContato(value as TipoContato)}
-                className="space-y-2"
-              >
-                {opcoes.map((opcao) => {
-                  const Icon = opcao.icon;
-                  return (
-                    <div
-                      key={opcao.value}
-                      className={`flex items-start space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                        tipoContato === opcao.value 
-                          ? 'border-primary bg-primary/5' 
-                          : 'border-border hover:bg-muted/50'
-                      }`}
-                      onClick={() => setTipoContato(opcao.value)}
-                    >
-                      <RadioGroupItem value={opcao.value} id={opcao.value} className="mt-0.5" />
-                      <div className="flex-1">
-                        <label
-                          htmlFor={opcao.value}
-                          className="flex items-center gap-2 font-medium text-sm cursor-pointer"
-                        >
-                          <Icon className={`w-4 h-4 ${opcao.color}`} />
-                          {opcao.label}
-                        </label>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {opcao.description}
-                        </p>
+        <ScrollIndicator className="flex-1 min-h-0">
+          <div className="p-6 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Coluna Esquerda - Resultado do Contato */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Resultado do Contato</Label>
+                <RadioGroup
+                  value={tipoContato}
+                  onValueChange={(value) => setTipoContato(value as TipoContato)}
+                  className="space-y-2"
+                >
+                  {opcoes.map((opcao) => {
+                    const Icon = opcao.icon;
+                    return (
+                      <div
+                        key={opcao.value}
+                        className={`flex items-start space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                          tipoContato === opcao.value 
+                            ? 'border-primary bg-primary/5' 
+                            : 'border-border hover:bg-muted/50'
+                        }`}
+                        onClick={() => setTipoContato(opcao.value)}
+                      >
+                        <RadioGroupItem value={opcao.value} id={opcao.value} className="mt-0.5" />
+                        <div className="flex-1">
+                          <label
+                            htmlFor={opcao.value}
+                            className="flex items-center gap-2 font-medium text-sm cursor-pointer"
+                          >
+                            <Icon className={`w-4 h-4 ${opcao.color}`} />
+                            {opcao.label}
+                          </label>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {opcao.description}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </RadioGroup>
-            </div>
+                    );
+                  })}
+                </RadioGroup>
 
-            {/* Motivo de Não Participação */}
-            {tipoContato === 'nao_vai_participar' && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Motivo da Não Participação *</Label>
-                <Select value={motivoId} onValueChange={setMotivoId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o motivo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {loadingMotivos ? (
-                      <SelectItem value="loading" disabled>
-                        Carregando...
-                      </SelectItem>
-                    ) : (
-                      motivos.map((motivo) => (
-                        <SelectItem key={motivo.id} value={motivo.id}>
-                          {motivo.descricao}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                {/* Motivo de Não Participação */}
+                {tipoContato === 'nao_vai_participar' && (
+                  <div className="space-y-2 pt-2">
+                    <Label className="text-sm font-medium">Motivo da Não Participação *</Label>
+                    <Select value={motivoId} onValueChange={setMotivoId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o motivo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {loadingMotivos ? (
+                          <SelectItem value="loading" disabled>
+                            Carregando...
+                          </SelectItem>
+                        ) : (
+                          motivos.map((motivo) => (
+                            <SelectItem key={motivo.id} value={motivo.id}>
+                              {motivo.descricao}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
-            )}
 
-            {/* Anotação */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                Detalhes do Contato *
-              </Label>
-              <Textarea
-                placeholder="Descreva os detalhes do contato realizado..."
-                value={anotacao}
-                onChange={(e) => setAnotacao(e.target.value)}
-                maxLength={500}
-                rows={3}
-              />
-              <p className="text-xs text-muted-foreground text-right">
-                {anotacao.length}/500 caracteres
-              </p>
+              {/* Coluna Direita - Anotações */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  Anotações *
+                </Label>
+                <Textarea
+                  placeholder="Descreva os detalhes do contato realizado..."
+                  value={anotacao}
+                  onChange={(e) => setAnotacao(e.target.value)}
+                  maxLength={500}
+                  rows={8}
+                  className="min-h-[200px]"
+                />
+                <p className="text-xs text-muted-foreground text-right">
+                  {anotacao.length}/500 caracteres
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        </ScrollIndicator>
 
         {/* Footer fixo */}
         <DialogFooter className="p-6 pt-4 border-t flex-shrink-0">
