@@ -47,7 +47,7 @@ interface ContatoModalProps {
   onAssignResponsible?: (contatoId: string, userId: string) => void;
   onCreateContact?: (novoContato: { nome: string; telefone: string; email?: string; }) => void;
   requireProdutoVendido?: boolean;
-  onConfirmVenda?: (contatoId: string, produtoVendidoId: string, departamentoId?: string) => void;
+  onConfirmVenda?: (contatoId: string, produtoVendidoId: string, departamentoId?: string, responsavelId?: string) => void;
 }
 
 interface Anotacao {
@@ -1124,24 +1124,43 @@ export function ContatoModal({
                           <Package className="w-5 h-5" />
                           <h3 className="text-lg font-semibold">Confirmar Venda</h3>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          Para mover este lead para Vendas, é obrigatório selecionar o produto vendido acima.
-                        </p>
+                        
+                        {/* Lista de campos obrigatórios com status */}
+                        <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
+                          <p className="text-sm font-medium">Campos obrigatórios:</p>
+                          <div className="space-y-1">
+                            <div className={`flex items-center gap-2 text-sm ${responsavelAtualId ? 'text-green-600' : 'text-destructive'}`}>
+                              {responsavelAtualId ? '✓' : '✗'} Responsável atribuído
+                            </div>
+                            <div className={`flex items-center gap-2 text-sm ${departamentoSelecionado ? 'text-green-600' : 'text-destructive'}`}>
+                              {departamentoSelecionado ? '✓' : '✗'} Departamento selecionado
+                            </div>
+                            <div className={`flex items-center gap-2 text-sm ${produtoVendidoId ? 'text-green-600' : 'text-destructive'}`}>
+                              {produtoVendidoId ? '✓' : '✗'} Produto vendido selecionado
+                            </div>
+                          </div>
+                        </div>
+
                         <Button
                           onClick={() => {
-                            if (!produtoVendidoId) {
+                            const camposFaltando: string[] = [];
+                            if (!responsavelAtualId) camposFaltando.push('Responsável');
+                            if (!departamentoSelecionado) camposFaltando.push('Departamento');
+                            if (!produtoVendidoId) camposFaltando.push('Produto Vendido');
+                            
+                            if (camposFaltando.length > 0) {
                               toast({
-                                title: "Produto obrigatório",
-                                description: "Selecione o produto vendido para confirmar a venda.",
+                                title: "Campos obrigatórios",
+                                description: `Preencha os seguintes campos: ${camposFaltando.join(', ')}`,
                                 variant: "destructive"
                               });
                               return;
                             }
-                            if (contato && onConfirmVenda) {
-                              onConfirmVenda(contato.id, produtoVendidoId, departamentoSelecionado || undefined);
+                            if (contato && onConfirmVenda && responsavelAtualId) {
+                              onConfirmVenda(contato.id, produtoVendidoId, departamentoSelecionado, responsavelAtualId);
                             }
                           }}
-                          disabled={!produtoVendidoId}
+                          disabled={!produtoVendidoId || !responsavelAtualId || !departamentoSelecionado}
                           className="w-full"
                         >
                           Confirmar Venda

@@ -42,7 +42,7 @@ interface KanbanBoardProps {
   columns: KanbanColumnData[];
   onUpdateColumns: (columns: KanbanColumnData[]) => void;
   onCardClick?: (item: KanbanItem) => void;
-  onStatusChange?: (itemId: string, fromStatus: string, toStatus: string) => void;
+  onStatusChange?: (itemId: string, fromStatus: string, toStatus: string) => Promise<boolean> | void;
   onSolicitarClientes?: () => void;
 }
 
@@ -70,7 +70,7 @@ export function KanbanBoard({
     setActiveItem(item || null);
   }, [columns]);
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
     
     if (!over) {
@@ -126,7 +126,14 @@ export function KanbanBoard({
         onUpdateColumns(newColumns);
       }
     } else {
-      onStatusChange?.(activeId, sourceColumn.id, targetColumn.id);
+      // Call onStatusChange and check if it returns false (meaning we should NOT move the card)
+      const result = await onStatusChange?.(activeId, sourceColumn.id, targetColumn.id);
+      
+      // If result is false, don't move the card visually
+      if (result === false) {
+        setActiveItem(null);
+        return;
+      }
       
       const newColumns = columns.map(col => {
         if (col.id === sourceColumn.id) {
