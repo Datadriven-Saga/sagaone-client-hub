@@ -538,6 +538,53 @@ export type Database = {
           },
         ]
       }
+      documentos_configuracao: {
+        Row: {
+          arquivo_nome: string | null
+          arquivo_url: string | null
+          created_at: string
+          descricao: string | null
+          empresa_id: string
+          id: string
+          nome: string
+          tamanho_arquivo: number | null
+          tipo_arquivo: string | null
+          updated_at: string
+        }
+        Insert: {
+          arquivo_nome?: string | null
+          arquivo_url?: string | null
+          created_at?: string
+          descricao?: string | null
+          empresa_id: string
+          id?: string
+          nome: string
+          tamanho_arquivo?: number | null
+          tipo_arquivo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          arquivo_nome?: string | null
+          arquivo_url?: string | null
+          created_at?: string
+          descricao?: string | null
+          empresa_id?: string
+          id?: string
+          nome?: string
+          tamanho_arquivo?: number | null
+          tipo_arquivo?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_configuracao_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       empresa_modulos: {
         Row: {
           ativo: boolean
