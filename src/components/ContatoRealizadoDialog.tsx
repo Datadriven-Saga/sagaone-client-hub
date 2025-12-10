@@ -20,7 +20,7 @@ interface ContatoRealizadoDialogProps {
   onClose: () => void;
   contatoId: string;
   prospeccaoId: string;
-  onSuccess?: () => void;
+  onSuccess?: (novoStatus: string) => void;
 }
 
 type TipoContato = 'vai_participar' | 'registrar_contato' | 'tentativa_sem_sucesso' | 'nao_vai_participar';
@@ -159,7 +159,10 @@ export function ContatoRealizadoDialog({
       setMotivoId('');
       setAnotacao('');
       
-      onSuccess?.();
+      // Chamar onSuccess com o novo status para atualizar a UI
+      if (novoStatus) {
+        onSuccess?.(novoStatus);
+      }
       onClose();
     } catch (error) {
       console.error('Erro ao registrar contato:', error);
