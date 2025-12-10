@@ -135,7 +135,7 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-6">
           <Filter className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold text-lg">Funil de Vendas</h3>
+          <h3 className="font-semibold text-lg">Quantidade de Leads em cada etapa do Funil de Vendas</h3>
         </div>
 
         <div className="space-y-2">
