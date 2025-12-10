@@ -781,7 +781,7 @@ const Prospeccao = () => {
 
   return (
     <DashboardLayout title="Prospecção">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0.5 w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full w-full">
         <TabsList className="inline-flex">
           <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
           <TabsTrigger value="eventos">Eventos</TabsTrigger>
@@ -799,7 +799,7 @@ const Prospeccao = () => {
         />
 
         <TabsContent value="visao-geral" className="flex-1 min-h-0 overflow-hidden w-full">
-          <ScrollIndicator className="h-full">
+          <ScrollIndicator className="flex-1 h-full">
             <div className="space-y-3 pb-6">
               <ProspeccaoVisaoGeral
                 metrics={visaoGeralMetrics}
@@ -817,7 +817,7 @@ const Prospeccao = () => {
         </TabsContent>
 
         <TabsContent value="eventos" className="flex-1 min-h-0 overflow-hidden w-full">
-          <ScrollIndicator className="h-full">
+          <ScrollIndicator className="flex-1 h-full">
             <div className="space-y-3 pb-6">
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-4">
@@ -957,7 +957,7 @@ const Prospeccao = () => {
         </TabsContent>
 
         <TabsContent value="automacao" className="flex-1 min-h-0 overflow-hidden w-full">
-          <ScrollIndicator className="h-full">
+          <ScrollIndicator className="flex-1 h-full">
             <div className="space-y-3 pb-6">
               <Card className="p-4">
                 <h3 className="text-base font-semibold text-foreground mb-3">Adicionar Contatos à Prospecção</h3>
@@ -1027,7 +1027,7 @@ const Prospeccao = () => {
         </TabsContent>
 
         <TabsContent value="recepcao" className="flex-1 min-h-0 overflow-hidden w-full">
-          <ScrollIndicator className="h-full">
+          <ScrollIndicator className="flex-1 h-full">
             <div className="space-y-1.5 pb-6">
               <Card className="p-3">
                 <div className="flex items-center justify-between mb-3">

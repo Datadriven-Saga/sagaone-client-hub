@@ -46,11 +46,11 @@ export function ScrollIndicator({ children, className = '' }: ScrollIndicatorPro
   };
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative flex flex-col ${className}`}>
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="h-full overflow-y-auto"
+        className="flex-1 overflow-y-auto min-h-0"
       >
         {children}
       </div>

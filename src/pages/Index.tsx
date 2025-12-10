@@ -18,7 +18,7 @@ const Index = () => {
 
   return (
     <DashboardLayout>
-      <ScrollIndicator className="h-full">
+      <ScrollIndicator className="flex-1 h-full">
         <div className="space-y-3 pb-6">
         {/* Header */}
         <div>
