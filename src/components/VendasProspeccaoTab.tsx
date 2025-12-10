@@ -279,8 +279,8 @@ export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps)
       // Offset de 250px para descer os textos
       const yOffset = 250;
 
-      // Nº VENDA - primeira linha de texto
-      ctx.fillText(`${venda.numero_venda}`, textStartX + imgWidth * 0.25, imgHeight * 0.25 + yOffset);
+      // Nº VENDA - primeira linha de texto (sobe 40px em relação aos outros)
+      ctx.fillText(`${venda.numero_venda}`, textStartX + imgWidth * 0.25, imgHeight * 0.25 + yOffset - 40);
 
       // CLIENTE - segunda linha
       ctx.fillText(venda.cliente_nome, textStartX + imgWidth * 0.2, imgHeight * 0.38 + yOffset);
