@@ -6,11 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { DollarSign, MoreVertical, Edit, Trash2, Printer, Upload, FileImage, ExternalLink } from 'lucide-react';
+import { DollarSign, MoreVertical, Edit, Trash2, Printer, Upload, FileImage, ExternalLink, Loader2 } from 'lucide-react';
 import { VendaProspeccao, useVendasProspeccao } from '@/hooks/useVendasProspeccao';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ProspeccaoGlobalFilters } from './ProspeccaoGlobalFilter';
+import { useCompany } from '@/contexts/CompanyContext';
 
 interface VendasProspeccaoTabProps {
   globalFilters: ProspeccaoGlobalFilters;
@@ -19,6 +20,7 @@ interface VendasProspeccaoTabProps {
 export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps) {
   const { vendas, loading, atualizarVenda, excluirVenda } = useVendasProspeccao();
   const { toast } = useToast();
+  const { activeCompany } = useCompany();
   const [editingVenda, setEditingVenda] = useState<VendaProspeccao | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -26,6 +28,7 @@ export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps)
     valor_venda: '',
   });
   const [uploadingComprovante, setUploadingComprovante] = useState<string | null>(null);
+  const [printingVenda, setPrintingVenda] = useState<string | null>(null);
 
   // Apply global filters
   const filteredVendas = useMemo(() => {
@@ -166,12 +169,147 @@ export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps)
     }
   };
 
-  const handlePrint = (venda: VendaProspeccao) => {
-    // TODO: Implement +1 SAGA print template
-    toast({
-      title: 'Em desenvolvimento',
-      description: 'A impressão do papel +1 SAGA será implementada em breve.',
-    });
+  const handlePrint = async (venda: VendaProspeccao) => {
+    if (!activeCompany?.id) {
+      toast({
+        title: 'Erro',
+        description: 'Empresa não selecionada.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setPrintingVenda(venda.id);
+
+    try {
+      // 1. Buscar documentos da empresa (+1 SAGA template e Logo)
+      const { data: documentos, error: docError } = await supabase
+        .from('documentos_configuracao')
+        .select('*')
+        .eq('empresa_id', activeCompany.id)
+        .in('nome', ['+1 Saga', 'Logo da Empresa']);
+
+      if (docError) throw docError;
+
+      const templateDoc = documentos?.find(d => d.nome === '+1 Saga');
+      const logoDoc = documentos?.find(d => d.nome === 'Logo da Empresa');
+
+      if (!templateDoc?.arquivo_url) {
+        toast({
+          title: 'Template não encontrado',
+          description: 'Por favor, faça o upload do template "+1 Saga" em Configurações > Documentos.',
+          variant: 'destructive',
+        });
+        setPrintingVenda(null);
+        return;
+      }
+
+      // 2. Buscar equipe do vendedor na prospecção
+      let equipeNome = '-';
+      if (venda.responsavel_id && venda.prospeccao_id) {
+        const { data: membroEquipe } = await supabase
+          .from('prospeccao_equipe_membros')
+          .select(`
+            equipe_id,
+            equipe:prospeccao_equipes!prospeccao_equipe_membros_equipe_id_fkey(nome, prospeccao_id)
+          `)
+          .eq('user_id', venda.responsavel_id)
+          .limit(100);
+
+        // Filtrar pela prospecção correta
+        const equipeCorreta = membroEquipe?.find(m => {
+          const equipe = m.equipe as { nome: string; prospeccao_id: string } | null;
+          return equipe?.prospeccao_id === venda.prospeccao_id;
+        });
+
+        if (equipeCorreta?.equipe && typeof equipeCorreta.equipe === 'object' && 'nome' in equipeCorreta.equipe) {
+          equipeNome = (equipeCorreta.equipe as { nome: string }).nome;
+        }
+      }
+
+      // 3. Carregar imagens
+      const loadImage = (url: string): Promise<HTMLImageElement> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error(`Falha ao carregar imagem: ${url}`));
+          img.src = url;
+        });
+      };
+
+      const templateImg = await loadImage(templateDoc.arquivo_url);
+      const logoImg = logoDoc?.arquivo_url ? await loadImage(logoDoc.arquivo_url) : null;
+
+      // 4. Criar canvas e desenhar
+      const canvas = document.createElement('canvas');
+      canvas.width = templateImg.width;
+      canvas.height = templateImg.height;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        throw new Error('Não foi possível criar contexto do canvas');
+      }
+
+      // Desenhar template de fundo
+      ctx.drawImage(templateImg, 0, 0);
+
+      // Configurar fonte para textos
+      const fontSize = Math.max(24, Math.round(templateImg.height * 0.035));
+      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+      ctx.fillStyle = '#000000';
+      ctx.textBaseline = 'middle';
+
+      // Calcular posições baseadas no tamanho da imagem
+      const imgWidth = templateImg.width;
+      const imgHeight = templateImg.height;
+
+      // Posição do logo (quadrado do lado esquerdo - aproximadamente 10-15% da largura)
+      if (logoImg) {
+        const logoSize = Math.min(imgWidth * 0.15, imgHeight * 0.25);
+        const logoX = imgWidth * 0.05;
+        const logoY = imgHeight * 0.35;
+        ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+      }
+
+      // Posições dos textos (ajustar conforme layout do template)
+      // Assumindo que os textos estão na metade direita do template
+      const textStartX = imgWidth * 0.35;
+
+      // Nº VENDA - primeira linha de texto
+      ctx.fillText(`${venda.numero_venda}`, textStartX + imgWidth * 0.25, imgHeight * 0.25);
+
+      // CLIENTE - segunda linha
+      ctx.fillText(venda.cliente_nome, textStartX + imgWidth * 0.2, imgHeight * 0.38);
+
+      // MODELO/PRODUTO - terceira linha
+      ctx.fillText(venda.produto?.nome || '-', textStartX + imgWidth * 0.2, imgHeight * 0.51);
+
+      // EQUIPE - quarta linha
+      ctx.fillText(equipeNome, textStartX + imgWidth * 0.2, imgHeight * 0.64);
+
+      // 5. Converter para imagem e fazer download
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `+1SAGA_Venda_${venda.numero_venda}_${venda.cliente_nome.replace(/\s+/g, '_')}.png`;
+      link.href = dataUrl;
+      link.click();
+
+      toast({
+        title: 'Imagem gerada',
+        description: 'O arquivo +1 SAGA foi baixado com sucesso.',
+      });
+
+    } catch (error) {
+      console.error('Erro ao gerar imagem +1 SAGA:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível gerar a imagem. Verifique se o template está configurado corretamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setPrintingVenda(null);
+    }
   };
 
   const formatCurrency = (value: number | null) => {
@@ -317,8 +455,15 @@ export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps)
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handlePrint(venda)}>
-                              <Printer className="mr-2 h-4 w-4" />
+                            <DropdownMenuItem 
+                              onClick={() => handlePrint(venda)}
+                              disabled={printingVenda === venda.id}
+                            >
+                              {printingVenda === venda.id ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Printer className="mr-2 h-4 w-4" />
+                              )}
                               Imprimir +1 SAGA
                             </DropdownMenuItem>
                             <DropdownMenuItem
