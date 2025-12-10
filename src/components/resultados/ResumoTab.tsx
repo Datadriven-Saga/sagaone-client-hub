@@ -180,7 +180,6 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
           .in('id', activeIds);
 
         if (prospeccaoData && prospeccaoData.length > 0) {
-          // Somar metas de todas as prospecções selecionadas
           const aggregatedMetas: ProspeccaoMetas = {
             meta_convites: prospeccaoData.reduce((sum, p) => sum + (p.meta_convites || 0), 0),
             meta_confirmacoes: prospeccaoData.reduce((sum, p) => sum + (p.meta_confirmacoes || 0), 0),
@@ -195,49 +194,140 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
         // Buscar contatos e contar por status
         const { data: contatosData } = await supabase
           .from('contatos')
-          .select('status, responsavel_email')
+          .select('id, status, responsavel_email')
           .eq('empresa_id', empresaId);
 
+        // Buscar logs de movimentação para Descartados e Opt Out
+        const { data: logsData } = await supabase
+          .from('logs_movimentacao_contatos')
+          .select('contato_id, status_anterior, status_novo')
+          .in('status_novo', ['Descartado', 'Opt Out']);
+
         if (contatosData) {
-          const counts: StatusCounts = {
-            totalBase: contatosData.length,
-            distribuidos: 0,
-            atribuidos: 0,
-            convidados: 0,
-            agendados: 0,
-            confirmados: 0,
+          // Criar mapa de status anterior para leads descartados/opt-out
+          const statusAnteriorMap = new Map<string, string>();
+          if (logsData) {
+            logsData.forEach(log => {
+              // Guardar o último status anterior registrado
+              if (log.status_anterior) {
+                statusAnteriorMap.set(log.contato_id, log.status_anterior);
+              }
+            });
+          }
+
+          // Contagem direta por status atual
+          const directCounts = {
+            vendas: 0,
             checkins: 0,
-            vendas: 0
+            confirmados: 0,
+            convidados: 0,
+            atribuidos: 0,
+            emEspera: 0,
+            novos: 0,
+            descartados: 0,
+            optOut: 0
           };
 
           contatosData.forEach(contato => {
-            // Contar clientes distribuídos (que têm responsável atribuído)
-            if (contato.responsavel_email) {
-              counts.distribuidos++;
-            }
             switch (contato.status) {
-              case 'Atribuído':
-                counts.atribuidos++;
-                break;
-              case 'Convidado':
-                counts.convidados++;
-                break;
-              case 'Agendado':
-                counts.agendados++;
-                break;
-              case 'Confirmado':
-                counts.confirmados++;
+              case 'Fechado':
+                directCounts.vendas++;
                 break;
               case 'Check-in':
-                counts.checkins++;
+                directCounts.checkins++;
                 break;
-              case 'Fechado':
-                counts.vendas++;
+              case 'Confirmado':
+                directCounts.confirmados++;
+                break;
+              case 'Convidado':
+                directCounts.convidados++;
+                break;
+              case 'Atribuído':
+                directCounts.atribuidos++;
+                break;
+              case 'Em Espera':
+                directCounts.emEspera++;
+                break;
+              case 'Novo':
+                directCounts.novos++;
+                break;
+              case 'Descartado':
+                directCounts.descartados++;
+                break;
+              case 'Opt Out':
+                directCounts.optOut++;
                 break;
             }
           });
 
-          setStatusCounts(counts);
+          // Para leads descartados/opt-out, contar em qual estágio do funil eles estavam
+          const descartadosOptOutPorEstagio = {
+            vendas: 0,
+            checkins: 0,
+            confirmados: 0,
+            convidados: 0,
+            distribuidos: 0
+          };
+
+          contatosData.forEach(contato => {
+            if (contato.status === 'Descartado' || contato.status === 'Opt Out') {
+              const statusAnterior = statusAnteriorMap.get(contato.id);
+              if (statusAnterior) {
+                // Acumular baseado no status anterior
+                switch (statusAnterior) {
+                  case 'Fechado':
+                    descartadosOptOutPorEstagio.vendas++;
+                    break;
+                  case 'Check-in':
+                    descartadosOptOutPorEstagio.checkins++;
+                    break;
+                  case 'Confirmado':
+                    descartadosOptOutPorEstagio.confirmados++;
+                    break;
+                  case 'Convidado':
+                    descartadosOptOutPorEstagio.convidados++;
+                    break;
+                  case 'Atribuído':
+                  case 'Em Espera':
+                    descartadosOptOutPorEstagio.distribuidos++;
+                    break;
+                }
+              }
+            }
+          });
+
+          // Calcular valores acumulativos do funil
+          // Vendas = só vendas (fechados)
+          const vendas = directCounts.vendas;
+          
+          // Check-ins = vendas + check-ins atuais + descartados/opt-out que estavam em check-in
+          const checkins = vendas + directCounts.checkins + descartadosOptOutPorEstagio.checkins;
+          
+          // Confirmados = check-ins + confirmados atuais + descartados/opt-out que estavam em confirmado
+          const confirmados = checkins + directCounts.confirmados + descartadosOptOutPorEstagio.confirmados;
+          
+          // Convidados = confirmados + convidados atuais + descartados/opt-out que estavam em convidado
+          const convidados = confirmados + directCounts.convidados + descartadosOptOutPorEstagio.convidados;
+          
+          // Distribuídos = convidados + atribuídos + em espera + descartados/opt-out que estavam distribuídos
+          const distribuidos = convidados + directCounts.atribuidos + directCounts.emEspera + descartadosOptOutPorEstagio.distribuidos;
+          
+          // Total da base = todos os contatos
+          const totalBase = contatosData.length;
+
+          // Contar distribuídos reais (com responsável) para métricas
+          const distribuidosReais = contatosData.filter(c => c.responsavel_email).length;
+
+          setStatusCounts({
+            totalBase,
+            distribuidos: distribuidos,
+            atribuidos: distribuidosReais, // Para o card de distribuição aos vendedores
+            convidados,
+            agendados: directCounts.convidados, // Agendados = convidados diretos para meta
+            confirmados,
+            checkins,
+            vendas
+          });
         }
       } catch (error) {
         console.error('Erro ao buscar dados:', error);
