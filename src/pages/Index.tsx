@@ -1,5 +1,6 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { DashboardCard } from "@/components/DashboardCard";
+import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { 
   Users, 
   Bell, 
@@ -17,7 +18,8 @@ const Index = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-3">
+      <ScrollIndicator className="h-full">
+        <div className="space-y-3 pb-6">
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">
@@ -169,7 +171,8 @@ const Index = () => {
             </div>
           </DashboardCard>
         </div>
-      </div>
+        </div>
+      </ScrollIndicator>
     </DashboardLayout>
   );
 };

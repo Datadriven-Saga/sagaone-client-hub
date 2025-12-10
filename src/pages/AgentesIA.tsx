@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Plus, Bot, Activity, Edit, Trash2, Power, PowerOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -255,7 +256,8 @@ export default function AgentesIA() {
 
   return (
     <DashboardLayout title="Agentes de IA">
-      <div className="space-y-6">
+      <ScrollIndicator className="h-full">
+        <div className="space-y-6 pb-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Agentes de IA</h1>
@@ -393,7 +395,8 @@ export default function AgentesIA() {
             )}
           </TabsContent>
         </Tabs>
-      </div>
+        </div>
+      </ScrollIndicator>
     </DashboardLayout>
   );
 }
