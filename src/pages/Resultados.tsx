@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
+import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { 
   LayoutDashboard, 
   Medal, 
@@ -55,119 +56,142 @@ const Resultados = () => {
 
   return (
     <DashboardLayout title="Resultados">
-      <div className="space-y-2">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full w-full">
+        <TabsList className="inline-flex h-auto p-1 w-auto self-start">
+          <TabsTrigger value="resumo" className="flex items-center gap-1.5 text-xs py-2">
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Resumo</span>
+          </TabsTrigger>
+          <TabsTrigger value="ranking" className="flex items-center gap-1.5 text-xs py-2">
+            <Medal className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Ranking</span>
+          </TabsTrigger>
+          <TabsTrigger value="produtos" className="flex items-center gap-1.5 text-xs py-2">
+            <Package className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Produtos</span>
+          </TabsTrigger>
+          <TabsTrigger value="desempenho" className="flex items-center gap-1.5 text-xs py-2">
+            <BarChart3 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Desempenho</span>
+          </TabsTrigger>
+          <TabsTrigger value="individual" className="flex items-center gap-1.5 text-xs py-2">
+            <User className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Individual</span>
+          </TabsTrigger>
+          <TabsTrigger value="premiacoes" className="flex items-center gap-1.5 text-xs py-2">
+            <Trophy className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Premiações</span>
+          </TabsTrigger>
+          <TabsTrigger value="relatorios" className="flex items-center gap-1.5 text-xs py-2">
+            <FileText className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Relatórios</span>
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="inline-flex h-auto p-1 w-auto">
-            <TabsTrigger value="resumo" className="flex items-center gap-1.5 text-xs py-2">
-              <LayoutDashboard className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Resumo</span>
-            </TabsTrigger>
-            <TabsTrigger value="ranking" className="flex items-center gap-1.5 text-xs py-2">
-              <Medal className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Ranking</span>
-            </TabsTrigger>
-            <TabsTrigger value="produtos" className="flex items-center gap-1.5 text-xs py-2">
-              <Package className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Produtos</span>
-            </TabsTrigger>
-            <TabsTrigger value="desempenho" className="flex items-center gap-1.5 text-xs py-2">
-              <BarChart3 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Desempenho</span>
-            </TabsTrigger>
-            <TabsTrigger value="individual" className="flex items-center gap-1.5 text-xs py-2">
-              <User className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Individual</span>
-            </TabsTrigger>
-            <TabsTrigger value="premiacoes" className="flex items-center gap-1.5 text-xs py-2">
-              <Trophy className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Premiações</span>
-            </TabsTrigger>
-            <TabsTrigger value="relatorios" className="flex items-center gap-1.5 text-xs py-2">
-              <FileText className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Relatórios</span>
-            </TabsTrigger>
-          </TabsList>
+        {/* Filtro Global */}
+        <ResultadosGlobalFilter
+          prospeccoes={prospeccoes}
+          selectedProspeccoes={selectedProspeccoes}
+          onSelectedProspeccoesChange={setSelectedProspeccoes}
+          className="mt-2"
+        />
 
-          {/* Filtro Global */}
-          <ResultadosGlobalFilter
-            prospeccoes={prospeccoes}
-            selectedProspeccoes={selectedProspeccoes}
-            onSelectedProspeccoesChange={setSelectedProspeccoes}
-            className="mt-2"
-          />
+        {/* Tab Resumo */}
+        <TabsContent value="resumo" className="flex-1 min-h-0 overflow-hidden mt-2">
+          <ScrollIndicator className="flex-1 h-full">
+            <div className="pb-6">
+              <ResumoTab 
+                prospeccaoIds={selectedProspeccoes} 
+                empresaId={activeCompany?.id || null}
+              />
+            </div>
+          </ScrollIndicator>
+        </TabsContent>
 
-          {/* Tab Resumo */}
-          <TabsContent value="resumo" className="mt-2">
-            <ResumoTab 
-              prospeccaoIds={selectedProspeccoes} 
-              empresaId={activeCompany?.id || null}
-            />
-          </TabsContent>
+        {/* Tab Ranking */}
+        <TabsContent value="ranking" className="flex-1 min-h-0 overflow-hidden mt-4">
+          <ScrollIndicator className="flex-1 h-full">
+            <div className="pb-6">
+              <RankingTab 
+                prospeccaoId={selectedProspeccoes[0] || null} 
+                empresaId={activeCompany?.id || null} 
+              />
+            </div>
+          </ScrollIndicator>
+        </TabsContent>
 
-          {/* Tab Ranking */}
-          <TabsContent value="ranking" className="mt-4">
-            <RankingTab 
-              prospeccaoId={selectedProspeccoes[0] || null} 
-              empresaId={activeCompany?.id || null} 
-            />
-          </TabsContent>
+        {/* Tab Produtos */}
+        <TabsContent value="produtos" className="flex-1 min-h-0 overflow-hidden mt-4">
+          <ScrollIndicator className="flex-1 h-full">
+            <div className="pb-6">
+              <Card className="p-8 text-center">
+                <Package className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
+                <h3 className="text-lg font-semibold mb-2">Produtos</h3>
+                <p className="text-sm text-muted-foreground">
+                  Análise de produtos vendidos
+                </p>
+              </Card>
+            </div>
+          </ScrollIndicator>
+        </TabsContent>
 
+        {/* Tab Desempenho */}
+        <TabsContent value="desempenho" className="flex-1 min-h-0 overflow-hidden mt-4">
+          <ScrollIndicator className="flex-1 h-full">
+            <div className="pb-6">
+              <DesempenhoTab 
+                prospeccaoId={selectedProspeccoes[0] || null} 
+                empresaId={activeCompany?.id || null} 
+              />
+            </div>
+          </ScrollIndicator>
+        </TabsContent>
 
-          {/* Tab Produtos */}
-          <TabsContent value="produtos" className="mt-4">
-            <Card className="p-8 text-center">
-              <Package className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
-              <h3 className="text-lg font-semibold mb-2">Produtos</h3>
-              <p className="text-sm text-muted-foreground">
-                Análise de produtos vendidos
-              </p>
-            </Card>
-          </TabsContent>
+        {/* Tab Individual */}
+        <TabsContent value="individual" className="flex-1 min-h-0 overflow-hidden mt-4">
+          <ScrollIndicator className="flex-1 h-full">
+            <div className="pb-6">
+              <Card className="p-8 text-center">
+                <User className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
+                <h3 className="text-lg font-semibold mb-2">Resultados Individuais</h3>
+                <p className="text-sm text-muted-foreground">
+                  Desempenho individual de cada membro da equipe
+                </p>
+              </Card>
+            </div>
+          </ScrollIndicator>
+        </TabsContent>
 
-          {/* Tab Desempenho */}
-          <TabsContent value="desempenho" className="mt-4">
-            <DesempenhoTab 
-              prospeccaoId={selectedProspeccoes[0] || null} 
-              empresaId={activeCompany?.id || null} 
-            />
-          </TabsContent>
+        {/* Tab Premiações */}
+        <TabsContent value="premiacoes" className="flex-1 min-h-0 overflow-hidden mt-4">
+          <ScrollIndicator className="flex-1 h-full">
+            <div className="pb-6">
+              <Card className="p-8 text-center">
+                <Trophy className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
+                <h3 className="text-lg font-semibold mb-2">Premiações</h3>
+                <p className="text-sm text-muted-foreground">
+                  Ranking e premiações do evento
+                </p>
+              </Card>
+            </div>
+          </ScrollIndicator>
+        </TabsContent>
 
-          {/* Tab Individual */}
-          <TabsContent value="individual" className="mt-4">
-            <Card className="p-8 text-center">
-              <User className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
-              <h3 className="text-lg font-semibold mb-2">Resultados Individuais</h3>
-              <p className="text-sm text-muted-foreground">
-                Desempenho individual de cada membro da equipe
-              </p>
-            </Card>
-          </TabsContent>
-
-          {/* Tab Premiações */}
-          <TabsContent value="premiacoes" className="mt-4">
-            <Card className="p-8 text-center">
-              <Trophy className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
-              <h3 className="text-lg font-semibold mb-2">Premiações</h3>
-              <p className="text-sm text-muted-foreground">
-                Ranking e premiações do evento
-              </p>
-            </Card>
-          </TabsContent>
-
-          {/* Tab Relatórios */}
-          <TabsContent value="relatorios" className="mt-4">
-            <Card className="p-8 text-center">
-              <FileText className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
-              <h3 className="text-lg font-semibold mb-2">Relatórios</h3>
-              <p className="text-sm text-muted-foreground">
-                Geração e exportação de relatórios
-              </p>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+        {/* Tab Relatórios */}
+        <TabsContent value="relatorios" className="flex-1 min-h-0 overflow-hidden mt-4">
+          <ScrollIndicator className="flex-1 h-full">
+            <div className="pb-6">
+              <Card className="p-8 text-center">
+                <FileText className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
+                <h3 className="text-lg font-semibold mb-2">Relatórios</h3>
+                <p className="text-sm text-muted-foreground">
+                  Geração e exportação de relatórios
+                </p>
+              </Card>
+            </div>
+          </ScrollIndicator>
+        </TabsContent>
+      </Tabs>
     </DashboardLayout>
   );
 };
