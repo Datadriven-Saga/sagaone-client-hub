@@ -26,6 +26,10 @@ const DOCUMENTOS_PADRAO = [
     nome: '+1 Saga',
     descricao: 'Modelo de impressão para registro de vendas +1 SAGA',
   },
+  {
+    nome: 'Logo da Empresa',
+    descricao: 'Logomarca oficial da empresa para uso em documentos e materiais',
+  },
 ];
 
 export function DocumentosTab() {
