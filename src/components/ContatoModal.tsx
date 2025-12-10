@@ -107,9 +107,8 @@ export function ContatoModal({
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
-    if (target.scrollTop > 0) {
-      setShowScrollIndicator(false);
-    }
+    const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 10;
+    setShowScrollIndicator(!isAtBottom);
   };
 
   const handleScrollIndicatorClick = () => {
