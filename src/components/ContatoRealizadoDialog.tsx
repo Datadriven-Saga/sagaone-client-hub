@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -40,6 +40,15 @@ export function ContatoRealizadoDialog({
   const [loading, setLoading] = useState(false);
   const [loadingMotivos, setLoadingMotivos] = useState(true);
   const { toast } = useToast();
+  const anotacaoRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleTipoContatoChange = (value: TipoContato) => {
+    setTipoContato(value);
+    // Focar no campo de anotação após selecionar uma opção
+    setTimeout(() => {
+      anotacaoRef.current?.focus();
+    }, 100);
+  };
 
   useEffect(() => {
     const fetchMotivos = async () => {
@@ -247,7 +256,7 @@ export function ContatoRealizadoDialog({
                 <Label className="text-sm font-medium">Resultado do Contato</Label>
                 <RadioGroup
                   value={tipoContato}
-                  onValueChange={(value) => setTipoContato(value as TipoContato)}
+                  onValueChange={(value) => handleTipoContatoChange(value as TipoContato)}
                   className="space-y-1"
                 >
                   {opcoes.map((opcao) => {
@@ -312,6 +321,7 @@ export function ContatoRealizadoDialog({
                   Anotações *
                 </Label>
                 <Textarea
+                  ref={anotacaoRef}
                   placeholder="Descreva os detalhes do contato realizado..."
                   value={anotacao}
                   onChange={(e) => setAnotacao(e.target.value)}
