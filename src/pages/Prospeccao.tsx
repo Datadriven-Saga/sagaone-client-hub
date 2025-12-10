@@ -44,10 +44,18 @@ const Prospeccao = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProspeccao, setEditingProspeccao] = useState<any>(null);
   const [deleteProspeccaoId, setDeleteProspeccaoId] = useState<string | null>(null);
-  const [modalContato, setModalContato] = useState<{ isOpen: boolean; contato: Contato | null; columnId?: string }>({
+  const [modalContato, setModalContato] = useState<{ 
+    isOpen: boolean; 
+    contato: Contato | null; 
+    columnId?: string;
+    requireProdutoVendido?: boolean;
+    pendingVendaStatus?: { fromStatus: string; toStatus: string };
+  }>({
     isOpen: false,
     contato: null,
-    columnId: undefined
+    columnId: undefined,
+    requireProdutoVendido: false,
+    pendingVendaStatus: undefined
   });
   const [activeTab, setActiveTab] = useState(() => {
     const savedTab = sessionStorage.getItem('prospeccao_active_tab');
@@ -244,6 +252,25 @@ const Prospeccao = () => {
 
   // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
+    // Se destino é "vendas", exigir produto vendido
+    if (toStatus === 'vendas') {
+      const contatoCompleto = contatos.find(c => c.id === itemId);
+      if (contatoCompleto) {
+        setModalContato({
+          isOpen: true,
+          contato: contatoCompleto,
+          columnId: fromStatus,
+          requireProdutoVendido: true,
+          pendingVendaStatus: { fromStatus, toStatus }
+        });
+        toast({
+          title: "Produto Vendido Obrigatório",
+          description: "Para mover para Vendas, selecione o produto vendido na aba Produtos.",
+        });
+        return; // Não processa a mudança ainda
+      }
+    }
+
     const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
     if (novoStatusDb) {
       await atualizarStatusContato(itemId, novoStatusDb);
@@ -667,7 +694,42 @@ const Prospeccao = () => {
   };
 
   const handleCloseModal = () => {
-    setModalContato({ isOpen: false, contato: null, columnId: undefined });
+    setModalContato({ isOpen: false, contato: null, columnId: undefined, requireProdutoVendido: false, pendingVendaStatus: undefined });
+  };
+
+  // Handler para confirmar venda com produto
+  const handleConfirmVenda = async (contatoId: string, produtoVendidoId: string) => {
+    if (!modalContato.pendingVendaStatus) return;
+    
+    const { fromStatus, toStatus } = modalContato.pendingVendaStatus;
+    const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
+    
+    if (novoStatusDb) {
+      await atualizarStatusContato(contatoId, novoStatusDb);
+    }
+
+    // Auto-atribuir responsável quando sair da coluna "novos"
+    if (fromStatus === 'novos' && user?.email) {
+      await atribuirResponsavel(contatoId, user.email);
+    }
+
+    if (registrarMovimentacao && user && prospeccoes?.length > 0) {
+      await registrarMovimentacao({
+        leadId: contatoId,
+        prospeccaoId: prospeccoes[0].id, 
+        statusAnterior: fromStatus,
+        statusNovo: toStatus,
+        usuarioId: user.id,
+        observacoes: `Produto vendido: ${produtoVendidoId}`
+      });
+    }
+
+    toast({
+      title: "Venda Registrada",
+      description: "O lead foi movido para Vendas com o produto registrado.",
+    });
+
+    handleCloseModal();
   };
 
   const handleModalStatusChange = async (contatoId: string, novoStatus: Contato['status']) => {
@@ -1120,6 +1182,8 @@ const Prospeccao = () => {
             observacoes: 'Adicionado via Kanban'
           }]);
         }}
+        requireProdutoVendido={modalContato.requireProdutoVendido}
+        onConfirmVenda={handleConfirmVenda}
       />
 
       <RecepcaoModal
