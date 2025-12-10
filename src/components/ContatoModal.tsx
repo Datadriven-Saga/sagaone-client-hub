@@ -984,12 +984,17 @@ export function ContatoModal({
                         <>
                           <Select
                             value={produtoVendidoId}
-                            onValueChange={setProdutoVendidoId}
+                            onValueChange={(value) => setProdutoVendidoId(value === '__clear__' ? '' : value)}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione o produto vendido" />
                             </SelectTrigger>
                             <SelectContent>
+                              {produtoVendidoId && (
+                                <SelectItem value="__clear__" className="text-muted-foreground">
+                                  Limpar seleção
+                                </SelectItem>
+                              )}
                               {produtosDisponiveis.map((produto) => (
                                 <SelectItem key={produto.id} value={produto.id}>
                                   <div className="flex items-center gap-2">
