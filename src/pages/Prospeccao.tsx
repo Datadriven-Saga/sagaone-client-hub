@@ -782,7 +782,7 @@ const Prospeccao = () => {
   return (
     <DashboardLayout title="Prospecção">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full w-full">
-        <TabsList className="inline-flex">
+        <TabsList className="inline-flex self-start">
           <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
           <TabsTrigger value="eventos">Eventos</TabsTrigger>
           <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
