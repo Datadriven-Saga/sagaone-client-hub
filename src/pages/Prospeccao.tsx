@@ -102,7 +102,7 @@ const Prospeccao = () => {
     refetch
   } = useContatoData();
   
-  const { criarVenda, refetch: refetchVendas } = useVendasProspeccao();
+  const { vendas, criarVenda, refetch: refetchVendas } = useVendasProspeccao();
   
   const { 
     visitas, 
@@ -277,7 +277,60 @@ const Prospeccao = () => {
           responsavelId = user.id;
         }
         
-        // Abrir modal na aba de produtos para confirmar venda
+        // Verificar se já existe uma venda para este contato (com departamento e produto preenchidos)
+        const vendaExistente = vendas.find(v => v.contato_id === itemId && v.departamento_id && v.produto_id);
+        
+        if (vendaExistente) {
+          // Venda já existe com todos os campos, apenas atualizar status
+          console.log('Venda já existe, atualizando status apenas');
+          await atualizarStatusContato(itemId, 'Venda');
+          
+          if (registrarMovimentacao && user && prospeccoes?.length > 0) {
+            await registrarMovimentacao({
+              leadId: itemId,
+              prospeccaoId: prospeccoes[0].id,
+              statusAnterior: fromStatus,
+              statusNovo: toStatus,
+              usuarioId: user.id,
+            });
+          }
+          
+          toast({
+            title: "Status Atualizado",
+            description: "Lead movido para Vendas.",
+          });
+          return true;
+        }
+        
+        // Buscar departamento do responsável (se existir no profile)
+        let departamentoId: string | null = null;
+        if (responsavelId) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('departamento')
+            .eq('id', responsavelId)
+            .maybeSingle();
+          
+          if (profileData?.departamento) {
+            // Buscar o ID do departamento pelo nome
+            const { data: depData } = await supabase
+              .from('departamentos')
+              .select('id')
+              .eq('empresa_id', activeCompany?.id)
+              .eq('nome', profileData.departamento)
+              .eq('ativo', true)
+              .maybeSingle();
+            
+            if (depData) {
+              departamentoId = depData.id;
+            }
+          }
+        }
+        
+        // Como departamento e produto são selecionados no modal e não ficam salvos no contato,
+        // sempre abrir o modal para confirmar a venda (exceto se já existe uma venda)
+        
+        // Se falta algum campo obrigatório, abrir modal na aba de produtos
         setModalContato({
           isOpen: true,
           contato: { ...contatoCompleto, responsavel_email: responsavelId },
