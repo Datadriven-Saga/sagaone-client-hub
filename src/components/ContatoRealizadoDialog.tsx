@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Phone, CheckCircle, XCircle, PhoneOff, MessageSquare } from 'lucide-react';
+import type { Database } from '@/integrations/supabase/types';
 
 interface MotivoNaoParticipacao {
   id: string;
@@ -121,19 +122,24 @@ export function ContatoRealizadoDialog({
       });
 
       // Atualizar status do contato baseado no tipo de contato
+      type StatusLead = Database['public']['Enums']['status_lead'];
+      
+      let novoStatus: StatusLead | null = null;
+      
       if (tipoContato === 'vai_participar') {
-        const { error: updateError } = await supabase
-          .from('contatos')
-          .update({ status: 'Confirmado' })
-          .eq('id', contatoId);
-
-        if (updateError) {
-          console.error('Erro ao atualizar status:', updateError);
-        }
+        novoStatus = 'Convidado';
+      } else if (tipoContato === 'registrar_contato') {
+        novoStatus = 'Em Espera';
+      } else if (tipoContato === 'tentativa_sem_sucesso') {
+        novoStatus = 'Em Espera';
       } else if (tipoContato === 'nao_vai_participar') {
+        novoStatus = 'Descartado';
+      }
+
+      if (novoStatus) {
         const { error: updateError } = await supabase
           .from('contatos')
-          .update({ status: 'Descartado' })
+          .update({ status: novoStatus })
           .eq('id', contatoId);
 
         if (updateError) {
