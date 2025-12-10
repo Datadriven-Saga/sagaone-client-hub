@@ -293,8 +293,8 @@ export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps)
       // MODELO/PRODUTO - terceira linha (sobe 15px)
       ctx.fillText(venda.produto?.nome || '-', textStartX + imgWidth * 0.2, imgHeight * 0.51 + yOffset - 15);
 
-      // EQUIPE - quarta linha
-      ctx.fillText(equipeNome, textStartX + imgWidth * 0.2, imgHeight * 0.64 + yOffset);
+      // EQUIPE - quarta linha (sobe 50px)
+      ctx.fillText(equipeNome, textStartX + imgWidth * 0.2, imgHeight * 0.64 + yOffset - 50);
 
       // 5. Converter para imagem e fazer download
       const dataUrl = canvas.toDataURL('image/png');
