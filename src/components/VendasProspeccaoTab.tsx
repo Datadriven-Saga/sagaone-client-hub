@@ -239,7 +239,9 @@ export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps)
       };
 
       const templateImg = await loadImage(templateDoc.arquivo_url);
-      const logoImg = logoDoc?.arquivo_url ? await loadImage(logoDoc.arquivo_url) : null;
+      // Adiciona timestamp para evitar cache e garantir que a imagem mais recente seja carregada
+      const logoUrl = logoDoc?.arquivo_url ? `${logoDoc.arquivo_url}?t=${Date.now()}` : null;
+      const logoImg = logoUrl ? await loadImage(logoUrl) : null;
 
       // 4. Criar canvas e desenhar
       const canvas = document.createElement('canvas');
@@ -267,8 +269,8 @@ export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps)
       // Posição do logo (quadrado do lado esquerdo - ajustado para alinhar com quadrado branco)
       if (logoImg) {
         const logoSize = Math.min(imgWidth * 0.15, imgHeight * 0.25);
-        const logoX = imgWidth * 0.05 - 15; // 15px para a esquerda
-        const logoY = imgHeight * 0.35 + 67; // 67px para baixo
+        const logoX = imgWidth * 0.05 - 18; // 18px para a esquerda
+        const logoY = imgHeight * 0.35 + 70; // 70px para baixo
         ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
       }
 
