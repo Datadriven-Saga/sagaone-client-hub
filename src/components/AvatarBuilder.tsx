@@ -110,8 +110,11 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"ai" | "upload">("ai");
   const [generating, setGenerating] = useState(false);
+  const [generatingFromPhoto, setGeneratingFromPhoto] = useState(false);
   const [generatedAvatar, setGeneratedAvatar] = useState<string | null>(null);
   const [uploadedAvatar, setUploadedAvatar] = useState<string | null>(null);
+  const [generatedFromPhotoAvatar, setGeneratedFromPhotoAvatar] = useState<string | null>(null);
+  const [uploadPhotoChoice, setUploadPhotoChoice] = useState<"original" | "pixar" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [options, setOptions] = useState<AvatarOptions>({
     gender: "male",
@@ -145,6 +148,8 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
       reader.onloadend = () => {
         const result = reader.result as string;
         setUploadedAvatar(result);
+        setGeneratedFromPhotoAvatar(null);
+        setUploadPhotoChoice(null);
       };
       reader.readAsDataURL(file);
     }
@@ -182,13 +187,60 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
     }
   };
 
+  const handleGenerateFromPhoto = async () => {
+    if (!uploadedAvatar) return;
+    
+    setGeneratingFromPhoto(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-avatar", {
+        body: { 
+          sourceImage: uploadedAvatar,
+          generateFromPhoto: true 
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        if (data.error.includes("Rate limit")) {
+          toast.error("Limite de requisições excedido. Tente novamente em alguns minutos.");
+        } else if (data.error.includes("Payment")) {
+          toast.error("Créditos insuficientes. Adicione créditos ao seu workspace.");
+        } else {
+          toast.error(data.error);
+        }
+        return;
+      }
+
+      if (data.imageUrl) {
+        setGeneratedFromPhotoAvatar(data.imageUrl);
+        setUploadPhotoChoice("pixar");
+        toast.success("Avatar Pixar gerado com sucesso!");
+      }
+    } catch (error) {
+      console.error("Error generating avatar from photo:", error);
+      toast.error("Erro ao gerar avatar. Tente novamente.");
+    } finally {
+      setGeneratingFromPhoto(false);
+    }
+  };
+
   const handleConfirm = () => {
-    const avatarToUse = activeTab === "ai" ? generatedAvatar : uploadedAvatar;
+    let avatarToUse: string | null = null;
+    
+    if (activeTab === "ai") {
+      avatarToUse = generatedAvatar;
+    } else {
+      avatarToUse = uploadPhotoChoice === "pixar" ? generatedFromPhotoAvatar : uploadedAvatar;
+    }
+    
     if (avatarToUse) {
       onAvatarChange(avatarToUse);
       setOpen(false);
       setGeneratedAvatar(null);
       setUploadedAvatar(null);
+      setGeneratedFromPhotoAvatar(null);
+      setUploadPhotoChoice(null);
     }
   };
 
@@ -197,7 +249,9 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
     setGeneratedAvatar(null);
   };
 
-  const currentSelectedAvatar = activeTab === "ai" ? generatedAvatar : uploadedAvatar;
+  const currentSelectedAvatar = activeTab === "ai" 
+    ? generatedAvatar 
+    : (uploadPhotoChoice === "pixar" ? generatedFromPhotoAvatar : (uploadPhotoChoice === "original" ? uploadedAvatar : null));
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -504,7 +558,7 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
           </TabsContent>
 
           <TabsContent value="upload" className="mt-4">
-            <div className="flex flex-col items-center justify-center gap-6 py-8">
+            <div className="flex flex-col items-center justify-center gap-6 py-6">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -514,18 +568,125 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
               />
               
               {uploadedAvatar ? (
-                <div className="flex flex-col items-center gap-4">
-                  <img
-                    src={uploadedAvatar}
-                    alt="Preview"
-                    className="w-48 h-48 rounded-full object-cover border-4 border-primary shadow-lg"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Escolher outra foto
-                  </Button>
+                <div className="w-full space-y-6">
+                  {/* Photo preview and change button */}
+                  <div className="flex flex-col items-center gap-3">
+                    <img
+                      src={uploadedAvatar}
+                      alt="Foto enviada"
+                      className="w-32 h-32 rounded-full object-cover border-4 border-muted shadow-md"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Escolher outra foto
+                    </Button>
+                  </div>
+
+                  {/* Choice buttons */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Option 1: Use original photo */}
+                    <div
+                      className={cn(
+                        "border-2 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md",
+                        uploadPhotoChoice === "original"
+                          ? "border-primary bg-primary/5"
+                          : "border-muted hover:border-primary/50"
+                      )}
+                      onClick={() => setUploadPhotoChoice("original")}
+                    >
+                      <div className="flex flex-col items-center gap-3">
+                        <img
+                          src={uploadedAvatar}
+                          alt="Foto original"
+                          className={cn(
+                            "w-28 h-28 rounded-full object-cover border-4 transition-all",
+                            uploadPhotoChoice === "original" ? "border-primary" : "border-muted"
+                          )}
+                        />
+                        <div className="text-center">
+                          <p className="font-medium text-sm">Usar Foto Original</p>
+                          <p className="text-xs text-muted-foreground">Usar sua foto como está</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Option 2: Generate Pixar avatar */}
+                    <div
+                      className={cn(
+                        "border-2 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md",
+                        uploadPhotoChoice === "pixar"
+                          ? "border-primary bg-primary/5"
+                          : "border-muted hover:border-primary/50"
+                      )}
+                      onClick={() => {
+                        setUploadPhotoChoice("pixar");
+                        if (!generatedFromPhotoAvatar && !generatingFromPhoto) {
+                          handleGenerateFromPhoto();
+                        }
+                      }}
+                    >
+                      <div className="flex flex-col items-center gap-3">
+                        {generatingFromPhoto ? (
+                          <div className="w-28 h-28 rounded-full border-4 border-dashed border-primary/50 flex items-center justify-center bg-muted/30">
+                            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                          </div>
+                        ) : generatedFromPhotoAvatar ? (
+                          <img
+                            src={generatedFromPhotoAvatar}
+                            alt="Avatar Pixar"
+                            className={cn(
+                              "w-28 h-28 rounded-full object-cover border-4 transition-all",
+                              uploadPhotoChoice === "pixar" ? "border-primary" : "border-muted"
+                            )}
+                          />
+                        ) : (
+                          <div className="w-28 h-28 rounded-full border-4 border-dashed border-muted-foreground/30 flex items-center justify-center bg-muted/30">
+                            <Sparkles className="h-10 w-10 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="text-center">
+                          <p className="font-medium text-sm flex items-center gap-1 justify-center">
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Avatar Estilo Pixar
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {generatingFromPhoto 
+                              ? "Gerando avatar..." 
+                              : generatedFromPhotoAvatar 
+                                ? "Avatar baseado na sua foto" 
+                                : "Clique para gerar"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Regenerate button for Pixar option */}
+                  {uploadPhotoChoice === "pixar" && generatedFromPhotoAvatar && (
+                    <div className="flex justify-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateFromPhoto}
+                        disabled={generatingFromPhoto}
+                      >
+                        {generatingFromPhoto ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Gerando...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Gerar novamente
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div
