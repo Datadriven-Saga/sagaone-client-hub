@@ -25,102 +25,140 @@ serve(async (req) => {
   }
 
   try {
-    const options: AvatarOptions = await req.json();
+    const body = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Build the prompt for avatar generation
-    const genderText = options.gender === "male" ? "homem" : "mulher";
-    const skinToneMap: Record<string, string> = {
-      "light": "pele clara",
-      "medium-light": "pele morena clara",
-      "medium": "pele morena",
-      "medium-dark": "pele morena escura",
-      "dark": "pele negra",
-    };
-    const skinText = skinToneMap[options.skinTone] || "pele média";
+    let prompt: string;
+    let messages: any[];
 
-    const hairStyleMap: Record<string, string> = {
-      "short": "cabelo curto",
-      "medium": "cabelo médio",
-      "long": "cabelo longo",
-      "curly": "cabelo cacheado",
-      "wavy": "cabelo ondulado",
-      "bald": "careca",
-      "buzz": "cabelo raspado",
-    };
-    const hairText = hairStyleMap[options.hairStyle] || "cabelo curto";
+    // Check if generating from photo or from options
+    if (body.generateFromPhoto && body.sourceImage) {
+      // Generate Pixar-style avatar from uploaded photo
+      prompt = `Transform this person's photo into a high-quality 3D Pixar/Disney animation style avatar portrait. 
+Keep the person's recognizable features (face shape, skin tone, hair style, hair color, any glasses, facial hair if present) but render them in the iconic Pixar 3D animation style.
+The avatar should be:
+- High quality 3D render in Pixar/Disney animation style
+- Head and shoulders portrait only
+- Friendly, approachable expression similar to the original photo
+- Solid light gray background (#e5e7eb)
+- Professional and suitable for a business profile
+- Square aspect ratio 1:1
+- Ultra high resolution
+Maintain the person's identity and distinctive features while applying the animated style.`;
 
-    const hairColorMap: Record<string, string> = {
-      "black": "cabelo preto",
-      "brown": "cabelo castanho",
-      "blonde": "cabelo loiro",
-      "red": "cabelo ruivo",
-      "gray": "cabelo grisalho",
-      "white": "cabelo branco",
-    };
-    const hairColorText = options.hairStyle === "bald" ? "" : hairColorMap[options.hairColor] || "cabelo castanho";
-
-    const faceShapeMap: Record<string, string> = {
-      "oval": "rosto oval",
-      "round": "rosto redondo",
-      "square": "rosto quadrado",
-      "heart": "rosto em formato de coração",
-      "oblong": "rosto alongado",
-    };
-    const faceText = faceShapeMap[options.faceShape] || "rosto oval";
-
-    const clothingColorMap: Record<string, string> = {
-      "navy": "roupa azul marinho",
-      "black": "roupa preta",
-      "white": "roupa branca",
-      "gray": "roupa cinza",
-      "blue": "roupa azul",
-      "green": "roupa verde",
-      "red": "roupa vermelha",
-      "purple": "roupa roxa",
-    };
-    const clothingText = clothingColorMap[options.clothingColor] || "roupa azul marinho";
-
-    const backgroundColorMap: Record<string, string> = {
-      "light-gray": "fundo cinza claro sólido",
-      "light-blue": "fundo azul claro sólido",
-      "white": "fundo branco sólido",
-      "light-green": "fundo verde claro sólido",
-      "light-yellow": "fundo amarelo claro sólido",
-      "light-purple": "fundo roxo claro sólido",
-      "navy": "fundo azul marinho sólido",
-      "dark": "fundo cinza escuro sólido",
-    };
-    const backgroundText = backgroundColorMap[options.backgroundColor] || "fundo cinza claro sólido";
-
-    let extraFeatures = "";
-    if (options.hasBeard && options.gender === "male") {
-      const beardMap: Record<string, string> = {
-        "stubble": "barba por fazer",
-        "short": "barba curta",
-        "full": "barba cheia",
-        "goatee": "cavanhaque",
-        "mustache": "bigode",
+      messages = [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: prompt,
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: body.sourceImage,
+              },
+            },
+          ],
+        },
+      ];
+    } else {
+      // Generate from options (original flow)
+      const options: AvatarOptions = body;
+      
+      const genderText = options.gender === "male" ? "homem" : "mulher";
+      const skinToneMap: Record<string, string> = {
+        "light": "pele clara",
+        "medium-light": "pele morena clara",
+        "medium": "pele morena",
+        "medium-dark": "pele morena escura",
+        "dark": "pele negra",
       };
-      extraFeatures += `, ${beardMap[options.beardStyle || "short"] || "barba curta"}`;
-    }
+      const skinText = skinToneMap[options.skinTone] || "pele média";
 
-    if (options.hasGlasses) {
-      const glassesMap: Record<string, string> = {
-        "round": "óculos redondos",
-        "square": "óculos quadrados",
-        "aviator": "óculos aviador",
-        "cat-eye": "óculos gatinho",
-        "rimless": "óculos sem aro",
+      const hairStyleMap: Record<string, string> = {
+        "short": "cabelo curto",
+        "medium": "cabelo médio",
+        "long": "cabelo longo",
+        "curly": "cabelo cacheado",
+        "wavy": "cabelo ondulado",
+        "bald": "careca",
+        "buzz": "cabelo raspado",
       };
-      extraFeatures += `, ${glassesMap[options.glassesStyle || "square"] || "óculos"}`;
-    }
+      const hairText = hairStyleMap[options.hairStyle] || "cabelo curto";
 
-    const prompt = `Create a professional 3D Pixar-style avatar portrait of a ${genderText} with ${skinText}, ${faceText}, ${hairText}${hairColorText ? `, ${hairColorText}` : ""}${extraFeatures}, wearing ${clothingText}. 
+      const hairColorMap: Record<string, string> = {
+        "black": "cabelo preto",
+        "brown": "cabelo castanho",
+        "blonde": "cabelo loiro",
+        "red": "cabelo ruivo",
+        "gray": "cabelo grisalho",
+        "white": "cabelo branco",
+      };
+      const hairColorText = options.hairStyle === "bald" ? "" : hairColorMap[options.hairColor] || "cabelo castanho";
+
+      const faceShapeMap: Record<string, string> = {
+        "oval": "rosto oval",
+        "round": "rosto redondo",
+        "square": "rosto quadrado",
+        "heart": "rosto em formato de coração",
+        "oblong": "rosto alongado",
+      };
+      const faceText = faceShapeMap[options.faceShape] || "rosto oval";
+
+      const clothingColorMap: Record<string, string> = {
+        "navy": "roupa azul marinho",
+        "black": "roupa preta",
+        "white": "roupa branca",
+        "gray": "roupa cinza",
+        "blue": "roupa azul",
+        "green": "roupa verde",
+        "red": "roupa vermelha",
+        "purple": "roupa roxa",
+      };
+      const clothingText = clothingColorMap[options.clothingColor] || "roupa azul marinho";
+
+      const backgroundColorMap: Record<string, string> = {
+        "light-gray": "fundo cinza claro sólido",
+        "light-blue": "fundo azul claro sólido",
+        "white": "fundo branco sólido",
+        "light-green": "fundo verde claro sólido",
+        "light-yellow": "fundo amarelo claro sólido",
+        "light-purple": "fundo roxo claro sólido",
+        "navy": "fundo azul marinho sólido",
+        "dark": "fundo cinza escuro sólido",
+      };
+      const backgroundText = backgroundColorMap[options.backgroundColor] || "fundo cinza claro sólido";
+
+      let extraFeatures = "";
+      if (options.hasBeard && options.gender === "male") {
+        const beardMap: Record<string, string> = {
+          "stubble": "barba por fazer",
+          "short": "barba curta",
+          "full": "barba cheia",
+          "goatee": "cavanhaque",
+          "mustache": "bigode",
+        };
+        extraFeatures += `, ${beardMap[options.beardStyle || "short"] || "barba curta"}`;
+      }
+
+      if (options.hasGlasses) {
+        const glassesMap: Record<string, string> = {
+          "round": "óculos redondos",
+          "square": "óculos quadrados",
+          "aviator": "óculos aviador",
+          "cat-eye": "óculos gatinho",
+          "rimless": "óculos sem aro",
+        };
+        extraFeatures += `, ${glassesMap[options.glassesStyle || "square"] || "óculos"}`;
+      }
+
+      prompt = `Create a professional 3D Pixar-style avatar portrait of a ${genderText} with ${skinText}, ${faceText}, ${hairText}${hairColorText ? `, ${hairColorText}` : ""}${extraFeatures}, wearing ${clothingText}. 
 The avatar should be:
 - High quality 3D render in Pixar/Disney animation style
 - Head and shoulders portrait only
@@ -129,6 +167,14 @@ The avatar should be:
 - Professional and suitable for a business profile
 - Square aspect ratio 1:1
 - Ultra high resolution`;
+
+      messages = [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ];
+    }
 
     console.log("Generating avatar with prompt:", prompt);
 
@@ -140,12 +186,7 @@ The avatar should be:
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
+        messages,
         modalities: ["image", "text"],
       }),
     });
