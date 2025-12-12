@@ -1256,7 +1256,7 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
             <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b bg-background">
               <DialogHeader>
                 <DialogTitle>
-                  {editingProspeccao ? 'Editar Prospecção' : 'Nova Prospecção'}
+                  {editingProspeccao ? 'Editar Evento' : 'Novo Evento'}
                 </DialogTitle>
               </DialogHeader>
               
@@ -1275,16 +1275,30 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
             {/* Conteúdo com scroll */}
             <ScrollIndicator className="flex-1 min-h-0 px-6 py-4">
               <TabsContent value="dados-gerais" className="space-y-4 mt-0">
-                <div>
-                  <Label htmlFor="titulo">Título *</Label>
-                  <Input
-                    id="titulo"
-                    placeholder="Ex: Campanha Black Friday 2024"
-                  value={titulo}
-                  onChange={(e) => setTitulo(e.target.value)}
-                  required
-                />
-              </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2">
+                    <Label htmlFor="titulo">Título *</Label>
+                    <Input
+                      id="titulo"
+                      placeholder="Ex: Campanha Black Friday 2024"
+                      value={titulo}
+                      onChange={(e) => setTitulo(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="canal">Tipo do Evento *</Label>
+                    <Select value={canal} onValueChange={(value: 'Whatsapp' | 'Ligação') => setCanal(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Whatsapp">Whatsapp</SelectItem>
+                        <SelectItem value="Ligação">Ligação</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -1329,19 +1343,6 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                     onChange={(e) => setDataFim(e.target.value)}
                   />
                 </div>
-              </div>
-
-              <div>
-                <Label htmlFor="canal">Canal *</Label>
-                <Select value={canal} onValueChange={(value: 'Whatsapp' | 'Ligação') => setCanal(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o canal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Whatsapp">Whatsapp</SelectItem>
-                    <SelectItem value="Ligação">Ligação</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
 
               {canal === 'Whatsapp' && (
