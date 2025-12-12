@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { 
   Home, 
   Users, 
@@ -8,9 +9,14 @@ import {
   Settings, 
   Shield,
   Bot,
-  Trophy
+  Trophy,
+  ChevronDown,
+  ChevronRight,
+  Calendar,
+  Headphones,
+  BarChart3
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -22,16 +28,21 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import sagaOneLogo from "@/assets/saga-one-menu-logo.png";
 
 const topMenuItems = [
   { title: "Página Inicial", url: "/", icon: Home },
   { title: "Agentes de IA", url: "/agentes-ia", icon: Bot },
-  { title: "Prospecção", url: "/prospeccao", icon: Target },
-  { title: "Resultados", url: "/resultados", icon: Trophy },
   { title: "Carteira de Clientes", url: "/clientes", icon: Users },
   { title: "Notificações", url: "/notificacoes", icon: Bell },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
+];
+
+const prospeccaoSubItems = [
+  { title: "Eventos", url: "/prospeccao/eventos", icon: Calendar },
+  { title: "Atendimento", url: "/prospeccao/atendimento", icon: Headphones },
+  { title: "Performance", url: "/prospeccao/performance", icon: BarChart3 },
 ];
 
 const bottomMenuItems = [
@@ -43,6 +54,11 @@ const bottomMenuItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const location = useLocation();
+  
+  // Verificar se algum submódulo de prospecção está ativo
+  const isProspeccaoActive = location.pathname.startsWith('/prospeccao');
+  const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(isProspeccaoActive);
 
   return (
     <Sidebar
@@ -96,6 +112,50 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {/* Prospecção com submenu */}
+              <SidebarMenuItem>
+                <Collapsible open={isProspeccaoOpen} onOpenChange={setIsProspeccaoOpen}>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between ${
+                        isProspeccaoActive 
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground" 
+                          : "hover:bg-[#ffffff] hover:scale-105 text-sidebar-foreground hover:text-white"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Target className="h-5 w-5 flex-shrink-0" />
+                        {!isCollapsed && <span className="font-medium">Prospecção</span>}
+                      </div>
+                      {!isCollapsed && (
+                        isProspeccaoOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
+                      )}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  {!isCollapsed && (
+                    <CollapsibleContent className="pl-4 mt-1 space-y-1">
+                      {prospeccaoSubItems.map((subItem) => (
+                        <SidebarMenuButton key={subItem.title} asChild>
+                          <NavLink 
+                            to={subItem.url}
+                            className={({ isActive }) =>
+                              `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+                                isActive 
+                                  ? "bg-sidebar-accent text-sidebar-accent-foreground" 
+                                  : "hover:bg-[#ffffff] hover:scale-105 text-sidebar-foreground hover:text-white"
+                              }`
+                            }
+                          >
+                            <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                            <span>{subItem.title}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      ))}
+                    </CollapsibleContent>
+                  )}
+                </Collapsible>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
