@@ -277,8 +277,8 @@ export default function Templates() {
   );
 
   const renderStep2 = () => (
-    <div className="space-y-3">
-      <h3 className="text-lg font-medium mb-4">Selecione o tipo</h3>
+    <div className="space-y-1.5">
+      <h3 className="text-lg font-medium mb-3">Selecione o tipo</h3>
       {formatOptions.map((format) => (
         <Card 
           key={format.value}
@@ -287,23 +287,23 @@ export default function Templates() {
           }`}
           onClick={() => setFormData(prev => ({ ...prev, formato: format.value }))}
         >
-          <CardContent className="flex items-center justify-between p-4">
+          <CardContent className="flex items-center justify-between py-2.5 px-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-muted">
-                <format.icon className="h-5 w-5 text-muted-foreground" />
+              <div className="p-1.5 rounded-lg bg-muted">
+                <format.icon className="h-4 w-4 text-muted-foreground" />
               </div>
               <div>
-                <p className="font-medium">{format.label}</p>
-                <p className="text-sm text-muted-foreground">{format.description}</p>
+                <p className="font-medium text-sm">{format.label}</p>
+                <p className="text-xs text-muted-foreground">{format.description}</p>
               </div>
             </div>
-            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
               formData.formato === format.value 
                 ? "border-primary bg-primary" 
                 : "border-muted-foreground/30"
             }`}>
               {formData.formato === format.value && (
-                <div className="w-2 h-2 rounded-full bg-primary-foreground" />
+                <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground" />
               )}
             </div>
           </CardContent>
