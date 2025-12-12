@@ -120,8 +120,8 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between ${
                         isProspeccaoActive 
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground" 
-                          : "hover:bg-[#ffffff] hover:scale-105 text-sidebar-foreground hover:text-white"
+                          ? "bg-[#04bbda] text-white" 
+                          : "hover:bg-[#04bbda]/20 hover:scale-105 text-sidebar-foreground"
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -142,8 +142,8 @@ export function AppSidebar() {
                             className={({ isActive }) =>
                               `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
                                 isActive 
-                                  ? "bg-sidebar-accent text-sidebar-accent-foreground" 
-                                  : "hover:bg-[#ffffff] hover:scale-105 text-sidebar-foreground hover:text-white"
+                                  ? "bg-[#04bbda] text-white" 
+                                  : "hover:bg-[#04bbda]/20 hover:scale-105 text-sidebar-foreground"
                               }`
                             }
                           >
