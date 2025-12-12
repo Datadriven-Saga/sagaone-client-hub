@@ -77,7 +77,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
   const [isClientesPorUsuarioModalOpen, setIsClientesPorUsuarioModalOpen] = useState(false);
   const [isNovoLeadModalOpen, setIsNovoLeadModalOpen] = useState(false);
-  const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string }[]>([]);
+  const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string; departamento?: string | null }[]>([]);
   
   // Filtro global unificado para todas as abas
   const [globalFilters, setGlobalFilters] = useState<ProspeccaoGlobalFilters>({
@@ -127,7 +127,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       // Buscar profiles com celular
       const { data: profilesData, error } = await supabase
         .from('profiles')
-        .select('id, nome_completo, tipo_acesso, celular');
+        .select('id, nome_completo, tipo_acesso, celular, departamento');
       
       if (error) {
         console.error('Error fetching profiles:', error);
@@ -1300,12 +1300,13 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Nome</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Telefone</th>
                           <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Status</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Origem</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Responsável</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Data</th>
+                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Nome do Cliente</th>
+                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Departamento</th>
+                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Vendedor</th>
+                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Produto de Interesse</th>
+                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Data de Criação</th>
+                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Última Atualização</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1317,18 +1318,20 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                             p.celular === contato.responsavel_email
                           );
                           
-                          // Mapear status para label da coluna do Kanban
-                          const statusLabels: Record<string, string> = {
-                            'Novo': 'Novos',
-                            'Atribuído': 'Atribuídos',
-                            'Em Espera': 'Em Espera',
-                            'Convidado': 'Convidados',
-                            'Confirmado': 'Confirmados',
-                            'Check-in': 'Check-ins',
-                            'Venda': 'Vendas',
-                            'Descartado': 'Descartados',
-                            'Opt Out': 'Opt Out'
+                          // Mapear status para label e cor do funil de vendas
+                          const statusConfig: Record<string, { label: string; bgColor: string; textColor: string }> = {
+                            'Novo': { label: 'Novos', bgColor: '#EF4444', textColor: '#FFFFFF' },
+                            'Atribuído': { label: 'Atribuídos', bgColor: '#F97316', textColor: '#FFFFFF' },
+                            'Em Espera': { label: 'Em Espera', bgColor: '#F97316', textColor: '#FFFFFF' },
+                            'Convidado': { label: 'Convidados', bgColor: '#84CC16', textColor: '#FFFFFF' },
+                            'Confirmado': { label: 'Confirmados', bgColor: '#22C55E', textColor: '#FFFFFF' },
+                            'Check-in': { label: 'Check-ins', bgColor: '#16A34A', textColor: '#FFFFFF' },
+                            'Venda': { label: 'Vendas', bgColor: '#3B82F6', textColor: '#FFFFFF' },
+                            'Descartado': { label: 'Descartados', bgColor: '#A3A3A3', textColor: '#FFFFFF' },
+                            'Opt Out': { label: 'Opt Out', bgColor: '#4B5563', textColor: '#FFFFFF' }
                           };
+                          
+                          const statusInfo = statusConfig[contato.status || ''] || { label: contato.status || '-', bgColor: '#9CA3AF', textColor: '#FFFFFF' };
                           
                           return (
                             <tr 
@@ -1343,24 +1346,32 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                               }}
                             >
                               <td className="py-3 px-3">
+                                <span 
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                                  style={{ backgroundColor: statusInfo.bgColor, color: statusInfo.textColor }}
+                                >
+                                  {statusInfo.label}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3">
                                 <span className="font-medium text-sm">{contato.nome}</span>
                               </td>
                               <td className="py-3 px-3 text-sm text-muted-foreground">
-                                {contato.telefone || '-'}
-                              </td>
-                              <td className="py-3 px-3">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
-                                  {statusLabels[contato.status || ''] || contato.status || '-'}
-                                </span>
-                              </td>
-                              <td className="py-3 px-3 text-sm text-muted-foreground">
-                                {contato.origem || '-'}
+                                {responsavelProfile?.departamento || '-'}
                               </td>
                               <td className="py-3 px-3 text-sm text-muted-foreground">
                                 {responsavelProfile?.nome_completo || '-'}
                               </td>
                               <td className="py-3 px-3 text-sm text-muted-foreground">
+                                {contato.observacoes?.includes('Produto:') 
+                                  ? contato.observacoes.split('Produto:')[1]?.split(',')[0]?.trim() 
+                                  : '-'}
+                              </td>
+                              <td className="py-3 px-3 text-sm text-muted-foreground">
                                 {contato.created_at ? new Date(contato.created_at).toLocaleDateString('pt-BR') : '-'}
+                              </td>
+                              <td className="py-3 px-3 text-sm text-muted-foreground">
+                                {contato.updated_at ? new Date(contato.updated_at).toLocaleDateString('pt-BR') : '-'}
                               </td>
                             </tr>
                           );
