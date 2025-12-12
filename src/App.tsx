@@ -19,6 +19,7 @@ import Clientes from "./pages/Clientes";
 import Notificacoes from "./pages/Notificacoes";
 import Prospeccao from "./pages/Prospeccao";
 import Resultados from "./pages/Resultados";
+import Templates from "./pages/prospeccao/Templates";
 import Relatorios from "./pages/Relatorios";
 import Treinamentos from "./pages/Treinamentos";
 import Configuracoes from "./pages/Configuracoes";
@@ -55,6 +56,7 @@ const AppContent = () => {
           <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
           <Route path="/prospeccao/eventos" element={<ProtectedRoute><Prospeccao defaultTab="eventos" /></ProtectedRoute>} />
           <Route path="/prospeccao/atendimento" element={<ProtectedRoute><Prospeccao defaultTab="atendimento" /></ProtectedRoute>} />
+          <Route path="/prospeccao/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
           <Route path="/prospeccao/performance" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
           <Route path="/resultados" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
           <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />

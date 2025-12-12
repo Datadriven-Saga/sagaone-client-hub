@@ -12,7 +12,8 @@ import {
   ChevronRight,
   Calendar,
   Headphones,
-  BarChart3
+  BarChart3,
+  MessageSquareText
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -35,7 +36,8 @@ const topMenuItems = [
 
 const prospeccaoSubItems = [
   { title: "Eventos", url: "/prospeccao/eventos", icon: Calendar },
-  { title: "Atendimento", url: "/prospeccao/atendimento", icon: Headphones },
+  { title: "Atendimentos", url: "/prospeccao/atendimento", icon: Headphones },
+  { title: "Templates", url: "/prospeccao/templates", icon: MessageSquareText },
   { title: "Performance", url: "/prospeccao/performance", icon: BarChart3 },
 ];
 
