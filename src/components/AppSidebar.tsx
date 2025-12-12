@@ -101,7 +101,7 @@ export function AppSidebar() {
                         `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
                           isActive 
                             ? "bg-sidebar-accent text-sidebar-accent-foreground" 
-                            : "hover:bg-[#ffffff] hover:scale-105 text-sidebar-foreground hover:text-white"
+                            : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
                         }`
                       }
                     >
@@ -119,7 +119,7 @@ export function AppSidebar() {
                 <Collapsible open={isProspeccaoOpen} onOpenChange={setIsProspeccaoOpen}>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between hover:bg-[#04bbda]/20 hover:scale-105 text-sidebar-foreground"
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between hover:scale-105 hover:opacity-80 text-sidebar-foreground"
                     >
                       <div className="flex items-center gap-3">
                         <Target className="h-5 w-5 flex-shrink-0" />
@@ -139,7 +139,7 @@ export function AppSidebar() {
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
                               currentPath.startsWith(subItem.url)
                                 ? "bg-[#04bbda] text-white font-medium"
-                                : "hover:bg-[#04bbda]/20 hover:scale-105 text-sidebar-foreground"
+                                : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
                             }`}
                           >
                             <subItem.icon className="h-4 w-4 flex-shrink-0" />
@@ -168,7 +168,7 @@ export function AppSidebar() {
                         `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
                           isActive 
                             ? "bg-sidebar-accent text-sidebar-accent-foreground" 
-                            : "hover:bg-[#ffffff] hover:scale-105 text-sidebar-foreground hover:text-white"
+                            : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
                         }`
                       }
                     >
