@@ -239,7 +239,7 @@ export default function Templates() {
           value={formData.nome}
           onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
           placeholder="Ex: Convite Evento VIP"
-          className="flex-1"
+          className="flex-1 bg-white"
         />
       </div>
       <div className="flex items-center gap-4">
@@ -248,7 +248,7 @@ export default function Templates() {
           value={formData.categoria}
           onValueChange={(value: TemplateCategory) => setFormData(prev => ({ ...prev, categoria: value }))}
         >
-          <SelectTrigger className="flex-1">
+          <SelectTrigger className="flex-1 bg-white">
             <SelectValue placeholder="Selecione a categoria" />
           </SelectTrigger>
           <SelectContent>
@@ -263,7 +263,7 @@ export default function Templates() {
           value={formData.departamento_id}
           onValueChange={(value) => setFormData(prev => ({ ...prev, departamento_id: value }))}
         >
-          <SelectTrigger className="flex-1">
+          <SelectTrigger className="flex-1 bg-white">
             <SelectValue placeholder="Selecione o departamento" />
           </SelectTrigger>
           <SelectContent>
@@ -330,7 +330,7 @@ export default function Templates() {
                 }
               }}
               placeholder="Digite o conteúdo do template..."
-              className="min-h-[150px]"
+              className="min-h-[150px] bg-white"
             />
             <p className="text-sm text-muted-foreground mt-1 text-right">
               {formData.conteudo.length}/1024
