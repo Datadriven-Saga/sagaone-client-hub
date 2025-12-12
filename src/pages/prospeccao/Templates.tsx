@@ -277,8 +277,8 @@ export default function Templates() {
   );
 
   const renderStep2 = () => (
-    <div className="space-y-1.5">
-      <h3 className="text-lg font-medium mb-3">Selecione o tipo</h3>
+    <div className="space-y-1">
+      <h3 className="text-lg font-medium mb-2">Selecione o tipo</h3>
       {formatOptions.map((format) => (
         <Card 
           key={format.value}
@@ -287,9 +287,9 @@ export default function Templates() {
           }`}
           onClick={() => setFormData(prev => ({ ...prev, formato: format.value }))}
         >
-          <CardContent className="flex items-center justify-between py-2.5 px-4">
-            <div className="flex items-center gap-3">
-              <div className="p-1.5 rounded-lg bg-muted">
+          <CardContent className="flex items-center justify-between py-1.5 px-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded-lg bg-muted">
                 <format.icon className="h-4 w-4 text-muted-foreground" />
               </div>
               <div>
@@ -457,7 +457,7 @@ export default function Templates() {
             {currentStep === 3 && renderStep3()}
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t mt-4">
+          <div className="flex justify-end gap-2 pt-1 border-t mt-1">
             {currentStep > 1 && (
               <Button variant="outline" onClick={handleBack}>
                 Voltar
