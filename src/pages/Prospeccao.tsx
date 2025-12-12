@@ -1003,12 +1003,33 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     <DashboardLayout title="Prospecção">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full w-full">
         <TabsList className="inline-flex self-start">
-          <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
-          <TabsTrigger value="eventos">Eventos</TabsTrigger>
-          <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
-          <TabsTrigger value="kanban">Kanban</TabsTrigger>
-          <TabsTrigger value="recepcao">Recepção</TabsTrigger>
-          <TabsTrigger value="vendas">Vendas</TabsTrigger>
+          {/* Sub-módulo Eventos: Visão Geral, Eventos, Adicionar Contatos */}
+          {defaultTab === 'eventos' && (
+            <>
+              <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
+              <TabsTrigger value="eventos">Eventos</TabsTrigger>
+              <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
+            </>
+          )}
+          {/* Sub-módulo Atendimentos: Kanban, Recepção, Vendas */}
+          {defaultTab === 'atendimento' && (
+            <>
+              <TabsTrigger value="kanban">Kanban</TabsTrigger>
+              <TabsTrigger value="recepcao">Recepção</TabsTrigger>
+              <TabsTrigger value="vendas">Vendas</TabsTrigger>
+            </>
+          )}
+          {/* Fallback: mostrar todas as abas se não tiver defaultTab */}
+          {!defaultTab && (
+            <>
+              <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
+              <TabsTrigger value="eventos">Eventos</TabsTrigger>
+              <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
+              <TabsTrigger value="kanban">Kanban</TabsTrigger>
+              <TabsTrigger value="recepcao">Recepção</TabsTrigger>
+              <TabsTrigger value="vendas">Vendas</TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         {/* Filtro Global Unificado */}
