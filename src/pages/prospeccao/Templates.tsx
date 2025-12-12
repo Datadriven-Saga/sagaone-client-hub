@@ -439,8 +439,8 @@ export default function Templates() {
       </div>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[600px] h-[480px] flex flex-col overflow-hidden">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center justify-between">
               <span>Novo Template</span>
               <Button variant="ghost" size="icon" onClick={handleCloseModal}>
@@ -449,15 +449,17 @@ export default function Templates() {
             </DialogTitle>
           </DialogHeader>
           
-          {renderStepIndicator()}
+          <div className="flex-shrink-0">
+            {renderStepIndicator()}
+          </div>
           
-          <div>
+          <div className="flex-1 min-h-0 overflow-y-auto">
             {currentStep === 1 && renderStep1()}
             {currentStep === 2 && renderStep2()}
             {currentStep === 3 && renderStep3()}
           </div>
 
-          <div className="flex justify-end gap-2 pt-1 border-t mt-1">
+          <div className="flex-shrink-0 flex justify-end gap-2 pt-2 border-t mt-2">
             {currentStep > 1 && (
               <Button variant="outline" onClick={handleBack}>
                 Voltar
