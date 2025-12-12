@@ -5,7 +5,6 @@ import { MotivosTab } from "@/components/configuracoes/MotivosTab";
 import { DepartamentosTab } from "@/components/configuracoes/DepartamentosTab";
 import { MensagensTab } from "@/components/configuracoes/MensagensTab";
 import { TemperaturasTab } from "@/components/configuracoes/TemperaturasTab";
-import { WhatsAppTab } from "@/components/configuracoes/WhatsAppTab";
 import { DocumentosTab } from "@/components/configuracoes/DocumentosTab";
 
 const Configuracoes = () => {
@@ -18,7 +17,6 @@ const Configuracoes = () => {
           <TabsTrigger value="departamentos">Departamentos</TabsTrigger>
           <TabsTrigger value="mensagens">Mensagens</TabsTrigger>
           <TabsTrigger value="temperatura">Temperatura</TabsTrigger>
-          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
         </TabsList>
 
@@ -40,10 +38,6 @@ const Configuracoes = () => {
 
         <TabsContent value="temperatura" className="space-y-6">
           <TemperaturasTab />
-        </TabsContent>
-
-        <TabsContent value="whatsapp" className="space-y-6">
-          <WhatsAppTab />
         </TabsContent>
 
         <TabsContent value="documentos" className="space-y-6">
