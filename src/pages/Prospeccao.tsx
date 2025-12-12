@@ -1011,10 +1011,11 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
               <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
             </>
           )}
-          {/* Sub-módulo Atendimentos: Kanban, Recepção, Vendas */}
+          {/* Sub-módulo Atendimentos: Kanban, Lista, Recepção, Vendas */}
           {defaultTab === 'atendimento' && (
             <>
               <TabsTrigger value="kanban">Kanban</TabsTrigger>
+              <TabsTrigger value="lista">Lista</TabsTrigger>
               <TabsTrigger value="recepcao">Recepção</TabsTrigger>
               <TabsTrigger value="vendas">Vendas</TabsTrigger>
             </>
@@ -1026,6 +1027,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
               <TabsTrigger value="eventos">Eventos</TabsTrigger>
               <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
               <TabsTrigger value="kanban">Kanban</TabsTrigger>
+              <TabsTrigger value="lista">Lista</TabsTrigger>
               <TabsTrigger value="recepcao">Recepção</TabsTrigger>
               <TabsTrigger value="vendas">Vendas</TabsTrigger>
             </>
@@ -1266,6 +1268,110 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
               onSolicitarClientes={solicitarClientes}
             />
           </div>
+        </TabsContent>
+
+        <TabsContent value="lista" className="flex-1 min-h-0 overflow-hidden w-full">
+          <ScrollIndicator className="flex-1 h-full">
+            <div className="space-y-1.5 pb-6">
+              <Card className="p-3">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Target className="text-primary" size={18} />
+                    <div>
+                      <h3 className="text-base font-semibold text-foreground">Lista de Leads</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {filteredContatos.length} {filteredContatos.length === 1 ? 'lead' : 'leads'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {loading ? (
+                  <div className="flex items-center justify-center h-24">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  </div>
+                ) : filteredContatos.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Target className="mx-auto h-12 w-12 mb-3 opacity-50" />
+                    <p>Nenhum lead encontrado</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Nome</th>
+                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Telefone</th>
+                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Status</th>
+                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Origem</th>
+                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Responsável</th>
+                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Data</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredContatos.map((contato) => {
+                          // Buscar nome do responsável
+                          const responsavelProfile = profiles.find(p => 
+                            p.id === contato.responsavel_email || 
+                            p.email === contato.responsavel_email || 
+                            p.celular === contato.responsavel_email
+                          );
+                          
+                          // Mapear status para label da coluna do Kanban
+                          const statusLabels: Record<string, string> = {
+                            'Novo': 'Novos',
+                            'Atribuído': 'Atribuídos',
+                            'Em Espera': 'Em Espera',
+                            'Convidado': 'Convidados',
+                            'Confirmado': 'Confirmados',
+                            'Check-in': 'Check-ins',
+                            'Venda': 'Vendas',
+                            'Descartado': 'Descartados',
+                            'Opt Out': 'Opt Out'
+                          };
+                          
+                          return (
+                            <tr 
+                              key={contato.id} 
+                              className="border-b hover:bg-muted/50 transition-colors cursor-pointer"
+                              onClick={() => {
+                                setModalContato({
+                                  isOpen: true,
+                                  contato: contato,
+                                  columnId: contato.status?.toLowerCase().replace(' ', '-')
+                                });
+                              }}
+                            >
+                              <td className="py-3 px-3">
+                                <span className="font-medium text-sm">{contato.nome}</span>
+                              </td>
+                              <td className="py-3 px-3 text-sm text-muted-foreground">
+                                {contato.telefone || '-'}
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
+                                  {statusLabels[contato.status || ''] || contato.status || '-'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-sm text-muted-foreground">
+                                {contato.origem || '-'}
+                              </td>
+                              <td className="py-3 px-3 text-sm text-muted-foreground">
+                                {responsavelProfile?.nome_completo || '-'}
+                              </td>
+                              <td className="py-3 px-3 text-sm text-muted-foreground">
+                                {contato.created_at ? new Date(contato.created_at).toLocaleDateString('pt-BR') : '-'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </div>
+          </ScrollIndicator>
         </TabsContent>
 
         <TabsContent value="recepcao" className="flex-1 min-h-0 overflow-hidden w-full">
