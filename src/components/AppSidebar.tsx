@@ -89,7 +89,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="flex flex-col h-full">
+      <SidebarContent className="flex flex-col h-full scrollbar-sidebar">
         <SidebarGroup className="flex-1">
           <SidebarGroupContent>
             <SidebarMenu>
