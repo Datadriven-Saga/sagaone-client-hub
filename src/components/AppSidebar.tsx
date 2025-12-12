@@ -2,14 +2,12 @@ import { useState } from "react";
 import { 
   Home, 
   Users, 
-  Bell, 
   Target, 
   FileText, 
   BookOpen, 
   Settings, 
   Shield,
   Bot,
-  Trophy,
   ChevronDown,
   ChevronRight,
   Calendar,
@@ -33,16 +31,18 @@ import sagaOneLogo from "@/assets/saga-one-menu-logo.png";
 
 const topMenuItems = [
   { title: "Página Inicial", url: "/", icon: Home },
-  { title: "Agentes de IA", url: "/agentes-ia", icon: Bot },
-  { title: "Carteira de Clientes", url: "/clientes", icon: Users },
-  { title: "Notificações", url: "/notificacoes", icon: Bell },
-  { title: "Relatórios", url: "/relatorios", icon: FileText },
 ];
 
 const prospeccaoSubItems = [
   { title: "Eventos", url: "/prospeccao/eventos", icon: Calendar },
   { title: "Atendimento", url: "/prospeccao/atendimento", icon: Headphones },
   { title: "Performance", url: "/prospeccao/performance", icon: BarChart3 },
+];
+
+const afterProspeccaoItems = [
+  { title: "Agentes de IA", url: "/agentes-ia", icon: Bot },
+  { title: "Carteira de Clientes", url: "/clientes", icon: Users },
+  { title: "Relatórios", url: "/relatorios", icon: FileText },
 ];
 
 const bottomMenuItems = [
@@ -151,6 +151,30 @@ export function AppSidebar() {
                   )}
                 </Collapsible>
               </SidebarMenuItem>
+
+              {/* Items after Prospecção */}
+              {afterProspeccaoItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink 
+                      to={item.url} 
+                      end
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
+                          isActive 
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground" 
+                            : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
+                        }`
+                      }
+                    >
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <span className="font-medium">{item.title}</span>
+                      )}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
