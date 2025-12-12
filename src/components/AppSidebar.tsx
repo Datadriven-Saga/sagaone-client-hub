@@ -43,10 +43,10 @@ const afterProspeccaoItems = [
   { title: "Agentes de IA", url: "/agentes-ia", icon: Bot },
   { title: "Carteira de Clientes", url: "/clientes", icon: Users },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
+  { title: "Treinamentos", url: "/treinamentos", icon: BookOpen },
 ];
 
 const bottomMenuItems = [
-  { title: "Treinamentos", url: "/treinamentos", icon: BookOpen },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
   { title: "Administração", url: "/administracao", icon: Shield },
 ];
