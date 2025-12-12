@@ -790,19 +790,6 @@ export function ContatoModal({
                       </div>
                     </div>
                   </Card>
-
-                  <Card className="p-6">
-                    <h3 className="text-lg font-semibold mb-4 text-destructive">Zona de Perigo</h3>
-                    <Button 
-                      variant="destructive" 
-                      onClick={handleExcluirContato}
-                      className="w-full"
-                      disabled={isLeadBloqueado}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Excluir Contato da Prospecção
-                    </Button>
-                  </Card>
                 </div>
               )}
 
