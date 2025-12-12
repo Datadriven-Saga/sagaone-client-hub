@@ -1260,8 +1260,8 @@ export function ContatoModal({
                       Para conversar via WhatsApp, você precisa vincular o WhatsApp Web nas configurações.
                     </p>
                     <div className="space-y-2 text-sm text-left bg-muted p-3 rounded-lg">
-                      <p><strong>Cliente:</strong> {contato.nome}</p>
-                      <p><strong>Telefone:</strong> {contato.telefone}</p>
+                      <p><strong>Cliente:</strong> {contato?.nome || 'Sem nome'}</p>
+                      <p><strong>Telefone:</strong> {contato?.telefone || '-'}</p>
                     </div>
                     <Button variant="outline" className="mt-4">
                       <Settings className="w-4 h-4 mr-2" />
