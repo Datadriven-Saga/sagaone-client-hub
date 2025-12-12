@@ -135,10 +135,11 @@ export function AppSidebar() {
                         <SidebarMenuButton key={subItem.title} asChild>
                           <NavLink 
                             to={subItem.url}
+                            end
                             className={({ isActive }) =>
                               `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
                                 isActive 
-                                  ? "bg-[#04bbda] text-white" 
+                                  ? "bg-[#04bbda] text-white font-medium" 
                                   : "hover:bg-[#04bbda]/20 hover:scale-105 text-sidebar-foreground"
                               }`
                             }
