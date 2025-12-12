@@ -1310,7 +1310,13 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredContatos.map((contato) => {
+                        {[...filteredContatos]
+                          .sort((a, b) => {
+                            const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+                            const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+                            return dateB - dateA; // Mais recente primeiro
+                          })
+                          .map((contato) => {
                           // Buscar nome do responsável
                           const responsavelProfile = profiles.find(p => 
                             p.id === contato.responsavel_email || 
@@ -1332,6 +1338,20 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                           };
                           
                           const statusInfo = statusConfig[contato.status || ''] || { label: contato.status || '-', bgColor: '#9CA3AF', textColor: '#FFFFFF' };
+                          
+                          // Formatar data no formato DD/MM HH:MM
+                          const formatDateTime = (dateStr: string | null | undefined) => {
+                            if (!dateStr) return '-';
+                            const date = new Date(dateStr);
+                            const day = date.getDate().toString().padStart(2, '0');
+                            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                            const hours = date.getHours().toString().padStart(2, '0');
+                            const minutes = date.getMinutes().toString().padStart(2, '0');
+                            return `${day}/${month} ${hours}:${minutes}`;
+                          };
+                          
+                          // Se não tem updated_at, usar created_at
+                          const updatedAt = contato.updated_at || contato.created_at;
                           
                           return (
                             <tr 
@@ -1368,10 +1388,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                   : '-'}
                               </td>
                               <td className="py-3 px-3 text-sm text-muted-foreground">
-                                {contato.created_at ? new Date(contato.created_at).toLocaleDateString('pt-BR') : '-'}
+                                {formatDateTime(contato.created_at)}
                               </td>
                               <td className="py-3 px-3 text-sm text-muted-foreground">
-                                {contato.updated_at ? new Date(contato.updated_at).toLocaleDateString('pt-BR') : '-'}
+                                {formatDateTime(updatedAt)}
                               </td>
                             </tr>
                           );
