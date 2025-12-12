@@ -144,4 +144,28 @@
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground) / 0.4);
   }
+
+  /* Sidebar scrollbar - invisible */
+  .scrollbar-sidebar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--sidebar-background)) hsl(var(--sidebar-background));
+  }
+  
+  .scrollbar-sidebar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .scrollbar-sidebar::-webkit-scrollbar-track {
+    background: hsl(var(--sidebar-background));
+  }
+  
+  .scrollbar-sidebar::-webkit-scrollbar-thumb {
+    background: hsl(var(--sidebar-background));
+    border-radius: 3px;
+  }
+  
+  .scrollbar-sidebar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--sidebar-background) / 0.8);
+  }
 }
