@@ -40,7 +40,11 @@ interface ClienteData {
   responsavel?: string;
 }
 
-const Prospeccao = () => {
+interface ProspeccaoProps {
+  defaultTab?: 'eventos' | 'atendimento';
+}
+
+const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   console.log('🚀 Prospeccao component initiated');
   
   // ✅ TODOS OS HOOKS DEVEM VIR PRIMEIRO - ANTES DE QUALQUER LÓGICA
@@ -62,6 +66,9 @@ const Prospeccao = () => {
     pendingVendaStatus: undefined
   });
   const [activeTab, setActiveTab] = useState(() => {
+    // Se defaultTab for passado, usar a aba correspondente
+    if (defaultTab === 'eventos') return 'visao-geral';
+    if (defaultTab === 'atendimento') return 'kanban';
     const savedTab = sessionStorage.getItem('prospeccao_active_tab');
     return savedTab || 'visao-geral';
   });
