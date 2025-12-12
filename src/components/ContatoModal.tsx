@@ -310,8 +310,17 @@ export function ContatoModal({
     carregarDados();
   }, [contato, isOpen, prospeccaoId, user]);
 
-  const statusOptions = [
-    'Novo', 'Negociação', 'Em Contato', 'Qualificado', 'Proposta', 'Fechado', 'Perdido'
+  // Opções de status sincronizadas com as colunas do Kanban
+  const statusOptions: Array<{ value: Contato['status']; label: string }> = [
+    { value: 'Novo', label: 'Novos' },
+    { value: 'Atribuído', label: 'Atribuídos' },
+    { value: 'Em Espera', label: 'Em Espera' },
+    { value: 'Convidado', label: 'Convidados' },
+    { value: 'Confirmado', label: 'Confirmados' },
+    { value: 'Check-in', label: 'Check-ins' },
+    { value: 'Venda', label: 'Vendas' },
+    { value: 'Descartado', label: 'Descartados' },
+    { value: 'Opt Out', label: 'Opt Out' }
   ];
 
   const handleAdicionarAnotacao = async () => {
@@ -560,7 +569,7 @@ export function ContatoModal({
           <div className="flex items-center justify-between gap-4">
             <DialogTitle className="flex items-center gap-2">
               <User className="w-5 h-5" />
-              {isNewContact ? 'Novo Contato' : `Detalhes do Contato - ${contato?.nome || 'Sem nome'}`}
+              {isNewContact ? 'Novo Contato' : (contato?.nome || 'Sem nome')}
             </DialogTitle>
             
             {/* Botões de ação no header */}
@@ -772,8 +781,8 @@ export function ContatoModal({
                           </SelectTrigger>
                           <SelectContent>
                             {statusOptions.map((status) => (
-                              <SelectItem key={status} value={status}>
-                                {status}
+                              <SelectItem key={status.value} value={status.value}>
+                                {status.label}
                               </SelectItem>
                             ))}
                           </SelectContent>
