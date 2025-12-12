@@ -42,7 +42,7 @@ import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ScrollIndicator } from "@/components/ui/scroll-indicator";
+
 
 type TemplateFormat = "texto" | "botao" | "imagem" | "video" | "card" | "lista";
 type TemplateCategory = "marketing" | "utilidade";
@@ -231,24 +231,24 @@ export default function Templates() {
   );
 
   const renderStep1 = () => (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="nome">Nome do Template *</Label>
+    <div className="space-y-3">
+      <div className="flex items-center gap-4">
+        <Label htmlFor="nome" className="w-40 shrink-0 text-right">Nome do Template *</Label>
         <Input
           id="nome"
           value={formData.nome}
           onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
           placeholder="Ex: Convite Evento VIP"
-          className="mt-1"
+          className="flex-1"
         />
       </div>
-      <div>
-        <Label htmlFor="categoria">Categoria *</Label>
+      <div className="flex items-center gap-4">
+        <Label htmlFor="categoria" className="w-40 shrink-0 text-right">Categoria *</Label>
         <Select
           value={formData.categoria}
           onValueChange={(value: TemplateCategory) => setFormData(prev => ({ ...prev, categoria: value }))}
         >
-          <SelectTrigger className="mt-1">
+          <SelectTrigger className="flex-1">
             <SelectValue placeholder="Selecione a categoria" />
           </SelectTrigger>
           <SelectContent>
@@ -257,13 +257,13 @@ export default function Templates() {
           </SelectContent>
         </Select>
       </div>
-      <div>
-        <Label htmlFor="departamento">Departamento *</Label>
+      <div className="flex items-center gap-4">
+        <Label htmlFor="departamento" className="w-40 shrink-0 text-right">Departamento *</Label>
         <Select
           value={formData.departamento_id}
           onValueChange={(value) => setFormData(prev => ({ ...prev, departamento_id: value }))}
         >
-          <SelectTrigger className="mt-1">
+          <SelectTrigger className="flex-1">
             <SelectValue placeholder="Selecione o departamento" />
           </SelectTrigger>
           <SelectContent>
@@ -439,7 +439,7 @@ export default function Templates() {
       </div>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Novo Template</span>
@@ -451,13 +451,11 @@ export default function Templates() {
           
           {renderStepIndicator()}
           
-          <ScrollIndicator className="flex-1 min-h-0">
-            <div className="pr-2">
-              {currentStep === 1 && renderStep1()}
-              {currentStep === 2 && renderStep2()}
-              {currentStep === 3 && renderStep3()}
-            </div>
-          </ScrollIndicator>
+          <div>
+            {currentStep === 1 && renderStep1()}
+            {currentStep === 2 && renderStep2()}
+            {currentStep === 3 && renderStep3()}
+          </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t mt-4">
             {currentStep > 1 && (
