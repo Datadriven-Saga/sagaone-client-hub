@@ -1192,9 +1192,9 @@ export default function Templates() {
                     <TableRow key={template.id}>
                       <TableCell className="font-medium">{template.nome}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{template.categoria}</Badge>
+                        <Badge variant="outline">{template.categoria.charAt(0).toUpperCase() + template.categoria.slice(1)}</Badge>
                       </TableCell>
-                      <TableCell>{template.formato}</TableCell>
+                      <TableCell>{template.formato.charAt(0).toUpperCase() + template.formato.slice(1)}</TableCell>
                       <TableCell>{template.departamentos?.nome || "-"}</TableCell>
                       <TableCell>
                         <Badge className={getStatusBadgeClasses(template.status)}>
