@@ -222,8 +222,25 @@ export default function Templates() {
   };
 
   const handleSave = async () => {
-    if (!formData.conteudo && formData.formato === "texto") {
+    // Validações específicas por formato
+    if (formData.formato === "texto" && !formData.conteudo) {
       toast.error("Preencha o conteúdo do template");
+      return;
+    }
+    if (formData.formato === "botao" && (!formData.cardData.corpoTexto || formData.cardData.botoes.length === 0)) {
+      toast.error("Preencha o corpo do texto e adicione pelo menos um botão");
+      return;
+    }
+    if (formData.formato === "imagem" && !formData.cardData.imagemPreviewUrl) {
+      toast.error("Faça upload de uma imagem");
+      return;
+    }
+    if (formData.formato === "video" && !formData.cardData.videoPreviewUrl) {
+      toast.error("Faça upload de um vídeo");
+      return;
+    }
+    if (formData.formato === "card" && (!formData.cardData.textoCabecalho || !formData.cardData.corpoTexto)) {
+      toast.error("Preencha o cabeçalho e o corpo do texto do card");
       return;
     }
     
@@ -233,15 +250,60 @@ export default function Templates() {
     }
 
     try {
-      // Prepare card_data based on format - convert to JSON-compatible format
-      const cardData = JSON.parse(JSON.stringify({
-        imagemPreviewUrl: formData.cardData.imagemPreviewUrl,
-        videoPreviewUrl: formData.cardData.videoPreviewUrl,
-        textoCabecalho: formData.cardData.textoCabecalho,
-        corpoTexto: formData.cardData.corpoTexto,
-        rodape: formData.cardData.rodape,
-        botoes: formData.cardData.botoes.map(b => ({ id: b.id, nome: b.nome, buttonId: b.buttonId })),
-      }));
+      // Prepare card_data based on format type
+      let cardData: Record<string, any> = {};
+      let conteudo = "";
+
+      switch (formData.formato) {
+        case "texto":
+          // Texto simples: apenas conteudo
+          conteudo = formData.conteudo;
+          cardData = {};
+          break;
+
+        case "botao":
+          // Botão: corpo do texto + botões
+          conteudo = formData.cardData.corpoTexto;
+          cardData = {
+            botoes: formData.cardData.botoes.map(b => ({ 
+              id: b.id, 
+              nome: b.nome, 
+              buttonId: b.buttonId 
+            })),
+          };
+          break;
+
+        case "imagem":
+          // Imagem: URL da imagem + corpo do texto (legenda)
+          conteudo = formData.cardData.corpoTexto;
+          cardData = {
+            imagemUrl: formData.cardData.imagemPreviewUrl,
+          };
+          break;
+
+        case "video":
+          // Vídeo: URL do vídeo + corpo do texto (legenda)
+          conteudo = formData.cardData.corpoTexto;
+          cardData = {
+            videoUrl: formData.cardData.videoPreviewUrl,
+          };
+          break;
+
+        case "card":
+          // Card: imagem + cabeçalho + corpo + rodapé + botões
+          conteudo = formData.cardData.corpoTexto;
+          cardData = {
+            imagemUrl: formData.cardData.imagemPreviewUrl,
+            textoCabecalho: formData.cardData.textoCabecalho,
+            rodape: formData.cardData.rodape,
+            botoes: formData.cardData.botoes.map(b => ({ 
+              id: b.id, 
+              nome: b.nome, 
+              buttonId: b.buttonId 
+            })),
+          };
+          break;
+      }
 
       const { error } = await supabase
         .from("whatsapp_templates")
@@ -251,7 +313,7 @@ export default function Templates() {
           nome: formData.nome,
           categoria: formData.categoria,
           formato: formData.formato,
-          conteudo: formData.formato === "texto" ? formData.conteudo : formData.cardData.corpoTexto,
+          conteudo: conteudo,
           card_data: cardData,
         }]);
 
