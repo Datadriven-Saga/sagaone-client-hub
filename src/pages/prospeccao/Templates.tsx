@@ -162,8 +162,21 @@ export default function Templates() {
     enabled: !!activeCompany?.id,
   });
 
-  // Mock templates data (will be replaced with real data later)
-  const templates: any[] = [];
+  // Fetch templates
+  const { data: templates = [], refetch: refetchTemplates } = useQuery({
+    queryKey: ["whatsapp_templates", activeCompany?.id],
+    queryFn: async () => {
+      if (!activeCompany?.id) return [];
+      const { data, error } = await supabase
+        .from("whatsapp_templates")
+        .select("*, departamentos(nome)")
+        .eq("empresa_id", activeCompany.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!activeCompany?.id,
+  });
 
   const handleOpenModal = () => {
     setFormData({
@@ -208,13 +221,49 @@ export default function Templates() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.conteudo && formData.formato === "texto") {
       toast.error("Preencha o conteúdo do template");
       return;
     }
-    toast.success("Template criado com sucesso!");
-    handleCloseModal();
+    
+    if (!activeCompany?.id) {
+      toast.error("Empresa não selecionada");
+      return;
+    }
+
+    try {
+      // Prepare card_data based on format - convert to JSON-compatible format
+      const cardData = JSON.parse(JSON.stringify({
+        imagemPreviewUrl: formData.cardData.imagemPreviewUrl,
+        videoPreviewUrl: formData.cardData.videoPreviewUrl,
+        textoCabecalho: formData.cardData.textoCabecalho,
+        corpoTexto: formData.cardData.corpoTexto,
+        rodape: formData.cardData.rodape,
+        botoes: formData.cardData.botoes.map(b => ({ id: b.id, nome: b.nome, buttonId: b.buttonId })),
+      }));
+
+      const { error } = await supabase
+        .from("whatsapp_templates")
+        .insert([{
+          empresa_id: activeCompany.id,
+          departamento_id: formData.departamento_id || null,
+          nome: formData.nome,
+          categoria: formData.categoria,
+          formato: formData.formato,
+          conteudo: formData.formato === "texto" ? formData.conteudo : formData.cardData.corpoTexto,
+          card_data: cardData,
+        }]);
+
+      if (error) throw error;
+
+      toast.success("Template criado com sucesso!");
+      refetchTemplates();
+      handleCloseModal();
+    } catch (error: any) {
+      console.error("Erro ao salvar template:", error);
+      toast.error("Erro ao salvar template: " + error.message);
+    }
   };
 
   const insertVariable = (variable: string) => {
@@ -1007,7 +1056,7 @@ export default function Templates() {
                         <Badge variant="outline">{template.categoria}</Badge>
                       </TableCell>
                       <TableCell>{template.formato}</TableCell>
-                      <TableCell>{template.departamento}</TableCell>
+                      <TableCell>{template.departamentos?.nome || "-"}</TableCell>
                       <TableCell>
                         <Badge variant={template.status === "aprovado" ? "default" : "secondary"}>
                           {template.status}
