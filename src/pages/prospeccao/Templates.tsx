@@ -611,6 +611,212 @@ export default function Templates() {
       );
     }
 
+    if (formData.formato === "botao") {
+      const handleAddButton = () => {
+        const newButton: CardButton = {
+          id: crypto.randomUUID(),
+          nome: "",
+          buttonId: "",
+        };
+        setFormData(prev => ({
+          ...prev,
+          cardData: {
+            ...prev.cardData,
+            botoes: [...prev.cardData.botoes, newButton],
+          }
+        }));
+      };
+
+      const handleUpdateButton = (id: string, field: "nome" | "buttonId", value: string) => {
+        setFormData(prev => ({
+          ...prev,
+          cardData: {
+            ...prev.cardData,
+            botoes: prev.cardData.botoes.map(btn => 
+              btn.id === id ? { ...btn, [field]: value } : btn
+            ),
+          }
+        }));
+      };
+
+      const handleDeleteButton = (id: string) => {
+        setFormData(prev => ({
+          ...prev,
+          cardData: {
+            ...prev.cardData,
+            botoes: prev.cardData.botoes.filter(btn => btn.id !== id),
+          }
+        }));
+      };
+
+      return (
+        <div className="space-y-4">
+          {/* Corpo do Texto */}
+          <div>
+            <Label htmlFor="corpoTextoBotao">Corpo do Texto</Label>
+            <Textarea
+              id="corpoTextoBotao"
+              value={formData.cardData.corpoTexto}
+              onChange={(e) => {
+                if (e.target.value.length <= 1024) {
+                  setFormData(prev => ({
+                    ...prev,
+                    cardData: { ...prev.cardData, corpoTexto: e.target.value }
+                  }));
+                }
+              }}
+              placeholder="Digite o conteúdo da mensagem..."
+              className="min-h-[120px] bg-white"
+              maxLength={1024}
+            />
+            <p className="text-xs text-muted-foreground mt-1 text-right">
+              {formData.cardData.corpoTexto.length}/1024
+            </p>
+          </div>
+
+          {/* Botões */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label>Botões</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddButton}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Adicionar Botão
+              </Button>
+            </div>
+            {formData.cardData.botoes.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-3 border rounded-lg border-dashed">
+                Nenhum botão adicionado
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {formData.cardData.botoes.map((btn, index) => (
+                  <div key={btn.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                    <span className="text-sm font-medium text-muted-foreground w-6">{index + 1}.</span>
+                    <Input
+                      value={btn.nome}
+                      onChange={(e) => handleUpdateButton(btn.id, "nome", e.target.value)}
+                      placeholder="Nome do botão"
+                      className="flex-1 h-8 text-sm bg-white"
+                    />
+                    <Input
+                      value={btn.buttonId}
+                      onChange={(e) => handleUpdateButton(btn.id, "buttonId", e.target.value)}
+                      placeholder="ID do botão"
+                      className="flex-1 h-8 text-sm bg-white"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => handleDeleteButton(btn.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (formData.formato === "imagem") {
+      const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          const previewUrl = URL.createObjectURL(file);
+          setFormData(prev => ({
+            ...prev,
+            cardData: {
+              ...prev.cardData,
+              imagemCampanha: file,
+              imagemPreviewUrl: previewUrl,
+            }
+          }));
+        }
+      };
+
+      const handleRemoveImage = () => {
+        setFormData(prev => ({
+          ...prev,
+          cardData: {
+            ...prev.cardData,
+            imagemCampanha: null,
+            imagemPreviewUrl: "",
+          }
+        }));
+      };
+
+      return (
+        <div className="space-y-4">
+          {/* Imagem da Campanha */}
+          <div>
+            <Label>Imagem da Campanha</Label>
+            <div className="mt-2">
+              {formData.cardData.imagemPreviewUrl ? (
+                <div className="relative w-full h-40 bg-muted rounded-lg overflow-hidden">
+                  <img 
+                    src={formData.cardData.imagemPreviewUrl} 
+                    alt="Preview" 
+                    className="w-full h-full object-cover"
+                  />
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-6 w-6"
+                    onClick={handleRemoveImage}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary transition-colors">
+                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                  <span className="text-sm text-muted-foreground">Clique para enviar imagem</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+
+          {/* Corpo do Texto */}
+          <div>
+            <Label htmlFor="corpoTextoImagem">Corpo do Texto</Label>
+            <Textarea
+              id="corpoTextoImagem"
+              value={formData.cardData.corpoTexto}
+              onChange={(e) => {
+                if (e.target.value.length <= 1024) {
+                  setFormData(prev => ({
+                    ...prev,
+                    cardData: { ...prev.cardData, corpoTexto: e.target.value }
+                  }));
+                }
+              }}
+              placeholder="Digite o conteúdo da mensagem..."
+              className="min-h-[120px] bg-white"
+              maxLength={1024}
+            />
+            <p className="text-xs text-muted-foreground mt-1 text-right">
+              {formData.cardData.corpoTexto.length}/1024
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     // For other formats, show placeholder
     return (
       <div className="text-center py-8">
