@@ -1003,12 +1003,12 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     <DashboardLayout title="Prospecção">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full w-full">
         <TabsList className="inline-flex self-start">
-          {/* Sub-módulo Eventos: Visão Geral, Eventos, Adicionar Contatos */}
+          {/* Sub-módulo Eventos: Visão Geral, Eventos, Adicionar Clientes */}
           {defaultTab === 'eventos' && (
             <>
               <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
               <TabsTrigger value="eventos">Eventos</TabsTrigger>
-              <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
+              <TabsTrigger value="automacao">Adicionar Clientes</TabsTrigger>
             </>
           )}
           {/* Sub-módulo Atendimentos: Kanban, Lista, Recepção, Vendas */}
@@ -1025,7 +1025,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
             <>
               <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
               <TabsTrigger value="eventos">Eventos</TabsTrigger>
-              <TabsTrigger value="automacao">Adicionar Contatos</TabsTrigger>
+              <TabsTrigger value="automacao">Adicionar Clientes</TabsTrigger>
               <TabsTrigger value="kanban">Kanban</TabsTrigger>
               <TabsTrigger value="lista">Lista</TabsTrigger>
               <TabsTrigger value="recepcao">Recepção</TabsTrigger>
@@ -1204,19 +1204,19 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           <ScrollIndicator className="flex-1 h-full">
             <div className="space-y-3 pb-6">
               <Card className="p-4">
-                <h3 className="text-base font-semibold text-foreground mb-3">Adicionar Contatos à Prospecção</h3>
+                <h3 className="text-base font-semibold text-foreground mb-3">Adicionar Clientes à Prospecção</h3>
                 
-                {/* Contador de Contatos */}
+                {/* Contador de Clientes */}
                 {contatos.length > 0 && (
                   <div className="mb-3 p-2.5 bg-green-50 border border-green-200 rounded-lg">
                     <div className="flex items-center space-x-2">
                       <CheckCircle className="text-green-600" size={18} />
                       <div>
                         <p className="font-medium text-green-800 text-sm">
-                          {contatos.length} contatos cadastrados no sistema
+                          {contatos.length} clientes cadastrados no sistema
                         </p>
                         <p className="text-xs text-green-600">
-                          Todos os contatos estão disponíveis no Kanban para gestão
+                          Todos os clientes estão disponíveis no Kanban para gestão
                         </p>
                       </div>
                     </div>
