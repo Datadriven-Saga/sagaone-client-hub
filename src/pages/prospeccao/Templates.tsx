@@ -59,6 +59,8 @@ interface CardButton {
 interface CardData {
   imagemCampanha: File | null;
   imagemPreviewUrl: string;
+  videoCampanha: File | null;
+  videoPreviewUrl: string;
   textoCabecalho: string;
   corpoTexto: string;
   rodape: string;
@@ -131,6 +133,8 @@ export default function Templates() {
   const initialCardData: CardData = {
     imagemCampanha: null,
     imagemPreviewUrl: "",
+    videoCampanha: null,
+    videoPreviewUrl: "",
     textoCabecalho: "",
     corpoTexto: "",
     rodape: "",
@@ -796,6 +800,96 @@ export default function Templates() {
             <Label htmlFor="corpoTextoImagem">Corpo do Texto</Label>
             <Textarea
               id="corpoTextoImagem"
+              value={formData.cardData.corpoTexto}
+              onChange={(e) => {
+                if (e.target.value.length <= 1024) {
+                  setFormData(prev => ({
+                    ...prev,
+                    cardData: { ...prev.cardData, corpoTexto: e.target.value }
+                  }));
+                }
+              }}
+              placeholder="Digite o conteúdo da mensagem..."
+              className="min-h-[120px] bg-white"
+              maxLength={1024}
+            />
+            <p className="text-xs text-muted-foreground mt-1 text-right">
+              {formData.cardData.corpoTexto.length}/1024
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (formData.formato === "video") {
+      const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          const previewUrl = URL.createObjectURL(file);
+          setFormData(prev => ({
+            ...prev,
+            cardData: {
+              ...prev.cardData,
+              videoCampanha: file,
+              videoPreviewUrl: previewUrl,
+            }
+          }));
+        }
+      };
+
+      const handleRemoveVideo = () => {
+        setFormData(prev => ({
+          ...prev,
+          cardData: {
+            ...prev.cardData,
+            videoCampanha: null,
+            videoPreviewUrl: "",
+          }
+        }));
+      };
+
+      return (
+        <div className="space-y-4">
+          {/* Vídeo da Campanha */}
+          <div>
+            <Label>Vídeo da Campanha</Label>
+            <div className="mt-2">
+              {formData.cardData.videoPreviewUrl ? (
+                <div className="relative w-full bg-muted rounded-lg overflow-hidden">
+                  <video 
+                    src={formData.cardData.videoPreviewUrl} 
+                    controls
+                    className="w-full h-40 object-cover"
+                  />
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-6 w-6"
+                    onClick={handleRemoveVideo}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary transition-colors">
+                  <Video className="h-8 w-8 text-muted-foreground mb-2" />
+                  <span className="text-sm text-muted-foreground">Clique para enviar vídeo</span>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={handleVideoUpload}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+
+          {/* Corpo do Texto */}
+          <div>
+            <Label htmlFor="corpoTextoVideo">Corpo do Texto</Label>
+            <Textarea
+              id="corpoTextoVideo"
               value={formData.cardData.corpoTexto}
               onChange={(e) => {
                 if (e.target.value.length <= 1024) {
