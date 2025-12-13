@@ -72,6 +72,16 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     const savedTab = sessionStorage.getItem('prospeccao_active_tab');
     return savedTab || 'eventos';
   });
+  
+  // Atualizar activeTab quando defaultTab mudar (navegação entre sub-módulos)
+  useEffect(() => {
+    if (defaultTab === 'eventos') {
+      setActiveTab('eventos');
+      setShowAdicionarClientes(false);
+    } else if (defaultTab === 'atendimento') {
+      setActiveTab('kanban');
+    }
+  }, [defaultTab]);
   const [showAdicionarClientes, setShowAdicionarClientes] = useState(false);
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [recepcaoInitialData, setRecepcaoInitialData] = useState<any>(null);
