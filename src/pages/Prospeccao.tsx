@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus } from "lucide-react";
+import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft } from "lucide-react";
 import { ProspeccaoGlobalFilter, ProspeccaoGlobalFilters } from "@/components/ProspeccaoGlobalFilter";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
@@ -67,11 +67,12 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   });
   const [activeTab, setActiveTab] = useState(() => {
     // Se defaultTab for passado, usar a aba correspondente
-    if (defaultTab === 'eventos') return 'visao-geral';
+    if (defaultTab === 'eventos') return 'eventos';
     if (defaultTab === 'atendimento') return 'kanban';
     const savedTab = sessionStorage.getItem('prospeccao_active_tab');
-    return savedTab || 'visao-geral';
+    return savedTab || 'eventos';
   });
+  const [showAdicionarClientes, setShowAdicionarClientes] = useState(false);
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [recepcaoInitialData, setRecepcaoInitialData] = useState<any>(null);
   const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
@@ -1001,38 +1002,36 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
 
   return (
     <DashboardLayout title="Prospecção">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full w-full">
-        <TabsList className="inline-flex self-start">
-          {/* Sub-módulo Eventos: Visão Geral, Eventos, Adicionar Clientes */}
-          {defaultTab === 'eventos' && (
-            <>
-              <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
-              <TabsTrigger value="eventos">Eventos</TabsTrigger>
-              <TabsTrigger value="automacao">Adicionar Clientes</TabsTrigger>
-            </>
-          )}
-          {/* Sub-módulo Atendimentos: Kanban, Lista, Recepção, Vendas */}
-          {defaultTab === 'atendimento' && (
-            <>
-              <TabsTrigger value="kanban">Kanban</TabsTrigger>
-              <TabsTrigger value="lista">Lista</TabsTrigger>
-              <TabsTrigger value="recepcao">Recepção</TabsTrigger>
-              <TabsTrigger value="vendas">Vendas</TabsTrigger>
-            </>
-          )}
-          {/* Fallback: mostrar todas as abas se não tiver defaultTab */}
-          {!defaultTab && (
-            <>
-              <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
-              <TabsTrigger value="eventos">Eventos</TabsTrigger>
-              <TabsTrigger value="automacao">Adicionar Clientes</TabsTrigger>
-              <TabsTrigger value="kanban">Kanban</TabsTrigger>
-              <TabsTrigger value="lista">Lista</TabsTrigger>
-              <TabsTrigger value="recepcao">Recepção</TabsTrigger>
-              <TabsTrigger value="vendas">Vendas</TabsTrigger>
-            </>
-          )}
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={(value) => {
+        setActiveTab(value);
+        // Reset showAdicionarClientes quando mudar de aba
+        if (value !== 'eventos') setShowAdicionarClientes(false);
+      }} className="flex flex-col h-full w-full">
+        {/* Sub-módulo Eventos: sem barra de abas */}
+        {defaultTab !== 'eventos' && (
+          <TabsList className="inline-flex self-start">
+            {/* Sub-módulo Atendimentos: Kanban, Lista, Recepção, Vendas */}
+            {defaultTab === 'atendimento' && (
+              <>
+                <TabsTrigger value="kanban">Kanban</TabsTrigger>
+                <TabsTrigger value="lista">Lista</TabsTrigger>
+                <TabsTrigger value="recepcao">Recepção</TabsTrigger>
+                <TabsTrigger value="vendas">Vendas</TabsTrigger>
+              </>
+            )}
+            {/* Fallback: mostrar todas as abas se não tiver defaultTab */}
+            {!defaultTab && (
+              <>
+                <TabsTrigger value="eventos">Eventos</TabsTrigger>
+                <TabsTrigger value="automacao">Adicionar Clientes</TabsTrigger>
+                <TabsTrigger value="kanban">Kanban</TabsTrigger>
+                <TabsTrigger value="lista">Lista</TabsTrigger>
+                <TabsTrigger value="recepcao">Recepção</TabsTrigger>
+                <TabsTrigger value="vendas">Vendas</TabsTrigger>
+              </>
+            )}
+          </TabsList>
+        )}
 
         {/* Filtro Global Unificado */}
         <ProspeccaoGlobalFilter
@@ -1063,197 +1062,211 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         <TabsContent value="eventos" className="flex-1 min-h-0 overflow-hidden w-full">
           <ScrollIndicator className="flex-1 h-full">
             <div className="space-y-3 pb-6">
-              <Card className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-base font-semibold text-foreground">Lista de Eventos</h3>
-                    <span className="text-sm text-muted-foreground">
-                      {filteredProspeccoes.length} {filteredProspeccoes.length === 1 ? 'evento' : 'eventos'}
-                    </span>
-                  </div>
-                  <Button onClick={() => setIsModalOpen(true)} size="sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Nova Prospecção
-                  </Button>
-                </div>
-                
-                {prospeccoes.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Target className="mx-auto h-12 w-12 mb-3 opacity-50" />
-                    <p>Nenhum evento cadastrado</p>
-                    <p className="text-sm">Clique em "Nova Prospecção" para criar um evento</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Título</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Data Início</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Data Fim</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Canal</th>
-                          <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Meta Vendas</th>
-                          <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Premiações</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Status</th>
-                          <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredProspeccoes
-                          .map((prospeccao) => {
-                            const hoje = new Date();
-                            const dataInicio = prospeccao.data_inicio ? new Date(prospeccao.data_inicio) : null;
-                            const dataFim = prospeccao.data_fim ? new Date(prospeccao.data_fim) : null;
-                            
-                            let status = 'Ativo';
-                            let statusColor = 'bg-green-100 text-green-700';
-                            
-                            if (dataFim && hoje > dataFim) {
-                              status = 'Encerrado';
-                              statusColor = 'bg-gray-100 text-gray-700';
-                            } else if (dataInicio && hoje < dataInicio) {
-                              status = 'Agendado';
-                              statusColor = 'bg-blue-100 text-blue-700';
-                            }
-                          
-                          // Calcular meta total de vendas
-                          const metaTotalVendas = (prospeccao.meta_novos || 0) + (prospeccao.meta_seminovos || 0) + (prospeccao.meta_diretas || 0);
-                          
-                          // Calcular total de premiações
-                          const totalPremiacoes = [
-                            prospeccao.premio_equipe_campea,
-                            prospeccao.premio_equipe_2lugar,
-                            prospeccao.premio_equipe_3lugar,
-                            prospeccao.premio_vendedor_ouro,
-                            prospeccao.premio_vendedor_prata,
-                            prospeccao.premio_vendedor_bronze,
-                            prospeccao.premio_prospector_ouro,
-                            prospeccao.premio_prospector_prata,
-                            prospeccao.premio_prospector_bronze,
-                            prospeccao.premio_checkin_ouro,
-                            prospeccao.premio_checkin_prata,
-                            prospeccao.premio_checkin_bronze,
-                            prospeccao.premio_participacao_apoio,
-                            prospeccao.premio_indicacao_venda,
-                          ].reduce((acc, val) => acc + (val || 0), 0);
-                          
-                          return (
-                            <tr key={prospeccao.id} className="border-b hover:bg-muted/50 transition-colors">
-                              <td className="py-3 px-3">
-                                <span className="font-medium text-sm">{prospeccao.titulo}</span>
-                              </td>
-                              <td className="py-3 px-3 text-sm text-muted-foreground">
-                                {prospeccao.data_inicio ? new Date(prospeccao.data_inicio).toLocaleDateString('pt-BR') : '-'}
-                              </td>
-                              <td className="py-3 px-3 text-sm text-muted-foreground">
-                                {prospeccao.data_fim ? new Date(prospeccao.data_fim).toLocaleDateString('pt-BR') : '-'}
-                              </td>
-                              <td className="py-3 px-3">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
-                                  {prospeccao.canal}
-                                </span>
-                              </td>
-                              <td className="py-3 px-3 text-right">
-                                <span className="font-medium text-sm">{metaTotalVendas > 0 ? metaTotalVendas : '-'}</span>
-                              </td>
-                              <td className="py-3 px-3 text-right">
-                                <span className="font-medium text-sm text-amber-600">
-                                  {totalPremiacoes > 0 ? totalPremiacoes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-'}
-                                </span>
-                              </td>
-                              <td className="py-3 px-3">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusColor}`}>
-                                  {status}
-                                </span>
-                              </td>
-                              <td className="py-3 px-3 text-right">
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                      <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
-                                      <Edit className="mr-2 h-4 w-4" />
-                                      Editar
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem 
-                                      onClick={() => setDeleteProspeccaoId(prospeccao.id)}
-                                      className="text-red-600"
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Excluir
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Card>
-            </div>
-          </ScrollIndicator>
-        </TabsContent>
-
-        <TabsContent value="automacao" className="flex-1 min-h-0 overflow-hidden w-full">
-          <ScrollIndicator className="flex-1 h-full">
-            <div className="space-y-3 pb-6">
-              <Card className="p-4">
-                <h3 className="text-base font-semibold text-foreground mb-3">Adicionar Clientes à Prospecção</h3>
-                
-                {/* Contador de Clientes */}
-                {contatos.length > 0 && (
-                  <div className="mb-3 p-2.5 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      <CheckCircle className="text-green-600" size={18} />
-                      <div>
-                        <p className="font-medium text-green-800 text-sm">
-                          {contatos.length} clientes cadastrados no sistema
-                        </p>
-                        <p className="text-xs text-green-600">
-                          Todos os clientes estão disponíveis no Kanban para gestão
-                        </p>
-                      </div>
+              {/* Conteúdo condicional: Lista de Eventos ou Adicionar Clientes */}
+              {!showAdicionarClientes ? (
+                <Card className="p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-base font-semibold text-foreground">Lista de Eventos</h3>
+                      <span className="text-sm text-muted-foreground">
+                        {filteredProspeccoes.length} {filteredProspeccoes.length === 1 ? 'evento' : 'eventos'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button onClick={() => setShowAdicionarClientes(true)} size="sm" variant="outline">
+                        <Users className="w-4 h-4 mr-2" />
+                        Adicionar Clientes
+                      </Button>
+                      <Button onClick={() => setIsModalOpen(true)} size="sm">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Nova Prospecção
+                      </Button>
                     </div>
                   </div>
-                )}
-                
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="font-medium text-sm mb-2">Carga de Clientes</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <BaseExistente 
-                        onClientesSelected={handleClientesSelected}
-                        prospeccoes={prospeccoes}
-                      />
-                      <UploadPlanilha 
-                        onClientesImported={handleClientesImported}
-                        prospeccoes={prospeccoes}
-                      />
+                  
+                  {prospeccoes.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Target className="mx-auto h-12 w-12 mb-3 opacity-50" />
+                      <p>Nenhum evento cadastrado</p>
+                      <p className="text-sm">Clique em "Nova Prospecção" para criar um evento</p>
                     </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Título</th>
+                            <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Data Início</th>
+                            <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Data Fim</th>
+                            <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Canal</th>
+                            <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Meta Vendas</th>
+                            <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Premiações</th>
+                            <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Status</th>
+                            <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredProspeccoes
+                            .map((prospeccao) => {
+                              const hoje = new Date();
+                              const dataInicio = prospeccao.data_inicio ? new Date(prospeccao.data_inicio) : null;
+                              const dataFim = prospeccao.data_fim ? new Date(prospeccao.data_fim) : null;
+                              
+                              let status = 'Ativo';
+                              let statusColor = 'bg-green-100 text-green-700';
+                              
+                              if (dataFim && hoje > dataFim) {
+                                status = 'Encerrado';
+                                statusColor = 'bg-gray-100 text-gray-700';
+                              } else if (dataInicio && hoje < dataInicio) {
+                                status = 'Agendado';
+                                statusColor = 'bg-blue-100 text-blue-700';
+                              }
+                            
+                            // Calcular meta total de vendas
+                            const metaTotalVendas = (prospeccao.meta_novos || 0) + (prospeccao.meta_seminovos || 0) + (prospeccao.meta_diretas || 0);
+                            
+                            // Calcular total de premiações
+                            const totalPremiacoes = [
+                              prospeccao.premio_equipe_campea,
+                              prospeccao.premio_equipe_2lugar,
+                              prospeccao.premio_equipe_3lugar,
+                              prospeccao.premio_vendedor_ouro,
+                              prospeccao.premio_vendedor_prata,
+                              prospeccao.premio_vendedor_bronze,
+                              prospeccao.premio_prospector_ouro,
+                              prospeccao.premio_prospector_prata,
+                              prospeccao.premio_prospector_bronze,
+                              prospeccao.premio_checkin_ouro,
+                              prospeccao.premio_checkin_prata,
+                              prospeccao.premio_checkin_bronze,
+                              prospeccao.premio_participacao_apoio,
+                              prospeccao.premio_indicacao_venda,
+                            ].reduce((acc, val) => acc + (val || 0), 0);
+                            
+                            return (
+                              <tr key={prospeccao.id} className="border-b hover:bg-muted/50 transition-colors">
+                                <td className="py-3 px-3">
+                                  <span className="font-medium text-sm">{prospeccao.titulo}</span>
+                                </td>
+                                <td className="py-3 px-3 text-sm text-muted-foreground">
+                                  {prospeccao.data_inicio ? new Date(prospeccao.data_inicio).toLocaleDateString('pt-BR') : '-'}
+                                </td>
+                                <td className="py-3 px-3 text-sm text-muted-foreground">
+                                  {prospeccao.data_fim ? new Date(prospeccao.data_fim).toLocaleDateString('pt-BR') : '-'}
+                                </td>
+                                <td className="py-3 px-3">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
+                                    {prospeccao.canal}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 text-right">
+                                  <span className="font-medium text-sm">{metaTotalVendas > 0 ? metaTotalVendas : '-'}</span>
+                                </td>
+                                <td className="py-3 px-3 text-right">
+                                  <span className="font-medium text-sm text-amber-600">
+                                    {totalPremiacoes > 0 ? totalPremiacoes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusColor}`}>
+                                    {status}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 text-right">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                        <MoreVertical className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Editar
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        onClick={() => setDeleteProspeccaoId(prospeccao.id)}
+                                        className="text-red-600"
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Excluir
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
+              ) : (
+                /* Conteúdo de Adicionar Clientes */
+                <Card className="p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setShowAdicionarClientes(false)}
+                      className="p-1 h-8 w-8"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <h3 className="text-base font-semibold text-foreground">Adicionar Clientes à Prospecção</h3>
                   </div>
-
-                  <div>
-                    <h4 className="font-medium text-sm mb-2">Configuração de Automação</h4>
-                    <div className="border rounded-lg p-3">
-                      <div className="flex items-center justify-between">
+                  
+                  {/* Contador de Clientes */}
+                  {contatos.length > 0 && (
+                    <div className="mb-3 p-2.5 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle className="text-green-600" size={18} />
                         <div>
-                          <p className="font-medium text-sm">Disparar via Meta Ads</p>
-                          <p className="text-xs text-muted-foreground">
-                            Configurar integração com gerenciador de anúncios
+                          <p className="font-medium text-green-800 text-sm">
+                            {contatos.length} clientes cadastrados no sistema
+                          </p>
+                          <p className="text-xs text-green-600">
+                            Todos os clientes estão disponíveis no Kanban para gestão
                           </p>
                         </div>
-                        <Button size="sm">Configurar</Button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">Carga de Clientes</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <BaseExistente 
+                          onClientesSelected={handleClientesSelected}
+                          prospeccoes={prospeccoes}
+                        />
+                        <UploadPlanilha 
+                          onClientesImported={handleClientesImported}
+                          prospeccoes={prospeccoes}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">Configuração de Automação</h4>
+                      <div className="border rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">Disparar via Meta Ads</p>
+                            <p className="text-xs text-muted-foreground">
+                              Configurar integração com gerenciador de anúncios
+                            </p>
+                          </div>
+                          <Button size="sm">Configurar</Button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
+              )}
             </div>
           </ScrollIndicator>
         </TabsContent>
