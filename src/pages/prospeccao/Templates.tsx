@@ -364,23 +364,23 @@ export default function Templates() {
               {formData.conteudo.length}/1024
             </p>
           </div>
-          <div>
-            <Label>Variáveis do Sistema</Label>
-            <p className="text-sm text-muted-foreground mb-2">
-              Clique para inserir uma variável no texto
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {systemVariables.map((variable) => (
-                <Badge
-                  key={variable.value}
-                  variant="outline"
-                  className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                  onClick={() => insertVariable(variable.value)}
-                >
-                  {variable.label}
-                </Badge>
-              ))}
-            </div>
+          <div className="flex items-center gap-2">
+            <Label className="shrink-0">Inserir variável:</Label>
+            <Select
+              value=""
+              onValueChange={(value) => insertVariable(value)}
+            >
+              <SelectTrigger className="w-48 h-8 bg-white text-sm">
+                <SelectValue placeholder="Selecione..." />
+              </SelectTrigger>
+              <SelectContent>
+                {systemVariables.map((variable) => (
+                  <SelectItem key={variable.value} value={variable.value}>
+                    {variable.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       );
