@@ -6,7 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft } from "lucide-react";
+import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProspeccaoGlobalFilter, ProspeccaoGlobalFilters } from "@/components/ProspeccaoGlobalFilter";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
@@ -74,6 +75,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     const savedTab = sessionStorage.getItem('prospeccao_active_tab');
     return savedTab || 'eventos';
   });
+  const [viewMode, setViewMode] = useState<'kanban' | 'lista'>('kanban');
   
   // Atualizar activeTab quando defaultTab mudar (navegação entre sub-módulos)
   useEffect(() => {
@@ -1023,39 +1025,60 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         // Reset showAdicionarClientes quando mudar de aba
         if (value !== 'eventos') setShowAdicionarClientes(false);
       }} className="flex flex-col h-full w-full">
-        {/* Sub-módulo Eventos: sem barra de abas */}
-        {defaultTab !== 'eventos' && (
+        {/* Sub-módulo Eventos e Atendimentos: sem barra de abas */}
+        {!defaultTab && (
           <TabsList className="inline-flex self-start">
-            {/* Sub-módulo Atendimentos: Kanban, Lista, Recepção, Vendas */}
-            {defaultTab === 'atendimento' && (
-              <>
-                <TabsTrigger value="kanban">Kanban</TabsTrigger>
-                <TabsTrigger value="lista">Lista</TabsTrigger>
-                <TabsTrigger value="recepcao">Recepção</TabsTrigger>
-                <TabsTrigger value="vendas">Vendas</TabsTrigger>
-              </>
-            )}
             {/* Fallback: mostrar todas as abas se não tiver defaultTab */}
-            {!defaultTab && (
-              <>
-                <TabsTrigger value="eventos">Eventos</TabsTrigger>
-                <TabsTrigger value="automacao">Adicionar Clientes</TabsTrigger>
-                <TabsTrigger value="kanban">Kanban</TabsTrigger>
-                <TabsTrigger value="lista">Lista</TabsTrigger>
-                <TabsTrigger value="recepcao">Recepção</TabsTrigger>
-                <TabsTrigger value="vendas">Vendas</TabsTrigger>
-              </>
-            )}
+            <TabsTrigger value="eventos">Eventos</TabsTrigger>
+            <TabsTrigger value="automacao">Adicionar Clientes</TabsTrigger>
+            <TabsTrigger value="kanban">Kanban</TabsTrigger>
+            <TabsTrigger value="lista">Lista</TabsTrigger>
+            <TabsTrigger value="recepcao">Recepção</TabsTrigger>
+            <TabsTrigger value="vendas">Vendas</TabsTrigger>
           </TabsList>
         )}
 
-        {/* Filtro Global Unificado */}
-        <ProspeccaoGlobalFilter
-          prospeccoes={prospeccoes.map(p => ({ id: p.id, titulo: p.titulo }))}
-          responsaveis={profiles.map(p => ({ id: p.id, nome_completo: p.nome_completo, tipo_acesso: p.tipo_acesso }))}
-          filters={globalFilters}
-          onFiltersChange={setGlobalFilters}
-        />
+        {/* Filtro Global Unificado com Toggle para Atendimentos */}
+        <div className="flex items-center justify-between gap-2">
+          <ProspeccaoGlobalFilter
+            prospeccoes={prospeccoes.map(p => ({ id: p.id, titulo: p.titulo }))}
+            responsaveis={profiles.map(p => ({ id: p.id, nome_completo: p.nome_completo, tipo_acesso: p.tipo_acesso }))}
+            filters={globalFilters}
+            onFiltersChange={setGlobalFilters}
+          />
+          
+          {/* Toggle Kanban/Lista para sub-módulo Atendimentos */}
+          {defaultTab === 'atendimento' && (
+            <ToggleGroup 
+              type="single" 
+              value={viewMode} 
+              onValueChange={(value) => {
+                if (value) {
+                  setViewMode(value as 'kanban' | 'lista');
+                  setActiveTab(value);
+                }
+              }}
+              className="bg-muted rounded-lg p-0.5"
+            >
+              <ToggleGroupItem 
+                value="kanban" 
+                aria-label="Visualização Kanban"
+                className="data-[state=on]:bg-background data-[state=on]:shadow-sm px-3 py-1.5 rounded-md"
+              >
+                <LayoutGrid className="h-4 w-4 mr-1.5" />
+                Kanban
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="lista" 
+                aria-label="Visualização Lista"
+                className="data-[state=on]:bg-background data-[state=on]:shadow-sm px-3 py-1.5 rounded-md"
+              >
+                <List className="h-4 w-4 mr-1.5" />
+                Lista
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
+        </div>
 
         <TabsContent value="visao-geral" className="flex-1 min-h-0 overflow-hidden w-full">
           <ScrollIndicator className="flex-1 h-full">
