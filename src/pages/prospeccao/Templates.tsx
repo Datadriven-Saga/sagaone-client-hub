@@ -224,6 +224,34 @@ export default function Templates() {
     }));
   };
 
+  const insertVariableToCorpoTexto = (variable: string) => {
+    setFormData(prev => ({
+      ...prev,
+      cardData: { ...prev.cardData, corpoTexto: prev.cardData.corpoTexto + variable },
+    }));
+  };
+
+  const renderVariableDropdown = (onInsert: (variable: string) => void) => (
+    <div className="flex items-center gap-2">
+      <Label className="shrink-0">Inserir variável:</Label>
+      <Select
+        value=""
+        onValueChange={(value) => onInsert(value)}
+      >
+        <SelectTrigger className="w-48 h-8 bg-white text-sm">
+          <SelectValue placeholder="Selecione..." />
+        </SelectTrigger>
+        <SelectContent>
+          {systemVariables.map((variable) => (
+            <SelectItem key={variable.value} value={variable.value}>
+              {variable.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   const renderStepIndicator = () => (
     <div className="flex items-center justify-center gap-2 mb-6">
       {[1, 2, 3].map((step) => (
@@ -528,9 +556,12 @@ export default function Templates() {
               className="min-h-[80px] bg-white"
               maxLength={1024}
             />
-            <p className="text-xs text-muted-foreground mt-1 text-right">
-              {formData.cardData.corpoTexto.length}/1024
-            </p>
+            <div className="flex items-center justify-between mt-1">
+              {renderVariableDropdown(insertVariableToCorpoTexto)}
+              <p className="text-xs text-muted-foreground">
+                {formData.cardData.corpoTexto.length}/1024
+              </p>
+            </div>
           </div>
 
           {/* Rodapé */}
@@ -667,9 +698,12 @@ export default function Templates() {
               className="min-h-[120px] bg-white"
               maxLength={1024}
             />
-            <p className="text-xs text-muted-foreground mt-1 text-right">
-              {formData.cardData.corpoTexto.length}/1024
-            </p>
+            <div className="flex items-center justify-between mt-1">
+              {renderVariableDropdown(insertVariableToCorpoTexto)}
+              <p className="text-xs text-muted-foreground">
+                {formData.cardData.corpoTexto.length}/1024
+              </p>
+            </div>
           </div>
 
           {/* Botões */}
@@ -807,9 +841,12 @@ export default function Templates() {
               className="min-h-[120px] bg-white"
               maxLength={1024}
             />
-            <p className="text-xs text-muted-foreground mt-1 text-right">
-              {formData.cardData.corpoTexto.length}/1024
-            </p>
+            <div className="flex items-center justify-between mt-1">
+              {renderVariableDropdown(insertVariableToCorpoTexto)}
+              <p className="text-xs text-muted-foreground">
+                {formData.cardData.corpoTexto.length}/1024
+              </p>
+            </div>
           </div>
         </div>
       );
@@ -897,9 +934,12 @@ export default function Templates() {
               className="min-h-[120px] bg-white"
               maxLength={1024}
             />
-            <p className="text-xs text-muted-foreground mt-1 text-right">
-              {formData.cardData.corpoTexto.length}/1024
-            </p>
+            <div className="flex items-center justify-between mt-1">
+              {renderVariableDropdown(insertVariableToCorpoTexto)}
+              <p className="text-xs text-muted-foreground">
+                {formData.cardData.corpoTexto.length}/1024
+              </p>
+            </div>
           </div>
         </div>
       );
