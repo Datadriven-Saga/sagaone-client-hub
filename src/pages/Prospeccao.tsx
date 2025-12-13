@@ -41,7 +41,7 @@ interface ClienteData {
 }
 
 interface ProspeccaoProps {
-  defaultTab?: 'eventos' | 'atendimento';
+  defaultTab?: 'eventos' | 'atendimento' | 'recepcao' | 'vendas';
 }
 
 const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
@@ -69,6 +69,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     // Se defaultTab for passado, usar a aba correspondente
     if (defaultTab === 'eventos') return 'eventos';
     if (defaultTab === 'atendimento') return 'kanban';
+    if (defaultTab === 'recepcao') return 'recepcao';
+    if (defaultTab === 'vendas') return 'vendas';
     const savedTab = sessionStorage.getItem('prospeccao_active_tab');
     return savedTab || 'eventos';
   });
@@ -80,6 +82,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       setShowAdicionarClientes(false);
     } else if (defaultTab === 'atendimento') {
       setActiveTab('kanban');
+    } else if (defaultTab === 'recepcao') {
+      setActiveTab('recepcao');
+    } else if (defaultTab === 'vendas') {
+      setActiveTab('vendas');
     }
   }, [defaultTab]);
   const [showAdicionarClientes, setShowAdicionarClientes] = useState(false);
