@@ -13,7 +13,9 @@ import {
   Calendar,
   Headphones,
   BarChart3,
-  MessageSquareText
+  MessageSquareText,
+  UserCheck,
+  ShoppingCart
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -37,6 +39,8 @@ const topMenuItems = [
 const prospeccaoSubItems = [
   { title: "Eventos", url: "/prospeccao/eventos", icon: Calendar },
   { title: "Atendimentos", url: "/prospeccao/atendimento", icon: Headphones },
+  { title: "Recepção", url: "/prospeccao/recepcao", icon: UserCheck },
+  { title: "Vendas", url: "/prospeccao/vendas", icon: ShoppingCart },
   { title: "Templates", url: "/prospeccao/templates", icon: MessageSquareText },
   { title: "Performance", url: "/prospeccao/performance", icon: BarChart3 },
 ];

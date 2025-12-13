@@ -56,6 +56,8 @@ const AppContent = () => {
           <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
           <Route path="/prospeccao/eventos" element={<ProtectedRoute><Prospeccao defaultTab="eventos" /></ProtectedRoute>} />
           <Route path="/prospeccao/atendimento" element={<ProtectedRoute><Prospeccao defaultTab="atendimento" /></ProtectedRoute>} />
+          <Route path="/prospeccao/recepcao" element={<ProtectedRoute><Prospeccao defaultTab="recepcao" /></ProtectedRoute>} />
+          <Route path="/prospeccao/vendas" element={<ProtectedRoute><Prospeccao defaultTab="vendas" /></ProtectedRoute>} />
           <Route path="/prospeccao/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
           <Route path="/prospeccao/performance" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
           <Route path="/resultados" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
