@@ -124,6 +124,7 @@ export default function Templates() {
   const { activeCompany } = useCompany();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const initialCardData: CardData = {
     imagemCampanha: null,
     imagemPreviewUrl: "",
@@ -144,6 +145,34 @@ export default function Templates() {
     variaveis: [],
     cardData: initialCardData,
   });
+
+  const getStatusBadgeClasses = (status: string) => {
+    switch (status) {
+      case "aprovado":
+        return "bg-green-100 text-green-700 border-green-200";
+      case "rejeitado":
+        return "bg-red-100 text-red-700 border-red-200";
+      case "pausado":
+        return "bg-gray-100 text-gray-700 border-gray-200";
+      case "pendente":
+      default:
+        return "bg-yellow-100 text-yellow-700 border-yellow-200";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "aprovado":
+        return "Aprovado";
+      case "rejeitado":
+        return "Rejeitado";
+      case "pausado":
+        return "Pausado";
+      case "pendente":
+      default:
+        return "Pendente";
+    }
+  };
 
   // Fetch departamentos
   const { data: departamentos = [] } = useQuery({
@@ -179,6 +208,7 @@ export default function Templates() {
   });
 
   const handleOpenModal = () => {
+    setEditingTemplateId(null);
     setFormData({
       nome: "",
       categoria: "",
@@ -192,9 +222,42 @@ export default function Templates() {
     setIsModalOpen(true);
   };
 
+  const handleEditTemplate = (template: any) => {
+    setEditingTemplateId(template.id);
+    
+    // Parse card_data from database
+    const cardData = template.card_data || {};
+    
+    setFormData({
+      nome: template.nome,
+      categoria: template.categoria as TemplateCategory,
+      departamento_id: template.departamento_id || "",
+      formato: template.formato as TemplateFormat,
+      conteudo: template.formato === "texto" ? template.conteudo : "",
+      variaveis: [],
+      cardData: {
+        imagemCampanha: null,
+        imagemPreviewUrl: cardData.imagemUrl || "",
+        videoCampanha: null,
+        videoPreviewUrl: cardData.videoUrl || "",
+        textoCabecalho: cardData.textoCabecalho || "",
+        corpoTexto: template.formato !== "texto" ? template.conteudo : "",
+        rodape: cardData.rodape || "",
+        botoes: (cardData.botoes || []).map((b: any) => ({
+          id: b.id || crypto.randomUUID(),
+          nome: b.nome || "",
+          buttonId: b.buttonId || "",
+        })),
+      },
+    });
+    setCurrentStep(1);
+    setIsModalOpen(true);
+  };
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setCurrentStep(1);
+    setEditingTemplateId(null);
   };
 
   const handleNext = () => {
@@ -305,21 +368,35 @@ export default function Templates() {
           break;
       }
 
-      const { error } = await supabase
-        .from("whatsapp_templates")
-        .insert([{
-          empresa_id: activeCompany.id,
-          departamento_id: formData.departamento_id || null,
-          nome: formData.nome,
-          categoria: formData.categoria,
-          formato: formData.formato,
-          conteudo: conteudo,
-          card_data: cardData,
-        }]);
+      const templateData = {
+        empresa_id: activeCompany.id,
+        departamento_id: formData.departamento_id || null,
+        nome: formData.nome,
+        categoria: formData.categoria,
+        formato: formData.formato,
+        conteudo: conteudo,
+        card_data: cardData,
+      };
+
+      let error;
+      if (editingTemplateId) {
+        // Update existing template
+        const result = await supabase
+          .from("whatsapp_templates")
+          .update(templateData)
+          .eq("id", editingTemplateId);
+        error = result.error;
+      } else {
+        // Insert new template
+        const result = await supabase
+          .from("whatsapp_templates")
+          .insert([templateData]);
+        error = result.error;
+      }
 
       if (error) throw error;
 
-      toast.success("Template criado com sucesso!");
+      toast.success(editingTemplateId ? "Template atualizado com sucesso!" : "Template criado com sucesso!");
       refetchTemplates();
       handleCloseModal();
     } catch (error: any) {
@@ -1120,12 +1197,19 @@ export default function Templates() {
                       <TableCell>{template.formato}</TableCell>
                       <TableCell>{template.departamentos?.nome || "-"}</TableCell>
                       <TableCell>
-                        <Badge variant={template.status === "aprovado" ? "default" : "secondary"}>
-                          {template.status}
+                        <Badge className={getStatusBadgeClasses(template.status)}>
+                          {getStatusLabel(template.status)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">Editar</Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleEditTemplate(template)}
+                        >
+                          <Edit2 className="h-4 w-4 mr-1" />
+                          Editar
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1140,7 +1224,7 @@ export default function Templates() {
         <DialogContent className="sm:max-w-[600px] h-[600px] flex flex-col overflow-hidden pb-3">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center justify-between">
-              <span>Novo Template</span>
+              <span>{editingTemplateId ? "Editar Template" : "Novo Template"}</span>
               <Button variant="ghost" size="icon" onClick={handleCloseModal}>
                 <X className="h-4 w-4" />
               </Button>
