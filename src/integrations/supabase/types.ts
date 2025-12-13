@@ -2282,6 +2282,66 @@ export type Database = {
           },
         ]
       }
+      whatsapp_templates: {
+        Row: {
+          ativo: boolean
+          card_data: Json | null
+          categoria: string
+          conteudo: string | null
+          created_at: string
+          departamento_id: string | null
+          empresa_id: string
+          formato: string
+          id: string
+          nome: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          card_data?: Json | null
+          categoria: string
+          conteudo?: string | null
+          created_at?: string
+          departamento_id?: string | null
+          empresa_id: string
+          formato: string
+          id?: string
+          nome: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          card_data?: Json | null
+          categoria?: string
+          conteudo?: string | null
+          created_at?: string
+          departamento_id?: string | null
+          empresa_id?: string
+          formato?: string
+          id?: string
+          nome?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_templates_departamento_id_fkey"
+            columns: ["departamento_id"]
+            isOneToOne: false
+            referencedRelation: "departamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_templates_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_vinculados: {
         Row: {
           created_at: string
