@@ -108,12 +108,6 @@ const formatOptions = [
     description: "Envie um card com um título, texto, imagem e botões de resposta.",
     icon: CreditCard 
   },
-  { 
-    value: "lista" as TemplateFormat, 
-    label: "Lista", 
-    description: "Card composta de uma imagem e um título de assunto.",
-    icon: List 
-  },
 ];
 
 const systemVariables = [
