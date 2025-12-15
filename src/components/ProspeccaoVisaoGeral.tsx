@@ -154,7 +154,7 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
           {/* Novos */}
           <div 
             className="rounded-lg py-2 px-6 text-center text-white"
-            style={{ width: '100%', backgroundColor: '#EF4444' }}
+            style={{ width: '100%', backgroundColor: '#FF8F6B' }}
           >
             <div className="text-lg font-bold">{funnelData.novos.toLocaleString('pt-BR')}</div>
             <div className="text-xs opacity-90">Novos</div>
@@ -163,7 +163,7 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
           {/* Distribuídos sem ação */}
           <div 
             className="rounded-lg py-2 px-6 text-center text-white mx-auto"
-            style={{ width: '92%', backgroundColor: '#F97316' }}
+            style={{ width: '92%', backgroundColor: '#FFC327' }}
           >
             <div className="text-lg font-bold">{funnelData.distribuidosSemAcao.toLocaleString('pt-BR')}</div>
             <div className="text-xs opacity-90">Distribuídos sem ação</div>
@@ -173,14 +173,14 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
           <div className="flex gap-3 mx-auto" style={{ width: '84%' }}>
             <div 
               className="flex-1 rounded-lg py-2 px-4 text-center text-white"
-              style={{ backgroundColor: '#F97316' }}
+              style={{ backgroundColor: '#FFC327' }}
             >
               <div className="text-base font-bold">{funnelData.contatados.toLocaleString('pt-BR')}</div>
               <div className="text-xs opacity-90">Contatados</div>
             </div>
             <div 
               className="flex-1 rounded-lg py-2 px-4 text-center text-white"
-              style={{ backgroundColor: '#F97316' }}
+              style={{ backgroundColor: '#FFC327' }}
             >
               <div className="text-base font-bold">{funnelData.semContato.toLocaleString('pt-BR')}</div>
               <div className="text-xs opacity-90">Sem contato</div>
@@ -190,7 +190,7 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
           {/* Convidados */}
           <div 
             className="rounded-lg py-2 px-4 text-center text-white mx-auto"
-            style={{ width: '70%', backgroundColor: '#84CC16' }}
+            style={{ width: '70%', backgroundColor: '#2EC65C' }}
           >
             <div className="text-base font-bold">{funnelData.convidados.toLocaleString('pt-BR')}</div>
             <div className="text-xs opacity-90">Convidados</div>
@@ -199,7 +199,7 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
           {/* Confirmados */}
           <div 
             className="rounded-lg py-2 px-4 text-center text-white mx-auto"
-            style={{ width: '55%', backgroundColor: '#22C55E' }}
+            style={{ width: '55%', backgroundColor: '#5B93FF' }}
           >
             <div className="text-base font-bold">{funnelData.confirmados.toLocaleString('pt-BR')}</div>
             <div className="text-xs opacity-90">Confirmados</div>
@@ -208,7 +208,7 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
           {/* Check-Ins */}
           <div 
             className="rounded-lg py-2 px-4 text-center text-white mx-auto"
-            style={{ width: '40%', backgroundColor: '#16A34A' }}
+            style={{ width: '40%', backgroundColor: '#605BFF' }}
           >
             <div className="text-base font-bold">{funnelData.checkIns.toLocaleString('pt-BR')}</div>
             <div className="text-xs opacity-90">Check-Ins</div>
@@ -217,7 +217,7 @@ export const ProspeccaoVisaoGeral: React.FC<ProspeccaoVisaoGeralProps> = ({
           {/* Vendas */}
           <div 
             className="rounded-lg py-2 px-4 text-center text-white mx-auto"
-            style={{ width: '28%', backgroundColor: '#3B82F6' }}
+            style={{ width: '28%', backgroundColor: '#4830E4' }}
           >
             <div className="text-base font-bold">{funnelData.vendas.toLocaleString('pt-BR')}</div>
             <div className="text-xs opacity-90">Vendas</div>

@@ -1378,13 +1378,13 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                           
                           // Mapear status para label e cor do funil de vendas
                           const statusConfig: Record<string, { label: string; bgColor: string; textColor: string }> = {
-                            'Novo': { label: 'Novos', bgColor: '#EF4444', textColor: '#FFFFFF' },
-                            'Atribuído': { label: 'Atribuídos', bgColor: '#F97316', textColor: '#FFFFFF' },
-                            'Em Espera': { label: 'Em Espera', bgColor: '#F97316', textColor: '#FFFFFF' },
-                            'Convidado': { label: 'Convidados', bgColor: '#84CC16', textColor: '#FFFFFF' },
-                            'Confirmado': { label: 'Confirmados', bgColor: '#22C55E', textColor: '#FFFFFF' },
-                            'Check-in': { label: 'Check-ins', bgColor: '#16A34A', textColor: '#FFFFFF' },
-                            'Venda': { label: 'Vendas', bgColor: '#3B82F6', textColor: '#FFFFFF' },
+                            'Novo': { label: 'Novos', bgColor: '#FF8F6B', textColor: '#FFFFFF' },
+                            'Atribuído': { label: 'Atribuídos', bgColor: '#FFC327', textColor: '#FFFFFF' },
+                            'Em Espera': { label: 'Em Espera', bgColor: '#FFC327', textColor: '#FFFFFF' },
+                            'Convidado': { label: 'Convidados', bgColor: '#2EC65C', textColor: '#FFFFFF' },
+                            'Confirmado': { label: 'Confirmados', bgColor: '#5B93FF', textColor: '#FFFFFF' },
+                            'Check-in': { label: 'Check-ins', bgColor: '#605BFF', textColor: '#FFFFFF' },
+                            'Venda': { label: 'Vendas', bgColor: '#4830E4', textColor: '#FFFFFF' },
                             'Descartado': { label: 'Descartados', bgColor: '#A3A3A3', textColor: '#FFFFFF' },
                             'Opt Out': { label: 'Opt Out', bgColor: '#4B5563', textColor: '#FFFFFF' }
                           };
