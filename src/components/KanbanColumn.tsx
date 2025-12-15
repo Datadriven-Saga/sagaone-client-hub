@@ -12,16 +12,16 @@ interface KanbanColumnProps {
 }
 
 const COLUMN_COLORS: Record<string, string> = {
-  'novos': 'bg-red-500',         // #EF4444 - Total da Base
-  'atribuidos': 'bg-orange-500', // #F97316 - Distribuídos
-  'emespera': 'bg-orange-500',   // #F97316 - Distribuídos
-  'convidados': 'bg-lime-500',   // #84CC16 - Convidados
-  'confirmados': 'bg-green-500', // #22C55E - Confirmados
-  'checkin': 'bg-green-600',     // #16A34A - Check-ins
-  'venda': 'bg-blue-500',        // #3B82F6 - Vendas
-  'descartados': 'bg-gray-400',  // Cinza
-  'optout': 'bg-gray-600',       // Cinza escuro
-  'desperdicio': 'bg-rose-500',
+  'novos': '#FF8F6B',         // Total da Base
+  'atribuidos': '#FFC327',    // Distribuídos
+  'emespera': '#FFC327',      // Distribuídos
+  'convidados': '#2EC65C',    // Convidados
+  'confirmados': '#5B93FF',   // Confirmados
+  'checkin': '#605BFF',       // Check-ins
+  'venda': '#4830E4',         // Vendas
+  'descartados': '#A3A3A3',   // Cinza
+  'optout': '#4B5563',        // Cinza escuro
+  'desperdicio': '#F43F5E',
 };
 
 export function KanbanColumn({ column, onCardClick, onSolicitarClientes }: KanbanColumnProps) {
@@ -29,7 +29,7 @@ export function KanbanColumn({ column, onCardClick, onSolicitarClientes }: Kanba
     id: column.id,
   });
 
-  const badgeColor = COLUMN_COLORS[column.id] || 'bg-primary';
+  const badgeColor = COLUMN_COLORS[column.id] || '#04bbda';
 
   return (
     <div 
@@ -45,10 +45,8 @@ export function KanbanColumn({ column, onCardClick, onSolicitarClientes }: Kanba
             {column.title}
           </h3>
           <span 
-            className={cn(
-              "text-xs font-medium text-white px-2 py-0.5 rounded-full min-w-[24px] text-center",
-              badgeColor
-            )}
+            className="text-xs font-medium text-white px-2 py-0.5 rounded-full min-w-[24px] text-center"
+            style={{ backgroundColor: badgeColor }}
           >
             {column.items.length}
           </span>
