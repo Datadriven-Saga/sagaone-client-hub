@@ -1063,7 +1063,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
               <ToggleGroupItem 
                 value="kanban" 
                 aria-label="Visualização Kanban"
-                className="data-[state=on]:bg-background data-[state=on]:shadow-sm px-3 py-1.5 rounded-md"
+                className="px-3 py-1.5 rounded-md data-[state=on]:font-bold data-[state=on]:border-b-2 data-[state=on]:border-primary"
               >
                 <LayoutGrid className="h-4 w-4 mr-1.5" />
                 Kanban
@@ -1071,7 +1071,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
               <ToggleGroupItem 
                 value="lista" 
                 aria-label="Visualização Lista"
-                className="data-[state=on]:bg-background data-[state=on]:shadow-sm px-3 py-1.5 rounded-md"
+                className="px-3 py-1.5 rounded-md data-[state=on]:font-bold data-[state=on]:border-b-2 data-[state=on]:border-primary"
               >
                 <List className="h-4 w-4 mr-1.5" />
                 Lista
