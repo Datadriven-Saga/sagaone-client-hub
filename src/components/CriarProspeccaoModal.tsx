@@ -1437,8 +1437,8 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
             </Card>
 
             <div className="grid grid-cols-3 gap-3">
-              <Card className="p-3">
-                <div className="flex items-center gap-1.5 mb-2">
+              <Card className="p-2">
+                <div className="flex items-center gap-1.5 mb-1">
                   <div className="w-2 h-2 rounded-full bg-green-500" />
                   <span className="text-xs font-medium text-muted-foreground">Novos</span>
                   <MetaTooltip config={tooltipConfigs.novos} />
@@ -1449,12 +1449,12 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   placeholder="0"
                   value={metaNovos}
                   onChange={(e) => handleMetaVendaChange(setMetaNovos, e.target.value, { novos: e.target.value === "" ? 0 : Number(e.target.value) })}
-                  className="text-center font-semibold"
+                  className="text-center font-semibold h-8"
                 />
               </Card>
 
-              <Card className="p-3">
-                <div className="flex items-center gap-1.5 mb-2">
+              <Card className="p-2">
+                <div className="flex items-center gap-1.5 mb-1">
                   <div className="w-2 h-2 rounded-full bg-blue-500" />
                   <span className="text-xs font-medium text-muted-foreground">Seminovos</span>
                   <MetaTooltip config={tooltipConfigs.seminovos} />
@@ -1465,12 +1465,12 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   placeholder="0"
                   value={metaSeminovos}
                   onChange={(e) => handleMetaVendaChange(setMetaSeminovos, e.target.value, { seminovos: e.target.value === "" ? 0 : Number(e.target.value) })}
-                  className="text-center font-semibold"
+                  className="text-center font-semibold h-8"
                 />
               </Card>
 
-              <Card className="p-3">
-                <div className="flex items-center gap-1.5 mb-2">
+              <Card className="p-2">
+                <div className="flex items-center gap-1.5 mb-1">
                   <div className="w-2 h-2 rounded-full bg-purple-500" />
                   <span className="text-xs font-medium text-muted-foreground">Diretas</span>
                   <MetaTooltip config={tooltipConfigs.diretas} />
@@ -1481,14 +1481,14 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   placeholder="0"
                   value={metaDiretas}
                   onChange={(e) => handleMetaVendaChange(setMetaDiretas, e.target.value, { diretas: e.target.value === "" ? 0 : Number(e.target.value) })}
-                  className="text-center font-semibold"
+                  className="text-center font-semibold h-8"
                 />
               </Card>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <Card className="p-3">
-                <div className="flex items-center gap-1.5 mb-2">
+              <Card className="p-2">
+                <div className="flex items-center gap-1.5 mb-1">
                   <MapPin className="h-3 w-3 text-orange-500" />
                   <span className="text-xs font-medium text-muted-foreground">Check-ins</span>
                   <MetaTooltip config={tooltipConfigs.checkins} />
@@ -1499,12 +1499,12 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   placeholder="0"
                   value={metaCheckins}
                   onChange={(e) => setMetaCheckins(e.target.value === "" ? "" : Number(e.target.value))}
-                  className="text-center font-semibold"
+                  className="text-center font-semibold h-8"
                 />
               </Card>
 
-              <Card className="p-3">
-                <div className="flex items-center gap-1.5 mb-2">
+              <Card className="p-2">
+                <div className="flex items-center gap-1.5 mb-1">
                   <ThumbsUp className="h-3 w-3 text-blue-500" />
                   <span className="text-xs font-medium text-muted-foreground">Confirmações</span>
                   <MetaTooltip config={tooltipConfigs.confirmacoes} />
@@ -1515,12 +1515,12 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   placeholder="0"
                   value={metaConfirmacoes}
                   onChange={(e) => setMetaConfirmacoes(e.target.value === "" ? "" : Number(e.target.value))}
-                  className="text-center font-semibold"
+                  className="text-center font-semibold h-8"
                 />
               </Card>
 
-              <Card className="p-3">
-                <div className="flex items-center gap-1.5 mb-2">
+              <Card className="p-2">
+                <div className="flex items-center gap-1.5 mb-1">
                   <Phone className="h-3 w-3 text-green-500" />
                   <span className="text-xs font-medium text-muted-foreground">Convites</span>
                   <MetaTooltip config={tooltipConfigs.convites} />
@@ -1531,7 +1531,7 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   placeholder="0"
                   value={metaConvites}
                   onChange={(e) => setMetaConvites(e.target.value === "" ? "" : Number(e.target.value))}
-                  className="text-center font-semibold"
+                  className="text-center font-semibold h-8"
                 />
               </Card>
             </div>
@@ -1569,66 +1569,66 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                 <p>Nenhum usuário encontrado</p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
                 {filteredUsers.map((userItem) => {
                   const userMetas = metasIndividuais[userItem.id] || { meta_vendas: 0, meta_checkins: 0, meta_confirmacoes: 0, meta_convites: 0 };
                   
                   return (
-                    <Card key={userItem.id} className="p-3">
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
+                    <Card key={userItem.id} className="p-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary shrink-0">
                             {userItem.nome_completo.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{userItem.nome_completo}</p>
-                            <p className="text-xs text-muted-foreground">{userItem.tipo_acesso || 'Sem perfil'}</p>
+                          <div className="min-w-0">
+                            <p className="font-medium text-xs truncate">{userItem.nome_completo}</p>
+                            <p className="text-[10px] text-muted-foreground">{userItem.tipo_acesso || 'Sem perfil'}</p>
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-4 gap-2">
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Vendas</Label>
+                        <div className="flex items-center gap-1">
+                          <div className="w-16">
+                            <Label className="text-[10px] text-muted-foreground block text-center">Vendas</Label>
                             <Input
                               type="number"
                               min="0"
                               placeholder="0"
                               value={userMetas.meta_vendas || ""}
                               onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_vendas', e.target.value)}
-                              className="h-8 text-center text-sm"
+                              className="h-7 text-center text-xs"
                             />
                           </div>
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Check-ins</Label>
+                          <div className="w-16">
+                            <Label className="text-[10px] text-muted-foreground block text-center">Check-ins</Label>
                             <Input
                               type="number"
                               min="0"
                               placeholder="0"
                               value={userMetas.meta_checkins || ""}
                               onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_checkins', e.target.value)}
-                              className="h-8 text-center text-sm"
+                              className="h-7 text-center text-xs"
                             />
                           </div>
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Confirmações</Label>
+                          <div className="w-16">
+                            <Label className="text-[10px] text-muted-foreground block text-center">Confirm.</Label>
                             <Input
                               type="number"
                               min="0"
                               placeholder="0"
                               value={userMetas.meta_confirmacoes || ""}
                               onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_confirmacoes', e.target.value)}
-                              className="h-8 text-center text-sm"
+                              className="h-7 text-center text-xs"
                             />
                           </div>
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Convites</Label>
+                          <div className="w-16">
+                            <Label className="text-[10px] text-muted-foreground block text-center">Convites</Label>
                             <Input
                               type="number"
                               min="0"
                               placeholder="0"
                               value={userMetas.meta_convites || ""}
                               onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_convites', e.target.value)}
-                              className="h-8 text-center text-sm"
+                              className="h-7 text-center text-xs"
                             />
                           </div>
                         </div>
