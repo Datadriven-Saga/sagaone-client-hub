@@ -1486,10 +1486,6 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
               </Card>
             </div>
 
-            <p className="text-xs text-muted-foreground text-center">
-              Metas de funil calculadas automaticamente. Você pode editar manualmente.
-            </p>
-
             <div className="grid grid-cols-3 gap-3">
               <Card className="p-3">
                 <div className="flex items-center gap-1.5 mb-2">
