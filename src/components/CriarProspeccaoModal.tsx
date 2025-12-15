@@ -1670,9 +1670,30 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">Nova Equipe</span>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setCriarNovaEquipe(false)}>
-                      <X className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        type="button"
+                        size="sm"
+                        disabled={!novaEquipeNome.trim()}
+                        onClick={() => {
+                          setEquipes([...equipes, {
+                            nome: novaEquipeNome.trim(),
+                            cor: novaEquipeCor,
+                            ativo: true,
+                            membros: novaEquipeMembros
+                          }]);
+                          setCriarNovaEquipe(false);
+                          setNovaEquipeNome("");
+                          setNovaEquipeMembros([]);
+                        }}
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Criar Equipe
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setCriarNovaEquipe(false)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3">
@@ -1727,28 +1748,6 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                         );
                       })}
                     </div>
-                  </div>
-                  
-                  <div className="flex justify-end">
-                    <Button 
-                      type="button"
-                      size="sm"
-                      disabled={!novaEquipeNome.trim()}
-                      onClick={() => {
-                        setEquipes([...equipes, {
-                          nome: novaEquipeNome.trim(),
-                          cor: novaEquipeCor,
-                          ativo: true,
-                          membros: novaEquipeMembros
-                        }]);
-                        setCriarNovaEquipe(false);
-                        setNovaEquipeNome("");
-                        setNovaEquipeMembros([]);
-                      }}
-                    >
-                      <Check className="h-4 w-4 mr-1" />
-                      Criar Equipe
-                    </Button>
                   </div>
                 </div>
               </Card>
