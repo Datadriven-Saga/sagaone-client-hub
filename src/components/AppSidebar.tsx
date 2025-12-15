@@ -142,10 +142,10 @@ export function AppSidebar() {
                         <SidebarMenuButton key={subItem.title} asChild>
                           <NavLink 
                             to={subItem.url}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
                               currentPath.startsWith(subItem.url)
-                                ? "bg-[#04bbda] text-white font-medium"
-                                : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
+                                ? "font-bold border-b-2 border-primary"
+                                : "hover:scale-105 hover:opacity-80"
                             }`}
                           >
                             <subItem.icon className="h-4 w-4 flex-shrink-0" />
