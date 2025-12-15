@@ -2410,6 +2410,16 @@ export type Database = {
         }
         Returns: string
       }
+      get_company_users_for_selection: {
+        Args: { company_id?: string }
+        Returns: {
+          departamento: string
+          id: string
+          nome_completo: string
+          status: Database["public"]["Enums"]["status_usuario"]
+          tipo_acesso: Database["public"]["Enums"]["tipo_acesso"]
+        }[]
+      }
       get_current_user_access_type: {
         Args: never
         Returns: Database["public"]["Enums"]["tipo_acesso"]
