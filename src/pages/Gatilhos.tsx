@@ -1,4 +1,5 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { Plus, Edit, Trash2, Zap, Play } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
 import { useToast } from "@/hooks/use-toast";
 
 interface Gatilho {
@@ -23,6 +25,7 @@ interface Gatilho {
 
 const Gatilhos = () => {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
   const { toast } = useToast();
   
   const tiposGatilho = [
@@ -62,24 +65,15 @@ const Gatilhos = () => {
 
   // Carregar gatilhos do banco
   const carregarGatilhos = async () => {
-    if (!user) return;
+    if (!user || !activeCompany) return;
     
     try {
       setLoading(true);
       
-      // Buscar empresa_id do usuário
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('empresa_id')
-        .eq('id', user.id)
-        .single();
-      
-      if (profileError) throw profileError;
-      
       const { data, error } = await supabase
         .from('gatilhos')
         .select('*')
-        .eq('empresa_id', profile.empresa_id)
+        .eq('empresa_id', activeCompany.id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -133,19 +127,10 @@ const Gatilhos = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nome || !formData.tipo || !formData.webhook_url) return;
-    if (!user) return;
+    if (!user || !activeCompany) return;
     
     try {
       setLoading(true);
-      
-      // Buscar empresa_id do usuário
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('empresa_id')
-        .eq('id', user.id)
-        .single();
-      
-      if (profileError) throw profileError;
 
       const gatilhoData = {
         nome: formData.nome,
@@ -156,7 +141,7 @@ const Gatilhos = () => {
           webhook_url: formData.webhook_url,
           tipo_evento: formData.tipo
         } as any,
-        empresa_id: profile.empresa_id,
+        empresa_id: activeCompany.id,
         criado_por: user.id
       };
 
@@ -334,14 +319,15 @@ const Gatilhos = () => {
 
   // Carregar gatilhos ao montar o componente
   useEffect(() => {
-    if (user) {
+    if (user && activeCompany) {
       carregarGatilhos();
     }
-  }, [user]);
+  }, [user, activeCompany]);
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <ScrollIndicator className="h-full">
+        <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Gatilhos</h1>
@@ -502,7 +488,8 @@ const Gatilhos = () => {
             </CardContent>
           </Card>
         )}
-      </div>
+        </div>
+      </ScrollIndicator>
     </DashboardLayout>
   );
 };
