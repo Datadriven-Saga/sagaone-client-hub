@@ -9,12 +9,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound, Image, FileImage, Megaphone, Upload, QrCode, User, Building, CalendarDays, Clock, Link, Palette } from "lucide-react";
+import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound, Image, FileImage, Megaphone, Upload, QrCode, User, Building, CalendarDays, Clock, Link, Palette, ChevronLeft, ChevronRight } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface CriarProspeccaoModalProps {
   isOpen: boolean;
@@ -23,9 +23,31 @@ interface CriarProspeccaoModalProps {
   editingProspeccao?: any;
 }
 
+// Tipos de evento disponíveis
+type TipoEvento = 'Grande Evento' | 'Prospecção Mensal' | 'IA Whatsapp' | 'IA Ligação';
+
+// Definir as etapas por tipo de evento
+const getStepsByType = (tipo: TipoEvento): string[] => {
+  switch (tipo) {
+    case 'Grande Evento':
+      return ['Dados Gerais', 'Metas', 'Metas Individuais', 'Equipes', 'Premiações', 'Convite', 'Páginas', 'Marketing'];
+    case 'Prospecção Mensal':
+      return ['Dados Gerais', 'Equipes'];
+    case 'IA Whatsapp':
+      return ['Dados Gerais', 'Configuração IA'];
+    case 'IA Ligação':
+      return ['Dados Gerais', 'Configuração IA'];
+    default:
+      return ['Dados Gerais'];
+  }
+};
+
 export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, editingProspeccao }: CriarProspeccaoModalProps) => {
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("dados-gerais");
+  const [currentStep, setCurrentStep] = useState(0);
+  
+  // Tipo de Evento
+  const [tipoEvento, setTipoEvento] = useState<TipoEvento>('Grande Evento');
   
   // Dados Gerais
   const [titulo, setTitulo] = useState("");
@@ -138,6 +160,28 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const { user } = useAuth();
   const { activeCompany } = useCompany();
 
+  // Get current steps based on tipo
+  const steps = getStepsByType(tipoEvento);
+  const currentStepName = steps[currentStep];
+  const isLastStep = currentStep === steps.length - 1;
+  const isFirstStep = currentStep === 0;
+
+  // Definir datas padrão (primeiro e último dia do mês atual)
+  const getDefaultDates = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    const formatDate = (date: Date) => {
+      return date.toISOString().split('T')[0];
+    };
+    
+    return {
+      inicio: formatDate(firstDay),
+      fim: formatDate(lastDay)
+    };
+  };
+
   // Preencher campos quando estiver editando
   useEffect(() => {
     if (editingProspeccao && isOpen) {
@@ -177,9 +221,24 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         participacao_apoio: { ativo: !!editingProspeccao.premio_participacao_apoio, valor: editingProspeccao.premio_participacao_apoio ?? "" },
         indicacao_venda: { ativo: !!editingProspeccao.premio_indicacao_venda, valor: editingProspeccao.premio_indicacao_venda ?? "" },
       });
+      
+      // Determinar tipo de evento baseado nos dados
+      if (editingProspeccao.canal === 'Whatsapp' && editingProspeccao.template_prospeccao) {
+        setTipoEvento('IA Whatsapp');
+      } else if (editingProspeccao.canal === 'Ligação') {
+        setTipoEvento('IA Ligação');
+      } else if (editingProspeccao.premio_equipe_campea || editingProspeccao.meta_novos) {
+        setTipoEvento('Grande Evento');
+      } else {
+        setTipoEvento('Prospecção Mensal');
+      }
     } else if (!editingProspeccao && isOpen) {
       // Limpar campos quando criar nova prospecção
       clearForm();
+      // Definir datas padrão
+      const defaultDates = getDefaultDates();
+      setDataInicio(defaultDates.inicio);
+      setDataFim(defaultDates.fim);
     }
   }, [editingProspeccao, isOpen]);
 
@@ -201,10 +260,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   }, [editingProspeccao, activeCompany?.id, isOpen]);
 
-  // Reset aba ao abrir modal
+  // Reset step ao abrir modal
   useEffect(() => {
     if (isOpen) {
-      setActiveTab("dados-gerais");
+      setCurrentStep(0);
     }
   }, [isOpen]);
 
@@ -273,6 +332,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setOutrasPremiacoes([]);
     setNovaOutraPremiacao({ nome: "", valor: "" });
     setMostrarFormOutraPremiacao(false);
+    // Reset tipo e step
+    setTipoEvento('Grande Evento');
+    setCurrentStep(0);
   };
   
   // Buscar usuários com acesso à empresa ativa
@@ -775,9 +837,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
            (user.tipo_acesso?.toLowerCase().includes(searchLower) ?? false);
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleSubmit = async () => {
     if (!titulo.trim()) {
       toast({
         title: "Erro",
@@ -799,12 +859,18 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setLoading(true);
     
     try {
+      // Determinar canal baseado no tipo de evento
+      let canalFinal: 'Whatsapp' | 'Ligação' = 'Whatsapp';
+      if (tipoEvento === 'IA Ligação') {
+        canalFinal = 'Ligação';
+      }
+      
       const dadosProspeccao: any = {
         titulo: titulo.trim(),
         descricao: descricao.trim() || null,
         data_inicio: dataInicio || null,
         data_fim: dataFim || null,
-        canal: canal,
+        canal: canalFinal,
         imagem_divulgacao_url: imagemDivulgacao.trim() || null,
         meta_novos: metaNovos === "" ? null : metaNovos,
         meta_seminovos: metaSeminovos === "" ? null : metaSeminovos,
@@ -829,17 +895,22 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         premio_indicacao_venda: premiacoes.indicacao_venda.ativo && premiacoes.indicacao_venda.valor !== "" ? Number(premiacoes.indicacao_venda.valor) : null,
       };
 
-      // Adicionar campos específicos do canal
-      if (canal === 'Whatsapp') {
+      // Adicionar campos específicos do tipo de evento
+      if (tipoEvento === 'IA Whatsapp') {
         dadosProspeccao.template_prospeccao = templateProspeccao.trim() || null;
         dadosProspeccao.template_agendado = templateAgendado.trim() || null;
         dadosProspeccao.template_nao_agendado = templateNaoAgendado.trim() || null;
         dadosProspeccao.convite = null;
-      } else {
+      } else if (tipoEvento === 'IA Ligação') {
         dadosProspeccao.template_prospeccao = null;
         dadosProspeccao.template_agendado = null;
         dadosProspeccao.template_nao_agendado = null;
         dadosProspeccao.convite = convite.trim() || null;
+      } else {
+        dadosProspeccao.template_prospeccao = null;
+        dadosProspeccao.template_agendado = null;
+        dadosProspeccao.template_nao_agendado = null;
+        dadosProspeccao.convite = null;
       }
 
       if (editingProspeccao) {
@@ -859,27 +930,21 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         // Chamar webhook após atualização
         await callWebhook(data);
         
-        // Salvar metas individuais
-        await saveMetasIndividuais(data.id);
-        
-        // Salvar equipes
-        await saveEquipes(data.id);
-        
-        // Salvar convite
-        await saveConvite(data.id);
-        
-        // Salvar página de captura
-        await savePagina(data.id);
-        
-        // Salvar marketing assets
-        await saveMarketingAssets(data.id);
-        
-        // Salvar outras premiações
-        await saveOutrasPremiacoes(data.id);
+        // Salvar dados relacionados baseado no tipo
+        if (tipoEvento === 'Grande Evento') {
+          await saveMetasIndividuais(data.id);
+          await saveEquipes(data.id);
+          await saveConvite(data.id);
+          await savePagina(data.id);
+          await saveMarketingAssets(data.id);
+          await saveOutrasPremiacoes(data.id);
+        } else if (tipoEvento === 'Prospecção Mensal') {
+          await saveEquipes(data.id);
+        }
 
         toast({
           title: "Sucesso",
-          description: "Prospecção atualizada com sucesso!"
+          description: "Evento atualizado com sucesso!"
         });
       } else {
         // Criando nova prospecção
@@ -911,27 +976,21 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         // Chamar webhook após criação
         await callWebhook(data);
         
-        // Salvar metas individuais
-        await saveMetasIndividuais(data.id);
-        
-        // Salvar equipes
-        await saveEquipes(data.id);
-        
-        // Salvar convite
-        await saveConvite(data.id);
-        
-        // Salvar página de captura
-        await savePagina(data.id);
-        
-        // Salvar marketing assets
-        await saveMarketingAssets(data.id);
-        
-        // Salvar outras premiações
-        await saveOutrasPremiacoes(data.id);
+        // Salvar dados relacionados baseado no tipo
+        if (tipoEvento === 'Grande Evento') {
+          await saveMetasIndividuais(data.id);
+          await saveEquipes(data.id);
+          await saveConvite(data.id);
+          await savePagina(data.id);
+          await saveMarketingAssets(data.id);
+          await saveOutrasPremiacoes(data.id);
+        } else if (tipoEvento === 'Prospecção Mensal') {
+          await saveEquipes(data.id);
+        }
 
         toast({
           title: "Sucesso",
-          description: "Prospecção criada com sucesso!"
+          description: "Evento criado com sucesso!"
         });
       }
 
@@ -941,10 +1000,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       onProspeccaoCriada();
 
     } catch (error: any) {
-      console.error('Erro ao processar prospecção:', error);
+      console.error('Erro ao processar evento:', error);
       toast({
         title: "Erro",
-        description: error.message || "Erro ao processar prospecção",
+        description: error.message || "Erro ao processar evento",
         variant: "destructive"
       });
     } finally {
@@ -1056,13 +1115,30 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
     onOpenChange(false);
   };
 
+  const handleNextStep = () => {
+    if (currentStep === 0 && !titulo.trim()) {
+      toast({
+        title: "Erro",
+        description: "O título é obrigatório",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!isLastStep) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handlePreviousStep = () => {
+    if (!isFirstStep) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
   // Calcular meta total de vendas
   const metaTotalVendas = (Number(metaNovos) || 0) + (Number(metaSeminovos) || 0) + (Number(metaDiretas) || 0);
 
   // Calcular metas automaticamente com base nas vendas
-  // Check-in: 30% dos comparecimentos são convertidos em vendas → check-in = vendas / 0.30
-  // Confirmações: 30% dos confirmados comparecem → confirmações = check-in / 0.30
-  // Agendamentos: 33% dos agendados confirmam → agendamentos = confirmações / 0.33
   const calcularMetasFunil = (totalVendas: number) => {
     if (totalVendas <= 0) return { checkins: 0, confirmacoes: 0, convites: 0 };
     
@@ -1073,7 +1149,7 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
     return { checkins, confirmacoes, convites };
   };
 
-  // Handler para alteração de metas de vendas - recalcula as metas de funil
+  // Handler para alteração de metas de vendas
   const handleMetaVendaChange = (
     setter: React.Dispatch<React.SetStateAction<number | "">>,
     value: string,
@@ -1082,7 +1158,6 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
     const numValue = value === "" ? "" : Number(value);
     setter(numValue);
     
-    // Calcular total considerando o novo valor
     const novoTotal = 
       (otherMetas.novos !== undefined ? (Number(otherMetas.novos) || 0) : (Number(metaNovos) || 0)) +
       (otherMetas.seminovos !== undefined ? (Number(otherMetas.seminovos) || 0) : (Number(metaSeminovos) || 0)) +
@@ -1096,38 +1171,14 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
     }
   };
 
-  // Tooltip configs para cada meta
+  // Tooltip configs
   const tooltipConfigs = {
-    novos: {
-      title: "Meta de Novos",
-      description: "Quantidade de veículos novos que você espera vender durante a prospecção.",
-      exemplo: "Ex: Para um evento de 2 dias, meta de 4-6 novos é comum."
-    },
-    seminovos: {
-      title: "Meta de Seminovos",
-      description: "Quantidade de veículos seminovos/usados que você espera vender durante a prospecção.",
-      exemplo: "Ex: Para um evento de 2 dias, meta de 6-10 seminovos é comum."
-    },
-    diretas: {
-      title: "Meta de Vendas Diretas",
-      description: "Quantidade de vendas diretas (frotistas, PJ, vendas corporativas) esperadas.",
-      exemplo: "Ex: Para eventos B2B, meta de 2-4 diretas é comum."
-    },
-    checkins: {
-      title: "Meta de Check-ins",
-      description: "Quantidade de clientes que devem comparecer ao evento. Em média, 30% dos check-ins resultam em vendas.",
-      exemplo: "Ex: Para vender 10 carros, você precisa de ~34 check-ins."
-    },
-    confirmacoes: {
-      title: "Meta de Confirmações",
-      description: "Quantidade de clientes que devem confirmar presença. Em média, 30% dos confirmados comparecem.",
-      exemplo: "Ex: Para ter 34 check-ins, você precisa de ~112 confirmações."
-    },
-    convites: {
-      title: "Meta de Convites/Agendamentos",
-      description: "Quantidade de clientes que devem ser convidados/agendados. Em média, 33% dos convidados confirmam.",
-      exemplo: "Ex: Para ter 112 confirmações, você precisa de ~340 convites."
-    }
+    novos: { title: "Meta de Novos", description: "Quantidade de veículos novos que você espera vender.", exemplo: "Ex: Para um evento de 2 dias, meta de 4-6 novos." },
+    seminovos: { title: "Meta de Seminovos", description: "Quantidade de seminovos/usados esperados.", exemplo: "Ex: Meta de 6-10 seminovos." },
+    diretas: { title: "Meta de Vendas Diretas", description: "Vendas diretas (frotistas, PJ, corporativas).", exemplo: "Ex: 2-4 diretas." },
+    checkins: { title: "Meta de Check-ins", description: "Clientes que devem comparecer. 30% resultam em vendas.", exemplo: "Ex: Para 10 vendas, ~34 check-ins." },
+    confirmacoes: { title: "Meta de Confirmações", description: "Clientes que devem confirmar. 30% comparecem.", exemplo: "Ex: Para 34 check-ins, ~112 confirmações." },
+    convites: { title: "Meta de Convites", description: "Clientes que devem ser convidados. 33% confirmam.", exemplo: "Ex: Para 112 confirmações, ~340 convites." }
   };
 
   const MetaTooltip = ({ config }: { config: typeof tooltipConfigs.novos }) => (
@@ -1145,39 +1196,30 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
     </TooltipProvider>
   );
 
-  // Config das premiações
+  // Premiações configs
   const premiacaoConfigs = {
-    // Equipes
-    equipe_campea: { nome: "Equipe Campeã", tooltip: "Premiação para a Equipe com mais vendas. Prêmio válido por Nº de vendas e desempate pelo VGV." },
-    equipe_2lugar: { nome: "Equipe 2º Lugar", tooltip: "Premiação para a Equipe com a segunda maior quantidade de vendas." },
-    equipe_3lugar: { nome: "Equipe 3º Lugar", tooltip: "Premiação para a Equipe com a terceira maior quantidade de vendas." },
-    // Vendedores
-    vendedor_ouro: { nome: "Vendedor Ouro", tooltip: "Premiação para o melhor vendedor do evento, considerando o número de vendas e desempate pelo VGV." },
-    vendedor_prata: { nome: "Vendedor Prata", tooltip: "Premiação para o segundo melhor vendedor do evento." },
-    vendedor_bronze: { nome: "Vendedor Bronze", tooltip: "Premiação para o terceiro melhor vendedor do evento." },
-    // Prospectors
-    prospector_ouro: { nome: "Prospector Ouro", tooltip: "Premiação destinada ao vendedor que mais prospectar clientes com presença registrada no evento." },
-    prospector_prata: { nome: "Prospector Prata", tooltip: "Premiação destinada ao vendedor que possuir o segundo maior número de prospecções com presença registrada no evento." },
-    prospector_bronze: { nome: "Prospector Bronze", tooltip: "Premiação destinada ao vendedor que possuir o terceiro maior número de prospecções com presença registrada no evento." },
-    // Check-ins
-    checkin_ouro: { nome: "Check-ins Ouro", tooltip: "Premiação destinada à pessoa que mais possuir registro de comparecimento no dia do evento (exceto vendedor)." },
-    checkin_prata: { nome: "Check-ins Prata", tooltip: "Premiação destinada à pessoa que possuir o segundo maior registro de comparecimento no dia do evento (exceto vendedor)." },
-    checkin_bronze: { nome: "Check-ins Bronze", tooltip: "Premiação destinada à pessoa que possuir o terceiro maior registro de comparecimento no dia do evento (exceto vendedor)." },
-    // Participação
-    participacao_apoio: { nome: "Participação Equipe de Apoio", tooltip: "Premiação destinada à cada membro da equipe de apoio." },
-    indicacao_venda: { nome: "Indicação de Venda", tooltip: "Premiação destinada à cada indicação de venda." },
+    equipe_campea: { nome: "Equipe Campeã", tooltip: "Equipe com mais vendas." },
+    equipe_2lugar: { nome: "Equipe 2º Lugar", tooltip: "Segunda maior quantidade de vendas." },
+    equipe_3lugar: { nome: "Equipe 3º Lugar", tooltip: "Terceira maior quantidade de vendas." },
+    vendedor_ouro: { nome: "Vendedor Ouro", tooltip: "Melhor vendedor do evento." },
+    vendedor_prata: { nome: "Vendedor Prata", tooltip: "Segundo melhor vendedor." },
+    vendedor_bronze: { nome: "Vendedor Bronze", tooltip: "Terceiro melhor vendedor." },
+    prospector_ouro: { nome: "Prospector Ouro", tooltip: "Vendedor que mais prospectar." },
+    prospector_prata: { nome: "Prospector Prata", tooltip: "Segundo maior número de prospecções." },
+    prospector_bronze: { nome: "Prospector Bronze", tooltip: "Terceiro maior número de prospecções." },
+    checkin_ouro: { nome: "Check-ins Ouro", tooltip: "Maior registro de comparecimento." },
+    checkin_prata: { nome: "Check-ins Prata", tooltip: "Segundo maior registro." },
+    checkin_bronze: { nome: "Check-ins Bronze", tooltip: "Terceiro maior registro." },
+    participacao_apoio: { nome: "Participação Apoio", tooltip: "Cada membro da equipe de apoio." },
+    indicacao_venda: { nome: "Indicação de Venda", tooltip: "Cada indicação de venda." },
   };
 
-  // Calcular total de premiações ativas (inclui outras premiações)
+  // Calcular total de premiações
   const totalPremiacoes = Object.values(premiacoes).reduce((acc, p) => {
-    if (p.ativo && p.valor !== "") {
-      return acc + Number(p.valor);
-    }
+    if (p.ativo && p.valor !== "") return acc + Number(p.valor);
     return acc;
   }, 0) + outrasPremiacoes.reduce((acc, p) => {
-    if (p.ativo && p.valor !== "") {
-      return acc + Number(p.valor);
-    }
+    if (p.ativo && p.valor !== "") return acc + Number(p.valor);
     return acc;
   }, 0);
 
@@ -1189,23 +1231,19 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
   };
 
   const handlePremiacaoValorChange = (key: string, valor: string) => {
-    // Remove tudo que não é número
     const numericValue = valor.replace(/\D/g, '');
     const numberValue = numericValue === "" ? "" : Number(numericValue) / 100;
-    
     setPremiacoes(prev => ({
       ...prev,
       [key]: { ...prev[key], valor: numberValue }
     }));
   };
 
-  // Formatar valor como moeda brasileira
   const formatCurrency = (value: number | "") => {
     if (value === "" || value === 0) return "";
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  // Config das premiações inline para evitar re-render
   const renderPremiacaoField = (premioKey: string, IconComponent: React.ElementType) => {
     const config = premiacaoConfigs[premioKey as keyof typeof premiacaoConfigs];
     const premiacao = premiacoes[premioKey];
@@ -1225,13 +1263,13 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
               <TooltipTrigger asChild>
                 <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-primary cursor-help flex-shrink-0" />
               </TooltipTrigger>
-              <TooltipContent className="max-w-[280px] p-3">
+              <TooltipContent className="max-w-[200px] p-2">
                 <p className="text-xs">{config.tooltip}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
-        <div className="w-32 flex-shrink-0 relative">
+        <div className="w-28 flex-shrink-0 relative">
           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
           <Input
             type="text"
@@ -1247,1877 +1285,996 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
     );
   };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[750px] w-[95vw] h-[90vh] max-h-[90vh] flex flex-col p-0 overflow-hidden">
-        <form onSubmit={handleSubmit} className="flex flex-col h-full min-h-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
-            {/* Header fixo */}
-            <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b bg-background">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingProspeccao ? 'Editar Evento' : 'Novo Evento'}
-                </DialogTitle>
-              </DialogHeader>
-              
-              <TabsList className="grid w-full grid-cols-8 mt-4">
-                <TabsTrigger value="dados-gerais" className="text-xs px-1">Dados Gerais</TabsTrigger>
-                <TabsTrigger value="meta" className="text-xs px-1">Metas</TabsTrigger>
-                <TabsTrigger value="metas-individuais" className="text-xs px-1">Metas Ind.</TabsTrigger>
-                <TabsTrigger value="equipes" className="text-xs px-1">Equipes</TabsTrigger>
-                <TabsTrigger value="premiacoes" className="text-xs px-1">Premiações</TabsTrigger>
-                <TabsTrigger value="convite" className="text-xs px-1">Convite</TabsTrigger>
-                <TabsTrigger value="paginas" className="text-xs px-1">Páginas</TabsTrigger>
-                <TabsTrigger value="marketing" className="text-xs px-1">Marketing</TabsTrigger>
-              </TabsList>
+  // Renderizar conteúdo da etapa atual
+  const renderStepContent = () => {
+    switch (currentStepName) {
+      case 'Dados Gerais':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="titulo">Título *</Label>
+              <Input
+                id="titulo"
+                placeholder="Ex: Campanha Black Friday 2024"
+                value={titulo}
+                onChange={(e) => setTitulo(e.target.value)}
+                required
+              />
             </div>
             
-            {/* Conteúdo com scroll */}
-            <ScrollIndicator className="flex-1 min-h-0 px-6 py-4">
-              <TabsContent value="dados-gerais" className="space-y-4 mt-0">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-2">
-                    <Label htmlFor="titulo">Título *</Label>
-                    <Input
-                      id="titulo"
-                      placeholder="Ex: Campanha Black Friday 2024"
-                      value={titulo}
-                      onChange={(e) => setTitulo(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="canal">Tipo do Evento *</Label>
-                    <Select value={canal} onValueChange={(value: 'Whatsapp' | 'Ligação') => setCanal(value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Whatsapp">Whatsapp</SelectItem>
-                        <SelectItem value="Ligação">Ligação</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+            <div>
+              <Label htmlFor="tipoEvento">Tipo do Evento *</Label>
+              <Select value={tipoEvento} onValueChange={(value: TipoEvento) => {
+                setTipoEvento(value);
+                setCurrentStep(0); // Reset step when type changes
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Grande Evento">Grande Evento</SelectItem>
+                  <SelectItem value="Prospecção Mensal">Prospecção Mensal</SelectItem>
+                  <SelectItem value="IA Whatsapp">IA Whatsapp</SelectItem>
+                  <SelectItem value="IA Ligação">IA Ligação</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="data_inicio">Data de Início</Label>
+                <Input
+                  id="data_inicio"
+                  type="date"
+                  value={dataInicio}
+                  onChange={(e) => setDataInicio(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="data_fim">Data de Fim</Label>
+                <Input
+                  id="data_fim"
+                  type="date"
+                  value={dataFim}
+                  onChange={(e) => setDataFim(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        );
 
+      case 'Configuração IA':
+        if (tipoEvento === 'IA Whatsapp') {
+          return (
+            <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <Label htmlFor="descricao">Descrição</Label>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm"
-                    className="h-auto py-1 px-2 text-xs"
-                    onClick={aplicarModeloDescricao}
-                  >
-                    <FileText className="h-3 w-3 mr-1" />
+                  <Button type="button" variant="outline" size="sm" onClick={aplicarModeloDescricao}>
+                    <FileText className="w-4 h-4 mr-1" />
                     Aplicar modelo
                   </Button>
                 </div>
                 <Textarea
                   id="descricao"
-                  placeholder="Descrição da campanha..."
-                  rows={3}
+                  placeholder="Descreva os detalhes da prospecção..."
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value)}
+                  rows={6}
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="data_inicio">Data de Início</Label>
-                  <Input
-                    id="data_inicio"
-                    type="date"
-                    value={dataInicio}
-                    onChange={(e) => setDataInicio(e.target.value)}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="data_fim">Data de Fim</Label>
-                  <Input
-                    id="data_fim"
-                    type="date"
-                    value={dataFim}
-                    onChange={(e) => setDataFim(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {canal === 'Whatsapp' && (
-                <>
-                  <div>
-                    <Label htmlFor="template_prospeccao">Template Prospecção</Label>
-                    <Textarea
-                      id="template_prospeccao"
-                      placeholder="Mensagem de prospecção (máx. 120 caracteres)"
-                      rows={2}
-                      maxLength={120}
-                      value={templateProspeccao}
-                      onChange={(e) => setTemplateProspeccao(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {templateProspeccao.length}/120 caracteres
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="template_agendado">Template Agendado</Label>
-                    <Textarea
-                      id="template_agendado"
-                      placeholder="Mensagem para agendamentos (máx. 120 caracteres)"
-                      rows={2}
-                      maxLength={120}
-                      value={templateAgendado}
-                      onChange={(e) => setTemplateAgendado(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {templateAgendado.length}/120 caracteres
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="template_nao_agendado">Template Não Agendado</Label>
-                    <Textarea
-                      id="template_nao_agendado"
-                      placeholder="Mensagem para não agendamentos (máx. 120 caracteres)"
-                      rows={2}
-                      maxLength={120}
-                      value={templateNaoAgendado}
-                      onChange={(e) => setTemplateNaoAgendado(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {templateNaoAgendado.length}/120 caracteres
-                    </p>
-                  </div>
-                </>
-              )}
-
-              {canal === 'Ligação' && (
-                <div>
-                  <Label htmlFor="convite">Convite</Label>
-                  <Input
-                    id="convite"
-                    placeholder="Nome do convite para campanhas de ligação"
-                    value={convite}
-                    onChange={(e) => setConvite(e.target.value)}
-                  />
-                </div>
-              )}
-
+              
               <div>
-                <Label htmlFor="imagem_divulgacao">Imagem de Divulgação (Opcional)</Label>
+                <Label htmlFor="template_prospeccao">Template Prospecção (máx. 120 caracteres)</Label>
                 <Input
-                  id="imagem_divulgacao"
-                  type="url"
-                  placeholder="https://exemplo.com/imagem.jpg"
-                  value={imagemDivulgacao}
-                  onChange={(e) => setImagemDivulgacao(e.target.value)}
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="meta" className="space-y-4 mt-0">
-              {/* Meta Total de Vendas */}
-              <Card className="p-4 bg-gradient-to-r from-primary/80 to-primary text-primary-foreground">
-                <div className="flex items-center gap-2 mb-2">
-                  <Target className="h-4 w-4" />
-                  <span className="text-sm font-medium">Meta Total de Vendas</span>
-                </div>
-                <div className="text-center">
-                  <span className="text-3xl font-bold">{metaTotalVendas}</span>
-                  <p className="text-xs opacity-80 mt-1">Soma das metas de Novos, Seminovos e Diretas</p>
-                </div>
-              </Card>
-
-              {/* Grid de Metas de Vendas */}
-              <div className="grid grid-cols-3 gap-3">
-                <Card className="p-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <span className="text-xs font-medium text-muted-foreground">Meta de Novos</span>
-                    <MetaTooltip config={tooltipConfigs.novos} />
-                  </div>
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={metaNovos}
-                    onChange={(e) => handleMetaVendaChange(setMetaNovos, e.target.value, { 
-                      novos: e.target.value === "" ? 0 : Number(e.target.value)
-                    })}
-                    className="text-center font-semibold"
-                  />
-                  <p className="text-xs text-muted-foreground text-center mt-1">Novos</p>
-                </Card>
-
-                <Card className="p-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    <span className="text-xs font-medium text-muted-foreground">Meta de Seminovos</span>
-                    <MetaTooltip config={tooltipConfigs.seminovos} />
-                  </div>
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={metaSeminovos}
-                    onChange={(e) => handleMetaVendaChange(setMetaSeminovos, e.target.value, { 
-                      seminovos: e.target.value === "" ? 0 : Number(e.target.value)
-                    })}
-                    className="text-center font-semibold"
-                  />
-                  <p className="text-xs text-muted-foreground text-center mt-1">Seminovos</p>
-                </Card>
-
-                <Card className="p-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <div className="w-2 h-2 rounded-full bg-purple-500" />
-                    <span className="text-xs font-medium text-muted-foreground">Meta de Diretas</span>
-                    <MetaTooltip config={tooltipConfigs.diretas} />
-                  </div>
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={metaDiretas}
-                    onChange={(e) => handleMetaVendaChange(setMetaDiretas, e.target.value, { 
-                      diretas: e.target.value === "" ? 0 : Number(e.target.value)
-                    })}
-                    className="text-center font-semibold"
-                  />
-                  <p className="text-xs text-muted-foreground text-center mt-1">Diretas</p>
-                </Card>
-              </div>
-
-              {/* Grid de Metas de Funil */}
-              <p className="text-xs text-muted-foreground text-center">
-                Calculado automaticamente com base nas metas de vendas. Você pode editar manualmente.
-              </p>
-              <div className="grid grid-cols-3 gap-3">
-                <Card className="p-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <MapPin className="h-3 w-3 text-orange-500" />
-                    <span className="text-xs font-medium text-muted-foreground">Check-ins</span>
-                    <MetaTooltip config={tooltipConfigs.checkins} />
-                  </div>
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={metaCheckins}
-                    onChange={(e) => setMetaCheckins(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="text-center font-semibold"
-                  />
-                  <p className="text-xs text-muted-foreground text-center mt-1">Check-ins</p>
-                </Card>
-
-                <Card className="p-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <ThumbsUp className="h-3 w-3 text-blue-500" />
-                    <span className="text-xs font-medium text-muted-foreground">Confirmações</span>
-                    <MetaTooltip config={tooltipConfigs.confirmacoes} />
-                  </div>
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={metaConfirmacoes}
-                    onChange={(e) => setMetaConfirmacoes(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="text-center font-semibold"
-                  />
-                  <p className="text-xs text-muted-foreground text-center mt-1">Confirmados</p>
-                </Card>
-
-                <Card className="p-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Phone className="h-3 w-3 text-green-500" />
-                    <span className="text-xs font-medium text-muted-foreground">Convites</span>
-                    <MetaTooltip config={tooltipConfigs.convites} />
-                  </div>
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={metaConvites}
-                    onChange={(e) => setMetaConvites(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="text-center font-semibold"
-                  />
-                  <p className="text-xs text-muted-foreground text-center mt-1">Convites</p>
-                </Card>
-              </div>
-
-              {/* Tamanho da Base */}
-              <Card className="p-4 bg-muted/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">Tamanho da Base</span>
-                </div>
-                <div className="text-center">
-                  <span className="text-2xl font-bold text-primary">{tamanhoBase.toLocaleString('pt-BR')}</span>
-                  <p className="text-xs text-muted-foreground mt-1">Contatos Distribuídos</p>
-                </div>
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  Valor calculado com base nos contatos importados
-                </p>
-              </Card>
-            </TabsContent>
-
-            {/* Aba Metas Individuais */}
-            <TabsContent value="metas-individuais" className="space-y-4 mt-0">
-              <Card className="p-4 bg-gradient-to-r from-blue-500/80 to-blue-600 text-white">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="h-4 w-4" />
-                  <span className="text-sm font-medium">Metas Individuais por Usuário</span>
-                </div>
-                <div className="text-center">
-                  <span className="text-3xl font-bold">{usersComAcesso.length}</span>
-                  <p className="text-xs opacity-80 mt-1">Usuários com acesso ativo à empresa</p>
-                </div>
-              </Card>
-              
-              {/* Filtro */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Filtrar por nome ou perfil..."
-                  value={metasIndividuaisFilter}
-                  onChange={(e) => setMetasIndividuaisFilter(e.target.value)}
-                  className="pl-9"
+                  id="template_prospeccao"
+                  placeholder="Nome do template de prospecção"
+                  value={templateProspeccao}
+                  onChange={(e) => setTemplateProspeccao(e.target.value.slice(0, 120))}
+                  maxLength={120}
                 />
               </div>
               
-              {/* Lista de usuários */}
-              {filteredUsers.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="mx-auto h-12 w-12 mb-3 opacity-50" />
-                  <p>Nenhum usuário encontrado</p>
+              <div>
+                <Label htmlFor="template_agendado">Template Agendado (máx. 120 caracteres)</Label>
+                <Input
+                  id="template_agendado"
+                  placeholder="Nome do template para clientes agendados"
+                  value={templateAgendado}
+                  onChange={(e) => setTemplateAgendado(e.target.value.slice(0, 120))}
+                  maxLength={120}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="template_nao_agendado">Template Não Agendado (máx. 120 caracteres)</Label>
+                <Input
+                  id="template_nao_agendado"
+                  placeholder="Nome do template para clientes não agendados"
+                  value={templateNaoAgendado}
+                  onChange={(e) => setTemplateNaoAgendado(e.target.value.slice(0, 120))}
+                  maxLength={120}
+                />
+              </div>
+            </div>
+          );
+        } else {
+          // IA Ligação
+          return (
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="descricao">Descrição</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={aplicarModeloDescricao}>
+                    <FileText className="w-4 h-4 mr-1" />
+                    Aplicar modelo
+                  </Button>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredUsers.map((userItem) => {
-                    const userMetas = metasIndividuais[userItem.id] || { meta_vendas: 0, meta_checkins: 0, meta_confirmacoes: 0, meta_convites: 0 };
-                    
-                    return (
-                      <Card key={userItem.id} className="p-3">
-                        <div className="flex flex-col gap-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
-                              {userItem.nome_completo.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{userItem.nome_completo}</p>
-                              <p className="text-xs text-muted-foreground">{userItem.tipo_acesso || 'Sem perfil'}</p>
-                            </div>
+                <Textarea
+                  id="descricao"
+                  placeholder="Descreva os detalhes da prospecção..."
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                  rows={8}
+                />
+              </div>
+            </div>
+          );
+        }
+
+      case 'Metas':
+        return (
+          <div className="space-y-4">
+            <Card className="p-4 bg-gradient-to-r from-primary/80 to-primary text-primary-foreground">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="h-4 w-4" />
+                <span className="text-sm font-medium">Meta Total de Vendas</span>
+              </div>
+              <div className="text-center">
+                <span className="text-3xl font-bold">{metaTotalVendas}</span>
+                <p className="text-xs opacity-80 mt-1">Soma de Novos, Seminovos e Diretas</p>
+              </div>
+            </Card>
+
+            <div className="grid grid-cols-3 gap-3">
+              <Card className="p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-xs font-medium text-muted-foreground">Novos</span>
+                  <MetaTooltip config={tooltipConfigs.novos} />
+                </div>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={metaNovos}
+                  onChange={(e) => handleMetaVendaChange(setMetaNovos, e.target.value, { novos: e.target.value === "" ? 0 : Number(e.target.value) })}
+                  className="text-center font-semibold"
+                />
+              </Card>
+
+              <Card className="p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span className="text-xs font-medium text-muted-foreground">Seminovos</span>
+                  <MetaTooltip config={tooltipConfigs.seminovos} />
+                </div>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={metaSeminovos}
+                  onChange={(e) => handleMetaVendaChange(setMetaSeminovos, e.target.value, { seminovos: e.target.value === "" ? 0 : Number(e.target.value) })}
+                  className="text-center font-semibold"
+                />
+              </Card>
+
+              <Card className="p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-purple-500" />
+                  <span className="text-xs font-medium text-muted-foreground">Diretas</span>
+                  <MetaTooltip config={tooltipConfigs.diretas} />
+                </div>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={metaDiretas}
+                  onChange={(e) => handleMetaVendaChange(setMetaDiretas, e.target.value, { diretas: e.target.value === "" ? 0 : Number(e.target.value) })}
+                  className="text-center font-semibold"
+                />
+              </Card>
+            </div>
+
+            <p className="text-xs text-muted-foreground text-center">
+              Metas de funil calculadas automaticamente. Você pode editar manualmente.
+            </p>
+
+            <div className="grid grid-cols-3 gap-3">
+              <Card className="p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <MapPin className="h-3 w-3 text-orange-500" />
+                  <span className="text-xs font-medium text-muted-foreground">Check-ins</span>
+                  <MetaTooltip config={tooltipConfigs.checkins} />
+                </div>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={metaCheckins}
+                  onChange={(e) => setMetaCheckins(e.target.value === "" ? "" : Number(e.target.value))}
+                  className="text-center font-semibold"
+                />
+              </Card>
+
+              <Card className="p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <ThumbsUp className="h-3 w-3 text-blue-500" />
+                  <span className="text-xs font-medium text-muted-foreground">Confirmações</span>
+                  <MetaTooltip config={tooltipConfigs.confirmacoes} />
+                </div>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={metaConfirmacoes}
+                  onChange={(e) => setMetaConfirmacoes(e.target.value === "" ? "" : Number(e.target.value))}
+                  className="text-center font-semibold"
+                />
+              </Card>
+
+              <Card className="p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Phone className="h-3 w-3 text-green-500" />
+                  <span className="text-xs font-medium text-muted-foreground">Convites</span>
+                  <MetaTooltip config={tooltipConfigs.convites} />
+                </div>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={metaConvites}
+                  onChange={(e) => setMetaConvites(e.target.value === "" ? "" : Number(e.target.value))}
+                  className="text-center font-semibold"
+                />
+              </Card>
+            </div>
+          </div>
+        );
+
+      case 'Metas Individuais':
+        return (
+          <div className="space-y-4">
+            <Card className="p-4 bg-gradient-to-r from-blue-500/80 to-blue-600 text-white">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="h-4 w-4" />
+                <span className="text-sm font-medium">Metas Individuais por Usuário</span>
+              </div>
+              <div className="text-center">
+                <span className="text-3xl font-bold">{usersComAcesso.length}</span>
+                <p className="text-xs opacity-80 mt-1">Usuários ativos</p>
+              </div>
+            </Card>
+            
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Filtrar por nome ou perfil..."
+                value={metasIndividuaisFilter}
+                onChange={(e) => setMetasIndividuaisFilter(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            
+            {filteredUsers.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="mx-auto h-12 w-12 mb-3 opacity-50" />
+                <p>Nenhum usuário encontrado</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                {filteredUsers.map((userItem) => {
+                  const userMetas = metasIndividuais[userItem.id] || { meta_vendas: 0, meta_checkins: 0, meta_confirmacoes: 0, meta_convites: 0 };
+                  
+                  return (
+                    <Card key={userItem.id} className="p-3">
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
+                            {userItem.nome_completo.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
                           </div>
-                          
-                          <div className="grid grid-cols-4 gap-2">
-                            <div>
-                              <Label className="text-xs text-muted-foreground">Vendas</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                placeholder="0"
-                                value={userMetas.meta_vendas || ""}
-                                onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_vendas', e.target.value)}
-                                className="h-8 text-center text-sm"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs text-muted-foreground">Check-ins</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                placeholder="0"
-                                value={userMetas.meta_checkins || ""}
-                                onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_checkins', e.target.value)}
-                                className="h-8 text-center text-sm"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs text-muted-foreground">Confirmações</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                placeholder="0"
-                                value={userMetas.meta_confirmacoes || ""}
-                                onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_confirmacoes', e.target.value)}
-                                className="h-8 text-center text-sm"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs text-muted-foreground">Convites</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                placeholder="0"
-                                value={userMetas.meta_convites || ""}
-                                onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_convites', e.target.value)}
-                                className="h-8 text-center text-sm"
-                              />
-                            </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{userItem.nome_completo}</p>
+                            <p className="text-xs text-muted-foreground">{userItem.tipo_acesso || 'Sem perfil'}</p>
                           </div>
                         </div>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-              
-              <p className="text-xs text-muted-foreground text-center">
-                Defina metas individuais para cada usuário participante da prospecção.
-              </p>
-            </TabsContent>
+                        
+                        <div className="grid grid-cols-4 gap-2">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Vendas</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              value={userMetas.meta_vendas || ""}
+                              onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_vendas', e.target.value)}
+                              className="h-8 text-center text-sm"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Check-ins</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              value={userMetas.meta_checkins || ""}
+                              onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_checkins', e.target.value)}
+                              className="h-8 text-center text-sm"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Confirmações</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              value={userMetas.meta_confirmacoes || ""}
+                              onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_confirmacoes', e.target.value)}
+                              className="h-8 text-center text-sm"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Convites</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              value={userMetas.meta_convites || ""}
+                              onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_convites', e.target.value)}
+                              className="h-8 text-center text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
 
-            {/* Aba Equipes */}
-            <TabsContent value="equipes" className="space-y-4 mt-0">
-              <Card className="p-4 bg-gradient-to-r from-violet-500/80 to-violet-600 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <UsersRound className="h-4 w-4" />
-                      <span className="text-sm font-medium">Gestão de Equipes</span>
-                    </div>
-                    <p className="text-xs opacity-80">{equipes.filter(e => e.ativo).length} equipes ativas</p>
+      case 'Equipes':
+        return (
+          <div className="space-y-4">
+            <Card className="p-4 bg-gradient-to-r from-violet-500/80 to-violet-600 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <UsersRound className="h-4 w-4" />
+                    <span className="text-sm font-medium">Gestão de Equipes</span>
                   </div>
-                  {!criarNovaEquipe && equipeEditando === null && (
+                  <p className="text-xs opacity-80">{equipes.filter(e => e.ativo).length} equipes ativas</p>
+                </div>
+                {!criarNovaEquipe && equipeEditando === null && (
+                  <Button 
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="bg-white/20 hover:bg-white/30 text-white border-0"
+                    onClick={() => {
+                      setCriarNovaEquipe(true);
+                      setNovaEquipeNome("");
+                      setNovaEquipeCor(coresPadrao[equipes.length % coresPadrao.length]);
+                      setNovaEquipeMembros([]);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Nova Equipe
+                  </Button>
+                )}
+              </div>
+            </Card>
+            
+            {criarNovaEquipe && (
+              <Card className="p-4 border-2 border-primary/30">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">Nova Equipe</span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setCriarNovaEquipe(false)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Nome da Equipe</Label>
+                      <Input
+                        placeholder="Ex: Equipe Alpha"
+                        value={novaEquipeNome}
+                        onChange={(e) => setNovaEquipeNome(e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Cor da Equipe</Label>
+                      <div className="flex gap-1 mt-1">
+                        {coresPadrao.map((cor) => (
+                          <button
+                            key={cor}
+                            type="button"
+                            className={`w-7 h-7 rounded-full border-2 transition-all ${novaEquipeCor === cor ? 'border-primary scale-110' : 'border-transparent hover:border-muted-foreground/30'}`}
+                            style={{ backgroundColor: cor }}
+                            onClick={() => setNovaEquipeCor(cor)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-xs">Integrantes</Label>
+                    <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
+                      {usersComAcesso.map((userItem) => {
+                        const jaEmOutraEquipe = equipes.some(eq => eq.membros.includes(userItem.id));
+                        
+                        return (
+                          <label key={userItem.id} className={`flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer ${jaEmOutraEquipe ? 'opacity-50' : ''}`}>
+                            <Checkbox
+                              checked={novaEquipeMembros.includes(userItem.id)}
+                              disabled={jaEmOutraEquipe}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setNovaEquipeMembros([...novaEquipeMembros, userItem.id]);
+                                } else {
+                                  setNovaEquipeMembros(novaEquipeMembros.filter(id => id !== userItem.id));
+                                }
+                              }}
+                              className="rounded border-primary"
+                            />
+                            <span className="text-sm">{userItem.nome_completo}</span>
+                            {jaEmOutraEquipe && <span className="text-xs text-muted-foreground">- já em outra equipe</span>}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end">
                     <Button 
                       type="button"
-                      variant="secondary"
                       size="sm"
-                      className="bg-white/20 hover:bg-white/30 text-white border-0"
+                      disabled={!novaEquipeNome.trim()}
                       onClick={() => {
-                        setCriarNovaEquipe(true);
+                        setEquipes([...equipes, {
+                          nome: novaEquipeNome.trim(),
+                          cor: novaEquipeCor,
+                          ativo: true,
+                          membros: novaEquipeMembros
+                        }]);
+                        setCriarNovaEquipe(false);
                         setNovaEquipeNome("");
-                        setNovaEquipeCor(coresPadrao[equipes.length % coresPadrao.length]);
                         setNovaEquipeMembros([]);
                       }}
                     >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Nova Equipe
+                      <Check className="h-4 w-4 mr-1" />
+                      Criar Equipe
                     </Button>
-                  )}
+                  </div>
                 </div>
               </Card>
-              
-              {/* Formulário Nova Equipe */}
-              {criarNovaEquipe && (
-                <Card className="p-4 border-2 border-primary/30">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">Nova Equipe</span>
-                      <Button 
-                        type="button"
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => setCriarNovaEquipe(false)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs">Nome da Equipe</Label>
-                        <Input
-                          placeholder="Ex: Equipe Alpha"
-                          value={novaEquipeNome}
-                          onChange={(e) => setNovaEquipeNome(e.target.value)}
-                          className="h-9"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Cor da Equipe</Label>
-                        <div className="flex gap-1 mt-1">
-                          {coresPadrao.map((cor) => (
-                            <button
-                              key={cor}
-                              type="button"
-                              className={`w-7 h-7 rounded-full border-2 transition-all ${novaEquipeCor === cor ? 'border-primary scale-110' : 'border-transparent hover:border-muted-foreground/30'}`}
-                              style={{ backgroundColor: cor }}
-                              onClick={() => setNovaEquipeCor(cor)}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label className="text-xs">Integrantes</Label>
-                      <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
-                        {usersComAcesso.map((userItem) => {
-                          // Verificar se o usuário já está em outra equipe
-                          const jaEmOutraEquipe = equipes.some(eq => eq.membros.includes(userItem.id));
-                          
-                          return (
-                            <label 
-                              key={userItem.id}
-                              className={`flex items-center gap-2 p-1.5 rounded cursor-pointer ${
-                                jaEmOutraEquipe 
-                                  ? 'opacity-40 cursor-not-allowed' 
-                                  : 'hover:bg-muted/50'
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={novaEquipeMembros.includes(userItem.id)}
-                                disabled={jaEmOutraEquipe}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setNovaEquipeMembros([...novaEquipeMembros, userItem.id]);
-                                  } else {
-                                    setNovaEquipeMembros(novaEquipeMembros.filter(id => id !== userItem.id));
-                                  }
-                                }}
-                                className="rounded border-primary"
-                              />
-                              <span className="text-sm">{userItem.nome_completo}</span>
-                              <span className="text-xs text-muted-foreground">
-                                ({userItem.tipo_acesso})
-                                {jaEmOutraEquipe && ' - já em outra equipe'}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    
-                    <div className="flex justify-end gap-2">
-                      <Button 
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCriarNovaEquipe(false)}
-                      >
-                        Cancelar
-                      </Button>
-                      <Button 
-                        type="button"
-                        size="sm"
-                        disabled={!novaEquipeNome.trim()}
-                        onClick={() => {
-                          setEquipes([...equipes, {
-                            nome: novaEquipeNome.trim(),
-                            cor: novaEquipeCor,
-                            ativo: true,
-                            membros: novaEquipeMembros
-                          }]);
-                          setCriarNovaEquipe(false);
-                          setNovaEquipeNome("");
-                          setNovaEquipeMembros([]);
-                        }}
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        Adicionar Equipe
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              )}
-              
-              {/* Lista de Equipes */}
-              {equipes.length === 0 && !criarNovaEquipe ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <UsersRound className="mx-auto h-12 w-12 mb-3 opacity-50" />
-                  <p>Nenhuma equipe criada</p>
-                  <p className="text-xs">Clique no botão acima para criar sua primeira equipe</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {equipes.map((equipe, index) => (
-                    <Card 
-                      key={index}
-                      className={`p-3 border-l-4 ${!equipe.ativo ? 'opacity-60' : ''}`}
-                      style={{ borderLeftColor: equipe.cor }}
-                    >
-                      {equipeEditando === index ? (
-                        // Modo edição
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <Label className="text-xs">Nome da Equipe</Label>
-                              <Input
-                                value={equipe.nome}
-                                onChange={(e) => {
-                                  const updated = [...equipes];
-                                  updated[index].nome = e.target.value;
-                                  setEquipes(updated);
-                                }}
-                                className="h-9"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Cor</Label>
-                              <div className="flex gap-1 mt-1">
-                                {coresPadrao.map((cor) => (
-                                  <button
-                                    key={cor}
-                                    type="button"
-                                    className={`w-6 h-6 rounded-full border-2 transition-all ${equipe.cor === cor ? 'border-primary scale-110' : 'border-transparent hover:border-muted-foreground/30'}`}
-                                    style={{ backgroundColor: cor }}
-                                    onClick={() => {
-                                      const updated = [...equipes];
-                                      updated[index].cor = cor;
-                                      setEquipes(updated);
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          
+            )}
+            
+            {equipes.length === 0 && !criarNovaEquipe ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <UsersRound className="mx-auto h-12 w-12 mb-3 opacity-50" />
+                <p>Nenhuma equipe criada</p>
+                <p className="text-sm">Clique em "Nova Equipe" para criar</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {equipes.map((equipe, index) => (
+                  <Card key={index} className={`p-3 ${!equipe.ativo ? 'opacity-50' : ''}`}>
+                    {equipeEditando === index ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <Label className="text-xs">Integrantes</Label>
-                            <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
-                              {usersComAcesso.map((userItem) => {
-                                // Verificar se o usuário já está em outra equipe (exceto a atual sendo editada)
-                                const jaEmOutraEquipe = equipes.some((eq, eqIndex) => 
-                                  eqIndex !== index && eq.membros.includes(userItem.id)
-                                );
-                                
-                                return (
-                                  <label 
-                                    key={userItem.id}
-                                    className={`flex items-center gap-2 p-1.5 rounded cursor-pointer ${
-                                      jaEmOutraEquipe 
-                                        ? 'opacity-40 cursor-not-allowed' 
-                                        : 'hover:bg-muted/50'
-                                    }`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={equipe.membros.includes(userItem.id)}
-                                      disabled={jaEmOutraEquipe}
-                                      onChange={(e) => {
-                                        const updated = [...equipes];
-                                        if (e.target.checked) {
-                                          updated[index].membros = [...updated[index].membros, userItem.id];
-                                        } else {
-                                          updated[index].membros = updated[index].membros.filter(id => id !== userItem.id);
-                                        }
-                                        setEquipes(updated);
-                                      }}
-                                      className="rounded border-primary"
-                                    />
-                                    <span className="text-sm">{userItem.nome_completo}</span>
-                                    {jaEmOutraEquipe && (
-                                      <span className="text-xs text-muted-foreground">- já em outra equipe</span>
-                                    )}
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          
-                          <div className="flex justify-end">
-                            <Button 
-                              type="button"
-                              size="sm"
-                              onClick={() => setEquipeEditando(null)}
-                            >
-                              <Check className="h-4 w-4 mr-1" />
-                              Concluir
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        // Modo visualização
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div 
-                              className="w-4 h-4 rounded-full"
-                              style={{ backgroundColor: equipe.cor }}
-                            />
-                            <div>
-                              <p className="font-medium text-sm">{equipe.nome}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {equipe.membros.length} integrante{equipe.membros.length !== 1 ? 's' : ''}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={equipe.ativo}
-                              onCheckedChange={(checked) => {
+                            <Label className="text-xs">Nome</Label>
+                            <Input
+                              value={equipe.nome}
+                              onChange={(e) => {
                                 const updated = [...equipes];
-                                updated[index].ativo = checked;
+                                updated[index].nome = e.target.value;
                                 setEquipes(updated);
                               }}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => setEquipeEditando(index)}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 hover:text-destructive"
-                              onClick={() => {
-                                setEquipes(equipes.filter((_, i) => i !== index));
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            {/* Aba Premiações */}
-            <TabsContent value="premiacoes" className="space-y-4 mt-0">
-              {/* Total em Premiações */}
-              <Card className="p-4 bg-gradient-to-r from-amber-500/80 to-amber-600 text-white">
-                <div className="flex items-center gap-2 mb-2">
-                  <Trophy className="h-4 w-4" />
-                  <span className="text-sm font-medium">Total em Premiações</span>
-                </div>
-                <div className="text-center">
-                  <span className="text-3xl font-bold">
-                    {totalPremiacoes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </span>
-                  <p className="text-xs opacity-80 mt-1">Soma de todas as premiações ativas</p>
-                </div>
-              </Card>
-
-              {/* Premiações para Equipes */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold">Premiações para Equipes</span>
-                </div>
-                <div className="space-y-2">
-                  {renderPremiacaoField("equipe_campea", Trophy)}
-                  {renderPremiacaoField("equipe_2lugar", Award)}
-                  {renderPremiacaoField("equipe_3lugar", Award)}
-                </div>
-              </div>
-
-              {/* Premiações para Vendedores */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Star className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold">Premiações para Vendedores</span>
-                </div>
-                <div className="space-y-2">
-                  {renderPremiacaoField("vendedor_ouro", Trophy)}
-                  {renderPremiacaoField("vendedor_prata", Award)}
-                  {renderPremiacaoField("vendedor_bronze", Award)}
-                </div>
-              </div>
-
-              {/* Premiação para Vendedor Prospector */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold">Premiação para Vendedor Prospector</span>
-                </div>
-                <div className="space-y-2">
-                  {renderPremiacaoField("prospector_ouro", Trophy)}
-                  {renderPremiacaoField("prospector_prata", Award)}
-                  {renderPremiacaoField("prospector_bronze", Award)}
-                </div>
-              </div>
-
-              {/* Premiações para Equipe de Apoio */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold">Premiações para Equipe de Apoio</span>
-                </div>
-                <div className="space-y-2">
-                  {renderPremiacaoField("checkin_ouro", Trophy)}
-                  {renderPremiacaoField("checkin_prata", Award)}
-                  {renderPremiacaoField("checkin_bronze", Award)}
-                </div>
-              </div>
-
-              {/* Premiações por Participação ou Indicação */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Gift className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold">Premiações por Participação ou Indicação</span>
-                </div>
-                <div className="space-y-2">
-                  {renderPremiacaoField("participacao_apoio", Gift)}
-                  {renderPremiacaoField("indicacao_venda", Gift)}
-                </div>
-              </div>
-
-              {/* Outras Premiações (personalizadas) */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Plus className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-semibold">Outras Premiações</span>
-                  </div>
-                  {!mostrarFormOutraPremiacao && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setMostrarFormOutraPremiacao(true)}
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Adicionar
-                    </Button>
-                  )}
-                </div>
-                
-                {/* Formulário para adicionar nova premiação */}
-                {mostrarFormOutraPremiacao && (
-                  <Card className="p-3 border-dashed">
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs">Nome da Premiação</Label>
-                          <Input
-                            value={novaOutraPremiacao.nome}
-                            onChange={(e) => setNovaOutraPremiacao(prev => ({ ...prev, nome: e.target.value }))}
-                            placeholder="Ex: Bônus especial"
-                            className="h-9"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Valor (R$)</Label>
-                          <div className="relative">
-                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
-                            <Input
-                              type="text"
-                              inputMode="numeric"
-                              placeholder="0,00"
-                              value={formatCurrency(novaOutraPremiacao.valor)}
-                              onChange={(e) => {
-                                const numericValue = e.target.value.replace(/\D/g, '');
-                                const numberValue = numericValue === "" ? "" : Number(numericValue) / 100;
-                                setNovaOutraPremiacao(prev => ({ ...prev, valor: numberValue }));
-                              }}
-                              className="text-right text-sm h-9 pl-7"
+                              className="h-9"
                             />
                           </div>
+                          <div>
+                            <Label className="text-xs">Cor</Label>
+                            <div className="flex gap-1 mt-1">
+                              {coresPadrao.map((cor) => (
+                                <button
+                                  key={cor}
+                                  type="button"
+                                  className={`w-6 h-6 rounded-full border-2 transition-all ${equipe.cor === cor ? 'border-primary scale-110' : 'border-transparent'}`}
+                                  style={{ backgroundColor: cor }}
+                                  onClick={() => {
+                                    const updated = [...equipes];
+                                    updated[index].cor = cor;
+                                    setEquipes(updated);
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setMostrarFormOutraPremiacao(false);
-                            setNovaOutraPremiacao({ nome: "", valor: "" });
-                          }}
-                        >
-                          Cancelar
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={!novaOutraPremiacao.nome.trim() || novaOutraPremiacao.valor === "" || novaOutraPremiacao.valor === 0}
-                          onClick={() => {
-                            setOutrasPremiacoes([...outrasPremiacoes, {
-                              nome: novaOutraPremiacao.nome.trim(),
-                              valor: novaOutraPremiacao.valor,
-                              ativo: true
-                            }]);
-                            setNovaOutraPremiacao({ nome: "", valor: "" });
-                            setMostrarFormOutraPremiacao(false);
-                          }}
-                        >
-                          <Check className="h-3.5 w-3.5 mr-1" />
-                          Adicionar
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                )}
-                
-                {/* Lista de outras premiações */}
-                {outrasPremiacoes.length > 0 && (
-                  <div className="space-y-2">
-                    {outrasPremiacoes.map((premiacao, index) => (
-                      <div 
-                        key={index}
-                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${premiacao.ativo ? 'bg-green-50 border-green-200' : 'bg-gray-100 border-gray-300'}`}
-                      >
-                        <Switch
-                          checked={premiacao.ativo}
-                          onCheckedChange={(checked) => {
-                            const updated = [...outrasPremiacoes];
-                            updated[index].ativo = checked;
-                            setOutrasPremiacoes(updated);
-                          }}
-                          className={premiacao.ativo ? 'data-[state=checked]:bg-green-500' : 'data-[state=unchecked]:bg-gray-400'}
-                        />
-                        <div className="flex-1 flex items-center gap-2 min-w-0">
-                          <Star className={`h-4 w-4 flex-shrink-0 ${premiacao.ativo ? 'text-green-600' : 'text-gray-500'}`} />
-                          <span className={`text-sm truncate ${premiacao.ativo ? 'font-medium text-green-700' : 'text-gray-600'}`}>
-                            {premiacao.nome}
-                          </span>
+                        
+                        <div>
+                          <Label className="text-xs">Integrantes</Label>
+                          <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
+                            {usersComAcesso.map((userItem) => {
+                              const jaEmOutraEquipe = equipes.some((eq, i) => i !== index && eq.membros.includes(userItem.id));
+                              
+                              return (
+                                <label key={userItem.id} className={`flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer ${jaEmOutraEquipe ? 'opacity-50' : ''}`}>
+                                  <Checkbox
+                                    checked={equipe.membros.includes(userItem.id)}
+                                    disabled={jaEmOutraEquipe}
+                                    onCheckedChange={(checked) => {
+                                      const updated = [...equipes];
+                                      if (checked) {
+                                        updated[index].membros = [...updated[index].membros, userItem.id];
+                                      } else {
+                                        updated[index].membros = updated[index].membros.filter(id => id !== userItem.id);
+                                      }
+                                      setEquipes(updated);
+                                    }}
+                                    className="rounded border-primary"
+                                  />
+                                  <span className="text-sm">{userItem.nome_completo}</span>
+                                  {jaEmOutraEquipe && <span className="text-xs text-muted-foreground">- já em outra equipe</span>}
+                                </label>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <div className="w-32 flex-shrink-0 relative">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            placeholder="0,00"
-                            disabled={!premiacao.ativo}
-                            value={formatCurrency(premiacao.valor)}
-                            onChange={(e) => {
-                              const numericValue = e.target.value.replace(/\D/g, '');
-                              const numberValue = numericValue === "" ? "" : Number(numericValue) / 100;
-                              const updated = [...outrasPremiacoes];
-                              updated[index].valor = numberValue;
-                              setOutrasPremiacoes(updated);
-                            }}
-                            className="text-right text-sm h-8 pl-7"
-                          />
+                        
+                        <div className="flex justify-end">
+                          <Button type="button" size="sm" onClick={() => setEquipeEditando(null)}>
+                            <Check className="h-4 w-4 mr-1" />
+                            Concluir
+                          </Button>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 hover:text-destructive"
-                          onClick={() => {
-                            setOutrasPremiacoes(outrasPremiacoes.filter((_, i) => i !== index));
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {outrasPremiacoes.length === 0 && !mostrarFormOutraPremiacao && (
-                  <p className="text-xs text-muted-foreground text-center py-2">
-                    Nenhuma premiação personalizada adicionada
-                  </p>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* Aba Convite */}
-            <TabsContent value="convite" className="space-y-4 mt-0">
-              <Card className="p-4 bg-gradient-to-r from-purple-500/80 to-purple-600 text-white">
-                <div className="flex items-center gap-2 mb-2">
-                  <Image className="h-4 w-4" />
-                  <span className="text-sm font-medium">Convite do Evento</span>
-                </div>
-                <p className="text-xs opacity-80">
-                  O convite possui 4 páginas: Imagem do Evento, Informações, QR Code e Dados do Cliente
-                </p>
-              </Card>
-
-              {/* Upload de Imagem */}
-              <Card className="p-4">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <FileImage className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-semibold">Página 1: Imagem do Evento</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Faça upload de uma imagem de 400x400 pixels para o convite
-                  </p>
-
-                  {conviteImagem ? (
-                    <div className="relative">
-                      <img 
-                        src={conviteImagem} 
-                        alt="Preview do convite" 
-                        className="w-48 h-48 object-cover rounded-lg border mx-auto"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-2 right-1/2 translate-x-[100px]"
-                        onClick={() => {
-                          setConviteImagem(null);
-                          setConviteImagemFile(null);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center w-48 h-48 mx-auto border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                      <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                      <span className="text-sm text-muted-foreground">Clique para enviar</span>
-                      <span className="text-xs text-muted-foreground mt-1">400x400 pixels</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setConviteImagemFile(file);
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setConviteImagem(reader.result as string);
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-                  )}
-                </div>
-              </Card>
-
-              {/* Preview das outras páginas */}
-              <Card className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Info className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold">Página 2: Informações do Evento</span>
-                </div>
-                <div className="bg-muted/30 rounded-lg p-4 space-y-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Building className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Nome do Evento:</span>
-                    <span className="font-medium">{titulo || "—"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Building className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Nome da Loja:</span>
-                    <span className="font-medium">{activeCompany?.nome_empresa || "—"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Data de Início:</span>
-                    <span className="font-medium">{dataInicio ? new Date(dataInicio + 'T12:00:00').toLocaleDateString('pt-BR') : "—"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Data de Fim:</span>
-                    <span className="font-medium">{dataFim ? new Date(dataFim + 'T12:00:00').toLocaleDateString('pt-BR') : "—"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Endereço:</span>
-                    <span className="font-medium text-xs">Endereço da loja será exibido</span>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <QrCode className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold">Página 3: QR Code da Recepção</span>
-                </div>
-                <div className="bg-muted/30 rounded-lg p-4 text-center">
-                  <div className="w-24 h-24 bg-white border-2 rounded-lg mx-auto flex items-center justify-center">
-                    <QrCode className="h-16 w-16 text-gray-800" />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    QR Code será gerado automaticamente para abrir a página de recepção
-                  </p>
-                </div>
-              </Card>
-
-              <Card className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <User className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold">Página 4: Informações do Cliente</span>
-                </div>
-                <div className="bg-muted/30 rounded-lg p-4 space-y-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <User className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Convidado (Cliente):</span>
-                    <span className="text-xs italic text-muted-foreground">Será preenchido dinamicamente</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <User className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Quem Convidou:</span>
-                    <span className="text-xs italic text-muted-foreground">Pessoa que enviou o convite</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <UsersRound className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Equipe:</span>
-                    <span className="text-xs italic text-muted-foreground">Equipe do vendedor</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <User className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Vendedor Indicado:</span>
-                    <span className="text-xs italic text-muted-foreground">Vendedor atribuído ao cliente</span>
-                  </div>
-                </div>
-              </Card>
-            </TabsContent>
-
-            {/* Aba Páginas */}
-            <TabsContent value="paginas" className="space-y-4 mt-0">
-              <Card className="p-4 bg-gradient-to-r from-teal-500/80 to-teal-600 text-white">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileImage className="h-4 w-4" />
-                  <span className="text-sm font-medium">Página de Captura de Leads</span>
-                </div>
-                <p className="text-xs opacity-80">
-                  Configure o texto e cores da página de captura para o evento
-                </p>
-              </Card>
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Coluna de Formulário */}
-                <div className="space-y-4">
-                  <Card className="p-4 space-y-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FileText className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-semibold">Textos da Página</span>
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <Label className="text-xs">Início da Frase (até 200 caracteres)</Label>
-                      <Input
-                        value={paginaInicioFrase}
-                        onChange={(e) => setPaginaInicioFrase(e.target.value.slice(0, 200))}
-                        placeholder="Ex: A melhor oportunidade de"
-                        maxLength={200}
-                      />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <Label className="text-xs">Palavra Destaque (até 200 caracteres)</Label>
-                      <Input
-                        value={paginaPalavraDestaque}
-                        onChange={(e) => setPaginaPalavraDestaque(e.target.value.slice(0, 200))}
-                        placeholder="Ex: Cidade e região"
-                        maxLength={200}
-                      />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <Label className="text-xs">Final da Frase (até 200 caracteres)</Label>
-                      <Input
-                        value={paginaFinalFrase}
-                        onChange={(e) => setPaginaFinalFrase(e.target.value.slice(0, 200))}
-                        placeholder="Ex: para sair de carro novo!"
-                        maxLength={200}
-                      />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <Label className="text-xs">Texto de Apoio (até 200 caracteres)</Label>
-                      <Textarea
-                        value={paginaTextoApoio}
-                        onChange={(e) => setPaginaTextoApoio(e.target.value.slice(0, 200))}
-                        placeholder="Ex: Você e sua família são nossos convidados..."
-                        maxLength={200}
-                        className="h-16 resize-none text-sm"
-                      />
-                    </div>
-                  </Card>
-                  
-                  <Card className="p-4 space-y-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CalendarDays className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-semibold">Datas e Horários</span>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Primeiro Dia do Evento</Label>
-                        <Input
-                          type="date"
-                          value={paginaPrimeiroDia}
-                          onChange={(e) => setPaginaPrimeiroDia(e.target.value)}
-                        />
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <Label className="text-xs">Dia Final do Evento</Label>
-                        <Input
-                          type="date"
-                          value={paginaDiaFinal}
-                          onChange={(e) => setPaginaDiaFinal(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Horário de Início</Label>
-                        <Input
-                          type="time"
-                          value={paginaHoraInicio}
-                          onChange={(e) => setPaginaHoraInicio(e.target.value)}
-                        />
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <Label className="text-xs">Horário de Término</Label>
-                        <Input
-                          type="time"
-                          value={paginaHoraTermino}
-                          onChange={(e) => setPaginaHoraTermino(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </Card>
-                  
-                  <Card className="p-4 space-y-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Link className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-semibold">Link da Política de Privacidade</span>
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <Label className="text-xs">URL (opcional)</Label>
-                      <Input
-                        value={paginaLinkPolitica}
-                        onChange={(e) => setPaginaLinkPolitica(e.target.value.slice(0, 200))}
-                        placeholder="https://..."
-                        maxLength={200}
-                      />
-                    </div>
-                  </Card>
-                  
-                  <Card className="p-4 space-y-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Palette className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-semibold">Cores</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-2">
-                        <Label className="text-xs">Cor de Fundo</Label>
-                        <input
-                          type="color"
-                          value={paginaCorFundo}
-                          onChange={(e) => setPaginaCorFundo(e.target.value)}
-                          className="w-8 h-8 rounded-full cursor-pointer border-0"
-                        />
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <Label className="text-xs">Cor do Texto</Label>
-                        <input
-                          type="color"
-                          value={paginaCorTexto}
-                          onChange={(e) => setPaginaCorTexto(e.target.value)}
-                          className="w-8 h-8 rounded-full cursor-pointer border-0"
-                        />
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <Label className="text-xs">Cor Destaque</Label>
-                        <input
-                          type="color"
-                          value={paginaCorDestaque}
-                          onChange={(e) => setPaginaCorDestaque(e.target.value)}
-                          className="w-8 h-8 rounded-full cursor-pointer border-0"
-                        />
-                      </div>
-                    </div>
-                  </Card>
-                  
-                  <Card className="p-4 space-y-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Image className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-semibold">Imagem do Evento</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Clique para alterar a imagem. Recomendação: 400x400 pixels
-                    </p>
-                    
-                    {paginaImagemEvento ? (
-                      <div className="relative">
-                        <img 
-                          src={paginaImagemEvento} 
-                          alt="Imagem do evento" 
-                          className="w-24 h-24 object-cover rounded-lg border cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => document.getElementById('paginaImagemInput')?.click()}
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute -top-2 -right-2 h-6 w-6 p-0"
-                          onClick={() => {
-                            setPaginaImagemEvento(null);
-                            setPaginaImagemEventoFile(null);
-                          }}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
                       </div>
                     ) : (
-                      <label className="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                        <Upload className="h-6 w-6 text-muted-foreground mb-1" />
-                        <span className="text-xs text-muted-foreground">Upload</span>
-                      </label>
-                    )}
-                    <input
-                      id="paginaImagemInput"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setPaginaImagemEventoFile(file);
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setPaginaImagemEvento(reader.result as string);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                  </Card>
-                </div>
-                
-                {/* Coluna de Preview */}
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Preview da Página</Label>
-                  <div 
-                    className="rounded-lg overflow-hidden border shadow-lg"
-                    style={{ backgroundColor: paginaCorFundo }}
-                  >
-                    <div className="p-4 min-h-[450px]">
-                      {/* Header com logo e vendedor */}
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                          <Building className="h-4 w-4" style={{ color: paginaCorTexto }} />
-                        </div>
-                        <span className="text-sm font-medium" style={{ color: paginaCorTexto }}>
-                          {activeCompany?.nome_empresa || "Nome da Loja"}
-                        </span>
-                      </div>
-                      
-                      {/* Título do evento */}
-                      <h2 
-                        className="text-lg font-bold italic mb-1" 
-                        style={{ color: paginaCorDestaque }}
-                      >
-                        {titulo || "NOME DO EVENTO"}
-                      </h2>
-                      <p className="text-sm mb-3" style={{ color: paginaCorTexto }}>
-                        {activeCompany?.nome_empresa || "Nome da Loja"}
-                      </p>
-                      
-                      {/* Imagem do evento */}
-                      <div className="mb-3">
-                        {paginaImagemEvento ? (
-                          <img 
-                            src={paginaImagemEvento} 
-                            alt="Evento" 
-                            className="w-32 h-32 object-cover rounded-lg border-4"
-                            style={{ borderColor: paginaCorFundo }}
-                          />
-                        ) : (
-                          <div 
-                            className="w-32 h-32 rounded-lg flex items-center justify-center"
-                            style={{ backgroundColor: `${paginaCorTexto}20` }}
-                          >
-                            <Image className="h-8 w-8" style={{ color: paginaCorTexto }} />
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: equipe.cor }} />
+                          <div>
+                            <p className="font-medium text-sm">{equipe.nome}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {equipe.membros.length} integrante{equipe.membros.length !== 1 ? 's' : ''}
+                            </p>
                           </div>
-                        )}
-                      </div>
-                      
-                      {/* Data e hora */}
-                      <div className="flex items-center gap-1 text-xs mb-4" style={{ color: paginaCorTexto }}>
-                        <CalendarDays className="h-3 w-3" />
-                        <span>
-                          {paginaPrimeiroDia ? new Date(paginaPrimeiroDia + 'T12:00:00').toLocaleDateString('pt-BR') : "DD/MM/AAAA"}
-                          {paginaHoraInicio && ` - ${paginaHoraInicio}`}
-                          {paginaHoraTermino && ` às ${paginaHoraTermino}`}
-                        </span>
-                      </div>
-                      
-                      {/* Frase principal */}
-                      <div className="mb-3">
-                        <p className="text-lg font-bold" style={{ color: paginaCorTexto }}>
-                          {paginaInicioFrase || "A melhor oportunidade de "}
-                          <span style={{ color: paginaCorDestaque }}>
-                            {paginaPalavraDestaque || "Cidade e região"}
-                          </span>
-                          {" "}{paginaFinalFrase || "para sair de carro novo!"}
-                        </p>
-                      </div>
-                      
-                      {/* Texto instrução */}
-                      <p className="text-xs mb-3" style={{ color: paginaCorTexto }}>
-                        Insira seus dados abaixo e <strong style={{ color: paginaCorDestaque }}>GARANTA O SEU INGRESSO!</strong>
-                      </p>
-                      
-                      {/* Campos de formulário (preview) */}
-                      <div className="space-y-2 mb-3">
-                        <div className="bg-white rounded-lg px-3 py-2 text-sm text-gray-400">
-                          Seu nome
                         </div>
-                        <div className="bg-white rounded-lg px-3 py-2 text-sm text-gray-400">
-                          Seu WhatsApp
+                        
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={equipe.ativo}
+                            onCheckedChange={(checked) => {
+                              const updated = [...equipes];
+                              updated[index].ativo = checked;
+                              setEquipes(updated);
+                            }}
+                          />
+                          <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setEquipeEditando(index)}>
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:text-destructive"
+                            onClick={() => setEquipes(equipes.filter((_, i) => i !== index))}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <div className="bg-white rounded-lg px-3 py-2 text-sm text-gray-400">
-                          Modelo de Interesse
-                        </div>
-                      </div>
-                      
-                      {/* Botão */}
-                      <button 
-                        className="w-full py-3 rounded-lg font-semibold text-sm mb-2"
-                        style={{ backgroundColor: paginaCorDestaque, color: paginaCorFundo }}
-                      >
-                        Quero participar!
-                      </button>
-                      
-                      {/* Links de política */}
-                      <p className="text-[10px] text-center" style={{ color: paginaCorTexto }}>
-                        Ao clicar em "Quero participar!" você concorda com os nossos{" "}
-                        <span className="underline">Termos de Uso</span> e{" "}
-                        <span className="underline">Política de Privacidade</span>
-                      </p>
-                    </div>
-                    
-                    {/* Texto de apoio na parte inferior */}
-                    {paginaTextoApoio && (
-                      <div className="border-t px-4 py-2" style={{ borderColor: `${paginaCorTexto}30` }}>
-                        <p className="text-[10px] text-center" style={{ color: paginaCorTexto }}>
-                          {paginaTextoApoio}
-                        </p>
                       </div>
                     )}
-                  </div>
-                </div>
+                  </Card>
+                ))}
               </div>
-            </TabsContent>
+            )}
+          </div>
+        );
 
-            {/* Aba Marketing */}
-            <TabsContent value="marketing" className="space-y-4 mt-0">
-              <Card className="p-4 bg-gradient-to-r from-orange-500/80 to-orange-600 text-white">
-                <div className="flex items-center justify-between">
+      case 'Premiações':
+        return (
+          <div className="space-y-4">
+            <Card className="p-4 bg-gradient-to-r from-amber-500/80 to-amber-600 text-white">
+              <div className="flex items-center gap-2 mb-2">
+                <Trophy className="h-4 w-4" />
+                <span className="text-sm font-medium">Total em Premiações</span>
+              </div>
+              <div className="text-center">
+                <span className="text-3xl font-bold">
+                  {totalPremiacoes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </span>
+              </div>
+            </Card>
+
+            <div className="space-y-2 max-h-[350px] overflow-y-auto">
+              <div className="space-y-2">
+                <span className="text-sm font-semibold flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" /> Equipes
+                </span>
+                {renderPremiacaoField("equipe_campea", Trophy)}
+                {renderPremiacaoField("equipe_2lugar", Award)}
+                {renderPremiacaoField("equipe_3lugar", Award)}
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <span className="text-sm font-semibold flex items-center gap-2">
+                  <Star className="h-4 w-4 text-primary" /> Vendedores
+                </span>
+                {renderPremiacaoField("vendedor_ouro", Trophy)}
+                {renderPremiacaoField("vendedor_prata", Award)}
+                {renderPremiacaoField("vendedor_bronze", Award)}
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <span className="text-sm font-semibold flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" /> Prospectores
+                </span>
+                {renderPremiacaoField("prospector_ouro", Trophy)}
+                {renderPremiacaoField("prospector_prata", Award)}
+                {renderPremiacaoField("prospector_bronze", Award)}
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <span className="text-sm font-semibold flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-primary" /> Check-ins
+                </span>
+                {renderPremiacaoField("checkin_ouro", Trophy)}
+                {renderPremiacaoField("checkin_prata", Award)}
+                {renderPremiacaoField("checkin_bronze", Award)}
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <span className="text-sm font-semibold flex items-center gap-2">
+                  <Gift className="h-4 w-4 text-primary" /> Participação
+                </span>
+                {renderPremiacaoField("participacao_apoio", Gift)}
+                {renderPremiacaoField("indicacao_venda", Gift)}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'Convite':
+        return (
+          <div className="space-y-4">
+            <Card className="p-4 bg-gradient-to-r from-purple-500/80 to-purple-600 text-white">
+              <div className="flex items-center gap-2 mb-2">
+                <Image className="h-4 w-4" />
+                <span className="text-sm font-medium">Convite do Evento</span>
+              </div>
+              <p className="text-xs opacity-80">
+                Imagem de 400x400 pixels para o convite
+              </p>
+            </Card>
+
+            <Card className="p-4">
+              {conviteImagem ? (
+                <div className="relative">
+                  <img 
+                    src={conviteImagem} 
+                    alt="Preview do convite" 
+                    className="w-48 h-48 object-cover rounded-lg border mx-auto"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-1/2 translate-x-[100px]"
+                    onClick={() => {
+                      setConviteImagem(null);
+                      setConviteImagemFile(null);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-48 h-48 mx-auto border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                  <span className="text-sm text-muted-foreground">Clique para enviar</span>
+                  <span className="text-xs text-muted-foreground mt-1">400 × 400px</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setConviteImagemFile(file);
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setConviteImagem(reader.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+              )}
+            </Card>
+          </div>
+        );
+
+      case 'Páginas':
+        return (
+          <div className="space-y-4">
+            <Card className="p-4 bg-gradient-to-r from-teal-500/80 to-teal-600 text-white">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="h-4 w-4" />
+                <span className="text-sm font-medium">Página de Captura</span>
+              </div>
+              <p className="text-xs opacity-80">Landing page para captação de leads</p>
+            </Card>
+
+            <div className="grid grid-cols-2 gap-4 max-h-[350px] overflow-y-auto">
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs">Início da Frase</Label>
+                  <Input
+                    value={paginaInicioFrase}
+                    onChange={(e) => setPaginaInicioFrase(e.target.value.slice(0, 200))}
+                    placeholder="Ex: A melhor oportunidade de"
+                    maxLength={200}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Palavra Destaque</Label>
+                  <Input
+                    value={paginaPalavraDestaque}
+                    onChange={(e) => setPaginaPalavraDestaque(e.target.value.slice(0, 200))}
+                    placeholder="Ex: Cidade e região"
+                    maxLength={200}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Final da Frase</Label>
+                  <Input
+                    value={paginaFinalFrase}
+                    onChange={(e) => setPaginaFinalFrase(e.target.value.slice(0, 200))}
+                    placeholder="Ex: para sair de carro novo!"
+                    maxLength={200}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Texto de Apoio</Label>
+                  <Textarea
+                    value={paginaTextoApoio}
+                    onChange={(e) => setPaginaTextoApoio(e.target.value.slice(0, 200))}
+                    placeholder="Ex: Você e sua família são nossos convidados..."
+                    maxLength={200}
+                    className="h-16 resize-none text-sm"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Megaphone className="h-4 w-4" />
-                      <span className="text-sm font-medium">Conteúdo para Redes Sociais</span>
-                    </div>
-                    <p className="text-xs opacity-80">{marketingAssets.length} {marketingAssets.length === 1 ? 'imagem' : 'imagens'} criadas</p>
+                    <Label className="text-xs">Primeiro Dia</Label>
+                    <Input type="date" value={paginaPrimeiroDia} onChange={(e) => setPaginaPrimeiroDia(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Último Dia</Label>
+                    <Input type="date" value={paginaDiaFinal} onChange={(e) => setPaginaDiaFinal(e.target.value)} />
                   </div>
                 </div>
-              </Card>
-              
-              {/* Formatos disponíveis */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Stories (1080x1920) */}
-                <Card className="p-4 border-dashed">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-pink-500 to-purple-500 flex items-center justify-center text-white">
-                      <FileImage className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold">Stories</h4>
-                      <p className="text-xs text-muted-foreground">1080 × 1920px (9:16)</p>
-                    </div>
+                <div className="flex gap-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs">Fundo</Label>
+                    <input type="color" value={paginaCorFundo} onChange={(e) => setPaginaCorFundo(e.target.value)} className="w-8 h-8 rounded cursor-pointer" />
                   </div>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Instagram, Facebook, TikTok • Máx. 4MB
-                  </p>
-                  {marketingAssets.find(a => a.tipo_formato === 'stories') ? (
-                    <div className="relative group">
-                      <img 
-                        src={marketingAssets.find(a => a.tipo_formato === 'stories')?.imagem_url || ''}
-                        alt="Stories"
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setMarketingAssets(prev => prev.filter(a => a.tipo_formato !== 'stories'))}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                      <Upload className="h-5 w-5 text-muted-foreground mb-1" />
-                      <span className="text-xs text-muted-foreground">Fazer upload</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setMarketingAssets(prev => [...prev, {
-                                tipo_formato: 'stories',
-                                plataforma: 'todos',
-                                largura: 1080,
-                                altura: 1920,
-                                imagem_url: reader.result as string,
-                                nome_arquivo: file.name,
-                                tamanho_arquivo: file.size,
-                                file
-                              }]);
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-                  )}
-                </Card>
-
-                {/* Feed Quadrado (1080x1080) */}
-                <Card className="p-4 border-dashed">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-white">
-                      <FileImage className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold">Feed Quadrado</h4>
-                      <p className="text-xs text-muted-foreground">1080 × 1080px (1:1)</p>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs">Texto</Label>
+                    <input type="color" value={paginaCorTexto} onChange={(e) => setPaginaCorTexto(e.target.value)} className="w-8 h-8 rounded cursor-pointer" />
                   </div>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Instagram, Facebook • Máx. 8MB
-                  </p>
-                  {marketingAssets.find(a => a.tipo_formato === 'feed_quadrado') ? (
-                    <div className="relative group">
-                      <img 
-                        src={marketingAssets.find(a => a.tipo_formato === 'feed_quadrado')?.imagem_url || ''}
-                        alt="Feed Quadrado"
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setMarketingAssets(prev => prev.filter(a => a.tipo_formato !== 'feed_quadrado'))}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                      <Upload className="h-5 w-5 text-muted-foreground mb-1" />
-                      <span className="text-xs text-muted-foreground">Fazer upload</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setMarketingAssets(prev => [...prev, {
-                                tipo_formato: 'feed_quadrado',
-                                plataforma: 'instagram_facebook',
-                                largura: 1080,
-                                altura: 1080,
-                                imagem_url: reader.result as string,
-                                nome_arquivo: file.name,
-                                tamanho_arquivo: file.size,
-                                file
-                              }]);
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-                  )}
-                </Card>
-
-                {/* Feed Retrato (1080x1350) */}
-                <Card className="p-4 border-dashed">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center text-white">
-                      <FileImage className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold">Feed Retrato</h4>
-                      <p className="text-xs text-muted-foreground">1080 × 1350px (4:5)</p>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs">Destaque</Label>
+                    <input type="color" value={paginaCorDestaque} onChange={(e) => setPaginaCorDestaque(e.target.value)} className="w-8 h-8 rounded cursor-pointer" />
                   </div>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Instagram, Facebook • Máx. 8MB
-                  </p>
-                  {marketingAssets.find(a => a.tipo_formato === 'feed_retrato') ? (
-                    <div className="relative group">
-                      <img 
-                        src={marketingAssets.find(a => a.tipo_formato === 'feed_retrato')?.imagem_url || ''}
-                        alt="Feed Retrato"
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setMarketingAssets(prev => prev.filter(a => a.tipo_formato !== 'feed_retrato'))}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                      <Upload className="h-5 w-5 text-muted-foreground mb-1" />
-                      <span className="text-xs text-muted-foreground">Fazer upload</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setMarketingAssets(prev => [...prev, {
-                                tipo_formato: 'feed_retrato',
-                                plataforma: 'instagram_facebook',
-                                largura: 1080,
-                                altura: 1350,
-                                imagem_url: reader.result as string,
-                                nome_arquivo: file.name,
-                                tamanho_arquivo: file.size,
-                                file
-                              }]);
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-                  )}
-                </Card>
-
-                {/* Feed Paisagem (1200x630) */}
-                <Card className="p-4 border-dashed">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 flex items-center justify-center text-white">
-                      <FileImage className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold">Feed Paisagem</h4>
-                      <p className="text-xs text-muted-foreground">1200 × 630px (1.91:1)</p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Facebook, Links • Máx. 8MB
-                  </p>
-                  {marketingAssets.find(a => a.tipo_formato === 'feed_paisagem') ? (
-                    <div className="relative group">
-                      <img 
-                        src={marketingAssets.find(a => a.tipo_formato === 'feed_paisagem')?.imagem_url || ''}
-                        alt="Feed Paisagem"
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setMarketingAssets(prev => prev.filter(a => a.tipo_formato !== 'feed_paisagem'))}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                      <Upload className="h-5 w-5 text-muted-foreground mb-1" />
-                      <span className="text-xs text-muted-foreground">Fazer upload</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setMarketingAssets(prev => [...prev, {
-                                tipo_formato: 'feed_paisagem',
-                                plataforma: 'facebook',
-                                largura: 1200,
-                                altura: 630,
-                                imagem_url: reader.result as string,
-                                nome_arquivo: file.name,
-                                tamanho_arquivo: file.size,
-                                file
-                              }]);
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-                  )}
-                </Card>
-
-                {/* Reels/TikTok (1080x1920) */}
-                <Card className="p-4 border-dashed">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-red-500 to-pink-500 flex items-center justify-center text-white">
-                      <FileImage className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold">Reels / TikTok</h4>
-                      <p className="text-xs text-muted-foreground">1080 × 1920px (9:16)</p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Vídeos verticais • Thumbnail ou capa
-                  </p>
-                  {marketingAssets.find(a => a.tipo_formato === 'reels') ? (
-                    <div className="relative group">
-                      <img 
-                        src={marketingAssets.find(a => a.tipo_formato === 'reels')?.imagem_url || ''}
-                        alt="Reels"
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setMarketingAssets(prev => prev.filter(a => a.tipo_formato !== 'reels'))}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                      <Upload className="h-5 w-5 text-muted-foreground mb-1" />
-                      <span className="text-xs text-muted-foreground">Fazer upload</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setMarketingAssets(prev => [...prev, {
-                                tipo_formato: 'reels',
-                                plataforma: 'instagram_tiktok',
-                                largura: 1080,
-                                altura: 1920,
-                                imagem_url: reader.result as string,
-                                nome_arquivo: file.name,
-                                tamanho_arquivo: file.size,
-                                file
-                              }]);
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-                  )}
-                </Card>
-
-                {/* Capa de Vídeo (1280x720) */}
-                <Card className="p-4 border-dashed">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 flex items-center justify-center text-white">
-                      <FileImage className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold">Capa de Vídeo</h4>
-                      <p className="text-xs text-muted-foreground">1280 × 720px (16:9)</p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    YouTube, Facebook Video • Máx. 8MB
-                  </p>
-                  {marketingAssets.find(a => a.tipo_formato === 'capa_video') ? (
-                    <div className="relative group">
-                      <img 
-                        src={marketingAssets.find(a => a.tipo_formato === 'capa_video')?.imagem_url || ''}
-                        alt="Capa de Vídeo"
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setMarketingAssets(prev => prev.filter(a => a.tipo_formato !== 'capa_video'))}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                      <Upload className="h-5 w-5 text-muted-foreground mb-1" />
-                      <span className="text-xs text-muted-foreground">Fazer upload</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setMarketingAssets(prev => [...prev, {
-                                tipo_formato: 'capa_video',
-                                plataforma: 'youtube_facebook',
-                                largura: 1280,
-                                altura: 720,
-                                imagem_url: reader.result as string,
-                                nome_arquivo: file.name,
-                                tamanho_arquivo: file.size,
-                                file
-                              }]);
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-                  )}
-                </Card>
+                </div>
               </div>
 
-              {/* Informações */}
-              <Card className="p-4 bg-muted/30">
-                <div className="flex items-start gap-3">
-                  <Info className="h-4 w-4 text-primary mt-0.5" />
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p><strong>Dica:</strong> Para melhores resultados, use imagens com as dimensões exatas recomendadas.</p>
-                    <p><strong>Stories/Reels:</strong> 1080×1920px • <strong>Feed Quadrado:</strong> 1080×1080px • <strong>Feed Retrato:</strong> 1080×1350px</p>
-                    <p><strong>Formatos aceitos:</strong> JPG, PNG, WebP • <strong>Tamanho máximo:</strong> 8MB por imagem</p>
+              <div className="rounded-lg overflow-hidden border shadow-lg" style={{ backgroundColor: paginaCorFundo }}>
+                <div className="p-3 min-h-[300px]">
+                  <h2 className="text-sm font-bold italic mb-2" style={{ color: paginaCorDestaque }}>
+                    {titulo || "NOME DO EVENTO"}
+                  </h2>
+                  <div className="mb-2">
+                    <p className="text-sm font-bold" style={{ color: paginaCorTexto }}>
+                      {paginaInicioFrase || "A melhor oportunidade de "}
+                      <span style={{ color: paginaCorDestaque }}>{paginaPalavraDestaque || "Cidade"}</span>
+                      {" "}{paginaFinalFrase || "para sair de carro novo!"}
+                    </p>
                   </div>
+                  <div className="space-y-1 mb-2">
+                    <div className="bg-white rounded px-2 py-1 text-xs text-gray-400">Seu nome</div>
+                    <div className="bg-white rounded px-2 py-1 text-xs text-gray-400">WhatsApp</div>
+                  </div>
+                  <button 
+                    className="w-full py-2 rounded font-semibold text-xs"
+                    style={{ backgroundColor: paginaCorDestaque, color: paginaCorFundo }}
+                  >
+                    Quero participar!
+                  </button>
                 </div>
-              </Card>
-            </TabsContent>
-            </ScrollIndicator>
+              </div>
+            </div>
+          </div>
+        );
 
-            {/* Footer fixo */}
-            <div className="flex-shrink-0 flex justify-end gap-2 px-6 py-4 border-t bg-background">
-              <Button type="button" variant="outline" onClick={handleCancel} disabled={loading}>
-                Cancelar
+      case 'Marketing':
+        return (
+          <div className="space-y-4">
+            <Card className="p-4 bg-gradient-to-r from-orange-500/80 to-orange-600 text-white">
+              <div className="flex items-center gap-2 mb-1">
+                <Megaphone className="h-4 w-4" />
+                <span className="text-sm font-medium">Conteúdo para Redes Sociais</span>
+              </div>
+              <p className="text-xs opacity-80">{marketingAssets.length} imagem(s) criada(s)</p>
+            </Card>
+
+            <div className="grid grid-cols-2 gap-3 max-h-[350px] overflow-y-auto">
+              {[
+                { tipo: 'stories', nome: 'Stories', dim: '1080×1920px', plat: 'instagram' },
+                { tipo: 'feed_quadrado', nome: 'Feed Quadrado', dim: '1080×1080px', plat: 'instagram' },
+                { tipo: 'feed_retrato', nome: 'Feed Retrato', dim: '1080×1350px', plat: 'instagram' },
+                { tipo: 'reels', nome: 'Reels/TikTok', dim: '1080×1920px', plat: 'instagram_tiktok' },
+              ].map((format) => (
+                <Card key={format.tipo} className="p-3 border-dashed">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileImage className="h-4 w-4 text-primary" />
+                    <div>
+                      <h4 className="text-xs font-semibold">{format.nome}</h4>
+                      <p className="text-[10px] text-muted-foreground">{format.dim}</p>
+                    </div>
+                  </div>
+                  {marketingAssets.find(a => a.tipo_formato === format.tipo) ? (
+                    <div className="relative group">
+                      <img 
+                        src={marketingAssets.find(a => a.tipo_formato === format.tipo)?.imagem_url || ''}
+                        alt={format.nome}
+                        className="w-full h-20 object-cover rounded"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                        onClick={() => setMarketingAssets(prev => prev.filter(a => a.tipo_formato !== format.tipo))}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center h-20 border border-dashed rounded cursor-pointer hover:bg-muted/50">
+                      <Upload className="h-4 w-4 text-muted-foreground mb-1" />
+                      <span className="text-[10px] text-muted-foreground">Upload</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setMarketingAssets(prev => [...prev, {
+                                tipo_formato: format.tipo,
+                                plataforma: format.plat,
+                                largura: 1080,
+                                altura: format.tipo === 'feed_quadrado' ? 1080 : format.tipo === 'feed_retrato' ? 1350 : 1920,
+                                imagem_url: reader.result as string,
+                                nome_arquivo: file.name,
+                                tamanho_arquivo: file.size,
+                                file
+                              }]);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </Card>
+              ))}
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[650px] w-[95vw] h-[600px] max-h-[600px] flex flex-col p-0 overflow-hidden">
+        {/* Header fixo */}
+        <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b bg-background">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>{editingProspeccao ? 'Editar Evento' : 'Novo Evento'}</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                Etapa {currentStep + 1} de {steps.length}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {/* Step indicator */}
+          <div className="flex items-center gap-2 mt-4">
+            {steps.map((step, index) => (
+              <div key={step} className="flex items-center">
+                <div 
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
+                    index === currentStep 
+                      ? 'bg-primary text-primary-foreground' 
+                      : index < currentStep 
+                        ? 'bg-primary/20 text-primary' 
+                        : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {index < currentStep ? <Check className="h-4 w-4" /> : index + 1}
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={`w-6 h-0.5 mx-1 ${index < currentStep ? 'bg-primary/50' : 'bg-muted'}`} />
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-sm font-medium text-primary mt-2">{currentStepName}</p>
+        </div>
+        
+        {/* Conteúdo com scroll */}
+        <ScrollIndicator className="flex-1 min-h-0 px-6 py-4">
+          {renderStepContent()}
+        </ScrollIndicator>
+
+        {/* Footer fixo */}
+        <div className="flex-shrink-0 flex justify-between gap-2 px-6 py-4 border-t bg-background">
+          <Button type="button" variant="outline" onClick={handleCancel} disabled={loading}>
+            Cancelar
+          </Button>
+          
+          <div className="flex gap-2">
+            {!isFirstStep && (
+              <Button type="button" variant="outline" onClick={handlePreviousStep} disabled={loading}>
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Voltar
               </Button>
-              <Button type="submit" disabled={loading}>
+            )}
+            
+            {isLastStep ? (
+              <Button onClick={handleSubmit} disabled={loading}>
                 {loading 
                   ? (editingProspeccao ? "Salvando..." : "Criando...") 
-                  : (editingProspeccao ? "Salvar Alterações" : "Criar Prospecção")
+                  : (editingProspeccao ? "Salvar Alterações" : "Criar Evento")
                 }
               </Button>
-            </div>
-          </Tabs>
-        </form>
+            ) : (
+              <Button type="button" onClick={handleNextStep} disabled={loading}>
+                Próxima Etapa
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            )}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
