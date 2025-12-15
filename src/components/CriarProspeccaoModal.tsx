@@ -30,7 +30,7 @@ type TipoEvento = 'Grande Evento' | 'Prospecção Mensal' | 'IA Whatsapp' | 'IA 
 const getStepsByType = (tipo: TipoEvento): string[] => {
   switch (tipo) {
     case 'Grande Evento':
-      return ['Dados Gerais', 'Metas', 'Metas Individuais', 'Equipes', 'Premiações', 'Convite', 'Páginas', 'Marketing'];
+      return ['Dados Gerais', 'Equipes', 'Metas', 'Metas Individuais', 'Premiações', 'Convite', 'Páginas', 'Marketing'];
     case 'Prospecção Mensal':
       return ['Dados Gerais', 'Equipes'];
     case 'IA Whatsapp':
@@ -830,12 +830,15 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
   
-  // Filtrar usuários
-  const filteredUsers = usersComAcesso.filter(user => {
-    const searchLower = metasIndividuaisFilter.toLowerCase();
-    return user.nome_completo.toLowerCase().includes(searchLower) ||
-           (user.tipo_acesso?.toLowerCase().includes(searchLower) ?? false);
-  });
+  // Filtrar usuários - apenas os que estão em equipes do evento
+  const usersEmEquipes = equipes.flatMap(e => e.membros);
+  const filteredUsers = usersComAcesso
+    .filter(user => usersEmEquipes.includes(user.id))
+    .filter(user => {
+      const searchLower = metasIndividuaisFilter.toLowerCase();
+      return user.nome_completo.toLowerCase().includes(searchLower) ||
+             (user.tipo_acesso?.toLowerCase().includes(searchLower) ?? false);
+    });
 
   const handleSubmit = async () => {
     if (!titulo.trim()) {
@@ -1541,17 +1544,6 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
       case 'Metas Individuais':
         return (
           <div className="space-y-4">
-            <Card className="p-4 bg-gradient-to-r from-blue-500/80 to-blue-600 text-white">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-4 w-4" />
-                <span className="text-sm font-medium">Metas Individuais por Usuário</span>
-              </div>
-              <div className="text-center">
-                <span className="text-3xl font-bold">{usersComAcesso.length}</span>
-                <p className="text-xs opacity-80 mt-1">Usuários ativos</p>
-              </div>
-            </Card>
-            
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
