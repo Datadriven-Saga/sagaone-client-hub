@@ -40,6 +40,11 @@ const Gatilhos = () => {
       value: "adicao_anotacao_prospeccao", 
       label: "Adição de Anotação na Prospeção",
       modulo: "Prospecção"
+    },
+    { 
+      value: "novo_template_whatsapp", 
+      label: "Novo Template WhatsApp Criado",
+      modulo: "Templates"
     }
   ];
 
@@ -255,6 +260,17 @@ const Gatilhos = () => {
             contato_nome: "Pedro Costa (TESTE)",
             anotacao: "Esta é uma anotação de teste do sistema",
             usuario_nome: "Sistema de Teste",
+            data: new Date().toISOString()
+          };
+          break;
+        case 'novo_template_whatsapp':
+          dadosTeste = {
+            template_nome: "Template de Teste",
+            template_id: "test-template-id",
+            categoria: "Marketing",
+            formato: "Texto",
+            status: "Pendente",
+            empresa_id: "test-empresa-id",
             data: new Date().toISOString()
           };
           break;
