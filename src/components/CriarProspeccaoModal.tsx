@@ -1124,16 +1124,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
 
-  // Função para disparar webhooks de gatilhos configurados para "novo_evento_criado"
-  // Dispara APENAS para eventos do tipo IA Whatsapp ou IA Ligação
   const triggerNovoEventoCriadoWebhooks = async (prospeccaoData: any, isEditing: boolean) => {
     if (!activeCompany?.id) return;
 
-    // Só dispara para IA Whatsapp e IA Ligação
-    if (tipoEvento !== 'IA Whatsapp' && tipoEvento !== 'IA Ligação') {
-      console.log('Gatilho de novo_evento_criado não se aplica a este tipo de evento:', tipoEvento);
-      return;
-    }
+    console.log('🔔 Verificando gatilhos para evento tipo:', tipoEvento);
 
     try {
       // Buscar gatilhos ativos do tipo "novo_evento_criado"
@@ -1165,12 +1159,15 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         titulo: prospeccaoData.titulo,
         descricao: prospeccaoData.descricao,
         tipo_evento: tipoEvento,
+        data_inicio: prospeccaoData.data_inicio,
+        data_fim: prospeccaoData.data_fim,
+        canal: prospeccaoData.canal,
         acao: isEditing ? 'alterado' : 'criado',
         empresa_id: activeCompany.id,
         data: new Date().toISOString(),
       };
 
-      // Adicionar templates apenas para IA Whatsapp
+      // Adicionar templates para IA Whatsapp
       if (tipoEvento === 'IA Whatsapp') {
         payload.template_prospeccao = prospeccaoData.template_prospeccao || null;
         payload.template_agendado = prospeccaoData.template_agendado || null;
