@@ -131,7 +131,35 @@ const Gatilhos = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.nome || !formData.tipo || !formData.webhook_url) return;
+    
+    // Validação com mensagens de erro específicas
+    if (!formData.nome.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Por favor, preencha o nome do gatilho.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!formData.tipo) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Por favor, selecione o tipo de gatilho.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!formData.webhook_url.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Por favor, preencha a URL do webhook.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (!user || !activeCompany) return;
     
     try {
