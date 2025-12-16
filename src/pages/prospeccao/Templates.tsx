@@ -134,6 +134,43 @@ export default function Templates() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Helper function to upload media to Supabase Storage
+  const uploadMediaToStorage = async (file: File, mediaType: 'image' | 'audio' | 'video'): Promise<string | null> => {
+    try {
+      setIsUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${activeCompany?.id}/${mediaType}/${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('whatsapp-templates')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+      
+      if (error) {
+        console.error('Upload error:', error);
+        toast.error('Erro ao fazer upload do arquivo');
+        return null;
+      }
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('whatsapp-templates')
+        .getPublicUrl(data.path);
+      
+      return publicUrl;
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast.error('Erro ao fazer upload do arquivo');
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const initialCardData: CardData = {
     imagemCampanha: null,
     imagemPreviewUrl: "",
@@ -899,18 +936,20 @@ export default function Templates() {
     }
 
     if (formData.formato === "card") {
-      const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-          const previewUrl = URL.createObjectURL(file);
-          setFormData(prev => ({
-            ...prev,
-            cardData: {
-              ...prev.cardData,
-              imagemCampanha: file,
-              imagemPreviewUrl: previewUrl,
-            }
-          }));
+          const publicUrl = await uploadMediaToStorage(file, 'image');
+          if (publicUrl) {
+            setFormData(prev => ({
+              ...prev,
+              cardData: {
+                ...prev.cardData,
+                imagemCampanha: file,
+                imagemPreviewUrl: publicUrl,
+              }
+            }));
+          }
         }
       };
 
@@ -967,12 +1006,17 @@ export default function Templates() {
           {/* Imagem da Campanha */}
           <div>
             <Label>Imagem da Campanha</Label>
-            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-              A URL da mídia deve ser pública e temporária (válida por no mínimo 3 minutos)
+            <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+              <Check className="h-3 w-3" />
+              A URL da mídia é pública e permanente
             </p>
             <div className="mt-2">
-              {formData.cardData.imagemPreviewUrl ? (
+              {isUploading ? (
+                <div className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-primary rounded-lg">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mb-1"></div>
+                  <span className="text-sm text-muted-foreground">Enviando...</span>
+                </div>
+              ) : formData.cardData.imagemPreviewUrl ? (
                 <div className="relative w-full h-32 bg-muted rounded-lg overflow-hidden">
                   <img 
                     src={formData.cardData.imagemPreviewUrl} 
@@ -1248,18 +1292,20 @@ export default function Templates() {
     }
 
     if (formData.formato === "imagem") {
-      const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-          const previewUrl = URL.createObjectURL(file);
-          setFormData(prev => ({
-            ...prev,
-            cardData: {
-              ...prev.cardData,
-              imagemCampanha: file,
-              imagemPreviewUrl: previewUrl,
-            }
-          }));
+          const publicUrl = await uploadMediaToStorage(file, 'image');
+          if (publicUrl) {
+            setFormData(prev => ({
+              ...prev,
+              cardData: {
+                ...prev.cardData,
+                imagemCampanha: file,
+                imagemPreviewUrl: publicUrl,
+              }
+            }));
+          }
         }
       };
 
@@ -1279,12 +1325,17 @@ export default function Templates() {
           {/* Imagem da Campanha */}
           <div>
             <Label>Imagem da Campanha</Label>
-            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-              A URL da mídia deve ser pública e temporária (válida por no mínimo 3 minutos)
+            <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+              <Check className="h-3 w-3" />
+              A URL da mídia é pública e permanente
             </p>
             <div className="mt-2">
-              {formData.cardData.imagemPreviewUrl ? (
+              {isUploading ? (
+                <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-primary rounded-lg">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+                  <span className="text-sm text-muted-foreground">Enviando...</span>
+                </div>
+              ) : formData.cardData.imagemPreviewUrl ? (
                 <div className="relative w-full h-40 bg-muted rounded-lg overflow-hidden">
                   <img 
                     src={formData.cardData.imagemPreviewUrl} 
@@ -1345,18 +1396,20 @@ export default function Templates() {
     }
 
     if (formData.formato === "audio") {
-      const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-          const previewUrl = URL.createObjectURL(file);
-          setFormData(prev => ({
-            ...prev,
-            cardData: {
-              ...prev.cardData,
-              audioCampanha: file,
-              audioPreviewUrl: previewUrl,
-            }
-          }));
+          const publicUrl = await uploadMediaToStorage(file, 'audio');
+          if (publicUrl) {
+            setFormData(prev => ({
+              ...prev,
+              cardData: {
+                ...prev.cardData,
+                audioCampanha: file,
+                audioPreviewUrl: publicUrl,
+              }
+            }));
+          }
         }
       };
 
@@ -1376,12 +1429,17 @@ export default function Templates() {
           {/* Áudio da Campanha */}
           <div>
             <Label>Áudio da Campanha</Label>
-            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-              A URL da mídia deve ser pública e temporária (válida por no mínimo 3 minutos)
+            <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+              <Check className="h-3 w-3" />
+              A URL da mídia é pública e permanente
             </p>
             <div className="mt-2">
-              {formData.cardData.audioPreviewUrl ? (
+              {isUploading ? (
+                <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-primary rounded-lg">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+                  <span className="text-sm text-muted-foreground">Enviando...</span>
+                </div>
+              ) : formData.cardData.audioPreviewUrl ? (
                 <div className="relative w-full bg-muted rounded-lg overflow-hidden p-4">
                   <audio 
                     src={formData.cardData.audioPreviewUrl} 
@@ -1442,18 +1500,20 @@ export default function Templates() {
     }
 
     if (formData.formato === "video") {
-      const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-          const previewUrl = URL.createObjectURL(file);
-          setFormData(prev => ({
-            ...prev,
-            cardData: {
-              ...prev.cardData,
-              videoCampanha: file,
-              videoPreviewUrl: previewUrl,
-            }
-          }));
+          const publicUrl = await uploadMediaToStorage(file, 'video');
+          if (publicUrl) {
+            setFormData(prev => ({
+              ...prev,
+              cardData: {
+                ...prev.cardData,
+                videoCampanha: file,
+                videoPreviewUrl: publicUrl,
+              }
+            }));
+          }
         }
       };
 
@@ -1473,12 +1533,17 @@ export default function Templates() {
           {/* Vídeo da Campanha */}
           <div>
             <Label>Vídeo da Campanha</Label>
-            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-              A URL da mídia deve ser pública e temporária (válida por no mínimo 3 minutos)
+            <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+              <Check className="h-3 w-3" />
+              A URL da mídia é pública e permanente
             </p>
             <div className="mt-2">
-              {formData.cardData.videoPreviewUrl ? (
+              {isUploading ? (
+                <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-primary rounded-lg">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+                  <span className="text-sm text-muted-foreground">Enviando...</span>
+                </div>
+              ) : formData.cardData.videoPreviewUrl ? (
                 <div className="relative w-full bg-muted rounded-lg overflow-hidden">
                   <video 
                     src={formData.cardData.videoPreviewUrl} 
