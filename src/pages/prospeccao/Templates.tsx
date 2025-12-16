@@ -46,6 +46,7 @@ import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 
 
 type TemplateFormat = "texto" | "botao" | "imagem" | "audio" | "video" | "card" | "lista";
@@ -1710,11 +1711,11 @@ export default function Templates() {
             {renderStepIndicator()}
           </div>
           
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          <ScrollIndicator className="flex-1 min-h-0">
             {currentStep === 1 && renderStep1()}
             {currentStep === 2 && renderStep2()}
             {currentStep === 3 && renderStep3()}
-          </div>
+          </ScrollIndicator>
 
           <div className="flex-shrink-0 flex justify-end gap-2 pt-2 border-t mt-2">
             {currentStep > 1 && (
