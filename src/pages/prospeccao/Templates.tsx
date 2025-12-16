@@ -410,11 +410,11 @@ export default function Templates() {
       // Filtrar gatilhos pelo tipo_evento nas acoes
       const gatilhosFiltrados = (gatilhos || []).filter((g) => {
         const acoes = g.acoes as { tipo_evento?: string } | null;
-        return acoes?.tipo_evento === "novo_template_whatsapp_criado";
+        return acoes?.tipo_evento === "novo_template_whatsapp";
       });
 
       if (gatilhosFiltrados.length === 0) {
-        console.log("Nenhum gatilho ativo encontrado para novo_template_whatsapp_criado");
+        console.log("Nenhum gatilho ativo encontrado para novo_template_whatsapp");
         return;
       }
 
