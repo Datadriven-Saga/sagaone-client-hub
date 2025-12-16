@@ -876,6 +876,16 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       return;
     }
 
+    // Validação específica para IA Whatsapp: template prospecção é obrigatório
+    if (tipoEvento === 'IA Whatsapp' && !templateProspeccao.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Para eventos do tipo IA Whatsapp, o Template de Prospecção é obrigatório.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!user) {
       toast({
         title: "Erro",
@@ -1115,8 +1125,15 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   };
 
   // Função para disparar webhooks de gatilhos configurados para "novo_evento_criado"
+  // Dispara APENAS para eventos do tipo IA Whatsapp ou IA Ligação
   const triggerNovoEventoCriadoWebhooks = async (prospeccaoData: any, isEditing: boolean) => {
     if (!activeCompany?.id) return;
+
+    // Só dispara para IA Whatsapp e IA Ligação
+    if (tipoEvento !== 'IA Whatsapp' && tipoEvento !== 'IA Ligação') {
+      console.log('Gatilho de novo_evento_criado não se aplica a este tipo de evento:', tipoEvento);
+      return;
+    }
 
     try {
       // Buscar gatilhos ativos do tipo "novo_evento_criado"
@@ -1143,30 +1160,25 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       }
 
       // Preparar payload para os webhooks
-      const payload = {
+      const payload: any = {
         evento_id: prospeccaoData.id,
         titulo: prospeccaoData.titulo,
         descricao: prospeccaoData.descricao,
         tipo_evento: tipoEvento,
-        data_inicio: prospeccaoData.data_inicio,
-        data_fim: prospeccaoData.data_fim,
-        canal: prospeccaoData.canal,
         acao: isEditing ? 'alterado' : 'criado',
         empresa_id: activeCompany.id,
         data: new Date().toISOString(),
-        // Dados adicionais
-        meta_novos: prospeccaoData.meta_novos,
-        meta_seminovos: prospeccaoData.meta_seminovos,
-        meta_diretas: prospeccaoData.meta_diretas,
-        meta_checkins: prospeccaoData.meta_checkins,
-        meta_confirmacoes: prospeccaoData.meta_confirmacoes,
-        meta_convites: prospeccaoData.meta_convites,
-        template_prospeccao: prospeccaoData.template_prospeccao,
-        template_agendado: prospeccaoData.template_agendado,
-        template_nao_agendado: prospeccaoData.template_nao_agendado,
       };
 
-      console.log(`📤 Disparando ${gatilhosEvento.length} gatilho(s) de novo_evento_criado`);
+      // Adicionar templates apenas para IA Whatsapp
+      if (tipoEvento === 'IA Whatsapp') {
+        payload.template_prospeccao = prospeccaoData.template_prospeccao || null;
+        payload.template_agendado = prospeccaoData.template_agendado || null;
+        payload.template_nao_agendado = prospeccaoData.template_nao_agendado || null;
+      }
+
+      console.log(`📤 Disparando ${gatilhosEvento.length} gatilho(s) de novo_evento_criado para ${tipoEvento}`);
+      console.log('📦 Payload:', payload);
 
       // Disparar cada webhook
       for (const gatilho of gatilhosEvento) {
