@@ -355,8 +355,8 @@ export default function Templates() {
       .replace(/^_|_$/g, ""); // Remove underscores no início/fim
   };
 
-  // Função para converter URL de mídia em base64
-  const fetchMediaAsBase64 = async (url: string): Promise<{ base64: string; mimeType: string } | null> => {
+  // Função para converter URL de mídia em base64 e obter tamanho
+  const fetchMediaAsBase64 = async (url: string): Promise<{ base64: string; mimeType: string; size: number } | null> => {
     try {
       const response = await fetch(url);
       if (!response.ok) {
@@ -365,6 +365,7 @@ export default function Templates() {
       }
       const blob = await response.blob();
       const mimeType = blob.type || "application/octet-stream";
+      const size = blob.size;
       
       return new Promise((resolve) => {
         const reader = new FileReader();
@@ -372,7 +373,7 @@ export default function Templates() {
           const base64 = reader.result as string;
           // Remove o prefixo "data:...;base64," se existir
           const base64Data = base64.includes(",") ? base64.split(",")[1] : base64;
-          resolve({ base64: base64Data, mimeType });
+          resolve({ base64: base64Data, mimeType, size });
         };
         reader.onerror = () => resolve(null);
         reader.readAsDataURL(blob);
@@ -411,6 +412,7 @@ export default function Templates() {
           media_base64: mediaData?.base64 || null,
           media_mime_type: mediaData?.mimeType || null,
           media_type: "image",
+          media_length: mediaData?.size || null,
         });
       }
       // Texto do cabeçalho vai separado se houver
@@ -434,6 +436,7 @@ export default function Templates() {
         media_base64: mediaData?.base64 || null,
         media_mime_type: mediaData?.mimeType || null,
         media_type: "image",
+        media_length: mediaData?.size || null,
       });
     } else if (savedData.formato === "audio" && savedData.cardData?.audioUrl) {
       const mediaData = await fetchMediaAsBase64(savedData.cardData.audioUrl);
@@ -444,6 +447,7 @@ export default function Templates() {
         media_base64: mediaData?.base64 || null,
         media_mime_type: mediaData?.mimeType || null,
         media_type: "audio",
+        media_length: mediaData?.size || null,
       });
     } else if (savedData.formato === "video" && savedData.cardData?.videoUrl) {
       const mediaData = await fetchMediaAsBase64(savedData.cardData.videoUrl);
@@ -454,6 +458,7 @@ export default function Templates() {
         media_base64: mediaData?.base64 || null,
         media_mime_type: mediaData?.mimeType || null,
         media_type: "video",
+        media_length: mediaData?.size || null,
       });
     }
 
