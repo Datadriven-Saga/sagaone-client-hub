@@ -957,7 +957,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         }
 
         // Chamar webhook após atualização
-        await callWebhook(data);
+        await callWebhook(data, true);
         
         // Salvar dados relacionados baseado no tipo
         if (tipoEvento === 'Grande Evento') {
@@ -1003,7 +1003,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         }
 
         // Chamar webhook após criação
-        await callWebhook(data);
+        await callWebhook(data, false);
         
         // Salvar dados relacionados baseado no tipo
         if (tipoEvento === 'Grande Evento') {
@@ -1040,7 +1040,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
 
-  const callWebhook = async (prospeccaoData: any) => {
+  const callWebhook = async (prospeccaoData: any, isEditing: boolean = false) => {
     try {
       // Buscar dados da empresa para pegar o crm_id e telefone da Pri
       const { data: empresaData } = await supabase
@@ -1105,9 +1105,100 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       } else {
         console.log('✅ Webhook enviado com sucesso');
       }
+
+      // Disparar gatilhos configurados do tipo "novo_evento_criado"
+      await triggerNovoEventoCriadoWebhooks(prospeccaoData, isEditing);
     } catch (error) {
       console.error('Erro ao enviar webhook:', error);
       // Não mostramos erro ao usuário para não interromper o fluxo
+    }
+  };
+
+  // Função para disparar webhooks de gatilhos configurados para "novo_evento_criado"
+  const triggerNovoEventoCriadoWebhooks = async (prospeccaoData: any, isEditing: boolean) => {
+    if (!activeCompany?.id) return;
+
+    try {
+      // Buscar gatilhos ativos do tipo "novo_evento_criado"
+      const { data: gatilhos, error } = await supabase
+        .from('gatilhos')
+        .select('*')
+        .eq('empresa_id', activeCompany.id)
+        .eq('status', 'Ativo');
+
+      if (error) {
+        console.error('Erro ao buscar gatilhos:', error);
+        return;
+      }
+
+      // Filtrar gatilhos do tipo "novo_evento_criado"
+      const gatilhosEvento = gatilhos?.filter(g => {
+        const acoes = g.acoes as any;
+        return acoes?.tipo_evento === 'novo_evento_criado';
+      }) || [];
+
+      if (gatilhosEvento.length === 0) {
+        console.log('Nenhum gatilho de novo_evento_criado configurado');
+        return;
+      }
+
+      // Preparar payload para os webhooks
+      const payload = {
+        evento_id: prospeccaoData.id,
+        titulo: prospeccaoData.titulo,
+        descricao: prospeccaoData.descricao,
+        tipo_evento: tipoEvento,
+        data_inicio: prospeccaoData.data_inicio,
+        data_fim: prospeccaoData.data_fim,
+        canal: prospeccaoData.canal,
+        acao: isEditing ? 'alterado' : 'criado',
+        empresa_id: activeCompany.id,
+        data: new Date().toISOString(),
+        // Dados adicionais
+        meta_novos: prospeccaoData.meta_novos,
+        meta_seminovos: prospeccaoData.meta_seminovos,
+        meta_diretas: prospeccaoData.meta_diretas,
+        meta_checkins: prospeccaoData.meta_checkins,
+        meta_confirmacoes: prospeccaoData.meta_confirmacoes,
+        meta_convites: prospeccaoData.meta_convites,
+        template_prospeccao: prospeccaoData.template_prospeccao,
+        template_agendado: prospeccaoData.template_agendado,
+        template_nao_agendado: prospeccaoData.template_nao_agendado,
+      };
+
+      console.log(`📤 Disparando ${gatilhosEvento.length} gatilho(s) de novo_evento_criado`);
+
+      // Disparar cada webhook
+      for (const gatilho of gatilhosEvento) {
+        const webhookUrl = (gatilho.acoes as any)?.webhook_url;
+        if (!webhookUrl) continue;
+
+        try {
+          const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (response.ok) {
+            console.log(`✅ Gatilho "${gatilho.nome}" disparado com sucesso`);
+            
+            // Atualizar ultima_execucao do gatilho
+            await supabase
+              .from('gatilhos')
+              .update({ ultima_execucao: new Date().toISOString() })
+              .eq('id', gatilho.id);
+          } else {
+            console.error(`❌ Gatilho "${gatilho.nome}" falhou: ${response.status}`);
+          }
+        } catch (webhookError) {
+          console.error(`❌ Erro ao disparar gatilho "${gatilho.nome}":`, webhookError);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao processar gatilhos de novo_evento_criado:', error);
     }
   };
 
