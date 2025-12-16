@@ -602,6 +602,16 @@ export default function Templates() {
   };
 
   const handleSave = async () => {
+    // Validação de nome duplicado
+    const duplicateExists = templates.some(
+      t => t.nome.toLowerCase() === formData.nome.trim().toLowerCase() && t.id !== editingTemplateId
+    );
+    
+    if (duplicateExists) {
+      toast.error("Já existe um template com este nome");
+      return;
+    }
+
     // Validações específicas por formato
     if (formData.formato === "texto" && !formData.conteudo) {
       toast.error("Preencha o conteúdo do template");
