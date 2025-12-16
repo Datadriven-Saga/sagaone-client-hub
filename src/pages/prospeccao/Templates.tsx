@@ -305,8 +305,36 @@ export default function Templates() {
       .replace(/^_|_$/g, ""); // Remove underscores no início/fim
   };
 
-  // Função para construir o payload Meta-compatível
-  const buildMetaPayload = (savedData: {
+  // Função para converter URL de mídia em base64
+  const fetchMediaAsBase64 = async (url: string): Promise<{ base64: string; mimeType: string } | null> => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.error("Erro ao buscar mídia:", response.status);
+        return null;
+      }
+      const blob = await response.blob();
+      const mimeType = blob.type || "application/octet-stream";
+      
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          // Remove o prefixo "data:...;base64," se existir
+          const base64Data = base64.includes(",") ? base64.split(",")[1] : base64;
+          resolve({ base64: base64Data, mimeType });
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error("Erro ao converter mídia para base64:", error);
+      return null;
+    }
+  };
+
+  // Função para construir o payload Meta-compatível (async para buscar binários)
+  const buildMetaPayload = async (savedData: {
     nome: string;
     categoria: string;
     formato: string;
@@ -325,10 +353,13 @@ export default function Templates() {
     if (savedData.formato === "card") {
       // Card pode ter imagem + texto de cabeçalho
       if (savedData.cardData?.imagemUrl) {
+        const mediaData = await fetchMediaAsBase64(savedData.cardData.imagemUrl);
         components.push({
           type: "HEADER",
           format: "IMAGE",
           image_url: savedData.cardData.imagemUrl,
+          image_base64: mediaData?.base64 || null,
+          image_mime_type: mediaData?.mimeType || null,
         });
       }
       // Texto do cabeçalho vai separado se houver
@@ -344,16 +375,22 @@ export default function Templates() {
         }
       }
     } else if (savedData.formato === "imagem" && savedData.cardData?.imagemUrl) {
+      const mediaData = await fetchMediaAsBase64(savedData.cardData.imagemUrl);
       components.push({
         type: "HEADER",
         format: "IMAGE",
         image_url: savedData.cardData.imagemUrl,
+        image_base64: mediaData?.base64 || null,
+        image_mime_type: mediaData?.mimeType || null,
       });
     } else if (savedData.formato === "video" && savedData.cardData?.videoUrl) {
+      const mediaData = await fetchMediaAsBase64(savedData.cardData.videoUrl);
       components.push({
         type: "HEADER",
         format: "VIDEO",
         video_url: savedData.cardData.videoUrl,
+        video_base64: mediaData?.base64 || null,
+        video_mime_type: mediaData?.mimeType || null,
       });
     }
 
@@ -435,8 +472,8 @@ export default function Templates() {
         return;
       }
 
-      // Construir payload Meta-compatível
-      const metaPayload = buildMetaPayload(templateData);
+      // Construir payload Meta-compatível (async para buscar binários de mídia)
+      const metaPayload = await buildMetaPayload(templateData);
 
       // Disparar webhooks para cada gatilho
       for (const gatilho of gatilhosFiltrados) {
