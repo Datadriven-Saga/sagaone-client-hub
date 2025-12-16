@@ -966,8 +966,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           throw error;
         }
 
-        // Chamar webhook após atualização
-        await callWebhook(data, true);
+      // Chamar webhook após atualização
+        await callWebhook(data);
+        
+        // Disparar gatilhos de "novo_evento_criado" (independente do webhook pri-config)
+        await triggerNovoEventoCriadoWebhooks(data, true);
         
         // Salvar dados relacionados baseado no tipo
         if (tipoEvento === 'Grande Evento') {
@@ -1012,8 +1015,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           throw error;
         }
 
-        // Chamar webhook após criação
-        await callWebhook(data, false);
+      // Chamar webhook após criação
+        await callWebhook(data);
+        
+        // Disparar gatilhos de "novo_evento_criado" (independente do webhook pri-config)
+        await triggerNovoEventoCriadoWebhooks(data, false);
         
         // Salvar dados relacionados baseado no tipo
         if (tipoEvento === 'Grande Evento') {
@@ -1050,7 +1056,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
 
-  const callWebhook = async (prospeccaoData: any, isEditing: boolean = false) => {
+  const callWebhook = async (prospeccaoData: any) => {
     try {
       // Buscar dados da empresa para pegar o crm_id e telefone da Pri
       const { data: empresaData } = await supabase
@@ -1111,15 +1117,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       });
 
       if (!response.ok) {
-        console.error('Erro na resposta do webhook:', response.status);
+        console.error('Erro na resposta do webhook pri-config:', response.status);
       } else {
-        console.log('✅ Webhook enviado com sucesso');
+        console.log('✅ Webhook pri-config enviado com sucesso');
       }
-
-      // Disparar gatilhos configurados do tipo "novo_evento_criado"
-      await triggerNovoEventoCriadoWebhooks(prospeccaoData, isEditing);
     } catch (error) {
-      console.error('Erro ao enviar webhook:', error);
+      console.error('Erro ao enviar webhook pri-config:', error);
       // Não mostramos erro ao usuário para não interromper o fluxo
     }
   };
