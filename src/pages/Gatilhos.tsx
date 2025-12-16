@@ -48,6 +48,11 @@ const Gatilhos = () => {
       value: "novo_template_whatsapp", 
       label: "Novo Template WhatsApp Criado",
       modulo: "Templates"
+    },
+    { 
+      value: "novo_evento_criado", 
+      label: "Novo Evento Criado/Alterado na Prospecção",
+      modulo: "Prospecção"
     }
   ];
 
@@ -255,6 +260,20 @@ const Gatilhos = () => {
             categoria: "Marketing",
             formato: "Texto",
             status: "Pendente",
+            empresa_id: "test-empresa-id",
+            data: new Date().toISOString()
+          };
+          break;
+        case 'novo_evento_criado':
+          dadosTeste = {
+            evento_id: "test-evento-id",
+            titulo: "Evento de Teste",
+            descricao: "Descrição do evento de teste",
+            tipo_evento: "Grande Evento",
+            data_inicio: new Date().toISOString().split('T')[0],
+            data_fim: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            canal: "Whatsapp",
+            acao: "criado",
             empresa_id: "test-empresa-id",
             data: new Date().toISOString()
           };
