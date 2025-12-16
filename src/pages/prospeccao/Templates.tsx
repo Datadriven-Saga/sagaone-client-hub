@@ -322,21 +322,38 @@ export default function Templates() {
     });
 
     // HEADER (opcional) - para formatos com cabeçalho
-    if (savedData.formato === "card" && savedData.cardData?.textoCabecalho) {
-      components.push({
-        type: "HEADER",
-        format: "TEXT",
-        text: savedData.cardData.textoCabecalho,
-      });
+    if (savedData.formato === "card") {
+      // Card pode ter imagem + texto de cabeçalho
+      if (savedData.cardData?.imagemUrl) {
+        components.push({
+          type: "HEADER",
+          format: "IMAGE",
+          image_url: savedData.cardData.imagemUrl,
+        });
+      }
+      // Texto do cabeçalho vai separado se houver
+      if (savedData.cardData?.textoCabecalho) {
+        // Se já tem imagem, o texto vai no próprio header como exemplo
+        // Se não tem imagem, é header de texto
+        if (!savedData.cardData?.imagemUrl) {
+          components.push({
+            type: "HEADER",
+            format: "TEXT",
+            text: savedData.cardData.textoCabecalho,
+          });
+        }
+      }
     } else if (savedData.formato === "imagem" && savedData.cardData?.imagemUrl) {
       components.push({
         type: "HEADER",
         format: "IMAGE",
+        image_url: savedData.cardData.imagemUrl,
       });
     } else if (savedData.formato === "video" && savedData.cardData?.videoUrl) {
       components.push({
         type: "HEADER",
         format: "VIDEO",
+        video_url: savedData.cardData.videoUrl,
       });
     }
 
