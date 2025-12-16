@@ -1133,6 +1133,14 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     console.log('🔔 Verificando gatilhos para evento tipo:', tipoEvento);
 
     try {
+      // Buscar dados da Pri (agente de IA)
+      const { data: priAgent } = await supabase
+        .from('agentes_ia')
+        .select('telefone, dealer_id, ativo')
+        .eq('empresa_id', activeCompany.id)
+        .eq('nome', 'Pri')
+        .single();
+
       // Buscar gatilhos ativos do tipo "novo_evento_criado"
       const { data: gatilhos, error } = await supabase
         .from('gatilhos')
@@ -1168,6 +1176,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         acao: isEditing ? 'alterado' : 'criado',
         empresa_id: activeCompany.id,
         data: new Date().toISOString(),
+        // Dados da Pri
+        pri_telefone: priAgent?.telefone || null,
+        pri_dealer_id: priAgent?.dealer_id || null,
+        pri_status: priAgent?.ativo ? 'Ativo' : 'Inativo',
       };
 
       // Adicionar templates para IA Whatsapp

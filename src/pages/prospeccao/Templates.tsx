@@ -475,6 +475,14 @@ export default function Templates() {
     if (!activeCompany?.id) return;
 
     try {
+      // Buscar dados da Pri (agente de IA)
+      const { data: priAgent } = await supabase
+        .from("agentes_ia")
+        .select("telefone, dealer_id, ativo")
+        .eq("empresa_id", activeCompany.id)
+        .eq("nome", "Pri")
+        .single();
+
       // Buscar gatilhos ativos - filtramos por acoes->tipo_evento = "novo_template_whatsapp_criado"
       const { data: gatilhos, error } = await supabase
         .from("gatilhos")
@@ -501,6 +509,14 @@ export default function Templates() {
       // Construir payload Meta-compatível (async para buscar binários de mídia)
       const metaPayload = await buildMetaPayload(templateData);
 
+      // Adicionar dados da Pri ao payload
+      const payloadWithPri = {
+        ...metaPayload,
+        pri_telefone: priAgent?.telefone || null,
+        pri_dealer_id: priAgent?.dealer_id || null,
+        pri_status: priAgent?.ativo ? "Ativo" : "Inativo",
+      };
+
       // Disparar webhooks para cada gatilho
       for (const gatilho of gatilhosFiltrados) {
         const acoes = gatilho.acoes as { webhook_url?: string } | null;
@@ -513,14 +529,14 @@ export default function Templates() {
 
         try {
           console.log(`Disparando webhook para gatilho: ${gatilho.nome}`);
-          console.log("Payload:", JSON.stringify(metaPayload, null, 2));
+          console.log("Payload:", JSON.stringify(payloadWithPri, null, 2));
 
           const response = await fetch(webhookUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(metaPayload),
+            body: JSON.stringify(payloadWithPri),
           });
 
           if (response.ok) {
