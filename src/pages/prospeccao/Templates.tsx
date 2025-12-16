@@ -967,6 +967,10 @@ export default function Templates() {
           {/* Imagem da Campanha */}
           <div>
             <Label>Imagem da Campanha</Label>
+            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              A URL da mídia deve ser pública e temporária (válida por no mínimo 3 minutos)
+            </p>
             <div className="mt-2">
               {formData.cardData.imagemPreviewUrl ? (
                 <div className="relative w-full h-32 bg-muted rounded-lg overflow-hidden">
@@ -1275,6 +1279,10 @@ export default function Templates() {
           {/* Imagem da Campanha */}
           <div>
             <Label>Imagem da Campanha</Label>
+            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              A URL da mídia deve ser pública e temporária (válida por no mínimo 3 minutos)
+            </p>
             <div className="mt-2">
               {formData.cardData.imagemPreviewUrl ? (
                 <div className="relative w-full h-40 bg-muted rounded-lg overflow-hidden">
@@ -1368,6 +1376,10 @@ export default function Templates() {
           {/* Áudio da Campanha */}
           <div>
             <Label>Áudio da Campanha</Label>
+            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              A URL da mídia deve ser pública e temporária (válida por no mínimo 3 minutos)
+            </p>
             <div className="mt-2">
               {formData.cardData.audioPreviewUrl ? (
                 <div className="relative w-full bg-muted rounded-lg overflow-hidden p-4">
@@ -1461,6 +1473,10 @@ export default function Templates() {
           {/* Vídeo da Campanha */}
           <div>
             <Label>Vídeo da Campanha</Label>
+            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              A URL da mídia deve ser pública e temporária (válida por no mínimo 3 minutos)
+            </p>
             <div className="mt-2">
               {formData.cardData.videoPreviewUrl ? (
                 <div className="relative w-full bg-muted rounded-lg overflow-hidden">

@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List } from "lucide-react";
+import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProspeccaoGlobalFilter, ProspeccaoGlobalFilters } from "@/components/ProspeccaoGlobalFilter";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
@@ -76,6 +76,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     return savedTab || 'eventos';
   });
   const [viewMode, setViewMode] = useState<'kanban' | 'lista'>('kanban');
+  const [listaSortColumn, setListaSortColumn] = useState<string>('updated_at');
+  const [listaSortDirection, setListaSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Atualizar activeTab quando defaultTab mudar (navegação entre sub-módulos)
   useEffect(() => {
@@ -1352,21 +1354,86 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Status</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Nome do Cliente</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Departamento</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Vendedor</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Produto de Interesse</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Data de Criação</th>
-                          <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Última Atualização</th>
+                          {[
+                            { key: 'status', label: 'Status' },
+                            { key: 'nome', label: 'Nome do Cliente' },
+                            { key: 'departamento', label: 'Departamento' },
+                            { key: 'vendedor', label: 'Vendedor' },
+                            { key: 'produto', label: 'Produto de Interesse' },
+                            { key: 'created_at', label: 'Data de Criação' },
+                            { key: 'updated_at', label: 'Última Atualização' },
+                          ].map((col) => (
+                            <th 
+                              key={col.key}
+                              className="text-left py-2 px-3 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground hover:bg-muted/50 transition-colors select-none"
+                              onClick={() => {
+                                if (listaSortColumn === col.key) {
+                                  setListaSortDirection(listaSortDirection === 'asc' ? 'desc' : 'asc');
+                                } else {
+                                  setListaSortColumn(col.key);
+                                  setListaSortDirection('desc');
+                                }
+                              }}
+                            >
+                              <div className="flex items-center gap-1">
+                                {col.label}
+                                {listaSortColumn === col.key ? (
+                                  listaSortDirection === 'asc' ? (
+                                    <ArrowUp className="h-3.5 w-3.5 text-primary" />
+                                  ) : (
+                                    <ArrowDown className="h-3.5 w-3.5 text-primary" />
+                                  )
+                                ) : (
+                                  <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
+                                )}
+                              </div>
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
                         {[...filteredContatos]
                           .sort((a, b) => {
-                            const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
-                            const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
-                            return dateB - dateA; // Mais recente primeiro
+                            const direction = listaSortDirection === 'asc' ? 1 : -1;
+                            
+                            // Helper para buscar responsável
+                            const getResponsavelProfile = (contato: Contato) => profiles.find(p => 
+                              p.id === contato.responsavel_email || 
+                              p.email === contato.responsavel_email || 
+                              p.celular === contato.responsavel_email
+                            );
+                            
+                            switch (listaSortColumn) {
+                              case 'status':
+                                return (a.status || '').localeCompare(b.status || '') * direction;
+                              case 'nome':
+                                return (a.nome || '').localeCompare(b.nome || '') * direction;
+                              case 'departamento':
+                                const deptA = getResponsavelProfile(a)?.departamento || '';
+                                const deptB = getResponsavelProfile(b)?.departamento || '';
+                                return deptA.localeCompare(deptB) * direction;
+                              case 'vendedor':
+                                const vendA = getResponsavelProfile(a)?.nome_completo || '';
+                                const vendB = getResponsavelProfile(b)?.nome_completo || '';
+                                return vendA.localeCompare(vendB) * direction;
+                              case 'produto':
+                                const prodA = a.observacoes?.includes('Produto:') 
+                                  ? a.observacoes.split('Produto:')[1]?.split(',')[0]?.trim() || ''
+                                  : '';
+                                const prodB = b.observacoes?.includes('Produto:') 
+                                  ? b.observacoes.split('Produto:')[1]?.split(',')[0]?.trim() || ''
+                                  : '';
+                                return prodA.localeCompare(prodB) * direction;
+                              case 'created_at':
+                                const createdA = new Date(a.created_at || 0).getTime();
+                                const createdB = new Date(b.created_at || 0).getTime();
+                                return (createdA - createdB) * direction;
+                              case 'updated_at':
+                              default:
+                                const updatedA = new Date(a.updated_at || a.created_at || 0).getTime();
+                                const updatedB = new Date(b.updated_at || b.created_at || 0).getTime();
+                                return (updatedA - updatedB) * direction;
+                            }
                           })
                           .map((contato) => {
                           // Buscar nome do responsável
