@@ -61,6 +61,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [convite, setConvite] = useState("");
   const [imagemDivulgacao, setImagemDivulgacao] = useState("");
   
+  // Templates WhatsApp disponíveis
+  const [whatsappTemplates, setWhatsappTemplates] = useState<{ id: string; nome: string }[]>([]);
+  
   // Metas
   const [metaNovos, setMetaNovos] = useState<number | "">("");
   const [metaSeminovos, setMetaSeminovos] = useState<number | "">("");
@@ -376,6 +379,29 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     };
     
     fetchUsersComAcesso();
+  }, [activeCompany?.id, isOpen]);
+  
+  // Buscar templates WhatsApp disponíveis (pendente ou aprovado)
+  useEffect(() => {
+    const fetchWhatsappTemplates = async () => {
+      if (!activeCompany?.id || !isOpen) return;
+      
+      const { data, error } = await supabase
+        .from('whatsapp_templates')
+        .select('id, nome')
+        .eq('empresa_id', activeCompany.id)
+        .in('status', ['pendente', 'aprovado'])
+        .order('nome');
+      
+      if (error) {
+        console.error('Erro ao buscar templates WhatsApp:', error);
+        return;
+      }
+      
+      setWhatsappTemplates(data || []);
+    };
+    
+    fetchWhatsappTemplates();
   }, [activeCompany?.id, isOpen]);
   
   // Buscar metas individuais quando editando
@@ -1368,36 +1394,51 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
               </div>
               
               <div>
-                <Label htmlFor="template_prospeccao">Template Prospecção (máx. 120 caracteres)</Label>
-                <Input
-                  id="template_prospeccao"
-                  placeholder="Nome do template de prospecção"
-                  value={templateProspeccao}
-                  onChange={(e) => setTemplateProspeccao(e.target.value.slice(0, 120))}
-                  maxLength={120}
-                />
+                <Label htmlFor="template_prospeccao">Template Prospecção</Label>
+                <Select value={templateProspeccao} onValueChange={setTemplateProspeccao}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {whatsappTemplates.map(template => (
+                      <SelectItem key={template.id} value={template.nome}>
+                        {template.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               
               <div>
-                <Label htmlFor="template_agendado">Template Agendado (máx. 120 caracteres)</Label>
-                <Input
-                  id="template_agendado"
-                  placeholder="Nome do template para clientes agendados"
-                  value={templateAgendado}
-                  onChange={(e) => setTemplateAgendado(e.target.value.slice(0, 120))}
-                  maxLength={120}
-                />
+                <Label htmlFor="template_agendado">Template Agendado</Label>
+                <Select value={templateAgendado} onValueChange={setTemplateAgendado}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {whatsappTemplates.map(template => (
+                      <SelectItem key={template.id} value={template.nome}>
+                        {template.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               
               <div>
-                <Label htmlFor="template_nao_agendado">Template Não Agendado (máx. 120 caracteres)</Label>
-                <Input
-                  id="template_nao_agendado"
-                  placeholder="Nome do template para clientes não agendados"
-                  value={templateNaoAgendado}
-                  onChange={(e) => setTemplateNaoAgendado(e.target.value.slice(0, 120))}
-                  maxLength={120}
-                />
+                <Label htmlFor="template_nao_agendado">Template Não Agendado</Label>
+                <Select value={templateNaoAgendado} onValueChange={setTemplateNaoAgendado}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {whatsappTemplates.map(template => (
+                      <SelectItem key={template.id} value={template.nome}>
+                        {template.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           );
