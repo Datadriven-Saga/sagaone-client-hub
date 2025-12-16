@@ -370,9 +370,10 @@ export default function Templates() {
         components.push({
           type: "HEADER",
           format: "IMAGE",
-          image_url: savedData.cardData.imagemUrl,
-          image_base64: mediaData?.base64 || null,
-          image_mime_type: mediaData?.mimeType || null,
+          media_url: savedData.cardData.imagemUrl,
+          media_base64: mediaData?.base64 || null,
+          media_mime_type: mediaData?.mimeType || null,
+          media_type: "image",
         });
       }
       // Texto do cabeçalho vai separado se houver
@@ -392,27 +393,30 @@ export default function Templates() {
       components.push({
         type: "HEADER",
         format: "IMAGE",
-        image_url: savedData.cardData.imagemUrl,
-        image_base64: mediaData?.base64 || null,
-        image_mime_type: mediaData?.mimeType || null,
+        media_url: savedData.cardData.imagemUrl,
+        media_base64: mediaData?.base64 || null,
+        media_mime_type: mediaData?.mimeType || null,
+        media_type: "image",
       });
     } else if (savedData.formato === "audio" && savedData.cardData?.audioUrl) {
       const mediaData = await fetchMediaAsBase64(savedData.cardData.audioUrl);
       components.push({
         type: "HEADER",
         format: "AUDIO",
-        audio_url: savedData.cardData.audioUrl,
-        audio_base64: mediaData?.base64 || null,
-        audio_mime_type: mediaData?.mimeType || null,
+        media_url: savedData.cardData.audioUrl,
+        media_base64: mediaData?.base64 || null,
+        media_mime_type: mediaData?.mimeType || null,
+        media_type: "audio",
       });
     } else if (savedData.formato === "video" && savedData.cardData?.videoUrl) {
       const mediaData = await fetchMediaAsBase64(savedData.cardData.videoUrl);
       components.push({
         type: "HEADER",
         format: "VIDEO",
-        video_url: savedData.cardData.videoUrl,
-        video_base64: mediaData?.base64 || null,
-        video_mime_type: mediaData?.mimeType || null,
+        media_url: savedData.cardData.videoUrl,
+        media_base64: mediaData?.base64 || null,
+        media_mime_type: mediaData?.mimeType || null,
+        media_type: "video",
       });
     }
 
