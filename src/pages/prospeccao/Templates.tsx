@@ -48,7 +48,7 @@ import { toast } from "sonner";
 
 
 type TemplateFormat = "texto" | "botao" | "imagem" | "video" | "card" | "lista";
-type TemplateCategory = "marketing" | "utilidade";
+type TemplateCategory = "marketing" | "utilidade" | "transacional";
 
 interface CardButton {
   id: string;
@@ -284,6 +284,184 @@ export default function Templates() {
     }
   };
 
+  // Função para mapear categoria para o formato Meta
+  const mapCategoriaToMeta = (categoria: string): string => {
+    const mapping: Record<string, string> = {
+      "marketing": "MARKETING",
+      "utilidade": "UTILITY",
+      "transacional": "TRANSACTIONAL",
+    };
+    return mapping[categoria] || "MARKETING";
+  };
+
+  // Função para converter nome para formato Meta (minúsculo, sem espaços/acentos)
+  const formatNameForMeta = (nome: string): string => {
+    return nome
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+      .replace(/[^a-z0-9]/g, "_") // Substitui caracteres especiais por _
+      .replace(/_+/g, "_") // Remove underscores duplicados
+      .replace(/^_|_$/g, ""); // Remove underscores no início/fim
+  };
+
+  // Função para construir o payload Meta-compatível
+  const buildMetaPayload = (savedData: {
+    nome: string;
+    categoria: string;
+    formato: string;
+    conteudo: string;
+    cardData: Record<string, any>;
+  }) => {
+    const components: any[] = [];
+
+    // BODY é obrigatório
+    components.push({
+      type: "BODY",
+      text: savedData.conteudo || "",
+    });
+
+    // HEADER (opcional) - para formatos com cabeçalho
+    if (savedData.formato === "card" && savedData.cardData?.textoCabecalho) {
+      components.push({
+        type: "HEADER",
+        format: "TEXT",
+        text: savedData.cardData.textoCabecalho,
+      });
+    } else if (savedData.formato === "imagem" && savedData.cardData?.imagemUrl) {
+      components.push({
+        type: "HEADER",
+        format: "IMAGE",
+      });
+    } else if (savedData.formato === "video" && savedData.cardData?.videoUrl) {
+      components.push({
+        type: "HEADER",
+        format: "VIDEO",
+      });
+    }
+
+    // FOOTER (opcional)
+    if (savedData.cardData?.rodape) {
+      components.push({
+        type: "FOOTER",
+        text: savedData.cardData.rodape,
+      });
+    }
+
+    // BUTTONS (opcional)
+    if (savedData.cardData?.botoes && savedData.cardData.botoes.length > 0) {
+      const buttons = savedData.cardData.botoes.map((btn: any) => {
+        // Se tem buttonId que parece URL, é URL button, senão QUICK_REPLY
+        const isUrl = btn.buttonId && (btn.buttonId.startsWith("http") || btn.buttonId.includes("://"));
+        if (isUrl) {
+          return {
+            type: "URL",
+            text: btn.nome,
+            url: btn.buttonId,
+          };
+        }
+        return {
+          type: "QUICK_REPLY",
+          text: btn.nome,
+        };
+      });
+      components.push({
+        type: "BUTTONS",
+        buttons,
+      });
+    }
+
+    return {
+      provider: "meta_whatsapp",
+      action: "create_message_template",
+      waba_id: "",
+      payload: {
+        name: formatNameForMeta(savedData.nome),
+        language: "pt_BR",
+        category: mapCategoriaToMeta(savedData.categoria),
+        components,
+      },
+    };
+  };
+
+  // Função para disparar webhooks dos gatilhos
+  const triggerWebhooks = async (templateData: {
+    nome: string;
+    categoria: string;
+    formato: string;
+    conteudo: string;
+    cardData: Record<string, any>;
+  }) => {
+    if (!activeCompany?.id) return;
+
+    try {
+      // Buscar gatilhos ativos - filtramos por acoes->tipo_evento = "novo_template_whatsapp_criado"
+      const { data: gatilhos, error } = await supabase
+        .from("gatilhos")
+        .select("*")
+        .eq("empresa_id", activeCompany.id)
+        .eq("status", "Ativo");
+
+      if (error) {
+        console.error("Erro ao buscar gatilhos:", error);
+        return;
+      }
+
+      // Filtrar gatilhos pelo tipo_evento nas acoes
+      const gatilhosFiltrados = (gatilhos || []).filter((g) => {
+        const acoes = g.acoes as { tipo_evento?: string } | null;
+        return acoes?.tipo_evento === "novo_template_whatsapp_criado";
+      });
+
+      if (gatilhosFiltrados.length === 0) {
+        console.log("Nenhum gatilho ativo encontrado para novo_template_whatsapp_criado");
+        return;
+      }
+
+      // Construir payload Meta-compatível
+      const metaPayload = buildMetaPayload(templateData);
+
+      // Disparar webhooks para cada gatilho
+      for (const gatilho of gatilhosFiltrados) {
+        const acoes = gatilho.acoes as { webhook_url?: string } | null;
+        const webhookUrl = acoes?.webhook_url;
+
+        if (!webhookUrl) {
+          console.log(`Gatilho ${gatilho.nome} sem webhook_url configurado`);
+          continue;
+        }
+
+        try {
+          console.log(`Disparando webhook para gatilho: ${gatilho.nome}`);
+          console.log("Payload:", JSON.stringify(metaPayload, null, 2));
+
+          const response = await fetch(webhookUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(metaPayload),
+          });
+
+          if (response.ok) {
+            console.log(`Webhook disparado com sucesso para: ${gatilho.nome}`);
+            // Atualizar ultima_execucao do gatilho
+            await supabase
+              .from("gatilhos")
+              .update({ ultima_execucao: new Date().toISOString() })
+              .eq("id", gatilho.id);
+          } else {
+            console.error(`Erro ao disparar webhook para ${gatilho.nome}:`, response.status);
+          }
+        } catch (webhookError) {
+          console.error(`Erro ao chamar webhook ${gatilho.nome}:`, webhookError);
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao processar gatilhos:", err);
+    }
+  };
+
   const handleSave = async () => {
     // Validações específicas por formato
     if (formData.formato === "texto" && !formData.conteudo) {
@@ -396,6 +574,15 @@ export default function Templates() {
 
       if (error) throw error;
 
+      // Disparar webhooks dos gatilhos "novo_template_whatsapp_criado"
+      await triggerWebhooks({
+        nome: formData.nome,
+        categoria: formData.categoria,
+        formato: formData.formato,
+        conteudo: conteudo,
+        cardData: cardData,
+      });
+
       toast.success(editingTemplateId ? "Template atualizado com sucesso!" : "Template criado com sucesso!");
       refetchTemplates();
       handleCloseModal();
@@ -498,6 +685,7 @@ export default function Templates() {
           <SelectContent>
             <SelectItem value="marketing">Marketing</SelectItem>
             <SelectItem value="utilidade">Utilidade</SelectItem>
+            <SelectItem value="transacional">Transacional</SelectItem>
           </SelectContent>
         </Select>
       </div>
