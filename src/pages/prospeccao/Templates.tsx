@@ -39,7 +39,8 @@ import {
   X,
   Upload,
   Trash2,
-  Edit2
+  Edit2,
+  Music
 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,7 +48,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 
-type TemplateFormat = "texto" | "botao" | "imagem" | "video" | "card" | "lista";
+type TemplateFormat = "texto" | "botao" | "imagem" | "audio" | "video" | "card" | "lista";
 type TemplateCategory = "marketing" | "utilidade" | "transacional";
 
 interface CardButton {
@@ -59,6 +60,8 @@ interface CardButton {
 interface CardData {
   imagemCampanha: File | null;
   imagemPreviewUrl: string;
+  audioCampanha: File | null;
+  audioPreviewUrl: string;
   videoCampanha: File | null;
   videoPreviewUrl: string;
   textoCabecalho: string;
@@ -97,6 +100,12 @@ const formatOptions = [
     icon: Image 
   },
   { 
+    value: "audio" as TemplateFormat, 
+    label: "Áudio", 
+    description: "Envie um áudio para o cliente.",
+    icon: Music 
+  },
+  { 
     value: "video" as TemplateFormat, 
     label: "Vídeo", 
     description: "Envie um vídeo para o cliente.",
@@ -128,6 +137,8 @@ export default function Templates() {
   const initialCardData: CardData = {
     imagemCampanha: null,
     imagemPreviewUrl: "",
+    audioCampanha: null,
+    audioPreviewUrl: "",
     videoCampanha: null,
     videoPreviewUrl: "",
     textoCabecalho: "",
@@ -238,6 +249,8 @@ export default function Templates() {
       cardData: {
         imagemCampanha: null,
         imagemPreviewUrl: cardData.imagemUrl || "",
+        audioCampanha: null,
+        audioPreviewUrl: cardData.audioUrl || "",
         videoCampanha: null,
         videoPreviewUrl: cardData.videoUrl || "",
         textoCabecalho: cardData.textoCabecalho || "",
@@ -382,6 +395,15 @@ export default function Templates() {
         image_url: savedData.cardData.imagemUrl,
         image_base64: mediaData?.base64 || null,
         image_mime_type: mediaData?.mimeType || null,
+      });
+    } else if (savedData.formato === "audio" && savedData.cardData?.audioUrl) {
+      const mediaData = await fetchMediaAsBase64(savedData.cardData.audioUrl);
+      components.push({
+        type: "HEADER",
+        format: "AUDIO",
+        audio_url: savedData.cardData.audioUrl,
+        audio_base64: mediaData?.base64 || null,
+        audio_mime_type: mediaData?.mimeType || null,
       });
     } else if (savedData.formato === "video" && savedData.cardData?.videoUrl) {
       const mediaData = await fetchMediaAsBase64(savedData.cardData.videoUrl);
@@ -530,6 +552,10 @@ export default function Templates() {
       toast.error("Faça upload de uma imagem");
       return;
     }
+    if (formData.formato === "audio" && !formData.cardData.audioPreviewUrl) {
+      toast.error("Faça upload de um áudio");
+      return;
+    }
     if (formData.formato === "video" && !formData.cardData.videoPreviewUrl) {
       toast.error("Faça upload de um vídeo");
       return;
@@ -573,6 +599,14 @@ export default function Templates() {
           conteudo = formData.cardData.corpoTexto;
           cardData = {
             imagemUrl: formData.cardData.imagemPreviewUrl,
+          };
+          break;
+
+        case "audio":
+          // Áudio: URL do áudio + corpo do texto (legenda)
+          conteudo = formData.cardData.corpoTexto;
+          cardData = {
+            audioUrl: formData.cardData.audioPreviewUrl,
           };
           break;
 
@@ -1258,6 +1292,99 @@ export default function Templates() {
             <Label htmlFor="corpoTextoImagem">Corpo do Texto</Label>
             <Textarea
               id="corpoTextoImagem"
+              value={formData.cardData.corpoTexto}
+              onChange={(e) => {
+                if (e.target.value.length <= 1024) {
+                  setFormData(prev => ({
+                    ...prev,
+                    cardData: { ...prev.cardData, corpoTexto: e.target.value }
+                  }));
+                }
+              }}
+              placeholder="Digite o conteúdo da mensagem..."
+              className="min-h-[120px] bg-white"
+              maxLength={1024}
+            />
+            <div className="flex items-center justify-between mt-1">
+              {renderVariableDropdown(insertVariableToCorpoTexto)}
+              <p className="text-xs text-muted-foreground">
+                {formData.cardData.corpoTexto.length}/1024
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (formData.formato === "audio") {
+      const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          const previewUrl = URL.createObjectURL(file);
+          setFormData(prev => ({
+            ...prev,
+            cardData: {
+              ...prev.cardData,
+              audioCampanha: file,
+              audioPreviewUrl: previewUrl,
+            }
+          }));
+        }
+      };
+
+      const handleRemoveAudio = () => {
+        setFormData(prev => ({
+          ...prev,
+          cardData: {
+            ...prev.cardData,
+            audioCampanha: null,
+            audioPreviewUrl: "",
+          }
+        }));
+      };
+
+      return (
+        <div className="space-y-4">
+          {/* Áudio da Campanha */}
+          <div>
+            <Label>Áudio da Campanha</Label>
+            <div className="mt-2">
+              {formData.cardData.audioPreviewUrl ? (
+                <div className="relative w-full bg-muted rounded-lg overflow-hidden p-4">
+                  <audio 
+                    src={formData.cardData.audioPreviewUrl} 
+                    controls
+                    className="w-full"
+                  />
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-6 w-6"
+                    onClick={handleRemoveAudio}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary transition-colors">
+                  <Music className="h-8 w-8 text-muted-foreground mb-2" />
+                  <span className="text-sm text-muted-foreground">Clique para enviar áudio</span>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    className="hidden"
+                    onChange={handleAudioUpload}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+
+          {/* Corpo do Texto */}
+          <div>
+            <Label htmlFor="corpoTextoAudio">Corpo do Texto</Label>
+            <Textarea
+              id="corpoTextoAudio"
               value={formData.cardData.corpoTexto}
               onChange={(e) => {
                 if (e.target.value.length <= 1024) {
