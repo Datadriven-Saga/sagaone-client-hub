@@ -47,7 +47,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [currentStep, setCurrentStep] = useState(0);
   
   // Tipo de Evento
-  const [tipoEvento, setTipoEvento] = useState<TipoEvento>('Grande Evento');
+  const [tipoEvento, setTipoEvento] = useState<TipoEvento>('Prospecção Mensal');
   
   // Dados Gerais
   const [titulo, setTitulo] = useState("");
@@ -1456,8 +1456,8 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Grande Evento">Grande Evento</SelectItem>
                   <SelectItem value="Prospecção Mensal">Prospecção Mensal</SelectItem>
+                  <SelectItem value="Grande Evento">Grande Evento</SelectItem>
                   <SelectItem value="IA Whatsapp">IA Whatsapp</SelectItem>
                   <SelectItem value="IA Ligação">IA Ligação</SelectItem>
                 </SelectContent>
