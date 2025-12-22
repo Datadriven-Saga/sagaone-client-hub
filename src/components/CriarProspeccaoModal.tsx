@@ -2352,7 +2352,7 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
         {/* Header fixo */}
         <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b bg-background">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-3">
               <span>{editingProspeccao ? 'Editar Evento' : 'Novo Evento'}</span>
               <span className="text-sm font-normal text-muted-foreground">
                 Etapa {currentStep + 1} de {steps.length}
