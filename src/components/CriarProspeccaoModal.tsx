@@ -336,7 +336,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setNovaOutraPremiacao({ nome: "", valor: "" });
     setMostrarFormOutraPremiacao(false);
     // Reset tipo e step
-    setTipoEvento('Grande Evento');
+    setTipoEvento('Prospecção Mensal');
     setCurrentStep(0);
   };
   
