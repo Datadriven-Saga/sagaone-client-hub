@@ -36,15 +36,15 @@ interface ProspeccaoGlobalFilterProps {
 }
 
 const statusOptions = [
-  { value: "Novo", label: "Novo" },
-  { value: "Atribuído", label: "Atribuído" },
+  { value: "Novo", label: "Novos" },
+  { value: "Atribuído", label: "Atribuídos" },
   { value: "Em Espera", label: "Em Espera" },
-  { value: "Convidado", label: "Convidado" },
-  { value: "Agendado", label: "Agendado" },
-  { value: "Confirmado", label: "Confirmado" },
-  { value: "Check-in", label: "Check-in" },
-  { value: "Venda", label: "Venda" },
-  { value: "Descartado", label: "Descartado" },
+  { value: "Convidado", label: "Convidados" },
+  { value: "Agendado", label: "Agendados" },
+  { value: "Confirmado", label: "Confirmados" },
+  { value: "Check-in", label: "Check-ins" },
+  { value: "Venda", label: "Vendas" },
+  { value: "Descartado", label: "Descartados" },
   { value: "Desperdício", label: "Desperdício" },
   { value: "Opt Out", label: "Opt Out" },
 ];
