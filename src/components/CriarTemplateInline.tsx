@@ -197,21 +197,35 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
     }
 
     // Validações por formato
-    if (formato === "texto" && !conteudo) {
+    if (formato === "texto" && !conteudo.trim()) {
       toast.error("Preencha o conteúdo do template");
       return;
     }
-    if (formato === "botao" && (!corpoTexto || botoes.length === 0)) {
-      toast.error("Preencha o corpo do texto e adicione pelo menos um botão");
-      return;
+    if (formato === "botao") {
+      if (!corpoTexto.trim()) {
+        toast.error("Preencha o corpo do texto");
+        return;
+      }
+      if (botoes.length === 0 || !botoes.some(b => b.nome.trim())) {
+        toast.error("Adicione pelo menos um botão com texto");
+        return;
+      }
     }
-    if ((formato === "imagem" || formato === "audio" || formato === "video") && !mediaUrl) {
-      toast.error(`Faça upload de ${formato === "imagem" ? "uma imagem" : formato === "audio" ? "um áudio" : "um vídeo"}`);
-      return;
+    if (formato === "imagem" || formato === "audio" || formato === "video") {
+      if (!corpoTexto.trim()) {
+        toast.error("Preencha o corpo do texto");
+        return;
+      }
+      if (!mediaUrl) {
+        toast.error(`Faça upload de ${formato === "imagem" ? "uma imagem" : formato === "audio" ? "um áudio" : "um vídeo"}`);
+        return;
+      }
     }
-    if (formato === "card" && (!textoCabecalho || !corpoTexto)) {
-      toast.error("Preencha o cabeçalho e o corpo do texto");
-      return;
+    if (formato === "card") {
+      if (!corpoTexto.trim()) {
+        toast.error("Preencha o corpo do texto");
+        return;
+      }
     }
 
     setLoading(true);
