@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -137,6 +137,8 @@ export default function Templates() {
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [nomeDuplicado, setNomeDuplicado] = useState(false);
+  const [verificandoNome, setVerificandoNome] = useState(false);
 
   // Helper function to upload media to Supabase Storage
   const uploadMediaToStorage = async (file: File, mediaType: 'image' | 'audio' | 'video'): Promise<string | null> => {
@@ -257,6 +259,40 @@ export default function Templates() {
     enabled: !!activeCompany?.id,
   });
 
+  // Verificar nome duplicado em tempo real
+  useEffect(() => {
+    const verificarNomeDuplicado = async () => {
+      if (!formData.nome.trim() || formData.nome.trim().length < 2 || !activeCompany?.id) {
+        setNomeDuplicado(false);
+        return;
+      }
+
+      setVerificandoNome(true);
+      try {
+        let query = supabase
+          .from("whatsapp_templates")
+          .select("id")
+          .eq("empresa_id", activeCompany.id)
+          .ilike("nome", formData.nome.trim());
+
+        // Se estiver editando, excluir o template atual da verificação
+        if (editingTemplateId) {
+          query = query.neq("id", editingTemplateId);
+        }
+
+        const { data: existingTemplate } = await query.maybeSingle();
+        setNomeDuplicado(!!existingTemplate);
+      } catch (error) {
+        console.error("Erro ao verificar nome duplicado:", error);
+      } finally {
+        setVerificandoNome(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(verificarNomeDuplicado, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [formData.nome, activeCompany?.id, editingTemplateId]);
+
   const handleOpenModal = () => {
     setEditingTemplateId(null);
     setFormData({
@@ -316,6 +352,10 @@ export default function Templates() {
     if (currentStep === 1) {
       if (!formData.nome || !formData.categoria || !formData.departamento_id) {
         toast.error("Preencha todos os campos obrigatórios");
+        return;
+      }
+      if (nomeDuplicado) {
+        toast.error("Já existe um template com este nome");
         return;
       }
     }
@@ -841,15 +881,20 @@ export default function Templates() {
 
   const renderStep1 = () => (
     <div className="space-y-3">
-      <div className="flex items-center gap-4">
-        <Label htmlFor="nome" className="w-40 shrink-0 text-right">Nome do Template *</Label>
-        <Input
-          id="nome"
-          value={formData.nome}
-          onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
-          placeholder="Ex: Convite Evento VIP"
-          className="flex-1 bg-white"
-        />
+      <div className="flex items-start gap-4">
+        <Label htmlFor="nome" className="w-40 shrink-0 text-right pt-2">Nome do Template *</Label>
+        <div className="flex-1 space-y-1">
+          <Input
+            id="nome"
+            value={formData.nome}
+            onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
+            placeholder="Ex: Convite Evento VIP"
+            className={`bg-white ${nomeDuplicado ? "border-destructive focus-visible:ring-destructive" : ""}`}
+          />
+          {nomeDuplicado && (
+            <p className="text-xs text-destructive">Já existe um template com este nome</p>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-4">
         <Label htmlFor="categoria" className="w-40 shrink-0 text-right">Categoria *</Label>
