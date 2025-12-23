@@ -631,14 +631,19 @@ export default function Templates() {
           clearTimeout(timeoutId);
 
           if (response.ok) {
+            const responseData = await response.text();
             console.log(`Webhook disparado com sucesso para: ${gatilho.nome}`);
+            console.log("Resposta do webhook:", responseData);
             // Atualizar ultima_execucao do gatilho
             await supabase
               .from("gatilhos")
               .update({ ultima_execucao: new Date().toISOString() })
               .eq("id", gatilho.id);
           } else {
+            const errorBody = await response.text();
             console.error(`Erro ao disparar webhook para ${gatilho.nome}:`, response.status);
+            console.error("Corpo do erro:", errorBody);
+            toast.error(`Erro no webhook (${response.status}): ${errorBody.substring(0, 200)}`);
           }
         } catch (webhookError: any) {
           if (webhookError.name === 'AbortError') {
