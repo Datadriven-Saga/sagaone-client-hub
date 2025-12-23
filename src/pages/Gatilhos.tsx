@@ -478,7 +478,7 @@ const Gatilhos = () => {
                   <Button type="button" variant="outline" onClick={resetForm}>
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={loading}>
+                  <Button type="submit" disabled={loading} className="cursor-pointer">
                     {loading ? "Salvando..." : editingId ? "Atualizar" : "Criar"} Gatilho
                   </Button>
                 </div>
