@@ -1255,8 +1255,27 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
 
-  const aplicarModeloDescricao = () => {
-    const modeloDescricao = `🔥 Noite RAM na Saga BR-153!
+  const aplicarModeloDescricao = async () => {
+    if (!activeCompany?.id) {
+      toast({
+        title: "Erro",
+        description: "Selecione uma empresa",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Buscar modelo do banco de dados
+    const { data, error } = await supabase
+      .from('mensagens_padrao')
+      .select('mensagem')
+      .eq('empresa_id', activeCompany.id)
+      .eq('tipo', 'Modelo Descrição Prospecção')
+      .single();
+
+    if (error || !data?.mensagem) {
+      // Fallback para texto padrão se não encontrar no banco
+      const modeloDescricao = `🔥 Noite RAM na Saga BR-153!
 Potência, exclusividade e oportunidades imperdíveis. 🚗💨
 
 Chegou o momento que todo apaixonado por RAM esperava!
@@ -1275,8 +1294,12 @@ Garanta sua presença e não perca essa oportunidade única de sair de RAM nova!
 
 A PRI deve apenas convidar, confirmar interesse, e confirmar o endereço da loja.
 Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações ou detalhes técnicos de veículos.`;
+      
+      setDescricao(modeloDescricao);
+    } else {
+      setDescricao(data.mensagem);
+    }
     
-    setDescricao(modeloDescricao);
     toast({
       title: "Modelo aplicado",
       description: "Descrição padrão foi inserida no campo"
