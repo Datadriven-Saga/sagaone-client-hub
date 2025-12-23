@@ -1662,8 +1662,8 @@ export default function Templates() {
           </Button>
         </div>
 
-        <Card>
-          <CardContent className="p-0">
+        <Card className="flex-1 overflow-hidden">
+          <CardContent className="p-0 h-[calc(100vh-200px)] overflow-auto">
             {templates.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Type className="h-12 w-12 text-muted-foreground mb-4" />
