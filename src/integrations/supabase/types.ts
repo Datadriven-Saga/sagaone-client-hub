@@ -2287,42 +2287,54 @@ export type Database = {
           ativo: boolean
           card_data: Json | null
           categoria: string
+          category_meta: string | null
           conteudo: string | null
           created_at: string
           departamento_id: string | null
           empresa_id: string
           formato: string
           id: string
+          id_meta: string | null
           nome: string
           status: string
+          status_meta: string | null
+          template_id_pri: string | null
           updated_at: string
         }
         Insert: {
           ativo?: boolean
           card_data?: Json | null
           categoria: string
+          category_meta?: string | null
           conteudo?: string | null
           created_at?: string
           departamento_id?: string | null
           empresa_id: string
           formato: string
           id?: string
+          id_meta?: string | null
           nome: string
           status?: string
+          status_meta?: string | null
+          template_id_pri?: string | null
           updated_at?: string
         }
         Update: {
           ativo?: boolean
           card_data?: Json | null
           categoria?: string
+          category_meta?: string | null
           conteudo?: string | null
           created_at?: string
           departamento_id?: string | null
           empresa_id?: string
           formato?: string
           id?: string
+          id_meta?: string | null
           nome?: string
           status?: string
+          status_meta?: string | null
+          template_id_pri?: string | null
           updated_at?: string
         }
         Relationships: [

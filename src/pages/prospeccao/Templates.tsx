@@ -634,6 +634,22 @@ export default function Templates() {
             const responseData = await response.text();
             console.log(`Webhook disparado com sucesso para: ${gatilho.nome}`);
             console.log("Resposta do webhook:", responseData);
+            
+            // Tentar parsear a resposta JSON para extrair dados do Meta
+            try {
+              const jsonResponse = JSON.parse(responseData);
+              if (jsonResponse.template_id_pri || jsonResponse.id_meta || jsonResponse.status_meta || jsonResponse.category) {
+                return {
+                  template_id_pri: jsonResponse.template_id_pri || null,
+                  id_meta: jsonResponse.id_meta || null,
+                  status_meta: jsonResponse.status_meta || null,
+                  category_meta: jsonResponse.category || null,
+                };
+              }
+            } catch (parseErr) {
+              console.log("Resposta do webhook não é JSON válido");
+            }
+            
             // Atualizar ultima_execucao do gatilho
             await supabase
               .from("gatilhos")
@@ -653,8 +669,11 @@ export default function Templates() {
           }
         }
       }
+      
+      return null;
     } catch (err) {
       console.error("Erro ao processar gatilhos:", err);
+      return null;
     }
   };
 
@@ -778,6 +797,8 @@ export default function Templates() {
       };
 
       let error;
+      let insertedTemplateId: string | null = null;
+      
       if (editingTemplateId) {
         // Update existing template
         const result = await supabase
@@ -785,24 +806,47 @@ export default function Templates() {
           .update(templateData)
           .eq("id", editingTemplateId);
         error = result.error;
+        insertedTemplateId = editingTemplateId;
       } else {
         // Insert new template
         const result = await supabase
           .from("whatsapp_templates")
-          .insert([templateData]);
+          .insert([templateData])
+          .select("id")
+          .single();
         error = result.error;
+        insertedTemplateId = result.data?.id || null;
       }
 
       if (error) throw error;
 
       // Disparar webhooks dos gatilhos "novo_template_whatsapp_criado"
-      await triggerWebhooks({
+      const webhookResponse = await triggerWebhooks({
         nome: formData.nome,
         categoria: formData.categoria,
         formato: formData.formato,
         conteudo: conteudo,
         cardData: cardData,
       });
+
+      // Se o webhook retornou dados do Meta, atualizar o template
+      if (webhookResponse && insertedTemplateId) {
+        const { error: updateError } = await supabase
+          .from("whatsapp_templates")
+          .update({
+            template_id_pri: webhookResponse.template_id_pri,
+            id_meta: webhookResponse.id_meta,
+            status_meta: webhookResponse.status_meta,
+            category_meta: webhookResponse.category_meta,
+          })
+          .eq("id", insertedTemplateId);
+
+        if (updateError) {
+          console.error("Erro ao salvar dados do Meta:", updateError);
+        } else {
+          console.log("Dados do Meta salvos com sucesso:", webhookResponse);
+        }
+      }
 
       toast.success(editingTemplateId ? "Template atualizado com sucesso!" : "Template criado com sucesso!");
       refetchTemplates();
@@ -1736,7 +1780,8 @@ export default function Templates() {
                     <TableHead>Categoria</TableHead>
                     <TableHead>Formato</TableHead>
                     <TableHead>Departamento</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>ID Meta</TableHead>
+                    <TableHead>Status Meta</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1749,10 +1794,13 @@ export default function Templates() {
                       </TableCell>
                       <TableCell>{template.formato.charAt(0).toUpperCase() + template.formato.slice(1)}</TableCell>
                       <TableCell>{template.departamentos?.nome || "-"}</TableCell>
+                      <TableCell className="font-mono text-xs">{template.id_meta || "-"}</TableCell>
                       <TableCell>
-                        <Badge className={getStatusBadgeClasses(template.status)}>
-                          {getStatusLabel(template.status)}
-                        </Badge>
+                        {template.status_meta ? (
+                          <Badge variant={template.status_meta === "APPROVED" ? "default" : template.status_meta === "PENDING" ? "secondary" : "destructive"}>
+                            {template.status_meta}
+                          </Badge>
+                        ) : "-"}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button 
