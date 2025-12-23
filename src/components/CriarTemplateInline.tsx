@@ -307,11 +307,18 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
         try {
           console.log(`Disparando webhook para gatilho: ${gatilho.nome}`);
 
+          // Adicionar timeout de 10 segundos para evitar travamento
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
+
           const response = await fetch(webhookUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
+            signal: controller.signal,
           });
+
+          clearTimeout(timeoutId);
 
           if (response.ok) {
             console.log(`Webhook disparado com sucesso para: ${gatilho.nome}`);
@@ -322,8 +329,12 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
           } else {
             console.error(`Erro ao disparar webhook para ${gatilho.nome}:`, response.status);
           }
-        } catch (webhookError) {
-          console.error(`Erro ao chamar webhook ${gatilho.nome}:`, webhookError);
+        } catch (webhookError: any) {
+          if (webhookError.name === 'AbortError') {
+            console.error(`Timeout ao chamar webhook ${gatilho.nome}`);
+          } else {
+            console.error(`Erro ao chamar webhook ${gatilho.nome}:`, webhookError);
+          }
         }
       }
     } catch (err) {
