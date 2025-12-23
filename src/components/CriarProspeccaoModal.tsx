@@ -15,6 +15,7 @@ import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CriarTemplateInline } from "@/components/CriarTemplateInline";
 
 interface CriarProspeccaoModalProps {
   isOpen: boolean;
@@ -64,6 +65,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   // Templates WhatsApp disponíveis
   const [whatsappTemplates, setWhatsappTemplates] = useState<{ id: string; nome: string }[]>([]);
   
+  // Estado para criar novo template inline
+  const [criandoTemplateProspeccao, setCriandoTemplateProspeccao] = useState(false);
+  const [criandoTemplateAgendado, setCriandoTemplateAgendado] = useState(false);
+  const [criandoTemplateNaoAgendado, setCriandoTemplateNaoAgendado] = useState(false);
+
   // Metas
   const [metaNovos, setMetaNovos] = useState<number | "">("");
   const [metaSeminovos, setMetaSeminovos] = useState<number | "">("");
@@ -335,6 +341,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setOutrasPremiacoes([]);
     setNovaOutraPremiacao({ nome: "", valor: "" });
     setMostrarFormOutraPremiacao(false);
+    // Reset estados de criação de template inline
+    setCriandoTemplateProspeccao(false);
+    setCriandoTemplateAgendado(false);
+    setCriandoTemplateNaoAgendado(false);
     // Reset tipo e step
     setTipoEvento('Prospecção Mensal');
     setCurrentStep(0);
@@ -381,28 +391,47 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     fetchUsersComAcesso();
   }, [activeCompany?.id, isOpen]);
   
+  // Função para buscar templates WhatsApp
+  const fetchWhatsappTemplates = async () => {
+    if (!activeCompany?.id) return;
+    
+    const { data, error } = await supabase
+      .from('whatsapp_templates')
+      .select('id, nome')
+      .eq('empresa_id', activeCompany.id)
+      .in('status', ['pendente', 'aprovado'])
+      .order('nome');
+    
+    if (error) {
+      console.error('Erro ao buscar templates WhatsApp:', error);
+      return;
+    }
+    
+    setWhatsappTemplates(data || []);
+  };
+
   // Buscar templates WhatsApp disponíveis (pendente ou aprovado)
   useEffect(() => {
-    const fetchWhatsappTemplates = async () => {
-      if (!activeCompany?.id || !isOpen) return;
-      
-      const { data, error } = await supabase
-        .from('whatsapp_templates')
-        .select('id, nome')
-        .eq('empresa_id', activeCompany.id)
-        .in('status', ['pendente', 'aprovado'])
-        .order('nome');
-      
-      if (error) {
-        console.error('Erro ao buscar templates WhatsApp:', error);
-        return;
-      }
-      
-      setWhatsappTemplates(data || []);
-    };
-    
-    fetchWhatsappTemplates();
+    if (isOpen) {
+      fetchWhatsappTemplates();
+    }
   }, [activeCompany?.id, isOpen]);
+
+  // Handler para quando um template é criado inline
+  const handleTemplateCreated = (templateName: string, field: 'prospeccao' | 'agendado' | 'nao_agendado') => {
+    fetchWhatsappTemplates();
+    
+    if (field === 'prospeccao') {
+      setTemplateProspeccao(templateName);
+      setCriandoTemplateProspeccao(false);
+    } else if (field === 'agendado') {
+      setTemplateAgendado(templateName);
+      setCriandoTemplateAgendado(false);
+    } else {
+      setTemplateNaoAgendado(templateName);
+      setCriandoTemplateNaoAgendado(false);
+    }
+  };
   
   // Buscar metas individuais quando editando
   useEffect(() => {
@@ -1508,52 +1537,118 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                 />
               </div>
               
-              <div>
-                <Label htmlFor="template_prospeccao">Template Prospecção</Label>
-                <Select value={templateProspeccao} onValueChange={setTemplateProspeccao}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {whatsappTemplates.map(template => (
-                      <SelectItem key={template.id} value={template.nome}>
-                        {template.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="template_prospeccao">Template Prospecção</Label>
+                  {!criandoTemplateProspeccao && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setCriandoTemplateProspeccao(true)}
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Criar novo
+                    </Button>
+                  )}
+                </div>
+                {criandoTemplateProspeccao ? (
+                  <CriarTemplateInline
+                    empresaId={activeCompany?.id || ''}
+                    onClose={() => setCriandoTemplateProspeccao(false)}
+                    onTemplateCreated={(nome) => handleTemplateCreated(nome, 'prospeccao')}
+                  />
+                ) : (
+                  <Select value={templateProspeccao} onValueChange={setTemplateProspeccao}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {whatsappTemplates.map(template => (
+                        <SelectItem key={template.id} value={template.nome}>
+                          {template.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               
-              <div>
-                <Label htmlFor="template_agendado">Template Agendado</Label>
-                <Select value={templateAgendado} onValueChange={setTemplateAgendado}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {whatsappTemplates.map(template => (
-                      <SelectItem key={template.id} value={template.nome}>
-                        {template.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="template_agendado">Template Agendado</Label>
+                  {!criandoTemplateAgendado && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setCriandoTemplateAgendado(true)}
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Criar novo
+                    </Button>
+                  )}
+                </div>
+                {criandoTemplateAgendado ? (
+                  <CriarTemplateInline
+                    empresaId={activeCompany?.id || ''}
+                    onClose={() => setCriandoTemplateAgendado(false)}
+                    onTemplateCreated={(nome) => handleTemplateCreated(nome, 'agendado')}
+                  />
+                ) : (
+                  <Select value={templateAgendado} onValueChange={setTemplateAgendado}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {whatsappTemplates.map(template => (
+                        <SelectItem key={template.id} value={template.nome}>
+                          {template.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               
-              <div>
-                <Label htmlFor="template_nao_agendado">Template Não Agendado</Label>
-                <Select value={templateNaoAgendado} onValueChange={setTemplateNaoAgendado}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {whatsappTemplates.map(template => (
-                      <SelectItem key={template.id} value={template.nome}>
-                        {template.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="template_nao_agendado">Template Não Agendado</Label>
+                  {!criandoTemplateNaoAgendado && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setCriandoTemplateNaoAgendado(true)}
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Criar novo
+                    </Button>
+                  )}
+                </div>
+                {criandoTemplateNaoAgendado ? (
+                  <CriarTemplateInline
+                    empresaId={activeCompany?.id || ''}
+                    onClose={() => setCriandoTemplateNaoAgendado(false)}
+                    onTemplateCreated={(nome) => handleTemplateCreated(nome, 'nao_agendado')}
+                  />
+                ) : (
+                  <Select value={templateNaoAgendado} onValueChange={setTemplateNaoAgendado}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {whatsappTemplates.map(template => (
+                        <SelectItem key={template.id} value={template.nome}>
+                          {template.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
           );
