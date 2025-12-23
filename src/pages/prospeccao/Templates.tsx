@@ -904,7 +904,9 @@ export default function Templates() {
       }
 
       const payload = {
+        pri_telefone: priAgent.telefone || null,
         pri_dealer_id: priAgent.dealer_id,
+        pri_status: priAgent.ativo ? "Ativo" : "Inativo",
         data: new Date().toISOString(),
       };
 
