@@ -933,23 +933,32 @@ export default function Templates() {
             const responseData = await response.json();
             console.log("Resposta do webhook de status:", responseData);
 
-            // responseData deve ser um array de templates com id_meta e status_meta
-            if (Array.isArray(responseData)) {
-              for (const item of responseData) {
-                if (item.id_meta && item.status_meta) {
-                  await supabase
+            // O retorno pode estar em responseData.data ou ser diretamente um array
+            const templatesArray = responseData.data || responseData;
+            
+            if (Array.isArray(templatesArray)) {
+              let updatedCount = 0;
+              for (const item of templatesArray) {
+                // O retorno usa "id" e "status" da Meta
+                const metaId = item.id || item.id_meta;
+                const metaStatus = item.status || item.status_meta;
+                
+                if (metaId && metaStatus) {
+                  const { error: updateErr } = await supabase
                     .from("whatsapp_templates")
-                    .update({ status_meta: item.status_meta })
-                    .eq("id_meta", item.id_meta)
+                    .update({ status_meta: metaStatus })
+                    .eq("id_meta", metaId)
                     .eq("empresa_id", activeCompany.id);
+                  
+                  if (!updateErr) updatedCount++;
                 }
               }
-              toast.success(`Status atualizado para ${responseData.length} templates`);
-            } else if (responseData.id_meta && responseData.status_meta) {
+              toast.success(`Status atualizado para ${updatedCount} templates`);
+            } else if (templatesArray.id_meta && templatesArray.status_meta) {
               await supabase
                 .from("whatsapp_templates")
-                .update({ status_meta: responseData.status_meta })
-                .eq("id_meta", responseData.id_meta)
+                .update({ status_meta: templatesArray.status_meta })
+                .eq("id_meta", templatesArray.id_meta)
                 .eq("empresa_id", activeCompany.id);
               toast.success("Status atualizado com sucesso");
             }
