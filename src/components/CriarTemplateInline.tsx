@@ -152,6 +152,19 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
       return;
     }
 
+    // Verificar se já existe template com o mesmo nome
+    const { data: existingTemplate } = await supabase
+      .from("whatsapp_templates")
+      .select("id")
+      .eq("empresa_id", empresaId)
+      .ilike("nome", nome.trim())
+      .maybeSingle();
+
+    if (existingTemplate) {
+      toast.error("Já existe um template com este nome");
+      return;
+    }
+
     // Validações por formato
     if (formato === "texto" && !conteudo) {
       toast.error("Preencha o conteúdo do template");
