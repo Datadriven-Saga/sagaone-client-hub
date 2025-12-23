@@ -220,6 +220,15 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
 
       if (error) throw error;
 
+      // Disparar webhooks para gatilhos de novo template
+      await triggerWebhooks({
+        nome: nome.trim(),
+        categoria,
+        formato,
+        conteudo: conteudoFinal,
+        cardData,
+      });
+
       toast.success("Template criado com sucesso!");
       onTemplateCreated(nome.trim());
     } catch (error: any) {
@@ -228,6 +237,163 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
     } finally {
       setLoading(false);
     }
+  };
+
+  // Função para disparar webhooks dos gatilhos
+  const triggerWebhooks = async (templateData: {
+    nome: string;
+    categoria: string;
+    formato: string;
+    conteudo: string;
+    cardData: Record<string, any>;
+  }) => {
+    if (!empresaId) return;
+
+    try {
+      // Buscar dados da Pri (agente de IA)
+      const { data: priAgent } = await supabase
+        .from("agentes_ia")
+        .select("telefone, dealer_id, ativo")
+        .eq("empresa_id", empresaId)
+        .eq("nome", "Pri")
+        .single();
+
+      // Buscar gatilhos ativos
+      const { data: gatilhos, error } = await supabase
+        .from("gatilhos")
+        .select("*")
+        .eq("empresa_id", empresaId)
+        .eq("status", "Ativo");
+
+      if (error) {
+        console.error("Erro ao buscar gatilhos:", error);
+        return;
+      }
+
+      // Filtrar gatilhos pelo tipo_evento nas acoes
+      const gatilhosFiltrados = (gatilhos || []).filter((g) => {
+        const acoes = g.acoes as { tipo_evento?: string } | null;
+        return acoes?.tipo_evento === "novo_template_whatsapp";
+      });
+
+      if (gatilhosFiltrados.length === 0) {
+        console.log("Nenhum gatilho ativo encontrado para novo_template_whatsapp");
+        return;
+      }
+
+      // Construir payload básico
+      const payload = {
+        template: {
+          name: templateData.nome.toLowerCase().replace(/\s+/g, "_"),
+          category: templateData.categoria.toUpperCase(),
+          language: "pt_BR",
+          components: buildTemplateComponents(templateData),
+        },
+        pri_telefone: priAgent?.telefone || null,
+        pri_dealer_id: priAgent?.dealer_id || null,
+        pri_status: priAgent?.ativo ? "Ativo" : "Inativo",
+      };
+
+      // Disparar webhooks para cada gatilho
+      for (const gatilho of gatilhosFiltrados) {
+        const acoes = gatilho.acoes as { webhook_url?: string } | null;
+        const webhookUrl = acoes?.webhook_url;
+
+        if (!webhookUrl) {
+          console.log(`Gatilho ${gatilho.nome} sem webhook_url configurado`);
+          continue;
+        }
+
+        try {
+          console.log(`Disparando webhook para gatilho: ${gatilho.nome}`);
+
+          const response = await fetch(webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (response.ok) {
+            console.log(`Webhook disparado com sucesso para: ${gatilho.nome}`);
+            await supabase
+              .from("gatilhos")
+              .update({ ultima_execucao: new Date().toISOString() })
+              .eq("id", gatilho.id);
+          } else {
+            console.error(`Erro ao disparar webhook para ${gatilho.nome}:`, response.status);
+          }
+        } catch (webhookError) {
+          console.error(`Erro ao chamar webhook ${gatilho.nome}:`, webhookError);
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao processar gatilhos:", err);
+    }
+  };
+
+  // Construir componentes do template para o payload
+  const buildTemplateComponents = (templateData: {
+    formato: string;
+    conteudo: string;
+    cardData: Record<string, any>;
+  }) => {
+    const components: any[] = [];
+
+    // Adicionar BODY
+    if (templateData.conteudo) {
+      components.push({
+        type: "BODY",
+        text: templateData.conteudo,
+      });
+    }
+
+    // Adicionar HEADER se houver mídia
+    if (templateData.cardData.imagemUrl) {
+      components.push({
+        type: "HEADER",
+        format: "IMAGE",
+        example: { header_handle: [templateData.cardData.imagemUrl] },
+      });
+    } else if (templateData.cardData.videoUrl) {
+      components.push({
+        type: "HEADER",
+        format: "VIDEO",
+        example: { header_handle: [templateData.cardData.videoUrl] },
+      });
+    } else if (templateData.cardData.audioUrl) {
+      components.push({
+        type: "HEADER",
+        format: "AUDIO",
+        example: { header_handle: [templateData.cardData.audioUrl] },
+      });
+    } else if (templateData.cardData.textoCabecalho) {
+      components.push({
+        type: "HEADER",
+        format: "TEXT",
+        text: templateData.cardData.textoCabecalho,
+      });
+    }
+
+    // Adicionar FOOTER se houver rodapé
+    if (templateData.cardData.rodape) {
+      components.push({
+        type: "FOOTER",
+        text: templateData.cardData.rodape,
+      });
+    }
+
+    // Adicionar BUTTONS se houver botões
+    if (templateData.cardData.botoes && templateData.cardData.botoes.length > 0) {
+      components.push({
+        type: "BUTTONS",
+        buttons: templateData.cardData.botoes.map((btn: any) => ({
+          type: "QUICK_REPLY",
+          text: btn.nome,
+        })),
+      });
+    }
+
+    return components;
   };
 
   const renderFormatFields = () => {
