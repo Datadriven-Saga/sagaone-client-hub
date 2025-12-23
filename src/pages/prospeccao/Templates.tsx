@@ -136,6 +136,7 @@ export default function Templates() {
   const [currentStep, setCurrentStep] = useState(1);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Helper function to upload media to Supabase Storage
   const uploadMediaToStorage = async (file: File, mediaType: 'image' | 'audio' | 'video'): Promise<string | null> => {
@@ -574,13 +575,20 @@ export default function Templates() {
           console.log(`Disparando webhook para gatilho: ${gatilho.nome}`);
           console.log("Payload:", JSON.stringify(payloadWithPri, null, 2));
 
+          // Adicionar timeout de 10 segundos para evitar travamento
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
+
           const response = await fetch(webhookUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify(payloadWithPri),
+            signal: controller.signal,
           });
+
+          clearTimeout(timeoutId);
 
           if (response.ok) {
             console.log(`Webhook disparado com sucesso para: ${gatilho.nome}`);
@@ -592,8 +600,12 @@ export default function Templates() {
           } else {
             console.error(`Erro ao disparar webhook para ${gatilho.nome}:`, response.status);
           }
-        } catch (webhookError) {
-          console.error(`Erro ao chamar webhook ${gatilho.nome}:`, webhookError);
+        } catch (webhookError: any) {
+          if (webhookError.name === 'AbortError') {
+            console.error(`Timeout ao chamar webhook ${gatilho.nome}`);
+          } else {
+            console.error(`Erro ao chamar webhook ${gatilho.nome}:`, webhookError);
+          }
         }
       }
     } catch (err) {
@@ -602,6 +614,8 @@ export default function Templates() {
   };
 
   const handleSave = async () => {
+    if (isSaving) return; // Evitar duplo clique
+    
     // Validação de nome duplicado
     const duplicateExists = templates.some(
       t => t.nome.toLowerCase() === formData.nome.trim().toLowerCase() && t.id !== editingTemplateId
@@ -643,6 +657,7 @@ export default function Templates() {
       return;
     }
 
+    setIsSaving(true);
     try {
       // Prepare card_data based on format type
       let cardData: Record<string, any> = {};
@@ -750,6 +765,8 @@ export default function Templates() {
     } catch (error: any) {
       console.error("Erro ao salvar template:", error);
       toast.error("Erro ao salvar template: " + error.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1738,8 +1755,8 @@ export default function Templates() {
                 Avançar
               </Button>
             ) : (
-              <Button onClick={handleSave}>
-                Salvar Template
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? "Salvando..." : "Salvar Template"}
               </Button>
             )}
           </div>
