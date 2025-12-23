@@ -1771,12 +1771,7 @@ export default function Templates() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[600px] h-[600px] flex flex-col overflow-hidden pb-3">
           <DialogHeader className="flex-shrink-0">
-            <DialogTitle className="flex items-center justify-between">
-              <span>{editingTemplateId ? "Editar Template" : "Novo Template"}</span>
-              <Button variant="ghost" size="icon" onClick={handleCloseModal}>
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogTitle>
+            <DialogTitle>{editingTemplateId ? "Editar Template" : "Novo Template"}</DialogTitle>
           </DialogHeader>
           
           <div className="flex-shrink-0">
