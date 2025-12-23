@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,6 +75,37 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
   const [mediaUrl, setMediaUrl] = useState("");
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [nomeDuplicado, setNomeDuplicado] = useState(false);
+  const [verificandoNome, setVerificandoNome] = useState(false);
+
+  // Verificar nome duplicado em tempo real
+  useEffect(() => {
+    const verificarNomeDuplicado = async () => {
+      if (!nome.trim() || nome.trim().length < 2) {
+        setNomeDuplicado(false);
+        return;
+      }
+
+      setVerificandoNome(true);
+      try {
+        const { data: existingTemplate } = await supabase
+          .from("whatsapp_templates")
+          .select("id")
+          .eq("empresa_id", empresaId)
+          .ilike("nome", nome.trim())
+          .maybeSingle();
+
+        setNomeDuplicado(!!existingTemplate);
+      } catch (error) {
+        console.error("Erro ao verificar nome duplicado:", error);
+      } finally {
+        setVerificandoNome(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(verificarNomeDuplicado, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [nome, empresaId]);
 
   const uploadMediaToStorage = async (file: File, mediaType: 'image' | 'audio' | 'video'): Promise<string | null> => {
     try {
@@ -656,8 +687,11 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Nome do template"
-              className="h-9"
+              className={`h-9 ${nomeDuplicado ? "border-destructive focus-visible:ring-destructive" : ""}`}
             />
+            {nomeDuplicado && (
+              <p className="text-xs text-destructive">Já existe um template com este nome</p>
+            )}
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Categoria</Label>
@@ -704,7 +738,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="button" size="sm" onClick={handleSave} disabled={loading || isUploading}>
+          <Button type="button" size="sm" onClick={handleSave} disabled={loading || isUploading || nomeDuplicado || verificandoNome}>
             {loading ? "Salvando..." : "Criar Template"}
           </Button>
         </div>
