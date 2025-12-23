@@ -53,6 +53,11 @@ const Gatilhos = () => {
       value: "novo_evento_criado", 
       label: "Novo Evento Criado/Alterado na Prospecção",
       modulo: "Prospecção"
+    },
+    { 
+      value: "atualiza_status_meta", 
+      label: "Atualiza Status Meta",
+      modulo: "Templates"
     }
   ];
 
@@ -303,6 +308,12 @@ const Gatilhos = () => {
             canal: "Whatsapp",
             acao: "criado",
             empresa_id: "test-empresa-id",
+            data: new Date().toISOString()
+          };
+          break;
+        case 'atualiza_status_meta':
+          dadosTeste = {
+            pri_dealer_id: "test-dealer-id",
             data: new Date().toISOString()
           };
           break;

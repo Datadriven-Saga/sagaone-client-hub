@@ -40,7 +40,8 @@ import {
   Upload,
   Trash2,
   Edit2,
-  Music
+  Music,
+  RefreshCw
 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -139,6 +140,7 @@ export default function Templates() {
   const [isSaving, setIsSaving] = useState(false);
   const [nomeDuplicado, setNomeDuplicado] = useState(false);
   const [verificandoNome, setVerificandoNome] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   // Helper function to upload media to Supabase Storage
   const uploadMediaToStorage = async (file: File, mediaType: 'image' | 'audio' | 'video'): Promise<string | null> => {
@@ -858,6 +860,132 @@ export default function Templates() {
       setIsSaving(false);
     }
   };
+
+  // Função para atualizar status dos templates via webhook
+  const handleUpdateStatusMeta = async () => {
+    if (!activeCompany?.id || isUpdatingStatus) return;
+
+    setIsUpdatingStatus(true);
+    try {
+      // Buscar dados da Pri (agente de IA)
+      const { data: priAgent } = await supabase
+        .from("agentes_ia")
+        .select("telefone, dealer_id, ativo")
+        .eq("empresa_id", activeCompany.id)
+        .eq("nome", "Pri")
+        .single();
+
+      if (!priAgent?.dealer_id) {
+        toast.error("Agente Pri não encontrado ou sem dealer_id configurado");
+        return;
+      }
+
+      // Buscar gatilhos ativos do tipo atualiza_status_meta
+      const { data: gatilhos, error } = await supabase
+        .from("gatilhos")
+        .select("*")
+        .eq("empresa_id", activeCompany.id)
+        .eq("status", "Ativo");
+
+      if (error) {
+        console.error("Erro ao buscar gatilhos:", error);
+        toast.error("Erro ao buscar gatilhos");
+        return;
+      }
+
+      const gatilhosFiltrados = (gatilhos || []).filter((g) => {
+        const acoes = g.acoes as { tipo_evento?: string } | null;
+        return acoes?.tipo_evento === "atualiza_status_meta";
+      });
+
+      if (gatilhosFiltrados.length === 0) {
+        toast.error("Nenhum gatilho 'Atualiza Status Meta' ativo encontrado");
+        return;
+      }
+
+      const payload = {
+        pri_dealer_id: priAgent.dealer_id,
+        data: new Date().toISOString(),
+      };
+
+      for (const gatilho of gatilhosFiltrados) {
+        const acoes = gatilho.acoes as { webhook_url?: string } | null;
+        const webhookUrl = acoes?.webhook_url;
+
+        if (!webhookUrl) continue;
+
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+          const response = await fetch(webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (response.ok) {
+            const responseData = await response.json();
+            console.log("Resposta do webhook de status:", responseData);
+
+            // responseData deve ser um array de templates com id_meta e status_meta
+            if (Array.isArray(responseData)) {
+              for (const item of responseData) {
+                if (item.id_meta && item.status_meta) {
+                  await supabase
+                    .from("whatsapp_templates")
+                    .update({ status_meta: item.status_meta })
+                    .eq("id_meta", item.id_meta)
+                    .eq("empresa_id", activeCompany.id);
+                }
+              }
+              toast.success(`Status atualizado para ${responseData.length} templates`);
+            } else if (responseData.id_meta && responseData.status_meta) {
+              await supabase
+                .from("whatsapp_templates")
+                .update({ status_meta: responseData.status_meta })
+                .eq("id_meta", responseData.id_meta)
+                .eq("empresa_id", activeCompany.id);
+              toast.success("Status atualizado com sucesso");
+            }
+
+            await supabase
+              .from("gatilhos")
+              .update({ ultima_execucao: new Date().toISOString() })
+              .eq("id", gatilho.id);
+
+            refetchTemplates();
+          } else {
+            const errorBody = await response.text();
+            console.error("Erro no webhook:", response.status, errorBody);
+            toast.error(`Erro ao atualizar status: ${response.status}`);
+          }
+        } catch (err: any) {
+          console.error("Erro ao chamar webhook:", err);
+          toast.error("Erro ao conectar com o webhook");
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao atualizar status:", err);
+      toast.error("Erro ao atualizar status dos templates");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  // Chamar atualização de status ao entrar no módulo
+  useEffect(() => {
+    if (activeCompany?.id && templates.length > 0) {
+      // Delay pequeno para garantir que os dados estejam carregados
+      const timer = setTimeout(() => {
+        handleUpdateStatusMeta();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeCompany?.id]);
 
   const insertVariable = (variable: string) => {
     setFormData(prev => ({
@@ -1750,10 +1878,16 @@ export default function Templates() {
               Gerencie os templates de mensagens para integração com a Meta
             </p>
           </div>
-          <Button onClick={handleOpenModal}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Template
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleUpdateStatusMeta} disabled={isUpdatingStatus}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isUpdatingStatus ? 'animate-spin' : ''}`} />
+              {isUpdatingStatus ? "Atualizando..." : "Atualizar Status"}
+            </Button>
+            <Button onClick={handleOpenModal}>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Template
+            </Button>
+          </div>
         </div>
 
         <Card className="flex-1 overflow-hidden">
