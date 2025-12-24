@@ -557,7 +557,7 @@ export default function Templates() {
     formato: string;
     conteudo: string;
     cardData: Record<string, any>;
-  }) => {
+  }): Promise<{ template_id_pri?: string; id_meta?: string; status_meta?: string; category_meta?: string } | null> => {
     if (!activeCompany?.id) return null;
 
     try {
@@ -607,6 +607,36 @@ export default function Templates() {
             console.log(`Webhook ${detalhe.gatilho} disparado com sucesso`);
           } else if (detalhe.status === "erro") {
             console.error(`Erro no webhook ${detalhe.gatilho}:`, detalhe.error);
+          }
+        }
+      }
+
+      // Verificar se o webhook retornou dados do Meta
+      if (data?.webhook_response) {
+        const response = data.webhook_response;
+        console.log("Dados do Meta recebidos:", response);
+        return {
+          template_id_pri: response.template_id_pri || null,
+          id_meta: response.id_meta || response.id || null,
+          status_meta: response.status_meta || response.status || null,
+          category_meta: response.category_meta || response.category || null,
+        };
+      }
+
+      // Verificar também nos detalhes (response_data de cada webhook)
+      if (data?.detalhes && data.detalhes.length > 0) {
+        for (const detalhe of data.detalhes) {
+          if (detalhe.response_data) {
+            const response = detalhe.response_data;
+            if (response.template_id_pri || response.id_meta || response.id || response.status_meta || response.status) {
+              console.log("Dados do Meta encontrados nos detalhes:", response);
+              return {
+                template_id_pri: response.template_id_pri || null,
+                id_meta: response.id_meta || response.id || null,
+                status_meta: response.status_meta || response.status || null,
+                category_meta: response.category_meta || response.category || null,
+              };
+            }
           }
         }
       }
