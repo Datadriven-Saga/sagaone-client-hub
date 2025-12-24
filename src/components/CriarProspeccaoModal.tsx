@@ -69,6 +69,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [criandoTemplateProspeccao, setCriandoTemplateProspeccao] = useState(false);
   const [criandoTemplateAgendado, setCriandoTemplateAgendado] = useState(false);
   const [criandoTemplateNaoAgendado, setCriandoTemplateNaoAgendado] = useState(false);
+  
+  // Novos campos para IA Whatsapp
+  const [eventoPrincipal, setEventoPrincipal] = useState(false);
+  const [qualificarLead, setQualificarLead] = useState(true);
+  const [dataEnvioInicial, setDataEnvioInicial] = useState("");
+  const [dataEnvioCadencia, setDataEnvioCadencia] = useState("");
 
   // Metas
   const [metaNovos, setMetaNovos] = useState<number | "">("");
@@ -231,6 +237,22 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         indicacao_venda: { ativo: !!editingProspeccao.premio_indicacao_venda, valor: editingProspeccao.premio_indicacao_venda ?? "" },
       });
       
+      // Novos campos IA Whatsapp - converter ISO para datetime-local
+      setEventoPrincipal(editingProspeccao.evento_principal ?? false);
+      setQualificarLead(editingProspeccao.qualificar_lead ?? true);
+      // Converter timestamp ISO para formato datetime-local (YYYY-MM-DDTHH:MM)
+      const formatToDatetimeLocal = (isoString: string | null) => {
+        if (!isoString) return "";
+        try {
+          const date = new Date(isoString);
+          return date.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+        } catch {
+          return "";
+        }
+      };
+      setDataEnvioInicial(formatToDatetimeLocal(editingProspeccao.data_envio_template_inicial));
+      setDataEnvioCadencia(formatToDatetimeLocal(editingProspeccao.data_envio_cadencia));
+      
       // Determinar tipo de evento baseado nos dados
       if (editingProspeccao.canal === 'Whatsapp' && editingProspeccao.template_prospeccao) {
         setTipoEvento('IA Whatsapp');
@@ -345,6 +367,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setCriandoTemplateProspeccao(false);
     setCriandoTemplateAgendado(false);
     setCriandoTemplateNaoAgendado(false);
+    // Reset novos campos IA Whatsapp
+    setEventoPrincipal(false);
+    setQualificarLead(true);
+    setDataEnvioInicial("");
+    setDataEnvioCadencia("");
     // Reset tipo e step
     setTipoEvento('Prospecção Mensal');
     setCurrentStep(0);
@@ -969,6 +996,20 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         dadosProspeccao.template_agendado = templateAgendado.trim() || null;
         dadosProspeccao.template_nao_agendado = templateNaoAgendado.trim() || null;
         dadosProspeccao.convite = null;
+        // Novos campos IA Whatsapp
+        dadosProspeccao.evento_principal = eventoPrincipal;
+        dadosProspeccao.qualificar_lead = qualificarLead;
+        dadosProspeccao.data_envio_template_inicial = dataEnvioInicial ? new Date(dataEnvioInicial).toISOString() : new Date().toISOString();
+        // Calcular data_envio_cadencia: se não preenchida, 24h antes do evento
+        if (dataEnvioCadencia) {
+          dadosProspeccao.data_envio_cadencia = new Date(dataEnvioCadencia).toISOString();
+        } else if (dataInicio) {
+          const dataEvento = new Date(dataInicio + 'T11:00:00');
+          dataEvento.setHours(dataEvento.getHours() - 24);
+          dadosProspeccao.data_envio_cadencia = dataEvento.toISOString();
+        } else {
+          dadosProspeccao.data_envio_cadencia = null;
+        }
       } else if (tipoEvento === 'IA Ligação') {
         dadosProspeccao.template_prospeccao = null;
         dadosProspeccao.template_agendado = null;
@@ -1169,6 +1210,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
   const triggerNovoEventoCriadoWebhooks = async (prospeccaoData: any, isEditing: boolean) => {
     if (!activeCompany?.id) return;
+    
+    // Só disparar webhook para eventos IA Whatsapp
+    if (tipoEvento !== 'IA Whatsapp') {
+      console.log('⏭️ Webhook não disparado: tipo de evento não é IA Whatsapp');
+      return;
+    }
 
     console.log('🔔 Verificando gatilhos para evento tipo:', tipoEvento);
 
@@ -1204,14 +1251,24 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         return;
       }
 
+      // Formatar datas para ISO 8601
+      const formatarDataISO = (data: string | null) => {
+        if (!data) return null;
+        try {
+          return new Date(data).toISOString();
+        } catch {
+          return null;
+        }
+      };
+
       // Preparar payload para os webhooks
       const payload: any = {
         evento_id: prospeccaoData.id,
         titulo: prospeccaoData.titulo,
         descricao: prospeccaoData.descricao,
         tipo_evento: tipoEvento,
-        data_inicio: prospeccaoData.data_inicio,
-        data_fim: prospeccaoData.data_fim,
+        data_inicio: formatarDataISO(prospeccaoData.data_inicio ? prospeccaoData.data_inicio + 'T11:00:00' : null),
+        data_fim: formatarDataISO(prospeccaoData.data_fim ? prospeccaoData.data_fim + 'T23:59:59' : null),
         canal: prospeccaoData.canal,
         acao: isEditing ? 'alterado' : 'criado',
         empresa_id: activeCompany.id,
@@ -1220,6 +1277,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         pri_telefone: priAgent?.telefone || null,
         pri_dealer_id: priAgent?.dealer_id || null,
         pri_status: priAgent?.ativo ? 'Ativo' : 'Inativo',
+        // Novos campos
+        evento_principal: prospeccaoData.evento_principal ?? false,
+        qualificar_lead: prospeccaoData.qualificar_lead ?? true,
+        data_envio_template_inicial: formatarDataISO(prospeccaoData.data_envio_template_inicial),
+        data_envio_cadencia: formatarDataISO(prospeccaoData.data_envio_cadencia),
       };
 
       // Adicionar templates para IA Whatsapp com IDs Pri e Meta
@@ -1695,6 +1757,110 @@ Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações o
                     </SelectContent>
                   </Select>
                 )}
+              </div>
+
+              {/* Separador */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium mb-4">Configurações de Disparo</h4>
+                
+                {/* Data/Hora Envio Inicial */}
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="data_envio_inicial">Data/Hora do Envio Inicial</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Define quando o template inicial de prospecção será enviado. Por padrão é agora (momento da criação do evento).</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Input
+                    id="data_envio_inicial"
+                    type="datetime-local"
+                    value={dataEnvioInicial}
+                    onChange={(e) => setDataEnvioInicial(e.target.value)}
+                    placeholder="Agora (padrão)"
+                  />
+                  <p className="text-xs text-muted-foreground">Deixe em branco para enviar imediatamente</p>
+                </div>
+
+                {/* Data/Hora Cadência */}
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="data_envio_cadencia">Data/Hora da Cadência</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Define quando a mensagem de confirmação será enviada. Por padrão é 24 horas antes do início do evento.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Input
+                    id="data_envio_cadencia"
+                    type="datetime-local"
+                    value={dataEnvioCadencia}
+                    onChange={(e) => setDataEnvioCadencia(e.target.value)}
+                    placeholder="24h antes do evento (padrão)"
+                  />
+                  <p className="text-xs text-muted-foreground">Deixe em branco para usar 24h antes do evento</p>
+                </div>
+              </div>
+
+              {/* Separador */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium mb-4">Configurações do Evento</h4>
+                
+                {/* Evento Principal */}
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-card mb-3">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="evento_principal" className="font-medium cursor-pointer">Evento Principal</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Se ativado, quando um lead falar com a Pri nessa empresa, ele será automaticamente direcionado para este evento.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Switch
+                    id="evento_principal"
+                    checked={eventoPrincipal}
+                    onCheckedChange={setEventoPrincipal}
+                  />
+                </div>
+
+                {/* Qualificar Lead */}
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="qualificar_lead" className="font-medium cursor-pointer">Qualificar Lead após Confirmação</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Se ativado, o lead será qualificado para a loja após confirmação. Se desativado, o lead ficará na central de atendimento na coluna 'Agendados' com a tag 'CONFIRMADO'.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Switch
+                    id="qualificar_lead"
+                    checked={qualificarLead}
+                    onCheckedChange={setQualificarLead}
+                  />
+                </div>
               </div>
             </div>
           );
