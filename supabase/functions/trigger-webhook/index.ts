@@ -321,7 +321,7 @@ serve(async (req) => {
             status: dados.status || '',
             prospeccao_id: dados.prospeccao_id || '',
             // Dados do agente PRI
-            telefone_pri: agenteData?.telefone || '',
+            maia_id: agenteData?.telefone || '',
             dealer_id: agenteData?.dealer_id || '',
             timestamp: new Date().toISOString()
           };
