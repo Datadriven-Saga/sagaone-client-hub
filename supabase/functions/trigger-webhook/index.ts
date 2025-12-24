@@ -93,11 +93,14 @@ serve(async (req) => {
       .eq('ativo', true)
       .eq('agentes_ia.ativo', true);
 
-    // Se for novo contato na prospecção, verificar se é canal Whatsapp
+    // Variáveis para dados do agente PRI
+    let agenteData: { telefone: string | null; dealer_id: string | null } | null = null;
+
+    // Se for novo contato na prospecção, verificar se é canal Whatsapp e buscar dados do agente
     if (gatilho === 'novo_contato_prospeccao' && dados?.prospeccao_id) {
       const { data: prospeccao } = await supabaseClient
         .from('prospeccoes')
-        .select('canal')
+        .select('canal, empresa_id')
         .eq('id', dados.prospeccao_id)
         .single();
       
@@ -115,6 +118,27 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           }
         );
+      }
+
+      // Buscar dados do agente ativo da empresa (PRI)
+      if (prospeccao?.empresa_id) {
+        const { data: agente } = await supabaseClient
+          .from('agentes_ia')
+          .select('telefone, dealer_id')
+          .eq('empresa_id', prospeccao.empresa_id)
+          .eq('ativo', true)
+          .limit(1)
+          .single();
+        
+        if (agente) {
+          agenteData = {
+            telefone: agente.telefone,
+            dealer_id: agente.dealer_id
+          };
+          console.log('📱 Dados do agente PRI encontrados:', agenteData);
+        } else {
+          console.log('⚠️ Nenhum agente ativo encontrado para a empresa');
+        }
       }
     }
 
@@ -194,7 +218,10 @@ serve(async (req) => {
             email: dados.email || '',
             id: dados.contato_id || dados.id || '',
             status: dados.status || 'Novo',
-            prospeccao_id: dados.prospeccao_id || ''
+            prospeccao_id: dados.prospeccao_id || '',
+            // Dados do agente PRI
+            telefone_pri: agenteData?.telefone || '',
+            dealer_id: agenteData?.dealer_id || ''
           };
         }
         // Para novo_template_whatsapp, enviar os dados completos do template envolvidos em um objeto
@@ -293,6 +320,9 @@ serve(async (req) => {
             email: dados.email || '',
             status: dados.status || '',
             prospeccao_id: dados.prospeccao_id || '',
+            // Dados do agente PRI
+            telefone_pri: agenteData?.telefone || '',
+            dealer_id: agenteData?.dealer_id || '',
             timestamp: new Date().toISOString()
           };
         }
