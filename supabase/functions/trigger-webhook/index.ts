@@ -219,9 +219,9 @@ serve(async (req) => {
             id: dados.contato_id || dados.id || '',
             status: dados.status || 'Novo',
             prospeccao_id: dados.prospeccao_id || '',
-            // Dados do agente PRI
+    // Dados do agente PRI
             telefone_pri: agenteData?.telefone || '',
-            dealer_id: agenteData?.dealer_id || ''
+            dealerId: agenteData?.dealer_id || ''
           };
         }
         // Para novo_template_whatsapp, enviar os dados diretamente no body
@@ -322,7 +322,7 @@ serve(async (req) => {
             prospeccao_id: dados.prospeccao_id || '',
             // Dados do agente PRI
             telefone_pri: agenteData?.telefone || '',
-            dealer_id: agenteData?.dealer_id || '',
+            dealerId: agenteData?.dealer_id || '',
             timestamp: new Date().toISOString()
           };
         }
