@@ -142,7 +142,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       }
       
       // Mapeia os dados para o formato esperado usando os índices das colunas
-      let clientesData: ClienteData[] = dataRows
+      const clientesData: ClienteData[] = dataRows
         .filter(row => row && row.length > 0)
         .map(row => ({
           nome: columnIndices.nome >= 0 ? row[columnIndices.nome]?.toString().trim() || '' : '',
@@ -153,33 +153,6 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
           responsavel: columnIndices.responsavel >= 0 ? row[columnIndices.responsavel]?.toString().trim() || '' : '',
         }))
         .filter(cliente => cliente.nome || cliente.telefone);
-
-      // Heurística: se os valores parecem invertidos (nome com cara de telefone e telefone com cara de nome), troca.
-      const looksLikePhone = (value: string) => {
-        const digits = (value || '').replace(/\D/g, '');
-        return digits.length >= 8;
-      };
-      const looksLikeName = (value: string) => /[a-zA-ZÀ-ÿ]/.test(value || '');
-
-      if (clientesData.length > 0) {
-        const sample = clientesData.slice(0, Math.min(30, clientesData.length));
-        const invertedHits = sample.filter(c => looksLikePhone(c.nome) && looksLikeName(c.telefone)).length;
-        const normalHits = sample.filter(c => looksLikeName(c.nome) && looksLikePhone(c.telefone)).length;
-
-        // Se a maioria dos exemplos está invertida, faz o swap em massa.
-        if (invertedHits >= 3 && invertedHits > normalHits) {
-          clientesData = clientesData.map(c => ({
-            ...c,
-            nome: c.telefone,
-            telefone: c.nome,
-          }));
-
-          toast({
-            title: "Colunas invertidas detectadas",
-            description: "Detectei telefone na coluna Nome e nome na coluna Telefone. Ajustei automaticamente.",
-          });
-        }
-      }
       
       setPreviewData(clientesData);
       setIsProcessing(false);
