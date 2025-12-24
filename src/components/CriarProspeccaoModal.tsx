@@ -1251,27 +1251,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         return;
       }
 
-      // Formatar datas para o fuso horário de Brasília (UTC-3)
-      const formatarDataBrasilia = (data: string | null) => {
+      // Formatar datas para ISO 8601
+      const formatarDataISO = (data: string | null) => {
         if (!data) return null;
         try {
-          const dateObj = new Date(data);
-          // Formatar no fuso horário de Brasília
-          const options: Intl.DateTimeFormatOptions = {
-            timeZone: 'America/Sao_Paulo',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false
-          };
-          const parts = new Intl.DateTimeFormat('pt-BR', options).formatToParts(dateObj);
-          const getPart = (type: string) => parts.find(p => p.type === type)?.value || '00';
-          
-          // Formato: YYYY-MM-DDTHH:mm:ss-03:00
-          return `${getPart('year')}-${getPart('month')}-${getPart('day')}T${getPart('hour')}:${getPart('minute')}:${getPart('second')}-03:00`;
+          return new Date(data).toISOString();
         } catch {
           return null;
         }
@@ -1283,12 +1267,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         titulo: prospeccaoData.titulo,
         descricao: prospeccaoData.descricao,
         tipo_evento: tipoEvento,
-        data_inicio: formatarDataBrasilia(prospeccaoData.data_inicio ? prospeccaoData.data_inicio + 'T11:00:00' : null),
-        data_fim: formatarDataBrasilia(prospeccaoData.data_fim ? prospeccaoData.data_fim + 'T23:59:59' : null),
+        data_inicio: formatarDataISO(prospeccaoData.data_inicio ? prospeccaoData.data_inicio + 'T11:00:00' : null),
+        data_fim: formatarDataISO(prospeccaoData.data_fim ? prospeccaoData.data_fim + 'T23:59:59' : null),
         canal: prospeccaoData.canal,
         acao: isEditing ? 'alterado' : 'criado',
         empresa_id: activeCompany.id,
-        data: formatarDataBrasilia(new Date().toISOString()),
+        data: new Date().toISOString(),
         // Dados da Pri
         pri_telefone: priAgent?.telefone || null,
         pri_dealer_id: priAgent?.dealer_id || null,
@@ -1296,8 +1280,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         // Novos campos
         evento_principal: prospeccaoData.evento_principal ?? false,
         qualificar_lead: prospeccaoData.qualificar_lead ?? true,
-        data_envio_template_inicial: formatarDataBrasilia(prospeccaoData.data_envio_template_inicial),
-        data_envio_cadencia: formatarDataBrasilia(prospeccaoData.data_envio_cadencia),
+        data_envio_template_inicial: formatarDataISO(prospeccaoData.data_envio_template_inicial),
+        data_envio_cadencia: formatarDataISO(prospeccaoData.data_envio_cadencia),
       };
 
       // Adicionar templates para IA Whatsapp com IDs Pri e Meta
