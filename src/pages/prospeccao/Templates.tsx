@@ -550,7 +550,7 @@ export default function Templates() {
     };
   };
 
-  // Função para disparar webhooks dos gatilhos
+  // Função para disparar webhooks dos gatilhos via Edge Function
   const triggerWebhooks = async (templateData: {
     nome: string;
     categoria: string;
@@ -569,122 +569,49 @@ export default function Templates() {
         .eq("nome", "Pri")
         .single();
 
-      // Buscar gatilhos ativos - filtramos por acoes->tipo_evento = "novo_template_whatsapp"
-      const { data: gatilhos, error } = await supabase
-        .from("gatilhos")
-        .select("*")
-        .eq("empresa_id", activeCompany.id)
-        .eq("status", "Ativo");
-
-      if (error) {
-        console.error("Erro ao buscar gatilhos:", error);
-        return null;
-      }
-
-      // Filtrar gatilhos pelo tipo_evento nas acoes
-      const gatilhosFiltrados = (gatilhos || []).filter((g) => {
-        const acoes = g.acoes as { tipo_evento?: string } | null;
-        return acoes?.tipo_evento === "novo_template_whatsapp";
-      });
-
-      if (gatilhosFiltrados.length === 0) {
-        console.log("Nenhum gatilho ativo encontrado para novo_template_whatsapp");
-        return null;
-      }
-
       // Construir payload Meta-compatível (async para buscar binários de mídia)
       const metaPayload = await buildMetaPayload(templateData);
 
-      // Adicionar dados da Pri ao payload
+      // Adicionar dados da Pri e empresa ao payload
       const payloadWithPri = {
         ...metaPayload,
+        empresa_id: activeCompany.id,
         pri_telefone: priAgent?.telefone || null,
         pri_dealer_id: priAgent?.dealer_id || null,
         pri_status: priAgent?.ativo ? "Ativo" : "Inativo",
       };
 
-      // Disparar webhooks para cada gatilho
-      for (const gatilho of gatilhosFiltrados) {
-        const acoes = gatilho.acoes as { webhook_url?: string } | null;
-        const webhookUrl = acoes?.webhook_url;
+      console.log("Chamando Edge Function trigger-webhook com payload:", JSON.stringify(payloadWithPri, null, 2));
 
-        if (!webhookUrl) {
-          console.log(`Gatilho ${gatilho.nome} sem webhook_url configurado`);
-          continue;
+      // Chamar Edge Function que serve como proxy para os webhooks
+      const { data: webhookResult, error: webhookError } = await supabase.functions.invoke('trigger-webhook', {
+        body: {
+          gatilho: 'novo_template_whatsapp',
+          dados: payloadWithPri
         }
+      });
 
-        try {
-          console.log(`Disparando webhook para gatilho: ${gatilho.nome}`);
-          console.log("Payload:", JSON.stringify(payloadWithPri, null, 2));
-
-          // Adicionar timeout de 30 segundos
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-          const response = await fetch(webhookUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payloadWithPri),
-            signal: controller.signal,
-          });
-
-          clearTimeout(timeoutId);
-
-          if (response.ok) {
-            const responseData = await response.text();
-            console.log(`Webhook disparado com sucesso para: ${gatilho.nome}`);
-            console.log("Resposta do webhook:", responseData);
-            
-            // Tentar parsear a resposta JSON para extrair dados do Meta
-            try {
-              const jsonResponse = JSON.parse(responseData);
-              console.log("JSON Response parsed:", jsonResponse);
-              
-              if (jsonResponse.template_id_pri || jsonResponse.id_meta || jsonResponse.id || jsonResponse.status_meta || jsonResponse.status || jsonResponse.category) {
-                // Atualizar ultima_execucao do gatilho
-                await supabase
-                  .from("gatilhos")
-                  .update({ ultima_execucao: new Date().toISOString() })
-                  .eq("id", gatilho.id);
-                  
-                return {
-                  template_id_pri: jsonResponse.template_id_pri || null,
-                  id_meta: jsonResponse.id_meta || jsonResponse.id || null,
-                  status_meta: jsonResponse.status_meta || jsonResponse.status || null,
-                  category_meta: jsonResponse.category_meta || jsonResponse.category || null,
-                };
-              }
-            } catch (parseErr) {
-              console.log("Resposta do webhook não é JSON válido:", responseData);
-            }
-            
-            // Atualizar ultima_execucao do gatilho mesmo sem resposta válida
-            await supabase
-              .from("gatilhos")
-              .update({ ultima_execucao: new Date().toISOString() })
-              .eq("id", gatilho.id);
-          } else {
-            const errorBody = await response.text();
-            console.error(`Erro ao disparar webhook para ${gatilho.nome}:`, response.status);
-            console.error("Corpo do erro:", errorBody);
-            toast.error(`Erro no webhook (${response.status}): ${errorBody.substring(0, 100)}`);
-          }
-        } catch (webhookError: any) {
-          if (webhookError.name === 'AbortError') {
-            console.error(`Timeout ao chamar webhook ${gatilho.nome}`);
-            toast.error("Timeout ao chamar webhook - tente novamente");
-          } else {
-            console.error(`Erro ao chamar webhook ${gatilho.nome}:`, webhookError);
-            toast.error(`Erro ao chamar webhook: ${webhookError.message}`);
-          }
-        }
+      if (webhookError) {
+        console.error("Erro ao chamar Edge Function:", webhookError);
+        return null;
       }
-      
+
+      console.log("Resposta da Edge Function:", webhookResult);
+
+      // Extrair dados do Meta da resposta do webhook
+      if (webhookResult?.webhook_response) {
+        const response = webhookResult.webhook_response;
+        return {
+          template_id_pri: response.template_id_pri || response.id || null,
+          id_meta: response.id_meta || response.id || null,
+          status_meta: response.status_meta || response.status || null,
+          category_meta: response.category_meta || response.category || null,
+        };
+      }
+
       return null;
-    } catch (err) {
-      console.error("Erro ao processar gatilhos:", err);
+    } catch (error) {
+      console.error("Erro ao disparar webhooks:", error);
       return null;
     }
   };
