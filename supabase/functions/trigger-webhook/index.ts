@@ -224,11 +224,11 @@ serve(async (req) => {
             dealer_id: agenteData?.dealer_id || ''
           };
         }
-        // Para novo_template_whatsapp, enviar os dados completos do template envolvidos em um objeto
+        // Para novo_template_whatsapp, enviar os dados diretamente no body
         else if (gatilho === 'novo_template_whatsapp' && dados) {
           webhookBody = {
             ...webhookBody,
-            template: dados // Envolve o payload em um objeto "template"
+            ...dados // Espalha os dados diretamente no body
           };
         }
         // Para outros gatilhos, incluir dados completos
