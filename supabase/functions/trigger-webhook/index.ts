@@ -180,9 +180,12 @@ serve(async (req) => {
             prospeccao_id: dados.prospeccao_id || ''
           };
         }
-        // Para novo_template_whatsapp, enviar os dados completos do template
+        // Para novo_template_whatsapp, enviar os dados completos do template envolvidos em um objeto
         else if (gatilho === 'novo_template_whatsapp' && dados) {
-          webhookBody = dados; // Envia o payload Meta-compatível diretamente
+          webhookBody = {
+            ...webhookBody,
+            template: dados // Envolve o payload em um objeto "template"
+          };
         }
         // Para outros gatilhos, incluir dados completos
         else {
