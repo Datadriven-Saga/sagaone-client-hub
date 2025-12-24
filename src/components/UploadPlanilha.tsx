@@ -66,26 +66,56 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       .trim();
   };
 
-  // Mapeia nomes de colunas possíveis para os campos esperados
+  // Mapeia nomes de colunas possíveis para os campos esperados (evitar termos genéricos que causam inversão)
   const columnMappings: Record<string, string[]> = {
-    nome: ['nome', 'name', 'cliente', 'client', 'nome completo', 'nome do cliente'],
-    telefone: ['telefone', 'phone', 'celular', 'cel', 'whatsapp', 'fone', 'tel', 'numero', 'numero telefone'],
-    email: ['email', 'e-mail', 'mail', 'correio'],
-    cpf: ['cpf', 'cpf/cnpj', 'documento', 'doc'],
+    // "cliente" é genérico e estava causando match indevido (ex.: "Telefone do Cliente")
+    nome: ['nome', 'name', 'nome completo', 'nome do cliente'],
+    // "numero" é genérico e também pode causar match indevido
+    telefone: ['telefone', 'phone', 'celular', 'cel', 'whatsapp', 'fone', 'tel'],
+    email: ['email', 'e-mail', 'mail'],
+    cpf: ['cpf', 'cpf/cnpj', 'documento'],
     segmentacao: ['segmentacao', 'segmento', 'categoria', 'tipo', 'grupo'],
     responsavel: ['responsavel', 'vendedor', 'atendente', 'consultor', 'responsavel email'],
+  };
+
+  const tokenize = (value: string) =>
+    normalizeColumnName(value)
+      .split(/[^a-z0-9]+/g)
+      .filter(Boolean);
+
+  // Match mais estrito: prioriza igualdade / palavras completas (evita "includes" solto)
+  const headerMatches = (header: string, candidate: string) => {
+    const h = normalizeColumnName(header);
+    const c = normalizeColumnName(candidate);
+
+    if (!h || !c) return false;
+    if (h === c) return true;
+
+    const headerTokens = new Set(tokenize(h));
+    const candidateTokens = tokenize(c);
+
+    // Ex.: "nome completo" exige as duas palavras
+    if (candidateTokens.length > 0 && candidateTokens.every(t => headerTokens.has(t))) return true;
+
+    // fallback: começa com (ex.: "telefone" em "telefone1")
+    return candidateTokens.length === 1 && h.startsWith(candidateTokens[0]);
   };
 
   // Encontra o índice da coluna baseado no nome do cabeçalho
   const findColumnIndex = (headers: string[], fieldName: string): number => {
     const possibleNames = columnMappings[fieldName] || [fieldName];
-    
+
+    // 1) tentar match exato / por tokens (mais confiável)
     for (let i = 0; i < headers.length; i++) {
-      const normalizedHeader = normalizeColumnName(headers[i] || '');
-      if (possibleNames.some(name => normalizedHeader.includes(normalizeColumnName(name)))) {
-        return i;
-      }
+      if (possibleNames.some(name => headerMatches(headers[i] || '', name))) return i;
     }
+
+    // 2) fallback bem conservador: contains com separador (" telefone ")
+    for (let i = 0; i < headers.length; i++) {
+      const h = ` ${normalizeColumnName(headers[i] || '')} `;
+      if (possibleNames.some(name => h.includes(` ${normalizeColumnName(name)} `))) return i;
+    }
+
     return -1;
   };
 
