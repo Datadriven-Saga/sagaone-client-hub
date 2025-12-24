@@ -1360,25 +1360,41 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
     if (error || !data?.mensagem) {
       // Fallback para texto padrão se não encontrar no banco
-      const modeloDescricao = `🔥 Noite RAM na Saga BR-153!
-Potência, exclusividade e oportunidades imperdíveis. 🚗💨
+      const modeloDescricao = `🔥 **Hyundai Day – Uma Manhã de Oportunidades Exclusivas na Saga Hyundai!**
 
-Chegou o momento que todo apaixonado por RAM esperava!
-A Saga RAM BR-153 convida você para uma noite exclusiva de vendas, com atendimento VIP e condições únicas válidas apenas neste evento especial.
+O momento mais esperado para quem quer aproveitar **as melhores condições do ano** chegou: o **Hyundai Day** está confirmadíssimo e será uma experiência rápida, especial e focada em quem quer garantir seu Hyundai novo ainda em 2025. 🚗💙
 
-🌙 Evento noturno exclusivo
-🛞 Chassis selecionados com preços imperdíveis
-🤝 Atendimento personalizado com o gerente
-🚗 Oportunidades disponíveis só no dia
+Em um único dia, reunimos **toda a equipe Saga Hyundai** e preparamos vantagens que você só encontra no evento.
 
-🗓️ 28 de outubro, a partir das 18h
-📍 Saga RAM BR-153
+✨ **O que te espera no Hyundai Day:**
 
-Viva uma experiência premium, com atendimento prioritário e condições feitas sob medida para quem valoriza potência e sofisticação.
-Garanta sua presença e não perca essa oportunidade única de sair de RAM nova!
+* Ofertas exclusivas disponíveis **somente no dia do evento**
 
-A PRI deve apenas convidar, confirmar interesse, e confirmar o endereço da loja.
-Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações ou detalhes técnicos de veículos.`;
+* Benefícios especiais como:
+
+  • **Taxas a partir de 0%**
+
+  • **Bônus de até R$ 15 mil**
+
+  • **1ª parcela só depois do Carnaval***
+
+* Atendimento dedicado para ajudar você a escolher o Hyundai ideal
+
+* Estrutura completa da Saga Hyundai montada para te receber com prioridade
+
+🗓️ **Sábado – 13 de dezembro**
+
+⏰ **Das 08h às 13h**
+
+📍 **Saga Hyundai**
+
+⚡ **Aproveite uma experiência Hyundai exclusiva, rápida e cheia de oportunidades.**
+
+As condições são limitadas ao dia e a demanda será alta — **confirme sua presença para garantir atendimento prioritário!**
+
+ATENÇÃO: Caso o cliente pergunte sobre detalhes específicos, você pode confirmar que **todas as informações serão apresentadas no Hyundai Day**, direcionando sempre para o evento.
+
+Você **não deve falar sobre valores, taxas detallhadas, entrada, financiamento, simulações ou especificações técnicas de veículos**.`;
       
       setDescricao(modeloDescricao);
     } else {
