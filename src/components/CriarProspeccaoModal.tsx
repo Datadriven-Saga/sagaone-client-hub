@@ -1123,6 +1123,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         return new Date(data + 'T11:00:00.000Z').toISOString();
       };
 
+      // Buscar IDs dos templates selecionados
+      const templateDescobertaData = whatsappTemplates.find(t => t.nome === prospeccaoData.template_prospeccao);
+      const templateAgendadoData = whatsappTemplates.find(t => t.nome === prospeccaoData.template_agendado);
+      const templateNaoAgendadoData = whatsappTemplates.find(t => t.nome === prospeccaoData.template_nao_agendado);
+
       const webhookPayload = {
         maia_id: formatarTelefone(agenteData?.telefone || ""),
         nome_evento: prospeccaoData.titulo || "",
@@ -1131,8 +1136,14 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         descricao: prospeccaoData.descricao || "",
         dealerid: empresaData?.crm_id || "",
         template_descoberta: prospeccaoData.template_prospeccao || "",
+        template_descoberta_id_pri: templateDescobertaData?.template_id_pri || "",
+        template_descoberta_id_meta: templateDescobertaData?.id_meta || "",
         template_conf_agendado: prospeccaoData.template_agendado || "",
-        template_conf_nao_agendado: prospeccaoData.template_nao_agendado || ""
+        template_conf_agendado_id_pri: templateAgendadoData?.template_id_pri || "",
+        template_conf_agendado_id_meta: templateAgendadoData?.id_meta || "",
+        template_conf_nao_agendado: prospeccaoData.template_nao_agendado || "",
+        template_conf_nao_agendado_id_pri: templateNaoAgendadoData?.template_id_pri || "",
+        template_conf_nao_agendado_id_meta: templateNaoAgendadoData?.id_meta || ""
       };
 
       console.log('📤 Enviando webhook:', webhookPayload);
