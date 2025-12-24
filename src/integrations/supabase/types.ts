@@ -1784,10 +1784,13 @@ export type Database = {
           canal: string
           convite: string | null
           created_at: string | null
+          data_envio_cadencia: string | null
+          data_envio_template_inicial: string | null
           data_fim: string | null
           data_inicio: string | null
           descricao: string | null
           empresa_id: string
+          evento_principal: boolean
           id: string
           imagem_divulgacao_url: string | null
           leads_gerados: number | null
@@ -1813,6 +1816,7 @@ export type Database = {
           premio_vendedor_bronze: number | null
           premio_vendedor_ouro: number | null
           premio_vendedor_prata: number | null
+          qualificar_lead: boolean
           responsavel_id: string | null
           template_agendado: string | null
           template_nao_agendado: string | null
@@ -1824,10 +1828,13 @@ export type Database = {
           canal?: string
           convite?: string | null
           created_at?: string | null
+          data_envio_cadencia?: string | null
+          data_envio_template_inicial?: string | null
           data_fim?: string | null
           data_inicio?: string | null
           descricao?: string | null
           empresa_id: string
+          evento_principal?: boolean
           id?: string
           imagem_divulgacao_url?: string | null
           leads_gerados?: number | null
@@ -1853,6 +1860,7 @@ export type Database = {
           premio_vendedor_bronze?: number | null
           premio_vendedor_ouro?: number | null
           premio_vendedor_prata?: number | null
+          qualificar_lead?: boolean
           responsavel_id?: string | null
           template_agendado?: string | null
           template_nao_agendado?: string | null
@@ -1864,10 +1872,13 @@ export type Database = {
           canal?: string
           convite?: string | null
           created_at?: string | null
+          data_envio_cadencia?: string | null
+          data_envio_template_inicial?: string | null
           data_fim?: string | null
           data_inicio?: string | null
           descricao?: string | null
           empresa_id?: string
+          evento_principal?: boolean
           id?: string
           imagem_divulgacao_url?: string | null
           leads_gerados?: number | null
@@ -1893,6 +1904,7 @@ export type Database = {
           premio_vendedor_bronze?: number | null
           premio_vendedor_ouro?: number | null
           premio_vendedor_prata?: number | null
+          qualificar_lead?: boolean
           responsavel_id?: string | null
           template_agendado?: string | null
           template_nao_agendado?: string | null
