@@ -131,10 +131,11 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       console.log('Mapeamento de colunas:', columnIndices);
 
       // Verifica se as colunas obrigatórias foram encontradas
-      if (columnIndices.nome === -1 && columnIndices.telefone === -1) {
+      // (evita inversão por planilhas sem cabeçalho/colunas mal nomeadas)
+      if (columnIndices.nome === -1 || columnIndices.telefone === -1) {
         toast({
-          title: "Colunas não encontradas",
-          description: "Não foi possível identificar as colunas 'Nome' e 'Telefone' no arquivo. Verifique os nomes das colunas.",
+          title: "Colunas obrigatórias não encontradas",
+          description: "Não foi possível identificar claramente as colunas 'Nome' e 'Telefone' no cabeçalho. Verifique a primeira linha da planilha.",
           variant: "destructive",
         });
         setIsProcessing(false);
