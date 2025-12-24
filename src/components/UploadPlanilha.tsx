@@ -56,6 +56,39 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
     }
   };
 
+  // Normaliza nome de coluna para comparação (lowercase, sem acentos, sem espaços extras)
+  const normalizeColumnName = (name: string): string => {
+    return name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  // Mapeia nomes de colunas possíveis para os campos esperados
+  const columnMappings: Record<string, string[]> = {
+    nome: ['nome', 'name', 'cliente', 'client', 'nome completo', 'nome do cliente'],
+    telefone: ['telefone', 'phone', 'celular', 'cel', 'whatsapp', 'fone', 'tel', 'numero', 'numero telefone'],
+    email: ['email', 'e-mail', 'mail', 'correio'],
+    cpf: ['cpf', 'cpf/cnpj', 'documento', 'doc'],
+    segmentacao: ['segmentacao', 'segmento', 'categoria', 'tipo', 'grupo'],
+    responsavel: ['responsavel', 'vendedor', 'atendente', 'consultor', 'responsavel email'],
+  };
+
+  // Encontra o índice da coluna baseado no nome do cabeçalho
+  const findColumnIndex = (headers: string[], fieldName: string): number => {
+    const possibleNames = columnMappings[fieldName] || [fieldName];
+    
+    for (let i = 0; i < headers.length; i++) {
+      const normalizedHeader = normalizeColumnName(headers[i] || '');
+      if (possibleNames.some(name => normalizedHeader.includes(normalizeColumnName(name)))) {
+        return i;
+      }
+    }
+    return -1;
+  };
+
   const processFile = async (file: File) => {
     setIsProcessing(true);
     
@@ -67,24 +100,59 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       
-      // Converte para JSON
+      // Converte para JSON com a primeira linha como cabeçalho
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
       
-      // Remove a primeira linha (cabeçalho) se existir
+      if (jsonData.length < 2) {
+        toast({
+          title: "Arquivo vazio",
+          description: "O arquivo não contém dados suficientes",
+          variant: "destructive",
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      // Pega o cabeçalho (primeira linha) e as linhas de dados
+      const headers = (jsonData[0] as any[]).map(h => h?.toString() || '');
       const dataRows = jsonData.slice(1) as any[][];
+
+      // Encontra os índices das colunas pelo nome do cabeçalho
+      const columnIndices = {
+        nome: findColumnIndex(headers, 'nome'),
+        telefone: findColumnIndex(headers, 'telefone'),
+        email: findColumnIndex(headers, 'email'),
+        cpf: findColumnIndex(headers, 'cpf'),
+        segmentacao: findColumnIndex(headers, 'segmentacao'),
+        responsavel: findColumnIndex(headers, 'responsavel'),
+      };
+
+      console.log('Cabeçalhos encontrados:', headers);
+      console.log('Mapeamento de colunas:', columnIndices);
+
+      // Verifica se as colunas obrigatórias foram encontradas
+      if (columnIndices.nome === -1 && columnIndices.telefone === -1) {
+        toast({
+          title: "Colunas não encontradas",
+          description: "Não foi possível identificar as colunas 'Nome' e 'Telefone' no arquivo. Verifique os nomes das colunas.",
+          variant: "destructive",
+        });
+        setIsProcessing(false);
+        return;
+      }
       
-      // Mapeia os dados para o formato esperado
+      // Mapeia os dados para o formato esperado usando os índices das colunas
       const clientesData: ClienteData[] = dataRows
-        .filter(row => row && row.length > 0) // Remove linhas vazias
+        .filter(row => row && row.length > 0)
         .map(row => ({
-          nome: row[0]?.toString().trim() || '',
-          telefone: row[1]?.toString().trim() || '',
-          email: row[2]?.toString().trim() || '',
-          cpf: row[3]?.toString().trim() || '',
-          segmentacao: row[4]?.toString().trim() || '',
-          responsavel: row[5]?.toString().trim() || '',
+          nome: columnIndices.nome >= 0 ? row[columnIndices.nome]?.toString().trim() || '' : '',
+          telefone: columnIndices.telefone >= 0 ? row[columnIndices.telefone]?.toString().trim() || '' : '',
+          email: columnIndices.email >= 0 ? row[columnIndices.email]?.toString().trim() || '' : '',
+          cpf: columnIndices.cpf >= 0 ? row[columnIndices.cpf]?.toString().trim() || '' : '',
+          segmentacao: columnIndices.segmentacao >= 0 ? row[columnIndices.segmentacao]?.toString().trim() || '' : '',
+          responsavel: columnIndices.responsavel >= 0 ? row[columnIndices.responsavel]?.toString().trim() || '' : '',
         }))
-        .filter(cliente => cliente.nome || cliente.telefone); // Remove registros completamente vazios
+        .filter(cliente => cliente.nome || cliente.telefone);
       
       setPreviewData(clientesData);
       setIsProcessing(false);
