@@ -144,6 +144,7 @@ serve(async (req) => {
     }
 
     const webhooksDispareados = [];
+    let webhookResponseData: any = null;
 
     // Processar gatilhos da tabela gatilhos
     for (const gatilhoItem of gatilhos || []) {
@@ -179,6 +180,10 @@ serve(async (req) => {
             prospeccao_id: dados.prospeccao_id || ''
           };
         }
+        // Para novo_template_whatsapp, enviar os dados completos do template
+        else if (gatilho === 'novo_template_whatsapp' && dados) {
+          webhookBody = dados; // Envia o payload Meta-compatível diretamente
+        }
         // Para outros gatilhos, incluir dados completos
         else {
           webhookBody = {
@@ -186,6 +191,8 @@ serve(async (req) => {
             dados: dados
           };
         }
+
+        console.log('Webhook body:', JSON.stringify(webhookBody, null, 2));
         
         const webhookResponse = await fetch(webhookUrl, {
           method: 'POST',
@@ -195,11 +202,27 @@ serve(async (req) => {
           body: JSON.stringify(webhookBody)
         });
 
+        // Capturar resposta do webhook para retornar ao cliente
+        let responseBody: any = null;
+        try {
+          const responseText = await webhookResponse.text();
+          console.log(`Resposta do webhook (${webhookResponse.status}):`, responseText);
+          responseBody = JSON.parse(responseText);
+          
+          // Se for webhook de template e tiver dados do Meta, armazenar
+          if (gatilho === 'novo_template_whatsapp' && responseBody) {
+            webhookResponseData = responseBody;
+          }
+        } catch (parseErr) {
+          console.log('Resposta do webhook não é JSON válido');
+        }
+
         webhooksDispareados.push({
           gatilho: gatilhoItem.nome,
           url: webhookUrl,
           status: 'disparado',
-          response: webhookResponse.status
+          response: webhookResponse.status,
+          response_data: responseBody
         });
         
         console.log(`Webhook disparado com sucesso para: ${gatilhoItem.nome}`);
@@ -289,7 +312,8 @@ serve(async (req) => {
         success: true,
         gatilho: gatilho,
         webhooks_disparados: webhooksDispareados.length,
-        detalhes: webhooksDispareados
+        detalhes: webhooksDispareados,
+        webhook_response: webhookResponseData
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
