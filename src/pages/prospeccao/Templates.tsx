@@ -1925,6 +1925,7 @@ export default function Templates() {
                     <TableHead>Categoria</TableHead>
                     <TableHead>Formato</TableHead>
                     <TableHead>Departamento</TableHead>
+                    <TableHead>ID Pri</TableHead>
                     <TableHead>ID Meta</TableHead>
                     <TableHead>Status Meta</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -1939,6 +1940,7 @@ export default function Templates() {
                       </TableCell>
                       <TableCell>{template.formato.charAt(0).toUpperCase() + template.formato.slice(1)}</TableCell>
                       <TableCell>{template.departamentos?.nome || "-"}</TableCell>
+                      <TableCell className="font-mono text-xs">{template.template_id_pri || "-"}</TableCell>
                       <TableCell className="font-mono text-xs">{template.id_meta || "-"}</TableCell>
                       <TableCell>
                         {template.status_meta ? (
