@@ -265,7 +265,7 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
 
   return (
     <DashboardLayout title={isEditing ? `Editando: ${formData.nome}` : "Novo Agente"}>
-      <div className="space-y-6">
+      <div className="flex-1 overflow-y-auto space-y-6">
         <div className="flex items-center justify-between">
           <Button variant="ghost" onClick={onClose}>
             <ArrowLeft className="h-4 w-4 mr-2" />
