@@ -63,7 +63,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [imagemDivulgacao, setImagemDivulgacao] = useState("");
   
   // Templates WhatsApp disponíveis
-  const [whatsappTemplates, setWhatsappTemplates] = useState<{ id: string; nome: string }[]>([]);
+  const [whatsappTemplates, setWhatsappTemplates] = useState<{ id: string; nome: string; template_id_pri: string | null; id_meta: string | null }[]>([]);
   
   // Estado para criar novo template inline
   const [criandoTemplateProspeccao, setCriandoTemplateProspeccao] = useState(false);
@@ -397,7 +397,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     
     const { data, error } = await supabase
       .from('whatsapp_templates')
-      .select('id, nome')
+      .select('id, nome, template_id_pri, id_meta')
       .eq('empresa_id', activeCompany.id)
       .in('status', ['pendente', 'aprovado'])
       .order('nome');
@@ -1211,11 +1211,23 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         pri_status: priAgent?.ativo ? 'Ativo' : 'Inativo',
       };
 
-      // Adicionar templates para IA Whatsapp
+      // Adicionar templates para IA Whatsapp com IDs Pri e Meta
       if (tipoEvento === 'IA Whatsapp') {
+        const templateProspeccaoData = whatsappTemplates.find(t => t.nome === prospeccaoData.template_prospeccao);
+        const templateAgendadoData = whatsappTemplates.find(t => t.nome === prospeccaoData.template_agendado);
+        const templateNaoAgendadoData = whatsappTemplates.find(t => t.nome === prospeccaoData.template_nao_agendado);
+
         payload.template_prospeccao = prospeccaoData.template_prospeccao || null;
+        payload.template_prospeccao_id_pri = templateProspeccaoData?.template_id_pri || null;
+        payload.template_prospeccao_id_meta = templateProspeccaoData?.id_meta || null;
+
         payload.template_agendado = prospeccaoData.template_agendado || null;
+        payload.template_agendado_id_pri = templateAgendadoData?.template_id_pri || null;
+        payload.template_agendado_id_meta = templateAgendadoData?.id_meta || null;
+
         payload.template_nao_agendado = prospeccaoData.template_nao_agendado || null;
+        payload.template_nao_agendado_id_pri = templateNaoAgendadoData?.template_id_pri || null;
+        payload.template_nao_agendado_id_meta = templateNaoAgendadoData?.id_meta || null;
       }
 
       console.log(`📤 Disparando ${gatilhosEvento.length} gatilho(s) de novo_evento_criado para ${tipoEvento}`);
