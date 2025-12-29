@@ -77,6 +77,11 @@ export function CompanySelector() {
                 placeholder="Pesquisar empresa..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  // Impede que o Radix DropdownMenu interprete teclas como typeahead
+                  // e mova o foco para os itens da lista
+                  e.stopPropagation();
+                }}
                 className="pl-8 h-9 bg-background"
                 autoFocus
               />
