@@ -352,7 +352,7 @@ export default function Templates() {
 
   const handleNext = () => {
     if (currentStep === 1) {
-      if (!formData.nome || !formData.categoria || !formData.departamento_id) {
+      if (!formData.nome || !formData.categoria) {
         toast.error("Preencha todos os campos obrigatórios");
         return;
       }
@@ -1037,22 +1037,6 @@ export default function Templates() {
           </SelectContent>
         </Select>
       </div>
-      <div className="flex items-center gap-4">
-        <Label htmlFor="departamento" className="w-40 shrink-0 text-right">Departamento *</Label>
-        <Select
-          value={formData.departamento_id}
-          onValueChange={(value) => setFormData(prev => ({ ...prev, departamento_id: value }))}
-        >
-          <SelectTrigger className="flex-1 bg-white">
-            <SelectValue placeholder="Selecione o departamento" />
-          </SelectTrigger>
-          <SelectContent>
-            {departamentos.map((dept) => (
-              <SelectItem key={dept.id} value={dept.id}>{dept.nome}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
     </div>
   );
 
@@ -1325,12 +1309,13 @@ export default function Templates() {
           {/* Botões */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label>Botões</Label>
+              <Label>Botões (máx. 3)</Label>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleAddButton}
+                disabled={formData.cardData.botoes.length >= 3}
               >
                 <Plus className="h-3 w-3 mr-1" />
                 Adicionar Botão
@@ -1444,12 +1429,13 @@ export default function Templates() {
           {/* Botões */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label>Botões</Label>
+              <Label>Botões (máx. 3)</Label>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleAddButton}
+                disabled={formData.cardData.botoes.length >= 3}
               >
                 <Plus className="h-3 w-3 mr-1" />
                 Adicionar Botão
@@ -1861,7 +1847,6 @@ export default function Templates() {
                     <TableHead>Nome</TableHead>
                     <TableHead>Categoria</TableHead>
                     <TableHead>Formato</TableHead>
-                    <TableHead>Departamento</TableHead>
                     <TableHead>ID Pri</TableHead>
                     <TableHead>ID Meta</TableHead>
                     <TableHead>Status Meta</TableHead>
@@ -1876,7 +1861,6 @@ export default function Templates() {
                         <Badge variant="outline">{template.categoria.charAt(0).toUpperCase() + template.categoria.slice(1)}</Badge>
                       </TableCell>
                       <TableCell>{template.formato.charAt(0).toUpperCase() + template.formato.slice(1)}</TableCell>
-                      <TableCell>{template.departamentos?.nome || "-"}</TableCell>
                       <TableCell className="font-mono text-xs">{template.template_id_pri || "-"}</TableCell>
                       <TableCell className="font-mono text-xs">{template.id_meta || "-"}</TableCell>
                       <TableCell>
