@@ -577,7 +577,7 @@ export default function Templates() {
       const payloadWithPri = {
         ...metaPayload,
         empresa_id: activeCompany.id,
-        pri_telefone: priAgent?.telefone || null,
+        pri_telefone: normalizePhone(priAgent?.telefone),
         pri_dealer_id: priAgent?.dealer_id || null,
         pri_status: priAgent?.ativo ? "Ativo" : "Inativo",
       };
