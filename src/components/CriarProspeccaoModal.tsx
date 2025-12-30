@@ -1629,48 +1629,84 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
               
               <div className="space-y-2">
                 <Label htmlFor="template_prospeccao">Template Prospecção</Label>
-                <Select value={templateProspeccao} onValueChange={setTemplateProspeccao}>
+                <Select value={templateProspeccao} onValueChange={(value) => {
+                  if (value === templateAgendado || value === templateNaoAgendado) {
+                    toast({
+                      title: "Template já utilizado",
+                      description: "Este template já está selecionado em outro campo. Escolha um template diferente.",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  setTemplateProspeccao(value);
+                }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um template aprovado" />
                   </SelectTrigger>
                   <SelectContent>
-                    {whatsappTemplates.map(template => (
-                      <SelectItem key={template.id} value={template.nome}>
-                        {template.nome}
-                      </SelectItem>
-                    ))}
+                    {whatsappTemplates
+                      .filter(t => t.nome !== templateAgendado && t.nome !== templateNaoAgendado)
+                      .map(template => (
+                        <SelectItem key={template.id} value={template.nome}>
+                          {template.nome}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="template_agendado">Template Agendado</Label>
-                <Select value={templateAgendado} onValueChange={setTemplateAgendado}>
+                <Select value={templateAgendado} onValueChange={(value) => {
+                  if (value === templateProspeccao || value === templateNaoAgendado) {
+                    toast({
+                      title: "Template já utilizado",
+                      description: "Este template já está selecionado em outro campo. Escolha um template diferente.",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  setTemplateAgendado(value);
+                }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um template aprovado" />
                   </SelectTrigger>
                   <SelectContent>
-                    {whatsappTemplates.map(template => (
-                      <SelectItem key={template.id} value={template.nome}>
-                        {template.nome}
-                      </SelectItem>
-                    ))}
+                    {whatsappTemplates
+                      .filter(t => t.nome !== templateProspeccao && t.nome !== templateNaoAgendado)
+                      .map(template => (
+                        <SelectItem key={template.id} value={template.nome}>
+                          {template.nome}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="template_nao_agendado">Template Não Agendado</Label>
-                <Select value={templateNaoAgendado} onValueChange={setTemplateNaoAgendado}>
+                <Select value={templateNaoAgendado} onValueChange={(value) => {
+                  if (value === templateProspeccao || value === templateAgendado) {
+                    toast({
+                      title: "Template já utilizado",
+                      description: "Este template já está selecionado em outro campo. Escolha um template diferente.",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  setTemplateNaoAgendado(value);
+                }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um template aprovado" />
                   </SelectTrigger>
                   <SelectContent>
-                    {whatsappTemplates.map(template => (
-                      <SelectItem key={template.id} value={template.nome}>
-                        {template.nome}
-                      </SelectItem>
-                    ))}
+                    {whatsappTemplates
+                      .filter(t => t.nome !== templateProspeccao && t.nome !== templateAgendado)
+                      .map(template => (
+                        <SelectItem key={template.id} value={template.nome}>
+                          {template.nome}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
