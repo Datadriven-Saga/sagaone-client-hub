@@ -41,7 +41,8 @@ import {
   Trash2,
   Edit2,
   Music,
-  RefreshCw
+  RefreshCw,
+  Copy
 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -330,6 +331,73 @@ export default function Templates() {
         rodape: cardData.rodape || "",
         botoes: (cardData.botoes || []).map((b: any) => ({
           id: b.id || crypto.randomUUID(),
+          nome: b.nome || "",
+          buttonId: b.buttonId || "",
+        })),
+      },
+    });
+    setCurrentStep(1);
+    setIsModalOpen(true);
+  };
+
+  const handleDuplicateTemplate = async (template: any) => {
+    // Gerar nome único com sufixo sequencial
+    let baseName = template.nome;
+    let suffix = 1;
+    let newName = `${baseName} (${suffix})`;
+    
+    // Verificar nomes existentes para encontrar o próximo sufixo disponível
+    const { data: existingTemplates } = await supabase
+      .from("whatsapp_templates")
+      .select("nome")
+      .eq("empresa_id", activeCompany?.id)
+      .ilike("nome", `${baseName} (%)`);
+    
+    if (existingTemplates && existingTemplates.length > 0) {
+      const suffixes = existingTemplates
+        .map(t => {
+          const match = t.nome.match(/\((\d+)\)$/);
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter(n => !isNaN(n));
+      
+      if (suffixes.length > 0) {
+        suffix = Math.max(...suffixes) + 1;
+      }
+    }
+    
+    newName = `${baseName} (${suffix})`;
+    
+    // Limitar a 100 caracteres
+    if (newName.length > 100) {
+      const overflow = newName.length - 100;
+      baseName = baseName.slice(0, baseName.length - overflow);
+      newName = `${baseName} (${suffix})`;
+    }
+    
+    // Parse card_data from database
+    const cardData = template.card_data || {};
+    
+    setEditingTemplateId(null); // Criar novo, não editar
+    setFormData({
+      nome: newName,
+      categoria: template.categoria as TemplateCategory,
+      departamento_id: template.departamento_id || "",
+      formato: template.formato as TemplateFormat,
+      conteudo: template.formato === "texto" ? template.conteudo : "",
+      variaveis: [],
+      cardData: {
+        imagemCampanha: null,
+        imagemPreviewUrl: cardData.imagemUrl || "",
+        audioCampanha: null,
+        audioPreviewUrl: cardData.audioUrl || "",
+        videoCampanha: null,
+        videoPreviewUrl: cardData.videoUrl || "",
+        textoCabecalho: cardData.textoCabecalho || "",
+        corpoTexto: template.formato !== "texto" ? template.conteudo : "",
+        rodape: cardData.rodape || "",
+        botoes: (cardData.botoes || []).map((b: any) => ({
+          id: crypto.randomUUID(),
           nome: b.nome || "",
           buttonId: b.buttonId || "",
         })),
@@ -1052,10 +1120,16 @@ export default function Templates() {
           <Input
             id="nome"
             value={formData.nome}
-            onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
+            onChange={(e) => {
+              if (e.target.value.length <= 100) {
+                setFormData(prev => ({ ...prev, nome: e.target.value }));
+              }
+            }}
             placeholder="Ex: Convite Evento VIP"
+            maxLength={100}
             className={`bg-white ${nomeDuplicado ? "border-destructive focus-visible:ring-destructive" : ""}`}
           />
+          <p className="text-xs text-muted-foreground text-right">{formData.nome.length}/100</p>
           {nomeDuplicado && (
             <p className="text-xs text-destructive">Já existe um template com este nome</p>
           )}
@@ -1808,14 +1882,24 @@ export default function Templates() {
                         ) : "-"}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleEditTemplate(template)}
-                        >
-                          <Edit2 className="h-4 w-4 mr-1" />
-                          Editar
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleEditTemplate(template)}
+                          >
+                            <Edit2 className="h-4 w-4 mr-1" />
+                            Editar
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDuplicateTemplate(template)}
+                          >
+                            <Copy className="h-4 w-4 mr-1" />
+                            Duplicar
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
