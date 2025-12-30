@@ -51,7 +51,7 @@ import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { normalizePhone } from "@/lib/utils";
 
 
-type TemplateFormat = "texto" | "botao" | "imagem" | "audio" | "video" | "card" | "lista";
+type TemplateFormat = "texto" | "botao" | "imagem" | "video" | "card" | "lista";
 type TemplateCategory = "marketing" | "utilidade" | "transacional";
 
 interface CardButton {
@@ -101,12 +101,6 @@ const formatOptions = [
     label: "Imagem", 
     description: "Card composta de uma imagem e um título de assunto.",
     icon: Image 
-  },
-  { 
-    value: "audio" as TemplateFormat, 
-    label: "Áudio", 
-    description: "Envie um áudio para o cliente.",
-    icon: Music 
   },
   { 
     value: "video" as TemplateFormat, 
@@ -643,10 +637,6 @@ export default function Templates() {
       toast.error("Faça upload de uma imagem");
       return;
     }
-    if (formData.formato === "audio" && !formData.cardData.audioPreviewUrl) {
-      toast.error("Faça upload de um áudio");
-      return;
-    }
     if (formData.formato === "video" && !formData.cardData.videoPreviewUrl) {
       toast.error("Faça upload de um vídeo");
       return;
@@ -694,13 +684,6 @@ export default function Templates() {
           };
           break;
 
-        case "audio":
-          // Áudio: URL do áudio + corpo do texto (legenda)
-          conteudo = formData.cardData.corpoTexto;
-          cardData = {
-            audioUrl: formData.cardData.audioPreviewUrl,
-          };
-          break;
 
         case "video":
           // Vídeo: URL do vídeo + corpo do texto (legenda)
@@ -1585,109 +1568,6 @@ export default function Templates() {
       );
     }
 
-    if (formData.formato === "audio") {
-      const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-          const publicUrl = await uploadMediaToStorage(file, 'audio');
-          if (publicUrl) {
-            setFormData(prev => ({
-              ...prev,
-              cardData: {
-                ...prev.cardData,
-                audioCampanha: file,
-                audioPreviewUrl: publicUrl,
-              }
-            }));
-          }
-        }
-      };
-
-      const handleRemoveAudio = () => {
-        setFormData(prev => ({
-          ...prev,
-          cardData: {
-            ...prev.cardData,
-            audioCampanha: null,
-            audioPreviewUrl: "",
-          }
-        }));
-      };
-
-      return (
-        <div className="space-y-4">
-          {/* Áudio da Campanha */}
-          <div>
-            <Label>Áudio da Campanha</Label>
-            <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-              <Check className="h-3 w-3" />
-              A URL da mídia é pública e permanente
-            </p>
-            <div className="mt-2">
-              {isUploading ? (
-                <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-primary rounded-lg">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
-                  <span className="text-sm text-muted-foreground">Enviando...</span>
-                </div>
-              ) : formData.cardData.audioPreviewUrl ? (
-                <div className="relative w-full bg-muted rounded-lg overflow-hidden p-4">
-                  <audio 
-                    src={formData.cardData.audioPreviewUrl} 
-                    controls
-                    className="w-full"
-                  />
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2 h-6 w-6"
-                    onClick={handleRemoveAudio}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary transition-colors">
-                  <Music className="h-8 w-8 text-muted-foreground mb-2" />
-                  <span className="text-sm text-muted-foreground">Clique para enviar áudio</span>
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    className="hidden"
-                    onChange={handleAudioUpload}
-                  />
-                </label>
-              )}
-            </div>
-          </div>
-
-          {/* Corpo do Texto */}
-          <div>
-            <Label htmlFor="corpoTextoAudio">Corpo do Texto</Label>
-            <Textarea
-              id="corpoTextoAudio"
-              value={formData.cardData.corpoTexto}
-              onChange={(e) => {
-                if (e.target.value.length <= 1024) {
-                  setFormData(prev => ({
-                    ...prev,
-                    cardData: { ...prev.cardData, corpoTexto: e.target.value }
-                  }));
-                }
-              }}
-              placeholder="Digite o conteúdo da mensagem..."
-              className="min-h-[120px] bg-white"
-              maxLength={1024}
-            />
-            <div className="flex items-center justify-between mt-1">
-              {renderVariableDropdown(insertVariableToCorpoTexto)}
-              <p className="text-xs text-muted-foreground">
-                {formData.cardData.corpoTexto.length}/1024
-              </p>
-            </div>
-          </div>
-        </div>
-      );
-    }
 
     if (formData.formato === "video") {
       const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
