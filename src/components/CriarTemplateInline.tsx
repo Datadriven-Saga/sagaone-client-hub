@@ -27,7 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 type TemplateFormat = "texto" | "botao" | "imagem" | "audio" | "video" | "card";
-type TemplateCategory = "marketing" | "utilidade" | "transacional";
+type TemplateCategory = "marketing" | "utilidade" | "autenticacao";
 
 interface CardButton {
   id: string;
@@ -716,7 +716,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
               <SelectContent>
                 <SelectItem value="marketing">Marketing</SelectItem>
                 <SelectItem value="utilidade">Utilidade</SelectItem>
-                <SelectItem value="transacional">Transacional</SelectItem>
+                <SelectItem value="autenticacao">Autenticação</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -52,7 +52,7 @@ import { normalizePhone } from "@/lib/utils";
 
 
 type TemplateFormat = "texto" | "botao" | "imagem" | "video" | "card" | "lista";
-type TemplateCategory = "marketing" | "utilidade" | "transacional";
+type TemplateCategory = "marketing" | "utilidade" | "autenticacao";
 
 interface CardButton {
   id: string;
@@ -378,7 +378,7 @@ export default function Templates() {
     const mapping: Record<string, string> = {
       "marketing": "MARKETING",
       "utilidade": "UTILITY",
-      "transacional": "TRANSACTIONAL",
+      "autenticacao": "AUTHENTICATION",
     };
     return mapping[categoria] || "MARKETING";
   };
@@ -1024,7 +1024,7 @@ export default function Templates() {
           <SelectContent>
             <SelectItem value="marketing">Marketing</SelectItem>
             <SelectItem value="utilidade">Utilidade</SelectItem>
-            <SelectItem value="transacional">Transacional</SelectItem>
+            <SelectItem value="autenticacao">Autenticação</SelectItem>
           </SelectContent>
         </Select>
       </div>
