@@ -48,6 +48,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
+import { normalizePhone } from "@/lib/utils";
 
 
 type TemplateFormat = "texto" | "botao" | "imagem" | "audio" | "video" | "card" | "lista";
