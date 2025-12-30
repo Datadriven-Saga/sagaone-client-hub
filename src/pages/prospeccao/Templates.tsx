@@ -532,10 +532,14 @@ export default function Templates() {
       });
     }
 
+    // Verificar se há variáveis no conteúdo (formato {{1}}, {{2}}, etc.)
+    const hasVariables = /\{\{\d+\}\}/.test(savedData.conteudo || "");
+
     return {
       provider: "meta_whatsapp",
       action: "create_message_template",
       waba_id: "",
+      tem_variavel: hasVariables ? "Sim" : "Não",
       payload: {
         name: formatNameForMeta(savedData.nome),
         language: "pt_BR",
