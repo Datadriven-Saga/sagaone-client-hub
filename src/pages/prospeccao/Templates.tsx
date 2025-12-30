@@ -629,9 +629,16 @@ export default function Templates() {
       toast.error("Preencha o conteúdo do template");
       return;
     }
-    if (formData.formato === "botao" && (!formData.cardData.corpoTexto || formData.cardData.botoes.length === 0)) {
-      toast.error("Preencha o corpo do texto e adicione pelo menos um botão");
-      return;
+    if (formData.formato === "botao") {
+      if (!formData.cardData.corpoTexto || formData.cardData.botoes.length === 0) {
+        toast.error("Preencha o corpo do texto e adicione pelo menos um botão");
+        return;
+      }
+      const emptyButtonName = formData.cardData.botoes.some(b => !b.nome.trim());
+      if (emptyButtonName) {
+        toast.error("Preencha o nome de todos os botões");
+        return;
+      }
     }
     if (formData.formato === "imagem" && !formData.cardData.imagemPreviewUrl) {
       toast.error("Faça upload de uma imagem");
