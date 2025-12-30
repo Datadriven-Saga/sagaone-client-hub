@@ -48,6 +48,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
+import { normalizePhone } from "@/lib/utils";
 
 
 type TemplateFormat = "texto" | "botao" | "imagem" | "audio" | "video" | "card" | "lista";
@@ -576,7 +577,7 @@ export default function Templates() {
       const payloadWithPri = {
         ...metaPayload,
         empresa_id: activeCompany.id,
-        pri_telefone: priAgent?.telefone || null,
+        pri_telefone: normalizePhone(priAgent?.telefone),
         pri_dealer_id: priAgent?.dealer_id || null,
         pri_status: priAgent?.ativo ? "Ativo" : "Inativo",
       };

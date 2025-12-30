@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { normalizePhone } from '@/lib/utils';
 
 export interface Contato {
   id: string;
@@ -300,7 +301,7 @@ export const useContatoData = () => {
                   contato_id: contato.id,
                   prospeccao_id: prospeccaoId,
                   nome: contato.nome,
-                  telefone: contato.telefone,
+                  telefone: normalizePhone(contato.telefone),
                   email: contato.email,
                   status: contato.status || 'Novo',
                   // Dados da prospecção
