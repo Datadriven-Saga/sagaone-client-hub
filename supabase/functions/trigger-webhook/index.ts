@@ -71,16 +71,40 @@ serve(async (req) => {
       );
     }
 
-    // Buscar gatilhos ativos para o tipo de evento
-    const { data: gatilhos, error } = await supabaseClient
+    // Extrair empresa_id dos dados para filtrar gatilhos corretamente
+    const empresaId = dados.empresa_id;
+    console.log('🏢 Empresa ID recebido:', empresaId);
+
+    // Criar cliente com service role para bypessar RLS e buscar gatilhos da empresa correta
+    const supabaseServiceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          persistSession: false
+        }
+      }
+    );
+
+    // Buscar gatilhos ativos para o tipo de evento E para a empresa específica
+    let gatilhosQuery = supabaseServiceClient
       .from('gatilhos')
       .select('*')
       .eq('acoes->>tipo_evento', gatilho)
       .eq('status', 'Ativo');
+    
+    // Se temos empresa_id, filtrar por ela
+    if (empresaId) {
+      gatilhosQuery = gatilhosQuery.eq('empresa_id', empresaId);
+    }
+    
+    const { data: gatilhos, error } = await gatilhosQuery;
+
+    console.log(`🔍 Gatilhos query - empresa_id: ${empresaId}, tipo_evento: ${gatilho}`);
 
     // Buscar também followups ativos de agentes para o tipo de evento
     // Incluir verificação se o agente está ativo
-    const { data: followups, error: followupError } = await supabaseClient
+    let followupsQuery = supabaseServiceClient
       .from('agente_followups')
       .select(`
         *,
@@ -92,6 +116,13 @@ serve(async (req) => {
       .eq('tipo', gatilho)
       .eq('ativo', true)
       .eq('agentes_ia.ativo', true);
+    
+    // Se temos empresa_id, filtrar por ela
+    if (empresaId) {
+      followupsQuery = followupsQuery.eq('empresa_id', empresaId);
+    }
+    
+    const { data: followups, error: followupError } = await followupsQuery;
 
     // Variáveis para dados do agente PRI
     let agenteData: { telefone: string | null; dealer_id: string | null } | null = null;
