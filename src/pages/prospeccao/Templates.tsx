@@ -871,25 +871,70 @@ export default function Templates() {
             if (Array.isArray(templatesArray)) {
               let updatedCount = 0;
               for (const item of templatesArray) {
-                // O retorno usa "id" e "status" da Meta
+                // O retorno usa "id", "name", "status" e "category" da Meta
                 const metaId = item.id || item.id_meta;
                 const metaStatus = item.status || item.status_meta;
+                const metaName = item.name; // nome do template na Meta (formato snake_case)
+                const metaCategory = item.category;
                 
-                if (metaId && metaStatus) {
-                  const { error: updateErr } = await supabase
+                if (!metaId || !metaStatus) continue;
+                
+                // Primeiro tenta atualizar pelo id_meta
+                const { data: updatedById, error: updateByIdErr } = await supabase
+                  .from("whatsapp_templates")
+                  .update({ 
+                    status_meta: metaStatus,
+                    category_meta: metaCategory || null
+                  })
+                  .eq("id_meta", metaId)
+                  .eq("empresa_id", activeCompany.id)
+                  .select("id");
+                
+                if (!updateByIdErr && updatedById && updatedById.length > 0) {
+                  updatedCount++;
+                  continue;
+                }
+                
+                // Se não encontrou pelo id_meta, tenta pelo nome normalizado
+                if (metaName) {
+                  // Buscar templates da empresa que ainda não têm id_meta
+                  const { data: localTemplates } = await supabase
                     .from("whatsapp_templates")
-                    .update({ status_meta: metaStatus })
-                    .eq("id_meta", metaId)
-                    .eq("empresa_id", activeCompany.id);
+                    .select("id, nome")
+                    .eq("empresa_id", activeCompany.id)
+                    .is("id_meta", null);
                   
-                  if (!updateErr) updatedCount++;
+                  if (localTemplates) {
+                    // Procurar template cujo nome normalizado corresponda ao nome da Meta
+                    const matchingTemplate = localTemplates.find(t => {
+                      const normalizedLocalName = formatNameForMeta(t.nome);
+                      return normalizedLocalName === metaName;
+                    });
+                    
+                    if (matchingTemplate) {
+                      const { error: updateByNameErr } = await supabase
+                        .from("whatsapp_templates")
+                        .update({ 
+                          id_meta: metaId,
+                          status_meta: metaStatus,
+                          category_meta: metaCategory || null
+                        })
+                        .eq("id", matchingTemplate.id)
+                        .eq("empresa_id", activeCompany.id);
+                      
+                      if (!updateByNameErr) updatedCount++;
+                    }
+                  }
                 }
               }
               toast.success(`Status atualizado para ${updatedCount} templates`);
             } else if (templatesArray.id_meta && templatesArray.status_meta) {
               await supabase
                 .from("whatsapp_templates")
-                .update({ status_meta: templatesArray.status_meta })
+                .update({ 
+                  status_meta: templatesArray.status_meta,
+                  category_meta: templatesArray.category || null
+                })
                 .eq("id_meta", templatesArray.id_meta)
                 .eq("empresa_id", activeCompany.id);
               toast.success("Status atualizado com sucesso");
