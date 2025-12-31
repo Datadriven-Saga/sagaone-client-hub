@@ -1269,15 +1269,53 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
             .trim()
             .toLowerCase();
 
-        const templateProspeccaoData = whatsappTemplates.find(
-          (t) => normalizeTemplateName(t.nome) === normalizeTemplateName(prospeccaoData.template_prospeccao)
-        );
-        const templateAgendadoData = whatsappTemplates.find(
-          (t) => normalizeTemplateName(t.nome) === normalizeTemplateName(prospeccaoData.template_agendado)
-        );
-        const templateNaoAgendadoData = whatsappTemplates.find(
-          (t) => normalizeTemplateName(t.nome) === normalizeTemplateName(prospeccaoData.template_nao_agendado)
-        );
+        const buildIlikePattern = (value?: string | null) => {
+          const normalized = (value ?? '')
+            .normalize('NFKC')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          if (!normalized) return null;
+
+          // Tolerante a variações de espaços no banco (ex: "PRI  PRI")
+          const withWildcards = normalized.replace(/\s+/g, '%');
+          return `%${withWildcards}%`;
+        };
+
+        const lookupTemplateByName = async (templateName?: string | null) => {
+          const desired = normalizeTemplateName(templateName);
+          if (!desired) return null;
+
+          const localMatch = whatsappTemplates.find(
+            (t) => normalizeTemplateName(t.nome) === desired
+          );
+          if (localMatch?.template_id_pri || localMatch?.id_meta) return localMatch;
+
+          // Fallback: busca direto no banco (não depende do cache/filters de status)
+          const pattern = buildIlikePattern(templateName);
+          if (!pattern) return localMatch ?? null;
+
+          const { data } = await supabase
+            .from('whatsapp_templates')
+            .select('id, nome, template_id_pri, id_meta')
+            .eq('empresa_id', activeCompany.id)
+            .ilike('nome', pattern)
+            .order('updated_at', { ascending: false })
+            .limit(5);
+
+          const dbMatch = (data ?? []).find(
+            (t) => normalizeTemplateName(t.nome) === desired
+          );
+
+          return dbMatch ?? (data?.[0] ?? localMatch ?? null);
+        };
+
+        const [templateProspeccaoData, templateAgendadoData, templateNaoAgendadoData] =
+          await Promise.all([
+            lookupTemplateByName(prospeccaoData.template_prospeccao),
+            lookupTemplateByName(prospeccaoData.template_agendado),
+            lookupTemplateByName(prospeccaoData.template_nao_agendado),
+          ]);
 
         payload.template_prospeccao = prospeccaoData.template_prospeccao || null;
         payload.template_prospeccao_id_pri = templateProspeccaoData?.template_id_pri || null;
