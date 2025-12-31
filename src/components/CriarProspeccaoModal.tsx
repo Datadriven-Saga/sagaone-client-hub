@@ -1261,10 +1261,23 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
       // Adicionar templates para IA Whatsapp com IDs Pri e Meta
       if (tipoEvento === 'IA Whatsapp') {
-        // Usar trim() para comparar nomes sem espaços extras
-        const templateProspeccaoData = whatsappTemplates.find(t => t.nome?.trim() === prospeccaoData.template_prospeccao?.trim());
-        const templateAgendadoData = whatsappTemplates.find(t => t.nome?.trim() === prospeccaoData.template_agendado?.trim());
-        const templateNaoAgendadoData = whatsappTemplates.find(t => t.nome?.trim() === prospeccaoData.template_nao_agendado?.trim());
+        // Comparação robusta (resolve espaços duplos, maiúsculas/minúsculas e caracteres especiais invisíveis)
+        const normalizeTemplateName = (value?: string | null) =>
+          (value ?? '')
+            .normalize('NFKC')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+
+        const templateProspeccaoData = whatsappTemplates.find(
+          (t) => normalizeTemplateName(t.nome) === normalizeTemplateName(prospeccaoData.template_prospeccao)
+        );
+        const templateAgendadoData = whatsappTemplates.find(
+          (t) => normalizeTemplateName(t.nome) === normalizeTemplateName(prospeccaoData.template_agendado)
+        );
+        const templateNaoAgendadoData = whatsappTemplates.find(
+          (t) => normalizeTemplateName(t.nome) === normalizeTemplateName(prospeccaoData.template_nao_agendado)
+        );
 
         payload.template_prospeccao = prospeccaoData.template_prospeccao || null;
         payload.template_prospeccao_id_pri = templateProspeccaoData?.template_id_pri || null;
