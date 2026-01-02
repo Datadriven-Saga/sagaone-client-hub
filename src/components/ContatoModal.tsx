@@ -616,13 +616,13 @@ export function ContatoModal({
               </DialogTitle>
               {!isNewContact && contato && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="font-mono">ID: {contato.id}</span>
+                  <span className="font-mono">#{contato.id.substring(0, 8).toUpperCase()}</span>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-5 w-5"
                     onClick={() => {
-                      navigator.clipboard.writeText(contato.id);
+                      navigator.clipboard.writeText(contato.id.substring(0, 8).toUpperCase());
                       toast({
                         title: "ID copiado",
                         description: "O ID do lead foi copiado para a área de transferência"
