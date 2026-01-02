@@ -73,9 +73,8 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const { isAdmin } = useUserAccessType();
   
-  // Verificar se algum submódulo de prospecção está ativo
-  const isProspeccaoActive = currentPath.startsWith('/prospeccao');
-  const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(isProspeccaoActive);
+  // Menu Prospecção sempre aberto por padrão para reduzir cliques
+  const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(true);
 
   // Combinar items baseado no tipo de acesso
   const afterProspeccaoItems = isAdmin 
