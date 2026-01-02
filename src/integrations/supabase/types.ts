@@ -435,6 +435,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "clientes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       contatos: {
@@ -795,6 +802,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "gatilhos_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "gatilhos_empresa_id_fkey"
             columns: ["empresa_id"]
             isOneToOne: false
@@ -837,6 +851,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "horarios_trabalho_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1056,6 +1077,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "notificacoes_destinatario_id_fkey"
+            columns: ["destinatario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "notificacoes_lead_id_fkey"
             columns: ["contato_id"]
             isOneToOne: false
@@ -1067,6 +1095,13 @@ export type Database = {
             columns: ["remetente_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_remetente_id_fkey"
+            columns: ["remetente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
             referencedColumns: ["id"]
           },
           {
@@ -1218,6 +1253,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "participacoes_treinamento_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "participacoes_treinamento_treinamento_id_fkey"
             columns: ["treinamento_id"]
             isOneToOne: false
@@ -1272,6 +1314,13 @@ export type Database = {
             columns: ["criado_por"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personas_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
             referencedColumns: ["id"]
           },
           {
@@ -1406,6 +1455,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "profiles_gestor_imediato_fkey"
+            columns: ["gestor_imediato"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       proprietario_empresas: {
@@ -1443,6 +1499,13 @@ export type Database = {
             columns: ["proprietario_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proprietario_empresas_proprietario_id_fkey"
+            columns: ["proprietario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1521,6 +1584,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccao_equipe_membros_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1690,6 +1760,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccao_metas_individuais_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1975,6 +2052,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "prospeccoes_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       recepcao_visitas: {
@@ -2071,6 +2155,13 @@ export type Database = {
             columns: ["gerado_por"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "relatorios_gerado_por_fkey"
+            columns: ["gerado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -2199,6 +2290,13 @@ export type Database = {
             columns: ["instrutor_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treinamentos_instrutor_id_fkey"
+            columns: ["instrutor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -2333,6 +2431,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "vendas_prospeccao_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       whatsapp_templates: {
@@ -2450,11 +2555,90 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_vinculados_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      profiles_safe: {
+        Row: {
+          celular: string | null
+          cpf: string | null
+          created_at: string | null
+          departamento: string | null
+          empresa_id: string | null
+          foto_url: string | null
+          gestor_imediato: string | null
+          id: string | null
+          nome_completo: string | null
+          notificacao_email: boolean | null
+          notificacao_whatsapp: boolean | null
+          status: Database["public"]["Enums"]["status_usuario"] | null
+          tipo_acesso: Database["public"]["Enums"]["tipo_acesso"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          celular?: never
+          cpf?: never
+          created_at?: string | null
+          departamento?: string | null
+          empresa_id?: string | null
+          foto_url?: string | null
+          gestor_imediato?: string | null
+          id?: string | null
+          nome_completo?: string | null
+          notificacao_email?: boolean | null
+          notificacao_whatsapp?: boolean | null
+          status?: Database["public"]["Enums"]["status_usuario"] | null
+          tipo_acesso?: Database["public"]["Enums"]["tipo_acesso"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          celular?: never
+          cpf?: never
+          created_at?: string | null
+          departamento?: string | null
+          empresa_id?: string | null
+          foto_url?: string | null
+          gestor_imediato?: string | null
+          id?: string | null
+          nome_completo?: string | null
+          notificacao_email?: boolean | null
+          notificacao_whatsapp?: boolean | null
+          status?: Database["public"]["Enums"]["status_usuario"] | null
+          tipo_acesso?: Database["public"]["Enums"]["tipo_acesso"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_gestor_imediato_fkey"
+            columns: ["gestor_imediato"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_gestor_imediato_fkey"
+            columns: ["gestor_imediato"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_manage_users: { Args: { user_id?: string }; Returns: boolean }
