@@ -832,14 +832,16 @@ export default function Templates() {
       });
 
       // Se o webhook retornou dados do Meta, atualizar o template
-      if (webhookResponse && insertedTemplateId) {
+      if (insertedTemplateId) {
+        const hasValidIds = webhookResponse?.template_id_pri && webhookResponse?.id_meta;
+        
         const { error: updateError } = await supabase
           .from("whatsapp_templates")
           .update({
-            template_id_pri: webhookResponse.template_id_pri,
-            id_meta: webhookResponse.id_meta,
-            status_meta: webhookResponse.status_meta,
-            category_meta: webhookResponse.category_meta,
+            template_id_pri: webhookResponse?.template_id_pri || null,
+            id_meta: webhookResponse?.id_meta || null,
+            status_meta: hasValidIds ? (webhookResponse?.status_meta || null) : 'INTEGRATION_ERROR',
+            category_meta: webhookResponse?.category_meta || null,
           })
           .eq("id", insertedTemplateId);
 
@@ -847,6 +849,9 @@ export default function Templates() {
           console.error("Erro ao salvar dados do Meta:", updateError);
         } else {
           console.log("Dados do Meta salvos com sucesso:", webhookResponse);
+          if (!hasValidIds) {
+            console.warn("Template criado sem IDs da PRI/Meta - marcado como INTEGRATION_ERROR");
+          }
         }
       }
 
