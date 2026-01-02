@@ -23,6 +23,75 @@ function getCorsHeaders(req: Request) {
   };
 }
 
+/**
+ * Validates a webhook URL to prevent SSRF attacks
+ * Blocks localhost, private IPs, and cloud metadata endpoints
+ */
+function isValidWebhookUrl(url: string): { valid: boolean; error?: string } {
+  try {
+    const parsed = new URL(url);
+    
+    // Only allow HTTPS
+    if (parsed.protocol !== 'https:') {
+      return { valid: false, error: 'Only HTTPS URLs are allowed' };
+    }
+    
+    const hostname = parsed.hostname.toLowerCase();
+    
+    // Block localhost variations
+    if (hostname === 'localhost' || 
+        hostname === '127.0.0.1' || 
+        hostname.startsWith('127.') ||
+        hostname === '0.0.0.0' ||
+        hostname === '::1') {
+      return { valid: false, error: 'Localhost URLs not allowed' };
+    }
+    
+    // Block private IP ranges (RFC 1918)
+    const ipv4Parts = hostname.split('.');
+    if (ipv4Parts.length === 4 && ipv4Parts.every(p => !isNaN(parseInt(p)))) {
+      const first = parseInt(ipv4Parts[0]);
+      const second = parseInt(ipv4Parts[1]);
+      
+      if (first === 10 ||                                    // 10.0.0.0/8
+          (first === 172 && second >= 16 && second <= 31) || // 172.16.0.0/12
+          (first === 192 && second === 168) ||               // 192.168.0.0/16
+          (first === 169 && second === 254)) {               // Link-local
+        return { valid: false, error: 'Private IPs not allowed' };
+      }
+    }
+    
+    // Block cloud metadata endpoints
+    const blockedHosts = [
+      '169.254.169.254',
+      'metadata.google.internal',
+      'metadata',
+      'instance-data',
+    ];
+    
+    if (blockedHosts.some(blocked => hostname.includes(blocked))) {
+      return { valid: false, error: 'Metadata endpoints not allowed' };
+    }
+    
+    // Block internal services
+    const internalServices = [
+      'supabase-kong',
+      'supabase-db',
+      'postgres',
+      'postgresql',
+      'internal',
+    ];
+    
+    if (internalServices.some(service => hostname.includes(service))) {
+      return { valid: false, error: 'Internal services not allowed' };
+    }
+    
+    return { valid: true };
+  } catch {
+    return { valid: false, error: 'Invalid URL format' };
+  }
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
@@ -230,6 +299,19 @@ serve(async (req) => {
           continue;
         }
 
+        // Validar URL para prevenir SSRF
+        const urlValidation = isValidWebhookUrl(webhookUrl);
+        if (!urlValidation.valid) {
+          console.error(`URL bloqueada para gatilho ${gatilhoItem.nome}: ${urlValidation.error}`);
+          webhooksDispareados.push({
+            gatilho: gatilhoItem.nome,
+            url: webhookUrl,
+            status: 'blocked',
+            error: urlValidation.error
+          });
+          continue;
+        }
+
         console.log(`Disparando webhook gatilho: ${webhookUrl}`);
         console.log(`Descrição do gatilho: ${gatilhoItem.descricao}`);
         
@@ -330,6 +412,19 @@ serve(async (req) => {
         
         if (!webhookUrl) {
           console.log(`Followup ${followupItem.nome} não possui webhook_url configurado`);
+          continue;
+        }
+
+        // Validar URL para prevenir SSRF
+        const urlValidation = isValidWebhookUrl(webhookUrl);
+        if (!urlValidation.valid) {
+          console.error(`URL bloqueada para followup ${followupItem.nome}: ${urlValidation.error}`);
+          webhooksDispareados.push({
+            gatilho: followupItem.nome,
+            url: webhookUrl,
+            status: 'blocked',
+            error: urlValidation.error
+          });
           continue;
         }
 
