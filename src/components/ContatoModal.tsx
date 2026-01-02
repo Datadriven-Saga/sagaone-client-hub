@@ -28,7 +28,9 @@ import {
   Settings,
   PhoneCall,
   Lock,
-  AlertTriangle
+  AlertTriangle,
+  Copy,
+  Ban
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -118,6 +120,7 @@ export function ContatoModal({
   const [vendaExistente, setVendaExistente] = useState<boolean>(false);
 
   const [temperaturas, setTemperaturas] = useState<TemperaturaOption[]>([]);
+  const [motivoInsucesso, setMotivoInsucesso] = useState<{ descricao: string; justificativa: string } | null>(null);
 
   // Status de conclusão do lead
   const statusConclusao = ['Venda', 'Descartado', 'Opt Out'];
@@ -290,6 +293,34 @@ export function ContatoModal({
                 };
               }));
               setAnotacoes(anotacoesFormatadas);
+            }
+
+            // Buscar motivo de insucesso se o lead foi descartado
+            if (contato.status === 'Descartado') {
+              const { data: logDescarte } = await supabase
+                .from('logs_movimentacao_contatos')
+                .select('observacoes')
+                .eq('contato_id', contato.id)
+                .eq('status_novo', 'Descartado')
+                .order('data_movimentacao', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+              if (logDescarte?.observacoes) {
+                // O formato salvo é: "Motivo: X | Justificativa: Y"
+                const observacoes = logDescarte.observacoes;
+                const motivoMatch = observacoes.match(/Motivo: ([^|]+)/);
+                const justificativaMatch = observacoes.match(/Justificativa: (.+)$/);
+                
+                setMotivoInsucesso({
+                  descricao: motivoMatch ? motivoMatch[1].trim() : 'Não informado',
+                  justificativa: justificativaMatch ? justificativaMatch[1].trim() : 'Não informada'
+                });
+              } else {
+                setMotivoInsucesso(null);
+              }
+            } else {
+              setMotivoInsucesso(null);
             }
 
             // Definir responsável atual se existir
@@ -578,10 +609,31 @@ export function ContatoModal({
       <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-4 pr-12 border-b flex-shrink-0">
           <div className="flex items-center justify-between gap-4">
-            <DialogTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
-              {isNewContact ? 'Novo Contato' : (contato?.nome || 'Sem nome')}
-            </DialogTitle>
+            <div className="flex flex-col gap-1">
+              <DialogTitle className="flex items-center gap-2">
+                <User className="w-5 h-5" />
+                {isNewContact ? 'Novo Contato' : (contato?.nome || 'Sem nome')}
+              </DialogTitle>
+              {!isNewContact && contato && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-mono">ID: {contato.id}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5"
+                    onClick={() => {
+                      navigator.clipboard.writeText(contato.id);
+                      toast({
+                        title: "ID copiado",
+                        description: "O ID do lead foi copiado para a área de transferência"
+                      });
+                    }}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
             
             {/* Botões de ação no header */}
             {!isNewContact && contato && (
@@ -801,6 +853,33 @@ export function ContatoModal({
                       </div>
                     </div>
                   </Card>
+
+                  {/* Seção de Motivo de Insucesso - exibida apenas para leads descartados */}
+                  {contato?.status === 'Descartado' && (
+                    <Card className="p-6 border-destructive/50 bg-destructive/5">
+                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-destructive">
+                        <Ban className="w-5 h-5" />
+                        Motivo do Descarte
+                      </h3>
+                      {motivoInsucesso ? (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium mb-1 block text-muted-foreground">Motivo de Insucesso</label>
+                            <p className="text-sm font-medium">{motivoInsucesso.descricao}</p>
+                          </div>
+                          <Separator />
+                          <div>
+                            <label className="text-sm font-medium mb-1 block text-muted-foreground">Justificativa</label>
+                            <p className="text-sm">{motivoInsucesso.justificativa}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Informações de descarte não encontradas
+                        </p>
+                      )}
+                    </Card>
+                  )}
                 </div>
               )}
 
