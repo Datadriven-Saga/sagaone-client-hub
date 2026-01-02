@@ -20,6 +20,7 @@ import { HistoricoImportacaoModal } from "@/components/HistoricoImportacaoModal"
 import { ClientesPorUsuarioModal } from "@/components/ClientesPorUsuarioModal";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
 import { NovoLeadModal } from "@/components/NovoLeadModal";
+import { DescarteLeadModal } from "@/components/DescarteLeadModal";
 import { VendasProspeccaoTab } from "@/components/VendasProspeccaoTab";
 import { useVendasProspeccao } from "@/hooks/useVendasProspeccao";
 import { useAuth } from "@/contexts/AuthContext";
@@ -98,6 +99,17 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
   const [isClientesPorUsuarioModalOpen, setIsClientesPorUsuarioModalOpen] = useState(false);
   const [isNovoLeadModalOpen, setIsNovoLeadModalOpen] = useState(false);
+  const [descarteModal, setDescarteModal] = useState<{
+    isOpen: boolean;
+    contatoId: string;
+    contatoNome: string;
+    fromStatus: string;
+  }>({
+    isOpen: false,
+    contatoId: '',
+    contatoNome: '',
+    fromStatus: ''
+  });
   const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string; departamento?: string | null }[]>([]);
   
   // Filtro global unificado para todas as abas
@@ -288,6 +300,20 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string): Promise<boolean> => {
     console.log('handleStatusChange called:', { itemId, fromStatus, toStatus });
+    
+    // Se destino é "descartados", abrir modal para preencher motivo e justificativa
+    if (toStatus === 'descartados') {
+      const contatoCompleto = contatos.find(c => c.id === itemId);
+      if (contatoCompleto) {
+        setDescarteModal({
+          isOpen: true,
+          contatoId: itemId,
+          contatoNome: contatoCompleto.nome,
+          fromStatus: fromStatus
+        });
+        return false; // Não mover o card visualmente ainda
+      }
+    }
     
     // Se destino é "venda", verificar campos obrigatórios
     if (toStatus === 'venda') {
@@ -1640,6 +1666,52 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         onLeadCreated={refetch}
         onOpenContato={handleOpenContatoFromFab}
         profiles={profiles}
+      />
+
+      <DescarteLeadModal
+        isOpen={descarteModal.isOpen}
+        onClose={() => setDescarteModal({ isOpen: false, contatoId: '', contatoNome: '', fromStatus: '' })}
+        contatoId={descarteModal.contatoId}
+        contatoNome={descarteModal.contatoNome}
+        onConfirm={async (motivoId, justificativa) => {
+          try {
+            // Atualizar status do contato para Descartado
+            await atualizarStatusContato(descarteModal.contatoId, 'Descartado');
+            
+            // Registrar movimentação com motivo e justificativa
+            if (registrarMovimentacao && user && prospeccoes?.length > 0) {
+              const motivoDescricao = await supabase
+                .from('motivos_insucesso')
+                .select('descricao')
+                .eq('id', motivoId)
+                .single();
+              
+              await registrarMovimentacao({
+                leadId: descarteModal.contatoId,
+                prospeccaoId: prospeccoes[0].id,
+                statusAnterior: descarteModal.fromStatus,
+                statusNovo: 'descartados',
+                usuarioId: user.id,
+                observacoes: `Motivo: ${motivoDescricao.data?.descricao || 'N/A'} | Justificativa: ${justificativa}`
+              });
+            }
+            
+            toast({
+              title: "Lead Descartado",
+              description: "O lead foi movido para Descartados com sucesso.",
+            });
+            
+            setDescarteModal({ isOpen: false, contatoId: '', contatoNome: '', fromStatus: '' });
+            refetch();
+          } catch (error) {
+            console.error('Erro ao descartar lead:', error);
+            toast({
+              title: "Erro",
+              description: "Não foi possível descartar o lead. Tente novamente.",
+              variant: "destructive"
+            });
+          }
+        }}
       />
 
       <FloatingActionButton
