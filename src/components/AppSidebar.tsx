@@ -30,6 +30,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 import sagaOneLogo from "@/assets/saga-one-menu-logo.png";
 
 const topMenuItems = [
@@ -45,15 +46,23 @@ const prospeccaoSubItems = [
   { title: "Performance", url: "/prospeccao/performance", icon: BarChart3 },
 ];
 
-const afterProspeccaoItems = [
+// Items que todos podem ver
+const afterProspeccaoItemsPublic = [
   { title: "Agentes de IA", url: "/agentes-ia", icon: Bot },
+];
+
+// Items apenas para Administrador
+const afterProspeccaoItemsAdmin = [
   { title: "Carteira de Clientes", url: "/clientes", icon: Users },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
   { title: "Treinamentos", url: "/treinamentos", icon: BookOpen },
 ];
 
-const bottomMenuItems = [
+const bottomMenuItemsPublic = [
   { title: "Configurações", url: "/configuracoes", icon: Settings },
+];
+
+const bottomMenuItemsAdmin = [
   { title: "Administração", url: "/administracao", icon: Shield },
 ];
 
@@ -62,10 +71,20 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
+  const { isAdmin } = useUserAccessType();
   
   // Verificar se algum submódulo de prospecção está ativo
   const isProspeccaoActive = currentPath.startsWith('/prospeccao');
   const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(isProspeccaoActive);
+
+  // Combinar items baseado no tipo de acesso
+  const afterProspeccaoItems = isAdmin 
+    ? [...afterProspeccaoItemsPublic, ...afterProspeccaoItemsAdmin]
+    : afterProspeccaoItemsPublic;
+
+  const bottomMenuItems = isAdmin
+    ? [...bottomMenuItemsPublic, ...bottomMenuItemsAdmin]
+    : bottomMenuItemsPublic;
 
   return (
     <Sidebar

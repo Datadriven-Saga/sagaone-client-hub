@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CompanyProvider } from "@/contexts/CompanyContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { useUserColors } from "@/hooks/useUserColors";
 
 // Page imports
@@ -50,7 +51,7 @@ const AppContent = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-          <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
+          <Route path="/clientes" element={<AdminProtectedRoute><Clientes /></AdminProtectedRoute>} />
           <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
           <Route path="/personas" element={<ProtectedRoute><Personas /></ProtectedRoute>} />
           <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
@@ -61,19 +62,19 @@ const AppContent = () => {
           <Route path="/prospeccao/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
           <Route path="/prospeccao/performance" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
           <Route path="/resultados" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
-          <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
-          <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
+          <Route path="/relatorios" element={<AdminProtectedRoute><Relatorios /></AdminProtectedRoute>} />
+          <Route path="/treinamentos" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
           <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
           <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
           <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
           <Route path="/gatilhos" element={<ProtectedRoute><Gatilhos /></ProtectedRoute>} />
           <Route path="/agentes-ia" element={<ProtectedRoute><AgentesIA /></ProtectedRoute>} />
-          <Route path="/administracao" element={<ProtectedRoute><Administracao /></ProtectedRoute>} />
-          <Route path="/administracao/empresas" element={<ProtectedRoute><Empresas /></ProtectedRoute>} />
-          <Route path="/administracao/acessos" element={<ProtectedRoute><Acessos /></ProtectedRoute>} />
-          <Route path="/administracao/campos" element={<ProtectedRoute><CamposObrigatorios /></ProtectedRoute>} />
-          <Route path="/administracao/apis" element={<ProtectedRoute><APIs /></ProtectedRoute>} />
-          <Route path="/administracao/test-apis" element={<ProtectedRoute><TestAPIs /></ProtectedRoute>} />
+          <Route path="/administracao" element={<AdminProtectedRoute><Administracao /></AdminProtectedRoute>} />
+          <Route path="/administracao/empresas" element={<AdminProtectedRoute><Empresas /></AdminProtectedRoute>} />
+          <Route path="/administracao/acessos" element={<AdminProtectedRoute><Acessos /></AdminProtectedRoute>} />
+          <Route path="/administracao/campos" element={<AdminProtectedRoute><CamposObrigatorios /></AdminProtectedRoute>} />
+          <Route path="/administracao/apis" element={<AdminProtectedRoute><APIs /></AdminProtectedRoute>} />
+          <Route path="/administracao/test-apis" element={<AdminProtectedRoute><TestAPIs /></AdminProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
