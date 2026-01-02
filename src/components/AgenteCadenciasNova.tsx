@@ -266,27 +266,18 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
 
       setWebhookPayload(payload);
 
-      const response = await fetch(
-        'https://automatemaiawh.sagadatadriven.com.br/webhook/8275b29e-b3b1-494d-a604-b285a8cc0d56',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'api-token': 'ISVm0pIpF27jfQLP9LCYhnB9eK6rREog',
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+      const { data: proxyResponse, error: proxyError } = await supabase.functions.invoke('maia-webhook-proxy', {
+        body: payload,
+      });
 
-      const responseData = await response.json().catch(() => ({
-        status: response.status,
-        statusText: response.statusText,
-      }));
+      if (proxyError) {
+        throw proxyError;
+      }
 
-      setWebhookResponse({ success: response.ok, status: response.status, data: responseData });
+      setWebhookResponse(proxyResponse);
       setWebhookDialogOpen(true);
 
-      if (response.ok) {
+      if (proxyResponse?.success) {
         toast({ title: 'Sincronização concluída', description: 'As cadências foram sincronizadas com sucesso' });
       } else {
         toast({ title: 'Aviso', description: 'Houve um problema na sincronização', variant: 'destructive' });

@@ -25,3 +25,6 @@ verify_jwt = true
 
 [functions.opt-out-check]
 verify_jwt = true
+
+[functions.maia-webhook-proxy]
+verify_jwt = true

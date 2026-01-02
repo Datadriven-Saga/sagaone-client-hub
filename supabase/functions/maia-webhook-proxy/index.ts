@@ -1,0 +1,76 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const MAIA_WEBHOOK_TOKEN = Deno.env.get('MAIA_WEBHOOK_TOKEN');
+    
+    if (!MAIA_WEBHOOK_TOKEN) {
+      console.error('MAIA_WEBHOOK_TOKEN not configured');
+      return new Response(
+        JSON.stringify({ error: 'Webhook token not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const payload = await req.json();
+    console.log('Proxying webhook request with payload:', JSON.stringify(payload));
+
+    const response = await fetch(
+      'https://automatemaiawh.sagadatadriven.com.br/webhook/8275b29e-b3b1-494d-a604-b285a8cc0d56',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-token': MAIA_WEBHOOK_TOKEN,
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const responseText = await response.text();
+    console.log('Webhook response status:', response.status);
+    console.log('Webhook response:', responseText);
+
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch {
+      responseData = { 
+        status: response.status, 
+        statusText: response.statusText,
+        body: responseText 
+      };
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: response.ok,
+        status: response.status,
+        data: responseData,
+      }),
+      {
+        status: response.ok ? 200 : response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  } catch (error) {
+    console.error('Error in maia-webhook-proxy:', error);
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
