@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useToast } from "@/hooks/use-toast";
+import { validateWebhookUrl } from "@/lib/security";
 
 interface Gatilho {
   id: string;
@@ -340,6 +341,17 @@ const Gatilhos = () => {
         };
       } else {
         bodyEnvio = dadosTeste;
+      }
+
+      // Validar URL antes de fazer requisição (prevenir SSRF)
+      const urlValidation = validateWebhookUrl(gatilho.webhook_url);
+      if (!urlValidation.valid) {
+        toast({
+          title: "URL inválida",
+          description: urlValidation.error,
+          variant: "destructive"
+        });
+        return;
       }
 
       // Enviar requisição diretamente para o webhook configurado

@@ -9,6 +9,7 @@ import { Save, Send, Database, Webhook, CheckCircle, XCircle, Loader2 } from "lu
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { validateWebhookUrl } from "@/lib/security";
 
 interface Integracao {
   id: string;
@@ -201,6 +202,18 @@ export function AgenteIntegracao({ agenteId }: AgenteIntegracaoProps) {
       };
 
       console.log('Testando webhook com dados:', webhookBody);
+
+      // Validar URL antes de fazer requisição (prevenir SSRF)
+      const urlValidation = validateWebhookUrl(formData.webhook_url);
+      if (!urlValidation.valid) {
+        toast({
+          title: "URL inválida",
+          description: urlValidation.error,
+          variant: "destructive"
+        });
+        setTestingWebhook(false);
+        return;
+      }
 
       // Configurar opções da requisição baseado no método
       let requestOptions: RequestInit = {

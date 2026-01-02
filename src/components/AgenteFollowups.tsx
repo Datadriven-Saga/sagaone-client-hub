@@ -10,6 +10,7 @@ import { Plus, Edit, Trash2, Zap, Play } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { validateWebhookUrl } from "@/lib/security";
 
 interface Followup {
   id: string;
@@ -245,6 +246,17 @@ export function AgenteFollowups({ agenteId }: AgenteFollowupsProps) {
             timestamp: new Date().toISOString(),
             followup_id: followup.id
           };
+      }
+
+      // Validar URL antes de fazer requisição (prevenir SSRF)
+      const urlValidation = validateWebhookUrl(followup.webhook_url);
+      if (!urlValidation.valid) {
+        toast({
+          title: "URL inválida",
+          description: urlValidation.error,
+          variant: "destructive"
+        });
+        return;
       }
 
       // Enviar requisição para o webhook configurado
