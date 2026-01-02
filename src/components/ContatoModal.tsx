@@ -301,7 +301,7 @@ export function ContatoModal({
                 .from('logs_movimentacao_contatos')
                 .select('observacoes')
                 .eq('contato_id', contato.id)
-                .eq('status_novo', 'Descartado')
+                .eq('status_novo', 'descartados')
                 .order('data_movimentacao', { ascending: false })
                 .limit(1)
                 .maybeSingle();
