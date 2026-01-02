@@ -7,11 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useCompany } from '@/contexts/CompanyContext';
 import { Phone, CheckCircle, XCircle, PhoneOff, MessageSquare } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 
-interface MotivoNaoParticipacao {
+interface MotivoInsucesso {
   id: string;
   descricao: string;
 }
@@ -33,10 +34,11 @@ export function ContatoRealizadoDialog({
   prospeccaoId,
   onSuccess
 }: ContatoRealizadoDialogProps) {
+  const { activeCompany } = useCompany();
   const [tipoContato, setTipoContato] = useState<TipoContato | ''>('');
   const [motivoId, setMotivoId] = useState<string>('');
   const [anotacao, setAnotacao] = useState('');
-  const [motivos, setMotivos] = useState<MotivoNaoParticipacao[]>([]);
+  const [motivos, setMotivos] = useState<MotivoInsucesso[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMotivos, setLoadingMotivos] = useState(true);
   const { toast } = useToast();
@@ -52,13 +54,15 @@ export function ContatoRealizadoDialog({
 
   useEffect(() => {
     const fetchMotivos = async () => {
-      if (!isOpen) return;
+      if (!isOpen || !activeCompany?.id) return;
       
       setLoadingMotivos(true);
       try {
+        // Buscar motivos de insucesso da empresa
         const { data, error } = await supabase
-          .from('motivos_nao_participacao')
+          .from('motivos_insucesso')
           .select('id, descricao')
+          .eq('empresa_id', activeCompany.id)
           .eq('ativo', true)
           .order('ordem');
 
@@ -72,7 +76,7 @@ export function ContatoRealizadoDialog({
     };
 
     fetchMotivos();
-  }, [isOpen]);
+  }, [isOpen, activeCompany?.id]);
 
   const handleSubmit = async () => {
     if (!tipoContato) {
@@ -289,10 +293,10 @@ export function ContatoRealizadoDialog({
                   })}
                 </RadioGroup>
 
-                {/* Motivo de Não Participação */}
+                {/* Motivo de Insucesso */}
                 {tipoContato === 'nao_vai_participar' && (
                   <div className="space-y-2 pt-2">
-                    <Label className="text-sm font-medium">Motivo da Não Participação *</Label>
+                    <Label className="text-sm font-medium">Motivo de Insucesso *</Label>
                     <Select value={motivoId} onValueChange={setMotivoId}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o motivo" />
