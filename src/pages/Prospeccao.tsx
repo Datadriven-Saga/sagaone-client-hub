@@ -1291,20 +1291,6 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                       </div>
                     </div>
 
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">Configuração de Automação</h4>
-                      <div className="border rounded-lg p-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-sm">Disparar via Meta Ads</p>
-                            <p className="text-xs text-muted-foreground">
-                              Configurar integração com gerenciador de anúncios
-                            </p>
-                          </div>
-                          <Button size="sm">Configurar</Button>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </Card>
               )}

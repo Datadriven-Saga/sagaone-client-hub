@@ -117,11 +117,7 @@ export function ContatoModal({
   const [departamentoSelecionado, setDepartamentoSelecionado] = useState<string>('');
   const [vendaExistente, setVendaExistente] = useState<boolean>(false);
 
-  const temperaturas: TemperaturaOption[] = [
-    { id: 'frio', nome: 'Frio', cor: '#3b82f6' },
-    { id: 'morno', nome: 'Morno', cor: '#f59e0b' },
-    { id: 'quente', nome: 'Quente', cor: '#ef4444' }
-  ];
+  const [temperaturas, setTemperaturas] = useState<TemperaturaOption[]>([]);
 
   // Status de conclusão do lead
   const statusConclusao = ['Venda', 'Descartado', 'Opt Out'];
@@ -236,6 +232,21 @@ export function ContatoModal({
               nome: p.nome,
               preco: p.preco || undefined,
               categoria: p.categoria || undefined
+            })));
+          }
+
+          // Buscar temperaturas configuradas da empresa
+          const { data: temperaturasData, error: temperaturasError } = await supabase
+            .from('temperaturas_lead')
+            .select('id, nome, cor')
+            .eq('ativo', true)
+            .order('ordem');
+
+          if (!temperaturasError && temperaturasData) {
+            setTemperaturas(temperaturasData.map(t => ({
+              id: t.id,
+              nome: t.nome,
+              cor: t.cor
             })));
           }
 

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useCompany } from '@/contexts/CompanyContext';
 import * as XLSX from 'xlsx';
 
 interface ClienteData {
@@ -17,6 +19,7 @@ interface ClienteData {
   cpf?: string;
   segmentacao?: string;
   responsavel?: string;
+  origem?: string;
 }
 
 interface Prospeccao {
@@ -26,19 +29,47 @@ interface Prospeccao {
   data_fim?: string | null;
 }
 
+interface OrigemOption {
+  id: string;
+  nome: string;
+}
+
 interface UploadPlanilhaProps {
   onClientesImported: (campanha: string, clientes: ClienteData[]) => void;
   prospeccoes: Prospeccao[];
 }
 
 export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanilhaProps) => {
+  const { activeCompany } = useCompany();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCampanha, setSelectedCampanha] = useState<string>('');
+  const [selectedOrigem, setSelectedOrigem] = useState<string>('');
+  const [origens, setOrigens] = useState<OrigemOption[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<ClienteData[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Buscar origens quando abrir o modal
+  useEffect(() => {
+    const fetchOrigens = async () => {
+      if (!isOpen || !activeCompany?.id) return;
+      
+      const { data, error } = await supabase
+        .from('origens_lead')
+        .select('id, nome')
+        .eq('empresa_id', activeCompany.id)
+        .eq('ativo', true)
+        .order('ordem');
+      
+      if (!error && data) {
+        setOrigens(data);
+      }
+    };
+    
+    fetchOrigens();
+  }, [isOpen, activeCompany?.id]);
 
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -226,9 +257,15 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       return;
     }
 
-    onClientesImported(selectedCampanha, previewData);
+    // Adicionar origem aos clientes se selecionada
+    const clientesComOrigem = selectedOrigem 
+      ? previewData.map(c => ({ ...c, origem: selectedOrigem }))
+      : previewData;
+    
+    onClientesImported(selectedCampanha, clientesComOrigem);
     setIsOpen(false);
     setSelectedCampanha('');
+    setSelectedOrigem('');
     setFile(null);
     setPreviewData([]);
     
@@ -242,6 +279,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
     setFile(null);
     setPreviewData([]);
     setSelectedCampanha('');
+    setSelectedOrigem('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -277,6 +315,23 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
                       {prospeccao.titulo}
                     </SelectItem>
                   ))}
+              </SelectContent>
+            </Select>
+          </Card>
+
+          {/* Seleção de Origem */}
+          <Card className="p-4 bg-purple-50 border-purple-200">
+            <Label className="text-purple-800 font-medium">Selecione a Origem (opcional)</Label>
+            <Select value={selectedOrigem} onValueChange={setSelectedOrigem}>
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Escolha a origem dos contatos..." />
+              </SelectTrigger>
+              <SelectContent>
+                {origens.map((origem) => (
+                  <SelectItem key={origem.id} value={origem.nome}>
+                    {origem.nome}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </Card>

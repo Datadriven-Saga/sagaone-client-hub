@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,8 @@ import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 import { KanbanItem } from './KanbanBoard';
 import { User, Phone, Mail, MessageSquare, Package, Thermometer, Clock, Settings } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useCompany } from '@/contexts/CompanyContext';
 
 interface AtendimentoModalProps {
   isOpen: boolean;
@@ -20,10 +22,38 @@ interface AtendimentoModalProps {
   columnId: string;
 }
 
+interface TemperaturaOption {
+  id: string;
+  nome: string;
+  cor: string;
+}
+
 export function AtendimentoModal({ isOpen, onClose, item, columnId }: AtendimentoModalProps) {
+  const { activeCompany } = useCompany();
   const [activeTab, setActiveTab] = useState('dados-pessoais');
   const [novaAnotacao, setNovaAnotacao] = useState('');
   const [temperatura, setTemperatura] = useState('');
+  const [temperaturasDisponiveis, setTemperaturasDisponiveis] = useState<TemperaturaOption[]>([]);
+
+  // Buscar temperaturas da empresa
+  useEffect(() => {
+    const fetchTemperaturas = async () => {
+      if (!isOpen || !activeCompany?.id) return;
+      
+      const { data, error } = await supabase
+        .from('temperaturas_lead')
+        .select('id, nome, cor')
+        .eq('empresa_id', activeCompany.id)
+        .eq('ativo', true)
+        .order('ordem');
+      
+      if (!error && data) {
+        setTemperaturasDisponiveis(data);
+      }
+    };
+    
+    fetchTemperaturas();
+  }, [isOpen, activeCompany?.id]);
 
   // Mock data - substituir por dados reais
   const dadosCliente = {
@@ -62,12 +92,6 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
     'Plano Empresarial',
     'Seguro Auto',
     'Seguro Residencial'
-  ];
-
-  const temperaturasDisponiveis = [
-    { id: 'frio', nome: 'Frio', cor: '#3b82f6' },
-    { id: 'morno', nome: 'Morno', cor: '#f59e0b' },
-    { id: 'quente', nome: 'Quente', cor: '#ef4444' }
   ];
 
   const logAuditoria = [
