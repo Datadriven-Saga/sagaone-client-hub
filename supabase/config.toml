@@ -28,3 +28,6 @@ verify_jwt = true
 
 [functions.maia-webhook-proxy]
 verify_jwt = true
+
+[functions.atendimento-status-webhook]
+verify_jwt = true

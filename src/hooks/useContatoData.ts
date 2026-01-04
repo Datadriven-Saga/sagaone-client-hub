@@ -294,6 +294,7 @@ export const useContatoData = () => {
           try {
             console.log('Disparando webhook para contato:', contato);
             
+            // Webhook de prospecção (existente)
             const webhookResponse = await supabase.functions.invoke('trigger-webhook', {
               body: {
                 gatilho: 'novo_contato_prospeccao',
@@ -315,14 +316,41 @@ export const useContatoData = () => {
               }
             });
             
-            console.log('Webhook response:', webhookResponse);
-            console.log('Webhook disparado com sucesso para contato:', contato.id);
+            console.log('Webhook prospecção response:', webhookResponse);
+            
+            // Webhook de status para atendimento (novo)
+            await supabase.functions.invoke('atendimento-status-webhook', {
+              body: {
+                telefone_lead: normalizePhone(contato.telefone),
+                status: contato.status || 'Novo',
+                empresa_id: activeCompany.id,
+                evento: 'criacao'
+              }
+            });
+            
+            console.log('Webhooks disparados com sucesso para contato:', contato.id);
           } catch (webhookError) {
             console.error('Erro ao disparar webhook para contato:', contato.id, webhookError);
           }
         }
-      } else {
-        console.log('⚠️ Webhook não disparado - data:', !!data, 'prospeccaoId:', prospeccaoId);
+      } else if (data) {
+        // Se não tem prospeccaoId, ainda dispara webhook de status para atendimento (criação de lead)
+        console.log('🔔 Disparando webhooks de criação de lead para atendimento');
+        for (const contato of data) {
+          try {
+            await supabase.functions.invoke('atendimento-status-webhook', {
+              body: {
+                telefone_lead: normalizePhone(contato.telefone),
+                status: contato.status || 'Novo',
+                empresa_id: activeCompany.id,
+                evento: 'criacao'
+              }
+            });
+            console.log('✅ Webhook de criação disparado para:', contato.telefone);
+          } catch (webhookError) {
+            console.error('Erro ao disparar webhook de criação:', webhookError);
+          }
+        }
       }
       
       if (data) setContatos(prev => [...data, ...prev]);
@@ -344,16 +372,51 @@ export const useContatoData = () => {
     }
   };
 
-  // Atualizar status - SIMPLES
+  // Dispara webhook de status para atendimento
+  const dispararWebhookStatusAtendimento = async (telefone: string, status: string, evento: 'criacao' | 'mudanca_status') => {
+    if (!activeCompany?.id) return;
+    
+    try {
+      console.log('🔔 Disparando webhook de status atendimento:', { telefone, status, evento });
+      
+      const { data, error } = await supabase.functions.invoke('atendimento-status-webhook', {
+        body: {
+          telefone_lead: normalizePhone(telefone),
+          status: status,
+          empresa_id: activeCompany.id,
+          evento: evento
+        }
+      });
+      
+      if (error) {
+        console.error('Erro ao disparar webhook de status:', error);
+      } else {
+        console.log('✅ Webhook de status disparado com sucesso:', data);
+      }
+    } catch (error) {
+      console.error('Erro ao disparar webhook de status:', error);
+    }
+  };
+
+  // Atualizar status - COM WEBHOOK
   const atualizarStatusContato = async (contatoId: string, novoStatus: Contato['status']) => {
     try {
+      // Buscar contato atual para pegar o telefone
+      const contatoAtual = contatos.find(c => c.id === contatoId);
+      
       const { error } = await supabase
         .from('contatos')
         .update({ status: novoStatus })
         .eq('id', contatoId);
 
       if (error) throw error;
+      
       setContatos(prev => prev.map(c => c.id === contatoId ? { ...c, status: novoStatus } : c));
+      
+      // Disparar webhook de status
+      if (contatoAtual?.telefone) {
+        dispararWebhookStatusAtendimento(contatoAtual.telefone, novoStatus, 'mudanca_status');
+      }
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
     }
