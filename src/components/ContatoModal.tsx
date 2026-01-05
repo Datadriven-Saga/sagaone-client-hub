@@ -576,9 +576,7 @@ export function ContatoModal({
     { id: 'anotacoes', label: 'Anotações', icon: MessageSquare },
     { id: 'produtos', label: 'Produtos', icon: Package },
     { id: 'temperatura', label: 'Temperatura', icon: Thermometer },
-    { id: 'convite', label: 'Convite', icon: Image },
-    { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
-    { id: 'log-auditoria', label: 'Log de Auditoria', icon: FileText }
+    { id: 'convite', label: 'Convite', icon: Image }
   ];
 
   const getInitials = (name: string) => {
