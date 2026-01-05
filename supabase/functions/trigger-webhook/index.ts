@@ -196,14 +196,21 @@ serve(async (req) => {
 
     // Variáveis para dados do agente PRI
     let agenteData: { telefone: string | null; dealer_id: string | null } | null = null;
+    let eventIdPri: string | null = null;
 
     // Se for novo contato na prospecção, verificar se é canal Whatsapp e buscar dados do agente
     if (gatilho === 'novo_contato_prospeccao' && dados?.prospeccao_id) {
       const { data: prospeccao } = await supabaseClient
         .from('prospeccoes')
-        .select('canal, empresa_id')
+        .select('canal, empresa_id, event_id_pri')
         .eq('id', dados.prospeccao_id)
         .single();
+      
+      // Capturar event_id_pri da prospecção
+      if (prospeccao?.event_id_pri) {
+        eventIdPri = prospeccao.event_id_pri;
+        console.log('🆔 Event ID PRI encontrado:', eventIdPri);
+      }
       
       // Só dispara webhook se for canal Whatsapp
       if (prospeccao?.canal !== 'Whatsapp') {
@@ -334,6 +341,7 @@ serve(async (req) => {
             leadId: dados.lead_id || null,
             status: dados.status || 'Novo',
             prospeccao_id: dados.prospeccao_id || '',
+            event_id_pri: eventIdPri || '',
             // Dados do agente PRI
             telefone_pri: agenteData?.telefone || '',
             dealerId: agenteData?.dealer_id || ''
@@ -449,6 +457,7 @@ serve(async (req) => {
             leadId: dados.lead_id || null,
             status: dados.status || '',
             prospeccao_id: dados.prospeccao_id || '',
+            event_id_pri: eventIdPri || '',
             // Dados do agente PRI
             telefone_pri: agenteData?.telefone || '',
             dealerId: agenteData?.dealer_id || '',

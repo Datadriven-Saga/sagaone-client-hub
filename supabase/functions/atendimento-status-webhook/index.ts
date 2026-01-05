@@ -31,6 +31,21 @@ serve(async (req) => {
 
     console.log('📞 Atendimento Status Webhook chamado:', { telefone_lead, status, empresa_id, evento, leadId, prospeccao_id });
 
+    // Buscar event_id_pri da prospecção se tiver prospeccao_id
+    let eventIdPri: string | null = null;
+    if (prospeccao_id) {
+      const { data: prospeccao } = await supabaseClient
+        .from('prospeccoes')
+        .select('event_id_pri')
+        .eq('id', prospeccao_id)
+        .single();
+      
+      if (prospeccao?.event_id_pri) {
+        eventIdPri = prospeccao.event_id_pri;
+        console.log('🆔 Event ID PRI encontrado:', eventIdPri);
+      }
+    }
+
     if (!telefone_lead || !status) {
       return new Response(
         JSON.stringify({ error: 'telefone_lead e status são obrigatórios' }),
@@ -87,6 +102,7 @@ serve(async (req) => {
       evento: evento || 'status_change',
       leadId: leadId || null,
       prospeccao_id: prospeccao_id || null,
+      event_id_pri: eventIdPri || null,
       timestamp: new Date().toISOString()
     };
 
