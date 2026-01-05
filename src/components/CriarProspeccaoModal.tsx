@@ -33,11 +33,11 @@ const getStepsByType = (tipo: TipoEvento): string[] => {
     case 'Grande Evento':
       return ['Dados Gerais', 'Equipes', 'Metas', 'Metas Individuais', 'Premiações', 'Convite', 'Páginas', 'Marketing'];
     case 'Prospecção Mensal':
-      return ['Dados Gerais', 'Equipes'];
+      return ['Dados Gerais', 'Equipes', 'Convite'];
     case 'IA Whatsapp':
-      return ['Dados Gerais', 'Configuração IA'];
+      return ['Dados Gerais', 'Configuração IA', 'Convite'];
     case 'IA Ligação':
-      return ['Dados Gerais', 'Configuração IA'];
+      return ['Dados Gerais', 'Configuração IA', 'Convite'];
     default:
       return ['Dados Gerais'];
   }

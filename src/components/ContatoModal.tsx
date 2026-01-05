@@ -30,8 +30,10 @@ import {
   Lock,
   AlertTriangle,
   Copy,
-  Ban
+  Ban,
+  Image
 } from 'lucide-react';
+import { ConviteTab } from './ConviteTab';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Contato, statusKanbanMap } from '@/hooks/useContatoData';
@@ -144,9 +146,12 @@ export function ContatoModal({
   const mostrarConfirmarVenda = requireProdutoVendido || (contato?.status === 'Venda' && !vendaExistente && !isLeadBloqueado);
 
   // Abrir na aba produtos se requireProdutoVendido ou se precisa registrar venda
+  // Abrir na aba convite se status for Confirmado
   useEffect(() => {
     if (isOpen && (requireProdutoVendido || (contato?.status === 'Venda' && !vendaExistente))) {
       setActiveTab('produtos');
+    } else if (isOpen && contato?.status === 'Confirmado') {
+      setActiveTab('convite');
     } else if (isOpen) {
       setActiveTab('dados-pessoais');
     }
@@ -571,6 +576,7 @@ export function ContatoModal({
     { id: 'anotacoes', label: 'Anotações', icon: MessageSquare },
     { id: 'produtos', label: 'Produtos', icon: Package },
     { id: 'temperatura', label: 'Temperatura', icon: Thermometer },
+    { id: 'convite', label: 'Convite', icon: Image },
     { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
     { id: 'log-auditoria', label: 'Log de Auditoria', icon: FileText }
   ];
@@ -1337,6 +1343,14 @@ export function ContatoModal({
                     )}
                   </div>
                 </Card>
+              )}
+
+              {activeTab === 'convite' && contato && prospeccaoId && (
+                <ConviteTab 
+                  contato={contato}
+                  prospeccaoId={prospeccaoId}
+                  onStatusChange={onStatusChange}
+                />
               )}
 
               {activeTab === 'whatsapp' && (
