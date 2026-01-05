@@ -1911,6 +1911,7 @@ export type Database = {
           data_inicio: string | null
           descricao: string | null
           empresa_id: string
+          event_id_pri: string | null
           evento_principal: boolean
           id: string
           imagem_divulgacao_url: string | null
@@ -1955,6 +1956,7 @@ export type Database = {
           data_inicio?: string | null
           descricao?: string | null
           empresa_id: string
+          event_id_pri?: string | null
           evento_principal?: boolean
           id?: string
           imagem_divulgacao_url?: string | null
@@ -1999,6 +2001,7 @@ export type Database = {
           data_inicio?: string | null
           descricao?: string | null
           empresa_id?: string
+          event_id_pri?: string | null
           evento_principal?: boolean
           id?: string
           imagem_divulgacao_url?: string | null

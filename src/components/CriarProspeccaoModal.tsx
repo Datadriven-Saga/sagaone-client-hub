@@ -1350,6 +1350,28 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           if (response.ok) {
             console.log(`✅ Gatilho "${gatilho.nome}" disparado com sucesso`);
             
+            // Tentar capturar o event_id retornado do webhook
+            try {
+              const responseData = await response.json();
+              console.log('📥 Resposta do webhook:', responseData);
+              
+              // Se retornou event_id, salvar na prospecção
+              if (responseData?.event_id) {
+                const { error: updateError } = await supabase
+                  .from('prospeccoes')
+                  .update({ event_id_pri: String(responseData.event_id) })
+                  .eq('id', prospeccaoData.id);
+                
+                if (updateError) {
+                  console.error('❌ Erro ao salvar event_id_pri:', updateError);
+                } else {
+                  console.log(`✅ event_id_pri "${responseData.event_id}" salvo na prospecção ${prospeccaoData.id}`);
+                }
+              }
+            } catch (jsonError) {
+              console.log('Resposta do webhook não é JSON ou não contém event_id');
+            }
+            
             // Atualizar ultima_execucao do gatilho
             await supabase
               .from('gatilhos')
