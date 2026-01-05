@@ -360,7 +360,7 @@ export const useContatoData = () => {
   };
 
   // Dispara webhook de status para atendimento - APENAS para leads de campanhas WhatsApp
-  const dispararWebhookStatusAtendimento = async (contatoId: string, telefone: string, status: string, evento: 'criacao' | 'mudanca_status', leadId?: number) => {
+  const dispararWebhookStatusAtendimento = async (contatoId: string, telefone: string, status: string, evento: 'criacao' | 'mudanca_status', leadId?: number, prospeccaoId?: string) => {
     if (!activeCompany?.id) return;
     
     try {
@@ -372,7 +372,9 @@ export const useContatoData = () => {
         .limit(1)
         .maybeSingle();
       
-      if (!vinculo?.prospeccao_id) {
+      const finalProspeccaoId = prospeccaoId || vinculo?.prospeccao_id;
+      
+      if (!finalProspeccaoId) {
         console.log('⏭️ Contato não pertence a nenhuma prospecção, webhook não disparado');
         return;
       }
@@ -381,7 +383,7 @@ export const useContatoData = () => {
       const { data: prospeccao } = await supabase
         .from('prospeccoes')
         .select('canal')
-        .eq('id', vinculo.prospeccao_id)
+        .eq('id', finalProspeccaoId)
         .single();
       
       if (prospeccao?.canal !== 'Whatsapp') {
@@ -400,7 +402,7 @@ export const useContatoData = () => {
         finalLeadId = contatoData?.lead_id;
       }
       
-      console.log('🔔 Disparando webhook de status atendimento (campanha WhatsApp):', { telefone, status, evento, leadId: finalLeadId });
+      console.log('🔔 Disparando webhook de status atendimento (campanha WhatsApp):', { telefone, status, evento, leadId: finalLeadId, prospeccao_id: finalProspeccaoId });
       
       const { data, error } = await supabase.functions.invoke('atendimento-status-webhook', {
         body: {
@@ -408,7 +410,8 @@ export const useContatoData = () => {
           status: status,
           empresa_id: activeCompany.id,
           evento: evento,
-          leadId: finalLeadId
+          leadId: finalLeadId,
+          prospeccao_id: finalProspeccaoId
         }
       });
       
