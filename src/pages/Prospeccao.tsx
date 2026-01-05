@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, ScanLine } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProspeccaoGlobalFilter, ProspeccaoGlobalFilters } from "@/components/ProspeccaoGlobalFilter";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
@@ -14,6 +14,7 @@ import { BaseExistente } from "@/components/BaseExistente";
 import { CriarProspeccaoModal } from "@/components/CriarProspeccaoModal";
 import { ContatoModal } from "@/components/ContatoModal";
 import { RecepcaoModal } from "@/components/RecepcaoModal";
+import { QRCodeScanner } from "@/components/QRCodeScanner";
 import { RecepcaoTable } from "@/components/RecepcaoTable";
 import { ProspeccaoVisaoGeral } from "@/components/ProspeccaoVisaoGeral";
 import { HistoricoImportacaoModal } from "@/components/HistoricoImportacaoModal";
@@ -96,6 +97,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   const [showAdicionarClientes, setShowAdicionarClientes] = useState(false);
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [recepcaoInitialData, setRecepcaoInitialData] = useState<any>(null);
+  const [isQRCodeScannerOpen, setIsQRCodeScannerOpen] = useState(false);
   const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
   const [isClientesPorUsuarioModalOpen, setIsClientesPorUsuarioModalOpen] = useState(false);
   const [isNovoLeadModalOpen, setIsNovoLeadModalOpen] = useState(false);
@@ -1550,15 +1552,25 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                       </p>
                     </div>
                   </div>
-                  <Button 
-                    size="sm"
-                    onClick={() => {
-                      setRecepcaoInitialData(null);
-                      setIsRecepcaoModalOpen(true);
-                    }}
-                  >
-                    Registrar Visita
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsQRCodeScannerOpen(true)}
+                    >
+                      <ScanLine className="w-4 h-4 mr-2" />
+                      Ler QR Code
+                    </Button>
+                    <Button 
+                      size="sm"
+                      onClick={() => {
+                        setRecepcaoInitialData(null);
+                        setIsRecepcaoModalOpen(true);
+                      }}
+                    >
+                      Registrar Visita
+                    </Button>
+                  </div>
                 </div>
 
                 {loadingVisitas ? (
@@ -1711,6 +1723,14 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
               variant: "destructive"
             });
           }
+        }}
+      />
+
+      <QRCodeScanner
+        isOpen={isQRCodeScannerOpen}
+        onClose={() => setIsQRCodeScannerOpen(false)}
+        onSuccess={() => {
+          refetch();
         }}
       />
 
