@@ -284,7 +284,7 @@ export const useContatoData = () => {
         // Buscar dados da prospecção para incluir no webhook
         const { data: prospeccaoData } = await supabase
           .from('prospeccoes')
-          .select('id, titulo, data_inicio, data_fim')
+          .select('id, titulo, data_inicio, data_fim, canal')
           .eq('id', prospeccaoId)
           .single();
         
@@ -318,40 +318,26 @@ export const useContatoData = () => {
             
             console.log('Webhook prospecção response:', webhookResponse);
             
-            // Webhook de status para atendimento (novo)
-            await supabase.functions.invoke('atendimento-status-webhook', {
-              body: {
-                telefone_lead: normalizePhone(contato.telefone),
-                status: contato.status || 'Novo',
-                empresa_id: activeCompany.id,
-                evento: 'criacao'
-              }
-            });
+            // Webhook de status para atendimento - APENAS para campanhas WhatsApp
+            if (prospeccaoData?.canal === 'Whatsapp') {
+              await supabase.functions.invoke('atendimento-status-webhook', {
+                body: {
+                  telefone_lead: normalizePhone(contato.telefone),
+                  status: contato.status || 'Novo',
+                  empresa_id: activeCompany.id,
+                  evento: 'criacao'
+                }
+              });
+              console.log('✅ Webhook atendimento-status disparado (campanha WhatsApp)');
+            }
             
             console.log('Webhooks disparados com sucesso para contato:', contato.id);
           } catch (webhookError) {
             console.error('Erro ao disparar webhook para contato:', contato.id, webhookError);
           }
         }
-      } else if (data) {
-        // Se não tem prospeccaoId, ainda dispara webhook de status para atendimento (criação de lead)
-        console.log('🔔 Disparando webhooks de criação de lead para atendimento');
-        for (const contato of data) {
-          try {
-            await supabase.functions.invoke('atendimento-status-webhook', {
-              body: {
-                telefone_lead: normalizePhone(contato.telefone),
-                status: contato.status || 'Novo',
-                empresa_id: activeCompany.id,
-                evento: 'criacao'
-              }
-            });
-            console.log('✅ Webhook de criação disparado para:', contato.telefone);
-          } catch (webhookError) {
-            console.error('Erro ao disparar webhook de criação:', webhookError);
-          }
-        }
       }
+      // Leads sem prospecção NÃO disparam webhook de status
       
       if (data) setContatos(prev => [...data, ...prev]);
       
@@ -372,12 +358,37 @@ export const useContatoData = () => {
     }
   };
 
-  // Dispara webhook de status para atendimento
-  const dispararWebhookStatusAtendimento = async (telefone: string, status: string, evento: 'criacao' | 'mudanca_status') => {
+  // Dispara webhook de status para atendimento - APENAS para leads de campanhas WhatsApp
+  const dispararWebhookStatusAtendimento = async (contatoId: string, telefone: string, status: string, evento: 'criacao' | 'mudanca_status') => {
     if (!activeCompany?.id) return;
     
     try {
-      console.log('🔔 Disparando webhook de status atendimento:', { telefone, status, evento });
+      // Verificar se o contato pertence a uma prospecção WhatsApp via eventos_prospeccao
+      const { data: vinculo } = await supabase
+        .from('eventos_prospeccao')
+        .select('prospeccao_id')
+        .eq('contato_id', contatoId)
+        .limit(1)
+        .maybeSingle();
+      
+      if (!vinculo?.prospeccao_id) {
+        console.log('⏭️ Contato não pertence a nenhuma prospecção, webhook não disparado');
+        return;
+      }
+      
+      // Verificar se a prospecção é do tipo WhatsApp
+      const { data: prospeccao } = await supabase
+        .from('prospeccoes')
+        .select('canal')
+        .eq('id', vinculo.prospeccao_id)
+        .single();
+      
+      if (prospeccao?.canal !== 'Whatsapp') {
+        console.log('⏭️ Prospecção não é WhatsApp, webhook não disparado');
+        return;
+      }
+      
+      console.log('🔔 Disparando webhook de status atendimento (campanha WhatsApp):', { telefone, status, evento });
       
       const { data, error } = await supabase.functions.invoke('atendimento-status-webhook', {
         body: {
@@ -398,7 +409,7 @@ export const useContatoData = () => {
     }
   };
 
-  // Atualizar status - COM WEBHOOK
+  // Atualizar status - COM WEBHOOK (apenas para campanhas WhatsApp)
   const atualizarStatusContato = async (contatoId: string, novoStatus: Contato['status']) => {
     try {
       // Buscar contato atual para pegar o telefone
@@ -413,9 +424,9 @@ export const useContatoData = () => {
       
       setContatos(prev => prev.map(c => c.id === contatoId ? { ...c, status: novoStatus } : c));
       
-      // Disparar webhook de status
+      // Disparar webhook de status - a função verifica internamente se é campanha WhatsApp
       if (contatoAtual?.telefone) {
-        dispararWebhookStatusAtendimento(contatoAtual.telefone, novoStatus, 'mudanca_status');
+        dispararWebhookStatusAtendimento(contatoId, contatoAtual.telefone, novoStatus, 'mudanca_status');
       }
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
