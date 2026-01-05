@@ -294,12 +294,13 @@ export const useContatoData = () => {
           try {
             console.log('Disparando webhook para contato:', contato);
             
-            // Webhook de prospecção (existente)
+            // Webhook de prospecção (existente) - inclui lead_id
             const webhookResponse = await supabase.functions.invoke('trigger-webhook', {
               body: {
                 gatilho: 'novo_contato_prospeccao',
                 dados: {
                   contato_id: contato.id,
+                  lead_id: contato.lead_id,
                   prospeccao_id: prospeccaoId,
                   nome: contato.nome,
                   telefone: normalizePhone(contato.telefone),
@@ -326,7 +327,8 @@ export const useContatoData = () => {
                   status: contato.status || 'Novo',
                   empresa_id: activeCompany.id,
                   evento: 'criacao',
-                  leadId: contato.lead_id
+                  leadId: contato.lead_id,
+                  prospeccao_id: prospeccaoId
                 }
               });
               console.log('✅ Webhook atendimento-status disparado (campanha WhatsApp) com leadId:', contato.lead_id);
