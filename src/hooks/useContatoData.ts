@@ -325,10 +325,11 @@ export const useContatoData = () => {
                   telefone_lead: normalizePhone(contato.telefone),
                   status: contato.status || 'Novo',
                   empresa_id: activeCompany.id,
-                  evento: 'criacao'
+                  evento: 'criacao',
+                  leadId: contato.lead_id
                 }
               });
-              console.log('✅ Webhook atendimento-status disparado (campanha WhatsApp)');
+              console.log('✅ Webhook atendimento-status disparado (campanha WhatsApp) com leadId:', contato.lead_id);
             }
             
             console.log('Webhooks disparados com sucesso para contato:', contato.id);
@@ -359,7 +360,7 @@ export const useContatoData = () => {
   };
 
   // Dispara webhook de status para atendimento - APENAS para leads de campanhas WhatsApp
-  const dispararWebhookStatusAtendimento = async (contatoId: string, telefone: string, status: string, evento: 'criacao' | 'mudanca_status') => {
+  const dispararWebhookStatusAtendimento = async (contatoId: string, telefone: string, status: string, evento: 'criacao' | 'mudanca_status', leadId?: number) => {
     if (!activeCompany?.id) return;
     
     try {
@@ -388,14 +389,26 @@ export const useContatoData = () => {
         return;
       }
       
-      console.log('🔔 Disparando webhook de status atendimento (campanha WhatsApp):', { telefone, status, evento });
+      // Buscar lead_id se não foi passado
+      let finalLeadId = leadId;
+      if (!finalLeadId) {
+        const { data: contatoData } = await supabase
+          .from('contatos')
+          .select('lead_id')
+          .eq('id', contatoId)
+          .single();
+        finalLeadId = contatoData?.lead_id;
+      }
+      
+      console.log('🔔 Disparando webhook de status atendimento (campanha WhatsApp):', { telefone, status, evento, leadId: finalLeadId });
       
       const { data, error } = await supabase.functions.invoke('atendimento-status-webhook', {
         body: {
           telefone_lead: normalizePhone(telefone),
           status: status,
           empresa_id: activeCompany.id,
-          evento: evento
+          evento: evento,
+          leadId: finalLeadId
         }
       });
       

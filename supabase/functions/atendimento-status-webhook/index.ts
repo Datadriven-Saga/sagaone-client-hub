@@ -27,9 +27,9 @@ serve(async (req) => {
       }
     );
 
-    const { telefone_lead, status, empresa_id, evento } = await req.json();
+    const { telefone_lead, status, empresa_id, evento, leadId } = await req.json();
 
-    console.log('📞 Atendimento Status Webhook chamado:', { telefone_lead, status, empresa_id, evento });
+    console.log('📞 Atendimento Status Webhook chamado:', { telefone_lead, status, empresa_id, evento, leadId });
 
     if (!telefone_lead || !status) {
       return new Response(
@@ -85,6 +85,7 @@ serve(async (req) => {
       telefone_pri: agenteData?.telefone || '',
       dealer_id: agenteData?.dealer_id || '',
       evento: evento || 'status_change',
+      leadId: leadId || null,
       timestamp: new Date().toISOString()
     };
 
