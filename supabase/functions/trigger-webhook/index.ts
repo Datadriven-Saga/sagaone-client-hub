@@ -331,9 +331,10 @@ serve(async (req) => {
             telefone: dados.telefone || '',
             email: dados.email || '',
             id: dados.contato_id || dados.id || '',
+            leadId: dados.lead_id || null,
             status: dados.status || 'Novo',
             prospeccao_id: dados.prospeccao_id || '',
-    // Dados do agente PRI
+            // Dados do agente PRI
             telefone_pri: agenteData?.telefone || '',
             dealerId: agenteData?.dealer_id || ''
           };
@@ -445,6 +446,7 @@ serve(async (req) => {
             nome: dados.nome || '',
             telefone: dados.telefone || '',
             email: dados.email || '',
+            leadId: dados.lead_id || null,
             status: dados.status || '',
             prospeccao_id: dados.prospeccao_id || '',
             // Dados do agente PRI
