@@ -505,6 +505,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     const fetchConvite = async () => {
       if (!editingProspeccao?.id || !activeCompany?.id) return;
       
+      // Primeiro tenta buscar da tabela prospeccao_convites
       const { data, error } = await supabase
         .from('prospeccao_convites')
         .select('*')
@@ -513,6 +514,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       
       if (!error && data?.imagem_url) {
         setConviteImagem(data.imagem_url);
+      } else if (editingProspeccao.imagem_divulgacao_url) {
+        // Se não encontrou em prospeccao_convites, usa imagem_divulgacao_url da prospecção
+        setConviteImagem(editingProspeccao.imagem_divulgacao_url);
       }
     };
     
@@ -742,6 +746,18 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     
     if (error) {
       console.error('Erro ao salvar convite:', error);
+    }
+    
+    // Também atualizar imagem_divulgacao_url na prospecção para aparecer no KV do Evento
+    if (imagemUrl) {
+      const { error: updateError } = await supabase
+        .from('prospeccoes')
+        .update({ imagem_divulgacao_url: imagemUrl })
+        .eq('id', prospeccaoId);
+      
+      if (updateError) {
+        console.error('Erro ao atualizar imagem_divulgacao_url:', updateError);
+      }
     }
   };
   
@@ -1027,6 +1043,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           await saveOutrasPremiacoes(data.id);
         } else if (tipoEvento === 'Prospecção Mensal') {
           await saveEquipes(data.id);
+          await saveConvite(data.id);
+        } else if (tipoEvento === 'IA Whatsapp' || tipoEvento === 'IA Ligação') {
+          await saveConvite(data.id);
         }
 
         toast({
@@ -1076,6 +1095,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           await saveOutrasPremiacoes(data.id);
         } else if (tipoEvento === 'Prospecção Mensal') {
           await saveEquipes(data.id);
+          await saveConvite(data.id);
+        } else if (tipoEvento === 'IA Whatsapp' || tipoEvento === 'IA Ligação') {
+          await saveConvite(data.id);
         }
 
         toast({
