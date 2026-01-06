@@ -26,7 +26,7 @@ const userSchema = z.object({
   nome_completo: z.string().min(1, "Nome é obrigatório"),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").optional().or(z.literal("")),
-  tipo_acesso: z.enum(["SDR", "Gerente de Leads", "Vendedor", "Gerente de Loja", "Busca", "Diretor", "Outros", "TI", "Administrador", "Proprietário"]),
+  tipo_acesso: z.enum(["SDR", "Gerente de Leads", "Vendedor", "Gerente de Loja", "Diretor", "TI", "Administrador", "Proprietário", "CRM", "Recepcionista"]),
   departamento: z.string().optional(),
   celular: z.string().optional(),
   cpf: z.string().optional(),
@@ -264,10 +264,15 @@ const Acessos = () => {
 
   const handleEdit = (user: Profile) => {
     setEditingUser(user);
+    // Cast tipo_acesso para lidar com valores legados que foram removidos do sistema
+    const tipoAcesso = user.tipo_acesso || "SDR";
+    const validTipoAcesso = ["SDR", "Gerente de Leads", "Vendedor", "Gerente de Loja", "Diretor", "TI", "Administrador", "Proprietário", "CRM", "Recepcionista"].includes(tipoAcesso) 
+      ? tipoAcesso as "SDR" | "Gerente de Leads" | "Vendedor" | "Gerente de Loja" | "Diretor" | "TI" | "Administrador" | "Proprietário" | "CRM" | "Recepcionista"
+      : "Vendedor";
     form.reset({
       nome_completo: user.nome_completo,
       email: user.email,
-      tipo_acesso: user.tipo_acesso || "SDR",
+      tipo_acesso: validTipoAcesso,
       departamento: user.departamento || "",
       celular: user.celular || "",
       cpf: user.cpf || "",
@@ -420,12 +425,12 @@ const Acessos = () => {
                               <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
                               <SelectItem value="Vendedor">Vendedor</SelectItem>
                               <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
-                              <SelectItem value="Busca">Busca</SelectItem>
                               <SelectItem value="Diretor">Diretor</SelectItem>
-                              <SelectItem value="Outros">Outros</SelectItem>
                               <SelectItem value="TI">TI</SelectItem>
                               <SelectItem value="Administrador">Administrador</SelectItem>
                               <SelectItem value="Proprietário">Proprietário</SelectItem>
+                              <SelectItem value="CRM">CRM</SelectItem>
+                              <SelectItem value="Recepcionista">Recepcionista</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
