@@ -77,8 +77,8 @@ export function useUserAccessType() {
   // Permissões para criar/editar/excluir eventos: todos EXCETO Recepcionista
   const canManageEvents = !isRecepcionista;
   
-  // Permissões para adicionar clientes manualmente/importar: todos EXCETO Recepcionista
-  const canImportClientes = !isRecepcionista;
+  // Permissões para adicionar clientes manualmente/importar: Administrador, CRM
+  const canImportClientes = isAdmin || isCRM;
   
   // Permissões para gerar convites/QR Codes: todos EXCETO Recepcionista
   const canGenerateInvites = !isRecepcionista;
