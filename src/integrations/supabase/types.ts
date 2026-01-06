@@ -455,11 +455,15 @@ export type Database = {
           nome: string
           observacoes: string | null
           origem: Database["public"]["Enums"]["origem_lead"] | null
+          qr_token: string | null
+          qr_token_used: boolean | null
+          qr_token_used_at: string | null
           responsavel_email: string | null
           status: Database["public"]["Enums"]["status_lead"] | null
           telefone: string | null
           updated_at: string | null
           valor_potencial: number | null
+          vendedor_nome: string | null
         }
         Insert: {
           cliente_id?: string | null
@@ -471,11 +475,15 @@ export type Database = {
           nome: string
           observacoes?: string | null
           origem?: Database["public"]["Enums"]["origem_lead"] | null
+          qr_token?: string | null
+          qr_token_used?: boolean | null
+          qr_token_used_at?: string | null
           responsavel_email?: string | null
           status?: Database["public"]["Enums"]["status_lead"] | null
           telefone?: string | null
           updated_at?: string | null
           valor_potencial?: number | null
+          vendedor_nome?: string | null
         }
         Update: {
           cliente_id?: string | null
@@ -487,11 +495,15 @@ export type Database = {
           nome?: string
           observacoes?: string | null
           origem?: Database["public"]["Enums"]["origem_lead"] | null
+          qr_token?: string | null
+          qr_token_used?: boolean | null
+          qr_token_used_at?: string | null
           responsavel_email?: string | null
           status?: Database["public"]["Enums"]["status_lead"] | null
           telefone?: string | null
           updated_at?: string | null
           valor_potencial?: number | null
+          vendedor_nome?: string | null
         }
         Relationships: [
           {
