@@ -405,10 +405,23 @@ const Relatorios = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__all__">Todos</SelectItem>
-                          <SelectItem value="novo">Novo</SelectItem>
-                          <SelectItem value="em_andamento">Em Andamento</SelectItem>
-                          <SelectItem value="convertido">Convertido</SelectItem>
-                          <SelectItem value="perdido">Perdido</SelectItem>
+                          <SelectItem value="Novo">Novo</SelectItem>
+                          <SelectItem value="Em Contato">Em Contato</SelectItem>
+                          <SelectItem value="Atribuído">Atribuído</SelectItem>
+                          <SelectItem value="Convidado">Convidado</SelectItem>
+                          <SelectItem value="Agendado">Agendado</SelectItem>
+                          <SelectItem value="Confirmado">Confirmado</SelectItem>
+                          <SelectItem value="Check-in">Check-in</SelectItem>
+                          <SelectItem value="Qualificado">Qualificado</SelectItem>
+                          <SelectItem value="Proposta">Proposta</SelectItem>
+                          <SelectItem value="Negociação">Negociação</SelectItem>
+                          <SelectItem value="Venda">Venda</SelectItem>
+                          <SelectItem value="Fechado">Fechado</SelectItem>
+                          <SelectItem value="Perdido">Perdido</SelectItem>
+                          <SelectItem value="Descartado">Descartado</SelectItem>
+                          <SelectItem value="Desperdício">Desperdício</SelectItem>
+                          <SelectItem value="Em Espera">Em Espera</SelectItem>
+                          <SelectItem value="Opt Out">Opt Out</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
