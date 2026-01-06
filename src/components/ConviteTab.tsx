@@ -499,19 +499,21 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
               <Badge variant="destructive" className="text-xs">Usado</Badge>
             )}
           </div>
-          <div className="aspect-square bg-white rounded-lg overflow-hidden flex items-center justify-center p-2">
-            {qrCodeUrl && qrToken ? (
-              <img 
-                src={qrCodeUrl} 
-                alt="QR Code para Check-in" 
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <div className="text-center text-muted-foreground">
-                <QrCode className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Clique para gerar</p>
-              </div>
-            )}
+          <div className="flex items-center justify-center">
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-border/50">
+              {qrCodeUrl && qrToken ? (
+                <img 
+                  src={qrCodeUrl} 
+                  alt="QR Code para Check-in" 
+                  className="w-32 h-32 object-contain"
+                />
+              ) : (
+                <div className="w-32 h-32 flex flex-col items-center justify-center text-muted-foreground">
+                  <QrCode className="w-10 h-10 mb-2 opacity-50" />
+                  <p className="text-xs">Clique para gerar</p>
+                </div>
+              )}
+            </div>
           </div>
           
           {qrToken && qrCodeUrl ? (
