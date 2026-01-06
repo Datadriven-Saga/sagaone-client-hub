@@ -7,6 +7,7 @@ const allowedOrigins = [
   'https://lovable.dev',
   'https://7bc578c3-4b3d-4f33-830e-6157c828c9e5.lovableproject.com',
   'https://id-preview--7bc578c3-4b3d-4f33-830e-6157c828c9e5.lovable.app',
+  'https://maia.sagadatadriven.com.br',
 ];
 
 function getCorsHeaders(req: Request) {

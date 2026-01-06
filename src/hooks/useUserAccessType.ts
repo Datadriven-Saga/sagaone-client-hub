@@ -84,7 +84,7 @@ export function useUserAccessType() {
   const canGenerateInvites = !isRecepcionista;
   
   // Permissões para criar templates: Administrador, TI, Gerente de Leads
-  const canCreateTemplates = isAdmin || isTI || tipoAcesso === "Gerente de Leads";
+  const canCreateTemplates = isAdmin || isTI || tipoAcesso === "Gerente de Leads" || tipoAcesso === "Gerente de Loja";
 
   return {
     tipoAcesso,
