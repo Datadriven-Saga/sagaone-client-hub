@@ -668,34 +668,32 @@ export function ContatoModal({
 
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Sidebar */}
-          <div className="w-56 border-r bg-muted/30 flex-shrink-0">
-            <ScrollArea className="h-full">
-              <div className="p-3">
-                <nav className="space-y-1">
-                  {sidebarItems.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setActiveTab(item.id)}
-                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors ${
-                          activeTab === item.id
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        {item.label}
-                      </button>
-                    );
-                  })}
-                </nav>
-              </div>
-            </ScrollArea>
+          <div className="w-56 border-r bg-muted/30 flex-shrink-0 overflow-y-auto">
+            <div className="p-3">
+              <nav className="space-y-1">
+                {sidebarItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors ${
+                        activeTab === item.id
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
           </div>
 
           {/* Main Content */}
-          <ScrollIndicator className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-4">
               {/* Aviso de lead bloqueado */}
               {isLeadBloqueado && (
@@ -1401,7 +1399,7 @@ export function ContatoModal({
                 </Card>
               )}
             </div>
-          </ScrollIndicator>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

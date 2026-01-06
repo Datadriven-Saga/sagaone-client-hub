@@ -14,7 +14,8 @@ import {
   UserCheck, 
   Save,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -141,6 +142,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
         }
         
         // Buscar nome do usuário atual (quem convidou)
+        let currentUserName = '';
         if (user?.id) {
           const { data: profileData } = await supabase
             .from('profiles')
@@ -149,6 +151,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
             .single();
           
           if (profileData?.nome_completo) {
+            currentUserName = profileData.nome_completo;
             setUserName(profileData.nome_completo);
           }
         }
@@ -160,9 +163,11 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
           .eq('id', contato.id)
           .single();
 
+        let currentVendedorNome = '';
         if (contatoData) {
           setQrToken(contatoData.qr_token);
           setQrTokenUsed(contatoData.qr_token_used || false);
+          currentVendedorNome = contatoData.vendedor_nome || '';
           setVendedorNome(contatoData.vendedor_nome || '');
 
           // Se tem responsavel_email, buscar nome do vendedor
@@ -174,13 +179,47 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
               .maybeSingle();
             
             if (vendedorData?.nome_completo) {
+              currentVendedorNome = vendedorData.nome_completo;
               setVendedorNome(vendedorData.nome_completo);
             }
           }
 
           // Se já tem qr_token, gerar URL do QR Code
           if (contatoData.qr_token) {
-            generateQRCodeUrl(contatoData.qr_token);
+            const qrData = JSON.stringify({
+              qr_token: contatoData.qr_token,
+              convidado_nome: contato.nome,
+              convidado_telefone: contato.telefone || '',
+              quem_convidou: currentUserName,
+              vendedor: currentVendedorNome || currentUserName
+            });
+            const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(qrData)}&choe=UTF-8`;
+            setQrCodeUrl(qrUrl);
+          } else {
+            // Se não tem qr_token, gerar automaticamente
+            const newToken = crypto.randomUUID();
+            const { error: updateError } = await supabase
+              .from('contatos')
+              .update({
+                qr_token: newToken,
+                qr_token_used: false,
+                vendedor_nome: currentVendedorNome || currentUserName,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', contato.id);
+
+            if (!updateError) {
+              setQrToken(newToken);
+              const qrData = JSON.stringify({
+                qr_token: newToken,
+                convidado_nome: contato.nome,
+                convidado_telefone: contato.telefone || '',
+                quem_convidou: currentUserName,
+                vendedor: currentVendedorNome || currentUserName
+              });
+              const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(qrData)}&choe=UTF-8`;
+              setQrCodeUrl(qrUrl);
+            }
           }
         }
         
@@ -283,6 +322,24 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
         variant: 'destructive'
       });
     }
+  };
+
+  // Função para exportar QR Code como imagem
+  const handleExportQRCode = () => {
+    if (!qrCodeUrl) return;
+    
+    // Criar link para download
+    const link = document.createElement('a');
+    link.href = qrCodeUrl;
+    link.download = `qrcode-convite-${contato.nome?.replace(/\s+/g, '-') || 'cliente'}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: 'QR Code exportado',
+      description: 'O QR Code foi baixado com sucesso'
+    });
   };
 
   // Formatar datas
@@ -415,16 +472,23 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
             )}
           </div>
           
-          {qrToken ? (
+          {qrToken && qrCodeUrl ? (
             <div className="space-y-2 mt-2">
               <p className="text-xs text-muted-foreground text-center">
                 {qrTokenUsed ? 'Este QR Code já foi utilizado' : 'Envie o QR Code para o cliente'}
               </p>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleExportQRCode}
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="ml-1">Exportar</span>
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1"
                   onClick={handleGenerateQRCode}
                   disabled={generatingQR}
                 >
@@ -435,32 +499,21 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
                   )}
                   <span className="ml-1">Regenerar</span>
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={handleCheckin}
-                >
-                  <QrCode className="w-4 h-4" />
-                  <span className="ml-1">Check-in Manual</span>
-                </Button>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={handleCheckin}
+              >
+                <QrCode className="w-4 h-4" />
+                <span className="ml-1">Check-in Manual</span>
+              </Button>
             </div>
           ) : (
-            <Button
-              variant="default"
-              size="sm"
-              className="w-full mt-2"
-              onClick={handleGenerateQRCode}
-              disabled={generatingQR}
-            >
-              {generatingQR ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <QrCode className="w-4 h-4 mr-2" />
-              )}
-              Gerar QR Code de Convite
-            </Button>
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
           )}
         </Card>
 
