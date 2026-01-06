@@ -77,6 +77,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
   const infoRef = useRef<HTMLDivElement>(null);
   const qrRef = useRef<HTMLDivElement>(null);
   const conviteRef = useRef<HTMLDivElement>(null);
+  const allCardsRef = useRef<HTMLDivElement>(null);
 
   // Buscar dados ao montar
   useEffect(() => {
@@ -370,9 +371,9 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
     });
   };
 
-  // Função para salvar o convite como imagem
+  // Função para salvar o convite como imagem (todos os 4 cards)
   const handleSaveConvite = async () => {
-    if (!conviteRef.current) {
+    if (!allCardsRef.current) {
       toast({
         title: 'Erro',
         description: 'Não foi possível capturar o convite',
@@ -383,7 +384,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
     
     setSaving(true);
     try {
-      const canvas = await html2canvas(conviteRef.current, {
+      const canvas = await html2canvas(allCardsRef.current, {
         backgroundColor: '#ffffff',
         scale: 2,
         useCORS: true,
@@ -424,8 +425,8 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
 
   return (
     <div className="space-y-6">
-      {/* Grid com as 4 imagens */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Grid com as 4 imagens - ref para capturar todos os cards */}
+      <div ref={allCardsRef} className="grid grid-cols-2 gap-4 bg-background p-4 rounded-lg">
         {/* 1. KV do Evento */}
         <Card className="p-4" ref={kvRef}>
           <div className="flex items-center gap-2 mb-3">
@@ -499,17 +500,17 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
               <Badge variant="destructive" className="text-xs">Usado</Badge>
             )}
           </div>
-          <div className="flex items-center justify-center">
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-border/50">
+          <div className="flex items-center justify-center py-2">
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-border/50">
               {qrCodeUrl && qrToken ? (
                 <img 
                   src={qrCodeUrl} 
                   alt="QR Code para Check-in" 
-                  className="w-32 h-32 object-contain"
+                  className="w-40 h-40 object-contain"
                 />
               ) : (
-                <div className="w-32 h-32 flex flex-col items-center justify-center text-muted-foreground">
-                  <QrCode className="w-10 h-10 mb-2 opacity-50" />
+                <div className="w-40 h-40 flex flex-col items-center justify-center text-muted-foreground">
+                  <QrCode className="w-12 h-12 mb-2 opacity-50" />
                   <p className="text-xs">Clique para gerar</p>
                 </div>
               )}
