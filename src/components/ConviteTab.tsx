@@ -78,26 +78,47 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
   // Buscar dados ao montar
   useEffect(() => {
     const fetchData = async () => {
-      if (!prospeccaoId || !activeCompany?.id) return;
+      if (!activeCompany?.id) return;
       
       setLoading(true);
       try {
-        // Buscar dados da prospecção
-        const { data: prospeccaoData, error: prospeccaoError } = await supabase
-          .from('prospeccoes')
-          .select('id, titulo, data_inicio, data_fim, empresa_id')
-          .eq('id', prospeccaoId)
-          .single();
+        let currentProspeccaoId = prospeccaoId;
         
-        if (prospeccaoError) throw prospeccaoError;
-        setProspeccao(prospeccaoData);
+        // Se não tem prospeccaoId, buscar a prospecção ativa da empresa
+        if (!currentProspeccaoId) {
+          const { data: prospeccaoAtiva } = await supabase
+            .from('prospeccoes')
+            .select('id')
+            .eq('empresa_id', activeCompany.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (prospeccaoAtiva) {
+            currentProspeccaoId = prospeccaoAtiva.id;
+          }
+        }
+
+        // Buscar dados da prospecção
+        if (currentProspeccaoId) {
+          const { data: prospeccaoData, error: prospeccaoError } = await supabase
+            .from('prospeccoes')
+            .select('id, titulo, data_inicio, data_fim, empresa_id')
+            .eq('id', currentProspeccaoId)
+            .single();
+          
+          if (!prospeccaoError && prospeccaoData) {
+            setProspeccao(prospeccaoData);
+          }
+        }
         
         // Buscar dados da empresa
-        if (prospeccaoData?.empresa_id) {
+        const empresaId = prospeccao?.empresa_id || activeCompany.id;
+        if (empresaId) {
           const { data: empresaData, error: empresaError } = await supabase
             .from('empresas')
             .select('id, nome_empresa, uf')
-            .eq('id', prospeccaoData.empresa_id)
+            .eq('id', empresaId)
             .single();
           
           if (!empresaError && empresaData) {
@@ -106,14 +127,17 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
         }
         
         // Buscar imagem do convite
-        const { data: conviteData, error: conviteError } = await supabase
-          .from('prospeccao_convites')
-          .select('imagem_url')
-          .eq('prospeccao_id', prospeccaoId)
-          .maybeSingle();
+        const conviteProspeccaoId = currentProspeccaoId || prospeccaoId;
+        if (conviteProspeccaoId) {
+          const { data: conviteData, error: conviteError } = await supabase
+            .from('prospeccao_convites')
+            .select('imagem_url')
+            .eq('prospeccao_id', conviteProspeccaoId)
+            .maybeSingle();
         
-        if (!conviteError && conviteData?.imagem_url) {
-          setConviteImagem(conviteData.imagem_url);
+          if (!conviteError && conviteData?.imagem_url) {
+            setConviteImagem(conviteData.imagem_url);
+          }
         }
         
         // Buscar nome do usuário atual (quem convidou)
