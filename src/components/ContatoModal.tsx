@@ -1343,10 +1343,10 @@ export function ContatoModal({
                 </Card>
               )}
 
-              {activeTab === 'convite' && contato && prospeccaoId && (
+              {activeTab === 'convite' && contato && (
                 <ConviteTab 
                   contato={contato}
-                  prospeccaoId={prospeccaoId}
+                  prospeccaoId={prospeccaoId || ''}
                   onStatusChange={onStatusChange}
                 />
               )}
