@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompany } from '@/contexts/CompanyContext';
 import { Contato } from '@/hooks/useContatoData';
+import QRCodeLib from 'qrcode';
 
 interface ConviteTabProps {
   contato: Contato;
@@ -193,8 +194,12 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
               quem_convidou: currentUserName,
               vendedor: currentVendedorNome || currentUserName
             });
-            const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(qrData)}&choe=UTF-8`;
-            setQrCodeUrl(qrUrl);
+            try {
+              const dataUrl = await QRCodeLib.toDataURL(qrData, { width: 300, margin: 2 });
+              setQrCodeUrl(dataUrl);
+            } catch (err) {
+              console.error('Erro ao gerar QR Code:', err);
+            }
           } else {
             // Se não tem qr_token, gerar automaticamente
             const newToken = crypto.randomUUID();
@@ -217,8 +222,12 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
                 quem_convidou: currentUserName,
                 vendedor: currentVendedorNome || currentUserName
               });
-              const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(qrData)}&choe=UTF-8`;
-              setQrCodeUrl(qrUrl);
+              try {
+                const dataUrl = await QRCodeLib.toDataURL(qrData, { width: 300, margin: 2 });
+                setQrCodeUrl(dataUrl);
+              } catch (err) {
+                console.error('Erro ao gerar QR Code:', err);
+              }
             }
           }
         }
@@ -239,7 +248,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
   }, [prospeccaoId, activeCompany?.id, user?.id, contato.id]);
 
   // Gerar URL do QR Code a partir do token
-  const generateQRCodeUrl = (token: string) => {
+  const generateQRCodeUrl = async (token: string) => {
     const qrData = JSON.stringify({
       qr_token: token,
       convidado_nome: contato.nome,
@@ -248,8 +257,12 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
       vendedor: vendedorNome || userName
     });
     
-    const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(qrData)}&choe=UTF-8`;
-    setQrCodeUrl(qrUrl);
+    try {
+      const dataUrl = await QRCodeLib.toDataURL(qrData, { width: 300, margin: 2 });
+      setQrCodeUrl(dataUrl);
+    } catch (err) {
+      console.error('Erro ao gerar QR Code:', err);
+    }
   };
 
   // Gerar novo QR Token
@@ -285,8 +298,12 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
         vendedor: vendedorNome || userName
       });
       
-      const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(qrData)}&choe=UTF-8`;
-      setQrCodeUrl(qrUrl);
+      try {
+        const dataUrl = await QRCodeLib.toDataURL(qrData, { width: 300, margin: 2 });
+        setQrCodeUrl(dataUrl);
+      } catch (err) {
+        console.error('Erro ao gerar QR Code:', err);
+      }
 
       toast({
         title: 'QR Code gerado!',

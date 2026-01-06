@@ -610,7 +610,7 @@ export function ContatoModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden">
+      <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden flex flex-col">
         <DialogHeader className="p-6 pb-4 pr-12 border-b flex-shrink-0">
           <div className="flex items-center justify-between gap-4">
             <div className="flex flex-col gap-1">
@@ -666,9 +666,9 @@ export function ContatoModal({
           </div>
         </DialogHeader>
 
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          {/* Sidebar */}
-          <div className="w-56 border-r bg-muted/30 flex-shrink-0 overflow-y-auto">
+        <div className="flex flex-1 min-h-0">
+          {/* Sidebar - fixed height, scrollable */}
+          <div className="w-56 border-r bg-muted/30 flex-shrink-0 h-full overflow-y-auto">
             <div className="p-3">
               <nav className="space-y-1">
                 {sidebarItems.map((item) => {
@@ -692,8 +692,8 @@ export function ContatoModal({
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          {/* Main Content - scrollable independently */}
+          <div className="flex-1 h-full overflow-y-auto">
             <div className="p-4">
               {/* Aviso de lead bloqueado */}
               {isLeadBloqueado && (
