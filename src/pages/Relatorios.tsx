@@ -377,14 +377,14 @@ const Relatorios = () => {
                     <div>
                       <label className="block text-xs text-muted-foreground mb-1">Canal</label>
                       <Select 
-                        value={filters.canal || ""} 
-                        onValueChange={(value) => setFilters(prev => ({ ...prev, canal: value || undefined }))}
+                        value={filters.canal || "__all__"} 
+                        onValueChange={(value) => setFilters(prev => ({ ...prev, canal: value === "__all__" ? undefined : value }))}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Todos" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Todos</SelectItem>
+                          <SelectItem value="__all__">Todos</SelectItem>
                           <SelectItem value="WhatsApp">WhatsApp</SelectItem>
                           <SelectItem value="Ligação">Ligação</SelectItem>
                           <SelectItem value="Email">Email</SelectItem>
@@ -397,14 +397,14 @@ const Relatorios = () => {
                     <div>
                       <label className="block text-xs text-muted-foreground mb-1">Status</label>
                       <Select 
-                        value={filters.status || ""} 
-                        onValueChange={(value) => setFilters(prev => ({ ...prev, status: value || undefined }))}
+                        value={filters.status || "__all__"} 
+                        onValueChange={(value) => setFilters(prev => ({ ...prev, status: value === "__all__" ? undefined : value }))}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Todos" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Todos</SelectItem>
+                          <SelectItem value="__all__">Todos</SelectItem>
                           <SelectItem value="novo">Novo</SelectItem>
                           <SelectItem value="em_andamento">Em Andamento</SelectItem>
                           <SelectItem value="convertido">Convertido</SelectItem>
@@ -418,14 +418,14 @@ const Relatorios = () => {
                     <div>
                       <label className="block text-xs text-muted-foreground mb-1">Status</label>
                       <Select 
-                        value={filters.status || ""} 
-                        onValueChange={(value) => setFilters(prev => ({ ...prev, status: value || undefined }))}
+                        value={filters.status || "__all__"} 
+                        onValueChange={(value) => setFilters(prev => ({ ...prev, status: value === "__all__" ? undefined : value }))}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Todos" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Todos</SelectItem>
+                          <SelectItem value="__all__">Todos</SelectItem>
                           <SelectItem value="Ativo">Ativo</SelectItem>
                           <SelectItem value="Inativo">Inativo</SelectItem>
                         </SelectContent>
