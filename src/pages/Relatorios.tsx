@@ -31,6 +31,8 @@ interface ReportFilters {
   responsavel?: string;
   canal?: string;
   eventoId?: string;
+  formato?: string;
+  statusMeta?: string;
 }
 
 interface Prospeccao {
@@ -96,8 +98,8 @@ const Relatorios = () => {
     {
       id: "templates" as ReportModule,
       name: "Templates",
-      description: "Templates de mensagens",
-      fields: ["Nome", "Tipo", "Agente", "Ativo", "Data Criação", "Última Atualização"]
+      description: "Templates de mensagens WhatsApp",
+      fields: ["Nome", "Formato", "Categoria", "Status Meta", "Ativo", "Data Criação", "Última Atualização"]
     }
   ];
 
@@ -265,26 +267,42 @@ const Relatorios = () => {
 
   const fetchTemplates = async () => {
     let query = supabase
-      .from("agente_cadencias_steps")
+      .from("whatsapp_templates")
       .select(`
         id,
-        nome_cadencia,
-        tipo_mensagem,
-        ativa,
+        nome,
+        formato,
+        categoria,
+        status,
+        status_meta,
+        ativo,
         created_at,
-        updated_at,
-        agente:agentes_ia(nome)
+        updated_at
       `)
       .eq("empresa_id", activeCompany?.id);
+
+    if (filters.dataInicio) {
+      query = query.gte("created_at", filters.dataInicio);
+    }
+    if (filters.dataFim) {
+      query = query.lte("created_at", filters.dataFim + "T23:59:59");
+    }
+    if (filters.formato) {
+      query = query.eq("formato", filters.formato);
+    }
+    if (filters.statusMeta) {
+      query = query.eq("status_meta", filters.statusMeta);
+    }
 
     const { data, error } = await query.order("created_at", { ascending: false });
     if (error) throw error;
 
     return data?.map(item => ({
-      nome: item.nome_cadencia,
-      tipo: item.tipo_mensagem || "-",
-      agente: item.agente?.nome || "-",
-      ativo: item.ativa ? "Sim" : "Não",
+      nome: item.nome,
+      formato: item.formato || "-",
+      categoria: item.categoria || "-",
+      status_meta: item.status_meta || "-",
+      ativo: item.ativo ? "Sim" : "Não",
       data_criacao: item.created_at ? format(new Date(item.created_at), "dd/MM/yyyy") : "-",
       ultima_atualizacao: item.updated_at ? format(new Date(item.updated_at), "dd/MM/yyyy") : "-"
     })) || [];
@@ -400,7 +418,7 @@ const Relatorios = () => {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {(selectedModule !== "usuarios" && selectedModule !== "templates") && (
+                  {selectedModule !== "usuarios" && (
                     <>
                       <div>
                         <label className="block text-xs text-muted-foreground mb-1">Data Início</label>
@@ -554,6 +572,46 @@ const Relatorios = () => {
                         </SelectContent>
                       </Select>
                     </div>
+                  )}
+
+                  {selectedModule === "templates" && (
+                    <>
+                      <div>
+                        <label className="block text-xs text-muted-foreground mb-1">Formato</label>
+                        <Select 
+                          value={filters.formato || "__all__"} 
+                          onValueChange={(value) => setFilters(prev => ({ ...prev, formato: value === "__all__" ? undefined : value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Todos" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__all__">Todos</SelectItem>
+                            <SelectItem value="text">Texto</SelectItem>
+                            <SelectItem value="image">Imagem</SelectItem>
+                            <SelectItem value="video">Vídeo</SelectItem>
+                            <SelectItem value="document">Documento</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-muted-foreground mb-1">Status Meta</label>
+                        <Select 
+                          value={filters.statusMeta || "__all__"} 
+                          onValueChange={(value) => setFilters(prev => ({ ...prev, statusMeta: value === "__all__" ? undefined : value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Todos" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__all__">Todos</SelectItem>
+                            <SelectItem value="APPROVED">Aprovado</SelectItem>
+                            <SelectItem value="PENDING">Pendente</SelectItem>
+                            <SelectItem value="REJECTED">Rejeitado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
