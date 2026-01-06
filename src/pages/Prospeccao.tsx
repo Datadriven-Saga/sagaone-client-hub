@@ -25,6 +25,7 @@ import { DescarteLeadModal } from "@/components/DescarteLeadModal";
 import { VendasProspeccaoTab } from "@/components/VendasProspeccaoTab";
 import { useVendasProspeccao } from "@/hooks/useVendasProspeccao";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
 import { useContatoData, kanbanStatusMap, Contato } from "@/hooks/useContatoData";
@@ -95,6 +96,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     }
   }, [defaultTab]);
   const [showAdicionarClientes, setShowAdicionarClientes] = useState(false);
+  const { canAddClientes } = useUserAccessType();
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [recepcaoInitialData, setRecepcaoInitialData] = useState<any>(null);
   const [isQRCodeScannerOpen, setIsQRCodeScannerOpen] = useState(false);
@@ -1132,7 +1134,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           <ScrollIndicator className="flex-1 h-full">
             <div className="space-y-3 pb-6">
               {/* Conteúdo condicional: Lista de Eventos ou Adicionar Clientes */}
-              {!showAdicionarClientes ? (
+              {(!showAdicionarClientes || !canAddClientes) ? (
                 <Card className="p-4">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -1142,10 +1144,12 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button onClick={() => setShowAdicionarClientes(true)} size="sm" variant="outline">
-                        <Users className="w-4 h-4 mr-2" />
-                        Adicionar Clientes
-                      </Button>
+                      {canAddClientes && (
+                        <Button onClick={() => setShowAdicionarClientes(true)} size="sm" variant="outline">
+                          <Users className="w-4 h-4 mr-2" />
+                          Adicionar Clientes
+                        </Button>
+                      )}
                       <Button onClick={() => setIsModalOpen(true)} size="sm">
                         <Plus className="w-4 h-4 mr-2" />
                         Novo Evento
