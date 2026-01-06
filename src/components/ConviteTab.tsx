@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCompany } from '@/contexts/CompanyContext';
 import { Contato } from '@/hooks/useContatoData';
 import QRCodeLib from 'qrcode';
+import html2canvas from 'html2canvas';
 
 interface ConviteTabProps {
   contato: Contato;
@@ -369,13 +370,37 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
     });
   };
 
-  // Função para salvar o convite (placeholder)
+  // Função para salvar o convite como imagem
   const handleSaveConvite = async () => {
+    if (!conviteRef.current) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível capturar o convite',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
     setSaving(true);
     try {
+      const canvas = await html2canvas(conviteRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        logging: false
+      });
+      
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `convite-${contato.nome?.replace(/\s+/g, '-') || 'cliente'}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
       toast({
         title: 'Convite salvo',
-        description: 'O convite foi salvo com sucesso'
+        description: 'O convite foi baixado como imagem'
       });
     } catch (error) {
       console.error('Erro ao salvar convite:', error);
