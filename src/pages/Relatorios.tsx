@@ -30,6 +30,12 @@ interface ReportFilters {
   statusUsuario?: string;
   responsavel?: string;
   canal?: string;
+  eventoId?: string;
+}
+
+interface Prospeccao {
+  id: string;
+  titulo: string;
 }
 
 const Relatorios = () => {
@@ -43,6 +49,24 @@ const Relatorios = () => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
+
+  // Carregar prospecções quando a empresa mudar
+  useEffect(() => {
+    const fetchProspeccoes = async () => {
+      if (!activeCompany?.id) return;
+      
+      const { data } = await supabase
+        .from("prospeccoes")
+        .select("id, titulo")
+        .eq("empresa_id", activeCompany.id)
+        .order("titulo");
+      
+      setProspeccoes(data || []);
+    };
+    
+    fetchProspeccoes();
+  }, [activeCompany?.id]);
 
   const modules = [
     {
@@ -129,6 +153,7 @@ const Relatorios = () => {
         vendedor_nome,
         created_at,
         eventos_prospeccao(
+          prospeccao_id,
           prospeccao:prospeccoes(titulo)
         )
       `)
@@ -147,7 +172,15 @@ const Relatorios = () => {
     const { data, error } = await query.order("created_at", { ascending: false });
     if (error) throw error;
 
-    return data?.map(item => ({
+    // Filtrar por evento se selecionado
+    let filteredData = data || [];
+    if (filters.eventoId) {
+      filteredData = filteredData.filter(item => 
+        item.eventos_prospeccao?.some((ep: any) => ep.prospeccao_id === filters.eventoId)
+      );
+    }
+
+    return filteredData.map(item => ({
       nome: item.nome,
       telefone: item.telefone || "-",
       email: item.email || "-",
@@ -156,7 +189,7 @@ const Relatorios = () => {
       origem: item.origem || "-",
       responsavel: item.vendedor_nome || "-",
       data_criacao: format(new Date(item.created_at!), "dd/MM/yyyy")
-    })) || [];
+    }));
   };
   const fetchVendas = async () => {
     let query = supabase
@@ -166,6 +199,7 @@ const Relatorios = () => {
         cliente_nome,
         valor_venda,
         data_venda,
+        prospeccao_id,
         prospeccao:prospeccoes(titulo),
         produto:produtos(nome),
         responsavel:profiles!vendas_prospeccao_responsavel_id_fkey(nome_completo),
@@ -178,6 +212,9 @@ const Relatorios = () => {
     }
     if (filters.dataFim) {
       query = query.lte("data_venda", filters.dataFim);
+    }
+    if (filters.eventoId) {
+      query = query.eq("prospeccao_id", filters.eventoId);
     }
 
     const { data, error } = await query.order("data_venda", { ascending: false });
@@ -399,6 +436,28 @@ const Relatorios = () => {
                           <SelectItem value="WhatsApp">WhatsApp</SelectItem>
                           <SelectItem value="Ligação">Ligação</SelectItem>
                           <SelectItem value="Email">Email</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {(selectedModule === "atendimentos" || selectedModule === "vendas") && (
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1">Evento</label>
+                      <Select 
+                        value={filters.eventoId || "__all__"} 
+                        onValueChange={(value) => setFilters(prev => ({ ...prev, eventoId: value === "__all__" ? undefined : value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Todos os eventos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__all__">Todos os eventos</SelectItem>
+                          {prospeccoes.map((prosp) => (
+                            <SelectItem key={prosp.id} value={prosp.id}>
+                              {prosp.titulo}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
