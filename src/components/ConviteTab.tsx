@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -13,9 +12,9 @@ import {
   QrCode, 
   User, 
   UserCheck, 
-  Download,
   Save,
-  Loader2
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -45,8 +44,10 @@ interface EmpresaData {
   uf?: string;
 }
 
-interface ConviteImagemData {
-  imagem_url: string | null;
+interface ContatoExtended extends Contato {
+  qr_token?: string | null;
+  qr_token_used?: boolean;
+  vendedor_nome?: string | null;
 }
 
 export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTabProps) {
@@ -56,10 +57,14 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingQR, setGeneratingQR] = useState(false);
   const [prospeccao, setProspeccao] = useState<ProspeccaoData | null>(null);
   const [empresa, setEmpresa] = useState<EmpresaData | null>(null);
   const [conviteImagem, setConviteImagem] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>('');
+  const [vendedorNome, setVendedorNome] = useState<string>('');
+  const [qrToken, setQrToken] = useState<string | null>(null);
+  const [qrTokenUsed, setQrTokenUsed] = useState<boolean>(false);
   
   // QR Code state
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
@@ -111,7 +116,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
           setConviteImagem(conviteData.imagem_url);
         }
         
-        // Buscar nome do usuário atual
+        // Buscar nome do usuário atual (quem convidou)
         if (user?.id) {
           const { data: profileData } = await supabase
             .from('profiles')
@@ -123,13 +128,37 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
             setUserName(profileData.nome_completo);
           }
         }
-        
-        // Gerar URL do QR Code
-        // O QR Code contém uma URL que quando escaneada faz check-in
-        const checkinUrl = `${window.location.origin}/checkin/${prospeccaoId}/${contato.id}`;
-        // Usando Google Chart API para gerar QR Code
-        const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(checkinUrl)}&choe=UTF-8`;
-        setQrCodeUrl(qrUrl);
+
+        // Buscar dados do contato com qr_token
+        const { data: contatoData } = await supabase
+          .from('contatos')
+          .select('qr_token, qr_token_used, vendedor_nome, responsavel_email')
+          .eq('id', contato.id)
+          .single();
+
+        if (contatoData) {
+          setQrToken(contatoData.qr_token);
+          setQrTokenUsed(contatoData.qr_token_used || false);
+          setVendedorNome(contatoData.vendedor_nome || '');
+
+          // Se tem responsavel_email, buscar nome do vendedor
+          if (contatoData.responsavel_email && !contatoData.vendedor_nome) {
+            const { data: vendedorData } = await supabase
+              .from('profiles')
+              .select('nome_completo')
+              .ilike('id', `%${contatoData.responsavel_email}%`)
+              .maybeSingle();
+            
+            if (vendedorData?.nome_completo) {
+              setVendedorNome(vendedorData.nome_completo);
+            }
+          }
+
+          // Se já tem qr_token, gerar URL do QR Code
+          if (contatoData.qr_token) {
+            generateQRCodeUrl(contatoData.qr_token);
+          }
+        }
         
       } catch (error) {
         console.error('Erro ao carregar dados do convite:', error);
@@ -145,6 +174,72 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
     
     fetchData();
   }, [prospeccaoId, activeCompany?.id, user?.id, contato.id]);
+
+  // Gerar URL do QR Code a partir do token
+  const generateQRCodeUrl = (token: string) => {
+    const qrData = JSON.stringify({
+      qr_token: token,
+      convidado_nome: contato.nome,
+      convidado_telefone: contato.telefone || '',
+      quem_convidou: userName,
+      vendedor: vendedorNome || userName
+    });
+    
+    const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(qrData)}&choe=UTF-8`;
+    setQrCodeUrl(qrUrl);
+  };
+
+  // Gerar novo QR Token
+  const handleGenerateQRCode = async () => {
+    setGeneratingQR(true);
+    try {
+      // Gerar UUID único
+      const newToken = crypto.randomUUID();
+      
+      // Salvar no banco
+      const { error } = await supabase
+        .from('contatos')
+        .update({
+          qr_token: newToken,
+          qr_token_used: false,
+          qr_token_used_at: null,
+          vendedor_nome: vendedorNome || userName,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', contato.id);
+
+      if (error) throw error;
+
+      setQrToken(newToken);
+      setQrTokenUsed(false);
+      
+      // Gerar URL do QR Code
+      const qrData = JSON.stringify({
+        qr_token: newToken,
+        convidado_nome: contato.nome,
+        convidado_telefone: contato.telefone || '',
+        quem_convidou: userName,
+        vendedor: vendedorNome || userName
+      });
+      
+      const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(qrData)}&choe=UTF-8`;
+      setQrCodeUrl(qrUrl);
+
+      toast({
+        title: 'QR Code gerado!',
+        description: 'O QR Code foi gerado com sucesso. Envie para o cliente.'
+      });
+    } catch (error) {
+      console.error('Erro ao gerar QR Code:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível gerar o QR Code',
+        variant: 'destructive'
+      });
+    } finally {
+      setGeneratingQR(false);
+    }
+  };
 
   // Função para fazer check-in do lead (alterar status para Checkin)
   const handleCheckin = async () => {
@@ -180,8 +275,6 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
   const handleSaveConvite = async () => {
     setSaving(true);
     try {
-      // Aqui podemos implementar a lógica de salvar o convite como imagem
-      // Por enquanto, apenas mostra um toast de sucesso
       toast({
         title: 'Convite salvo',
         description: 'O convite foi salvo com sucesso'
@@ -279,9 +372,12 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
           <div className="flex items-center gap-2 mb-3">
             <QrCode className="w-4 h-4 text-primary" />
             <h4 className="font-semibold text-sm">QR Code Check-in</h4>
+            {qrTokenUsed && (
+              <Badge variant="destructive" className="text-xs">Usado</Badge>
+            )}
           </div>
           <div className="aspect-square bg-white rounded-lg overflow-hidden flex items-center justify-center p-2">
-            {qrCodeUrl ? (
+            {qrCodeUrl && qrToken ? (
               <img 
                 src={qrCodeUrl} 
                 alt="QR Code para Check-in" 
@@ -290,22 +386,58 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
             ) : (
               <div className="text-center text-muted-foreground">
                 <QrCode className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">QR Code indisponível</p>
+                <p className="text-sm">Clique para gerar</p>
               </div>
             )}
           </div>
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            Escaneie para fazer check-in
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full mt-2"
-            onClick={handleCheckin}
-          >
-            <QrCode className="w-4 h-4 mr-2" />
-            Fazer Check-in Manual
-          </Button>
+          
+          {qrToken ? (
+            <div className="space-y-2 mt-2">
+              <p className="text-xs text-muted-foreground text-center">
+                {qrTokenUsed ? 'Este QR Code já foi utilizado' : 'Envie o QR Code para o cliente'}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={handleGenerateQRCode}
+                  disabled={generatingQR}
+                >
+                  {generatingQR ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  <span className="ml-1">Regenerar</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={handleCheckin}
+                >
+                  <QrCode className="w-4 h-4" />
+                  <span className="ml-1">Check-in Manual</span>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="default"
+              size="sm"
+              className="w-full mt-2"
+              onClick={handleGenerateQRCode}
+              disabled={generatingQR}
+            >
+              {generatingQR ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <QrCode className="w-4 h-4 mr-2" />
+              )}
+              Gerar QR Code de Convite
+            </Button>
+          )}
         </Card>
 
         {/* 4. Convite */}
@@ -321,6 +453,9 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
                 Convidado
               </Label>
               <p className="font-semibold text-lg mt-1">{contato.nome || 'Sem nome'}</p>
+              {contato.telefone && (
+                <p className="text-sm text-muted-foreground">{contato.telefone}</p>
+              )}
               <Badge variant="outline" className="mt-1">
                 {contato.status}
               </Badge>
@@ -332,6 +467,14 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
                 Quem Convidou
               </Label>
               <p className="font-medium mt-1">{userName || 'Usuário não identificado'}</p>
+            </div>
+            <Separator />
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                <User className="w-3 h-3" />
+                Vendedor
+              </Label>
+              <p className="font-medium mt-1">{vendedorNome || userName || 'Não definido'}</p>
             </div>
           </div>
         </Card>

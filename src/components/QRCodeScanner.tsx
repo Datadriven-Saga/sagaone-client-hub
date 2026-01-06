@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Camera, X, AlertCircle } from 'lucide-react';
+import { Camera, X, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -13,28 +13,43 @@ interface QRCodeScannerProps {
   onSuccess: () => void;
 }
 
+interface QRCodeData {
+  qr_token: string;
+  convidado_nome: string;
+  convidado_telefone: string;
+  quem_convidou: string;
+  vendedor: string;
+}
+
 export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps) {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [successData, setSuccessData] = useState<{ nome: string } | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const { toast } = useToast();
   const { activeCompany } = useCompany();
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !success) {
       startScanner();
     }
     return () => {
       stopScanner();
     };
-  }, [isOpen]);
+  }, [isOpen, success]);
 
   const startScanner = async () => {
     setError(null);
     setScanning(true);
+    setSuccess(false);
+    setSuccessData(null);
 
     try {
+      // Aguardar um pouco para o elemento ser renderizado
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const html5QrCode = new Html5Qrcode('qr-reader');
       scannerRef.current = html5QrCode;
 
@@ -73,64 +88,110 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
     await stopScanner();
 
     try {
-      // Validate QR code format
-      // Expected format: URL with contatoId and action parameters
-      // Example: https://app.domain.com/checkin?contatoId=xxx&prospeccaoId=yyy
-      const url = new URL(decodedText);
-      const contatoId = url.searchParams.get('contatoId');
-      const prospeccaoId = url.searchParams.get('prospeccaoId');
-
-      if (!contatoId || !prospeccaoId) {
+      // Tentar parsear o JSON do QR Code
+      let qrData: QRCodeData;
+      
+      try {
+        qrData = JSON.parse(decodedText);
+      } catch {
         throw new Error('QR Code inválido');
       }
 
-      // Verify the contact exists and belongs to the active company
-      const { data: contato, error: contatoError } = await supabase
-        .from('contatos')
-        .select('id, status, empresa_id')
-        .eq('id', contatoId)
-        .maybeSingle();
-
-      if (contatoError || !contato) {
-        throw new Error('Contato não encontrado');
+      // Validar campos obrigatórios
+      if (!qrData.qr_token) {
+        throw new Error('QR Code inválido');
       }
 
+      if (!qrData.convidado_nome || !qrData.convidado_telefone || !qrData.vendedor || !qrData.quem_convidou) {
+        throw new Error('QR Code inválido - campos incompletos');
+      }
+
+      // Buscar contato pelo qr_token
+      const { data: contato, error: contatoError } = await supabase
+        .from('contatos')
+        .select('id, status, empresa_id, nome, qr_token_used')
+        .eq('qr_token', qrData.qr_token)
+        .maybeSingle();
+
+      if (contatoError) {
+        console.error('Erro ao buscar contato:', contatoError);
+        throw new Error('Erro ao validar QR Code');
+      }
+
+      if (!contato) {
+        throw new Error('QR Code inválido');
+      }
+
+      // Verificar se já foi usado
+      if (contato.qr_token_used) {
+        toast({
+          title: 'Convite já utilizado',
+          description: 'Este convite já foi utilizado anteriormente.',
+          variant: 'destructive',
+        });
+        setProcessing(false);
+        startScanner();
+        return;
+      }
+
+      // Verificar se pertence à empresa ativa
       if (activeCompany && contato.empresa_id !== activeCompany.id) {
         throw new Error('Contato não pertence a esta empresa');
       }
 
-      // Update contact status to Check-in
+      // Atualizar status para Check-in e marcar token como usado
       const { error: updateError } = await supabase
         .from('contatos')
         .update({ 
           status: 'Check-in',
+          qr_token_used: true,
+          qr_token_used_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
-        .eq('id', contatoId);
+        .eq('id', contato.id);
 
       if (updateError) {
         throw updateError;
       }
 
-      // Log the status change
-      await supabase
-        .from('logs_movimentacao_contatos')
-        .insert({
-          contato_id: contatoId,
-          prospeccao_id: prospeccaoId,
-          status_anterior: contato.status,
-          status_novo: 'Check-in',
-          observacoes: 'Check-in via leitura de QR Code'
-        });
+      // Registrar log de movimentação
+      // Primeiro buscar prospeccao_id
+      const { data: prospeccaoData } = await supabase
+        .from('prospeccoes')
+        .select('id')
+        .eq('empresa_id', contato.empresa_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (prospeccaoData) {
+        await supabase
+          .from('logs_movimentacao_contatos')
+          .insert({
+            contato_id: contato.id,
+            prospeccao_id: prospeccaoData.id,
+            status_anterior: contato.status,
+            status_novo: 'Check-in',
+            observacoes: `Check-in via QR Code - Vendedor: ${qrData.vendedor}, Convidou: ${qrData.quem_convidou}`
+          });
+      }
+
+      // Mostrar sucesso
+      setSuccess(true);
+      setSuccessData({ nome: qrData.convidado_nome });
 
       toast({
-        title: 'Check-in realizado!',
-        description: 'O status do lead foi alterado para Check-in.',
+        title: 'Check-in realizado com sucesso!',
+        description: `${qrData.convidado_nome} fez check-in.`,
       });
 
-      onSuccess();
-      onClose();
-    } catch (err) {
+      // Aguardar 2 segundos e fechar
+      setTimeout(() => {
+        onSuccess();
+        onClose();
+      }, 2000);
+
+    } catch (err: any) {
       console.error('Error processing QR code:', err);
       toast({
         title: 'QR Code inválido',
@@ -147,6 +208,8 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
     stopScanner();
     setError(null);
     setProcessing(false);
+    setSuccess(false);
+    setSuccessData(null);
     onClose();
   };
 
@@ -161,7 +224,17 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
         </DialogHeader>
 
         <div className="space-y-4">
-          {error ? (
+          {success && successData ? (
+            <div className="flex flex-col items-center justify-center p-8 text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-10 h-10 text-green-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-green-600">Check-in realizado!</h3>
+              <p className="text-muted-foreground mt-2">
+                {successData.nome} fez check-in com sucesso.
+              </p>
+            </div>
+          ) : error ? (
             <div className="flex flex-col items-center justify-center p-8 text-center">
               <AlertCircle className="w-12 h-12 text-destructive mb-4" />
               <p className="text-sm text-muted-foreground">{error}</p>
@@ -181,7 +254,7 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
             </>
           )}
 
-          {processing && (
+          {processing && !success && (
             <div className="flex items-center justify-center p-4">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
               <span className="ml-2 text-sm">Processando...</span>
