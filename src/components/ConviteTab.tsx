@@ -37,6 +37,7 @@ interface ProspeccaoData {
   data_inicio: string | null;
   data_fim: string | null;
   empresa_id: string;
+  imagem_divulgacao_url?: string | null;
 }
 
 interface EmpresaData {
@@ -103,16 +104,20 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
           }
         }
 
-        // Buscar dados da prospecção
+        // Buscar dados da prospecção (incluindo imagem_divulgacao_url)
         if (currentProspeccaoId) {
           const { data: prospeccaoData, error: prospeccaoError } = await supabase
             .from('prospeccoes')
-            .select('id, titulo, data_inicio, data_fim, empresa_id')
+            .select('id, titulo, data_inicio, data_fim, empresa_id, imagem_divulgacao_url')
             .eq('id', currentProspeccaoId)
             .single();
           
           if (!prospeccaoError && prospeccaoData) {
             setProspeccao(prospeccaoData);
+            // Usar imagem_divulgacao_url da prospecção se disponível
+            if (prospeccaoData.imagem_divulgacao_url) {
+              setConviteImagem(prospeccaoData.imagem_divulgacao_url);
+            }
           }
         }
         
@@ -130,9 +135,9 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
           }
         }
         
-        // Buscar imagem do convite
+        // Buscar imagem do convite (apenas se não tiver imagem_divulgacao_url)
         const conviteProspeccaoId = currentProspeccaoId || prospeccaoId;
-        if (conviteProspeccaoId) {
+        if (conviteProspeccaoId && !conviteImagem) {
           const { data: conviteData, error: conviteError } = await supabase
             .from('prospeccao_convites')
             .select('imagem_url')
