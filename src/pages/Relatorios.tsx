@@ -4,20 +4,30 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { FileText, Download, Filter, Loader2 } from "lucide-react";
+import { FileText, Download, Filter, Loader2, ChevronDown, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 
 type ReportModule = "eventos" | "atendimentos" | "vendas" | "usuarios" | "templates";
+
+const STATUS_OPTIONS = [
+  "Novo", "Em Contato", "Atribuído", "Convidado", "Agendado", "Confirmado",
+  "Check-in", "Qualificado", "Proposta", "Negociação", "Venda", "Fechado",
+  "Perdido", "Descartado", "Desperdício", "Em Espera", "Opt Out"
+];
 
 interface ReportFilters {
   dataInicio: string;
   dataFim: string;
-  status?: string;
+  statusList: string[];
+  statusUsuario?: string;
   responsavel?: string;
   canal?: string;
 }
@@ -28,6 +38,7 @@ const Relatorios = () => {
   const [filters, setFilters] = useState<ReportFilters>({
     dataInicio: "",
     dataFim: "",
+    statusList: [],
   });
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -129,8 +140,8 @@ const Relatorios = () => {
     if (filters.dataFim) {
       query = query.lte("created_at", filters.dataFim + "T23:59:59");
     }
-    if (filters.status) {
-      query = query.eq("status", filters.status as any);
+    if (filters.statusList.length > 0) {
+      query = query.in("status", filters.statusList as any);
     }
 
     const { data, error } = await query.order("created_at", { ascending: false });
@@ -197,8 +208,8 @@ const Relatorios = () => {
       `)
       .eq("empresa_id", activeCompany?.id);
 
-    if (filters.status) {
-      query = query.eq("status", filters.status as any);
+    if (filters.statusUsuario) {
+      query = query.eq("status", filters.statusUsuario as any);
     }
 
     const { data, error } = await query.order("nome_completo");
@@ -394,36 +405,76 @@ const Relatorios = () => {
                   )}
 
                   {selectedModule === "atendimentos" && (
-                    <div>
+                    <div className="md:col-span-2">
                       <label className="block text-xs text-muted-foreground mb-1">Status</label>
-                      <Select 
-                        value={filters.status || "__all__"} 
-                        onValueChange={(value) => setFilters(prev => ({ ...prev, status: value === "__all__" ? undefined : value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Todos" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__all__">Todos</SelectItem>
-                          <SelectItem value="Novo">Novo</SelectItem>
-                          <SelectItem value="Em Contato">Em Contato</SelectItem>
-                          <SelectItem value="Atribuído">Atribuído</SelectItem>
-                          <SelectItem value="Convidado">Convidado</SelectItem>
-                          <SelectItem value="Agendado">Agendado</SelectItem>
-                          <SelectItem value="Confirmado">Confirmado</SelectItem>
-                          <SelectItem value="Check-in">Check-in</SelectItem>
-                          <SelectItem value="Qualificado">Qualificado</SelectItem>
-                          <SelectItem value="Proposta">Proposta</SelectItem>
-                          <SelectItem value="Negociação">Negociação</SelectItem>
-                          <SelectItem value="Venda">Venda</SelectItem>
-                          <SelectItem value="Fechado">Fechado</SelectItem>
-                          <SelectItem value="Perdido">Perdido</SelectItem>
-                          <SelectItem value="Descartado">Descartado</SelectItem>
-                          <SelectItem value="Desperdício">Desperdício</SelectItem>
-                          <SelectItem value="Em Espera">Em Espera</SelectItem>
-                          <SelectItem value="Opt Out">Opt Out</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-between h-10">
+                            <span className="truncate">
+                              {filters.statusList.length === 0 
+                                ? "Todos os status" 
+                                : `${filters.statusList.length} selecionado(s)`}
+                            </span>
+                            <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 p-0" align="start">
+                          <div className="p-3 border-b">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium">Selecionar status</span>
+                              {filters.statusList.length > 0 && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => setFilters(prev => ({ ...prev, statusList: [] }))}
+                                >
+                                  Limpar
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="max-h-60 overflow-y-auto p-2">
+                            {STATUS_OPTIONS.map((status) => (
+                              <div 
+                                key={status} 
+                                className="flex items-center space-x-2 p-2 hover:bg-muted rounded cursor-pointer"
+                                onClick={() => {
+                                  setFilters(prev => ({
+                                    ...prev,
+                                    statusList: prev.statusList.includes(status)
+                                      ? prev.statusList.filter(s => s !== status)
+                                      : [...prev.statusList, status]
+                                  }));
+                                }}
+                              >
+                                <Checkbox 
+                                  checked={filters.statusList.includes(status)}
+                                  onCheckedChange={() => {}}
+                                />
+                                <span className="text-sm">{status}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                      {filters.statusList.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {filters.statusList.map((status) => (
+                            <Badge 
+                              key={status} 
+                              variant="secondary" 
+                              className="text-xs cursor-pointer"
+                              onClick={() => setFilters(prev => ({
+                                ...prev,
+                                statusList: prev.statusList.filter(s => s !== status)
+                              }))}
+                            >
+                              {status}
+                              <X className="h-3 w-3 ml-1" />
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -431,8 +482,8 @@ const Relatorios = () => {
                     <div>
                       <label className="block text-xs text-muted-foreground mb-1">Status</label>
                       <Select 
-                        value={filters.status || "__all__"} 
-                        onValueChange={(value) => setFilters(prev => ({ ...prev, status: value === "__all__" ? undefined : value }))}
+                        value={filters.statusUsuario || "__all__"} 
+                        onValueChange={(value) => setFilters(prev => ({ ...prev, statusUsuario: value === "__all__" ? undefined : value }))}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Todos" />
