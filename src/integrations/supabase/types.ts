@@ -2789,6 +2789,8 @@ export type Database = {
         | "TI"
         | "Administrador"
         | "Proprietário"
+        | "CRM"
+        | "Recepcionista"
       tipo_evento_prospeccao:
         | "Contato Inicial"
         | "Follow-up"
@@ -2987,6 +2989,8 @@ export const Constants = {
         "TI",
         "Administrador",
         "Proprietário",
+        "CRM",
+        "Recepcionista",
       ],
       tipo_evento_prospeccao: [
         "Contato Inicial",
