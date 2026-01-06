@@ -82,6 +82,9 @@ export function useUserAccessType() {
   
   // Permissões para gerar convites/QR Codes: todos EXCETO Recepcionista
   const canGenerateInvites = !isRecepcionista;
+  
+  // Permissões para criar templates: Administrador, TI, Gerente de Leads
+  const canCreateTemplates = isAdmin || isTI || tipoAcesso === "Gerente de Leads";
 
   return {
     tipoAcesso,
@@ -107,5 +110,6 @@ export function useUserAccessType() {
     canManageEvents,
     canImportClientes,
     canGenerateInvites,
+    canCreateTemplates,
   };
 }
