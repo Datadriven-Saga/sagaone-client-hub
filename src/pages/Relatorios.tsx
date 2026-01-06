@@ -8,6 +8,7 @@ import { FileText, Download, Filter, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -475,26 +476,28 @@ const Relatorios = () => {
                 Nenhum registro encontrado com os filtros aplicados.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {selectedModuleData?.fields.map((field) => (
-                        <TableHead key={field}>{field}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.map((row, index) => (
-                      <TableRow key={index}>
-                        {Object.values(row).map((value: any, cellIndex) => (
-                          <TableCell key={cellIndex}>{value}</TableCell>
+              <ScrollArea className="h-[400px] w-full">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {selectedModuleData?.fields.map((field) => (
+                          <TableHead key={field}>{field}</TableHead>
                         ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {data.map((row, index) => (
+                        <TableRow key={index}>
+                          {Object.values(row).map((value: any, cellIndex) => (
+                            <TableCell key={cellIndex}>{value}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </ScrollArea>
             )}
 
             <div className="mt-4 text-sm text-muted-foreground">
