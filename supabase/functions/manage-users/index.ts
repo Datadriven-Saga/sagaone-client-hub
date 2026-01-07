@@ -103,7 +103,7 @@ serve(async (req) => {
 
     switch (action) {
       case 'list_users': {
-        // Use admin client to bypass RLS for profile fetching
+        // Fetch profiles
         const { data: profiles, error: profilesError } = await supabaseAdmin
           .from('profiles')
           .select('*')
@@ -116,36 +116,46 @@ serve(async (req) => {
 
         console.log('Found profiles:', profiles?.length || 0);
 
-        // Get user emails from auth and companies for each user
+        // Fetch all user_empresas in a single query
+        const profileIds = (profiles || []).map(p => p.id);
+        
+        const { data: allUserEmpresas, error: allEmpresasError } = await supabaseAdmin
+          .from('user_empresas')
+          .select(`
+            user_id,
+            empresa_id,
+            is_ativa,
+            empresas (
+              id,
+              nome_empresa
+            )
+          `)
+          .in('user_id', profileIds);
+
+        if (allEmpresasError) {
+          console.error('Error fetching all user companies:', allEmpresasError);
+        }
+
+        // Group companies by user_id
+        const companiesByUser = new Map<string, any[]>();
+        (allUserEmpresas || []).forEach(ue => {
+          if (!companiesByUser.has(ue.user_id)) {
+            companiesByUser.set(ue.user_id, []);
+          }
+          if (ue.empresas) {
+            companiesByUser.get(ue.user_id)!.push(ue.empresas);
+          }
+        });
+
+        // Get user emails from auth in batches
         const profilesWithDetails = await Promise.all(
           (profiles || []).map(async (profile) => {
             try {
-              // Get user email from auth
               const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(profile.id);
               
-              // Get user companies
-              const { data: userEmpresas, error: empresasError } = await supabaseAdmin
-                .from('user_empresas')
-                .select(`
-                  empresa_id,
-                  is_ativa,
-                  empresas!inner (
-                    id,
-                    nome_empresa
-                  )
-                `)
-                .eq('user_id', profile.id);
-
-              if (empresasError) {
-                console.error('Error fetching user companies for user:', profile.id, empresasError);
-              }
-
-              const companies = userEmpresas?.map(ue => ue.empresas).filter(Boolean) || [];
-              
-              console.log(`User ${profile.id} has ${companies.length} companies`);
+              const companies = companiesByUser.get(profile.id) || [];
 
               if (userError) {
-                console.error('Error fetching user data for:', profile.id, userError);
                 return {
                   ...profile,
                   email: 'Email não disponível',
@@ -163,7 +173,7 @@ serve(async (req) => {
               return {
                 ...profile,
                 email: 'Email não disponível',
-                empresas: []
+                empresas: companiesByUser.get(profile.id) || []
               };
             }
           })
