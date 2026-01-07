@@ -265,22 +265,22 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
 
   return (
     <DashboardLayout title={isEditing ? `Editando: ${formData.nome}` : "Novo Agente"}>
-      <div className="flex-1 overflow-y-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={onClose}>
+      <div className="flex-1 overflow-x-hidden space-y-6 pb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <Button variant="ghost" onClick={onClose} className="shrink-0">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar para Agentes
+            Voltar
           </Button>
           
-          <div className="flex gap-2">
-            <Button onClick={handleSave} disabled={loading}>
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
+            <Button onClick={handleSave} disabled={loading} className="flex-1 sm:flex-none">
               <Save className="h-4 w-4 mr-2" />
               {loading ? "Salvando..." : "Salvar"}
             </Button>
             
             {isEditing && (
               <>
-                <Button variant="outline" onClick={handleToggleStatus}>
+                <Button variant="outline" onClick={handleToggleStatus} className="flex-1 sm:flex-none">
                   {formData.ativo ? (
                     <><PowerOff className="h-4 w-4 mr-2" />Inativar</>
                   ) : (
@@ -288,7 +288,7 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                   )}
                 </Button>
                 
-                <Button variant="destructive" onClick={handleDelete}>
+                <Button variant="destructive" onClick={handleDelete} className="flex-1 sm:flex-none">
                   <Trash2 className="h-4 w-4 mr-2" />
                   Excluir
                 </Button>
@@ -297,20 +297,22 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="dados-gerais">Dados Gerais</TabsTrigger>
-            {isEditing && (
-              <>
-                <TabsTrigger value="variaveis">Dados para Qualificação</TabsTrigger>
-                <TabsTrigger value="nova-cadencia">Cadência</TabsTrigger>
-                <TabsTrigger value="cadencia-rapida">Período de Trabalho</TabsTrigger>
-                <TabsTrigger value="cadencia-acompanhamento">Cadência de Acompanhamento</TabsTrigger>
-                <TabsTrigger value="integracao">Integração</TabsTrigger>
-                <TabsTrigger value="followup">Follow-up</TabsTrigger>
-              </>
-            )}
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList className="w-max sm:w-auto flex-nowrap">
+              <TabsTrigger value="dados-gerais">Dados Gerais</TabsTrigger>
+              {isEditing && (
+                <>
+                  <TabsTrigger value="variaveis">Qualificação</TabsTrigger>
+                  <TabsTrigger value="nova-cadencia">Cadência</TabsTrigger>
+                  <TabsTrigger value="cadencia-rapida">Período</TabsTrigger>
+                  <TabsTrigger value="cadencia-acompanhamento">Acompanhamento</TabsTrigger>
+                  <TabsTrigger value="integracao">Integração</TabsTrigger>
+                  <TabsTrigger value="followup">Follow-up</TabsTrigger>
+                </>
+              )}
+            </TabsList>
+          </div>
 
           <TabsContent value="dados-gerais">
             <Card>
@@ -318,9 +320,9 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                 <CardTitle>Dados Gerais do Agente</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="flex flex-col lg:flex-row gap-6">
                   {/* Foto do agente */}
-                  <div className="flex flex-col items-center space-y-4">
+                  <div className="flex flex-col items-center space-y-4 w-full lg:w-auto lg:shrink-0">
                     {formData.foto_url ? (
                       <Dialog>
                         <DialogTrigger asChild>
@@ -348,7 +350,7 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                       </div>
                     )}
                     
-                    <div className="w-full space-y-2">
+                    <div className="w-full max-w-[200px] space-y-2">
                       <Label htmlFor="foto_url">URL da Foto</Label>
                       <Input
                         id="foto_url"
@@ -377,7 +379,7 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                   </div>
 
                   {/* Campos de texto */}
-                  <div className="lg:col-span-2 space-y-4">
+                  <div className="flex-1 min-w-0 space-y-4">
                     <div>
                       <Label htmlFor="nome">Nome do Agente</Label>
                       <Input
