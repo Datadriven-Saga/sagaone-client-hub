@@ -41,8 +41,7 @@ import {
   Trash2,
   Edit2,
   Music,
-  RefreshCw,
-  Copy
+  RefreshCw
 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -405,71 +404,25 @@ export default function Templates() {
     setIsModalOpen(true);
   };
 
-  const handleDuplicateTemplate = async (template: any) => {
-    // Gerar nome único com sufixo sequencial
-    let baseName = template.nome;
-    let suffix = 1;
-    let newName = `${baseName} (${suffix})`;
-    
-    // Verificar nomes existentes para encontrar o próximo sufixo disponível
-    const { data: existingTemplates } = await supabase
-      .from("whatsapp_templates")
-      .select("nome")
-      .eq("empresa_id", activeCompany?.id)
-      .ilike("nome", `${baseName} (%)`);
-    
-    if (existingTemplates && existingTemplates.length > 0) {
-      const suffixes = existingTemplates
-        .map(t => {
-          const match = t.nome.match(/\((\d+)\)$/);
-          return match ? parseInt(match[1], 10) : 0;
-        })
-        .filter(n => !isNaN(n));
-      
-      if (suffixes.length > 0) {
-        suffix = Math.max(...suffixes) + 1;
-      }
+  const handleDeleteTemplate = async (template: any) => {
+    if (!confirm(`Tem certeza que deseja excluir o template "${template.nome}"?`)) {
+      return;
     }
-    
-    newName = `${baseName} (${suffix})`;
-    
-    // Limitar a 100 caracteres
-    if (newName.length > 100) {
-      const overflow = newName.length - 100;
-      baseName = baseName.slice(0, baseName.length - overflow);
-      newName = `${baseName} (${suffix})`;
+
+    try {
+      const { error } = await supabase
+        .from("whatsapp_templates")
+        .delete()
+        .eq("id", template.id);
+
+      if (error) throw error;
+
+      toast.success("Template excluído com sucesso!");
+      refetchTemplates();
+    } catch (error: any) {
+      console.error("Erro ao excluir template:", error);
+      toast.error("Erro ao excluir template: " + error.message);
     }
-    
-    // Parse card_data from database
-    const cardData = template.card_data || {};
-    
-    setEditingTemplateId(null); // Criar novo, não editar
-    setFormData({
-      nome: newName,
-      categoria: template.categoria as TemplateCategory,
-      departamento_id: template.departamento_id || "",
-      formato: template.formato as TemplateFormat,
-      conteudo: template.formato === "texto" ? template.conteudo : "",
-      variaveis: [],
-      cardData: {
-        imagemCampanha: null,
-        imagemPreviewUrl: cardData.imagemUrl || "",
-        audioCampanha: null,
-        audioPreviewUrl: cardData.audioUrl || "",
-        videoCampanha: null,
-        videoPreviewUrl: cardData.videoUrl || "",
-        textoCabecalho: cardData.textoCabecalho || "",
-        corpoTexto: template.formato !== "texto" ? template.conteudo : "",
-        rodape: cardData.rodape || "",
-        botoes: (cardData.botoes || []).map((b: any) => ({
-          id: crypto.randomUUID(),
-          nome: b.nome || "",
-          buttonId: b.buttonId || "",
-        })),
-      },
-    });
-    setCurrentStep(1);
-    setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
@@ -1965,10 +1918,11 @@ export default function Templates() {
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => handleDuplicateTemplate(template)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteTemplate(template)}
                           >
-                            <Copy className="h-4 w-4 mr-1" />
-                            Duplicar
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Excluir
                           </Button>
                         </div>
                       </TableCell>
