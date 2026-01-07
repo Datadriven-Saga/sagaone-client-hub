@@ -235,7 +235,12 @@ export const useContatoData = () => {
     loadData();
   }, [activeCompany?.id, user?.id]); // FIXED: usar user?.id em vez de user objeto
 
-  // Adicionar novos contatos com empresa_id automático
+  // Normalizar telefone para comparação (remove caracteres especiais)
+  const normalizeTelefoneForComparison = (telefone: string): string => {
+    return telefone.replace(/\D/g, '').slice(-9); // Últimos 9 dígitos
+  };
+
+  // Adicionar novos contatos com empresa_id automático e prevenção de duplicados
   const adicionarContatos = async (novosContatos: {
     nome: string;
     telefone: string;
@@ -256,13 +261,65 @@ export const useContatoData = () => {
     console.log('🚀 adicionarContatos chamada com:', { novosContatos: novosContatos.length, prospeccaoId });
 
     try {
-      const contatosComEmpresa = novosContatos.map(contato => ({
+      // Buscar contatos existentes para verificar duplicados
+      const { data: contatosExistentes } = await supabase
+        .from('contatos')
+        .select('telefone, email')
+        .eq('empresa_id', activeCompany.id);
+      
+      // Criar sets para comparação rápida
+      const telefonesExistentes = new Set(
+        (contatosExistentes || [])
+          .filter(c => c.telefone)
+          .map(c => normalizeTelefoneForComparison(c.telefone!))
+      );
+      const emailsExistentes = new Set(
+        (contatosExistentes || [])
+          .filter(c => c.email)
+          .map(c => c.email!.toLowerCase())
+      );
+      
+      // Filtrar contatos que já existem (por telefone ou email)
+      const contatosUnicos: typeof novosContatos = [];
+      const duplicados: string[] = [];
+      
+      for (const contato of novosContatos) {
+        const telNormalizado = normalizeTelefoneForComparison(contato.telefone);
+        const emailNormalizado = contato.email?.toLowerCase();
+        
+        const duplicadoPorTel = telefonesExistentes.has(telNormalizado);
+        const duplicadoPorEmail = emailNormalizado && emailsExistentes.has(emailNormalizado);
+        
+        if (duplicadoPorTel || duplicadoPorEmail) {
+          duplicados.push(contato.nome);
+        } else {
+          contatosUnicos.push(contato);
+          // Adicionar aos sets para evitar duplicatas dentro do próprio lote
+          telefonesExistentes.add(telNormalizado);
+          if (emailNormalizado) emailsExistentes.add(emailNormalizado);
+        }
+      }
+      
+      if (duplicados.length > 0) {
+        console.log('⚠️ Contatos duplicados ignorados:', duplicados.length);
+      }
+      
+      if (contatosUnicos.length === 0) {
+        toast({ 
+          title: "Atenção", 
+          description: `Todos os ${novosContatos.length} contatos já existem no sistema.`,
+          variant: "destructive"
+        });
+        return [];
+      }
+
+      const contatosComEmpresa = contatosUnicos.map(contato => ({
         ...contato,
         status: 'Novo' as const,
         empresa_id: activeCompany.id
       }));
 
-      console.log('➕ Adding contatos:', contatosComEmpresa);
+      console.log('➕ Adding contatos:', contatosComEmpresa.length, '(', duplicados.length, 'duplicados ignorados)');
 
       const { data, error } = await supabase
         .from('contatos')
@@ -344,9 +401,14 @@ export const useContatoData = () => {
       
       if (data) setContatos(prev => [...data, ...prev]);
       
+      // Mensagem diferenciada se houve duplicados
+      const mensagem = duplicados.length > 0 
+        ? `${data?.length || 0} contatos adicionados. ${duplicados.length} já existiam e foram ignorados.`
+        : `${data?.length || 0} contatos adicionados com sucesso`;
+      
       toast({ 
         title: "Sucesso", 
-        description: `${data?.length || 0} contatos adicionados com sucesso` 
+        description: mensagem
       });
       
       return data;
@@ -357,6 +419,25 @@ export const useContatoData = () => {
         description: "Erro ao adicionar contatos: " + (error as Error).message, 
         variant: "destructive" 
       });
+      throw error;
+    }
+  };
+
+  // Atualizar dados de um contato
+  const atualizarContato = async (contatoId: string, dados: Partial<Contato>) => {
+    try {
+      const { error } = await supabase
+        .from('contatos')
+        .update(dados)
+        .eq('id', contatoId);
+
+      if (error) throw error;
+      
+      setContatos(prev => prev.map(c => c.id === contatoId ? { ...c, ...dados } : c));
+      
+      return true;
+    } catch (error) {
+      console.error('Erro ao atualizar contato:', error);
       throw error;
     }
   };
@@ -617,6 +698,7 @@ export const useContatoData = () => {
     prospeccoes,
     loading,
     adicionarContatos,
+    atualizarContato,
     atualizarStatusContato,
     excluirContato,
     atribuirResponsavel,

@@ -22,6 +22,7 @@ import { ClientesPorUsuarioModal } from "@/components/ClientesPorUsuarioModal";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
 import { NovoLeadModal } from "@/components/NovoLeadModal";
 import { DescarteLeadModal } from "@/components/DescarteLeadModal";
+import { ClientesImportadosList } from "@/components/ClientesImportadosList";
 import { VendasProspeccaoTab } from "@/components/VendasProspeccaoTab";
 import { useVendasProspeccao } from "@/hooks/useVendasProspeccao";
 import { useAuth } from "@/contexts/AuthContext";
@@ -136,6 +137,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     prospeccoes, 
     loading, 
     adicionarContatos,
+    atualizarContato,
     atualizarStatusContato,
     excluirContato,
     atribuirResponsavel,
@@ -1323,6 +1325,20 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                       </div>
                     </div>
 
+                    {/* Lista de clientes importados */}
+                    <ClientesImportadosList
+                      contatos={contatos}
+                      prospeccoes={prospeccoes}
+                      onEditContato={(contato) => {
+                        setModalContato({
+                          isOpen: true,
+                          contato: contato,
+                          columnId: undefined
+                        });
+                      }}
+                      onDeleteContato={excluirContato}
+                      onUpdateContato={atualizarContato}
+                    />
                   </div>
                 </Card>
               )}
