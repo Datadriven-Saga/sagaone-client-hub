@@ -410,41 +410,37 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     fetchUsersComAcesso();
   }, [activeCompany?.id, isOpen]);
   
-  // Função para buscar templates WhatsApp (considerando templates compartilhados por agente)
+  // Função para buscar templates WhatsApp (usando pri_telefone para compartilhar entre lojas)
   const fetchWhatsappTemplates = async () => {
     if (!activeCompany?.id) return;
     
-    // Primeiro buscar o agente da empresa
+    // Buscar o telefone do agente "Pri" da empresa ativa (normalizado)
     const { data: agenteData } = await supabase
       .from('agentes_ia')
-      .select('id, dealer_id')
+      .select('telefone')
       .eq('empresa_id', activeCompany.id)
       .eq('nome', 'Pri')
+      .not('telefone', 'is', null)
       .maybeSingle();
+    
+    const priTelefone = agenteData?.telefone?.replace(/\D/g, '') || null;
     
     let data;
     let error;
     
-    // Se tem agente com dealer_id, buscar templates de todas as empresas que compartilham esse dealer_id
-    if (agenteData?.dealer_id) {
-      const { data: agentesCompartilhados } = await supabase
-        .from('agentes_ia')
-        .select('id')
-        .eq('dealer_id', agenteData.dealer_id);
-      
-      const agentesIds = agentesCompartilhados?.map(a => a.id) || [];
-      
+    // Se tem pri_telefone, buscar templates que compartilham o mesmo pri_telefone
+    if (priTelefone) {
       const result = await supabase
         .from('whatsapp_templates')
         .select('id, nome, template_id_pri, id_meta')
-        .or(`agente_id.in.(${agentesIds.join(',')}),and(empresa_id.eq.${activeCompany.id},agente_id.is.null)`)
+        .eq('pri_telefone', priTelefone)
         .eq('status_meta', 'APPROVED')
         .order('nome');
       
       data = result.data;
       error = result.error;
     } else {
-      // Fallback: buscar apenas templates da empresa
+      // Fallback: buscar apenas templates da empresa (sem pri_telefone)
       const result = await supabase
         .from('whatsapp_templates')
         .select('id, nome, template_id_pri, id_meta')
@@ -1349,17 +1345,41 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           );
           if (localMatch?.template_id_pri || localMatch?.id_meta) return localMatch;
 
-          // Fallback: busca direto no banco (não depende do cache/filters de status)
+          // Buscar pri_telefone da empresa ativa
+          const { data: agenteData } = await supabase
+            .from('agentes_ia')
+            .select('telefone')
+            .eq('empresa_id', activeCompany.id)
+            .eq('nome', 'Pri')
+            .not('telefone', 'is', null)
+            .maybeSingle();
+          
+          const priTelefone = agenteData?.telefone?.replace(/\D/g, '') || null;
+
+          // Fallback: busca direto no banco usando pri_telefone
           const pattern = buildIlikePattern(templateName);
           if (!pattern) return localMatch ?? null;
 
-          const { data } = await supabase
-            .from('whatsapp_templates')
-            .select('id, nome, template_id_pri, id_meta')
-            .eq('empresa_id', activeCompany.id)
-            .ilike('nome', pattern)
-            .order('updated_at', { ascending: false })
-            .limit(5);
+          let data;
+          if (priTelefone) {
+            const result = await supabase
+              .from('whatsapp_templates')
+              .select('id, nome, template_id_pri, id_meta')
+              .eq('pri_telefone', priTelefone)
+              .ilike('nome', pattern)
+              .order('updated_at', { ascending: false })
+              .limit(5);
+            data = result.data;
+          } else {
+            const result = await supabase
+              .from('whatsapp_templates')
+              .select('id, nome, template_id_pri, id_meta')
+              .eq('empresa_id', activeCompany.id)
+              .ilike('nome', pattern)
+              .order('updated_at', { ascending: false })
+              .limit(5);
+            data = result.data;
+          }
 
           const dbMatch = (data ?? []).find(
             (t) => normalizeTemplateName(t.nome) === desired
