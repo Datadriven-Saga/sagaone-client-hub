@@ -3,10 +3,15 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Loader2, Save, FileText } from "lucide-react";
+import { MessageSquare, Loader2, Save, FileText, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { toast } from "sonner";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface Mensagem {
   id?: string;
@@ -216,40 +221,48 @@ export function MensagensTab() {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="divide-y divide-border">
             {TIPOS_MENSAGEM_COM_PERIODO.map((t) => {
               const msg = mensagens[t.tipo] || { tipo: t.tipo, mensagem: "", periodo_dias: t.dias };
               const isSaving = savingType === t.tipo;
               
               return (
-                <Card key={t.tipo} className="p-4">
-                  <h4 className="font-semibold mb-3">{t.tipo}</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Mensagem</label>
-                      <Textarea 
-                        placeholder="Digite a mensagem padrão..."
-                        className="min-h-[100px]"
-                        maxLength={500}
-                        value={msg.mensagem}
-                        onChange={(e) => handleChange(t.tipo, 'mensagem', e.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {msg.mensagem.length}/500 caracteres
-                      </p>
+                <Collapsible key={t.tipo}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full py-4 hover:bg-muted/50 px-2 rounded-lg transition-colors group">
+                    <div className="flex items-center gap-3">
+                      <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                      <span className="font-medium">{t.tipo}</span>
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-3">
+                    <span className="text-sm text-muted-foreground">
+                      {msg.periodo_dias} dias
+                    </span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="px-2 pb-4">
+                    <div className="space-y-3 pt-2 pl-7">
                       <div>
-                        <label className="block text-sm font-medium mb-1">Período (dias)</label>
-                        <Input 
-                          type="number" 
-                          value={msg.periodo_dias}
-                          onChange={(e) => handleChange(t.tipo, 'periodo_dias', parseInt(e.target.value) || 0)}
+                        <label className="block text-sm font-medium mb-1">Mensagem</label>
+                        <Textarea 
+                          placeholder="Digite a mensagem padrão..."
+                          className="min-h-[100px]"
+                          maxLength={500}
+                          value={msg.mensagem}
+                          onChange={(e) => handleChange(t.tipo, 'mensagem', e.target.value)}
                         />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {msg.mensagem.length}/500 caracteres
+                        </p>
                       </div>
-                      <div className="flex items-end">
-                        <Button className="w-full" onClick={() => handleSave(t.tipo)} disabled={isSaving}>
+                      
+                      <div className="flex items-end gap-3">
+                        <div className="w-32">
+                          <label className="block text-sm font-medium mb-1">Período (dias)</label>
+                          <Input 
+                            type="number" 
+                            value={msg.periodo_dias}
+                            onChange={(e) => handleChange(t.tipo, 'periodo_dias', parseInt(e.target.value) || 0)}
+                          />
+                        </div>
+                        <Button onClick={() => handleSave(t.tipo)} disabled={isSaving}>
                           {isSaving ? (
                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
                           ) : (
@@ -259,8 +272,8 @@ export function MensagensTab() {
                         </Button>
                       </div>
                     </div>
-                  </div>
-                </Card>
+                  </CollapsibleContent>
+                </Collapsible>
               );
             })}
           </div>
