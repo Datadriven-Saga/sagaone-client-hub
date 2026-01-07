@@ -2725,6 +2725,7 @@ export type Database = {
         Args: { user_id_param?: string }
         Returns: string
       }
+      get_user_pri_telefone: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_company_owner: {
         Args: { company_id: string; user_id?: string }
