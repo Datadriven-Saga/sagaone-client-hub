@@ -410,16 +410,51 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     fetchUsersComAcesso();
   }, [activeCompany?.id, isOpen]);
   
-  // Função para buscar templates WhatsApp
+  // Função para buscar templates WhatsApp (considerando templates compartilhados por agente)
   const fetchWhatsappTemplates = async () => {
     if (!activeCompany?.id) return;
     
-    const { data, error } = await supabase
-      .from('whatsapp_templates')
-      .select('id, nome, template_id_pri, id_meta')
+    // Primeiro buscar o agente da empresa
+    const { data: agenteData } = await supabase
+      .from('agentes_ia')
+      .select('id, dealer_id')
       .eq('empresa_id', activeCompany.id)
-      .eq('status_meta', 'APPROVED')
-      .order('nome');
+      .eq('nome', 'Pri')
+      .maybeSingle();
+    
+    let data;
+    let error;
+    
+    // Se tem agente com dealer_id, buscar templates de todas as empresas que compartilham esse dealer_id
+    if (agenteData?.dealer_id) {
+      const { data: agentesCompartilhados } = await supabase
+        .from('agentes_ia')
+        .select('id')
+        .eq('dealer_id', agenteData.dealer_id);
+      
+      const agentesIds = agentesCompartilhados?.map(a => a.id) || [];
+      
+      const result = await supabase
+        .from('whatsapp_templates')
+        .select('id, nome, template_id_pri, id_meta')
+        .or(`agente_id.in.(${agentesIds.join(',')}),and(empresa_id.eq.${activeCompany.id},agente_id.is.null)`)
+        .eq('status_meta', 'APPROVED')
+        .order('nome');
+      
+      data = result.data;
+      error = result.error;
+    } else {
+      // Fallback: buscar apenas templates da empresa
+      const result = await supabase
+        .from('whatsapp_templates')
+        .select('id, nome, template_id_pri, id_meta')
+        .eq('empresa_id', activeCompany.id)
+        .eq('status_meta', 'APPROVED')
+        .order('nome');
+      
+      data = result.data;
+      error = result.error;
+    }
     
     if (error) {
       console.error('Erro ao buscar templates WhatsApp:', error);

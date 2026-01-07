@@ -2460,6 +2460,7 @@ export type Database = {
       }
       whatsapp_templates: {
         Row: {
+          agente_id: string | null
           ativo: boolean
           card_data: Json | null
           categoria: string
@@ -2478,6 +2479,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          agente_id?: string | null
           ativo?: boolean
           card_data?: Json | null
           categoria: string
@@ -2496,6 +2498,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          agente_id?: string | null
           ativo?: boolean
           card_data?: Json | null
           categoria?: string
@@ -2514,6 +2517,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_templates_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "agentes_ia"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_templates_departamento_id_fkey"
             columns: ["departamento_id"]

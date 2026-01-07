@@ -77,8 +77,24 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
   const [isUploading, setIsUploading] = useState(false);
   const [nomeDuplicado, setNomeDuplicado] = useState(false);
   const [verificandoNome, setVerificandoNome] = useState(false);
+  const [agenteEmpresa, setAgenteEmpresa] = useState<{ id: string; dealer_id: string | null } | null>(null);
 
-  // Verificar nome duplicado em tempo real
+  // Buscar agente da empresa ao montar
+  useEffect(() => {
+    const fetchAgente = async () => {
+      if (!empresaId) return;
+      const { data } = await supabase
+        .from("agentes_ia")
+        .select("id, dealer_id")
+        .eq("empresa_id", empresaId)
+        .eq("nome", "Pri")
+        .maybeSingle();
+      setAgenteEmpresa(data);
+    };
+    fetchAgente();
+  }, [empresaId]);
+
+  // Verificar nome duplicado em tempo real (considerando templates compartilhados por agente)
   useEffect(() => {
     const verificarNomeDuplicado = async () => {
       if (!nome.trim() || nome.trim().length < 2) {
@@ -88,14 +104,35 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
 
       setVerificandoNome(true);
       try {
-        const { data: existingTemplate } = await supabase
-          .from("whatsapp_templates")
-          .select("id")
-          .eq("empresa_id", empresaId)
-          .ilike("nome", nome.trim())
-          .maybeSingle();
+        let query;
+        
+        // Se tem agente com dealer_id, verificar em todos os templates do mesmo dealer
+        if (agenteEmpresa?.dealer_id) {
+          const { data: agentesCompartilhados } = await supabase
+            .from("agentes_ia")
+            .select("id")
+            .eq("dealer_id", agenteEmpresa.dealer_id);
+          
+          const agentesIds = agentesCompartilhados?.map(a => a.id) || [];
+          
+          const { data: existingTemplate } = await supabase
+            .from("whatsapp_templates")
+            .select("id")
+            .or(`agente_id.in.(${agentesIds.join(',')}),and(empresa_id.eq.${empresaId},agente_id.is.null)`)
+            .ilike("nome", nome.trim())
+            .maybeSingle();
+          
+          setNomeDuplicado(!!existingTemplate);
+        } else {
+          const { data: existingTemplate } = await supabase
+            .from("whatsapp_templates")
+            .select("id")
+            .eq("empresa_id", empresaId)
+            .ilike("nome", nome.trim())
+            .maybeSingle();
 
-        setNomeDuplicado(!!existingTemplate);
+          setNomeDuplicado(!!existingTemplate);
+        }
       } catch (error) {
         console.error("Erro ao verificar nome duplicado:", error);
       } finally {
@@ -105,7 +142,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
 
     const debounceTimer = setTimeout(verificarNomeDuplicado, 300);
     return () => clearTimeout(debounceTimer);
-  }, [nome, empresaId]);
+  }, [nome, empresaId, agenteEmpresa?.dealer_id]);
 
   const uploadMediaToStorage = async (file: File, mediaType: 'image' | 'audio' | 'video'): Promise<string | null> => {
     try {
@@ -274,6 +311,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
           formato,
           conteudo: conteudoFinal,
           card_data: cardData,
+          agente_id: agenteEmpresa?.id || null, // Vincular ao agente para compartilhamento entre lojas
         }]);
 
       if (error) throw error;
