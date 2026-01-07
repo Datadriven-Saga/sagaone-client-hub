@@ -2682,6 +2682,13 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
         );
 
       case 'Páginas':
+        // Formatar data para exibição
+        const formatDateDisplay = (dateStr: string) => {
+          if (!dateStr) return null;
+          const date = new Date(dateStr + 'T00:00:00');
+          return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+        };
+        
         return (
           <div className="space-y-4">
             <Card className="p-4 bg-gradient-to-r from-teal-500/80 to-teal-600 text-white">
@@ -2689,55 +2696,59 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 <FileText className="h-4 w-4" />
                 <span className="text-sm font-medium">Página de Captura</span>
               </div>
-              <p className="text-xs opacity-80">Landing page para captação de leads</p>
+              <p className="text-xs opacity-80">Configure a landing page para captação de leads do evento</p>
             </Card>
 
             <div className="grid grid-cols-2 gap-4 max-h-[350px] overflow-y-auto">
               <div className="space-y-3">
                 <div>
-                  <Label className="text-xs">Início da Frase</Label>
+                  <Label className="text-xs font-medium">Primeira parte da mensagem</Label>
                   <Input
                     value={paginaInicioFrase}
                     onChange={(e) => setPaginaInicioFrase(e.target.value.slice(0, 200))}
                     placeholder="Ex: A melhor oportunidade de"
                     maxLength={200}
                   />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Texto inicial antes da palavra destaque</p>
                 </div>
                 <div>
-                  <Label className="text-xs">Palavra Destaque</Label>
+                  <Label className="text-xs font-medium">Palavra em destaque</Label>
                   <Input
                     value={paginaPalavraDestaque}
                     onChange={(e) => setPaginaPalavraDestaque(e.target.value.slice(0, 200))}
-                    placeholder="Ex: Cidade e região"
+                    placeholder="Ex: Cuiabá"
                     maxLength={200}
                   />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Aparece colorida na mensagem principal</p>
                 </div>
                 <div>
-                  <Label className="text-xs">Final da Frase</Label>
+                  <Label className="text-xs font-medium">Final da mensagem</Label>
                   <Input
                     value={paginaFinalFrase}
                     onChange={(e) => setPaginaFinalFrase(e.target.value.slice(0, 200))}
                     placeholder="Ex: para sair de carro novo!"
                     maxLength={200}
                   />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Texto após a palavra destaque</p>
                 </div>
                 <div>
-                  <Label className="text-xs">Texto de Apoio</Label>
+                  <Label className="text-xs font-medium">Mensagem de apoio</Label>
                   <Textarea
                     value={paginaTextoApoio}
                     onChange={(e) => setPaginaTextoApoio(e.target.value.slice(0, 200))}
-                    placeholder="Ex: Você e sua família são nossos convidados..."
+                    placeholder="Ex: Preencha abaixo e garanta sua participação"
                     maxLength={200}
                     className="h-16 resize-none text-sm"
                   />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Exibida abaixo do botão de participação</p>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-xs">Primeiro Dia</Label>
+                    <Label className="text-xs font-medium">Primeiro dia do evento</Label>
                     <Input type="date" value={paginaPrimeiroDia} onChange={(e) => setPaginaPrimeiroDia(e.target.value)} />
                   </div>
                   <div>
-                    <Label className="text-xs">Último Dia</Label>
+                    <Label className="text-xs font-medium">Último dia do evento</Label>
                     <Input type="date" value={paginaDiaFinal} onChange={(e) => setPaginaDiaFinal(e.target.value)} />
                   </div>
                 </div>
@@ -2757,28 +2768,63 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 </div>
               </div>
 
-              <div className="rounded-lg overflow-hidden border shadow-lg" style={{ backgroundColor: paginaCorFundo }}>
-                <div className="p-3 min-h-[300px]">
-                  <h2 className="text-sm font-bold italic mb-2" style={{ color: paginaCorDestaque }}>
-                    {titulo || "NOME DO EVENTO"}
-                  </h2>
-                  <div className="mb-2">
-                    <p className="text-sm font-bold" style={{ color: paginaCorTexto }}>
-                      {paginaInicioFrase || "A melhor oportunidade de "}
-                      <span style={{ color: paginaCorDestaque }}>{paginaPalavraDestaque || "Cidade"}</span>
-                      {" "}{paginaFinalFrase || "para sair de carro novo!"}
-                    </p>
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground text-center">Pré-visualização</p>
+                <div className="rounded-lg overflow-hidden border shadow-lg" style={{ backgroundColor: paginaCorFundo }}>
+                  <div className="p-3 min-h-[300px] flex flex-col">
+                    {/* Datas do evento */}
+                    {(paginaPrimeiroDia || paginaDiaFinal) && (
+                      <div className="flex items-center justify-center gap-1 mb-2 text-[10px]" style={{ color: paginaCorTexto, opacity: 0.8 }}>
+                        <CalendarDays className="h-3 w-3" />
+                        {paginaPrimeiroDia && paginaDiaFinal ? (
+                          <span>{formatDateDisplay(paginaPrimeiroDia)} a {formatDateDisplay(paginaDiaFinal)}</span>
+                        ) : paginaPrimeiroDia ? (
+                          <span>{formatDateDisplay(paginaPrimeiroDia)}</span>
+                        ) : (
+                          <span>{formatDateDisplay(paginaDiaFinal)}</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Título do evento */}
+                    {titulo && (
+                      <h2 className="text-sm font-bold italic mb-2 text-center" style={{ color: paginaCorDestaque }}>
+                        {titulo}
+                      </h2>
+                    )}
+                    
+                    {/* Mensagem principal */}
+                    <div className="mb-3">
+                      <p className="text-sm font-bold text-center leading-tight" style={{ color: paginaCorTexto }}>
+                        {paginaInicioFrase || <span className="opacity-50">Primeira parte...</span>}
+                        {" "}
+                        <span style={{ color: paginaCorDestaque }}>{paginaPalavraDestaque || <span className="opacity-50">destaque</span>}</span>
+                        {" "}
+                        {paginaFinalFrase || <span className="opacity-50">final da frase</span>}
+                      </p>
+                    </div>
+                    
+                    {/* Campos do formulário */}
+                    <div className="space-y-1.5 mb-3">
+                      <div className="bg-white rounded px-2 py-1.5 text-xs text-gray-400">Seu nome</div>
+                      <div className="bg-white rounded px-2 py-1.5 text-xs text-gray-400">WhatsApp</div>
+                    </div>
+                    
+                    {/* Botão */}
+                    <button 
+                      className="w-full py-2 rounded font-semibold text-xs"
+                      style={{ backgroundColor: paginaCorDestaque, color: paginaCorFundo }}
+                    >
+                      Quero participar!
+                    </button>
+                    
+                    {/* Texto de apoio */}
+                    {paginaTextoApoio && (
+                      <p className="text-[10px] text-center mt-2 opacity-80" style={{ color: paginaCorTexto }}>
+                        {paginaTextoApoio}
+                      </p>
+                    )}
                   </div>
-                  <div className="space-y-1 mb-2">
-                    <div className="bg-white rounded px-2 py-1 text-xs text-gray-400">Seu nome</div>
-                    <div className="bg-white rounded px-2 py-1 text-xs text-gray-400">WhatsApp</div>
-                  </div>
-                  <button 
-                    className="w-full py-2 rounded font-semibold text-xs"
-                    style={{ backgroundColor: paginaCorDestaque, color: paginaCorFundo }}
-                  >
-                    Quero participar!
-                  </button>
                 </div>
               </div>
             </div>
