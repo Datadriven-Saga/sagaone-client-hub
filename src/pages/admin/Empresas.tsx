@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Building, ArrowLeft } from "lucide-react";
+import { Plus, Pencil, Trash2, Building, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -70,6 +70,8 @@ export default function Empresas() {
     cnpj: "",
     crmId: ""
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const form = useForm<EmpresaForm>({
     resolver: zodResolver(empresaSchema),
@@ -245,6 +247,21 @@ export default function Empresas() {
       return matchNome && matchMarca && matchUf && matchCnpj && matchCrmId;
     });
   }, [empresas, filters]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  // Paginação
+  const totalPages = Math.ceil(filteredEmpresas.length / itemsPerPage);
+  const paginatedEmpresas = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredEmpresas.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredEmpresas, currentPage, itemsPerPage]);
+
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, filteredEmpresas.length);
 
   if (loading) {
     return (
@@ -526,13 +543,40 @@ export default function Empresas() {
           </Card>
          ) : (
           <div className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              Mostrando {filteredEmpresas.length} de {empresas.length} empresas
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Mostrando {startItem}-{endItem} de {filteredEmpresas.length} empresas
+              </div>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Anterior
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Próxima
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
             <Card>
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
-                  {filteredEmpresas.map((empresa) => (
+                  {paginatedEmpresas.map((empresa) => (
                     <div key={empresa.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3">
@@ -605,6 +649,33 @@ export default function Empresas() {
                 </div>
               </CardContent>
             </Card>
+            {totalPages > 1 && (
+              <div className="flex justify-center">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Anterior
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Próxima
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
