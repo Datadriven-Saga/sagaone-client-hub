@@ -77,11 +77,11 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
   const [isUploading, setIsUploading] = useState(false);
   const [nomeDuplicado, setNomeDuplicado] = useState(false);
   const [verificandoNome, setVerificandoNome] = useState(false);
-  const [priTelefoneNormalizado, setPriTelefoneNormalizado] = useState<string | null>(null);
+  const [priTelefone, setPriTelefone] = useState<string | null>(null);
 
-  // Buscar agente(s) Pri da empresa ao montar e resolver telefone PRI normalizado
+  // Buscar telefone PRI da empresa
   useEffect(() => {
-    const fetchAgente = async () => {
+    const fetchPriTelefone = async () => {
       if (!empresaId) return;
 
       const { data, error } = await supabase
@@ -92,7 +92,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
 
       if (error) {
         console.error("Erro ao buscar agentes Pri:", error);
-        setPriTelefoneNormalizado(null);
+        setPriTelefone(null);
         return;
       }
 
@@ -100,53 +100,30 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
         .map((a) => (a.telefone ? a.telefone.replace(/\D/g, "") : ""))
         .filter(Boolean);
 
-      const preferido = telefones.find((t) => t.length >= 10) || telefones[0] || null;
-      setPriTelefoneNormalizado(preferido);
+      setPriTelefone(telefones.find((t) => t.length >= 10) || telefones[0] || null);
     };
 
-    fetchAgente();
+    fetchPriTelefone();
   }, [empresaId]);
 
-  // Verificar nome duplicado em tempo real (considerando templates compartilhados por telefone da PRI)
+  // Verificar nome duplicado (usando pri_telefone)
   useEffect(() => {
     const verificarNomeDuplicado = async () => {
-      if (!nome.trim() || nome.trim().length < 2) {
+      if (!nome.trim() || nome.trim().length < 2 || !priTelefone) {
         setNomeDuplicado(false);
         return;
       }
 
       setVerificandoNome(true);
       try {
-        if (priTelefoneNormalizado) {
-          const { data: priAgents } = await supabase
-            .from("agentes_ia")
-            .select("empresa_id, telefone")
-            .eq("nome", "Pri")
-            .not("telefone", "is", null);
+        const { data: existingTemplate } = await supabase
+          .from("whatsapp_templates")
+          .select("id")
+          .eq("pri_telefone", priTelefone)
+          .ilike("nome", nome.trim())
+          .maybeSingle();
 
-          const empresasIds = (priAgents || [])
-            .filter((a) => (a.telefone ? a.telefone.replace(/\D/g, "") : "") === priTelefoneNormalizado)
-            .map((a) => a.empresa_id)
-            .filter(Boolean);
-
-          const { data: existingTemplate } = await supabase
-            .from("whatsapp_templates")
-            .select("id")
-            .in("empresa_id", empresasIds)
-            .ilike("nome", nome.trim())
-            .maybeSingle();
-
-          setNomeDuplicado(!!existingTemplate);
-        } else {
-          const { data: existingTemplate } = await supabase
-            .from("whatsapp_templates")
-            .select("id")
-            .eq("empresa_id", empresaId)
-            .ilike("nome", nome.trim())
-            .maybeSingle();
-
-          setNomeDuplicado(!!existingTemplate);
-        }
+        setNomeDuplicado(!!existingTemplate);
       } catch (error) {
         console.error("Erro ao verificar nome duplicado:", error);
       } finally {
@@ -156,7 +133,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
 
     const debounceTimer = setTimeout(verificarNomeDuplicado, 300);
     return () => clearTimeout(debounceTimer);
-  }, [nome, empresaId, priTelefoneNormalizado]);
+  }, [nome, priTelefone]);
 
   const uploadMediaToStorage = async (file: File, mediaType: 'image' | 'audio' | 'video'): Promise<string | null> => {
     try {
@@ -234,35 +211,12 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
       return;
     }
 
-    // Verificar se já existe template com o mesmo nome (considerando compartilhamento por PRI)
-    if (priTelefoneNormalizado) {
-      const { data: priAgents } = await supabase
-        .from("agentes_ia")
-        .select("empresa_id, telefone")
-        .eq("nome", "Pri")
-        .not("telefone", "is", null);
-
-      const empresasIds = (priAgents || [])
-        .filter((a) => (a.telefone ? a.telefone.replace(/\D/g, "") : "") === priTelefoneNormalizado)
-        .map((a) => a.empresa_id)
-        .filter(Boolean);
-
+    // Verificar se já existe template com o mesmo nome (usando pri_telefone)
+    if (priTelefone) {
       const { data: existingTemplate } = await supabase
         .from("whatsapp_templates")
         .select("id")
-        .in("empresa_id", empresasIds)
-        .ilike("nome", nome.trim())
-        .maybeSingle();
-
-      if (existingTemplate) {
-        toast.error("Já existe um template com este nome");
-        return;
-      }
-    } else {
-      const { data: existingTemplate } = await supabase
-        .from("whatsapp_templates")
-        .select("id")
-        .eq("empresa_id", empresaId)
+        .eq("pri_telefone", priTelefone)
         .ilike("nome", nome.trim())
         .maybeSingle();
 
@@ -351,6 +305,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
           conteudo: conteudoFinal,
           card_data: cardData,
           agente_id: null,
+          pri_telefone: priTelefone, // Chave principal de compartilhamento
         }]);
 
       if (error) throw error;

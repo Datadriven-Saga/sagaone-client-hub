@@ -240,11 +240,9 @@ export default function Templates() {
     enabled: !!activeCompany?.id,
   });
 
-  // Fetch agente(s) da empresa (PRI) e resolve o **telefone PRI normalizado**
-  // Motivo do bug: existem empresas com MAIS DE UM registro de agente "Pri".
-  // Usar maybeSingle() falha (erro de múltiplas linhas) e caía no fallback (somente empresa atual).
-  const { data: priTelefoneNormalizado } = useQuery({
-    queryKey: ["pri_telefone_normalizado", activeCompany?.id],
+  // Buscar o telefone PRI da empresa atual (usado para associar templates)
+  const { data: priTelefone } = useQuery({
+    queryKey: ["pri_telefone", activeCompany?.id],
     queryFn: async () => {
       if (!activeCompany?.id) return null;
 
@@ -259,109 +257,50 @@ export default function Templates() {
         return null;
       }
 
+      // Preferir telefone com 10+ dígitos
       const telefones = (data || [])
         .map((a) => normalizePhone(a.telefone || ""))
         .filter(Boolean);
 
-      // Preferir um telefone "real" (>= 10 dígitos) se existir
-      const preferido = telefones.find((t) => t.length >= 10) || telefones[0] || null;
-      return preferido;
+      return telefones.find((t) => t.length >= 10) || telefones[0] || null;
     },
     enabled: !!activeCompany?.id,
   });
 
-  // Fetch templates - busca por telefone PRI normalizado para que lojas com mesma PRI vejam os mesmos templates
+  // Fetch templates - busca diretamente pelo campo pri_telefone
   const { data: templates = [], refetch: refetchTemplates } = useQuery({
-    queryKey: ["whatsapp_templates", activeCompany?.id, priTelefoneNormalizado],
+    queryKey: ["whatsapp_templates", priTelefone],
     queryFn: async () => {
-      if (!activeCompany?.id) return [];
+      if (!priTelefone) return [];
 
-      // Se temos PRI, buscar todas as empresas cujo telefone normalizado bate.
-      if (priTelefoneNormalizado) {
-        // 1) Buscar todos os agentes Pri (telefone + empresa) e filtrar no client usando normalizePhone
-        const { data: priAgents, error: priAgentsError } = await supabase
-          .from("agentes_ia")
-          .select("empresa_id, telefone")
-          .eq("nome", "Pri")
-          .not("telefone", "is", null);
-
-        if (priAgentsError) {
-          console.error("Erro ao buscar agentes Pri para compartilhamento:", priAgentsError);
-          // fallback seguro
-          const { data, error } = await supabase
-            .from("whatsapp_templates")
-            .select("*, departamentos(nome)")
-            .eq("empresa_id", activeCompany.id)
-            .order("created_at", { ascending: false });
-          if (error) throw error;
-          return data;
-        }
-
-        const empresasIds = (priAgents || [])
-          .filter((a) => normalizePhone(a.telefone || "") === priTelefoneNormalizado)
-          .map((a) => a.empresa_id)
-          .filter(Boolean);
-
-        if (empresasIds.length > 0) {
-          const { data, error } = await supabase
-            .from("whatsapp_templates")
-            .select("*, departamentos(nome)")
-            .in("empresa_id", empresasIds)
-            .order("created_at", { ascending: false });
-
-          if (error) throw error;
-          return data;
-        }
-      }
-
-      // Fallback: buscar apenas templates da empresa (comportamento original)
+      // Buscar templates diretamente pelo pri_telefone
       const { data, error } = await supabase
         .from("whatsapp_templates")
         .select("*, departamentos(nome)")
-        .eq("empresa_id", activeCompany.id)
+        .eq("pri_telefone", priTelefone)
         .order("created_at", { ascending: false });
+
       if (error) throw error;
-      return data;
+      return data || [];
     },
-    enabled: !!activeCompany?.id,
+    enabled: !!priTelefone,
   });
 
-  // Verificar nome duplicado em tempo real (considerando templates compartilhados por telefone da PRI)
+  // Verificar nome duplicado em tempo real (usando pri_telefone)
   useEffect(() => {
     const verificarNomeDuplicado = async () => {
-      if (!formData.nome.trim() || formData.nome.trim().length < 2 || !activeCompany?.id) {
+      if (!formData.nome.trim() || formData.nome.trim().length < 2 || !priTelefone) {
         setNomeDuplicado(false);
         return;
       }
 
       setVerificandoNome(true);
       try {
-        let query;
-
-        if (priTelefoneNormalizado) {
-          const { data: priAgents } = await supabase
-            .from("agentes_ia")
-            .select("empresa_id, telefone")
-            .eq("nome", "Pri")
-            .not("telefone", "is", null);
-
-          const empresasIds = (priAgents || [])
-            .filter((a) => normalizePhone(a.telefone || "") === priTelefoneNormalizado)
-            .map((a) => a.empresa_id)
-            .filter(Boolean);
-
-          query = supabase
-            .from("whatsapp_templates")
-            .select("id")
-            .in("empresa_id", empresasIds)
-            .ilike("nome", formData.nome.trim());
-        } else {
-          query = supabase
-            .from("whatsapp_templates")
-            .select("id")
-            .eq("empresa_id", activeCompany.id)
-            .ilike("nome", formData.nome.trim());
-        }
+        let query = supabase
+          .from("whatsapp_templates")
+          .select("id")
+          .eq("pri_telefone", priTelefone)
+          .ilike("nome", formData.nome.trim());
 
         // Se estiver editando, excluir o template atual da verificação
         if (editingTemplateId) {
@@ -379,7 +318,7 @@ export default function Templates() {
 
     const debounceTimer = setTimeout(verificarNomeDuplicado, 300);
     return () => clearTimeout(debounceTimer);
-  }, [formData.nome, activeCompany?.id, editingTemplateId, priTelefoneNormalizado]);
+  }, [formData.nome, editingTemplateId, priTelefone]);
 
   const handleOpenModal = () => {
     setEditingTemplateId(null);
@@ -841,6 +780,7 @@ export default function Templates() {
         conteudo: conteudo,
         card_data: cardData,
         agente_id: null,
+        pri_telefone: priTelefone, // Chave principal de compartilhamento
       };
 
       let error;
