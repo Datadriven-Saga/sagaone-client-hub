@@ -164,8 +164,8 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
             <UserMenu />
           </header>
 
-          {/* Main Content - Container for scrollable content */}
-          <main className="flex-1 p-6 min-h-0 flex flex-col overflow-hidden">
+          {/* Main Content - Scrollable area */}
+          <main className="flex-1 p-6 min-h-0 overflow-y-auto">
             {children}
           </main>
         </div>
