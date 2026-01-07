@@ -1759,40 +1759,6 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
               </div>
             </div>
 
-            {/* Descrição com borda e botão expandir para Grande Evento e Prospecção Mensal */}
-            {(tipoEvento === 'Grande Evento' || tipoEvento === 'Prospecção Mensal') && (
-              <div className="rounded-lg border border-border p-4 bg-card">
-                <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="descricao_geral">Descrição</Label>
-                  <div className="flex items-center gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={aplicarModeloDescricao}>
-                      <FileText className="w-4 h-4 mr-1" />
-                      Aplicar modelo
-                    </Button>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => setDescricaoExpandida(!descricaoExpandida)}
-                    >
-                      {descricaoExpandida ? (
-                        <Minimize2 className="w-4 h-4" />
-                      ) : (
-                        <Maximize2 className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                <Textarea
-                  id="descricao_geral"
-                  placeholder="Descreva os detalhes da prospecção..."
-                  value={descricao}
-                  onChange={(e) => setDescricao(e.target.value)}
-                  rows={descricaoExpandida ? 16 : 6}
-                  className="resize-none transition-all"
-                />
-              </div>
-            )}
           </div>
         );
 
@@ -2114,54 +2080,6 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 </div>
               </div>
 
-              {/* Separador - Configurações do Evento */}
-              <div className="border-t pt-4 mt-4">
-                <h4 className="text-sm font-medium mb-4">Configurações</h4>
-                
-                {/* Evento Principal */}
-                <div className="flex items-center justify-between p-3 rounded-lg border bg-card mb-3">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="evento_principal_ligacao" className="font-medium cursor-pointer">Evento Principal</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>Se ativado, quando um lead falar com a equipe nessa empresa, ele será automaticamente direcionado para este evento.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Switch
-                    id="evento_principal_ligacao"
-                    checked={eventoPrincipal}
-                    onCheckedChange={setEventoPrincipal}
-                  />
-                </div>
-
-                {/* Qualificar Lead */}
-                <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="qualificar_lead_ligacao" className="font-medium cursor-pointer">Qualificar Lead após Confirmação</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>Se ativado, o lead será qualificado para a loja após confirmação. Se desativado, o lead ficará na central de atendimento na coluna 'Agendados' com a tag 'CONFIRMADO'.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Switch
-                    id="qualificar_lead_ligacao"
-                    checked={qualificarLead}
-                    onCheckedChange={setQualificarLead}
-                  />
-                </div>
-              </div>
             </div>
           );
         }
