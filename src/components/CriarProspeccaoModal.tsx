@@ -9,7 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound, Image, FileImage, Megaphone, Upload, QrCode, User, Building, CalendarDays, Clock, Link, Palette, ChevronLeft, ChevronRight } from "lucide-react";
+import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound, Image, FileImage, Megaphone, Upload, QrCode, User, Building, CalendarDays, Clock, Link, Palette, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -2053,8 +2054,120 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
         );
 
       case 'Metas Individuais':
+        // Calcular totais das metas individuais
+        const totalMetasIndividuaisVendas = Object.values(metasIndividuais).reduce((acc, m) => acc + (m.meta_vendas || 0), 0);
+        const totalMetasIndividuaisCheckins = Object.values(metasIndividuais).reduce((acc, m) => acc + (m.meta_checkins || 0), 0);
+        const totalMetasIndividuaisConfirmacoes = Object.values(metasIndividuais).reduce((acc, m) => acc + (m.meta_confirmacoes || 0), 0);
+        const totalMetasIndividuaisConvites = Object.values(metasIndividuais).reduce((acc, m) => acc + (m.meta_convites || 0), 0);
+        
+        // Percentuais de distribuição
+        const percentualVendas = metaTotalVendas > 0 ? Math.min((totalMetasIndividuaisVendas / metaTotalVendas) * 100, 100) : 0;
+        const percentualCheckins = Number(metaCheckins) > 0 ? Math.min((totalMetasIndividuaisCheckins / Number(metaCheckins)) * 100, 100) : 0;
+        const percentualConfirmacoes = Number(metaConfirmacoes) > 0 ? Math.min((totalMetasIndividuaisConfirmacoes / Number(metaConfirmacoes)) * 100, 100) : 0;
+        const percentualConvites = Number(metaConvites) > 0 ? Math.min((totalMetasIndividuaisConvites / Number(metaConvites)) * 100, 100) : 0;
+        
+        // Verificar se ultrapassou a meta
+        const ultrapassouVendas = totalMetasIndividuaisVendas > metaTotalVendas && metaTotalVendas > 0;
+        const ultrapassouCheckins = totalMetasIndividuaisCheckins > Number(metaCheckins) && Number(metaCheckins) > 0;
+        const ultrapassouConfirmacoes = totalMetasIndividuaisConfirmacoes > Number(metaConfirmacoes) && Number(metaConfirmacoes) > 0;
+        const ultrapassouConvites = totalMetasIndividuaisConvites > Number(metaConvites) && Number(metaConvites) > 0;
+        
+        const algumUltrapassou = ultrapassouVendas || ultrapassouCheckins || ultrapassouConfirmacoes || ultrapassouConvites;
+        
         return (
           <div className="space-y-4">
+            {/* Indicadores de Distribuição */}
+            <Card className={`p-4 ${algumUltrapassou ? 'border-destructive bg-destructive/5' : 'border-primary/20'}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Distribuição de Metas</span>
+                {algumUltrapassou && (
+                  <div className="flex items-center gap-1 ml-auto text-destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span className="text-xs font-medium">Meta ultrapassada</span>
+                  </div>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                {/* Vendas */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Vendas</span>
+                    <span className={`font-medium ${ultrapassouVendas ? 'text-destructive' : ''}`}>
+                      {totalMetasIndividuaisVendas} / {metaTotalVendas}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={percentualVendas} 
+                    className={`h-2 ${ultrapassouVendas ? '[&>div]:bg-destructive' : ''}`}
+                  />
+                  <p className={`text-[10px] ${ultrapassouVendas ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                    {ultrapassouVendas 
+                      ? `Excedeu em ${totalMetasIndividuaisVendas - metaTotalVendas} veículos` 
+                      : `Restam ${metaTotalVendas - totalMetasIndividuaisVendas} para distribuir`}
+                  </p>
+                </div>
+                
+                {/* Check-ins */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Check-ins</span>
+                    <span className={`font-medium ${ultrapassouCheckins ? 'text-destructive' : ''}`}>
+                      {totalMetasIndividuaisCheckins} / {metaCheckins || 0}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={percentualCheckins} 
+                    className={`h-2 ${ultrapassouCheckins ? '[&>div]:bg-destructive' : ''}`}
+                  />
+                  <p className={`text-[10px] ${ultrapassouCheckins ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                    {ultrapassouCheckins 
+                      ? `Excedeu em ${totalMetasIndividuaisCheckins - Number(metaCheckins)}` 
+                      : `Restam ${Number(metaCheckins || 0) - totalMetasIndividuaisCheckins} para distribuir`}
+                  </p>
+                </div>
+                
+                {/* Confirmações */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Confirmações</span>
+                    <span className={`font-medium ${ultrapassouConfirmacoes ? 'text-destructive' : ''}`}>
+                      {totalMetasIndividuaisConfirmacoes} / {metaConfirmacoes || 0}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={percentualConfirmacoes} 
+                    className={`h-2 ${ultrapassouConfirmacoes ? '[&>div]:bg-destructive' : ''}`}
+                  />
+                  <p className={`text-[10px] ${ultrapassouConfirmacoes ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                    {ultrapassouConfirmacoes 
+                      ? `Excedeu em ${totalMetasIndividuaisConfirmacoes - Number(metaConfirmacoes)}` 
+                      : `Restam ${Number(metaConfirmacoes || 0) - totalMetasIndividuaisConfirmacoes} para distribuir`}
+                  </p>
+                </div>
+                
+                {/* Convites */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Convites</span>
+                    <span className={`font-medium ${ultrapassouConvites ? 'text-destructive' : ''}`}>
+                      {totalMetasIndividuaisConvites} / {metaConvites || 0}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={percentualConvites} 
+                    className={`h-2 ${ultrapassouConvites ? '[&>div]:bg-destructive' : ''}`}
+                  />
+                  <p className={`text-[10px] ${ultrapassouConvites ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                    {ultrapassouConvites 
+                      ? `Excedeu em ${totalMetasIndividuaisConvites - Number(metaConvites)}` 
+                      : `Restam ${Number(metaConvites || 0) - totalMetasIndividuaisConvites} para distribuir`}
+                  </p>
+                </div>
+              </div>
+            </Card>
+            
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -2072,7 +2185,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 <p>Nenhum usuário encontrado</p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              <div className="space-y-2 max-h-[250px] overflow-y-auto">
                 {filteredUsers.map((userItem) => {
                   const userMetas = metasIndividuais[userItem.id] || { meta_vendas: 0, meta_checkins: 0, meta_confirmacoes: 0, meta_convites: 0 };
                   
@@ -2098,7 +2211,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                               placeholder="0"
                               value={userMetas.meta_vendas || ""}
                               onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_vendas', e.target.value)}
-                              className="h-7 text-center text-xs"
+                              className={`h-7 text-center text-xs ${ultrapassouVendas ? 'border-destructive/50' : ''}`}
                             />
                           </div>
                           <div className="w-16">
@@ -2109,7 +2222,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                               placeholder="0"
                               value={userMetas.meta_checkins || ""}
                               onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_checkins', e.target.value)}
-                              className="h-7 text-center text-xs"
+                              className={`h-7 text-center text-xs ${ultrapassouCheckins ? 'border-destructive/50' : ''}`}
                             />
                           </div>
                           <div className="w-16">
@@ -2120,7 +2233,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                               placeholder="0"
                               value={userMetas.meta_confirmacoes || ""}
                               onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_confirmacoes', e.target.value)}
-                              className="h-7 text-center text-xs"
+                              className={`h-7 text-center text-xs ${ultrapassouConfirmacoes ? 'border-destructive/50' : ''}`}
                             />
                           </div>
                           <div className="w-16">
@@ -2131,7 +2244,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                               placeholder="0"
                               value={userMetas.meta_convites || ""}
                               onChange={(e) => handleMetaIndividualChange(userItem.id, 'meta_convites', e.target.value)}
-                              className="h-7 text-center text-xs"
+                              className={`h-7 text-center text-xs ${ultrapassouConvites ? 'border-destructive/50' : ''}`}
                             />
                           </div>
                         </div>
