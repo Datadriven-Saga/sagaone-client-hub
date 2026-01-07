@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Camera, Loader2, Sparkles, User, Palette, Scissors, Eye, CircleUser, Upload, Shirt } from "lucide-react";
+import { Camera, Loader2, Sparkles, User, Palette, Scissors, Eye, CircleUser, Upload, Shirt, Trash2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -406,11 +406,12 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
                 {/* Beard (only for male) */}
                 {options.gender === "male" && (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
                       <Label className="text-sm font-medium">Barba</Label>
                       <Switch
                         checked={options.hasBeard}
                         onCheckedChange={(v) => updateOption("hasBeard", v)}
+                        className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/40"
                       />
                     </div>
                     {options.hasBeard && (
@@ -432,7 +433,7 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
 
                 {/* Glasses */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
                     <Label className="flex items-center gap-2 text-sm font-medium">
                       <Eye className="h-4 w-4" />
                       Óculos
@@ -440,6 +441,7 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
                     <Switch
                       checked={options.hasGlasses}
                       onCheckedChange={(v) => updateOption("hasGlasses", v)}
+                      className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/40"
                     />
                   </div>
                   {options.hasGlasses && (
@@ -569,20 +571,36 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
               
               {uploadedAvatar ? (
                 <div className="w-full space-y-6">
-                  {/* Photo preview and change button */}
+                  {/* Photo preview and action buttons */}
                   <div className="flex flex-col items-center gap-3">
                     <img
                       src={uploadedAvatar}
                       alt="Foto enviada"
                       className="w-32 h-32 rounded-full object-cover border-4 border-muted shadow-md"
                     />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      Escolher outra foto
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Trocar foto
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setUploadedAvatar(null);
+                          setGeneratedFromPhotoAvatar(null);
+                          setUploadPhotoChoice(null);
+                        }}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Excluir
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Choice buttons */}
