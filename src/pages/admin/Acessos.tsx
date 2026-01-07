@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Users, Edit, Trash2, Shield, Loader2, Building2 } from "lucide-react";
+import { Plus, Users, Edit, Trash2, Shield, Loader2, Building2, ArrowLeft, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -62,6 +63,7 @@ interface Company {
 }
 
 const Acessos = () => {
+  const navigate = useNavigate();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +71,13 @@ const Acessos = () => {
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [filterEmpresaId, setFilterEmpresaId] = useState<string>("");
+  const [filterNome, setFilterNome] = useState("");
+  const [filterEmail, setFilterEmail] = useState("");
+  const [filterCpf, setFilterCpf] = useState("");
+  const [filterCelular, setFilterCelular] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
   const { user: authUser, session } = useAuth();
   const { toast } = useToast();
 
@@ -336,11 +345,16 @@ const Acessos = () => {
       <ScrollIndicator className="flex-1 h-full">
         <div className="space-y-6 pb-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Acessos</h1>
-            <p className="text-muted-foreground">
-              Gerencie usuários e permissões do sistema
-            </p>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Acessos</h1>
+              <p className="text-sm text-muted-foreground">
+                Gerencie usuários e permissões do sistema
+              </p>
+            </div>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -541,6 +555,104 @@ const Acessos = () => {
           </Dialog>
         </div>
 
+        {/* Filtros */}
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Search className="h-4 w-4" />
+              Filtros
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Nome</label>
+                <Input
+                  placeholder="Buscar por nome..."
+                  value={filterNome}
+                  onChange={(e) => {
+                    setFilterNome(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Email</label>
+                <Input
+                  placeholder="Buscar por email..."
+                  value={filterEmail}
+                  onChange={(e) => {
+                    setFilterEmail(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">CPF</label>
+                <Input
+                  placeholder="Buscar por CPF..."
+                  value={filterCpf}
+                  onChange={(e) => {
+                    setFilterCpf(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Telefone</label>
+                <Input
+                  placeholder="Buscar por telefone..."
+                  value={filterCelular}
+                  onChange={(e) => {
+                    setFilterCelular(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Empresa</label>
+                <Select value={filterEmpresaId} onValueChange={(value) => {
+                  setFilterEmpresaId(value);
+                  setCurrentPage(1);
+                }}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {companies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.nome_empresa}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Status</label>
+                <Select value={filterStatus} onValueChange={(value) => {
+                  setFilterStatus(value);
+                  setCurrentPage(1);
+                }}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="Ativo">Ativo</SelectItem>
+                    <SelectItem value="Inativo">Inativo</SelectItem>
+                    <SelectItem value="Suspenso">Suspenso</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -553,21 +665,6 @@ const Acessos = () => {
                   Lista de todos os usuários e suas permissões
                 </CardDescription>
               </div>
-              <div className="w-64">
-                <Select value={filterEmpresaId} onValueChange={setFilterEmpresaId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filtrar por empresa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as empresas</SelectItem>
-                    {companies.map((company) => (
-                      <SelectItem key={company.id} value={company.id}>
-                        {company.nome_empresa}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -576,82 +673,204 @@ const Acessos = () => {
                 <Loader2 className="h-8 w-8 animate-spin" />
               </div>
             ) : (
-              <div className="space-y-4">
-                {profiles
-                  .filter(profile => {
-                    if (!filterEmpresaId || filterEmpresaId === "all") return true;
-                    return profile.empresas?.some(e => e.id === filterEmpresaId);
-                  })
-                  .length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhum usuário encontrado
-                  </div>
-                ) : (
-                  profiles
-                    .filter(profile => {
-                      if (!filterEmpresaId || filterEmpresaId === "all") return true;
-                      return profile.empresas?.some(e => e.id === filterEmpresaId);
-                    })
-                    .map((profile: Profile) => (
-                    <div key={profile.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{profile.nome_completo}</h3>
-                          <Badge variant="outline">{profile.status}</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{profile.email}</p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Shield className="h-4 w-4" />
-                            {profile.tipo_acesso}
-                          </span>
-                          {profile.departamento && (
-                            <span>{profile.departamento}</span>
-                          )}
-                        </div>
-                        {profile.empresas && profile.empresas.length > 0 && (
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Building2 className="h-4 w-4 text-muted-foreground" />
-                            {profile.empresas.slice(0, 3).map((empresa) => (
-                              <Badge key={empresa.id} variant="secondary" className="text-xs">
-                                {empresa.nome_empresa}
-                              </Badge>
-                            ))}
-                            {profile.empresas.length > 3 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{profile.empresas.length - 3}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(profile)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(profile.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              <FilteredUsersList 
+                profiles={profiles}
+                companies={companies}
+                filterNome={filterNome}
+                filterEmail={filterEmail}
+                filterCpf={filterCpf}
+                filterCelular={filterCelular}
+                filterEmpresaId={filterEmpresaId}
+                filterStatus={filterStatus}
+                currentPage={currentPage}
+                itemsPerPage={itemsPerPage}
+                setCurrentPage={setCurrentPage}
+                handleEdit={handleEdit}
+                handleDelete={handleDelete}
+              />
             )}
           </CardContent>
         </Card>
         </div>
       </ScrollIndicator>
     </DashboardLayout>
+  );
+};
+
+// Componente separado para lista filtrada com paginação
+interface FilteredUsersListProps {
+  profiles: Profile[];
+  companies: Company[];
+  filterNome: string;
+  filterEmail: string;
+  filterCpf: string;
+  filterCelular: string;
+  filterEmpresaId: string;
+  filterStatus: string;
+  currentPage: number;
+  itemsPerPage: number;
+  setCurrentPage: (page: number) => void;
+  handleEdit: (profile: Profile) => void;
+  handleDelete: (id: string) => void;
+}
+
+const FilteredUsersList = ({
+  profiles,
+  filterNome,
+  filterEmail,
+  filterCpf,
+  filterCelular,
+  filterEmpresaId,
+  filterStatus,
+  currentPage,
+  itemsPerPage,
+  setCurrentPage,
+  handleEdit,
+  handleDelete
+}: FilteredUsersListProps) => {
+  const filteredProfiles = useMemo(() => {
+    return profiles.filter(profile => {
+      const matchNome = !filterNome || profile.nome_completo?.toLowerCase().includes(filterNome.toLowerCase());
+      const matchEmail = !filterEmail || profile.email?.toLowerCase().includes(filterEmail.toLowerCase());
+      const matchCpf = !filterCpf || profile.cpf?.toLowerCase().includes(filterCpf.toLowerCase());
+      const matchCelular = !filterCelular || profile.celular?.includes(filterCelular);
+      const matchEmpresa = !filterEmpresaId || filterEmpresaId === "all" || profile.empresas?.some(e => e.id === filterEmpresaId);
+      const matchStatus = !filterStatus || filterStatus === "all" || profile.status === filterStatus;
+      
+      return matchNome && matchEmail && matchCpf && matchCelular && matchEmpresa && matchStatus;
+    });
+  }, [profiles, filterNome, filterEmail, filterCpf, filterCelular, filterEmpresaId, filterStatus]);
+
+  const totalPages = Math.ceil(filteredProfiles.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedProfiles = filteredProfiles.slice(startIndex, startIndex + itemsPerPage);
+  const startItem = startIndex + 1;
+  const endItem = Math.min(startIndex + itemsPerPage, filteredProfiles.length);
+
+  if (filteredProfiles.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        Nenhum usuário encontrado
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          Mostrando {startItem}-{endItem} de {filteredProfiles.length} usuários
+        </div>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Próxima
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="divide-y divide-border rounded-lg border">
+        {paginatedProfiles.map((profile: Profile) => (
+          <div key={profile.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+            <div className="space-y-1.5 min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold truncate">{profile.nome_completo}</h3>
+                <Badge variant="outline" className="shrink-0">{profile.status}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground truncate">{profile.email}</p>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Shield className="h-4 w-4" />
+                  {profile.tipo_acesso}
+                </span>
+                {profile.departamento && (
+                  <span>{profile.departamento}</span>
+                )}
+              </div>
+              {profile.empresas && profile.empresas.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  {profile.empresas.slice(0, 3).map((empresa) => (
+                    <Badge key={empresa.id} variant="secondary" className="text-xs">
+                      {empresa.nome_empresa}
+                    </Badge>
+                  ))}
+                  {profile.empresas.length > 3 && (
+                    <Badge variant="outline" className="text-xs">
+                      +{profile.empresas.length - 3}
+                    </Badge>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center space-x-2 shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleEdit(profile)}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDelete(profile.id)}
+                className="text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex justify-center">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Próxima
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
