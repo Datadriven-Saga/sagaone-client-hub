@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound, Image, FileImage, Megaphone, Upload, QrCode, User, Building, CalendarDays, Clock, Link, Palette, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
+import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound, Image, FileImage, Megaphone, Upload, QrCode, User, Building, CalendarDays, Clock, Link, Palette, ChevronLeft, ChevronRight, AlertTriangle, Maximize2, Minimize2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
@@ -166,6 +166,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [outrasPremiacoes, setOutrasPremiacoes] = useState<OutraPremiacao[]>([]);
   const [novaOutraPremiacao, setNovaOutraPremiacao] = useState({ nome: "", valor: "" as number | "" });
   const [mostrarFormOutraPremiacao, setMostrarFormOutraPremiacao] = useState(false);
+  
+  // Estado para expandir descrição
+  const [descricaoExpandida, setDescricaoExpandida] = useState(false);
   
   const { toast } = useToast();
   const { user } = useAuth();
@@ -1755,6 +1758,41 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 />
               </div>
             </div>
+
+            {/* Descrição com borda e botão expandir para Grande Evento e Prospecção Mensal */}
+            {(tipoEvento === 'Grande Evento' || tipoEvento === 'Prospecção Mensal') && (
+              <div className="rounded-lg border border-border p-4 bg-card">
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="descricao_geral">Descrição</Label>
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={aplicarModeloDescricao}>
+                      <FileText className="w-4 h-4 mr-1" />
+                      Aplicar modelo
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setDescricaoExpandida(!descricaoExpandida)}
+                    >
+                      {descricaoExpandida ? (
+                        <Minimize2 className="w-4 h-4" />
+                      ) : (
+                        <Maximize2 className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                <Textarea
+                  id="descricao_geral"
+                  placeholder="Descreva os detalhes da prospecção..."
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                  rows={descricaoExpandida ? 16 : 6}
+                  className="resize-none transition-all"
+                />
+              </div>
+            )}
           </div>
         );
 
@@ -1762,20 +1800,36 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
         if (tipoEvento === 'IA Whatsapp') {
           return (
             <div className="space-y-4">
-              <div>
+              {/* Descrição com borda e botão expandir */}
+              <div className="rounded-lg border border-border p-4 bg-card">
                 <div className="flex items-center justify-between mb-2">
                   <Label htmlFor="descricao">Descrição</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={aplicarModeloDescricao}>
-                    <FileText className="w-4 h-4 mr-1" />
-                    Aplicar modelo
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={aplicarModeloDescricao}>
+                      <FileText className="w-4 h-4 mr-1" />
+                      Aplicar modelo
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setDescricaoExpandida(!descricaoExpandida)}
+                    >
+                      {descricaoExpandida ? (
+                        <Minimize2 className="w-4 h-4" />
+                      ) : (
+                        <Maximize2 className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 <Textarea
                   id="descricao"
                   placeholder="Descreva os detalhes da prospecção..."
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value)}
-                  rows={6}
+                  rows={descricaoExpandida ? 16 : 6}
+                  className="resize-none transition-all"
                 />
               </div>
               
@@ -1969,24 +2023,144 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
             </div>
           );
         } else {
-          // IA Ligação
+          // IA Ligação - Similar à IA Whatsapp mas sem templates WhatsApp
           return (
             <div className="space-y-4">
-              <div>
+              {/* Descrição com borda e botão expandir */}
+              <div className="rounded-lg border border-border p-4 bg-card">
                 <div className="flex items-center justify-between mb-2">
                   <Label htmlFor="descricao">Descrição</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={aplicarModeloDescricao}>
-                    <FileText className="w-4 h-4 mr-1" />
-                    Aplicar modelo
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={aplicarModeloDescricao}>
+                      <FileText className="w-4 h-4 mr-1" />
+                      Aplicar modelo
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setDescricaoExpandida(!descricaoExpandida)}
+                    >
+                      {descricaoExpandida ? (
+                        <Minimize2 className="w-4 h-4" />
+                      ) : (
+                        <Maximize2 className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 <Textarea
                   id="descricao"
                   placeholder="Descreva os detalhes da prospecção..."
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value)}
-                  rows={8}
+                  rows={descricaoExpandida ? 16 : 6}
+                  className="resize-none transition-all"
                 />
+              </div>
+
+              {/* Separador - Configurações de Disparo */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium mb-4">Configurações de Disparo</h4>
+                
+                {/* Data/Hora Envio Inicial */}
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="data_envio_inicial_ligacao">Data/Hora do Envio Inicial</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Define quando as ligações iniciais serão realizadas. Por padrão é agora (momento da criação do evento).</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Input
+                    id="data_envio_inicial_ligacao"
+                    type="datetime-local"
+                    value={dataEnvioInicial}
+                    onChange={(e) => setDataEnvioInicial(e.target.value)}
+                    placeholder="Agora (padrão)"
+                  />
+                  <p className="text-xs text-muted-foreground">Deixe em branco para iniciar imediatamente</p>
+                </div>
+
+                {/* Data/Hora Cadência */}
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="data_envio_cadencia_ligacao">Data/Hora da Cadência</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Define quando a ligação de confirmação será realizada. Por padrão é 24 horas antes do início do evento.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Input
+                    id="data_envio_cadencia_ligacao"
+                    type="datetime-local"
+                    value={dataEnvioCadencia}
+                    onChange={(e) => setDataEnvioCadencia(e.target.value)}
+                    placeholder="24h antes do evento (padrão)"
+                  />
+                  <p className="text-xs text-muted-foreground">Deixe em branco para usar 24h antes do evento</p>
+                </div>
+              </div>
+
+              {/* Separador - Configurações do Evento */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium mb-4">Configurações</h4>
+                
+                {/* Evento Principal */}
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-card mb-3">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="evento_principal_ligacao" className="font-medium cursor-pointer">Evento Principal</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Se ativado, quando um lead falar com a equipe nessa empresa, ele será automaticamente direcionado para este evento.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Switch
+                    id="evento_principal_ligacao"
+                    checked={eventoPrincipal}
+                    onCheckedChange={setEventoPrincipal}
+                  />
+                </div>
+
+                {/* Qualificar Lead */}
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="qualificar_lead_ligacao" className="font-medium cursor-pointer">Qualificar Lead após Confirmação</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Se ativado, o lead será qualificado para a loja após confirmação. Se desativado, o lead ficará na central de atendimento na coluna 'Agendados' com a tag 'CONFIRMADO'.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Switch
+                    id="qualificar_lead_ligacao"
+                    checked={qualificarLead}
+                    onCheckedChange={setQualificarLead}
+                  />
+                </div>
               </div>
             </div>
           );
