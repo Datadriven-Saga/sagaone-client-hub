@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -10,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Building } from "lucide-react";
+import { Plus, Pencil, Trash2, Building, ArrowLeft } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -55,6 +56,7 @@ interface Empresa {
 }
 
 export default function Empresas() {
+  const navigate = useNavigate();
   const { isAdmin } = useAdminCheck();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
@@ -258,11 +260,16 @@ export default function Empresas() {
     <DashboardLayout title="Empresas">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">Gerenciar Empresas</h2>
-            <p className="text-muted-foreground">
-              Cadastre e gerencie as empresas do sistema
-            </p>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h2 className="text-2xl font-bold">Gerenciar Empresas</h2>
+              <p className="text-muted-foreground">
+                Cadastre e gerencie as empresas do sistema
+              </p>
+            </div>
           </div>
           
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -522,74 +529,82 @@ export default function Empresas() {
             <div className="text-sm text-muted-foreground">
               Mostrando {filteredEmpresas.length} de {empresas.length} empresas
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredEmpresas.map((empresa) => (
-                <Card key={empresa.id} className="relative">
-                  <CardHeader>
-                    <CardTitle className="text-lg">{empresa.nome_empresa}</CardTitle>
-                    <CardDescription>{empresa.marca}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <strong>CNPJ:</strong> {empresa.cnpj}
+            <Card>
+              <CardContent className="p-0">
+                <div className="divide-y divide-border">
+                  {filteredEmpresas.map((empresa) => (
+                    <div key={empresa.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0">
+                            <Building className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-foreground truncate">{empresa.nome_empresa}</h3>
+                            <p className="text-sm text-muted-foreground">{empresa.marca}</p>
+                          </div>
+                        </div>
                       </div>
-                      {empresa.crm_id && (
-                        <div>
-                          <strong>CRM ID:</strong> {empresa.crm_id}
+                      <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground px-4">
+                        <div className="w-40">
+                          <span className="font-medium text-foreground">CNPJ:</span> {empresa.cnpj}
                         </div>
-                      )}
-                      {empresa.uf && (
-                        <div>
-                          <strong>UF:</strong> {empresa.uf}
-                        </div>
-                      )}
-                      {empresa.grupo_empresarial && (
-                        <div>
-                          <strong>Grupo:</strong> {empresa.grupo_empresarial}
-                        </div>
-                      )}
+                        {empresa.crm_id && (
+                          <div className="w-24">
+                            <span className="font-medium text-foreground">CRM:</span> {empresa.crm_id}
+                          </div>
+                        )}
+                        {empresa.uf && (
+                          <div className="w-12">
+                            <span className="font-medium text-foreground">UF:</span> {empresa.uf}
+                          </div>
+                        )}
+                        {empresa.grupo_empresarial && (
+                          <div className="w-24">
+                            <span className="font-medium text-foreground">Grupo:</span> {empresa.grupo_empresarial}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(empresa)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir a empresa "{empresa.nome_empresa}"? 
+                                Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(empresa.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
-
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(empresa)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Tem certeza que deseja excluir a empresa "{empresa.nome_empresa}"? 
-                              Esta ação não pode ser desfeita.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(empresa.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Excluir
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>
