@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,6 +17,8 @@ interface AvatarBuilderProps {
   userName?: string;
   onAvatarChange: (avatarUrl: string) => void;
   disabled?: boolean;
+  triggerOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 interface AvatarOptions {
@@ -106,8 +108,20 @@ const faceShapes = [
   { id: "oblong", label: "Alongado" },
 ];
 
-export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disabled }: AvatarBuilderProps) => {
-  const [open, setOpen] = useState(false);
+export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disabled, triggerOpen, onOpenChange }: AvatarBuilderProps) => {
+  const [open, setOpen] = useState(triggerOpen ?? false);
+  
+  // Sync with external trigger
+  useEffect(() => {
+    if (triggerOpen !== undefined) {
+      setOpen(triggerOpen);
+    }
+  }, [triggerOpen]);
+
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    onOpenChange?.(newOpen);
+  };
   const [activeTab, setActiveTab] = useState<"ai" | "upload">("ai");
   const [generating, setGenerating] = useState(false);
   const [generatingFromPhoto, setGeneratingFromPhoto] = useState(false);
@@ -236,7 +250,7 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
     
     if (avatarToUse) {
       onAvatarChange(avatarToUse);
-      setOpen(false);
+      handleOpenChange(false);
       setGeneratedAvatar(null);
       setUploadedAvatar(null);
       setGeneratedFromPhotoAvatar(null);
@@ -253,21 +267,26 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
     ? generatedAvatar 
     : (uploadPhotoChoice === "pixar" ? generatedFromPhotoAvatar : (uploadPhotoChoice === "original" ? uploadedAvatar : null));
 
+  // If triggered externally, render without the visual trigger
+  const showTrigger = triggerOpen === undefined;
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <div className="relative group cursor-pointer" onClick={() => !disabled && setOpen(true)}>
-          <Avatar className="h-20 w-20">
-            <AvatarImage src={currentAvatar || undefined} alt={userName} />
-            <AvatarFallback className="text-lg">{initials}</AvatarFallback>
-          </Avatar>
-          {!disabled && (
-            <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <Camera className="h-6 w-6 text-white" />
-            </div>
-          )}
-        </div>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {showTrigger && (
+        <DialogTrigger asChild>
+          <div className="relative group cursor-pointer" onClick={() => !disabled && handleOpenChange(true)}>
+            <Avatar className="h-20 w-20">
+              <AvatarImage src={currentAvatar || undefined} alt={userName} />
+              <AvatarFallback className="text-lg">{initials}</AvatarFallback>
+            </Avatar>
+            {!disabled && (
+              <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Camera className="h-6 w-6 text-white" />
+              </div>
+            )}
+          </div>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -732,7 +751,7 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
         </Tabs>
 
         <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancelar
           </Button>
           <Button onClick={handleConfirm} disabled={!currentSelectedAvatar}>
