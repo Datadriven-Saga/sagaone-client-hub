@@ -363,7 +363,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setNovaOutraPremiacao({ nome: "", valor: "" });
     setMostrarFormOutraPremiacao(false);
     // Reset novos campos IA Whatsapp
-    setEventoPrincipal(false);
+    setEventoPrincipal(true);
     setQualificarLead(true);
     setDataEnvioInicial("");
     setDataEnvioCadencia("");
