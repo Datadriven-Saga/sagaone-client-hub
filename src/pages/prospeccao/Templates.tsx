@@ -406,87 +406,70 @@ export default function Templates() {
   };
 
   const handleDuplicateTemplate = async (template: any) => {
-    if (!activeCompany?.id) {
-      toast.error("Empresa não selecionada");
-      return;
-    }
-
-    try {
-      // Gerar nome único com sufixo sequencial
-      let baseName = template.nome;
-      let suffix = 1;
-      let newName = `${baseName} (${suffix})`;
+    // Gerar nome único com sufixo sequencial
+    let baseName = template.nome;
+    let suffix = 1;
+    let newName = `${baseName} (${suffix})`;
+    
+    // Verificar nomes existentes para encontrar o próximo sufixo disponível
+    const { data: existingTemplates } = await supabase
+      .from("whatsapp_templates")
+      .select("nome")
+      .eq("empresa_id", activeCompany?.id)
+      .ilike("nome", `${baseName} (%)`);
+    
+    if (existingTemplates && existingTemplates.length > 0) {
+      const suffixes = existingTemplates
+        .map(t => {
+          const match = t.nome.match(/\((\d+)\)$/);
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter(n => !isNaN(n));
       
-      // Verificar nomes existentes para encontrar o próximo sufixo disponível
-      const { data: existingTemplates } = await supabase
-        .from("whatsapp_templates")
-        .select("nome")
-        .eq("empresa_id", activeCompany.id)
-        .ilike("nome", `${baseName} (%)`);
-      
-      if (existingTemplates && existingTemplates.length > 0) {
-        const suffixes = existingTemplates
-          .map(t => {
-            const match = t.nome.match(/\((\d+)\)$/);
-            return match ? parseInt(match[1], 10) : 0;
-          })
-          .filter(n => !isNaN(n));
-        
-        if (suffixes.length > 0) {
-          suffix = Math.max(...suffixes) + 1;
-        }
+      if (suffixes.length > 0) {
+        suffix = Math.max(...suffixes) + 1;
       }
-      
+    }
+    
+    newName = `${baseName} (${suffix})`;
+    
+    // Limitar a 100 caracteres
+    if (newName.length > 100) {
+      const overflow = newName.length - 100;
+      baseName = baseName.slice(0, baseName.length - overflow);
       newName = `${baseName} (${suffix})`;
-      
-      // Limitar a 100 caracteres
-      if (newName.length > 100) {
-        const overflow = newName.length - 100;
-        baseName = baseName.slice(0, baseName.length - overflow);
-        newName = `${baseName} (${suffix})`;
-      }
-
-      // Criar cópia diretamente no banco
-      const { error } = await supabase
-        .from("whatsapp_templates")
-        .insert({
-          empresa_id: activeCompany.id,
-          departamento_id: template.departamento_id || null,
-          nome: newName,
-          categoria: template.categoria,
-          formato: template.formato,
-          conteudo: template.conteudo,
-          card_data: template.card_data || {},
-          agente_id: template.agente_id || null,
-        });
-
-      if (error) throw error;
-
-      toast.success("Template duplicado com sucesso!");
-      refetchTemplates();
-    } catch (err) {
-      console.error("Erro ao duplicar template:", err);
-      toast.error("Erro ao duplicar template");
     }
-  };
-
-  const handleDeleteTemplate = async (templateId: string) => {
-    if (!confirm("Tem certeza que deseja excluir este template?")) return;
-
-    try {
-      const { error } = await supabase
-        .from("whatsapp_templates")
-        .delete()
-        .eq("id", templateId);
-
-      if (error) throw error;
-
-      toast.success("Template excluído com sucesso!");
-      refetchTemplates();
-    } catch (err) {
-      console.error("Erro ao excluir template:", err);
-      toast.error("Erro ao excluir template");
-    }
+    
+    // Parse card_data from database
+    const cardData = template.card_data || {};
+    
+    setEditingTemplateId(null); // Criar novo, não editar
+    setFormData({
+      nome: newName,
+      categoria: template.categoria as TemplateCategory,
+      departamento_id: template.departamento_id || "",
+      formato: template.formato as TemplateFormat,
+      conteudo: template.formato === "texto" ? template.conteudo : "",
+      variaveis: [],
+      cardData: {
+        imagemCampanha: null,
+        imagemPreviewUrl: cardData.imagemUrl || "",
+        audioCampanha: null,
+        audioPreviewUrl: cardData.audioUrl || "",
+        videoCampanha: null,
+        videoPreviewUrl: cardData.videoUrl || "",
+        textoCabecalho: cardData.textoCabecalho || "",
+        corpoTexto: template.formato !== "texto" ? template.conteudo : "",
+        rodape: cardData.rodape || "",
+        botoes: (cardData.botoes || []).map((b: any) => ({
+          id: crypto.randomUUID(),
+          nome: b.nome || "",
+          buttonId: b.buttonId || "",
+        })),
+      },
+    });
+    setCurrentStep(1);
+    setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
@@ -1986,15 +1969,6 @@ export default function Templates() {
                           >
                             <Copy className="h-4 w-4 mr-1" />
                             Duplicar
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDeleteTemplate(template.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Excluir
                           </Button>
                         </div>
                       </TableCell>
