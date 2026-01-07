@@ -241,11 +241,58 @@ export default function Templates() {
     enabled: !!activeCompany?.id,
   });
 
-  // Fetch templates
+  // Fetch agente da empresa (PRI) para buscar templates compartilhados
+  const { data: agenteEmpresa } = useQuery({
+    queryKey: ["agente_empresa_pri", activeCompany?.id],
+    queryFn: async () => {
+      if (!activeCompany?.id) return null;
+      const { data, error } = await supabase
+        .from("agentes_ia")
+        .select("id, dealer_id")
+        .eq("empresa_id", activeCompany.id)
+        .eq("nome", "Pri")
+        .maybeSingle();
+      if (error) {
+        console.error("Erro ao buscar agente Pri:", error);
+        return null;
+      }
+      return data;
+    },
+    enabled: !!activeCompany?.id,
+  });
+
+  // Fetch templates - busca por agente (dealer_id compartilhado) para que lojas com mesma PRI vejam os mesmos templates
   const { data: templates = [], refetch: refetchTemplates } = useQuery({
-    queryKey: ["whatsapp_templates", activeCompany?.id],
+    queryKey: ["whatsapp_templates", activeCompany?.id, agenteEmpresa?.id],
     queryFn: async () => {
       if (!activeCompany?.id) return [];
+      
+      // Se a empresa tem um agente com dealer_id, buscar templates de todas as empresas que compartilham esse dealer_id
+      if (agenteEmpresa?.dealer_id) {
+        // Primeiro buscar todos os agentes com o mesmo dealer_id
+        const { data: agentesCompartilhados, error: agentesError } = await supabase
+          .from("agentes_ia")
+          .select("id")
+          .eq("dealer_id", agenteEmpresa.dealer_id);
+        
+        if (agentesError) {
+          console.error("Erro ao buscar agentes compartilhados:", agentesError);
+        }
+        
+        const agentesIds = agentesCompartilhados?.map(a => a.id) || [];
+        
+        // Buscar templates que pertencem a qualquer um desses agentes OU à empresa atual (retrocompatibilidade)
+        const { data, error } = await supabase
+          .from("whatsapp_templates")
+          .select("*, departamentos(nome)")
+          .or(`agente_id.in.(${agentesIds.join(',')}),and(empresa_id.eq.${activeCompany.id},agente_id.is.null)`)
+          .order("created_at", { ascending: false });
+        
+        if (error) throw error;
+        return data;
+      }
+      
+      // Fallback: buscar apenas templates da empresa (comportamento original)
       const { data, error } = await supabase
         .from("whatsapp_templates")
         .select("*, departamentos(nome)")
@@ -257,7 +304,7 @@ export default function Templates() {
     enabled: !!activeCompany?.id,
   });
 
-  // Verificar nome duplicado em tempo real
+  // Verificar nome duplicado em tempo real (considerando templates compartilhados por agente)
   useEffect(() => {
     const verificarNomeDuplicado = async () => {
       if (!formData.nome.trim() || formData.nome.trim().length < 2 || !activeCompany?.id) {
@@ -267,11 +314,29 @@ export default function Templates() {
 
       setVerificandoNome(true);
       try {
-        let query = supabase
-          .from("whatsapp_templates")
-          .select("id")
-          .eq("empresa_id", activeCompany.id)
-          .ilike("nome", formData.nome.trim());
+        let query;
+        
+        // Se tem agente com dealer_id, verificar em todos os templates do mesmo dealer
+        if (agenteEmpresa?.dealer_id) {
+          const { data: agentesCompartilhados } = await supabase
+            .from("agentes_ia")
+            .select("id")
+            .eq("dealer_id", agenteEmpresa.dealer_id);
+          
+          const agentesIds = agentesCompartilhados?.map(a => a.id) || [];
+          
+          query = supabase
+            .from("whatsapp_templates")
+            .select("id")
+            .or(`agente_id.in.(${agentesIds.join(',')}),and(empresa_id.eq.${activeCompany.id},agente_id.is.null)`)
+            .ilike("nome", formData.nome.trim());
+        } else {
+          query = supabase
+            .from("whatsapp_templates")
+            .select("id")
+            .eq("empresa_id", activeCompany.id)
+            .ilike("nome", formData.nome.trim());
+        }
 
         // Se estiver editando, excluir o template atual da verificação
         if (editingTemplateId) {
@@ -289,7 +354,7 @@ export default function Templates() {
 
     const debounceTimer = setTimeout(verificarNomeDuplicado, 300);
     return () => clearTimeout(debounceTimer);
-  }, [formData.nome, activeCompany?.id, editingTemplateId]);
+  }, [formData.nome, activeCompany?.id, editingTemplateId, agenteEmpresa?.dealer_id]);
 
   const handleOpenModal = () => {
     setEditingTemplateId(null);
@@ -796,6 +861,7 @@ export default function Templates() {
         formato: formData.formato,
         conteudo: conteudo,
         card_data: cardData,
+        agente_id: agenteEmpresa?.id || null, // Vincular ao agente para compartilhamento entre lojas
       };
 
       let error;
