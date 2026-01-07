@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Zap, Play } from "lucide-react";
+import { Plus, Edit, Trash2, Zap, Play, ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +26,7 @@ interface Gatilho {
 }
 
 const Gatilhos = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { activeCompany } = useCompany();
   const { toast } = useToast();
@@ -399,11 +401,16 @@ const Gatilhos = () => {
       <ScrollIndicator className="h-full">
         <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Gatilhos</h1>
-            <p className="text-muted-foreground">
-              Configure gatilhos automáticos para ações da prospecção
-            </p>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Gatilhos</h1>
+              <p className="text-sm text-muted-foreground">
+                Configure gatilhos automáticos para ações da prospecção
+              </p>
+            </div>
           </div>
           <Button onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4 mr-2" />
