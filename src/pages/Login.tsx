@@ -13,6 +13,7 @@ import sagaOneLogo from "@/assets/saga-one-logo.png";
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
@@ -21,7 +22,7 @@ const Login = () => {
     password: ""
   });
   
-  const { signIn, user, resetPassword } = useAuth();
+  const { signIn, signInWithAzure, user, resetPassword } = useAuth();
   const navigate = useNavigate();
 
   // Redirect if already logged in
@@ -59,6 +60,29 @@ const Login = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSSOLogin = async () => {
+    setSsoLoading(true);
+    try {
+      const { error } = await signInWithAzure();
+      
+      if (error) {
+        toast({
+          title: "Erro no login SSO",
+          description: error.message || "Não foi possível conectar com Microsoft.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro no login SSO",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setSsoLoading(false);
     }
   };
 
@@ -118,7 +142,37 @@ const Login = () => {
               Faça seu login
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* SSO Button */}
+            <Button 
+              type="button"
+              variant="outline"
+              className="w-full flex items-center justify-center gap-3 h-12 border-2"
+              onClick={handleSSOLogin}
+              disabled={ssoLoading}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 23 23">
+                <path fill="#f35325" d="M1 1h10v10H1z"/>
+                <path fill="#81bc06" d="M12 1h10v10H12z"/>
+                <path fill="#05a6f0" d="M1 12h10v10H1z"/>
+                <path fill="#ffba08" d="M12 12h10v10H12z"/>
+              </svg>
+              {ssoLoading ? "Conectando..." : "Entrar com Microsoft"}
+            </Button>
+
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-sagaone-login-card px-2 text-muted-foreground">
+                  ou continue com email
+                </span>
+              </div>
+            </div>
+
+            {/* Email/Password Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail</Label>
@@ -168,7 +222,7 @@ const Login = () => {
                 className="w-full bg-sagaone-login-button hover:bg-sagaone-login-button/90 text-white"
                 disabled={loading}
               >
-                {loading ? "Entrando..." : "Entrar no Sistema"}
+                {loading ? "Entrando..." : "Entrar com Email"}
               </Button>
 
               <div className="text-center">
