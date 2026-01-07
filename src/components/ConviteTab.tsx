@@ -527,29 +527,20 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
               <p className="text-xs text-muted-foreground text-center">
                 {qrTokenUsed ? 'Este QR Code já foi utilizado' : 'Envie o QR Code para o cliente'}
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleExportQRCode}
-                >
-                  <Download className="w-4 h-4" />
-                  <span className="ml-1">Exportar</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGenerateQRCode}
-                  disabled={generatingQR}
-                >
-                  {generatingQR ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  <span className="ml-1">Regenerar</span>
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={handleGenerateQRCode}
+                disabled={generatingQR}
+              >
+                {generatingQR ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                <span className="ml-1">Regenerar</span>
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
