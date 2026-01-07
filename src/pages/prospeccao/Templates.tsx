@@ -204,8 +204,9 @@ export default function Templates() {
       case "pausado":
         return "bg-gray-100 text-gray-700 border-gray-200";
       case "pendente":
+        return "bg-orange-100 text-orange-700 border-orange-200";
       default:
-        return "bg-yellow-100 text-yellow-700 border-yellow-200";
+        return "bg-gray-100 text-gray-700 border-gray-200";
     }
   };
 
