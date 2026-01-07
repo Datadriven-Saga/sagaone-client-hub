@@ -190,28 +190,36 @@ const Clientes = () => {
               <p>Nenhum cliente encontrado</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {clientesList.map((client) => (
-                <Card 
-                  key={client.id}
-                  className="cursor-pointer hover:shadow-card transition-shadow p-4"
-                  onClick={() => handleClientRowClick(client)}
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-semibold">{client.name}</h4>
-                      <span className="text-xs text-muted-foreground">#{client.id}</span>
-                    </div>
-                    <div className="space-y-1 text-sm text-muted-foreground">
-                      <p><strong>Comprou:</strong> {client.hasPurchased}</p>
-                      <p><strong>Responsável:</strong> {client.responsible}</p>
-                      <p><strong>Produtos:</strong> {client.products}</p>
-                      <p><strong>Última compra:</strong> {client.lastPurchase}</p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead className="text-center">Comprou</TableHead>
+                  <TableHead>Responsável</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {clientesList.map((client) => (
+                  <TableRow 
+                    key={client.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleClientRowClick(client)}
+                  >
+                    <TableCell className="font-medium">{client.name}</TableCell>
+                    <TableCell className="text-center">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        client.hasPurchased === 'Sim' 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {client.hasPurchased}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{client.responsible}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </Card>
 
