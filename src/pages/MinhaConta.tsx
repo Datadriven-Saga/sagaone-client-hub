@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { User, Mail, Phone, Calendar, Building, Shield } from "lucide-react";
+import { User, Mail, Phone, Calendar, Building, Shield, Eye, Camera, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +33,8 @@ const MinhaConta = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [showAvatarBuilder, setShowAvatarBuilder] = useState(false);
 
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -147,11 +152,40 @@ const MinhaConta = () => {
           <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center space-x-4">
-              <AvatarBuilder
-                currentAvatar={profile?.foto_url}
-                userName={profile?.nome_completo}
-                onAvatarChange={handleAvatarChange}
-              />
+              {/* Profile Image with Dropdown Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <div className="relative group cursor-pointer">
+                    <Avatar className="h-20 w-20">
+                      <AvatarImage src={profile?.foto_url || undefined} alt={profile?.nome_completo} />
+                      <AvatarFallback className="text-lg">
+                        {profile?.nome_completo
+                          ?.split(" ")
+                          .map((n: string) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2) || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Camera className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  {profile?.foto_url && (
+                    <DropdownMenuItem onClick={() => setShowImagePreview(true)}>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Visualizar foto
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => setShowAvatarBuilder(true)}>
+                    <Camera className="h-4 w-4 mr-2" />
+                    Alterar foto
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <div className="space-y-2">
                 <h2 className="text-2xl font-semibold">{profile?.nome_completo}</h2>
                 <div className="flex items-center space-x-2">
@@ -165,6 +199,20 @@ const MinhaConta = () => {
               </div>
             </div>
           </CardHeader>
+
+          {/* Hidden AvatarBuilder that opens via state */}
+          {showAvatarBuilder && (
+            <AvatarBuilder
+              currentAvatar={profile?.foto_url}
+              userName={profile?.nome_completo}
+              onAvatarChange={(url) => {
+                handleAvatarChange(url);
+                setShowAvatarBuilder(false);
+              }}
+              triggerOpen={showAvatarBuilder}
+              onOpenChange={setShowAvatarBuilder}
+            />
+          )}
         </Card>
 
         {/* Profile Information */}
@@ -282,6 +330,29 @@ const MinhaConta = () => {
           <ColorCustomizer />
         </div>
       </ScrollIndicator>
+
+      {/* Image Preview Dialog */}
+      <Dialog open={showImagePreview} onOpenChange={setShowImagePreview}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden bg-black/90 border-none">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 z-10 text-white hover:bg-white/20"
+            onClick={() => setShowImagePreview(false)}
+          >
+            <X className="h-5 w-5" />
+          </Button>
+          {profile?.foto_url && (
+            <div className="flex items-center justify-center p-4">
+              <img
+                src={profile.foto_url}
+                alt={profile?.nome_completo || "Foto de perfil"}
+                className="max-w-full max-h-[80vh] object-contain rounded-lg"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
