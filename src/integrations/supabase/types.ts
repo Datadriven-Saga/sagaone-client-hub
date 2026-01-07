@@ -2473,6 +2473,7 @@ export type Database = {
           id: string
           id_meta: string | null
           nome: string
+          pri_telefone: string | null
           status: string
           status_meta: string | null
           template_id_pri: string | null
@@ -2492,6 +2493,7 @@ export type Database = {
           id?: string
           id_meta?: string | null
           nome: string
+          pri_telefone?: string | null
           status?: string
           status_meta?: string | null
           template_id_pri?: string | null
@@ -2511,6 +2513,7 @@ export type Database = {
           id?: string
           id_meta?: string | null
           nome?: string
+          pri_telefone?: string | null
           status?: string
           status_meta?: string | null
           template_id_pri?: string | null
