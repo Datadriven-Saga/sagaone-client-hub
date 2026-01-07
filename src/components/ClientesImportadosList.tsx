@@ -1,0 +1,354 @@
+import { useState, useMemo } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { 
+  Edit, 
+  Trash2, 
+  ChevronLeft, 
+  ChevronRight, 
+  Search,
+  Users
+} from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { Contato } from '@/hooks/useContatoData';
+import { format } from 'date-fns';
+
+interface ClientesImportadosListProps {
+  contatos: Contato[];
+  prospeccoes: { id: string; titulo: string }[];
+  onEditContato: (contato: Contato) => void;
+  onDeleteContato: (contatoId: string) => void;
+  onUpdateContato: (contatoId: string, data: Partial<Contato>) => Promise<boolean>;
+}
+
+const ITEMS_PER_PAGE = 10;
+
+export const ClientesImportadosList = ({ 
+  contatos, 
+  prospeccoes,
+  onEditContato,
+  onDeleteContato,
+  onUpdateContato
+}: ClientesImportadosListProps) => {
+  const { toast } = useToast();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterProspeccao, setFilterProspeccao] = useState<string>('todos');
+  const [editingContato, setEditingContato] = useState<Contato | null>(null);
+  const [deleteContatoId, setDeleteContatoId] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  
+  // Form state for editing
+  const [editForm, setEditForm] = useState({
+    nome: '',
+    telefone: '',
+    email: ''
+  });
+
+  // Filter and search contacts
+  const filteredContatos = useMemo(() => {
+    return contatos.filter(contato => {
+      // Search filter
+      const matchesSearch = !searchTerm || 
+        contato.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (contato.telefone && contato.telefone.includes(searchTerm)) ||
+        (contato.email && contato.email.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // Prospeccao filter - we'd need prospeccao_id on contato for this to work properly
+      // For now, show all if filterProspeccao is 'todos'
+      const matchesProspeccao = filterProspeccao === 'todos';
+      
+      return matchesSearch && matchesProspeccao;
+    });
+  }, [contatos, searchTerm, filterProspeccao]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredContatos.length / ITEMS_PER_PAGE);
+  const paginatedContatos = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredContatos.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredContatos, currentPage]);
+
+  // Reset to page 1 when filters change
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterProspeccao]);
+
+  const handleEdit = (contato: Contato) => {
+    setEditingContato(contato);
+    setEditForm({
+      nome: contato.nome,
+      telefone: contato.telefone || '',
+      email: contato.email || ''
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingContato) return;
+    
+    try {
+      await onUpdateContato(editingContato.id, {
+        nome: editForm.nome,
+        telefone: editForm.telefone,
+        email: editForm.email
+      });
+      
+      toast({
+        title: "Contato atualizado",
+        description: "As alterações foram salvas com sucesso.",
+      });
+      
+      setIsEditModalOpen(false);
+      setEditingContato(null);
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível salvar as alterações.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteContatoId) {
+      onDeleteContato(deleteContatoId);
+      setDeleteContatoId(null);
+      toast({
+        title: "Contato excluído",
+        description: "O contato foi removido com sucesso.",
+      });
+    }
+  };
+
+  if (contatos.length === 0) {
+    return null;
+  }
+
+  return (
+    <Card className="p-4 mt-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-primary" />
+          <h4 className="font-medium text-sm">Clientes Importados ({contatos.length})</h4>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, telefone ou e-mail..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={filterProspeccao} onValueChange={setFilterProspeccao}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder="Filtrar por evento" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os eventos</SelectItem>
+            {prospeccoes.map((p) => (
+              <SelectItem key={p.id} value={p.id}>{p.titulo}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Table */}
+      <div className="border rounded-lg overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[200px]">Nome</TableHead>
+              <TableHead className="w-[150px]">Telefone</TableHead>
+              <TableHead className="w-[200px]">E-mail</TableHead>
+              <TableHead className="w-[120px]">Status</TableHead>
+              <TableHead className="w-[120px]">Data Criação</TableHead>
+              <TableHead className="w-[100px] text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedContatos.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  Nenhum contato encontrado
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedContatos.map((contato) => (
+                <TableRow key={contato.id}>
+                  <TableCell className="font-medium">{contato.nome}</TableCell>
+                  <TableCell>{contato.telefone || '-'}</TableCell>
+                  <TableCell>{contato.email || '-'}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                      contato.status === 'Novo' ? 'bg-blue-100 text-blue-700' :
+                      contato.status === 'Venda' ? 'bg-green-100 text-green-700' :
+                      contato.status === 'Descartado' ? 'bg-red-100 text-red-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {contato.status}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {contato.created_at ? format(new Date(contato.created_at), 'dd/MM/yyyy') : '-'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handleEdit(contato)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => setDeleteContatoId(contato.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredContatos.length)} de {filteredContatos.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Contato</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="edit-nome">Nome</Label>
+              <Input
+                id="edit-nome"
+                value={editForm.nome}
+                onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-telefone">Telefone</Label>
+              <Input
+                id="edit-telefone"
+                value={editForm.telefone}
+                onChange={(e) => setEditForm({ ...editForm, telefone: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-email">E-mail</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteContatoId} onOpenChange={(open) => !open && setDeleteContatoId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir contato?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O contato será removido permanentemente do sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
+  );
+};
