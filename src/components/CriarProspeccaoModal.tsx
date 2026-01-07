@@ -2786,13 +2786,6 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                       </div>
                     )}
                     
-                    {/* Título do evento */}
-                    {titulo && (
-                      <h2 className="text-sm font-bold italic mb-2 text-center" style={{ color: paginaCorDestaque }}>
-                        {titulo}
-                      </h2>
-                    )}
-                    
                     {/* Mensagem principal */}
                     <div className="mb-3">
                       <p className="text-sm font-bold text-center leading-tight" style={{ color: paginaCorTexto }}>
