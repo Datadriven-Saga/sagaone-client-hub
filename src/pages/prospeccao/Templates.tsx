@@ -240,58 +240,80 @@ export default function Templates() {
     enabled: !!activeCompany?.id,
   });
 
-  // Fetch agente da empresa (PRI) para buscar templates compartilhados pelo telefone
-  const { data: agenteEmpresa } = useQuery({
-    queryKey: ["agente_empresa_pri", activeCompany?.id],
+  // Fetch agente(s) da empresa (PRI) e resolve o **telefone PRI normalizado**
+  // Motivo do bug: existem empresas com MAIS DE UM registro de agente "Pri".
+  // Usar maybeSingle() falha (erro de múltiplas linhas) e caía no fallback (somente empresa atual).
+  const { data: priTelefoneNormalizado } = useQuery({
+    queryKey: ["pri_telefone_normalizado", activeCompany?.id],
     queryFn: async () => {
       if (!activeCompany?.id) return null;
+
       const { data, error } = await supabase
         .from("agentes_ia")
-        .select("id, telefone, dealer_id")
+        .select("telefone")
         .eq("empresa_id", activeCompany.id)
-        .eq("nome", "Pri")
-        .maybeSingle();
+        .eq("nome", "Pri");
+
       if (error) {
-        console.error("Erro ao buscar agente Pri:", error);
+        console.error("Erro ao buscar agentes Pri:", error);
         return null;
       }
-      return data;
+
+      const telefones = (data || [])
+        .map((a) => normalizePhone(a.telefone || ""))
+        .filter(Boolean);
+
+      // Preferir um telefone "real" (>= 10 dígitos) se existir
+      const preferido = telefones.find((t) => t.length >= 10) || telefones[0] || null;
+      return preferido;
     },
     enabled: !!activeCompany?.id,
   });
 
-  // Fetch templates - busca por telefone do agente (PRI compartilhada) para que lojas com mesma PRI vejam os mesmos templates
+  // Fetch templates - busca por telefone PRI normalizado para que lojas com mesma PRI vejam os mesmos templates
   const { data: templates = [], refetch: refetchTemplates } = useQuery({
-    queryKey: ["whatsapp_templates", activeCompany?.id, agenteEmpresa?.telefone],
+    queryKey: ["whatsapp_templates", activeCompany?.id, priTelefoneNormalizado],
     queryFn: async () => {
       if (!activeCompany?.id) return [];
-      
-      // Se a empresa tem um agente com telefone, buscar templates de todas as empresas que compartilham esse telefone
-      if (agenteEmpresa?.telefone) {
-        // Primeiro buscar todos os agentes com o mesmo telefone (mesma PRI)
-        const { data: agentesCompartilhados, error: agentesError } = await supabase
+
+      // Se temos PRI, buscar todas as empresas cujo telefone normalizado bate.
+      if (priTelefoneNormalizado) {
+        // 1) Buscar todos os agentes Pri (telefone + empresa) e filtrar no client usando normalizePhone
+        const { data: priAgents, error: priAgentsError } = await supabase
           .from("agentes_ia")
-          .select("id, empresa_id")
-          .eq("telefone", agenteEmpresa.telefone)
-          .eq("nome", "Pri");
-        
-        if (agentesError) {
-          console.error("Erro ao buscar agentes compartilhados:", agentesError);
+          .select("empresa_id, telefone")
+          .eq("nome", "Pri")
+          .not("telefone", "is", null);
+
+        if (priAgentsError) {
+          console.error("Erro ao buscar agentes Pri para compartilhamento:", priAgentsError);
+          // fallback seguro
+          const { data, error } = await supabase
+            .from("whatsapp_templates")
+            .select("*, departamentos(nome)")
+            .eq("empresa_id", activeCompany.id)
+            .order("created_at", { ascending: false });
+          if (error) throw error;
+          return data;
         }
-        
-        const empresasIds = agentesCompartilhados?.map(a => a.empresa_id) || [];
-        
-        // Buscar templates que pertencem a qualquer uma dessas empresas
-        const { data, error } = await supabase
-          .from("whatsapp_templates")
-          .select("*, departamentos(nome)")
-          .in("empresa_id", empresasIds)
-          .order("created_at", { ascending: false });
-        
-        if (error) throw error;
-        return data;
+
+        const empresasIds = (priAgents || [])
+          .filter((a) => normalizePhone(a.telefone || "") === priTelefoneNormalizado)
+          .map((a) => a.empresa_id)
+          .filter(Boolean);
+
+        if (empresasIds.length > 0) {
+          const { data, error } = await supabase
+            .from("whatsapp_templates")
+            .select("*, departamentos(nome)")
+            .in("empresa_id", empresasIds)
+            .order("created_at", { ascending: false });
+
+          if (error) throw error;
+          return data;
+        }
       }
-      
+
       // Fallback: buscar apenas templates da empresa (comportamento original)
       const { data, error } = await supabase
         .from("whatsapp_templates")
@@ -315,17 +337,19 @@ export default function Templates() {
       setVerificandoNome(true);
       try {
         let query;
-        
-        // Se tem agente com telefone, verificar em todos os templates das empresas que compartilham a mesma PRI
-        if (agenteEmpresa?.telefone) {
-          const { data: agentesCompartilhados } = await supabase
+
+        if (priTelefoneNormalizado) {
+          const { data: priAgents } = await supabase
             .from("agentes_ia")
-            .select("empresa_id")
-            .eq("telefone", agenteEmpresa.telefone)
-            .eq("nome", "Pri");
-          
-          const empresasIds = agentesCompartilhados?.map(a => a.empresa_id) || [];
-          
+            .select("empresa_id, telefone")
+            .eq("nome", "Pri")
+            .not("telefone", "is", null);
+
+          const empresasIds = (priAgents || [])
+            .filter((a) => normalizePhone(a.telefone || "") === priTelefoneNormalizado)
+            .map((a) => a.empresa_id)
+            .filter(Boolean);
+
           query = supabase
             .from("whatsapp_templates")
             .select("id")
@@ -355,7 +379,7 @@ export default function Templates() {
 
     const debounceTimer = setTimeout(verificarNomeDuplicado, 300);
     return () => clearTimeout(debounceTimer);
-  }, [formData.nome, activeCompany?.id, editingTemplateId, agenteEmpresa?.dealer_id]);
+  }, [formData.nome, activeCompany?.id, editingTemplateId, priTelefoneNormalizado]);
 
   const handleOpenModal = () => {
     setEditingTemplateId(null);
@@ -816,7 +840,7 @@ export default function Templates() {
         formato: formData.formato,
         conteudo: conteudo,
         card_data: cardData,
-        agente_id: agenteEmpresa?.id || null, // Vincular ao agente para compartilhamento entre lojas
+        agente_id: null,
       };
 
       let error;
