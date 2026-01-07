@@ -67,7 +67,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [whatsappTemplates, setWhatsappTemplates] = useState<{ id: string; nome: string; template_id_pri: string | null; id_meta: string | null }[]>([]);
 
   // Novos campos para IA Whatsapp
-  const [eventoPrincipal, setEventoPrincipal] = useState(false);
+  const [eventoPrincipal, setEventoPrincipal] = useState(true);
   const [qualificarLead, setQualificarLead] = useState(true);
   const [dataEnvioInicial, setDataEnvioInicial] = useState("");
   const [dataEnvioCadencia, setDataEnvioCadencia] = useState("");
