@@ -56,7 +56,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProspeccao, setEditingProspeccao] = useState<any>(null);
-  const [deleteProspeccaoId, setDeleteProspeccaoId] = useState<string | null>(null);
+  const [deleteProspeccao, setDeleteProspeccao] = useState<{ id: string; canal: string; eventIdPri: string | null } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [modalContato, setModalContato] = useState<{ 
     isOpen: boolean; 
     contato: Contato | null; 
@@ -1033,23 +1034,52 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteProspeccao = async (prospeccaoId: string) => {
+  const handleDeleteProspeccao = async () => {
+    if (!deleteProspeccao) return;
+    
+    setIsDeleting(true);
     try {
+      // Se for canal Ligação, chamar webhook externo para apagar evento e leads
+      if (deleteProspeccao.canal === 'Ligação' && deleteProspeccao.eventIdPri) {
+        console.log('🗑️ Chamando webhook para deletar evento IA Ligação:', deleteProspeccao.eventIdPri);
+        
+        const webhookResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/deleta-eventos-saga-one', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_evento: parseInt(deleteProspeccao.eventIdPri, 10),
+            operacao: 'deletar'
+          })
+        });
+        
+        if (!webhookResponse.ok) {
+          console.error('❌ Erro no webhook de exclusão:', webhookResponse.status);
+          throw new Error('Falha ao excluir evento no sistema externo');
+        }
+        
+        console.log('✅ Webhook de exclusão executado com sucesso');
+      }
+      
+      // Excluir no Supabase
       if (excluirProspeccao) {
-        await excluirProspeccao(prospeccaoId);
-        setDeleteProspeccaoId(null);
+        await excluirProspeccao(deleteProspeccao.id);
+        setDeleteProspeccao(null);
         toast({
           title: "Prospecção excluída",
-          description: "A prospecção foi removida com sucesso."
+          description: deleteProspeccao.canal === 'Ligação' 
+            ? "O evento e todos os leads vinculados foram removidos com sucesso."
+            : "A prospecção foi removida com sucesso."
         });
       }
     } catch (error) {
       console.error('Erro ao excluir prospecção:', error);
       toast({
         title: "Erro ao excluir",
-        description: "Não foi possível excluir a prospecção.",
+        description: error instanceof Error ? error.message : "Não foi possível excluir a prospecção.",
         variant: "destructive"
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1263,7 +1293,11 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                         Editar
                                       </DropdownMenuItem>
                                       <DropdownMenuItem 
-                                        onClick={() => setDeleteProspeccaoId(prospeccao.id)}
+                                        onClick={() => setDeleteProspeccao({ 
+                                          id: prospeccao.id, 
+                                          canal: prospeccao.canal || '', 
+                                          eventIdPri: prospeccao.event_id_pri || null 
+                                        })}
                                         className="text-red-600"
                                       >
                                         <Trash2 className="mr-2 h-4 w-4" />
@@ -1635,21 +1669,38 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       />
 
       {/* Modal de confirmação de exclusão */}
-      <AlertDialog open={deleteProspeccaoId !== null} onOpenChange={() => setDeleteProspeccaoId(null)}>
+      <AlertDialog open={deleteProspeccao !== null} onOpenChange={() => !isDeleting && setDeleteProspeccao(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Prospecção</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir esta prospecção? Esta ação não pode ser desfeita.
+            <AlertDialogTitle>
+              {deleteProspeccao?.canal === 'Ligação' ? 'Excluir Evento e Leads' : 'Excluir Prospecção'}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              {deleteProspeccao?.canal === 'Ligação' ? (
+                <>
+                  <span className="block font-semibold text-destructive">
+                    ⚠️ Atenção: Esta ação é irreversível!
+                  </span>
+                  <span className="block">
+                    Ao excluir este evento de Ligação, <strong>todos os leads vinculados a este evento também serão apagados permanentemente</strong> do sistema.
+                  </span>
+                  <span className="block mt-2">
+                    Você tem certeza de que deseja apagar o evento e os leads referentes a este evento?
+                  </span>
+                </>
+              ) : (
+                "Tem certeza que deseja excluir esta prospecção? Esta ação não pode ser desfeita."
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteProspeccaoId && handleDeleteProspeccao(deleteProspeccaoId)}
+              onClick={handleDeleteProspeccao}
               className="bg-red-600 hover:bg-red-700"
+              disabled={isDeleting}
             >
-              Excluir
+              {isDeleting ? 'Excluindo...' : 'Excluir'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
