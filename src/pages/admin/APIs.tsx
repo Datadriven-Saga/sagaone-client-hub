@@ -2,9 +2,12 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Code, Activity, Settings, Eye } from "lucide-react";
+import { Plus, Code, Activity, Settings, Eye, ArrowLeft, Webhook, Link2, CheckCircle2, XCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const APIs = () => {
+  const navigate = useNavigate();
+
   const integracoes = [
     {
       nome: "WhatsApp Business API",
@@ -68,139 +71,189 @@ const APIs = () => {
     }
   ];
 
+  const getMetodoBadgeVariant = (metodo: string) => {
+    switch (metodo) {
+      case 'GET': return 'secondary';
+      case 'PUT': return 'default';
+      case 'POST': return 'destructive';
+      default: return 'outline';
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">APIs e Integrações</h1>
-            <p className="text-muted-foreground">
-              Gerencie APIs externas e integrações do sistema
-            </p>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">APIs e Integrações</h1>
+              <p className="text-sm text-muted-foreground">
+                Gerencie APIs externas e integrações do sistema
+              </p>
+            </div>
           </div>
-          <Button>
+          <Button size="sm">
             <Plus className="h-4 w-4 mr-2" />
             Nova Integração
           </Button>
         </div>
 
+        {/* Integrações Externas */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Code className="h-5 w-5" />
-              Integrações Externas
-            </CardTitle>
-            <CardDescription>
-              APIs conectadas ao sistema Saga One
-            </CardDescription>
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+                <Link2 className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Integrações Externas</CardTitle>
+                <CardDescription>APIs conectadas ao sistema Saga One</CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {integracoes.map((api, index) => (
-                <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="space-y-2">
+          <CardContent className="space-y-3">
+            {integracoes.map((api, index) => (
+              <div 
+                key={index} 
+                className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                    api.status === "Conectado" ? "bg-green-500/10" : "bg-destructive/10"
+                  }`}>
+                    {api.status === "Conectado" ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-destructive" />
+                    )}
+                  </div>
+                  <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">{api.nome}</h3>
-                      <Badge variant={api.status === "Conectado" ? "default" : "secondary"}>
+                      <h3 className="font-medium text-foreground">{api.nome}</h3>
+                      <Badge variant={api.status === "Conectado" ? "default" : "secondary"} className="text-xs">
                         {api.status}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">{api.tipo}</p>
-                    <div className="text-xs text-muted-foreground">
-                      <p>Endpoint: {api.endpoint}</p>
-                      <p>Última sincronização: {api.ultimaSincronizacao}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm">
-                      <Activity className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Settings className="h-4 w-4" />
-                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Última sincronização: {api.ultimaSincronizacao}
+                    </p>
                   </div>
                 </div>
-              ))}
-            </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Activity className="h-4 w-4" />
+                    <span className="hidden sm:inline">Logs</span>
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate('/configuracoes')}>
+                    <Settings className="h-4 w-4" />
+                    <span className="hidden sm:inline">Configurar</span>
+                  </Button>
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
+        {/* APIs de Prospecção */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Code className="h-5 w-5" />
-              APIs de Prospecção
-            </CardTitle>
-            <CardDescription>
-              APIs para gerenciar contatos e status nas prospecções
-            </CardDescription>
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500/10">
+                <Code className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">APIs de Prospecção</CardTitle>
+                <CardDescription>APIs para gerenciar contatos e status nas prospecções</CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {apisProspeccao.map((api, index) => (
-                <div key={index} className="p-4 border rounded-lg">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">{api.nome}</h3>
-                      <Badge variant="secondary">{api.metodo}</Badge>
+          <CardContent className="space-y-3">
+            {apisProspeccao.map((api, index) => (
+              <div 
+                key={index} 
+                className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant={getMetodoBadgeVariant(api.metodo)} className="font-mono text-xs">
+                        {api.metodo}
+                      </Badge>
+                      <h3 className="font-medium text-foreground">{api.nome}</h3>
                     </div>
-                    <p className="text-sm text-muted-foreground">{api.descricao}</p>
-                    <div className="text-xs text-muted-foreground">
-                      <p className="font-mono bg-muted p-2 rounded">
+                    <p className="text-sm text-muted-foreground mb-3">{api.descricao}</p>
+                    <div className="bg-background/80 border rounded-md p-3">
+                      <code className="text-xs text-muted-foreground break-all">
                         {api.endpoint}{api.parametros && api.parametros}
-                      </p>
-                      {api.parametros && !api.parametros.startsWith('?') && (
-                        <p className="mt-1">Body: {api.parametros}</p>
-                      )}
+                      </code>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-3">
-                    <Button variant="outline" size="sm">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                  </div>
                 </div>
-              ))}
-            </div>
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/50">
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Eye className="h-4 w-4" />
+                    Documentação
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate('/administracao/test-apis')}>
+                    <Settings className="h-4 w-4" />
+                    Testar API
+                  </Button>
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
+        {/* Webhooks */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Webhooks
-            </CardTitle>
-            <CardDescription>
-              Endpoints para receber notificações em tempo real
-            </CardDescription>
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-orange-500/10">
+                <Webhook className="h-5 w-5 text-orange-500" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Webhooks</CardTitle>
+                <CardDescription>Endpoints para receber notificações em tempo real</CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {webhooks.map((webhook, index) => (
-                <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="space-y-1">
-                    <h3 className="font-semibold">{webhook.nome}</h3>
-                    <p className="text-sm text-muted-foreground">{webhook.url}</p>
-                    <p className="text-xs text-muted-foreground">
+          <CardContent className="space-y-3">
+            {webhooks.map((webhook, index) => (
+              <div 
+                key={index} 
+                className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-500/10">
+                    <Activity className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium text-foreground">{webhook.nome}</h3>
+                      <Badge variant="default" className="text-xs">{webhook.status}</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground font-mono">{webhook.url}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
                       Última execução: {webhook.ultimaExecucao}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="default">{webhook.status}</Badge>
-                    <Button variant="outline" size="sm">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                  </div>
                 </div>
-              ))}
-            </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Eye className="h-4 w-4" />
+                    <span className="hidden sm:inline">Logs</span>
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate('/configuracoes')}>
+                    <Settings className="h-4 w-4" />
+                    <span className="hidden sm:inline">Configurar</span>
+                  </Button>
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       </div>
