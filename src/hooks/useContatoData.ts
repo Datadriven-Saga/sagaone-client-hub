@@ -663,33 +663,61 @@ export const useContatoData = () => {
         throw fetchError;
       }
 
-      // Se for IA Ligação, chamar webhook externo de exclusão
-      if (prospeccaoData?.canal === 'Ligação' && prospeccaoData?.event_id_pri) {
-        console.log('📞 Chamando webhook externo de exclusão para IA Ligação:', prospeccaoData.titulo);
-        console.log('🔢 ID do evento:', prospeccaoData.event_id_pri);
-        
-        try {
-          const webhookResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/deleta-eventos-saga-one', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id_evento: parseInt(prospeccaoData.event_id_pri, 10),
-              operacao: 'deletar'
-            })
-          });
-          
-          if (!webhookResponse.ok) {
-            console.error('❌ Erro no webhook de exclusão:', webhookResponse.status);
-            const errorText = await webhookResponse.text();
-            console.error('Resposta:', errorText);
-            // Continua com a exclusão mesmo se o webhook falhar
-          } else {
-            console.log('✅ Webhook de exclusão executado com sucesso');
-          }
-        } catch (webhookError) {
-          console.error('❌ Erro ao chamar webhook de exclusão:', webhookError);
-          // Continua com a exclusão mesmo se o webhook falhar
+      // Se for IA Ligação, chamar edge function (server-to-server) para evitar CORS
+      const canalStr = String(prospeccaoData?.canal || '');
+      const isLigacao = canalStr.toLowerCase().includes('liga');
+
+      if (isLigacao && prospeccaoData?.event_id_pri) {
+        const idEventoNum = parseInt(prospeccaoData.event_id_pri, 10);
+        if (!Number.isFinite(idEventoNum)) {
+          throw new Error(`event_id_pri inválido: ${prospeccaoData.event_id_pri}`);
         }
+
+        console.log('📞 Excluindo evento no webhook (IA Ligação) via edge function:', prospeccaoData.titulo);
+        console.log('🔢 ID do evento:', idEventoNum);
+
+        const { data: webhookData, error: webhookError } = await supabase.functions.invoke('ia-ligacao-webhook', {
+          body: {
+            evento: {
+              id: prospeccaoData.id,
+              titulo: prospeccaoData.titulo,
+              descricao: null,
+              data_inicio: null,
+              data_fim: null,
+              canal: prospeccaoData.canal,
+              evento_principal: false,
+              qualificar_lead: false,
+              imagem_divulgacao_url: null,
+              uf: null,
+              cidade: null,
+              endereco: null,
+              id_evento: idEventoNum,
+            },
+            contatos: [],
+            empresa_id: prospeccaoData.empresa_id,
+            acao: 'deletar',
+          },
+        });
+
+        if (webhookError) {
+          console.error('❌ Erro ao chamar edge function ia-ligacao-webhook (deletar):', webhookError);
+          throw new Error('Falha ao excluir o evento no webhook (IA Ligação).');
+        }
+
+        const result: any = webhookData;
+        if (result?.success === false || result?.error) {
+          console.error('❌ Webhook retornou erro (deletar):', result);
+          const detalhe =
+            result?.data?.message ||
+            result?.data?.hint ||
+            result?.data?.raw ||
+            result?.error ||
+            result?.message ||
+            'Falha ao excluir o evento.';
+          throw new Error(`Webhook IA Ligação: ${detalhe}`);
+        }
+
+        console.log('✅ Evento removido no webhook (IA Ligação) com sucesso');
       }
 
       // Excluir no Supabase
