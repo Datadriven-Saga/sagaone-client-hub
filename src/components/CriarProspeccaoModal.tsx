@@ -180,6 +180,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     origem?: string;
   }
   const [contatosLigacao, setContatosLigacao] = useState<ContatoLigacao[]>([]);
+  
+  // Campos de localização do evento (para IA Ligação)
+  const [eventoUF, setEventoUF] = useState("");
+  const [eventoCidade, setEventoCidade] = useState("");
+  const [eventoEndereco, setEventoEndereco] = useState("");
   const [processandoPlanilha, setProcessandoPlanilha] = useState(false);
   const [modoImportBase, setModoImportBase] = useState<'upload' | 'existente'>('upload');
   const [baseExistenteSearch, setBaseExistenteSearch] = useState('');
@@ -391,6 +396,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     // Reset IA Ligação
     setContatosLigacao([]);
     setProcessandoPlanilha(false);
+    setEventoUF("");
+    setEventoCidade("");
+    setEventoEndereco("");
     // Reset tipo e step
     setTipoEvento('Prospecção Mensal');
     setCurrentStep(0);
@@ -1320,6 +1328,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
             evento_principal: prospeccaoData.evento_principal,
             qualificar_lead: prospeccaoData.qualificar_lead,
             imagem_divulgacao_url: prospeccaoData.imagem_divulgacao_url,
+            // Localização específica do evento
+            uf: eventoUF.trim(),
+            cidade: eventoCidade.trim(),
+            endereco: eventoEndereco.trim(),
           },
           contatos: contatosParaEnviar,
           empresa_id: activeCompany.id,
@@ -1759,6 +1771,19 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
       });
       return;
     }
+    
+    // Validação específica para IA Ligação na etapa de Configuração IA
+    if (tipoEvento === 'IA Ligação' && currentStepName === 'Configuração IA') {
+      if (!eventoUF.trim() || !eventoCidade.trim() || !eventoEndereco.trim()) {
+        toast({
+          title: "Campos obrigatórios",
+          description: "Preencha o Estado (UF), Cidade e Endereço do evento para continuar.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+    
     if (!isLastStep) {
       setCurrentStep(currentStep + 1);
     }
@@ -2223,6 +2248,51 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* Localização do Evento */}
+              <div className="rounded-lg border border-border p-4 bg-card">
+                <div className="flex items-center gap-2 mb-4">
+                  <MapPin className="h-4 w-4 text-primary" />
+                  <h4 className="text-sm font-medium">Localização do Evento *</h4>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="eventoUF">Estado (UF) *</Label>
+                    <Input
+                      id="eventoUF"
+                      placeholder="Ex: GO"
+                      value={eventoUF}
+                      onChange={(e) => setEventoUF(e.target.value.toUpperCase().slice(0, 2))}
+                      maxLength={2}
+                      className={!eventoUF.trim() ? 'border-destructive' : ''}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="eventoCidade">Cidade *</Label>
+                    <Input
+                      id="eventoCidade"
+                      placeholder="Ex: Goiânia"
+                      value={eventoCidade}
+                      onChange={(e) => setEventoCidade(e.target.value)}
+                      className={!eventoCidade.trim() ? 'border-destructive' : ''}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="eventoEndereco">Endereço Completo *</Label>
+                  <Textarea
+                    id="eventoEndereco"
+                    placeholder="Ex: Av. República do Líbano, 1234 - Setor Oeste"
+                    value={eventoEndereco}
+                    onChange={(e) => setEventoEndereco(e.target.value)}
+                    rows={2}
+                    className={!eventoEndereco.trim() ? 'border-destructive' : ''}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  * Campos obrigatórios para o disparo das ligações
+                </p>
               </div>
 
               {/* Descrição com borda e botão expandir */}
