@@ -206,10 +206,14 @@ Deno.serve(async (req: Request) => {
     // Gerar ou usar id_evento numérico
     let idEvento: number | undefined = evento.id_evento;
     
-    // Para criação, buscar próximo ID via webhook externo
+    // Para criação, o ID já deve vir do frontend (verificado via webhook verifica-eventos)
+    // Se não veio, tentar buscar como fallback
     if (operacao === 'criar' && !idEvento) {
+      console.log('⚠️ ID do evento não fornecido pelo frontend, buscando via webhook...');
       idEvento = await buscarProximoIdEvento();
-      console.log('🔢 ID Evento obtido via webhook:', idEvento);
+      console.log('🔢 ID Evento obtido via webhook (fallback):', idEvento);
+    } else if (operacao === 'criar' && idEvento) {
+      console.log('✅ ID Evento recebido do frontend:', idEvento);
     }
     
     // Para atualização/exclusão, buscar o ID existente se não fornecido
