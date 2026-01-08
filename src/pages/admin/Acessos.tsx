@@ -71,10 +71,7 @@ const Acessos = () => {
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [filterEmpresaId, setFilterEmpresaId] = useState<string>("");
-  const [filterNome, setFilterNome] = useState("");
-  const [filterEmail, setFilterEmail] = useState("");
-  const [filterCpf, setFilterCpf] = useState("");
-  const [filterCelular, setFilterCelular] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -564,50 +561,14 @@ const Acessos = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Nome</label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5 md:col-span-1">
+                <label className="text-xs font-medium text-muted-foreground">Pesquisar</label>
                 <Input
-                  placeholder="Buscar por nome..."
-                  value={filterNome}
+                  placeholder="Buscar por nome, email, CPF ou telefone..."
+                  value={filterSearch}
                   onChange={(e) => {
-                    setFilterNome(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Email</label>
-                <Input
-                  placeholder="Buscar por email..."
-                  value={filterEmail}
-                  onChange={(e) => {
-                    setFilterEmail(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">CPF</label>
-                <Input
-                  placeholder="Buscar por CPF..."
-                  value={filterCpf}
-                  onChange={(e) => {
-                    setFilterCpf(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Telefone</label>
-                <Input
-                  placeholder="Buscar por telefone..."
-                  value={filterCelular}
-                  onChange={(e) => {
-                    setFilterCelular(e.target.value);
+                    setFilterSearch(e.target.value);
                     setCurrentPage(1);
                   }}
                   className="h-9"
@@ -676,10 +637,7 @@ const Acessos = () => {
               <FilteredUsersList 
                 profiles={profiles}
                 companies={companies}
-                filterNome={filterNome}
-                filterEmail={filterEmail}
-                filterCpf={filterCpf}
-                filterCelular={filterCelular}
+                filterSearch={filterSearch}
                 filterEmpresaId={filterEmpresaId}
                 filterStatus={filterStatus}
                 currentPage={currentPage}
@@ -701,10 +659,7 @@ const Acessos = () => {
 interface FilteredUsersListProps {
   profiles: Profile[];
   companies: Company[];
-  filterNome: string;
-  filterEmail: string;
-  filterCpf: string;
-  filterCelular: string;
+  filterSearch: string;
   filterEmpresaId: string;
   filterStatus: string;
   currentPage: number;
@@ -716,10 +671,7 @@ interface FilteredUsersListProps {
 
 const FilteredUsersList = ({
   profiles,
-  filterNome,
-  filterEmail,
-  filterCpf,
-  filterCelular,
+  filterSearch,
   filterEmpresaId,
   filterStatus,
   currentPage,
@@ -730,16 +682,18 @@ const FilteredUsersList = ({
 }: FilteredUsersListProps) => {
   const filteredProfiles = useMemo(() => {
     return profiles.filter(profile => {
-      const matchNome = !filterNome || profile.nome_completo?.toLowerCase().includes(filterNome.toLowerCase());
-      const matchEmail = !filterEmail || profile.email?.toLowerCase().includes(filterEmail.toLowerCase());
-      const matchCpf = !filterCpf || profile.cpf?.toLowerCase().includes(filterCpf.toLowerCase());
-      const matchCelular = !filterCelular || profile.celular?.includes(filterCelular);
+      const searchLower = filterSearch.toLowerCase();
+      const matchSearch = !filterSearch || 
+        profile.nome_completo?.toLowerCase().includes(searchLower) ||
+        profile.email?.toLowerCase().includes(searchLower) ||
+        profile.cpf?.toLowerCase().includes(searchLower) ||
+        profile.celular?.includes(filterSearch);
       const matchEmpresa = !filterEmpresaId || filterEmpresaId === "all" || profile.empresas?.some(e => e.id === filterEmpresaId);
       const matchStatus = !filterStatus || filterStatus === "all" || profile.status === filterStatus;
       
-      return matchNome && matchEmail && matchCpf && matchCelular && matchEmpresa && matchStatus;
+      return matchSearch && matchEmpresa && matchStatus;
     });
-  }, [profiles, filterNome, filterEmail, filterCpf, filterCelular, filterEmpresaId, filterStatus]);
+  }, [profiles, filterSearch, filterEmpresaId, filterStatus]);
 
   const totalPages = Math.ceil(filteredProfiles.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
