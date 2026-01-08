@@ -652,40 +652,58 @@ export const useContatoData = () => {
   const excluirProspeccao = async (prospeccaoId: string) => {
     try {
       // Primeiro, buscar dados da prospecção para verificar se é IA Ligação
-      const { data: prospeccaoData } = await supabase
+      const { data: prospeccaoData, error: fetchError } = await supabase
         .from('prospeccoes')
         .select('id, titulo, canal, event_id_pri, empresa_id')
         .eq('id', prospeccaoId)
         .single();
 
-      // Se for IA Ligação, chamar webhook de exclusão
+      if (fetchError) {
+        console.error('Erro ao buscar prospecção:', fetchError);
+        throw fetchError;
+      }
+
+      // Se for IA Ligação, chamar webhook externo de exclusão
       if (prospeccaoData?.canal === 'Ligação' && prospeccaoData?.event_id_pri) {
-        console.log('📞 Chamando webhook de exclusão para IA Ligação:', prospeccaoData.titulo);
+        console.log('📞 Chamando webhook externo de exclusão para IA Ligação:', prospeccaoData.titulo);
+        console.log('🔢 ID do evento:', prospeccaoData.event_id_pri);
+        
         try {
-          await supabase.functions.invoke('ia-ligacao-webhook', {
-            body: {
-              evento: {
-                id: prospeccaoData.id,
-                titulo: prospeccaoData.titulo,
-                id_evento: parseInt(prospeccaoData.event_id_pri, 10),
-              },
-              empresa_id: prospeccaoData.empresa_id,
-              acao: 'deletar',
-            },
+          const webhookResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/deleta-eventos-saga-one', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id_evento: parseInt(prospeccaoData.event_id_pri, 10),
+              operacao: 'deletar'
+            })
           });
-          console.log('✅ Webhook de exclusão enviado com sucesso');
+          
+          if (!webhookResponse.ok) {
+            console.error('❌ Erro no webhook de exclusão:', webhookResponse.status);
+            const errorText = await webhookResponse.text();
+            console.error('Resposta:', errorText);
+            // Continua com a exclusão mesmo se o webhook falhar
+          } else {
+            console.log('✅ Webhook de exclusão executado com sucesso');
+          }
         } catch (webhookError) {
-          console.error('❌ Erro ao enviar webhook de exclusão:', webhookError);
+          console.error('❌ Erro ao chamar webhook de exclusão:', webhookError);
           // Continua com a exclusão mesmo se o webhook falhar
         }
       }
 
+      // Excluir no Supabase
       const { error } = await supabase
         .from('prospeccoes')
         .delete()
         .eq('id', prospeccaoId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao excluir prospecção no banco:', error);
+        throw error;
+      }
+      
+      console.log('✅ Prospecção excluída do banco com sucesso');
       setProspeccoes(prev => prev.filter(p => p.id !== prospeccaoId));
     } catch (error) {
       console.error('Erro ao excluir prospecção:', error);
