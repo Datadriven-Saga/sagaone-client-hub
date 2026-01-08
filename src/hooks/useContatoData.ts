@@ -347,10 +347,11 @@ export const useContatoData = () => {
         
         console.log('📊 Dados da prospecção para webhook:', prospeccaoData);
         
-        for (const contato of data) {
+        // Processar em lotes paralelos para maior velocidade
+        const BATCH_SIZE = 20; // Processa 20 contatos por vez em paralelo
+        
+        const processarContato = async (contato: typeof data[0]) => {
           try {
-            console.log('Disparando webhook para contato:', contato);
-            
             // Webhook de prospecção (existente) - inclui lead_id
             const webhookResponse = await supabase.functions.invoke('trigger-webhook', {
               body: {
@@ -363,7 +364,6 @@ export const useContatoData = () => {
                   telefone: normalizePhone(contato.telefone),
                   email: contato.email,
                   status: contato.status || 'Novo',
-                  // Dados da prospecção
                   prospeccao: {
                     id: prospeccaoData?.id,
                     nome: prospeccaoData?.titulo,
@@ -373,8 +373,6 @@ export const useContatoData = () => {
                 }
               }
             });
-            
-            console.log('Webhook prospecção response:', webhookResponse);
             
             // Webhook de status para atendimento - APENAS para campanhas WhatsApp
             if (prospeccaoData?.canal === 'Whatsapp') {
@@ -388,14 +386,24 @@ export const useContatoData = () => {
                   prospeccao_id: prospeccaoId
                 }
               });
-              console.log('✅ Webhook atendimento-status disparado (campanha WhatsApp) com leadId:', contato.lead_id);
             }
             
-            console.log('Webhooks disparados com sucesso para contato:', contato.id);
+            return { success: true, id: contato.id };
           } catch (webhookError) {
             console.error('Erro ao disparar webhook para contato:', contato.id, webhookError);
+            return { success: false, id: contato.id };
           }
+        };
+        
+        // Processar em batches paralelos
+        for (let i = 0; i < data.length; i += BATCH_SIZE) {
+          const batch = data.slice(i, i + BATCH_SIZE);
+          console.log(`📦 Processando batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(data.length / BATCH_SIZE)} (${batch.length} contatos)`);
+          
+          await Promise.all(batch.map(processarContato));
         }
+        
+        console.log('✅ Todos os webhooks disparados');
       }
       // Leads sem prospecção NÃO disparam webhook de status
       
