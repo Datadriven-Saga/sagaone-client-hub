@@ -1134,8 +1134,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           await saveConvite(data.id);
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
-          // Chamar webhooks específicos de IA Ligação
-          await callIALigacaoWebhooks(data);
+          // Chamar webhooks específicos de IA Ligação com ação 'atualizar'
+          await callIALigacaoWebhooks(data, 'atualizar');
         }
 
         toast({
@@ -1190,8 +1190,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           await saveConvite(data.id);
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
-          // Chamar webhooks específicos de IA Ligação
-          await callIALigacaoWebhooks(data);
+          // Chamar webhooks específicos de IA Ligação com ação 'criar'
+          await callIALigacaoWebhooks(data, 'criar');
         }
 
         toast({
@@ -1299,22 +1299,24 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
 
-  // Função para chamar webhooks de IA Ligação
-  const callIALigacaoWebhooks = async (prospeccaoData: any): Promise<boolean> => {
+  // Função para chamar webhooks de IA Ligação (criar, atualizar, deletar)
+  const callIALigacaoWebhooks = async (prospeccaoData: any, acao: 'criar' | 'atualizar' | 'deletar' = 'criar'): Promise<boolean> => {
     if (!activeCompany?.id) return false;
     
-    console.log('📞 Enviando evento + contatos para webhook IA Ligação:', prospeccaoData.titulo);
+    console.log(`📞 Enviando evento para webhook IA Ligação (${acao}):`, prospeccaoData.titulo);
     
     try {
-      // Mapear contatos da planilha importada ou da base existente
-      const contatosParaEnviar = (contatosLigacao || []).map((c) => ({
-        nome: c.nome || '',
-        telefone: c.telefone || '',
-        email: c.email || '',
-        origem: c.origem || 'IA Ligação',
-      }));
+      // Mapear contatos da planilha importada ou da base existente (apenas para criar/atualizar)
+      const contatosParaEnviar = acao !== 'deletar' 
+        ? (contatosLigacao || []).map((c) => ({
+            nome: c.nome || '',
+            telefone: c.telefone || '',
+            email: c.email || '',
+            origem: c.origem || 'IA Ligação',
+          }))
+        : [];
       
-      console.log('📤 Enviando para webhook com', contatosParaEnviar.length, 'contatos...');
+      console.log(`📤 Enviando para webhook (${acao}) com`, contatosParaEnviar.length, 'contatos...');
       
       const response = await supabase.functions.invoke('ia-ligacao-webhook', {
         body: {
@@ -1332,17 +1334,20 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
             uf: eventoUF.trim(),
             cidade: eventoCidade.trim(),
             endereco: eventoEndereco.trim(),
+            // ID numérico do evento (se existir)
+            id_evento: prospeccaoData.event_id_pri ? parseInt(prospeccaoData.event_id_pri, 10) : undefined,
           },
           contatos: contatosParaEnviar,
           empresa_id: activeCompany.id,
+          acao: acao,
         },
       });
       
       if (response.error) {
         console.error('❌ Erro ao enviar webhook:', response.error);
         toast({
-          title: "Erro no disparo de ligação",
-          description: "Não foi possível configurar o disparo de ligações. Tente novamente.",
+          title: `Erro na operação (${acao})`,
+          description: "Não foi possível processar a operação. Tente novamente.",
           variant: "destructive",
         });
         return false;
@@ -1359,27 +1364,48 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           responseData?.data?.raw ||
           responseData?.error ||
           responseData?.message ||
-          "Falha ao configurar o disparo de ligações.";
+          `Falha ao ${acao} evento.`;
 
         toast({
-          title: "Erro no disparo de ligação",
+          title: `Erro na operação (${acao})`,
           description: `(${responseData?.status ?? 'sem status'}) ${detalhe}`,
           variant: "destructive",
         });
         return false;
       }
       
-      console.log('✅ Webhook enviado com sucesso:', responseData);
+      console.log(`✅ Webhook (${acao}) enviado com sucesso:`, responseData);
+      
+      // Se for criação e retornou id_evento, salvar na prospecção
+      if (acao === 'criar' && responseData?.id_evento) {
+        const { error: updateError } = await supabase
+          .from('prospeccoes')
+          .update({ event_id_pri: String(responseData.id_evento) })
+          .eq('id', prospeccaoData.id);
+        
+        if (updateError) {
+          console.error('❌ Erro ao salvar event_id_pri:', updateError);
+        } else {
+          console.log(`✅ event_id_pri "${responseData.id_evento}" salvo na prospecção ${prospeccaoData.id}`);
+        }
+      }
+      
+      const mensagens = {
+        criar: `${contatosParaEnviar.length} contatos enviados para ligação.`,
+        atualizar: 'Evento atualizado com sucesso.',
+        deletar: 'Evento removido com sucesso.',
+      };
+      
       toast({
-        title: "Disparo configurado!",
-        description: `${contatosParaEnviar.length} contatos enviados para ligação.`,
+        title: acao === 'criar' ? "Disparo configurado!" : acao === 'atualizar' ? "Evento atualizado!" : "Evento removido!",
+        description: mensagens[acao],
       });
       return true;
       
     } catch (error) {
       console.error('❌ Erro ao chamar webhook IA Ligação:', error);
       toast({
-        title: "Erro no disparo de ligação",
+        title: `Erro na operação (${acao})`,
         description: "Ocorreu um erro inesperado. Tente novamente.",
         variant: "destructive",
       });

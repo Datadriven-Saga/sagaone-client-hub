@@ -647,9 +647,38 @@ export const useContatoData = () => {
     }
   };
 
-  // Excluir prospecção - SIMPLES
+  // Excluir prospecção - Com webhook para IA Ligação
   const excluirProspeccao = async (prospeccaoId: string) => {
     try {
+      // Primeiro, buscar dados da prospecção para verificar se é IA Ligação
+      const { data: prospeccaoData } = await supabase
+        .from('prospeccoes')
+        .select('id, titulo, canal, event_id_pri, empresa_id')
+        .eq('id', prospeccaoId)
+        .single();
+
+      // Se for IA Ligação, chamar webhook de exclusão
+      if (prospeccaoData?.canal === 'Ligação' && prospeccaoData?.event_id_pri) {
+        console.log('📞 Chamando webhook de exclusão para IA Ligação:', prospeccaoData.titulo);
+        try {
+          await supabase.functions.invoke('ia-ligacao-webhook', {
+            body: {
+              evento: {
+                id: prospeccaoData.id,
+                titulo: prospeccaoData.titulo,
+                id_evento: parseInt(prospeccaoData.event_id_pri, 10),
+              },
+              empresa_id: prospeccaoData.empresa_id,
+              acao: 'deletar',
+            },
+          });
+          console.log('✅ Webhook de exclusão enviado com sucesso');
+        } catch (webhookError) {
+          console.error('❌ Erro ao enviar webhook de exclusão:', webhookError);
+          // Continua com a exclusão mesmo se o webhook falhar
+        }
+      }
+
       const { error } = await supabase
         .from('prospeccoes')
         .delete()

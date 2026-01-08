@@ -5,7 +5,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const WEBHOOK_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one';
+// Webhooks para diferentes operações
+const WEBHOOK_CRIAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one';
+const WEBHOOK_ATUALIZAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-eventos-saga-one';
+const WEBHOOK_DELETAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/deleta-eventos-saga-one';
 
 // Telefone padrão da Pri (fallback caso não encontre no banco)
 const TELEFONE_PRI_DEFAULT = '6223980043';
@@ -24,6 +27,8 @@ interface EventoInput {
   uf: string | null;
   cidade: string | null;
   endereco: string | null;
+  // ID numérico do evento (gerado automaticamente)
+  id_evento?: number;
 }
 
 interface ContatoInput {
@@ -50,6 +55,36 @@ interface AgenteData {
   nome: string;
 }
 
+// Gera o próximo id_evento numérico (mínimo 1000)
+async function gerarProximoIdEvento(supabase: any): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('prospeccoes')
+      .select('event_id_pri')
+      .not('event_id_pri', 'is', null)
+      .order('event_id_pri', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao buscar IDs existentes:', error);
+      return 1000;
+    }
+
+    // Encontrar o maior ID numérico
+    let maxId = 999; // Começamos em 999 para que o próximo seja 1000
+    for (const row of data || []) {
+      const id = parseInt(row.event_id_pri, 10);
+      if (!isNaN(id) && id > maxId) {
+        maxId = id;
+      }
+    }
+
+    return maxId + 1;
+  } catch (err) {
+    console.error('Erro ao gerar próximo ID:', err);
+    return 1000;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -61,13 +96,17 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();
-    const { evento, contatos, empresa_id } = body as {
+    const { evento, contatos, empresa_id, acao } = body as {
       evento: EventoInput;
-      contatos: ContatoInput[];
+      contatos?: ContatoInput[];
       empresa_id: string;
+      acao?: 'criar' | 'atualizar' | 'deletar';
     };
 
-    console.log('📞 IA Ligação Webhook - Enviando evento + contatos');
+    // Determinar qual ação executar (padrão: criar)
+    const operacao = acao || 'criar';
+
+    console.log('📞 IA Ligação Webhook - Operação:', operacao);
     console.log('📞 Evento:', evento?.titulo);
     console.log('📞 Total contatos:', contatos?.length || 0);
 
@@ -140,12 +179,35 @@ Deno.serve(async (req: Request) => {
 
     const now = new Date().toISOString();
 
+    // Gerar ou usar id_evento numérico
+    let idEvento: number | undefined = evento.id_evento;
+    
+    // Para criação, gerar novo ID se não foi fornecido
+    if (operacao === 'criar' && !idEvento) {
+      idEvento = await gerarProximoIdEvento(supabase);
+      console.log('🔢 ID Evento gerado:', idEvento);
+    }
+    
+    // Para atualização/exclusão, buscar o ID existente se não fornecido
+    if ((operacao === 'atualizar' || operacao === 'deletar') && !idEvento && evento.id) {
+      const { data: prospData } = await supabase
+        .from('prospeccoes')
+        .select('event_id_pri')
+        .eq('id', evento.id)
+        .single();
+      
+      if (prospData?.event_id_pri) {
+        idEvento = parseInt(prospData.event_id_pri, 10);
+        console.log('🔢 ID Evento existente:', idEvento);
+      }
+    }
+
     // Payload do evento no formato esperado pelo agente
-    // Usa localização específica do evento, com fallback para dados da empresa
     const eventoPayload = {
+      id_evento: idEvento,
       nome: evento.titulo || '',
       descricao: evento.descricao || '',
-      categoria: 'evento', // Pode ser: evento, campanha, teste
+      categoria: 'evento',
       marca: empresa?.marca || empresa?.nome_empresa || '',
       dealerid: dealerId,
       telefone_pri: telefonePri,
@@ -154,7 +216,7 @@ Deno.serve(async (req: Request) => {
       endereco: evento.endereco || empresa?.endereco || '',
       data_inicio: formatarDataISO(evento.data_inicio),
       data_fim: formatarDataISO(evento.data_fim),
-      evt_status: 'ativo',
+      evt_status: operacao === 'deletar' ? 'inativo' : 'ativo',
       criado_em: now,
       atualizado_em: now,
     };
@@ -163,13 +225,10 @@ Deno.serve(async (req: Request) => {
     const contatosPayload = (contatos || []).map((c: ContatoInput) => ({
       nome: c.nome || '',
       telefone: c.telefone || '',
-      loja: empresa?.nome_empresa || '', // Nome completo da loja
+      loja: empresa?.nome_empresa || '',
     }));
 
-    // Payload completo (compatível com diferentes versões do workflow)
-    // - Campos do evento no nível raiz (nome, descricao, etc.)
-    // - Lista de clientes em `clientes`
-    // - Mantém também `evento` e `contatos` (compat)
+    // Payload completo
     const payload = {
       ...eventoPayload,
       clientes: contatosPayload,
@@ -178,49 +237,62 @@ Deno.serve(async (req: Request) => {
       total_clientes: contatosPayload.length,
       total_contatos: contatosPayload.length,
       timestamp: now,
+      acao: operacao,
     };
 
-    const postWebhook = async (url: string) => {
-      console.log('📤 Enviando para:', url);
-      console.log('📦 Payload (preview):', JSON.stringify({
-        nome: payload.nome,
-        dealerid: payload.dealerid,
-        telefone_pri: payload.telefone_pri,
-        uf: payload.uf,
-        cidade: payload.cidade,
-        total_clientes: payload.total_clientes,
-      }, null, 2));
+    // Selecionar webhook baseado na operação
+    let webhookUrl: string;
+    switch (operacao) {
+      case 'atualizar':
+        webhookUrl = WEBHOOK_ATUALIZAR;
+        break;
+      case 'deletar':
+        webhookUrl = WEBHOOK_DELETAR;
+        break;
+      default:
+        webhookUrl = WEBHOOK_CRIAR;
+    }
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+    console.log('📤 Enviando para:', webhookUrl);
+    console.log('📦 Payload:', JSON.stringify({
+      id_evento: payload.id_evento,
+      nome: payload.nome,
+      dealerid: payload.dealerid,
+      telefone_pri: payload.telefone_pri,
+      uf: payload.uf,
+      cidade: payload.cidade,
+      total_clientes: payload.total_clientes,
+      acao: payload.acao,
+    }, null, 2));
 
-      const responseText = await response.text();
-      console.log('✅ Resposta:', response.status, responseText);
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
 
-      let responseData: unknown;
-      try {
-        responseData = JSON.parse(responseText);
-      } catch {
-        responseData = { raw: responseText };
-      }
+    const responseText = await response.text();
+    console.log('✅ Resposta:', response.status, responseText);
 
-      return { ok: response.ok, status: response.status, data: responseData, url };
-    };
+    let responseData: unknown;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch {
+      responseData = { raw: responseText };
+    }
 
-    // Envia somente para o endpoint oficial informado
-    const result = await postWebhook(WEBHOOK_URL);
-
+    // Se a criação foi bem-sucedida, retornar o id_evento para ser salvo
     return new Response(
       JSON.stringify({
-        success: result.ok,
-        status: result.status,
-        url: result.url,
-        data: result.data,
+        success: response.ok,
+        status: response.status,
+        url: webhookUrl,
+        data: responseData,
+        id_evento: idEvento,
         total_contatos: contatosPayload.length,
+        acao: operacao,
         payload_preview: {
+          id_evento: payload.id_evento,
           nome: payload.nome,
           dealerid: payload.dealerid,
           telefone_pri: payload.telefone_pri,
@@ -228,7 +300,6 @@ Deno.serve(async (req: Request) => {
           cidade: payload.cidade,
           endereco: payload.endereco,
           total_clientes: payload.total_clientes,
-          cliente_exemplo: payload.clientes?.[0] ?? null,
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
