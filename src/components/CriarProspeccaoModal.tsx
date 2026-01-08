@@ -1053,30 +1053,37 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           const verificaData = await verificaResponse.json();
           console.log('📊 Resposta verifica-eventos:', verificaData);
           
-          // Determinar o próximo ID baseado na resposta
-          let ultimoId = 0;
+          // Determinar o próximo ID baseado na resposta (sempre soma +1 ao maior ID encontrado)
+          let maiorIdExistente = 0;
+          
           if (typeof verificaData === 'number') {
-            ultimoId = verificaData;
+            maiorIdExistente = verificaData;
           } else if (verificaData.ultimo_id !== undefined) {
-            ultimoId = parseInt(verificaData.ultimo_id, 10);
+            maiorIdExistente = parseInt(verificaData.ultimo_id, 10);
           } else if (verificaData.proximo_id !== undefined) {
+            // Se já vem o próximo ID pronto, usar direto (não incrementar)
             proximoIdEvento = parseInt(verificaData.proximo_id, 10);
           } else if (verificaData.id_evento !== undefined) {
-            ultimoId = parseInt(verificaData.id_evento, 10);
+            // id_evento é o último existente, precisa somar +1
+            maiorIdExistente = parseInt(verificaData.id_evento, 10);
           } else if (verificaData.last_id !== undefined) {
-            ultimoId = parseInt(verificaData.last_id, 10);
+            maiorIdExistente = parseInt(verificaData.last_id, 10);
           } else if (Array.isArray(verificaData) && verificaData.length > 0) {
+            // Array de eventos - encontrar o maior ID
             for (const item of verificaData) {
               const id = parseInt(item.id_evento || item.id || 0, 10);
-              if (!isNaN(id) && id > ultimoId) {
-                ultimoId = id;
+              if (!isNaN(id) && id > maiorIdExistente) {
+                maiorIdExistente = id;
               }
             }
           }
           
+          // Só calcula próximo ID se não veio proximo_id pronto
           if (!proximoIdEvento) {
-            proximoIdEvento = ultimoId + 1;
+            proximoIdEvento = maiorIdExistente + 1;
           }
+          
+          console.log('📊 Maior ID existente:', maiorIdExistente, '→ Próximo ID:', proximoIdEvento);
           
           console.log('🔢 Próximo ID de evento disponível:', proximoIdEvento);
         } catch (verificaError) {
