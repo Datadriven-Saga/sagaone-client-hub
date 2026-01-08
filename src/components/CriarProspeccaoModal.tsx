@@ -38,7 +38,7 @@ const getStepsByType = (tipo: TipoEvento): string[] => {
     case 'IA Whatsapp':
       return ['Dados Gerais', 'Configuração IA', 'Convite'];
     case 'IA Ligação':
-      return ['Dados Gerais', 'Configuração IA', 'Convite'];
+      return ['Dados Gerais', 'Configuração IA'];
     default:
       return ['Dados Gerais'];
   }
