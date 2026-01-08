@@ -5,7 +5,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const WEBHOOK_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one';
+const WEBHOOK_URL_PRIMARY = 'https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one';
+// Fallback (ex.: ambiente de teste do workflow)
+const WEBHOOK_URL_FALLBACK = 'https://automatemaia.sagadatadriven.com.br/webhook-test/configura-eventos-saga-one';
 
 // Telefone padrão da Pri (fallback caso não encontre no banco)
 const TELEFONE_PRI_DEFAULT = '6223980043';
@@ -166,40 +168,64 @@ Deno.serve(async (req: Request) => {
       loja: empresa?.nome_empresa || '', // Nome completo da loja
     }));
 
-    // Payload completo
+    // Payload completo (compatível com diferentes versões do workflow)
+    // - Campos do evento no nível raiz (nome, descricao, etc.)
+    // - Lista de clientes em `clientes`
+    // - Mantém também `evento` e `contatos` (compat)
     const payload = {
+      ...eventoPayload,
+      clientes: contatosPayload,
       evento: eventoPayload,
       contatos: contatosPayload,
+      total_clientes: contatosPayload.length,
       total_contatos: contatosPayload.length,
       timestamp: now,
     };
 
-    console.log('📤 Enviando para:', WEBHOOK_URL);
-    console.log('📦 Payload evento:', JSON.stringify(eventoPayload, null, 2));
-    console.log('📦 Total contatos:', contatosPayload.length);
+    const postWebhook = async (url: string) => {
+      console.log('📤 Enviando para:', url);
+      console.log('📦 Payload (preview):', JSON.stringify({
+        nome: payload.nome,
+        dealerid: payload.dealerid,
+        telefone_pri: payload.telefone_pri,
+        uf: payload.uf,
+        cidade: payload.cidade,
+        total_clientes: payload.total_clientes,
+      }, null, 2));
 
-    const response = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-    const responseText = await response.text();
-    console.log('✅ Resposta:', response.status, responseText);
+      const responseText = await response.text();
+      console.log('✅ Resposta:', response.status, responseText);
 
-    let responseData;
-    try {
-      responseData = JSON.parse(responseText);
-    } catch {
-      responseData = { raw: responseText };
+      let responseData: unknown;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch {
+        responseData = { raw: responseText };
+      }
+
+      return { ok: response.ok, status: response.status, data: responseData, url };
+    };
+
+    // Tenta primeiro a URL principal; se falhar, tenta fallback (ex.: /webhook-test)
+    let result = await postWebhook(WEBHOOK_URL_PRIMARY);
+    if (!result.ok) {
+      console.log('⚠️ Workflow retornou erro na URL principal; tentando fallback...');
+      result = await postWebhook(WEBHOOK_URL_FALLBACK);
     }
 
     return new Response(
       JSON.stringify({
-        success: response.ok,
-        status: response.status,
-        data: responseData,
-        total_contatos: payload.total_contatos,
+        success: result.ok,
+        status: result.status,
+        url: result.url,
+        data: result.data,
+        total_contatos: contatosPayload.length,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
