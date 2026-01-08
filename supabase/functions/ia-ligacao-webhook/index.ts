@@ -7,11 +7,8 @@ const corsHeaders = {
 
 const WEBHOOK_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one';
 
-// Mapeamento de telefones da Pri por UF
-const TELEFONES_PRI_POR_UF: Record<string, string> = {
-  'GO': '6223980043',
-  // Adicionar outros estados conforme necessário
-};
+// Telefone padrão da Pri (fallback caso não encontre no banco)
+const TELEFONE_PRI_DEFAULT = '6223980043';
 
 interface EventoInput {
   id: string;
@@ -83,27 +80,46 @@ Deno.serve(async (req: Request) => {
 
     const empresa = empresaData as EmpresaData | null;
 
-    // Buscar dados do agente IA da empresa
-    const { data: agenteData, error: agenteError } = await supabase
+    // Buscar agente "Pri" (Pri de Ligação) da empresa
+    const { data: priData, error: priError } = await supabase
       .from('agentes_ia')
       .select('telefone, dealer_id, nome')
       .eq('empresa_id', empresa_id)
+      .ilike('nome', '%pri%')
       .eq('ativo', true)
-      .order('created_at', { ascending: true })
       .limit(1)
       .single();
 
-    if (agenteError) {
-      console.error('❌ Erro ao buscar agente:', agenteError);
+    if (priError) {
+      console.log('⚠️ Agente Pri não encontrado, usando fallback:', priError.message);
     }
 
-    const agente = agenteData as AgenteData | null;
+    const agentePri = priData as AgenteData | null;
 
-    // Determinar telefone da Pri baseado na UF
-    const uf = empresa?.uf || 'GO';
-    const telefonePri = TELEFONES_PRI_POR_UF[uf] || TELEFONES_PRI_POR_UF['GO'];
+    // Se não encontrou Pri, buscar qualquer agente ativo da empresa
+    let agenteBackup: AgenteData | null = null;
+    if (!agentePri) {
+      const { data: backupData } = await supabase
+        .from('agentes_ia')
+        .select('telefone, dealer_id, nome')
+        .eq('empresa_id', empresa_id)
+        .eq('ativo', true)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single();
+      
+      agenteBackup = backupData as AgenteData | null;
+    }
 
-    // Determinar dealer_id da loja
+    // Usar dados da Pri ou fallback
+    const agente = agentePri || agenteBackup;
+    
+    // Telefone da Pri: do agente Pri > de qualquer agente > default
+    const telefonePri = agentePri?.telefone?.replace(/\D/g, '') || 
+                        agenteBackup?.telefone?.replace(/\D/g, '') || 
+                        TELEFONE_PRI_DEFAULT;
+
+    // Dealer ID: do agente > crm_id da empresa
     const dealerId = agente?.dealer_id || empresa?.crm_id || '';
 
     const formatarDataISO = (data: string | null): string => {
