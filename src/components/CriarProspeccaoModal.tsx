@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import * as XLSX from 'xlsx';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -166,6 +168,20 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [outrasPremiacoes, setOutrasPremiacoes] = useState<OutraPremiacao[]>([]);
   const [novaOutraPremiacao, setNovaOutraPremiacao] = useState({ nome: "", valor: "" as number | "" });
   const [mostrarFormOutraPremiacao, setMostrarFormOutraPremiacao] = useState(false);
+  
+  // Base de Contatos para IA Ligação
+  interface ContatoLigacao {
+    nome: string;
+    telefone: string;
+    email?: string;
+    cpf?: string;
+    segmentacao?: string;
+    responsavel?: string;
+    origem?: string;
+  }
+  const [contatosLigacao, setContatosLigacao] = useState<ContatoLigacao[]>([]);
+  const [processandoPlanilha, setProcessandoPlanilha] = useState(false);
+  const fileInputLigacaoRef = useState<HTMLInputElement | null>(null);
   
   // Estado para expandir descrição
   const [descricaoExpandida, setDescricaoExpandida] = useState(false);
@@ -367,6 +383,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setQualificarLead(true);
     setDataEnvioInicial("");
     setDataEnvioCadencia("");
+    // Reset IA Ligação
+    setContatosLigacao([]);
+    setProcessandoPlanilha(false);
     // Reset tipo e step
     setTipoEvento('Prospecção Mensal');
     setCurrentStep(0);
@@ -1282,14 +1301,20 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         console.log('✅ Webhook configura-eventos enviado:', eventoResponse.data);
       }
       
-      // 2. Buscar contatos existentes da prospecção (se houver)
-      const { data: contatos } = await supabase
-        .from('contatos')
-        .select('id, nome, telefone, email, origem, status, observacoes')
-        .eq('empresa_id', activeCompany.id);
-      
-      if (contatos && contatos.length > 0) {
-        console.log('📤 Enviando para configura-base com', contatos.length, 'contatos...');
+      // 2. Usar os contatos da planilha importada pelo usuário
+      if (contatosLigacao && contatosLigacao.length > 0) {
+        // Mapear contatos para o formato esperado pelo webhook
+        const contatosParaEnviar = contatosLigacao.map((c, idx) => ({
+          id: `temp-${idx}`,
+          nome: c.nome || '',
+          telefone: c.telefone || '',
+          email: c.email || '',
+          origem: c.origem || '',
+          status: 'novo',
+          observacoes: '',
+        }));
+        
+        console.log('📤 Enviando para configura-base com', contatosParaEnviar.length, 'contatos...');
         const baseResponse = await supabase.functions.invoke('ia-ligacao-webhook', {
           body: {
             action: 'configura-base',
@@ -1297,7 +1322,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
               id: prospeccaoData.id,
               titulo: prospeccaoData.titulo,
             },
-            contatos: contatos,
+            contatos: contatosParaEnviar,
             empresa_id: activeCompany.id,
           },
         });
@@ -1308,7 +1333,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           console.log('✅ Webhook configura-base enviado:', baseResponse.data);
         }
       } else {
-        console.log('ℹ️ Nenhum contato encontrado para enviar na base');
+        console.log('ℹ️ Nenhum contato importado para enviar na base');
       }
       
     } catch (error) {
@@ -1603,6 +1628,97 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
       title: "Modelo aplicado",
       description: "Descrição padrão foi inserida no campo. Edite em Configurações > Mensagens."
     });
+  };
+
+  // Função para processar planilha de contatos para IA Ligação
+  const handleFileLigacao = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) return;
+    
+    if (!selectedFile.type.includes('excel') && !selectedFile.type.includes('spreadsheet') && !selectedFile.name.endsWith('.xlsx') && !selectedFile.name.endsWith('.xls')) {
+      toast({
+        title: "Formato inválido",
+        description: "Por favor, selecione um arquivo Excel (.xlsx ou .xls)",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setProcessandoPlanilha(true);
+    
+    try {
+      const arrayBuffer = await selectedFile.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      if (jsonData.length < 2) {
+        toast({
+          title: "Arquivo vazio",
+          description: "O arquivo não contém dados suficientes",
+          variant: "destructive",
+        });
+        setProcessandoPlanilha(false);
+        return;
+      }
+
+      const headers = (jsonData[0] as any[]).map(h => h?.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim() || '');
+      const dataRows = jsonData.slice(1) as any[][];
+
+      // Encontrar índices das colunas
+      const findIndex = (names: string[]) => {
+        for (let i = 0; i < headers.length; i++) {
+          if (names.some(n => headers[i].includes(n))) return i;
+        }
+        return -1;
+      };
+
+      const nomeIdx = findIndex(['nome']);
+      const telefoneIdx = findIndex(['telefone', 'phone', 'celular', 'whatsapp', 'fone']);
+      const emailIdx = findIndex(['email', 'e-mail']);
+      const cpfIdx = findIndex(['cpf']);
+
+      if (nomeIdx === -1 || telefoneIdx === -1) {
+        toast({
+          title: "Colunas obrigatórias não encontradas",
+          description: "Não foi possível identificar as colunas 'Nome' e 'Telefone' no cabeçalho.",
+          variant: "destructive",
+        });
+        setProcessandoPlanilha(false);
+        return;
+      }
+
+      const contatos = dataRows
+        .filter(row => row && row.length > 0)
+        .map(row => ({
+          nome: nomeIdx >= 0 ? row[nomeIdx]?.toString().trim() || '' : '',
+          telefone: telefoneIdx >= 0 ? row[telefoneIdx]?.toString().trim() || '' : '',
+          email: emailIdx >= 0 ? row[emailIdx]?.toString().trim() || '' : '',
+          cpf: cpfIdx >= 0 ? row[cpfIdx]?.toString().trim() || '' : '',
+        }))
+        .filter(c => c.nome || c.telefone);
+
+      setContatosLigacao(contatos);
+      setProcessandoPlanilha(false);
+      
+      toast({
+        title: "Arquivo processado",
+        description: `${contatos.length} contatos encontrados`,
+      });
+    } catch (error) {
+      console.error('Erro ao processar arquivo:', error);
+      setProcessandoPlanilha(false);
+      toast({
+        title: "Erro ao processar arquivo",
+        description: "Verifique se o arquivo está no formato correto",
+        variant: "destructive",
+      });
+    }
+    
+    // Limpar input para permitir reselecionar o mesmo arquivo
+    event.target.value = '';
   };
 
   const handleCancel = () => {
@@ -2116,6 +2232,107 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                   rows={descricaoExpandida ? 16 : 6}
                   className="resize-none transition-all"
                 />
+              </div>
+
+              {/* Seção de Upload de Base */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  Base de Contatos para Ligação
+                </h4>
+                
+                {/* Instruções e Upload */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  {/* Instruções */}
+                  <Card className="p-4 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+                    <div className="flex items-start space-x-2">
+                      <Info className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" size={16} />
+                      <div className="text-sm">
+                        <p className="font-medium text-blue-800 dark:text-blue-200 mb-1">Formato da planilha:</p>
+                        <p className="text-blue-700 dark:text-blue-300 text-xs">
+                          • Colunas: Nome*, Telefone*, E-mail, CPF<br/>
+                          • Formato: Excel (.xlsx ou .xls)<br/>
+                          • Primeira linha deve conter os cabeçalhos<br/>
+                          • (* = obrigatório)
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Upload área */}
+                  <Card className="p-4 border-dashed border-2 border-muted flex flex-col justify-center">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleFileLigacao}
+                      className="hidden"
+                      id="file-upload-ligacao"
+                    />
+                    <label htmlFor="file-upload-ligacao" className="cursor-pointer text-center">
+                      <Upload className="mx-auto mb-2 text-muted-foreground" size={24} />
+                      <p className="text-sm text-muted-foreground">
+                        Clique para selecionar arquivo
+                      </p>
+                      {processandoPlanilha && (
+                        <div className="mt-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto"></div>
+                          <p className="text-xs text-muted-foreground mt-1">Processando...</p>
+                        </div>
+                      )}
+                    </label>
+                  </Card>
+                </div>
+
+                {/* Preview dos dados */}
+                {contatosLigacao.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h5 className="text-sm font-medium">Preview dos dados ({contatosLigacao.length} contatos)</h5>
+                      <Button variant="outline" size="sm" onClick={() => setContatosLigacao([])}>
+                        Limpar
+                      </Button>
+                    </div>
+                    
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="max-h-48 overflow-y-auto">
+                        <Table>
+                          <TableHeader className="sticky top-0 bg-background z-10">
+                            <TableRow>
+                              <TableHead className="w-[180px]">Nome*</TableHead>
+                              <TableHead className="w-[140px]">Telefone*</TableHead>
+                              <TableHead className="w-[180px]">E-mail</TableHead>
+                              <TableHead className="w-[60px]">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {contatosLigacao.slice(0, 10).map((contato, index) => {
+                              const isValid = contato.nome && contato.telefone;
+                              return (
+                                <TableRow key={index}>
+                                  <TableCell className={!contato.nome ? 'text-red-600' : ''}>{contato.nome || 'OBRIGATÓRIO'}</TableCell>
+                                  <TableCell className={!contato.telefone ? 'text-red-600' : ''}>{contato.telefone || 'OBRIGATÓRIO'}</TableCell>
+                                  <TableCell>{contato.email || '-'}</TableCell>
+                                  <TableCell>
+                                    {isValid ? (
+                                      <Check className="text-green-600" size={16} />
+                                    ) : (
+                                      <X className="text-red-600" size={16} />
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      {contatosLigacao.length > 10 && (
+                        <p className="text-xs text-muted-foreground text-center py-2 border-t">
+                          Mostrando 10 de {contatosLigacao.length} contatos
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );
