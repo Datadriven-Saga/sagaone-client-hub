@@ -2585,158 +2585,124 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
               </p>
             </Card>
 
-            {/* Seleção de modo */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                type="button"
-                variant={modoImportBase === 'upload' ? 'default' : 'outline'}
-                className="h-auto py-3 flex flex-col items-center gap-2"
-                onClick={() => setModoImportBase('upload')}
-              >
-                <Upload className="h-5 w-5" />
-                <span className="text-sm">Importar Planilha</span>
-              </Button>
-              <Button
-                type="button"
-                variant={modoImportBase === 'existente' ? 'default' : 'outline'}
-                className="h-auto py-3 flex flex-col items-center gap-2"
-                onClick={() => setModoImportBase('existente')}
-              >
-                <Users className="h-5 w-5" />
-                <span className="text-sm">Base Existente</span>
-              </Button>
-            </div>
-
-            {modoImportBase === 'upload' ? (
-              <>
-                {/* Instruções e Upload */}
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Instruções */}
-                  <Card className="p-4 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
-                    <div className="flex items-start space-x-2">
-                      <Info className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" size={16} />
-                      <div className="text-sm">
-                        <p className="font-medium text-blue-800 dark:text-blue-200 mb-1">Formato da planilha:</p>
-                        <p className="text-blue-700 dark:text-blue-300 text-xs">
-                          • Colunas: Nome*, Telefone*, E-mail, CPF<br/>
-                          • Formato: Excel (.xlsx ou .xls)<br/>
-                          • Primeira linha deve conter os cabeçalhos<br/>
-                          • (* = obrigatório)
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-
-                  {/* Upload área */}
-                  <Card className="p-4 border-dashed border-2 border-muted flex flex-col justify-center">
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls"
-                      onChange={handleFileLigacao}
-                      className="hidden"
-                      id="file-upload-ligacao"
-                    />
-                    <label htmlFor="file-upload-ligacao" className="cursor-pointer text-center">
-                      <Upload className="mx-auto mb-2 text-muted-foreground" size={24} />
-                      <p className="text-sm text-muted-foreground">
-                        Clique para selecionar arquivo
-                      </p>
-                      {processandoPlanilha && (
-                        <div className="mt-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto"></div>
-                          <p className="text-xs text-muted-foreground mt-1">Processando...</p>
-                        </div>
-                      )}
-                    </label>
-                  </Card>
+            {/* Base Existente e Upload lado a lado */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Base Existente */}
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="h-5 w-5 text-primary" />
+                  <Label className="font-medium">Base Existente</Label>
                 </div>
-              </>
-            ) : (
-              <>
-                {/* Seleção de Base Existente */}
-                <Card className="p-4">
-                  <Label className="mb-2 block">Selecione a Prospecção</Label>
-                  <Select 
-                    value={baseExistenteProspeccao} 
-                    onValueChange={async (value) => {
-                      setBaseExistenteProspeccao(value);
-                      if (value) {
-                        setLoadingBaseExistente(true);
-                        try {
-                          const { data: contatos } = await supabase
-                            .from('contatos')
-                            .select('id, nome, telefone, email, origem')
-                            .eq('empresa_id', activeCompany?.id)
-                            .order('nome');
-                          
-                          // Filtrar contatos da prospecção selecionada (usando eventos_prospeccao)
-                          const { data: eventosContatos } = await supabase
-                            .from('eventos_prospeccao')
-                            .select('contato_id')
-                            .eq('prospeccao_id', value);
-                          
-                          const contatoIds = eventosContatos?.map(e => e.contato_id) || [];
-                          const contatosFiltrados = contatos?.filter(c => contatoIds.includes(c.id)) || [];
-                          
-                          setContatosBaseExistente(contatosFiltrados);
-                        } catch (error) {
-                          console.error('Erro ao buscar contatos:', error);
-                        }
-                        setLoadingBaseExistente(false);
-                      } else {
-                        setContatosBaseExistente([]);
+                <Select 
+                  value={baseExistenteProspeccao} 
+                  onValueChange={async (value) => {
+                    setBaseExistenteProspeccao(value);
+                    setModoImportBase('existente');
+                    if (value) {
+                      setLoadingBaseExistente(true);
+                      try {
+                        const { data: contatos } = await supabase
+                          .from('contatos')
+                          .select('id, nome, telefone, email, origem')
+                          .eq('empresa_id', activeCompany?.id)
+                          .order('nome');
+                        
+                        // Filtrar contatos da prospecção selecionada (usando eventos_prospeccao)
+                        const { data: eventosContatos } = await supabase
+                          .from('eventos_prospeccao')
+                          .select('contato_id')
+                          .eq('prospeccao_id', value);
+                        
+                        const contatoIds = eventosContatos?.map(e => e.contato_id) || [];
+                        const contatosFiltrados = contatos?.filter(c => contatoIds.includes(c.id)) || [];
+                        
+                        setContatosBaseExistente(contatosFiltrados);
+                      } catch (error) {
+                        console.error('Erro ao buscar contatos:', error);
                       }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Escolha uma prospecção..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {prospeccoesList
-                        ?.filter(p => p.id !== editingProspeccao?.id)
-                        .map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.titulo}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                      setLoadingBaseExistente(false);
+                    } else {
+                      setContatosBaseExistente([]);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Escolha uma prospecção..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {prospeccoesList
+                      ?.filter(p => p.id !== editingProspeccao?.id)
+                      .map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.titulo}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
 
-                  {loadingBaseExistente && (
-                    <div className="flex items-center justify-center py-4">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                {loadingBaseExistente && (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  </div>
+                )}
+
+                {contatosBaseExistente.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium">{contatosBaseExistente.length} contatos encontrados</p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          const contatosConvertidos = contatosBaseExistente.map(c => ({
+                            nome: c.nome || '',
+                            telefone: c.telefone || '',
+                            email: c.email || '',
+                            origem: c.origem || '',
+                          }));
+                          setContatosLigacao(contatosConvertidos);
+                          toast({
+                            title: "Contatos adicionados",
+                            description: `${contatosConvertidos.length} contatos foram adicionados à base.`,
+                          });
+                        }}
+                      >
+                        Usar estes contatos
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </Card>
+
+              {/* Upload área */}
+              <Card className="p-4 border-dashed border-2 border-muted flex flex-col justify-center items-center">
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={(e) => {
+                    setModoImportBase('upload');
+                    handleFileLigacao(e);
+                  }}
+                  className="hidden"
+                  id="file-upload-ligacao"
+                />
+                <label htmlFor="file-upload-ligacao" className="cursor-pointer text-center w-full h-full flex flex-col items-center justify-center min-h-[100px]">
+                  <Upload className="mx-auto mb-2 text-muted-foreground" size={24} />
+                  <p className="text-sm text-muted-foreground">
+                    Clique para selecionar arquivo
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    (.xlsx ou .xls)
+                  </p>
+                  {processandoPlanilha && (
+                    <div className="mt-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto"></div>
+                      <p className="text-xs text-muted-foreground mt-1">Processando...</p>
                     </div>
                   )}
-
-                  {contatosBaseExistente.length > 0 && (
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-medium">{contatosBaseExistente.length} contatos encontrados</p>
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => {
-                            const contatosConvertidos = contatosBaseExistente.map(c => ({
-                              nome: c.nome || '',
-                              telefone: c.telefone || '',
-                              email: c.email || '',
-                              origem: c.origem || '',
-                            }));
-                            setContatosLigacao(contatosConvertidos);
-                            toast({
-                              title: "Contatos adicionados",
-                              description: `${contatosConvertidos.length} contatos foram adicionados à base.`,
-                            });
-                          }}
-                        >
-                          Usar estes contatos
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </Card>
-              </>
-            )}
+                </label>
+              </Card>
+            </div>
 
             {/* Preview dos dados - sempre visível se há contatos */}
             {contatosLigacao.length > 0 && (
