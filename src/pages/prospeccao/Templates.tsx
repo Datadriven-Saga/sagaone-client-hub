@@ -1867,7 +1867,15 @@ export default function Templates() {
                       <TableCell className="font-mono text-xs">{template.id_meta || "-"}</TableCell>
                       <TableCell>
                         {template.status_meta ? (
-                          <Badge variant={template.status_meta === "APPROVED" ? "default" : template.status_meta === "PENDING" ? "secondary" : "destructive"}>
+                          <Badge 
+                            className={
+                              template.status_meta === "APPROVED" 
+                                ? "bg-green-500 text-white hover:bg-green-600" 
+                                : template.status_meta === "PENDING" 
+                                  ? "bg-orange-500 text-white hover:bg-orange-600" 
+                                  : "bg-red-500 text-white hover:bg-red-600"
+                            }
+                          >
                             {template.status_meta}
                           </Badge>
                         ) : "-"}
