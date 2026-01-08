@@ -1,16 +1,21 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import sagaOneLogo from "@/assets/saga-one-logo.png";
 import { Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
-  const [ssoLoading, setSsoLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   
-  const { signInWithAzure, user } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   // Redirect if already logged in
@@ -20,10 +25,58 @@ const Login = () => {
     }
   }, [user, navigate]);
 
-  const handleSSOLogin = async () => {
-    setSsoLoading(true);
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email.trim()) {
+      toast({
+        title: "Email obrigatório",
+        description: "Por favor, informe seu email corporativo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
     try {
-      const { error } = await signInWithAzure();
+      // Always authenticate via Azure SSO with the email as login_hint
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'azure',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+          queryParams: {
+            login_hint: email.trim(),
+          },
+        },
+      });
+      
+      if (error) {
+        toast({
+          title: "Erro no login",
+          description: error.message || "Não foi possível conectar com Microsoft.",
+          variant: "destructive",
+        });
+        setLoading(false);
+      }
+    } catch (error) {
+      toast({
+        title: "Erro no login",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
+        variant: "destructive",
+      });
+      setLoading(false);
+    }
+  };
+
+  const handleSSOLogin = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'azure',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
       
       if (error) {
         toast({
@@ -31,7 +84,7 @@ const Login = () => {
           description: error.message || "Não foi possível conectar com Microsoft.",
           variant: "destructive",
         });
-        setSsoLoading(false);
+        setLoading(false);
       }
     } catch (error) {
       toast({
@@ -39,7 +92,7 @@ const Login = () => {
         description: "Ocorreu um erro inesperado. Tente novamente.",
         variant: "destructive",
       });
-      setSsoLoading(false);
+      setLoading(false);
     }
   };
 
@@ -66,32 +119,75 @@ const Login = () => {
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Email/Password Form */}
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email corporativo</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu.email@empresa.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha (opcional)</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+              <Button 
+                type="submit"
+                className="w-full h-12 bg-sagaone-login-button hover:bg-sagaone-login-button/90 text-white font-medium"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    Conectando...
+                  </>
+                ) : (
+                  "Entrar"
+                )}
+              </Button>
+            </form>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-sagaone-login-card px-2 text-muted-foreground">
+                  ou
+                </span>
+              </div>
+            </div>
+
             {/* SSO Button */}
             <Button 
               type="button"
-              className="w-full flex items-center justify-center gap-3 h-14 bg-sagaone-login-button hover:bg-sagaone-login-button/90 text-white text-base font-medium"
+              variant="outline"
+              className="w-full flex items-center justify-center gap-3 h-12"
               onClick={handleSSOLogin}
-              disabled={ssoLoading}
+              disabled={loading}
             >
-              {ssoLoading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Conectando...
-                </>
-              ) : (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 23 23">
-                    <path fill="#f35325" d="M1 1h10v10H1z"/>
-                    <path fill="#81bc06" d="M12 1h10v10H12z"/>
-                    <path fill="#05a6f0" d="M1 12h10v10H1z"/>
-                    <path fill="#ffba08" d="M12 12h10v10H12z"/>
-                  </svg>
-                  Entrar com Microsoft
-                </>
-              )}
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 23 23">
+                <path fill="#f35325" d="M1 1h10v10H1z"/>
+                <path fill="#81bc06" d="M12 1h10v10H12z"/>
+                <path fill="#05a6f0" d="M1 12h10v10H1z"/>
+                <path fill="#ffba08" d="M12 12h10v10H12z"/>
+              </svg>
+              Entrar diretamente com Microsoft
             </Button>
 
-            <div className="text-center pt-4">
+            <div className="text-center pt-2">
               <p className="text-xs text-muted-foreground">
                 Ao entrar, você concorda com nossos termos de uso e política de privacidade.
               </p>
