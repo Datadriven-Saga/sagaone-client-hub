@@ -103,6 +103,22 @@ serve(async (req) => {
 
     switch (action) {
       case 'list_users': {
+        // Fetch all auth users in a single call
+        const { data: authUsersData, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers({
+          perPage: 1000
+        });
+
+        if (authUsersError) {
+          console.error('Error fetching auth users:', authUsersError);
+          throw authUsersError;
+        }
+
+        // Create email map from auth users
+        const emailsByUserId = new Map<string, string>();
+        (authUsersData?.users || []).forEach(u => {
+          emailsByUserId.set(u.id, u.email || 'Email não disponível');
+        });
+
         // Fetch profiles
         const { data: profiles, error: profilesError } = await supabaseAdmin
           .from('profiles')
@@ -130,7 +146,7 @@ serve(async (req) => {
               nome_empresa
             )
           `)
-          .in('user_id', profileIds);
+          .in('user_id', profileIds.length > 0 ? profileIds : ['00000000-0000-0000-0000-000000000000']);
 
         if (allEmpresasError) {
           console.error('Error fetching all user companies:', allEmpresasError);
@@ -147,37 +163,12 @@ serve(async (req) => {
           }
         });
 
-        // Get user emails from auth in batches
-        const profilesWithDetails = await Promise.all(
-          (profiles || []).map(async (profile) => {
-            try {
-              const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(profile.id);
-              
-              const companies = companiesByUser.get(profile.id) || [];
-
-              if (userError) {
-                return {
-                  ...profile,
-                  email: 'Email não disponível',
-                  empresas: companies
-                };
-              }
-
-              return {
-                ...profile,
-                email: userData?.user?.email || 'Email não disponível',
-                empresas: companies
-              };
-            } catch (error) {
-              console.error('Error fetching user details for profile:', profile.id, error);
-              return {
-                ...profile,
-                email: 'Email não disponível',
-                empresas: companiesByUser.get(profile.id) || []
-              };
-            }
-          })
-        );
+        // Combine profiles with emails and companies (no individual API calls)
+        const profilesWithDetails = (profiles || []).map(profile => ({
+          ...profile,
+          email: emailsByUserId.get(profile.id) || 'Email não disponível',
+          empresas: companiesByUser.get(profile.id) || []
+        }));
 
         console.log('Profiles with details:', profilesWithDetails.length);
 
