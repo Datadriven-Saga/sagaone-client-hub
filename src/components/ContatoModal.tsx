@@ -197,21 +197,45 @@ export function ContatoModal({
     const carregarDados = async () => {
       if (isOpen) {
         try {
-          // Buscar usuários disponíveis da empresa com perfis adequados
-          const { data: usuarios, error: usuariosError } = await supabase
-            .from('profiles')
-            .select('id, nome_completo, celular, tipo_acesso')
-            .in('tipo_acesso', ['Administrador', 'Gerente de Leads', 'Gerente de Loja', 'Vendedor'])
-            .eq('status', 'Ativo');
+          // Buscar empresa do contato para filtrar usuários
+          const empresaId = contato?.empresa_id;
+          
+          // Variável para guardar os usuários buscados para uso posterior
+          let usuariosBuscados: Array<{ id: string; nome_completo: string; celular: string | null; tipo_acesso: string | null }> = [];
+          
+          if (empresaId) {
+            // Buscar usuários que pertencem à empresa do contato via user_empresas
+            const { data: userEmpresas, error: userEmpresasError } = await supabase
+              .from('user_empresas')
+              .select('user_id')
+              .eq('empresa_id', empresaId);
 
-          if (!usuariosError && usuarios) {
-            const usuariosFormatados = usuarios.map(u => ({
-              id: u.id,
-              nome: u.nome_completo,
-              email: u.celular || '',
-              tipoAcesso: u.tipo_acesso
-            }));
-            setUsuariosDisponiveis(usuariosFormatados);
+            if (!userEmpresasError && userEmpresas && userEmpresas.length > 0) {
+              const userIds = userEmpresas.map(ue => ue.user_id);
+              
+              // Buscar perfis desses usuários com tipos de acesso adequados
+              const { data: usuarios, error: usuariosError } = await supabase
+                .from('profiles')
+                .select('id, nome_completo, celular, tipo_acesso')
+                .in('id', userIds)
+                .in('tipo_acesso', ['Administrador', 'Gerente de Leads', 'Gerente de Loja', 'Vendedor'])
+                .eq('status', 'Ativo');
+
+              if (!usuariosError && usuarios) {
+                usuariosBuscados = usuarios;
+                const usuariosFormatados = usuarios.map(u => ({
+                  id: u.id,
+                  nome: u.nome_completo,
+                  email: u.celular || '',
+                  tipoAcesso: u.tipo_acesso
+                }));
+                setUsuariosDisponiveis(usuariosFormatados);
+              }
+            } else {
+              setUsuariosDisponiveis([]);
+            }
+          } else {
+            setUsuariosDisponiveis([]);
           }
 
           // Buscar departamentos da empresa
@@ -331,8 +355,8 @@ export function ContatoModal({
 
             // Definir responsável atual se existir
             if (contato.responsavel_email) {
-              // Buscar por id, email ou celular
-              const responsavelAtual = usuarios?.find(u => 
+              // Buscar por id, email ou celular usando usuariosBuscados
+              const responsavelAtual = usuariosBuscados.find(u => 
                 u.id === contato.responsavel_email ||
                 u.celular === contato.responsavel_email ||
                 u.celular?.replace(/\D/g, '') === contato.responsavel_email?.replace(/\D/g, '')
