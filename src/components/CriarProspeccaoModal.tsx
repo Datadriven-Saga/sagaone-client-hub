@@ -1653,6 +1653,33 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       return;
     }
 
+    // Formatar data do evento
+    let dataEvento = 'Data do evento';
+    if (dataInicio && dataFim) {
+      const formatarData = (d: string) => {
+        const date = new Date(d + 'T00:00:00');
+        return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      };
+      if (dataInicio === dataFim) {
+        dataEvento = formatarData(dataInicio);
+      } else {
+        dataEvento = `${formatarData(dataInicio)} a ${formatarData(dataFim)}`;
+      }
+    } else if (dataInicio) {
+      const date = new Date(dataInicio + 'T00:00:00');
+      dataEvento = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    // Formatar localização do evento (para IA Ligação)
+    let localEvento = 'Local do evento';
+    if (tipoEvento === 'IA Ligação' && (eventoEndereco.trim() || eventoCidade.trim() || eventoUF.trim())) {
+      const partes: string[] = [];
+      if (eventoEndereco.trim()) partes.push(eventoEndereco.trim());
+      if (eventoCidade.trim()) partes.push(eventoCidade.trim());
+      if (eventoUF.trim()) partes.push(eventoUF.trim());
+      localEvento = partes.join(' - ');
+    }
+
     const modeloPadrao = `🔥 **Evento Especial – Uma Experiência Exclusiva!**
 
 Chegou o momento que você esperava!
@@ -1664,8 +1691,8 @@ Convidamos você para um evento exclusivo de vendas, com atendimento VIP e condi
 • Condições especiais de financiamento
 • Oportunidades únicas
 
-🗓️ Data do evento
-📍 Local do evento
+🗓️ ${dataEvento}
+📍 ${localEvento}
 
 Garanta sua presença e não perca essa oportunidade única!
 
@@ -1679,6 +1706,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
       .eq('tipo', 'Modelo Descrição Prospecção')
       .single();
 
+    let descricaoFinal: string;
     if (error || !data?.mensagem) {
       // Se não encontrar, criar o registro com o modelo padrão para esta empresa
       await supabase
@@ -1690,10 +1718,15 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
           empresa_id: activeCompany.id 
         }]);
       
-      setDescricao(modeloPadrao);
+      descricaoFinal = modeloPadrao;
     } else {
-      setDescricao(data.mensagem);
+      // Substituir placeholders no modelo salvo no banco
+      descricaoFinal = data.mensagem
+        .replace(/🗓️\s*Data do evento/gi, `🗓️ ${dataEvento}`)
+        .replace(/📍\s*Local do evento/gi, `📍 ${localEvento}`);
     }
+    
+    setDescricao(descricaoFinal);
     
     toast({
       title: "Modelo aplicado",
