@@ -1,9 +1,11 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { useSessionManager } from "@/hooks/useSessionManager";
 import { clearAuthData } from "@/hooks/useUserPreferences";
 import { useNavigate } from "react-router-dom";
+
+const SESSION_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours
+const SESSION_START_KEY = 'session_start_time';
 
 interface AuthContextType {
   user: User | null;
@@ -22,44 +24,118 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const expirationTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clear session completely
+  const clearSession = useCallback(async () => {
+    if (expirationTimerRef.current) {
+      clearTimeout(expirationTimerRef.current);
+      expirationTimerRef.current = null;
+    }
+    sessionStorage.removeItem(SESSION_START_KEY);
+    clearAuthData();
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  }, []);
 
   // Handle session expiration
   const handleSessionExpired = useCallback(() => {
     setUser(null);
     setSession(null);
+    clearSession();
     navigate('/login', { replace: true });
-  }, [navigate]);
+  }, [navigate, clearSession]);
 
-  // Handle app closed/hidden
-  const handleAppClosed = useCallback(() => {
-    setUser(null);
-    setSession(null);
-    // Navigation will happen on next app open since session is cleared
-  }, []);
+  // Start session timer
+  const startSessionTimer = useCallback(() => {
+    if (expirationTimerRef.current) {
+      clearTimeout(expirationTimerRef.current);
+    }
 
-  // Use session manager
-  useSessionManager({
-    onSessionExpired: handleSessionExpired,
-    onAppClosed: handleAppClosed,
-    isAuthenticated: !!user,
-  });
+    let sessionStart = sessionStorage.getItem(SESSION_START_KEY);
+    if (!sessionStart) {
+      sessionStart = Date.now().toString();
+      sessionStorage.setItem(SESSION_START_KEY, sessionStart);
+    }
+
+    const elapsed = Date.now() - parseInt(sessionStart, 10);
+    const remaining = SESSION_DURATION_MS - elapsed;
+
+    if (remaining <= 0) {
+      handleSessionExpired();
+      return;
+    }
+
+    expirationTimerRef.current = setTimeout(() => {
+      handleSessionExpired();
+    }, remaining);
+  }, [handleSessionExpired]);
+
+  // Session management effects
+  useEffect(() => {
+    if (!user) return;
+
+    startSessionTimer();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        clearSession();
+        setUser(null);
+        setSession(null);
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      sessionStorage.removeItem(SESSION_START_KEY);
+      clearAuthData();
+    };
+
+    const handlePageHide = () => {
+      sessionStorage.removeItem(SESSION_START_KEY);
+      clearAuthData();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
+      if (expirationTimerRef.current) {
+        clearTimeout(expirationTimerRef.current);
+      }
+    };
+  }, [user, startSessionTimer, clearSession]);
+
+  // Check session validity on mount
+  useEffect(() => {
+    const sessionStart = sessionStorage.getItem(SESSION_START_KEY);
+    if (sessionStart) {
+      const elapsed = Date.now() - parseInt(sessionStart, 10);
+      if (elapsed >= SESSION_DURATION_MS) {
+        clearSession();
+      }
+    }
+  }, [clearSession]);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
         
-        // Clear auth data on sign out
         if (event === 'SIGNED_OUT') {
           clearAuthData();
         }
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -76,8 +152,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     });
     
     if (!error) {
-      // Store session start time on successful login
-      sessionStorage.setItem('session_start_time', Date.now().toString());
+      sessionStorage.setItem(SESSION_START_KEY, Date.now().toString());
     }
     
     return { error };
@@ -95,9 +170,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    clearAuthData();
-    sessionStorage.removeItem('session_start_time');
-    await supabase.auth.signOut();
+    await clearSession();
   };
 
   const resetPassword = async (email: string) => {
@@ -120,7 +193,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Wrapper that handles the case when Router is not available
 export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthProviderInner>{children}</AuthProviderInner>;
 }
