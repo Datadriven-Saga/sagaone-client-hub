@@ -7,24 +7,46 @@ const corsHeaders = {
 
 const WEBHOOK_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one';
 
-interface EventoData {
+// Mapeamento de telefones da Pri por UF
+const TELEFONES_PRI_POR_UF: Record<string, string> = {
+  'GO': '6223980043',
+  // Adicionar outros estados conforme necessário
+};
+
+interface EventoInput {
   id: string;
   titulo: string;
   descricao: string | null;
   data_inicio: string | null;
   data_fim: string | null;
   canal: string;
-  empresa_id: string;
   evento_principal: boolean;
   qualificar_lead: boolean;
   imagem_divulgacao_url: string | null;
 }
 
-interface ContatoData {
+interface ContatoInput {
   nome: string;
   telefone: string | null;
   email: string | null;
   origem: string | null;
+}
+
+interface EmpresaData {
+  id: string;
+  nome_empresa: string;
+  cnpj: string;
+  crm_id: string | null;
+  uf: string | null;
+  marca: string | null;
+  cidade: string | null;
+  endereco: string | null;
+}
+
+interface AgenteData {
+  telefone: string | null;
+  dealer_id: string | null;
+  nome: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -38,21 +60,31 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();
-    const { evento, contatos, empresa_id } = body;
+    const { evento, contatos, empresa_id } = body as {
+      evento: EventoInput;
+      contatos: ContatoInput[];
+      empresa_id: string;
+    };
 
     console.log('📞 IA Ligação Webhook - Enviando evento + contatos');
     console.log('📞 Evento:', evento?.titulo);
     console.log('📞 Total contatos:', contatos?.length || 0);
 
-    // Buscar dados da empresa
-    const { data: empresaData } = await supabase
+    // Buscar dados completos da empresa
+    const { data: empresaData, error: empresaError } = await supabase
       .from('empresas')
-      .select('crm_id, nome_empresa, cnpj')
+      .select('id, nome_empresa, cnpj, crm_id, uf, marca, cidade, endereco')
       .eq('id', empresa_id)
       .single();
 
+    if (empresaError) {
+      console.error('❌ Erro ao buscar empresa:', empresaError);
+    }
+
+    const empresa = empresaData as EmpresaData | null;
+
     // Buscar dados do agente IA da empresa
-    const { data: agenteData } = await supabase
+    const { data: agenteData, error: agenteError } = await supabase
       .from('agentes_ia')
       .select('telefone, dealer_id, nome')
       .eq('empresa_id', empresa_id)
@@ -60,6 +92,19 @@ Deno.serve(async (req: Request) => {
       .order('created_at', { ascending: true })
       .limit(1)
       .single();
+
+    if (agenteError) {
+      console.error('❌ Erro ao buscar agente:', agenteError);
+    }
+
+    const agente = agenteData as AgenteData | null;
+
+    // Determinar telefone da Pri baseado na UF
+    const uf = empresa?.uf || 'GO';
+    const telefonePri = TELEFONES_PRI_POR_UF[uf] || TELEFONES_PRI_POR_UF['GO'];
+
+    // Determinar dealer_id da loja
+    const dealerId = agente?.dealer_id || empresa?.crm_id || '';
 
     const formatarDataISO = (data: string | null): string => {
       if (!data) return '';
@@ -73,45 +118,44 @@ Deno.serve(async (req: Request) => {
       }
     };
 
-    // Payload combinado com evento + contatos
+    const now = new Date().toISOString();
+
+    // Payload do evento no formato esperado pelo agente
+    const eventoPayload = {
+      nome: evento.titulo || '',
+      descricao: evento.descricao || '',
+      categoria: 'evento', // Pode ser: evento, campanha, teste
+      marca: empresa?.marca || empresa?.nome_empresa || '',
+      dealerid: dealerId,
+      telefone_pri: telefonePri,
+      uf: empresa?.uf || '',
+      cidade: empresa?.cidade || '',
+      endereco: empresa?.endereco || '',
+      data_inicio: formatarDataISO(evento.data_inicio),
+      data_fim: formatarDataISO(evento.data_fim),
+      evt_status: 'ativo',
+      criado_em: now,
+      atualizado_em: now,
+    };
+
+    // Payload dos contatos no formato esperado
+    const contatosPayload = (contatos || []).map((c: ContatoInput) => ({
+      nome: c.nome || '',
+      telefone: c.telefone || '',
+      loja: empresa?.nome_empresa || '', // Nome completo da loja
+    }));
+
+    // Payload completo
     const payload = {
-      evento: {
-        id: evento.id,
-        titulo: evento.titulo || '',
-        descricao: evento.descricao || '',
-        data_inicio: formatarDataISO(evento.data_inicio),
-        data_fim: formatarDataISO(evento.data_fim),
-        canal: evento.canal || 'Ligação',
-        evento_principal: evento.evento_principal ?? false,
-        qualificar_lead: evento.qualificar_lead ?? true,
-        imagem_divulgacao_url: evento.imagem_divulgacao_url || '',
-      },
-      empresa: {
-        id: empresa_id,
-        nome: empresaData?.nome_empresa || '',
-        cnpj: empresaData?.cnpj || '',
-        crm_id: empresaData?.crm_id || '',
-      },
-      agente: {
-        telefone: agenteData?.telefone || '',
-        dealer_id: agenteData?.dealer_id || '',
-        nome: agenteData?.nome || '',
-      },
-      contatos: (contatos || []).map((c: ContatoData) => ({
-        nome: c.nome || '',
-        telefone: c.telefone || '',
-        email: c.email || '',
-        origem: c.origem || 'IA Ligação',
-      })),
-      total_contatos: contatos?.length || 0,
-      timestamp: new Date().toISOString(),
+      evento: eventoPayload,
+      contatos: contatosPayload,
+      total_contatos: contatosPayload.length,
+      timestamp: now,
     };
 
     console.log('📤 Enviando para:', WEBHOOK_URL);
-    console.log('📦 Payload:', JSON.stringify({
-      ...payload,
-      contatos: `[${payload.total_contatos} contatos]`
-    }, null, 2));
+    console.log('📦 Payload evento:', JSON.stringify(eventoPayload, null, 2));
+    console.log('📦 Total contatos:', contatosPayload.length);
 
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',

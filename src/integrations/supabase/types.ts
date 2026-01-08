@@ -650,9 +650,11 @@ export type Database = {
       }
       empresas: {
         Row: {
+          cidade: string | null
           cnpj: string
           created_at: string | null
           crm_id: string | null
+          endereco: string | null
           grupo_empresarial: string | null
           horario_funcionamento: string | null
           id: string
@@ -667,9 +669,11 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          cidade?: string | null
           cnpj: string
           created_at?: string | null
           crm_id?: string | null
+          endereco?: string | null
           grupo_empresarial?: string | null
           horario_funcionamento?: string | null
           id?: string
@@ -684,9 +688,11 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          cidade?: string | null
           cnpj?: string
           created_at?: string | null
           crm_id?: string | null
+          endereco?: string | null
           grupo_empresarial?: string | null
           horario_funcionamento?: string | null
           id?: string
