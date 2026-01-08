@@ -1271,14 +1271,21 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const callIALigacaoWebhooks = async (prospeccaoData: any) => {
     if (!activeCompany?.id) return;
     
-    console.log('📞 Iniciando webhooks IA Ligação para evento:', prospeccaoData.titulo);
+    console.log('📞 Enviando evento + contatos para webhook IA Ligação:', prospeccaoData.titulo);
     
     try {
-      // 1. Primeiro chamar o webhook de configuração do evento
-      console.log('📤 Enviando para configura-eventos...');
-      const eventoResponse = await supabase.functions.invoke('ia-ligacao-webhook', {
+      // Mapear contatos da planilha importada
+      const contatosParaEnviar = (contatosLigacao || []).map((c) => ({
+        nome: c.nome || '',
+        telefone: c.telefone || '',
+        email: c.email || '',
+        origem: c.origem || 'IA Ligação',
+      }));
+      
+      console.log('📤 Enviando para webhook com', contatosParaEnviar.length, 'contatos...');
+      
+      const response = await supabase.functions.invoke('ia-ligacao-webhook', {
         body: {
-          action: 'configura-eventos',
           evento: {
             id: prospeccaoData.id,
             titulo: prospeccaoData.titulo,
@@ -1289,55 +1296,20 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
             evento_principal: prospeccaoData.evento_principal,
             qualificar_lead: prospeccaoData.qualificar_lead,
             imagem_divulgacao_url: prospeccaoData.imagem_divulgacao_url,
-            convite: prospeccaoData.convite,
           },
+          contatos: contatosParaEnviar,
           empresa_id: activeCompany.id,
         },
       });
       
-      if (eventoResponse.error) {
-        console.error('❌ Erro ao enviar configura-eventos:', eventoResponse.error);
+      if (response.error) {
+        console.error('❌ Erro ao enviar webhook:', response.error);
       } else {
-        console.log('✅ Webhook configura-eventos enviado:', eventoResponse.data);
-      }
-      
-      // 2. Usar os contatos da planilha importada pelo usuário
-      if (contatosLigacao && contatosLigacao.length > 0) {
-        // Mapear contatos para o formato esperado pelo webhook
-        const contatosParaEnviar = contatosLigacao.map((c, idx) => ({
-          id: `temp-${idx}`,
-          nome: c.nome || '',
-          telefone: c.telefone || '',
-          email: c.email || '',
-          origem: c.origem || '',
-          status: 'novo',
-          observacoes: '',
-        }));
-        
-        console.log('📤 Enviando para configura-base com', contatosParaEnviar.length, 'contatos...');
-        const baseResponse = await supabase.functions.invoke('ia-ligacao-webhook', {
-          body: {
-            action: 'configura-base',
-            evento: {
-              id: prospeccaoData.id,
-              titulo: prospeccaoData.titulo,
-            },
-            contatos: contatosParaEnviar,
-            empresa_id: activeCompany.id,
-          },
-        });
-        
-        if (baseResponse.error) {
-          console.error('❌ Erro ao enviar configura-base:', baseResponse.error);
-        } else {
-          console.log('✅ Webhook configura-base enviado:', baseResponse.data);
-        }
-      } else {
-        console.log('ℹ️ Nenhum contato importado para enviar na base');
+        console.log('✅ Webhook enviado com sucesso:', response.data);
       }
       
     } catch (error) {
-      console.error('❌ Erro ao chamar webhooks IA Ligação:', error);
+      console.error('❌ Erro ao chamar webhook IA Ligação:', error);
       // Não mostramos erro ao usuário para não interromper o fluxo
     }
   };
