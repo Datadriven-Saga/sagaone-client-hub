@@ -10,13 +10,13 @@ import sagaOneLogo from "@/assets/saga-one-logo.png";
 import { Loader2 } from "lucide-react";
 
 // TODO: Alterar para true quando Azure SSO estiver configurado
-const USE_SSO_LOGIN = false;
+const USE_SSO_LOGIN = true;
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  
+
   const { signIn, signInWithAzure, user } = useAuth();
   const navigate = useNavigate();
 
@@ -29,7 +29,7 @@ const Login = () => {
   // Login tradicional com email/senha
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email.trim() || !password.trim()) {
       toast({
         title: "Campos obrigatórios",
@@ -42,7 +42,7 @@ const Login = () => {
     setLoading(true);
     try {
       const { error } = await signIn(email, password);
-      
+
       if (error) {
         toast({
           title: "Erro no login",
@@ -66,7 +66,7 @@ const Login = () => {
     setLoading(true);
     try {
       const { error } = await signInWithAzure();
-      
+
       if (error) {
         toast({
           title: "Erro no login SSO",
@@ -92,25 +92,19 @@ const Login = () => {
         <div className="w-full max-w-md">
           <div className="text-center mb-4">
             <div className="inline-block mb-1 bg-sagaone-login-bg p-0 rounded-lg">
-              <img 
-                src={sagaOneLogo} 
-                alt="SAGA One Logo" 
-                className="max-w-md w-full h-auto"
-              />
+              <img src={sagaOneLogo} alt="SAGA One Logo" className="max-w-md w-full h-auto" />
             </div>
           </div>
 
           <Card className="shadow-card border-0 bg-sagaone-login-card">
             <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl text-center font-medium">
-                Faça seu login
-              </CardTitle>
+              <CardTitle className="text-2xl text-center font-medium">Faça seu login</CardTitle>
               <p className="text-center text-muted-foreground text-sm">
                 Use sua conta corporativa Microsoft para acessar
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button 
+              <Button
                 type="button"
                 className="w-full flex items-center justify-center gap-3 h-14 bg-sagaone-login-button hover:bg-sagaone-login-button/90 text-white text-base font-medium"
                 onClick={handleSSOLogin}
@@ -124,10 +118,10 @@ const Login = () => {
                 ) : (
                   <>
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 23 23">
-                      <path fill="#f35325" d="M1 1h10v10H1z"/>
-                      <path fill="#81bc06" d="M12 1h10v10H12z"/>
-                      <path fill="#05a6f0" d="M1 12h10v10H1z"/>
-                      <path fill="#ffba08" d="M12 12h10v10H12z"/>
+                      <path fill="#f35325" d="M1 1h10v10H1z" />
+                      <path fill="#81bc06" d="M12 1h10v10H12z" />
+                      <path fill="#05a6f0" d="M1 12h10v10H1z" />
+                      <path fill="#ffba08" d="M12 12h10v10H12z" />
                     </svg>
                     Entrar com Microsoft
                   </>
@@ -142,9 +136,7 @@ const Login = () => {
             </CardContent>
           </Card>
 
-          <p className="text-center text-foreground/60 text-sm mt-6">
-            © 2025 SAGA One. Todos os direitos reservados.
-          </p>
+          <p className="text-center text-foreground/60 text-sm mt-6">© 2025 SAGA One. Todos os direitos reservados.</p>
         </div>
       </div>
     );
@@ -156,22 +148,14 @@ const Login = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-4">
           <div className="inline-block mb-1 bg-sagaone-login-bg p-0 rounded-lg">
-            <img 
-              src={sagaOneLogo} 
-              alt="SAGA One Logo" 
-              className="max-w-md w-full h-auto"
-            />
+            <img src={sagaOneLogo} alt="SAGA One Logo" className="max-w-md w-full h-auto" />
           </div>
         </div>
 
         <Card className="shadow-card border-0 bg-sagaone-login-card">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center font-medium">
-              Faça seu login
-            </CardTitle>
-            <p className="text-center text-muted-foreground text-sm">
-              Entre com suas credenciais para acessar
-            </p>
+            <CardTitle className="text-2xl text-center font-medium">Faça seu login</CardTitle>
+            <p className="text-center text-muted-foreground text-sm">Entre com suas credenciais para acessar</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={handleEmailLogin} className="space-y-4">
@@ -197,7 +181,7 @@ const Login = () => {
                   disabled={loading}
                 />
               </div>
-              <Button 
+              <Button
                 type="submit"
                 className="w-full h-12 bg-sagaone-login-button hover:bg-sagaone-login-button/90 text-white font-medium"
                 disabled={loading}
@@ -221,9 +205,7 @@ const Login = () => {
           </CardContent>
         </Card>
 
-        <p className="text-center text-foreground/60 text-sm mt-6">
-          © 2025 SAGA One. Todos os direitos reservados.
-        </p>
+        <p className="text-center text-foreground/60 text-sm mt-6">© 2025 SAGA One. Todos os direitos reservados.</p>
       </div>
     </div>
   );
