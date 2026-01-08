@@ -1697,13 +1697,13 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           {!isDeleting && (
             <AlertDialogFooter>
               <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteProspeccao}
-                className="bg-red-600 hover:bg-red-700"
+              <Button
+                variant="destructive"
+                onClick={() => void handleDeleteProspeccao()}
                 disabled={isDeleting}
               >
                 Excluir
-              </AlertDialogAction>
+              </Button>
             </AlertDialogFooter>
           )}
         </AlertDialogContent>
