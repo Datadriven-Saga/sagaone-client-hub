@@ -1039,28 +1039,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     
     setIsDeleting(true);
     try {
-      // Se for canal Ligação, chamar webhook externo para apagar evento e leads
-      if (deleteProspeccao.canal === 'Ligação' && deleteProspeccao.eventIdPri) {
-        console.log('🗑️ Chamando webhook para deletar evento IA Ligação:', deleteProspeccao.eventIdPri);
-        
-        const webhookResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/deleta-eventos-saga-one', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id_evento: parseInt(deleteProspeccao.eventIdPri, 10),
-            operacao: 'deletar'
-          })
-        });
-        
-        if (!webhookResponse.ok) {
-          console.error('❌ Erro no webhook de exclusão:', webhookResponse.status);
-          throw new Error('Falha ao excluir evento no sistema externo');
-        }
-        
-        console.log('✅ Webhook de exclusão executado com sucesso');
-      }
-      
-      // Excluir no Supabase
+      // Toda a lógica de webhook está no hook excluirProspeccao
       if (excluirProspeccao) {
         await excluirProspeccao(deleteProspeccao.id);
         setDeleteProspeccao(null);
