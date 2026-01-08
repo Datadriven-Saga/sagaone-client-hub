@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { clearAuthData } from "@/hooks/useUserPreferences";
 import { useNavigate } from "react-router-dom";
 
-const SESSION_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours
+const SESSION_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours max session
+const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour of inactivity
 const SESSION_START_KEY = 'session_start_time';
+const LAST_ACTIVITY_KEY = 'last_activity_time';
 
 interface AuthContextType {
   user: User | null;
@@ -24,15 +26,21 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const expirationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Clear session completely
   const clearSession = useCallback(async () => {
-    if (expirationTimerRef.current) {
-      clearTimeout(expirationTimerRef.current);
-      expirationTimerRef.current = null;
+    if (sessionTimerRef.current) {
+      clearTimeout(sessionTimerRef.current);
+      sessionTimerRef.current = null;
+    }
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
     }
     sessionStorage.removeItem(SESSION_START_KEY);
+    sessionStorage.removeItem(LAST_ACTIVITY_KEY);
     clearAuthData();
     try {
       await supabase.auth.signOut();
@@ -49,10 +57,24 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     navigate('/login', { replace: true });
   }, [navigate, clearSession]);
 
-  // Start session timer
+  // Update last activity timestamp
+  const updateActivity = useCallback(() => {
+    sessionStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
+    
+    // Reset inactivity timer
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+    }
+    inactivityTimerRef.current = setTimeout(() => {
+      console.log('Session expired due to inactivity');
+      handleSessionExpired();
+    }, INACTIVITY_TIMEOUT_MS);
+  }, [handleSessionExpired]);
+
+  // Start session timer (8 hour max)
   const startSessionTimer = useCallback(() => {
-    if (expirationTimerRef.current) {
-      clearTimeout(expirationTimerRef.current);
+    if (sessionTimerRef.current) {
+      clearTimeout(sessionTimerRef.current);
     }
 
     let sessionStart = sessionStorage.getItem(SESSION_START_KEY);
@@ -65,63 +87,112 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     const remaining = SESSION_DURATION_MS - elapsed;
 
     if (remaining <= 0) {
+      console.log('Session expired after 8 hours');
       handleSessionExpired();
       return;
     }
 
-    expirationTimerRef.current = setTimeout(() => {
+    sessionTimerRef.current = setTimeout(() => {
+      console.log('Session expired after 8 hours');
       handleSessionExpired();
     }, remaining);
-  }, [handleSessionExpired]);
 
-  // Session management effects
+    // Also start inactivity timer
+    updateActivity();
+  }, [handleSessionExpired, updateActivity]);
+
+  // Track user activity
+  useEffect(() => {
+    if (!user) return;
+
+    const activityEvents = ['mousedown', 'keydown', 'touchstart', 'scroll', 'mousemove'];
+    
+    // Throttle activity updates to avoid excessive calls
+    let lastUpdate = 0;
+    const throttledUpdate = () => {
+      const now = Date.now();
+      if (now - lastUpdate > 30000) { // Update at most every 30 seconds
+        lastUpdate = now;
+        updateActivity();
+      }
+    };
+
+    activityEvents.forEach(event => {
+      document.addEventListener(event, throttledUpdate, { passive: true });
+    });
+
+    return () => {
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, throttledUpdate);
+      });
+    };
+  }, [user, updateActivity]);
+
+  // Session management
   useEffect(() => {
     if (!user) return;
 
     startSessionTimer();
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        clearSession();
-        setUser(null);
-        setSession(null);
+    return () => {
+      if (sessionTimerRef.current) {
+        clearTimeout(sessionTimerRef.current);
+      }
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+    };
+  }, [user, startSessionTimer]);
+
+  // Check session validity on mount and when tab becomes visible
+  useEffect(() => {
+    const checkSession = () => {
+      const sessionStart = sessionStorage.getItem(SESSION_START_KEY);
+      const lastActivity = sessionStorage.getItem(LAST_ACTIVITY_KEY);
+      const now = Date.now();
+
+      // Check if session expired (8 hours)
+      if (sessionStart) {
+        const sessionElapsed = now - parseInt(sessionStart, 10);
+        if (sessionElapsed >= SESSION_DURATION_MS) {
+          console.log('Session expired on check (8 hours)');
+          handleSessionExpired();
+          return;
+        }
+      }
+
+      // Check if inactive for too long (1 hour)
+      if (lastActivity) {
+        const inactiveTime = now - parseInt(lastActivity, 10);
+        if (inactiveTime >= INACTIVITY_TIMEOUT_MS) {
+          console.log('Session expired on check (1 hour inactivity)');
+          handleSessionExpired();
+          return;
+        }
+      }
+
+      // If still valid, restart timers
+      if (user) {
+        startSessionTimer();
       }
     };
 
-    const handleBeforeUnload = () => {
-      sessionStorage.removeItem(SESSION_START_KEY);
-      clearAuthData();
-    };
-
-    const handlePageHide = () => {
-      sessionStorage.removeItem(SESSION_START_KEY);
-      clearAuthData();
+    // Check when tab becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && user) {
+        checkSession();
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('pagehide', handlePageHide);
+    
+    // Initial check
+    checkSession();
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('pagehide', handlePageHide);
-      if (expirationTimerRef.current) {
-        clearTimeout(expirationTimerRef.current);
-      }
     };
-  }, [user, startSessionTimer, clearSession]);
-
-  // Check session validity on mount
-  useEffect(() => {
-    const sessionStart = sessionStorage.getItem(SESSION_START_KEY);
-    if (sessionStart) {
-      const elapsed = Date.now() - parseInt(sessionStart, 10);
-      if (elapsed >= SESSION_DURATION_MS) {
-        clearSession();
-      }
-    }
-  }, [clearSession]);
+  }, [user, handleSessionExpired, startSessionTimer]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -152,7 +223,9 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     });
     
     if (!error) {
-      sessionStorage.setItem(SESSION_START_KEY, Date.now().toString());
+      const now = Date.now().toString();
+      sessionStorage.setItem(SESSION_START_KEY, now);
+      sessionStorage.setItem(LAST_ACTIVITY_KEY, now);
     }
     
     return { error };
