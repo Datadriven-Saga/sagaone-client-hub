@@ -20,6 +20,10 @@ interface EventoInput {
   evento_principal: boolean;
   qualificar_lead: boolean;
   imagem_divulgacao_url: string | null;
+  // Localização específica do evento
+  uf: string | null;
+  cidade: string | null;
+  endereco: string | null;
 }
 
 interface ContatoInput {
@@ -137,6 +141,7 @@ Deno.serve(async (req: Request) => {
     const now = new Date().toISOString();
 
     // Payload do evento no formato esperado pelo agente
+    // Usa localização específica do evento, com fallback para dados da empresa
     const eventoPayload = {
       nome: evento.titulo || '',
       descricao: evento.descricao || '',
@@ -144,9 +149,9 @@ Deno.serve(async (req: Request) => {
       marca: empresa?.marca || empresa?.nome_empresa || '',
       dealerid: dealerId,
       telefone_pri: telefonePri,
-      uf: empresa?.uf || '',
-      cidade: empresa?.cidade || '',
-      endereco: empresa?.endereco || '',
+      uf: evento.uf || empresa?.uf || '',
+      cidade: evento.cidade || empresa?.cidade || '',
+      endereco: evento.endereco || empresa?.endereco || '',
       data_inicio: formatarDataISO(evento.data_inicio),
       data_fim: formatarDataISO(evento.data_fim),
       evt_status: 'ativo',
