@@ -31,3 +31,6 @@ verify_jwt = true
 
 [functions.atendimento-status-webhook]
 verify_jwt = true
+
+[functions.ia-ligacao-webhook]
+verify_jwt = true
