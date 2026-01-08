@@ -6,8 +6,16 @@ interface ProtectedRouteProps {
   children: ReactNode;
 }
 
+// TODO: Remover bypass após configurar Azure SSO
+const DEV_BYPASS_AUTH = true;
+
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
+
+  // Bypass temporário para desenvolvimento
+  if (DEV_BYPASS_AUTH) {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return (
