@@ -1797,6 +1797,39 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
     onOpenChange(false);
   };
 
+  // Função para atualizar descrição com dados de localização (IA Ligação)
+  const atualizarDescricaoComLocalizacao = (uf: string, cidade: string, endereco: string) => {
+    if (tipoEvento !== 'IA Ligação') return;
+    
+    // Só atualiza se pelo menos um campo de localização estiver preenchido
+    if (!uf.trim() && !cidade.trim() && !endereco.trim()) return;
+    
+    // Formatar endereço completo
+    const partes: string[] = [];
+    if (endereco.trim()) partes.push(endereco.trim());
+    if (cidade.trim()) partes.push(cidade.trim());
+    if (uf.trim()) partes.push(uf.trim());
+    
+    const enderecoCompleto = partes.join(' - ');
+    
+    // Atualizar descrição - mantém conteúdo existente antes da seção de localização
+    const marcador = '📍 Localização do Evento:';
+    const descricaoAtual = descricao.trim();
+    const indexMarcador = descricaoAtual.indexOf(marcador);
+    
+    let novaDescricao: string;
+    if (indexMarcador >= 0) {
+      // Substitui a seção de localização existente
+      const antesDoMarcador = descricaoAtual.substring(0, indexMarcador).trim();
+      novaDescricao = antesDoMarcador ? `${antesDoMarcador}\n\n${marcador}\n${enderecoCompleto}` : `${marcador}\n${enderecoCompleto}`;
+    } else {
+      // Adiciona a seção de localização ao final
+      novaDescricao = descricaoAtual ? `${descricaoAtual}\n\n${marcador}\n${enderecoCompleto}` : `${marcador}\n${enderecoCompleto}`;
+    }
+    
+    setDescricao(novaDescricao);
+  };
+
   const handleNextStep = () => {
     if (currentStep === 0 && !titulo.trim()) {
       toast({
@@ -2298,7 +2331,11 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                       id="eventoUF"
                       placeholder="Ex: GO"
                       value={eventoUF}
-                      onChange={(e) => setEventoUF(e.target.value.toUpperCase().slice(0, 2))}
+                      onChange={(e) => {
+                        const newValue = e.target.value.toUpperCase().slice(0, 2);
+                        setEventoUF(newValue);
+                        atualizarDescricaoComLocalizacao(newValue, eventoCidade, eventoEndereco);
+                      }}
                       maxLength={2}
                       className={!eventoUF.trim() ? 'border-destructive' : ''}
                     />
@@ -2309,7 +2346,11 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                       id="eventoCidade"
                       placeholder="Ex: Goiânia"
                       value={eventoCidade}
-                      onChange={(e) => setEventoCidade(e.target.value)}
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        setEventoCidade(newValue);
+                        atualizarDescricaoComLocalizacao(eventoUF, newValue, eventoEndereco);
+                      }}
                       className={!eventoCidade.trim() ? 'border-destructive' : ''}
                     />
                   </div>
@@ -2320,7 +2361,11 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                     id="eventoEndereco"
                     placeholder="Ex: Av. República do Líbano, 1234 - Setor Oeste"
                     value={eventoEndereco}
-                    onChange={(e) => setEventoEndereco(e.target.value)}
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      setEventoEndereco(newValue);
+                      atualizarDescricaoComLocalizacao(eventoUF, eventoCidade, newValue);
+                    }}
                     rows={2}
                     className={!eventoEndereco.trim() ? 'border-destructive' : ''}
                   />
