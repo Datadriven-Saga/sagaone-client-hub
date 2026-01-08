@@ -15,6 +15,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signInWithAzure: () => Promise<{ error: any }>;
+  signInWithMagicLink: (email: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
 }
@@ -246,6 +247,16 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     await clearSession();
   };
 
+  const signInWithMagicLink = async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+      },
+    });
+    return { error };
+  };
+
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
@@ -259,6 +270,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     loading,
     signIn,
     signInWithAzure,
+    signInWithMagicLink,
     signOut,
     resetPassword,
   }), [user, session, loading]);

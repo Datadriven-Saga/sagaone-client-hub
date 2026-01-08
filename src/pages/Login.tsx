@@ -16,8 +16,9 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
 
-  const { signIn, signInWithAzure, user } = useAuth();
+  const { signIn, signInWithAzure, signInWithMagicLink, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -85,6 +86,47 @@ const Login = () => {
     }
   };
 
+  // Login via Magic Link (email)
+  const handleMagicLinkLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!email.trim()) {
+      toast({
+        title: "Email obrigatório",
+        description: "Por favor, informe seu email corporativo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await signInWithMagicLink(email);
+
+      if (error) {
+        toast({
+          title: "Erro ao enviar email",
+          description: error.message || "Não foi possível enviar o link de acesso.",
+          variant: "destructive",
+        });
+      } else {
+        setMagicLinkSent(true);
+        toast({
+          title: "Email enviado!",
+          description: "Verifique sua caixa de entrada para acessar o sistema.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao enviar email",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Renderiza login SSO quando habilitado
   if (USE_SSO_LOGIN) {
     return (
@@ -100,7 +142,7 @@ const Login = () => {
             <CardHeader className="space-y-1">
               <CardTitle className="text-2xl text-center font-medium">Faça seu login</CardTitle>
               <p className="text-center text-muted-foreground text-sm">
-                Use sua conta corporativa Microsoft para acessar
+                Use sua conta corporativa Microsoft ou email
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -110,7 +152,7 @@ const Login = () => {
                 onClick={handleSSOLogin}
                 disabled={loading}
               >
-                {loading ? (
+                {loading && !email ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
                     Conectando...
@@ -128,7 +170,64 @@ const Login = () => {
                 )}
               </Button>
 
-              <div className="text-center pt-4">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-muted" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-sagaone-login-card px-2 text-muted-foreground">
+                    ou continue com email
+                  </span>
+                </div>
+              </div>
+
+              {magicLinkSent ? (
+                <div className="text-center py-4 space-y-2">
+                  <div className="text-primary text-lg font-medium">📧 Email enviado!</div>
+                  <p className="text-sm text-muted-foreground">
+                    Verifique sua caixa de entrada e clique no link para acessar.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-2"
+                    onClick={() => setMagicLinkSent(false)}
+                  >
+                    Enviar novamente
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleMagicLinkLogin} className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email corporativo</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="seu.email@empresa.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    className="w-full h-12"
+                    disabled={loading}
+                  >
+                    {loading && email ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Enviando...
+                      </>
+                    ) : (
+                      "Enviar link de acesso"
+                    )}
+                  </Button>
+                </form>
+              )}
+
+              <div className="text-center pt-2">
                 <p className="text-xs text-muted-foreground">
                   Ao entrar, você concorda com nossos termos de uso e política de privacidade.
                 </p>
