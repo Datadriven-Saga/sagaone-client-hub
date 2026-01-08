@@ -346,7 +346,7 @@ export function ContatoRealizadoDialog({
                   placeholder="Descreva os detalhes do contato realizado..."
                   value={anotacao}
                   onChange={(e) => setAnotacao(e.target.value)}
-                  className="min-h-[280px] text-[15px] leading-relaxed resize-none border-2 rounded-xl focus:border-primary"
+                  className="min-h-[280px] text-[15px] leading-relaxed resize-none rounded-xl"
                   maxLength={500}
                 />
                 <p className="text-sm text-foreground/50 text-right">
