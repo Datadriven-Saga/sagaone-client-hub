@@ -1052,9 +1052,12 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       }
     } catch (error) {
       console.error('Erro ao excluir prospecção:', error);
+      const mensagemErro = error instanceof Error ? error.message : "Não foi possível excluir a prospecção.";
+      // Mostrar alert nativo com erro
+      alert(`Erro ao excluir evento:\n\n${mensagemErro}`);
       toast({
         title: "Erro ao excluir",
-        description: error instanceof Error ? error.message : "Não foi possível excluir a prospecção.",
+        description: mensagemErro,
         variant: "destructive"
       });
     } finally {
@@ -1662,10 +1665,19 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {deleteProspeccao?.canal === 'Ligação' ? 'Excluir Evento e Leads' : 'Excluir Prospecção'}
+              {isDeleting 
+                ? 'Excluindo evento...' 
+                : deleteProspeccao?.canal === 'Ligação' 
+                  ? 'Excluir Evento e Leads' 
+                  : 'Excluir Prospecção'}
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
-              {deleteProspeccao?.canal === 'Ligação' ? (
+              {isDeleting ? (
+                <div className="flex flex-col items-center justify-center py-6 gap-3">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                  <span className="text-sm text-muted-foreground">Excluindo evento e removendo do sistema...</span>
+                </div>
+              ) : deleteProspeccao?.canal === 'Ligação' ? (
                 <>
                   <span className="block font-semibold text-destructive">
                     ⚠️ Atenção: Esta ação é irreversível!
@@ -1682,16 +1694,18 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteProspeccao}
-              className="bg-red-600 hover:bg-red-700"
-              disabled={isDeleting}
-            >
-              {isDeleting ? 'Excluindo...' : 'Excluir'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          {!isDeleting && (
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteProspeccao}
+                className="bg-red-600 hover:bg-red-700"
+                disabled={isDeleting}
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          )}
         </AlertDialogContent>
       </AlertDialog>
 
