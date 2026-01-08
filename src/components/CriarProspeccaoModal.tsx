@@ -48,6 +48,7 @@ const getStepsByType = (tipo: TipoEvento): string[] => {
 
 export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, editingProspeccao }: CriarProspeccaoModalProps) => {
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
   const [currentStep, setCurrentStep] = useState(0);
   
   // Tipo de Evento
@@ -1029,8 +1030,69 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
 
     setLoading(true);
+    setLoadingMessage("");
     
     try {
+      // Para IA Ligação na criação, primeiro verificar próximo ID disponível
+      let proximoIdEvento: number | null = null;
+      if (tipoEvento === 'IA Ligação' && !editingProspeccao) {
+        setLoadingMessage("Verificando eventos ativos...");
+        console.log('🔍 Consultando webhook verifica-eventos para obter próximo ID...');
+        
+        try {
+          const verificaResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          
+          if (!verificaResponse.ok) {
+            console.error('❌ Erro ao consultar verifica-eventos:', verificaResponse.status);
+            throw new Error('Não foi possível verificar eventos ativos');
+          }
+          
+          const verificaData = await verificaResponse.json();
+          console.log('📊 Resposta verifica-eventos:', verificaData);
+          
+          // Determinar o próximo ID baseado na resposta
+          let ultimoId = 0;
+          if (typeof verificaData === 'number') {
+            ultimoId = verificaData;
+          } else if (verificaData.ultimo_id !== undefined) {
+            ultimoId = parseInt(verificaData.ultimo_id, 10);
+          } else if (verificaData.proximo_id !== undefined) {
+            proximoIdEvento = parseInt(verificaData.proximo_id, 10);
+          } else if (verificaData.id_evento !== undefined) {
+            ultimoId = parseInt(verificaData.id_evento, 10);
+          } else if (verificaData.last_id !== undefined) {
+            ultimoId = parseInt(verificaData.last_id, 10);
+          } else if (Array.isArray(verificaData) && verificaData.length > 0) {
+            for (const item of verificaData) {
+              const id = parseInt(item.id_evento || item.id || 0, 10);
+              if (!isNaN(id) && id > ultimoId) {
+                ultimoId = id;
+              }
+            }
+          }
+          
+          if (!proximoIdEvento) {
+            proximoIdEvento = ultimoId + 1;
+          }
+          
+          console.log('🔢 Próximo ID de evento disponível:', proximoIdEvento);
+        } catch (verificaError) {
+          console.error('❌ Erro ao verificar eventos:', verificaError);
+          toast({
+            title: "Erro ao verificar eventos",
+            description: "Não foi possível obter o ID do evento. Tente novamente.",
+            variant: "destructive"
+          });
+          setLoading(false);
+          setLoadingMessage("");
+          return;
+        }
+      }
+      
+      setLoadingMessage("");
       // Determinar canal baseado no tipo de evento
       let canalFinal: 'Whatsapp' | 'Ligação' = 'Whatsapp';
       if (tipoEvento === 'IA Ligação') {
@@ -1153,14 +1215,23 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           return;
         }
 
+        // Se for IA Ligação, incluir o event_id_pri já obtido
+        const insertData: any = {
+          ...dadosProspeccao,
+          responsavel_id: user.id,
+          empresa_id: activeCompany.id,
+          leads_gerados: 0
+        };
+        
+        // Adicionar event_id_pri se tivermos o próximo ID (para IA Ligação)
+        if (tipoEvento === 'IA Ligação' && proximoIdEvento) {
+          insertData.event_id_pri = String(proximoIdEvento);
+          console.log('🔢 Criando prospecção com event_id_pri:', proximoIdEvento);
+        }
+        
         const { data, error } = await supabase
           .from('prospeccoes')
-          .insert([{
-            ...dadosProspeccao,
-            responsavel_id: user.id,
-            empresa_id: activeCompany.id,
-            leads_gerados: 0
-          }])
+          .insert([insertData])
           .select()
           .single();
 
@@ -3639,7 +3710,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
             {isLastStep ? (
               <Button onClick={handleSubmit} disabled={loading}>
                 {loading 
-                  ? (editingProspeccao ? "Salvando..." : "Criando...") 
+                  ? (loadingMessage || (editingProspeccao ? "Salvando..." : "Criando..."))
                   : (editingProspeccao ? "Salvar Alterações" : "Criar Evento")
                 }
               </Button>
