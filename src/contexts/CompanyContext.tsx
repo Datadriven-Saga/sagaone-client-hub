@@ -80,8 +80,25 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         };
         console.log('🏢 CompanyContext: Setting active company:', activeCompanyData);
         setActiveCompany(activeCompanyData);
+      } else if (companies.length > 0) {
+        // No active company found, activate the first one automatically
+        console.warn('🏢 CompanyContext: No active company found, activating first company');
+        const firstCompany = companies[0];
+        
+        // Set active in database
+        const { error: activateError } = await supabase.rpc('set_user_active_company', {
+          new_empresa_id: firstCompany.id
+        });
+        
+        if (activateError) {
+          console.error('🏢 CompanyContext: Error activating first company:', activateError);
+        } else {
+          console.log('🏢 CompanyContext: First company activated:', firstCompany);
+        }
+        
+        setActiveCompany(firstCompany);
       } else {
-        console.warn('🏢 CompanyContext: No active company found');
+        console.warn('🏢 CompanyContext: No companies found');
         setActiveCompany(null);
       }
     } catch (error) {
