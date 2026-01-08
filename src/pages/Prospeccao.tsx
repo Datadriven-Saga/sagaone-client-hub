@@ -1236,10 +1236,20 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                   <span className="font-medium text-sm">{prospeccao.titulo}</span>
                                 </td>
                                 <td className="py-3 px-3 text-sm text-muted-foreground">
-                                  {prospeccao.data_inicio ? new Date(prospeccao.data_inicio).toLocaleDateString('pt-BR') : '-'}
+                                  {prospeccao.data_inicio 
+                                    ? (() => {
+                                        const [year, month, day] = prospeccao.data_inicio.split('T')[0].split('-');
+                                        return `${day}/${month}/${year}`;
+                                      })()
+                                    : '-'}
                                 </td>
                                 <td className="py-3 px-3 text-sm text-muted-foreground">
-                                  {prospeccao.data_fim ? new Date(prospeccao.data_fim).toLocaleDateString('pt-BR') : '-'}
+                                  {prospeccao.data_fim 
+                                    ? (() => {
+                                        const [year, month, day] = prospeccao.data_fim.split('T')[0].split('-');
+                                        return `${day}/${month}/${year}`;
+                                      })()
+                                    : '-'}
                                 </td>
                                 <td className="py-3 px-3">
                                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
