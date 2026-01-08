@@ -1349,12 +1349,21 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       }
       
       // Verificar se a resposta indica sucesso
-      const responseData = response.data;
+      const responseData: any = response.data;
       if (responseData?.success === false || responseData?.error) {
         console.error('❌ Webhook retornou erro:', responseData);
+
+        const detalhe =
+          responseData?.data?.message ||
+          responseData?.data?.hint ||
+          responseData?.data?.raw ||
+          responseData?.error ||
+          responseData?.message ||
+          "Falha ao configurar o disparo de ligações.";
+
         toast({
           title: "Erro no disparo de ligação",
-          description: responseData?.message || "Falha ao configurar o disparo de ligações.",
+          description: `(${responseData?.status ?? 'sem status'}) ${detalhe}`,
           variant: "destructive",
         });
         return false;

@@ -5,9 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const WEBHOOK_URL_PRIMARY = 'https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one';
-// Fallback (ex.: ambiente de teste do workflow)
-const WEBHOOK_URL_FALLBACK = 'https://automatemaia.sagadatadriven.com.br/webhook-test/configura-eventos-saga-one';
+const WEBHOOK_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one';
 
 // Telefone padrão da Pri (fallback caso não encontre no banco)
 const TELEFONE_PRI_DEFAULT = '6223980043';
@@ -212,12 +210,8 @@ Deno.serve(async (req: Request) => {
       return { ok: response.ok, status: response.status, data: responseData, url };
     };
 
-    // Tenta primeiro a URL principal; se falhar, tenta fallback (ex.: /webhook-test)
-    let result = await postWebhook(WEBHOOK_URL_PRIMARY);
-    if (!result.ok) {
-      console.log('⚠️ Workflow retornou erro na URL principal; tentando fallback...');
-      result = await postWebhook(WEBHOOK_URL_FALLBACK);
-    }
+    // Envia somente para o endpoint oficial informado
+    const result = await postWebhook(WEBHOOK_URL);
 
     return new Response(
       JSON.stringify({
@@ -226,6 +220,16 @@ Deno.serve(async (req: Request) => {
         url: result.url,
         data: result.data,
         total_contatos: contatosPayload.length,
+        payload_preview: {
+          nome: payload.nome,
+          dealerid: payload.dealerid,
+          telefone_pri: payload.telefone_pri,
+          uf: payload.uf,
+          cidade: payload.cidade,
+          endereco: payload.endereco,
+          total_clientes: payload.total_clientes,
+          cliente_exemplo: payload.clientes?.[0] ?? null,
+        },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
