@@ -1884,20 +1884,20 @@ export default function Templates() {
                         <div className="flex items-center justify-end gap-1">
                           <Button 
                             variant="ghost" 
-                            size="sm"
+                            size="icon"
                             onClick={() => handleEditTemplate(template)}
+                            title="Editar"
                           >
-                            <Edit2 className="h-4 w-4 mr-1" />
-                            Editar
+                            <Edit2 className="h-4 w-4" />
                           </Button>
                           <Button 
                             variant="ghost" 
-                            size="sm"
+                            size="icon"
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => handleDeleteTemplate(template)}
+                            title="Excluir"
                           >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Excluir
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
