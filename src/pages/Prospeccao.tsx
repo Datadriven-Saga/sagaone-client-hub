@@ -140,11 +140,13 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     atualizarContato,
     atualizarStatusContato,
     excluirContato,
+    excluirContatosEmMassa,
     atribuirResponsavel,
     getMetricas, 
     criarProspeccao,
     editarProspeccao,
     excluirProspeccao,
+    reenviarGatilhos,
     refetch
   } = useContatoData();
   
@@ -1329,6 +1331,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                     <ClientesImportadosList
                       contatos={contatos}
                       prospeccoes={prospeccoes}
+                      prospeccaoId={globalFilters.prospeccaoId !== "todos" ? globalFilters.prospeccaoId : undefined}
                       onEditContato={(contato) => {
                         setModalContato({
                           isOpen: true,
@@ -1337,6 +1340,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                         });
                       }}
                       onDeleteContato={excluirContato}
+                      onDeleteMultiplosContatos={excluirContatosEmMassa}
+                      onReenviarGatilhos={reenviarGatilhos}
                       onUpdateContato={atualizarContato}
                     />
                   </div>

@@ -702,6 +702,111 @@ export const useContatoData = () => {
     setDateFilter({ start, end });
   };
 
+  // Reenviar gatilhos para contatos específicos
+  const reenviarGatilhos = async (contatoIds: string[], prospeccaoId: string): Promise<{ sucesso: number; falha: number }> => {
+    if (!activeCompany?.id) {
+      toast({ title: "Erro", description: "Nenhuma empresa ativa", variant: "destructive" });
+      return { sucesso: 0, falha: 0 };
+    }
+
+    // Buscar dados dos contatos
+    const { data: contatosData, error: contatosError } = await supabase
+      .from('contatos')
+      .select('id, nome, telefone, email, status, lead_id')
+      .in('id', contatoIds);
+
+    if (contatosError || !contatosData) {
+      toast({ title: "Erro", description: "Erro ao buscar contatos", variant: "destructive" });
+      return { sucesso: 0, falha: 0 };
+    }
+
+    // Buscar dados da prospecção
+    const { data: prospeccaoData } = await supabase
+      .from('prospeccoes')
+      .select('id, titulo, data_inicio, data_fim, canal')
+      .eq('id', prospeccaoId)
+      .single();
+
+    const BATCH_SIZE = 20;
+    let sucesso = 0;
+    let falha = 0;
+
+    const processarContato = async (contato: typeof contatosData[0]) => {
+      try {
+        await supabase.functions.invoke('trigger-webhook', {
+          body: {
+            gatilho: 'novo_contato_prospeccao',
+            dados: {
+              contato_id: contato.id,
+              lead_id: contato.lead_id,
+              prospeccao_id: prospeccaoId,
+              nome: contato.nome,
+              telefone: normalizePhone(contato.telefone),
+              email: contato.email,
+              status: contato.status || 'Novo',
+              prospeccao: {
+                id: prospeccaoData?.id,
+                nome: prospeccaoData?.titulo,
+                data_inicio: prospeccaoData?.data_inicio,
+                data_fim: prospeccaoData?.data_fim
+              }
+            }
+          }
+        });
+
+        if (prospeccaoData?.canal === 'Whatsapp') {
+          await supabase.functions.invoke('atendimento-status-webhook', {
+            body: {
+              telefone_lead: normalizePhone(contato.telefone),
+              status: contato.status || 'Novo',
+              empresa_id: activeCompany.id,
+              evento: 'criacao',
+              leadId: contato.lead_id,
+              prospeccao_id: prospeccaoId
+            }
+          });
+        }
+
+        return true;
+      } catch (error) {
+        console.error('Erro ao reenviar gatilho:', contato.id, error);
+        return false;
+      }
+    };
+
+    for (let i = 0; i < contatosData.length; i += BATCH_SIZE) {
+      const batch = contatosData.slice(i, i + BATCH_SIZE);
+      const resultados = await Promise.all(batch.map(processarContato));
+      sucesso += resultados.filter(r => r).length;
+      falha += resultados.filter(r => !r).length;
+    }
+
+    return { sucesso, falha };
+  };
+
+  // Excluir múltiplos contatos de uma vez
+  const excluirContatosEmMassa = async (contatoIds: string[]): Promise<{ sucesso: number; falha: number }> => {
+    let sucesso = 0;
+    let falha = 0;
+
+    for (const id of contatoIds) {
+      try {
+        const { error } = await supabase.from('contatos').delete().eq('id', id);
+        if (error) throw error;
+        sucesso++;
+      } catch (error) {
+        falha++;
+        console.error('Erro ao excluir contato:', id, error);
+      }
+    }
+
+    if (sucesso > 0) {
+      setContatos(prev => prev.filter(c => !contatoIds.includes(c.id)));
+    }
+
+    return { sucesso, falha };
+  };
+
   return {
     contatos,
     prospeccoes,
@@ -710,12 +815,14 @@ export const useContatoData = () => {
     atualizarContato,
     atualizarStatusContato,
     excluirContato,
+    excluirContatosEmMassa,
     atribuirResponsavel,
     getMetricas,
     updateDateFilter,
     criarProspeccao,
     editarProspeccao,
     excluirProspeccao,
+    reenviarGatilhos,
     refetch: () => {
       fetchProspeccoes();
       fetchContatos();

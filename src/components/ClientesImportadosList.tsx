@@ -42,7 +42,9 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Search,
-  Users
+  Users,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Contato } from '@/hooks/useContatoData';
@@ -51,8 +53,11 @@ import { format } from 'date-fns';
 interface ClientesImportadosListProps {
   contatos: Contato[];
   prospeccoes: { id: string; titulo: string }[];
+  prospeccaoId?: string;
   onEditContato: (contato: Contato) => void;
   onDeleteContato: (contatoId: string) => Promise<void>;
+  onDeleteMultiplosContatos?: (contatoIds: string[]) => Promise<{ sucesso: number; falha: number }>;
+  onReenviarGatilhos?: (contatoIds: string[], prospeccaoId: string) => Promise<{ sucesso: number; falha: number }>;
   onUpdateContato: (contatoId: string, data: Partial<Contato>) => Promise<boolean>;
 }
 
@@ -61,8 +66,11 @@ const ITEMS_PER_PAGE = 10;
 export const ClientesImportadosList = ({ 
   contatos, 
   prospeccoes,
+  prospeccaoId,
   onEditContato,
   onDeleteContato,
+  onDeleteMultiplosContatos,
+  onReenviarGatilhos,
   onUpdateContato
 }: ClientesImportadosListProps) => {
   const { toast } = useToast();
@@ -74,6 +82,9 @@ export const ClientesImportadosList = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedContatos, setSelectedContatos] = useState<Set<string>>(new Set());
+  const [isReenviarModalOpen, setIsReenviarModalOpen] = useState(false);
+  const [isReenviando, setIsReenviando] = useState(false);
+  const [deleteAllMode, setDeleteAllMode] = useState(false);
   
   // Form state for editing
   const [editForm, setEditForm] = useState({
@@ -152,8 +163,22 @@ export const ClientesImportadosList = ({
     
     setIsDeleting(true);
     try {
-      for (const id of deleteContatoIds) {
-        await onDeleteContato(id);
+      if (onDeleteMultiplosContatos && deleteContatoIds.length > 1) {
+        const resultado = await onDeleteMultiplosContatos(deleteContatoIds);
+        toast({
+          title: "Contatos excluídos",
+          description: `${resultado.sucesso} excluídos com sucesso${resultado.falha > 0 ? `, ${resultado.falha} falharam` : ''}.`,
+        });
+      } else {
+        for (const id of deleteContatoIds) {
+          await onDeleteContato(id);
+        }
+        toast({
+          title: deleteContatoIds.length === 1 ? "Contato excluído" : "Contatos excluídos",
+          description: deleteContatoIds.length === 1 
+            ? "O contato foi removido com sucesso."
+            : `${deleteContatoIds.length} contatos foram removidos com sucesso.`,
+        });
       }
       
       // Limpar seleção após exclusão
@@ -161,13 +186,6 @@ export const ClientesImportadosList = ({
         const newSet = new Set(prev);
         deleteContatoIds.forEach(id => newSet.delete(id));
         return newSet;
-      });
-      
-      toast({
-        title: deleteContatoIds.length === 1 ? "Contato excluído" : "Contatos excluídos",
-        description: deleteContatoIds.length === 1 
-          ? "O contato foi removido com sucesso."
-          : `${deleteContatoIds.length} contatos foram removidos com sucesso.`,
       });
     } catch (error) {
       toast({
@@ -178,6 +196,7 @@ export const ClientesImportadosList = ({
     } finally {
       setIsDeleting(false);
       setDeleteContatoIds([]);
+      setDeleteAllMode(false);
     }
   };
 
@@ -195,7 +214,8 @@ export const ClientesImportadosList = ({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedContatos(new Set(paginatedContatos.map(c => c.id)));
+      // Seleciona TODOS os contatos filtrados, não apenas a página atual
+      setSelectedContatos(new Set(filteredContatos.map(c => c.id)));
     } else {
       setSelectedContatos(new Set());
     }
@@ -207,8 +227,46 @@ export const ClientesImportadosList = ({
     }
   };
 
+  const handleDeleteAll = () => {
+    setDeleteAllMode(true);
+    setDeleteContatoIds(contatos.map(c => c.id));
+  };
+
+  const handleReenviarGatilhos = async () => {
+    if (!onReenviarGatilhos || !prospeccaoId) {
+      toast({ title: "Erro", description: "Função não disponível", variant: "destructive" });
+      return;
+    }
+
+    setIsReenviando(true);
+    try {
+      const idsParaReenviar = selectedContatos.size > 0 
+        ? Array.from(selectedContatos)
+        : contatos.map(c => c.id);
+      
+      const resultado = await onReenviarGatilhos(idsParaReenviar, prospeccaoId);
+      
+      toast({
+        title: "Gatilhos reenviados",
+        description: `${resultado.sucesso} enviados com sucesso${resultado.falha > 0 ? `, ${resultado.falha} falharam` : ''}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao reenviar gatilhos",
+        variant: "destructive"
+      });
+    } finally {
+      setIsReenviando(false);
+      setIsReenviarModalOpen(false);
+    }
+  };
+
   const allPageSelected = paginatedContatos.length > 0 && 
     paginatedContatos.every(c => selectedContatos.has(c.id));
+  
+  const allSelected = filteredContatos.length > 0 && 
+    filteredContatos.every(c => selectedContatos.has(c.id));
 
   if (contatos.length === 0) {
     return null;
@@ -216,21 +274,52 @@ export const ClientesImportadosList = ({
 
   return (
     <Card className="p-4 mt-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
           <h4 className="font-medium text-sm">Clientes Importados ({contatos.length})</h4>
         </div>
-        {selectedContatos.size > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Botão Reenviar Gatilhos */}
+          {onReenviarGatilhos && prospeccaoId && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setIsReenviarModalOpen(true)}
+              disabled={isReenviando}
+            >
+              {isReenviando ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Reenviar Gatilhos {selectedContatos.size > 0 ? `(${selectedContatos.size})` : `(${contatos.length})`}
+            </Button>
+          )}
+          
+          {/* Botão Excluir Todos */}
           <Button 
-            variant="destructive" 
+            variant="outline" 
             size="sm"
-            onClick={handleDeleteSelected}
+            onClick={handleDeleteAll}
+            className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
           >
             <Trash2 className="h-4 w-4 mr-2" />
-            Excluir {selectedContatos.size} selecionado{selectedContatos.size > 1 ? 's' : ''}
+            Excluir Todos ({contatos.length})
           </Button>
-        )}
+
+          {/* Botão Excluir Selecionados */}
+          {selectedContatos.size > 0 && (
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={handleDeleteSelected}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Excluir {selectedContatos.size} selecionado{selectedContatos.size > 1 ? 's' : ''}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -264,8 +353,9 @@ export const ClientesImportadosList = ({
             <TableRow>
               <TableHead className="w-[40px]">
                 <Checkbox
-                  checked={allPageSelected}
+                  checked={allSelected}
                   onCheckedChange={handleSelectAll}
+                  title={allSelected ? "Desmarcar todos" : `Selecionar todos (${filteredContatos.length})`}
                 />
               </TableHead>
               <TableHead className="w-[200px]">Nome</TableHead>
@@ -410,16 +500,22 @@ export const ClientesImportadosList = ({
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={deleteContatoIds.length > 0} onOpenChange={(open) => !open && setDeleteContatoIds([])}>
+      <AlertDialog open={deleteContatoIds.length > 0} onOpenChange={(open) => { if (!open) { setDeleteContatoIds([]); setDeleteAllMode(false); }}}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {deleteContatoIds.length === 1 ? 'Excluir contato?' : `Excluir ${deleteContatoIds.length} contatos?`}
+              {deleteAllMode 
+                ? `Excluir todos os ${deleteContatoIds.length} contatos?` 
+                : deleteContatoIds.length === 1 
+                  ? 'Excluir contato?' 
+                  : `Excluir ${deleteContatoIds.length} contatos?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. {deleteContatoIds.length === 1 
-                ? 'O contato será removido permanentemente do sistema.'
-                : `Os ${deleteContatoIds.length} contatos selecionados serão removidos permanentemente do sistema.`}
+              Esta ação não pode ser desfeita. {deleteAllMode
+                ? `Todos os ${deleteContatoIds.length} contatos desta prospecção serão removidos permanentemente.`
+                : deleteContatoIds.length === 1 
+                  ? 'O contato será removido permanentemente do sistema.'
+                  : `Os ${deleteContatoIds.length} contatos selecionados serão removidos permanentemente do sistema.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -430,6 +526,35 @@ export const ClientesImportadosList = ({
               disabled={isDeleting}
             >
               {isDeleting ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reenviar Gatilhos Confirmation */}
+      <AlertDialog open={isReenviarModalOpen} onOpenChange={setIsReenviarModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reenviar gatilhos?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedContatos.size > 0
+                ? `Os gatilhos serão reenviados para ${selectedContatos.size} contatos selecionados.`
+                : `Os gatilhos serão reenviados para todos os ${contatos.length} contatos desta prospecção.`}
+              {' '}Isso irá disparar novamente os webhooks de criação de contato.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isReenviando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleReenviarGatilhos}
+              disabled={isReenviando}
+            >
+              {isReenviando ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Reenviando...
+                </>
+              ) : 'Reenviar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
