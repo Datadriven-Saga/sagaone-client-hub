@@ -40,7 +40,7 @@ const getStepsByType = (tipo: TipoEvento): string[] => {
     case 'IA Whatsapp':
       return ['Dados Gerais', 'Configuração IA', 'Convite'];
     case 'IA Ligação':
-      return ['Dados Gerais', 'Configuração IA'];
+      return ['Dados Gerais', 'Configuração IA', 'Base de Contatos'];
     default:
       return ['Dados Gerais'];
   }
@@ -181,7 +181,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   }
   const [contatosLigacao, setContatosLigacao] = useState<ContatoLigacao[]>([]);
   const [processandoPlanilha, setProcessandoPlanilha] = useState(false);
-  const fileInputLigacaoRef = useState<HTMLInputElement | null>(null);
+  const [modoImportBase, setModoImportBase] = useState<'upload' | 'existente'>('upload');
+  const [baseExistenteSearch, setBaseExistenteSearch] = useState('');
+  const [baseExistenteProspeccao, setBaseExistenteProspeccao] = useState<string>('');
+  const [contatosBaseExistente, setContatosBaseExistente] = useState<any[]>([]);
+  const [loadingBaseExistente, setLoadingBaseExistente] = useState(false);
+  const [prospeccoesList, setProspeccoesList] = useState<{ id: string; titulo: string }[]>([]);
   
   // Estado para expandir descrição
   const [descricaoExpandida, setDescricaoExpandida] = useState(false);
@@ -654,6 +659,25 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       fetchOutrasPremiacoes();
     }
   }, [editingProspeccao?.id, activeCompany?.id, isOpen]);
+
+  // Buscar lista de prospecções para Base Existente (IA Ligação)
+  useEffect(() => {
+    const fetchProspeccoes = async () => {
+      if (!activeCompany?.id || !isOpen) return;
+      
+      const { data } = await supabase
+        .from('prospeccoes')
+        .select('id, titulo')
+        .eq('empresa_id', activeCompany.id)
+        .order('created_at', { ascending: false });
+      
+      if (data) {
+        setProspeccoesList(data);
+      }
+    };
+    
+    fetchProspeccoes();
+  }, [activeCompany?.id, isOpen]);
   
   // Handler para atualizar meta individual
   const handleMetaIndividualChange = (userId: string, field: string, value: string) => {
@@ -2205,16 +2229,49 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                   className="resize-none transition-all"
                 />
               </div>
+            </div>
+          );
+        }
 
-              {/* Seção de Upload de Base */}
-              <div className="border-t pt-4 mt-4">
-                <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
-                  <Upload className="h-4 w-4" />
-                  Base de Contatos para Ligação
-                </h4>
-                
+      case 'Base de Contatos':
+        return (
+          <div className="space-y-4">
+            <Card className="p-4 bg-gradient-to-r from-phone-600/80 to-phone-700 text-white" style={{ background: 'linear-gradient(to right, #059669, #047857)' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="h-4 w-4" />
+                <span className="text-sm font-medium">Base de Contatos para Ligação</span>
+              </div>
+              <p className="text-xs opacity-80">
+                Importe uma planilha ou selecione contatos de uma prospecção existente
+              </p>
+            </Card>
+
+            {/* Seleção de modo */}
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                type="button"
+                variant={modoImportBase === 'upload' ? 'default' : 'outline'}
+                className="h-auto py-3 flex flex-col items-center gap-2"
+                onClick={() => setModoImportBase('upload')}
+              >
+                <Upload className="h-5 w-5" />
+                <span className="text-sm">Importar Planilha</span>
+              </Button>
+              <Button
+                type="button"
+                variant={modoImportBase === 'existente' ? 'default' : 'outline'}
+                className="h-auto py-3 flex flex-col items-center gap-2"
+                onClick={() => setModoImportBase('existente')}
+              >
+                <Users className="h-5 w-5" />
+                <span className="text-sm">Base Existente</span>
+              </Button>
+            </div>
+
+            {modoImportBase === 'upload' ? (
+              <>
                 {/* Instruções e Upload */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-2 gap-4">
                   {/* Instruções */}
                   <Card className="p-4 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
                     <div className="flex items-start space-x-2">
@@ -2254,61 +2311,146 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                     </label>
                   </Card>
                 </div>
+              </>
+            ) : (
+              <>
+                {/* Seleção de Base Existente */}
+                <Card className="p-4">
+                  <Label className="mb-2 block">Selecione a Prospecção</Label>
+                  <Select 
+                    value={baseExistenteProspeccao} 
+                    onValueChange={async (value) => {
+                      setBaseExistenteProspeccao(value);
+                      if (value) {
+                        setLoadingBaseExistente(true);
+                        try {
+                          const { data: contatos } = await supabase
+                            .from('contatos')
+                            .select('id, nome, telefone, email, origem')
+                            .eq('empresa_id', activeCompany?.id)
+                            .order('nome');
+                          
+                          // Filtrar contatos da prospecção selecionada (usando eventos_prospeccao)
+                          const { data: eventosContatos } = await supabase
+                            .from('eventos_prospeccao')
+                            .select('contato_id')
+                            .eq('prospeccao_id', value);
+                          
+                          const contatoIds = eventosContatos?.map(e => e.contato_id) || [];
+                          const contatosFiltrados = contatos?.filter(c => contatoIds.includes(c.id)) || [];
+                          
+                          setContatosBaseExistente(contatosFiltrados);
+                        } catch (error) {
+                          console.error('Erro ao buscar contatos:', error);
+                        }
+                        setLoadingBaseExistente(false);
+                      } else {
+                        setContatosBaseExistente([]);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Escolha uma prospecção..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {prospeccoesList
+                        ?.filter(p => p.id !== editingProspeccao?.id)
+                        .map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.titulo}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
 
-                {/* Preview dos dados */}
-                {contatosLigacao.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h5 className="text-sm font-medium">Preview dos dados ({contatosLigacao.length} contatos)</h5>
-                      <Button variant="outline" size="sm" onClick={() => setContatosLigacao([])}>
-                        Limpar
-                      </Button>
+                  {loadingBaseExistente && (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                     </div>
-                    
-                    <div className="border rounded-lg overflow-hidden">
-                      <div className="max-h-48 overflow-y-auto">
-                        <Table>
-                          <TableHeader className="sticky top-0 bg-background z-10">
-                            <TableRow>
-                              <TableHead className="w-[180px]">Nome*</TableHead>
-                              <TableHead className="w-[140px]">Telefone*</TableHead>
-                              <TableHead className="w-[180px]">E-mail</TableHead>
-                              <TableHead className="w-[60px]">Status</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {contatosLigacao.slice(0, 10).map((contato, index) => {
-                              const isValid = contato.nome && contato.telefone;
-                              return (
-                                <TableRow key={index}>
-                                  <TableCell className={!contato.nome ? 'text-red-600' : ''}>{contato.nome || 'OBRIGATÓRIO'}</TableCell>
-                                  <TableCell className={!contato.telefone ? 'text-red-600' : ''}>{contato.telefone || 'OBRIGATÓRIO'}</TableCell>
-                                  <TableCell>{contato.email || '-'}</TableCell>
-                                  <TableCell>
-                                    {isValid ? (
-                                      <Check className="text-green-600" size={16} />
-                                    ) : (
-                                      <X className="text-red-600" size={16} />
-                                    )}
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
+                  )}
+
+                  {contatosBaseExistente.length > 0 && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium">{contatosBaseExistente.length} contatos encontrados</p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            const contatosConvertidos = contatosBaseExistente.map(c => ({
+                              nome: c.nome || '',
+                              telefone: c.telefone || '',
+                              email: c.email || '',
+                              origem: c.origem || '',
+                            }));
+                            setContatosLigacao(contatosConvertidos);
+                            toast({
+                              title: "Contatos adicionados",
+                              description: `${contatosConvertidos.length} contatos foram adicionados à base.`,
+                            });
+                          }}
+                        >
+                          Usar estes contatos
+                        </Button>
                       </div>
-                      {contatosLigacao.length > 10 && (
-                        <p className="text-xs text-muted-foreground text-center py-2 border-t">
-                          Mostrando 10 de {contatosLigacao.length} contatos
-                        </p>
-                      )}
                     </div>
+                  )}
+                </Card>
+              </>
+            )}
+
+            {/* Preview dos dados - sempre visível se há contatos */}
+            {contatosLigacao.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-sm font-medium">Preview dos dados ({contatosLigacao.length} contatos)</h5>
+                  <Button variant="outline" size="sm" onClick={() => setContatosLigacao([])}>
+                    Limpar
+                  </Button>
+                </div>
+                
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="max-h-48 overflow-y-auto">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background z-10">
+                        <TableRow>
+                          <TableHead className="w-[180px]">Nome*</TableHead>
+                          <TableHead className="w-[140px]">Telefone*</TableHead>
+                          <TableHead className="w-[180px]">E-mail</TableHead>
+                          <TableHead className="w-[60px]">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {contatosLigacao.slice(0, 10).map((contato, index) => {
+                          const isValid = contato.nome && contato.telefone;
+                          return (
+                            <TableRow key={index}>
+                              <TableCell className={!contato.nome ? 'text-red-600' : ''}>{contato.nome || 'OBRIGATÓRIO'}</TableCell>
+                              <TableCell className={!contato.telefone ? 'text-red-600' : ''}>{contato.telefone || 'OBRIGATÓRIO'}</TableCell>
+                              <TableCell>{contato.email || '-'}</TableCell>
+                              <TableCell>
+                                {isValid ? (
+                                  <Check className="text-green-600" size={16} />
+                                ) : (
+                                  <X className="text-red-600" size={16} />
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
                   </div>
-                )}
+                  {contatosLigacao.length > 10 && (
+                    <p className="text-xs text-muted-foreground text-center py-2 border-t">
+                      Mostrando 10 de {contatosLigacao.length} contatos
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        }
+            )}
+          </div>
+        );
 
       case 'Metas':
         return (
