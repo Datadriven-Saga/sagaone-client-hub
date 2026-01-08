@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Table, 
   TableBody, 
@@ -51,7 +52,7 @@ interface ClientesImportadosListProps {
   contatos: Contato[];
   prospeccoes: { id: string; titulo: string }[];
   onEditContato: (contato: Contato) => void;
-  onDeleteContato: (contatoId: string) => void;
+  onDeleteContato: (contatoId: string) => Promise<void>;
   onUpdateContato: (contatoId: string, data: Partial<Contato>) => Promise<boolean>;
 }
 
@@ -69,8 +70,10 @@ export const ClientesImportadosList = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProspeccao, setFilterProspeccao] = useState<string>('todos');
   const [editingContato, setEditingContato] = useState<Contato | null>(null);
-  const [deleteContatoId, setDeleteContatoId] = useState<string | null>(null);
+  const [deleteContatoIds, setDeleteContatoIds] = useState<string[]>([]);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedContatos, setSelectedContatos] = useState<Set<string>>(new Set());
   
   // Form state for editing
   const [editForm, setEditForm] = useState({
@@ -144,16 +147,68 @@ export const ClientesImportadosList = ({
     }
   };
 
-  const handleConfirmDelete = () => {
-    if (deleteContatoId) {
-      onDeleteContato(deleteContatoId);
-      setDeleteContatoId(null);
-      toast({
-        title: "Contato excluído",
-        description: "O contato foi removido com sucesso.",
+  const handleConfirmDelete = async () => {
+    if (deleteContatoIds.length === 0) return;
+    
+    setIsDeleting(true);
+    try {
+      for (const id of deleteContatoIds) {
+        await onDeleteContato(id);
+      }
+      
+      // Limpar seleção após exclusão
+      setSelectedContatos(prev => {
+        const newSet = new Set(prev);
+        deleteContatoIds.forEach(id => newSet.delete(id));
+        return newSet;
       });
+      
+      toast({
+        title: deleteContatoIds.length === 1 ? "Contato excluído" : "Contatos excluídos",
+        description: deleteContatoIds.length === 1 
+          ? "O contato foi removido com sucesso."
+          : `${deleteContatoIds.length} contatos foram removidos com sucesso.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível excluir o(s) contato(s).",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteContatoIds([]);
     }
   };
+
+  const handleSelectContato = (contatoId: string, checked: boolean) => {
+    setSelectedContatos(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(contatoId);
+      } else {
+        newSet.delete(contatoId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedContatos(new Set(paginatedContatos.map(c => c.id)));
+    } else {
+      setSelectedContatos(new Set());
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedContatos.size > 0) {
+      setDeleteContatoIds(Array.from(selectedContatos));
+    }
+  };
+
+  const allPageSelected = paginatedContatos.length > 0 && 
+    paginatedContatos.every(c => selectedContatos.has(c.id));
 
   if (contatos.length === 0) {
     return null;
@@ -166,6 +221,16 @@ export const ClientesImportadosList = ({
           <Users className="h-5 w-5 text-primary" />
           <h4 className="font-medium text-sm">Clientes Importados ({contatos.length})</h4>
         </div>
+        {selectedContatos.size > 0 && (
+          <Button 
+            variant="destructive" 
+            size="sm"
+            onClick={handleDeleteSelected}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Excluir {selectedContatos.size} selecionado{selectedContatos.size > 1 ? 's' : ''}
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -197,6 +262,12 @@ export const ClientesImportadosList = ({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[40px]">
+                <Checkbox
+                  checked={allPageSelected}
+                  onCheckedChange={handleSelectAll}
+                />
+              </TableHead>
               <TableHead className="w-[200px]">Nome</TableHead>
               <TableHead className="w-[150px]">Telefone</TableHead>
               <TableHead className="w-[200px]">E-mail</TableHead>
@@ -208,13 +279,19 @@ export const ClientesImportadosList = ({
           <TableBody>
             {paginatedContatos.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   Nenhum contato encontrado
                 </TableCell>
               </TableRow>
             ) : (
               paginatedContatos.map((contato) => (
                 <TableRow key={contato.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedContatos.has(contato.id)}
+                      onCheckedChange={(checked) => handleSelectContato(contato.id, !!checked)}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{contato.nome}</TableCell>
                   <TableCell>{contato.telefone || '-'}</TableCell>
                   <TableCell>{contato.email || '-'}</TableCell>
@@ -245,7 +322,7 @@ export const ClientesImportadosList = ({
                         variant="ghost"
                         size="sm"
                         className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => setDeleteContatoId(contato.id)}
+                        onClick={() => setDeleteContatoIds([contato.id])}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -333,18 +410,26 @@ export const ClientesImportadosList = ({
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteContatoId} onOpenChange={(open) => !open && setDeleteContatoId(null)}>
+      <AlertDialog open={deleteContatoIds.length > 0} onOpenChange={(open) => !open && setDeleteContatoIds([])}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir contato?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deleteContatoIds.length === 1 ? 'Excluir contato?' : `Excluir ${deleteContatoIds.length} contatos?`}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O contato será removido permanentemente do sistema.
+              Esta ação não pode ser desfeita. {deleteContatoIds.length === 1 
+                ? 'O contato será removido permanentemente do sistema.'
+                : `Os ${deleteContatoIds.length} contatos selecionados serão removidos permanentemente do sistema.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
-              Excluir
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete} 
+              className="bg-red-600 hover:bg-red-700"
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Excluindo...' : 'Excluir'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

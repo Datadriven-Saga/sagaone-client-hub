@@ -533,7 +533,7 @@ export const useContatoData = () => {
   };
 
   // Excluir contato - SIMPLES
-  const excluirContato = async (contatoId: string) => {
+  const excluirContato = async (contatoId: string): Promise<void> => {
     try {
       const { error } = await supabase
         .from('contatos')
@@ -544,6 +544,7 @@ export const useContatoData = () => {
       setContatos(prev => prev.filter(c => c.id !== contatoId));
     } catch (error) {
       console.error('Erro ao excluir contato:', error);
+      throw error;
     }
   };
 
