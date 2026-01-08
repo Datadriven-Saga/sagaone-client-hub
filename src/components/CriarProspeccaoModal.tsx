@@ -1079,8 +1079,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         } else if (tipoEvento === 'Prospecção Mensal') {
           await saveEquipes(data.id);
           await saveConvite(data.id);
-        } else if (tipoEvento === 'IA Whatsapp' || tipoEvento === 'IA Ligação') {
+        } else if (tipoEvento === 'IA Whatsapp') {
           await saveConvite(data.id);
+        } else if (tipoEvento === 'IA Ligação') {
+          await saveConvite(data.id);
+          // Chamar webhooks específicos de IA Ligação
+          await callIALigacaoWebhooks(data);
         }
 
         toast({
@@ -1131,8 +1135,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         } else if (tipoEvento === 'Prospecção Mensal') {
           await saveEquipes(data.id);
           await saveConvite(data.id);
-        } else if (tipoEvento === 'IA Whatsapp' || tipoEvento === 'IA Ligação') {
+        } else if (tipoEvento === 'IA Whatsapp') {
           await saveConvite(data.id);
+        } else if (tipoEvento === 'IA Ligação') {
+          await saveConvite(data.id);
+          // Chamar webhooks específicos de IA Ligação
+          await callIALigacaoWebhooks(data);
         }
 
         toast({
@@ -1236,6 +1244,75 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       }
     } catch (error) {
       console.error('Erro ao enviar webhook pri-config:', error);
+      // Não mostramos erro ao usuário para não interromper o fluxo
+    }
+  };
+
+  // Função para chamar webhooks de IA Ligação
+  const callIALigacaoWebhooks = async (prospeccaoData: any) => {
+    if (!activeCompany?.id) return;
+    
+    console.log('📞 Iniciando webhooks IA Ligação para evento:', prospeccaoData.titulo);
+    
+    try {
+      // 1. Primeiro chamar o webhook de configuração do evento
+      console.log('📤 Enviando para configura-eventos...');
+      const eventoResponse = await supabase.functions.invoke('ia-ligacao-webhook', {
+        body: {
+          action: 'configura-eventos',
+          evento: {
+            id: prospeccaoData.id,
+            titulo: prospeccaoData.titulo,
+            descricao: prospeccaoData.descricao,
+            data_inicio: prospeccaoData.data_inicio,
+            data_fim: prospeccaoData.data_fim,
+            canal: prospeccaoData.canal,
+            evento_principal: prospeccaoData.evento_principal,
+            qualificar_lead: prospeccaoData.qualificar_lead,
+            imagem_divulgacao_url: prospeccaoData.imagem_divulgacao_url,
+            convite: prospeccaoData.convite,
+          },
+          empresa_id: activeCompany.id,
+        },
+      });
+      
+      if (eventoResponse.error) {
+        console.error('❌ Erro ao enviar configura-eventos:', eventoResponse.error);
+      } else {
+        console.log('✅ Webhook configura-eventos enviado:', eventoResponse.data);
+      }
+      
+      // 2. Buscar contatos existentes da prospecção (se houver)
+      const { data: contatos } = await supabase
+        .from('contatos')
+        .select('id, nome, telefone, email, origem, status, observacoes')
+        .eq('empresa_id', activeCompany.id);
+      
+      if (contatos && contatos.length > 0) {
+        console.log('📤 Enviando para configura-base com', contatos.length, 'contatos...');
+        const baseResponse = await supabase.functions.invoke('ia-ligacao-webhook', {
+          body: {
+            action: 'configura-base',
+            evento: {
+              id: prospeccaoData.id,
+              titulo: prospeccaoData.titulo,
+            },
+            contatos: contatos,
+            empresa_id: activeCompany.id,
+          },
+        });
+        
+        if (baseResponse.error) {
+          console.error('❌ Erro ao enviar configura-base:', baseResponse.error);
+        } else {
+          console.log('✅ Webhook configura-base enviado:', baseResponse.data);
+        }
+      } else {
+        console.log('ℹ️ Nenhum contato encontrado para enviar na base');
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro ao chamar webhooks IA Ligação:', error);
       // Não mostramos erro ao usuário para não interromper o fluxo
     }
   };
@@ -1989,9 +2066,25 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
             </div>
           );
         } else {
-          // IA Ligação - Similar à IA Whatsapp mas sem templates WhatsApp
+          // IA Ligação - Sem templates e sem escolha de horário (disparo imediato)
           return (
             <div className="space-y-4">
+              {/* Aviso sobre disparo imediato */}
+              <div className="rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                      Disparo Imediato
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                      Ao criar este evento, o disparo das ligações será iniciado imediatamente. 
+                      Não é possível agendar um horário específico para o início das ligações neste momento.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Descrição com borda e botão expandir */}
               <div className="rounded-lg border border-border p-4 bg-card">
                 <div className="flex items-center justify-between mb-2">
@@ -2024,62 +2117,6 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                   className="resize-none transition-all"
                 />
               </div>
-
-              {/* Separador - Configurações de Disparo */}
-              <div className="border-t pt-4 mt-4">
-                <h4 className="text-sm font-medium mb-4">Configurações de Disparo</h4>
-                
-                {/* Data/Hora Envio Inicial */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="data_envio_inicial_ligacao">Data/Hora do Envio Inicial</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>Define quando as ligações iniciais serão realizadas. Por padrão é agora (momento da criação do evento).</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Input
-                    id="data_envio_inicial_ligacao"
-                    type="datetime-local"
-                    value={dataEnvioInicial}
-                    onChange={(e) => setDataEnvioInicial(e.target.value)}
-                    placeholder="Agora (padrão)"
-                  />
-                  <p className="text-xs text-muted-foreground">Deixe em branco para iniciar imediatamente</p>
-                </div>
-
-                {/* Data/Hora Cadência */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="data_envio_cadencia_ligacao">Data/Hora da Cadência</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>Define quando a ligação de confirmação será realizada. Por padrão é 24 horas antes do início do evento.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Input
-                    id="data_envio_cadencia_ligacao"
-                    type="datetime-local"
-                    value={dataEnvioCadencia}
-                    onChange={(e) => setDataEnvioCadencia(e.target.value)}
-                    placeholder="24h antes do evento (padrão)"
-                  />
-                  <p className="text-xs text-muted-foreground">Deixe em branco para usar 24h antes do evento</p>
-                </div>
-              </div>
-
             </div>
           );
         }
