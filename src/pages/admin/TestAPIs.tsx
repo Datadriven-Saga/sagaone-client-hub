@@ -189,27 +189,82 @@ const TestAPIs = () => {
           <CardHeader>
             <CardTitle>Parâmetros Globais</CardTitle>
             <CardDescription>
-              IDs que serão utilizados em todas as requisições
+              IDs que serão utilizados em todas as requisições. Clique nas variáveis para inserir no campo.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="prospeccao_id">Prospecção ID</Label>
-              <Input
-                id="prospeccao_id"
-                value={prospeccaoId}
-                onChange={(e) => setProspeccaoId(e.target.value)}
-                placeholder="UUID da prospecção"
-              />
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="prospeccao_id">Prospecção ID</Label>
+                <Input
+                  id="prospeccao_id"
+                  value={prospeccaoId}
+                  onChange={(e) => setProspeccaoId(e.target.value)}
+                  placeholder="UUID da prospecção"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lead_id">Lead/Contato ID</Label>
+                <Input
+                  id="lead_id"
+                  value={leadId}
+                  onChange={(e) => setLeadId(e.target.value)}
+                  placeholder="UUID do contato"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="lead_id">Lead/Contato ID</Label>
-              <Input
-                id="lead_id"
-                value={leadId}
-                onChange={(e) => setLeadId(e.target.value)}
-                placeholder="UUID do contato"
-              />
+            <div className="flex flex-wrap gap-2 pt-2">
+              <span className="text-xs text-muted-foreground mr-2">Variáveis disponíveis (clique para inserir):</span>
+              <Badge 
+                variant="outline" 
+                className="cursor-pointer hover:bg-primary/10 transition-colors"
+                onClick={() => {
+                  navigator.clipboard.writeText('prospeccao_id');
+                  toast({ title: "Copiado", description: "prospeccao_id copiado" });
+                }}
+              >
+                prospeccao_id
+              </Badge>
+              <Badge 
+                variant="outline" 
+                className="cursor-pointer hover:bg-primary/10 transition-colors"
+                onClick={() => {
+                  navigator.clipboard.writeText('lead_id');
+                  toast({ title: "Copiado", description: "lead_id copiado" });
+                }}
+              >
+                lead_id
+              </Badge>
+              <Badge 
+                variant="outline" 
+                className="cursor-pointer hover:bg-primary/10 transition-colors"
+                onClick={() => {
+                  navigator.clipboard.writeText('contato_id');
+                  toast({ title: "Copiado", description: "contato_id copiado" });
+                }}
+              >
+                contato_id
+              </Badge>
+              <Badge 
+                variant="outline" 
+                className="cursor-pointer hover:bg-primary/10 transition-colors"
+                onClick={() => {
+                  navigator.clipboard.writeText('mensagem');
+                  toast({ title: "Copiado", description: "mensagem copiado" });
+                }}
+              >
+                mensagem
+              </Badge>
+              <Badge 
+                variant="outline" 
+                className="cursor-pointer hover:bg-primary/10 transition-colors"
+                onClick={() => {
+                  navigator.clipboard.writeText('status');
+                  toast({ title: "Copiado", description: "status copiado" });
+                }}
+              >
+                status
+              </Badge>
             </div>
           </CardContent>
         </Card>
