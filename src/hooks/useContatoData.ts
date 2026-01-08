@@ -78,6 +78,7 @@ export interface Prospeccao {
   empresa_id?: string;
   canal: 'Whatsapp' | 'Ligação';
   persona_id?: string;
+  event_id_pri?: string;
   created_at: string;
   updated_at: string;
   // Premiações
