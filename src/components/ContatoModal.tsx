@@ -120,6 +120,7 @@ export function ContatoModal({
   const [departamentosDisponiveis, setDepartamentosDisponiveis] = useState<Array<{ id: string; nome: string }>>([]);
   const [departamentoSelecionado, setDepartamentoSelecionado] = useState<string>('');
   const [vendaExistente, setVendaExistente] = useState<boolean>(false);
+  const [salvandoAnotacao, setSalvandoAnotacao] = useState<boolean>(false);
 
   const [temperaturas, setTemperaturas] = useState<TemperaturaOption[]>([]);
   const [motivoInsucesso, setMotivoInsucesso] = useState<{ descricao: string; justificativa: string } | null>(null);
@@ -371,6 +372,9 @@ export function ContatoModal({
   ];
 
   const handleAdicionarAnotacao = async () => {
+    // Prevenir duplo-clique
+    if (salvandoAnotacao) return;
+
     if (novaAnotacao.trim().length === 0) {
       toast({
         title: "Erro",
@@ -398,6 +402,7 @@ export function ContatoModal({
       return;
     }
 
+    setSalvandoAnotacao(true);
     try {
       // Salvar anotação no banco via edge function
       const { data, error } = await supabase.functions.invoke('prospeccao-anotacao', {
@@ -451,6 +456,8 @@ export function ContatoModal({
         description: "Erro ao adicionar anotação. Tente novamente.",
         variant: "destructive"
       });
+    } finally {
+      setSalvandoAnotacao(false);
     }
   };
 
@@ -1067,9 +1074,9 @@ export function ContatoModal({
                         <span className="text-sm text-muted-foreground">
                           {novaAnotacao.length}/1000 caracteres
                         </span>
-                        <Button onClick={handleAdicionarAnotacao} disabled={!novaAnotacao.trim() || isLeadBloqueado}>
+                        <Button onClick={handleAdicionarAnotacao} disabled={!novaAnotacao.trim() || isLeadBloqueado || salvandoAnotacao}>
                           <Plus className="w-4 h-4 mr-2" />
-                          Adicionar Anotação
+                          {salvandoAnotacao ? "Salvando..." : "Adicionar Anotação"}
                         </Button>
                       </div>
                     </div>
