@@ -1,6 +1,9 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { useSessionManager } from "@/hooks/useSessionManager";
+import { clearAuthData } from "@/hooks/useUserPreferences";
+import { useNavigate } from "react-router-dom";
 
 interface AuthContextType {
   user: User | null;
@@ -14,10 +17,32 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+function AuthProviderInner({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  // Handle session expiration
+  const handleSessionExpired = useCallback(() => {
+    setUser(null);
+    setSession(null);
+    navigate('/login', { replace: true });
+  }, [navigate]);
+
+  // Handle app closed/hidden
+  const handleAppClosed = useCallback(() => {
+    setUser(null);
+    setSession(null);
+    // Navigation will happen on next app open since session is cleared
+  }, []);
+
+  // Use session manager
+  useSessionManager({
+    onSessionExpired: handleSessionExpired,
+    onAppClosed: handleAppClosed,
+    isAuthenticated: !!user,
+  });
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -26,6 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        
+        // Clear auth data on sign out
+        if (event === 'SIGNED_OUT') {
+          clearAuthData();
+        }
       }
     );
 
@@ -44,6 +74,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
     });
+    
+    if (!error) {
+      // Store session start time on successful login
+      sessionStorage.setItem('session_start_time', Date.now().toString());
+    }
+    
     return { error };
   };
 
@@ -59,6 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    clearAuthData();
+    sessionStorage.removeItem('session_start_time');
     await supabase.auth.signOut();
   };
 
@@ -80,6 +118,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }), [user, session, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+// Wrapper that handles the case when Router is not available
+export function AuthProvider({ children }: { children: ReactNode }) {
+  return <AuthProviderInner>{children}</AuthProviderInner>;
 }
 
 export function useAuth() {
