@@ -239,52 +239,63 @@ export function ContatoRealizadoDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl h-[80vh] max-h-[600px] flex flex-col p-0">
+      <DialogContent className="max-w-3xl h-[85vh] max-h-[680px] flex flex-col p-0 gap-0">
         {/* Header fixo */}
-        <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Phone className="w-5 h-5" />
+        <DialogHeader className="px-6 py-5 border-b flex-shrink-0 bg-background">
+          <DialogTitle className="flex items-center gap-3 text-xl">
+            <div className="p-2 rounded-full bg-primary/10">
+              <Phone className="w-5 h-5 text-primary" />
+            </div>
             Contato Realizado
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-[15px] mt-1">
             Registre o resultado do contato com o cliente
           </DialogDescription>
         </DialogHeader>
 
         {/* Conteúdo com scroll */}
-        <ScrollIndicator className="flex-1 min-h-0">
-          <div className="p-6 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <ScrollIndicator className="flex-1 min-h-0 overflow-y-auto">
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Coluna Esquerda - Resultado do Contato */}
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Resultado do Contato</Label>
+              <div className="space-y-4">
+                <Label className="text-base font-semibold text-foreground">
+                  Resultado do Contato
+                </Label>
                 <RadioGroup
                   value={tipoContato}
                   onValueChange={(value) => handleTipoContatoChange(value as TipoContato)}
-                  className="space-y-1"
+                  className="space-y-3"
                 >
                   {opcoes.map((opcao) => {
                     const Icon = opcao.icon;
+                    const isSelected = tipoContato === opcao.value;
                     return (
                       <div
                         key={opcao.value}
-                        className={`flex items-start space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                          tipoContato === opcao.value 
-                            ? 'border-primary bg-primary/5' 
-                            : 'border-border hover:bg-muted/50'
+                        className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                          isSelected 
+                            ? 'border-primary bg-primary/5 shadow-sm' 
+                            : 'border-border hover:border-muted-foreground/30 hover:bg-muted/30'
                         }`}
-                        onClick={() => setTipoContato(opcao.value)}
+                        onClick={() => handleTipoContatoChange(opcao.value)}
                       >
-                        <RadioGroupItem value={opcao.value} id={opcao.value} className="mt-0.5" />
-                        <div className="flex-1">
+                        <RadioGroupItem 
+                          value={opcao.value} 
+                          id={opcao.value} 
+                          className="h-5 w-5 border-2"
+                        />
+                        <div className={`p-2 rounded-lg ${isSelected ? 'bg-background' : 'bg-muted/50'}`}>
+                          <Icon className={`w-5 h-5 ${opcao.color}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
                           <label
                             htmlFor={opcao.value}
-                            className="flex items-center gap-2 font-medium text-sm cursor-pointer"
+                            className="block text-[15px] font-medium cursor-pointer leading-tight"
                           >
-                            <Icon className={`w-4 h-4 ${opcao.color}`} />
                             {opcao.label}
                           </label>
-                          <p className="text-xs text-muted-foreground mt-0.5">
+                          <p className="text-sm text-muted-foreground mt-0.5 leading-snug">
                             {opcao.description}
                           </p>
                         </div>
@@ -295,10 +306,12 @@ export function ContatoRealizadoDialog({
 
                 {/* Motivo de Insucesso */}
                 {tipoContato === 'nao_vai_participar' && (
-                  <div className="space-y-2 pt-2">
-                    <Label className="text-sm font-medium">Motivo de Insucesso *</Label>
+                  <div className="space-y-3 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <Label className="text-base font-semibold text-foreground">
+                      Motivo de Insucesso *
+                    </Label>
                     <Select value={motivoId} onValueChange={setMotivoId}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-12 text-[15px]">
                         <SelectValue placeholder="Selecione o motivo" />
                       </SelectTrigger>
                       <SelectContent>
@@ -308,7 +321,11 @@ export function ContatoRealizadoDialog({
                           </SelectItem>
                         ) : (
                           motivos.map((motivo) => (
-                            <SelectItem key={motivo.id} value={motivo.id}>
+                            <SelectItem 
+                              key={motivo.id} 
+                              value={motivo.id}
+                              className="text-[15px] py-3"
+                            >
                               {motivo.descricao}
                             </SelectItem>
                           ))
@@ -320,8 +337,8 @@ export function ContatoRealizadoDialog({
               </div>
 
               {/* Coluna Direita - Anotações */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">
+              <div className="space-y-3">
+                <Label className="text-base font-semibold text-foreground">
                   Anotações *
                 </Label>
                 <Textarea
@@ -330,10 +347,9 @@ export function ContatoRealizadoDialog({
                   value={anotacao}
                   onChange={(e) => setAnotacao(e.target.value)}
                   maxLength={500}
-                  rows={8}
-                  className="min-h-[200px]"
+                  className="min-h-[280px] text-[15px] leading-relaxed resize-none"
                 />
-                <p className="text-xs text-muted-foreground text-right">
+                <p className="text-sm text-muted-foreground text-right">
                   {anotacao.length}/500 caracteres
                 </p>
               </div>
@@ -342,11 +358,20 @@ export function ContatoRealizadoDialog({
         </ScrollIndicator>
 
         {/* Footer fixo */}
-        <DialogFooter className="p-6 pt-4 border-t flex-shrink-0">
-          <Button variant="outline" onClick={handleClose} disabled={loading}>
+        <DialogFooter className="px-6 py-4 border-t flex-shrink-0 bg-background gap-3">
+          <Button 
+            variant="outline" 
+            onClick={handleClose} 
+            disabled={loading}
+            className="h-11 px-6 text-[15px]"
+          >
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={loading || !tipoContato}>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={loading || !tipoContato}
+            className="h-11 px-6 text-[15px] min-w-[160px]"
+          >
             {loading ? "Registrando..." : "Registrar Contato"}
           </Button>
         </DialogFooter>
