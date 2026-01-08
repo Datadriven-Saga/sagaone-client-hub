@@ -295,7 +295,7 @@ export function ContatoRealizadoDialog({
                           >
                             {opcao.label}
                           </label>
-                          <p className="text-sm text-muted-foreground mt-0.5 leading-snug">
+                          <p className="text-sm text-foreground/60 mt-0.5 leading-snug">
                             {opcao.description}
                           </p>
                         </div>
@@ -346,10 +346,10 @@ export function ContatoRealizadoDialog({
                   placeholder="Descreva os detalhes do contato realizado..."
                   value={anotacao}
                   onChange={(e) => setAnotacao(e.target.value)}
+                  className="min-h-[280px] text-[15px] leading-relaxed resize-none border-2 rounded-xl focus:border-primary"
                   maxLength={500}
-                  className="min-h-[280px] text-[15px] leading-relaxed resize-none"
                 />
-                <p className="text-sm text-muted-foreground text-right">
+                <p className="text-sm text-foreground/50 text-right">
                   {anotacao.length}/500 caracteres
                 </p>
               </div>
