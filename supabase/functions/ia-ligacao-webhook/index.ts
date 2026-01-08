@@ -9,6 +9,7 @@ const corsHeaders = {
 const WEBHOOK_CRIAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one';
 const WEBHOOK_ATUALIZAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-eventos-saga-one';
 const WEBHOOK_DELETAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/deleta-eventos-saga-one';
+const WEBHOOK_VERIFICA = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos';
 
 // Telefone padrão da Pri (fallback caso não encontre no banco)
 const TELEFONE_PRI_DEFAULT = '6223980043';
@@ -55,33 +56,56 @@ interface AgenteData {
   nome: string;
 }
 
-// Gera o próximo id_evento numérico (mínimo 1000)
-async function gerarProximoIdEvento(supabase: any): Promise<number> {
+// Busca o próximo id_evento via webhook externo
+async function buscarProximoIdEvento(): Promise<number> {
   try {
-    const { data, error } = await supabase
-      .from('prospeccoes')
-      .select('event_id_pri')
-      .not('event_id_pri', 'is', null)
-      .order('event_id_pri', { ascending: false });
+    console.log('🔍 Consultando webhook verifica-eventos...');
+    
+    const response = await fetch(WEBHOOK_VERIFICA, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
 
-    if (error) {
-      console.error('Erro ao buscar IDs existentes:', error);
-      return 1000;
+    if (!response.ok) {
+      console.error('❌ Erro ao consultar verifica-eventos:', response.status);
+      throw new Error(`Webhook retornou status ${response.status}`);
     }
 
-    // Encontrar o maior ID numérico
-    let maxId = 999; // Começamos em 999 para que o próximo seja 1000
-    for (const row of data || []) {
-      const id = parseInt(row.event_id_pri, 10);
-      if (!isNaN(id) && id > maxId) {
-        maxId = id;
+    const data = await response.json();
+    console.log('📊 Resposta verifica-eventos:', JSON.stringify(data));
+
+    // Espera-se que o webhook retorne o último ID usado ou o próximo ID
+    // Adaptando para diferentes formatos de resposta
+    let ultimoId = 0;
+    
+    if (typeof data === 'number') {
+      ultimoId = data;
+    } else if (data.ultimo_id !== undefined) {
+      ultimoId = parseInt(data.ultimo_id, 10);
+    } else if (data.proximo_id !== undefined) {
+      // Se já retorna o próximo, retornar diretamente
+      return parseInt(data.proximo_id, 10);
+    } else if (data.id_evento !== undefined) {
+      ultimoId = parseInt(data.id_evento, 10);
+    } else if (data.last_id !== undefined) {
+      ultimoId = parseInt(data.last_id, 10);
+    } else if (Array.isArray(data) && data.length > 0) {
+      // Se retorna array de eventos, pegar o maior ID
+      for (const item of data) {
+        const id = parseInt(item.id_evento || item.id || 0, 10);
+        if (!isNaN(id) && id > ultimoId) {
+          ultimoId = id;
+        }
       }
     }
 
-    return maxId + 1;
+    const proximoId = ultimoId + 1;
+    console.log('🔢 Último ID:', ultimoId, '-> Próximo ID:', proximoId);
+    
+    return proximoId;
   } catch (err) {
-    console.error('Erro ao gerar próximo ID:', err);
-    return 1000;
+    console.error('❌ Erro ao buscar próximo ID via webhook:', err);
+    throw new Error('Não foi possível obter o próximo ID do evento. Tente novamente.');
   }
 }
 
@@ -182,10 +206,10 @@ Deno.serve(async (req: Request) => {
     // Gerar ou usar id_evento numérico
     let idEvento: number | undefined = evento.id_evento;
     
-    // Para criação, gerar novo ID se não foi fornecido
+    // Para criação, buscar próximo ID via webhook externo
     if (operacao === 'criar' && !idEvento) {
-      idEvento = await gerarProximoIdEvento(supabase);
-      console.log('🔢 ID Evento gerado:', idEvento);
+      idEvento = await buscarProximoIdEvento();
+      console.log('🔢 ID Evento obtido via webhook:', idEvento);
     }
     
     // Para atualização/exclusão, buscar o ID existente se não fornecido
