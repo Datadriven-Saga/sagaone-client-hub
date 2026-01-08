@@ -1036,61 +1036,111 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       // Para IA Ligação na criação, primeiro verificar próximo ID disponível
       let proximoIdEvento: number | null = null;
       if (tipoEvento === 'IA Ligação' && !editingProspeccao) {
-        setLoadingMessage("Verificando eventos ativos...");
-        console.log('🔍 Consultando webhook verifica-eventos para obter próximo ID...');
-        
+        setLoadingMessage("Verificando eventos ativos");
+        console.log('🔍 Consultando webhook verifica-eventos + listando IDs já usados no banco (prospeccoes.event_id_pri)...');
+
+        const extractIdsFromWebhook = (payload: any): { ids: number[]; max: number } => {
+          const ids: number[] = [];
+          let max = 0;
+
+          const pushId = (v: any) => {
+            const n = parseInt(String(v ?? ''), 10);
+            if (!isNaN(n)) {
+              ids.push(n);
+              if (n > max) max = n;
+            }
+          };
+
+          if (typeof payload === 'number') {
+            pushId(payload);
+            return { ids, max };
+          }
+
+          if (Array.isArray(payload)) {
+            for (const item of payload) pushId(item?.id_evento ?? item?.id);
+            return { ids, max };
+          }
+
+          // Alguns formatos possíveis: { eventos: [...] } / { data: [...] } / objeto único { id_evento: 2, ... }
+          if (payload && typeof payload === 'object') {
+            if (Array.isArray(payload.eventos)) {
+              for (const item of payload.eventos) pushId(item?.id_evento ?? item?.id);
+              return { ids, max };
+            }
+            if (Array.isArray(payload.data)) {
+              for (const item of payload.data) pushId(item?.id_evento ?? item?.id);
+              return { ids, max };
+            }
+
+            // Se vier apenas um evento, considerar o ID dele como existente
+            pushId(payload.id_evento ?? payload.last_id ?? payload.ultimo_id);
+            // Se vier proximo_id, considerar como candidato (mas ainda validaremos contra o banco)
+            pushId(payload.proximo_id);
+          }
+
+          return { ids, max };
+        };
+
         try {
-          const verificaResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
-          
+          const [verificaResponse, existentesRes] = await Promise.all([
+            fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' },
+            }),
+            supabase
+              .from('prospeccoes')
+              .select('event_id_pri')
+              .eq('canal', 'Ligação')
+              .not('event_id_pri', 'is', null),
+          ]);
+
           if (!verificaResponse.ok) {
             console.error('❌ Erro ao consultar verifica-eventos:', verificaResponse.status);
             throw new Error('Não foi possível verificar eventos ativos');
           }
-          
+
+          if (existentesRes.error) {
+            console.error('❌ Erro ao listar event_id_pri no banco:', existentesRes.error);
+            throw new Error('Não foi possível validar IDs já usados no banco');
+          }
+
           const verificaData = await verificaResponse.json();
           console.log('📊 Resposta verifica-eventos:', verificaData);
-          
-          // Determinar o próximo ID baseado na resposta (sempre soma +1 ao maior ID encontrado)
-          let maiorIdExistente = 0;
-          
-          if (typeof verificaData === 'number') {
-            maiorIdExistente = verificaData;
-          } else if (verificaData.ultimo_id !== undefined) {
-            maiorIdExistente = parseInt(verificaData.ultimo_id, 10);
-          } else if (verificaData.proximo_id !== undefined) {
-            // Se já vem o próximo ID pronto, usar direto (não incrementar)
-            proximoIdEvento = parseInt(verificaData.proximo_id, 10);
-          } else if (verificaData.id_evento !== undefined) {
-            // id_evento é o último existente, precisa somar +1
-            maiorIdExistente = parseInt(verificaData.id_evento, 10);
-          } else if (verificaData.last_id !== undefined) {
-            maiorIdExistente = parseInt(verificaData.last_id, 10);
-          } else if (Array.isArray(verificaData) && verificaData.length > 0) {
-            // Array de eventos - encontrar o maior ID
-            for (const item of verificaData) {
-              const id = parseInt(item.id_evento || item.id || 0, 10);
-              if (!isNaN(id) && id > maiorIdExistente) {
-                maiorIdExistente = id;
-              }
+
+          const usedIds = new Set<number>();
+          let maxDb = 0;
+
+          for (const row of existentesRes.data ?? []) {
+            const n = parseInt(String((row as any).event_id_pri ?? ''), 10);
+            if (!isNaN(n)) {
+              usedIds.add(n);
+              if (n > maxDb) maxDb = n;
             }
           }
-          
-          // Só calcula próximo ID se não veio proximo_id pronto
-          if (!proximoIdEvento) {
-            proximoIdEvento = maiorIdExistente + 1;
+
+          const { ids: webhookIds, max: maxWebhook } = extractIdsFromWebhook(verificaData);
+          for (const id of webhookIds) usedIds.add(id);
+
+          const maxGlobal = Math.max(maxDb, maxWebhook);
+          let candidato = maxGlobal + 1;
+
+          // Garantia extra: nunca usar um ID que já exista (mesmo com dados inconsistentes)
+          while (usedIds.has(candidato)) {
+            candidato += 1;
           }
-          
-          console.log('📊 Maior ID existente:', maiorIdExistente, '→ Próximo ID:', proximoIdEvento);
-          
-          console.log('🔢 Próximo ID de evento disponível:', proximoIdEvento);
+
+          proximoIdEvento = candidato;
+
+          console.log(
+            '🔢 ID Evento calculado:',
+            { maxDb, maxWebhook, maxGlobal, proximoIdEvento, totalIdsConhecidos: usedIds.size }
+          );
+
         } catch (verificaError) {
           console.error('❌ Erro ao verificar eventos:', verificaError);
           toast({
             title: "Erro ao verificar eventos",
-            description: "Não foi possível obter o ID do evento. Tente novamente.",
+            description: "Não foi possível obter um ID único para o evento. Tente novamente.",
             variant: "destructive"
           });
           setLoading(false);
@@ -1098,7 +1148,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           return;
         }
       }
-      
+
       setLoadingMessage("");
       // Determinar canal baseado no tipo de evento
       let canalFinal: 'Whatsapp' | 'Ligação' = 'Whatsapp';
