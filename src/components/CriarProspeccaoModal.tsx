@@ -1292,13 +1292,13 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   };
 
   // Função para chamar webhooks de IA Ligação
-  const callIALigacaoWebhooks = async (prospeccaoData: any) => {
-    if (!activeCompany?.id) return;
+  const callIALigacaoWebhooks = async (prospeccaoData: any): Promise<boolean> => {
+    if (!activeCompany?.id) return false;
     
     console.log('📞 Enviando evento + contatos para webhook IA Ligação:', prospeccaoData.titulo);
     
     try {
-      // Mapear contatos da planilha importada
+      // Mapear contatos da planilha importada ou da base existente
       const contatosParaEnviar = (contatosLigacao || []).map((c) => ({
         nome: c.nome || '',
         telefone: c.telefone || '',
@@ -1328,13 +1328,41 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       
       if (response.error) {
         console.error('❌ Erro ao enviar webhook:', response.error);
-      } else {
-        console.log('✅ Webhook enviado com sucesso:', response.data);
+        toast({
+          title: "Erro no disparo de ligação",
+          description: "Não foi possível configurar o disparo de ligações. Tente novamente.",
+          variant: "destructive",
+        });
+        return false;
       }
+      
+      // Verificar se a resposta indica sucesso
+      const responseData = response.data;
+      if (responseData?.success === false || responseData?.error) {
+        console.error('❌ Webhook retornou erro:', responseData);
+        toast({
+          title: "Erro no disparo de ligação",
+          description: responseData?.message || "Falha ao configurar o disparo de ligações.",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      console.log('✅ Webhook enviado com sucesso:', responseData);
+      toast({
+        title: "Disparo configurado!",
+        description: `${contatosParaEnviar.length} contatos enviados para ligação.`,
+      });
+      return true;
       
     } catch (error) {
       console.error('❌ Erro ao chamar webhook IA Ligação:', error);
-      // Não mostramos erro ao usuário para não interromper o fluxo
+      toast({
+        title: "Erro no disparo de ligação",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
+        variant: "destructive",
+      });
+      return false;
     }
   };
 
