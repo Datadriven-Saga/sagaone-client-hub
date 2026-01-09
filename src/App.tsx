@@ -36,6 +36,7 @@ import Acessos from "./pages/admin/Acessos";
 import CamposObrigatorios from "./pages/admin/CamposObrigatorios";
 import APIs from "./pages/admin/APIs";
 import TestAPIs from "./pages/admin/TestAPIs";
+import AdminAgentes from "./pages/admin/Agentes";
 
 // Agentes IA page imports
 import Instancias from "./pages/agentes-ia/Instancias";
@@ -74,6 +75,7 @@ const AppRoutes = () => {
       <Route path="/administracao" element={<AdminProtectedRoute><Administracao /></AdminProtectedRoute>} />
       <Route path="/administracao/empresas" element={<AdminProtectedRoute><Empresas /></AdminProtectedRoute>} />
       <Route path="/administracao/acessos" element={<AdminProtectedRoute><Acessos /></AdminProtectedRoute>} />
+      <Route path="/administracao/agentes" element={<TIAdminProtectedRoute><AdminAgentes /></TIAdminProtectedRoute>} />
       <Route path="/administracao/campos" element={<AdminProtectedRoute><CamposObrigatorios /></AdminProtectedRoute>} />
       <Route path="/administracao/apis" element={<AdminProtectedRoute><APIs /></AdminProtectedRoute>} />
       <Route path="/administracao/test-apis" element={<AdminProtectedRoute><TestAPIs /></AdminProtectedRoute>} />
