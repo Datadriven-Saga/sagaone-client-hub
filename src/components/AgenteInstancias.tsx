@@ -140,15 +140,14 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
       setLoadingInstancias(true);
       setShowInstancias(true);
 
-      // Chamar o webhook para buscar instâncias
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/instancias_evo', {
+      // Chamar o webhook para verificar instâncias
+      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-instancias_evo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          telefone: savedTelefoneMaia,
-          action: 'list'
+          telefone: savedTelefoneMaia
         })
       });
 
@@ -427,8 +426,8 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <Server className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Nenhuma instância encontrada para este Maia ID</p>
-                <p className="text-sm mt-1">Verifique se o Maia ID está correto</p>
+                <p>Nenhuma instância encontrada para este telefone</p>
+                <p className="text-sm mt-1">Verifique se o Telefone Maia está correto</p>
               </div>
             )}
           </CardContent>
