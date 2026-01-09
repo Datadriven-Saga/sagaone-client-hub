@@ -15,7 +15,9 @@ import {
   BarChart3,
   MessageSquareText,
   UserCheck,
-  ShoppingCart
+  ShoppingCart,
+  Server,
+  Activity
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -46,9 +48,10 @@ const prospeccaoSubItems = [
   { title: "Performance", url: "/prospeccao/performance", icon: BarChart3 },
 ];
 
-// Items que todos podem ver
-const afterProspeccaoItemsPublic = [
-  { title: "Agentes de IA", url: "/agentes-ia", icon: Bot },
+const agentesIASubItems = [
+  { title: "Agentes", url: "/agentes-ia", icon: Bot },
+  { title: "Instâncias", url: "/agentes-ia/instancias", icon: Server },
+  { title: "Performance", url: "/agentes-ia/performance", icon: Activity },
 ];
 
 // Items apenas para Administrador
@@ -71,15 +74,11 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
-  const { isAdmin } = useUserAccessType();
+  const { isAdmin, isAdminOrTI } = useUserAccessType();
   
-  // Menu Prospecção sempre aberto por padrão para reduzir cliques
+  // Menus sempre abertos por padrão
   const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(true);
-
-  // Combinar items baseado no tipo de acesso
-  const afterProspeccaoItems = isAdmin 
-    ? [...afterProspeccaoItemsPublic, ...afterProspeccaoItemsAdmin]
-    : afterProspeccaoItemsPublic;
+  const [isAgentesIAOpen, setIsAgentesIAOpen] = useState(true);
 
   const bottomMenuItems = isAdmin
     ? [...bottomMenuItemsPublic, ...bottomMenuItemsAdmin]
@@ -176,8 +175,50 @@ export function AppSidebar() {
                 </Collapsible>
               </SidebarMenuItem>
 
-              {/* Items after Prospecção */}
-              {afterProspeccaoItems.map((item) => (
+              {/* Agentes de IA com submenu - apenas para TI e Admin */}
+              {isAdminOrTI && (
+                <SidebarMenuItem>
+                  <Collapsible open={isAgentesIAOpen} onOpenChange={setIsAgentesIAOpen}>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between hover:scale-105 hover:opacity-80 text-sidebar-foreground"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Bot className="h-5 w-5 flex-shrink-0" />
+                          {!isCollapsed && <span className="font-medium">Agentes de IA</span>}
+                        </div>
+                        {!isCollapsed && (
+                          isAgentesIAOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
+                        )}
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    {!isCollapsed && (
+                      <CollapsibleContent className="pl-4 mt-1 space-y-1">
+                        {agentesIASubItems.map((subItem) => (
+                          <SidebarMenuButton key={subItem.title} asChild>
+                            <NavLink 
+                              to={subItem.url}
+                              end={subItem.url === '/agentes-ia'}
+                              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
+                                (subItem.url === '/agentes-ia' && currentPath === '/agentes-ia') ||
+                                (subItem.url !== '/agentes-ia' && currentPath.startsWith(subItem.url))
+                                  ? "font-bold border-b-2 border-primary"
+                                  : "hover:scale-105 hover:opacity-80"
+                              }`}
+                            >
+                              <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                              <span>{subItem.title}</span>
+                            </NavLink>
+                          </SidebarMenuButton>
+                        ))}
+                      </CollapsibleContent>
+                    )}
+                  </Collapsible>
+                </SidebarMenuItem>
+              )}
+
+              {/* Items apenas para Admin */}
+              {isAdmin && afterProspeccaoItemsAdmin.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink 
