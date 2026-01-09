@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, Edit, RefreshCw, Check, Building2, Server, Upload, Copy, X, Save } from "lucide-react";
+import { Eye, EyeOff, Edit, RefreshCw, Check, Building2, Server, Copy, X, Save, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface InstanciaData {
   num_maia: string;
@@ -25,9 +26,29 @@ interface InstanciaData {
   cw_token_maia: string | null;
 }
 
+interface NovaInstanciaData {
+  num_maia: string;
+  marca: string;
+  uf: string;
+  nome_agente: string;
+  evo_token: string;
+  id_numero_meta: string;
+  tb_histories: string;
+  cw_inbox: string;
+  waba: string;
+  meta_app_id: string;
+  cw_token_maia: string;
+}
+
 interface AgenteInstanciasProps {
   agenteId: string;
 }
+
+const UF_LIST = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 
+  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", 
+  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+];
 
 export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
   const { toast } = useToast();
@@ -37,6 +58,7 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
   const [loadingInstancias, setLoadingInstancias] = useState(false);
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [creatingAgente, setCreatingAgente] = useState(false);
   const [editingTelefone, setEditingTelefone] = useState(false);
   const [telefoneMaia, setTelefoneMaia] = useState("");
   const [savedTelefoneMaia, setSavedTelefoneMaia] = useState("");
@@ -47,6 +69,20 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
   const [showCwToken, setShowCwToken] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editedData, setEditedData] = useState<InstanciaData | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [novaInstancia, setNovaInstancia] = useState<NovaInstanciaData>({
+    num_maia: "",
+    marca: "",
+    uf: "",
+    nome_agente: "",
+    evo_token: "",
+    id_numero_meta: "",
+    tb_histories: "",
+    cw_inbox: "",
+    waba: "",
+    meta_app_id: "",
+    cw_token_maia: ""
+  });
 
   const handleCopyToClipboard = async (
     e: React.MouseEvent,
@@ -83,7 +119,6 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
         description: `${label} copiado para a área de transferência`,
       });
     } catch (err) {
-      // tenta fallback caso o Clipboard API tenha sido bloqueado por permissões
       try {
         fallbackCopy();
         toast({
@@ -113,7 +148,6 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
     setShowCwToken(prev => !prev);
   };
 
-  // Carregar dados do agente (telefone = telefone maia)
   const carregarDados = async () => {
     try {
       const { data: agente, error } = await supabase
@@ -225,6 +259,7 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
       setShowInstancias(true);
       setInstanciaData(null);
       setEditMode(false);
+      setShowCreateForm(false);
 
       const data = await buscarInstancias();
       
@@ -268,8 +303,8 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
     try {
       setLoadingUpdate(true);
       setShowInstancias(true);
+      setShowCreateForm(false);
 
-      // Primeiro busca os dados atuais da instância
       const data = await buscarInstancias();
       
       if (data) {
@@ -353,9 +388,168 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
     }
   };
 
+  // Gerar instância automaticamente
+  const gerarInstancia = (nome_agente: string, marca: string, uf: string, num_maia: string) => {
+    if (!nome_agente || !marca || !uf || !num_maia) return "";
+    return `${nome_agente}${marca}${uf}+55${num_maia}`;
+  };
+
+  // Atualizar campo da nova instância
+  const handleNovaInstanciaChange = (field: keyof NovaInstanciaData, value: string) => {
+    setNovaInstancia(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Criar nova instância via webhook
+  const handleCriarAgente = async () => {
+    // Validar campos obrigatórios
+    if (!novaInstancia.num_maia.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O número Maia é obrigatório",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!novaInstancia.marca.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "A marca é obrigatória",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!novaInstancia.uf.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "A UF é obrigatória",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!novaInstancia.nome_agente.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O nome do agente é obrigatório",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setCreatingAgente(true);
+
+      // Gerar instância automaticamente
+      const instancia = gerarInstancia(
+        novaInstancia.nome_agente.trim(),
+        novaInstancia.marca.trim(),
+        novaInstancia.uf.trim(),
+        novaInstancia.num_maia.trim()
+      );
+
+      const payload = {
+        num_maia: novaInstancia.num_maia.trim(),
+        marca: novaInstancia.marca.trim(),
+        uf: novaInstancia.uf.trim(),
+        nome_agente: novaInstancia.nome_agente.trim(),
+        instancia: instancia,
+        evo_token: novaInstancia.evo_token.trim() || null,
+        id_numero_meta: novaInstancia.id_numero_meta.trim() || null,
+        tb_histories: novaInstancia.tb_histories.trim() || null,
+        cw_inbox: novaInstancia.cw_inbox.trim() || null,
+        waba: novaInstancia.waba.trim() || null,
+        meta_app_id: novaInstancia.meta_app_id.trim() || null,
+        cw_token_maia: novaInstancia.cw_token_maia.trim() || null,
+        criado_em: new Date().toISOString()
+      };
+
+      console.log('Enviando para webhook cria-agente:', payload);
+
+      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/cria-agente', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro na requisição: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Resposta do webhook cria-agente:', result);
+
+      toast({
+        title: "Agente criado com sucesso!",
+        description: `O agente ${novaInstancia.nome_agente} foi adicionado no banco com sucesso.`
+      });
+
+      // Limpar formulário e atualizar dados
+      setNovaInstancia({
+        num_maia: "",
+        marca: "",
+        uf: "",
+        nome_agente: "",
+        evo_token: "",
+        id_numero_meta: "",
+        tb_histories: "",
+        cw_inbox: "",
+        waba: "",
+        meta_app_id: "",
+        cw_token_maia: ""
+      });
+      setShowCreateForm(false);
+      
+      // Atualizar telefone maia se foi preenchido
+      if (novaInstancia.num_maia) {
+        setTelefoneMaia(novaInstancia.num_maia);
+        setSavedTelefoneMaia(novaInstancia.num_maia);
+        
+        // Salvar no banco local também
+        await supabase
+          .from('agentes_ia')
+          .update({ telefone: novaInstancia.num_maia.trim() })
+          .eq('id', agenteId);
+      }
+
+      // Buscar instância criada
+      setTimeout(() => {
+        handleVerInstancias();
+      }, 1000);
+
+    } catch (error) {
+      console.error('Erro ao criar agente:', error);
+      toast({
+        title: "Erro ao criar agente",
+        description: "Não foi possível adicionar o agente no banco. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setCreatingAgente(false);
+    }
+  };
+
+  const handleShowCreateForm = () => {
+    setShowCreateForm(true);
+    setShowInstancias(true);
+    setEditMode(false);
+    setInstanciaData(null);
+  };
+
   useEffect(() => {
     carregarDados();
   }, [agenteId, activeCompany]);
+
+  // Instância gerada automaticamente para preview
+  const instanciaPreview = gerarInstancia(
+    novaInstancia.nome_agente,
+    novaInstancia.marca,
+    novaInstancia.uf,
+    novaInstancia.num_maia
+  );
 
   return (
     <div className="space-y-6">
@@ -468,19 +662,27 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
                 </>
               )}
             </Button>
+
+            <Button 
+              variant="secondary"
+              onClick={handleShowCreateForm}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Criar Nova Instância
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Lista de instâncias */}
+      {/* Lista de instâncias ou formulário de criação */}
       {showInstancias && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>
-                {editMode ? "Editar Instância" : "Instâncias Encontradas"}
+                {showCreateForm ? "Criar Nova Instância" : editMode ? "Editar Instância" : "Instâncias Encontradas"}
               </CardTitle>
-              {!editMode && (
+              {!editMode && !showCreateForm && (
                 <Button 
                   size="sm" 
                   variant="outline" 
@@ -492,11 +694,181 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
                 </Button>
               )}
             </div>
+            {showCreateForm && (
+              <CardDescription>
+                Preencha os dados para criar uma nova instância no sistema
+              </CardDescription>
+            )}
           </CardHeader>
           <CardContent>
             {loadingInstancias || loadingUpdate ? (
               <div className="flex items-center justify-center py-8">
                 <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : showCreateForm ? (
+              /* Formulário de criação */
+              <div className="space-y-4">
+                <Card className="border">
+                  <CardContent className="p-4">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="space-y-1">
+                          <span className="text-muted-foreground text-sm">Nova Instância:</span>
+                          <h4 className="font-semibold text-lg">
+                            {instanciaPreview || "Preencha os campos obrigatórios"}
+                          </h4>
+                        </div>
+                        <Badge variant="outline">Criando</Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Nome do Agente *</Label>
+                          <Input
+                            value={novaInstancia.nome_agente}
+                            onChange={(e) => handleNovaInstanciaChange('nome_agente', e.target.value)}
+                            placeholder="Ex: Pri, Maia..."
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Número Maia *</Label>
+                          <Input
+                            value={novaInstancia.num_maia}
+                            onChange={(e) => handleNovaInstanciaChange('num_maia', e.target.value)}
+                            placeholder="Ex: 61999999999"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label>Marca *</Label>
+                          <Input
+                            value={novaInstancia.marca}
+                            onChange={(e) => handleNovaInstanciaChange('marca', e.target.value)}
+                            placeholder="Ex: Volkswagen, Chevrolet..."
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label>UF *</Label>
+                          <Select
+                            value={novaInstancia.uf}
+                            onValueChange={(value) => handleNovaInstanciaChange('uf', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione a UF" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {UF_LIST.map((uf) => (
+                                <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label>ID Número Meta</Label>
+                          <Input
+                            value={novaInstancia.id_numero_meta}
+                            onChange={(e) => handleNovaInstanciaChange('id_numero_meta', e.target.value)}
+                            placeholder="ID do número Meta"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label>CW Inbox</Label>
+                          <Input
+                            value={novaInstancia.cw_inbox}
+                            onChange={(e) => handleNovaInstanciaChange('cw_inbox', e.target.value)}
+                            placeholder="CW Inbox ID"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>WABA</Label>
+                          <Input
+                            value={novaInstancia.waba}
+                            onChange={(e) => handleNovaInstanciaChange('waba', e.target.value)}
+                            placeholder="WABA ID"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Meta App ID</Label>
+                          <Input
+                            value={novaInstancia.meta_app_id}
+                            onChange={(e) => handleNovaInstanciaChange('meta_app_id', e.target.value)}
+                            placeholder="Meta App ID"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>TB Histories</Label>
+                          <Input
+                            value={novaInstancia.tb_histories}
+                            onChange={(e) => handleNovaInstanciaChange('tb_histories', e.target.value)}
+                            placeholder="Tabela de histórico"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pt-2 border-t">
+                        <Label>Token Evo</Label>
+                        <Input
+                          type="password"
+                          value={novaInstancia.evo_token}
+                          onChange={(e) => handleNovaInstanciaChange('evo_token', e.target.value)}
+                          placeholder="Token da Evolution API"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>CW Token Maia</Label>
+                        <Input
+                          type="password"
+                          value={novaInstancia.cw_token_maia}
+                          onChange={(e) => handleNovaInstanciaChange('cw_token_maia', e.target.value)}
+                          placeholder="Token do Chatwoot"
+                        />
+                      </div>
+
+                      {/* Preview da instância gerada */}
+                      {instanciaPreview && (
+                        <div className="p-3 bg-muted rounded-lg">
+                          <Label className="text-xs text-muted-foreground">Instância gerada automaticamente:</Label>
+                          <p className="font-mono text-sm mt-1">{instanciaPreview}</p>
+                        </div>
+                      )}
+
+                      <div className="flex gap-3 pt-4 border-t">
+                        <Button 
+                          onClick={handleCriarAgente}
+                          disabled={creatingAgente}
+                        >
+                          {creatingAgente ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              Criando...
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="h-4 w-4 mr-2" />
+                              Criar Agente
+                            </>
+                          )}
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          onClick={() => setShowCreateForm(false)}
+                          disabled={creatingAgente}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             ) : editMode && editedData ? (
               /* Modo de edição */
@@ -824,8 +1196,16 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <Server className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Nenhuma instância encontrada para este telefone</p>
-                <p className="text-sm mt-1">Verifique se o Telefone Maia está correto</p>
+                <p>Nenhuma instância encontrada para este agente</p>
+                <p className="text-sm mt-1">Verifique se o Telefone Maia está correto ou crie uma nova instância</p>
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={handleShowCreateForm}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Nova Instância
+                </Button>
               </div>
             )}
           </CardContent>
