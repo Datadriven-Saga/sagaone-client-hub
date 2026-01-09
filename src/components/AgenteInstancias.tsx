@@ -48,7 +48,9 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
   const [editMode, setEditMode] = useState(false);
   const [editedData, setEditedData] = useState<InstanciaData | null>(null);
 
-  const handleCopyToClipboard = async (text: string, label: string) => {
+  const handleCopyToClipboard = async (e: React.MouseEvent, text: string, label: string) => {
+    e.preventDefault();
+    e.stopPropagation();
     try {
       await navigator.clipboard.writeText(text);
       toast({
@@ -65,11 +67,15 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
     }
   };
 
-  const handleToggleEvoToken = () => {
+  const handleToggleEvoToken = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setShowEvoToken(prev => !prev);
   };
 
-  const handleToggleCwToken = () => {
+  const handleToggleCwToken = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setShowCwToken(prev => !prev);
   };
 
@@ -718,7 +724,7 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
                               size="sm"
                               variant="ghost"
                               type="button"
-                              onClick={() => handleCopyToClipboard(instanciaData.evo_token, "Token Evo")}
+                              onClick={(e) => handleCopyToClipboard(e, instanciaData.evo_token, "Token Evo")}
                               title="Copiar"
                             >
                               <Copy className="h-4 w-4" />
@@ -749,7 +755,7 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
                               size="sm"
                               variant="ghost"
                               type="button"
-                              onClick={() => handleCopyToClipboard(instanciaData.cw_token_maia!, "CW Token Maia")}
+                              onClick={(e) => handleCopyToClipboard(e, instanciaData.cw_token_maia!, "CW Token Maia")}
                               title="Copiar"
                             >
                               <Copy className="h-4 w-4" />
