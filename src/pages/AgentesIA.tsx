@@ -78,11 +78,24 @@ export default function AgentesIA() {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
+      // Buscar empresa do usuário
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('empresa_id')
+        .eq('id', user.id)
+        .single();
+      
+      let query = supabase
         .from('agentes_ia')
         .select('*')
         .order('created_at', { ascending: false });
       
+      // Filtrar por empresa do usuário logado
+      if (profileData?.empresa_id) {
+        query = query.eq('empresa_id', profileData.empresa_id);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       
       // Buscar contagens de followups e etapas ativas das cadências para cada agente

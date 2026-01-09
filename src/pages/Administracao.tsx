@@ -8,7 +8,8 @@ import {
   Code, 
   Zap,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  Bot
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
@@ -70,6 +71,12 @@ const Administracao = () => {
       description: "Gerenciar usuários e permissões do sistema",
       icon: Users,
       route: "/administracao/acessos"
+    },
+    {
+      title: "Agentes",
+      description: "Gerenciar agentes de IA de todas as lojas",
+      icon: Bot,
+      route: "/administracao/agentes"
     },
     {
       title: "Gatilhos",
