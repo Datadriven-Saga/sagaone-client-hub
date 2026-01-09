@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -22,11 +23,16 @@ import {
   Store,
   Phone,
   Plus,
-  MapPin
+  MapPin,
+  Upload,
+  Power,
+  PowerOff,
+  Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
+import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Select, 
@@ -42,6 +48,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -51,7 +58,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AgenteDetalhes } from "@/components/AgenteDetalhes";
+import { AgenteFollowups } from "@/components/AgenteFollowups";
+import { AgenteCadencia } from "@/components/AgenteCadencia";
+import { AgenteIntegracao } from "@/components/AgenteIntegracao";
+import AgenteVariaveis from "@/components/AgenteVariaveis";
+import { AgenteCadenciasNova } from "@/components/AgenteCadenciasNova";
 
 interface AgenteWebhook {
   id?: string;
@@ -66,7 +77,6 @@ interface AgenteWebhook {
   cw_token_maia?: string;
   num_maia?: string;
   uf?: string;
-  // Outros campos que podem vir do webhook
   [key: string]: any;
 }
 
@@ -95,17 +105,19 @@ interface InstanciaData {
 interface AgenteLocal {
   id: string;
   nome: string;
-  persona: string;
-  cerebro: string;
-  telefone: string;
-  dealer_id?: string;
-  foto_url?: string;
+  persona: string | null;
+  cerebro: string | null;
+  telefone: string | null;
+  dealer_id?: string | null;
+  foto_url?: string | null;
   ativo: boolean;
 }
 
 export default function AdminAgentes() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const { isDepartamentoTI, isAdminOrTI, loading: accessLoading } = useUserAccessType();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(false);
   const [agentes, setAgentes] = useState<AgenteWebhook[]>([]);
@@ -116,37 +128,46 @@ export default function AdminAgentes() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
-  // Modal de detalhes
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  // Modal de detalhes/edição do agente
+  const [showAgentModal, setShowAgentModal] = useState(false);
   const [selectedAgente, setSelectedAgente] = useState<AgenteWebhook | null>(null);
+  const [agenteLocal, setAgenteLocal] = useState<AgenteLocal | null>(null);
   const [instanciaData, setInstanciaData] = useState<InstanciaData | null>(null);
   const [loadingInstancia, setLoadingInstancia] = useState(false);
   const [showEvoToken, setShowEvoToken] = useState(false);
   const [showCwToken, setShowCwToken] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [editedData, setEditedData] = useState<Record<string, any> | null>(null);
-  const [savingEdit, setSavingEdit] = useState(false);
-  const [activeTab, setActiveTab] = useState("info");
+  const [editInstancia, setEditInstancia] = useState(false);
+  const [editedInstancia, setEditedInstancia] = useState<InstanciaData | null>(null);
+  const [savingInstancia, setSavingInstancia] = useState(false);
+  const [activeTab, setActiveTab] = useState("dados-gerais");
+  const [isNewAgente, setIsNewAgente] = useState(false);
+
+  // Formulário do agente local (banco de dados)
+  const [formData, setFormData] = useState({
+    nome: "",
+    persona: "",
+    cerebro: "",
+    telefone: "",
+    dealer_id: "",
+    foto_url: "",
+    ativo: true
+  });
+  const [savingAgente, setSavingAgente] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Modal para atribuir agente a empresa
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [agenteToAssign, setAgenteToAssign] = useState<AgenteWebhook | null>(null);
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>("");
 
-  // Criar novo agente
-  const [showCreateAgente, setShowCreateAgente] = useState(false);
-  const [agenteEdicao, setAgenteEdicao] = useState<AgenteLocal | null>(null);
-
   const canAccess = isDepartamentoTI && isAdminOrTI;
 
-  // Determinar tipo do agente (Maia ou Outro)
   const getAgenteTipo = (agente: AgenteWebhook | null | undefined): string => {
     if (!agente) return "Outro";
     const nome = (agente.nome || "").toLowerCase();
     return nome.includes("maia") ? "Maia" : "Outro";
   };
 
-  // Determinar número a exibir
   const getAgenteNumero = (agente: AgenteWebhook | null | undefined): string => {
     if (!agente) return "N/A";
     const tipo = getAgenteTipo(agente);
@@ -174,7 +195,6 @@ export default function AdminAgentes() {
       const data = await response.json();
       console.log('Agentes do webhook:', data);
       
-      // Filtra itens nulos/undefined do array
       const agentesArray = (Array.isArray(data) ? data : [data]).filter(
         (item): item is AgenteWebhook => item !== null && item !== undefined
       );
@@ -235,10 +255,9 @@ export default function AdminAgentes() {
     }
     
     setFilteredAgentes(filtered);
-    setCurrentPage(1); // Reset para primeira página ao filtrar
+    setCurrentPage(1);
   };
 
-  // Cálculos de paginação
   const totalPages = Math.ceil(filteredAgentes.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -269,20 +288,6 @@ export default function AdminAgentes() {
         title: "Copiado!",
         description: `${label} copiado para a área de transferência`,
       });
-    }
-  };
-
-  const handleOpenDetails = async (agente: AgenteWebhook) => {
-    setSelectedAgente(agente);
-    setInstanciaData(null);
-    setEditMode(false);
-    setShowEvoToken(false);
-    setShowCwToken(false);
-    setActiveTab("info");
-    setShowDetailsModal(true);
-
-    if (agente.telefone) {
-      await buscarInstancia(agente.telefone);
     }
   };
 
@@ -317,21 +322,325 @@ export default function AdminAgentes() {
     }
   };
 
-  const handleEditarDados = () => {
-    // Combina dados do agente com dados da instância para edição
-    const dadosParaEditar = {
-      ...selectedAgente,
-      ...(instanciaData || {})
-    };
-    setEditedData(dadosParaEditar);
-    setEditMode(true);
+  const buscarAgenteLocal = async (telefone: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('agentes_ia')
+        .select('*')
+        .eq('telefone', telefone)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      if (data) {
+        setAgenteLocal(data as AgenteLocal);
+        setFormData({
+          nome: data.nome || "",
+          persona: data.persona || "",
+          cerebro: data.cerebro || "",
+          telefone: data.telefone || "",
+          dealer_id: data.dealer_id || "",
+          foto_url: data.foto_url || "",
+          ativo: data.ativo ?? true
+        });
+      } else {
+        setAgenteLocal(null);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar agente local:', error);
+      setAgenteLocal(null);
+    }
   };
 
-  const handleSaveEdit = async () => {
-    if (!editedData || !selectedAgente?.telefone) return;
+  const handleOpenAgentModal = async (agente: AgenteWebhook) => {
+    setSelectedAgente(agente);
+    setInstanciaData(null);
+    setAgenteLocal(null);
+    setEditInstancia(false);
+    setEditedInstancia(null);
+    setShowEvoToken(false);
+    setShowCwToken(false);
+    setActiveTab("dados-gerais");
+    setIsNewAgente(false);
+    
+    // Reset form with webhook data
+    setFormData({
+      nome: agente.nome || "",
+      persona: "",
+      cerebro: "",
+      telefone: agente.telefone || agente.num_maia || "",
+      dealer_id: "",
+      foto_url: "",
+      ativo: agente.ativo !== false
+    });
+
+    setShowAgentModal(true);
+
+    // Buscar dados da instância e agente local
+    if (agente.telefone || agente.num_maia) {
+      const tel = agente.telefone || agente.num_maia || "";
+      await Promise.all([
+        buscarInstancia(tel),
+        buscarAgenteLocal(tel)
+      ]);
+    }
+  };
+
+  const handleCreateNewAgent = () => {
+    setSelectedAgente(null);
+    setInstanciaData(null);
+    setAgenteLocal(null);
+    setEditInstancia(false);
+    setEditedInstancia(null);
+    setShowEvoToken(false);
+    setShowCwToken(false);
+    setActiveTab("dados-gerais");
+    setIsNewAgente(true);
+    
+    setFormData({
+      nome: "",
+      persona: "",
+      cerebro: "",
+      telefone: "",
+      dealer_id: "",
+      foto_url: "",
+      ativo: true
+    });
+
+    setShowAgentModal(true);
+  };
+
+  const handleCloseAgentModal = () => {
+    setShowAgentModal(false);
+    setSelectedAgente(null);
+    setAgenteLocal(null);
+    setInstanciaData(null);
+    setEditInstancia(false);
+    setEditedInstancia(null);
+    setIsNewAgente(false);
+  };
+
+  // File upload
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Erro",
+        description: "Por favor, selecione apenas arquivos de imagem",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Erro", 
+        description: "A imagem deve ter no máximo 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
 
     try {
-      setSavingEdit(true);
+      setUploading(true);
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+      const filePath = `agents/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('agent-photos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('agent-photos')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, foto_url: publicUrl }));
+
+      toast({
+        title: "Sucesso",
+        description: "Foto carregada com sucesso"
+      });
+    } catch (error) {
+      console.error('Erro no upload:', error);
+      toast({
+        title: "Erro no upload",
+        description: "Não foi possível carregar a imagem",
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Save agent to local database
+  const handleSaveAgente = async () => {
+    if (!formData.nome) {
+      toast({
+        title: "Erro",
+        description: "O nome do agente é obrigatório",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setSavingAgente(true);
+
+      if (agenteLocal) {
+        // Update existing
+        const { error } = await supabase
+          .from('agentes_ia')
+          .update({
+            nome: formData.nome,
+            persona: formData.persona,
+            cerebro: formData.cerebro,
+            telefone: formData.telefone,
+            dealer_id: formData.dealer_id,
+            foto_url: formData.foto_url,
+            ativo: formData.ativo
+          })
+          .eq('id', agenteLocal.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Agente atualizado",
+          description: "O agente foi atualizado com sucesso"
+        });
+      } else {
+        // Create new
+        const { error } = await supabase
+          .from('agentes_ia')
+          .insert({
+            nome: formData.nome,
+            persona: formData.persona,
+            cerebro: formData.cerebro,
+            telefone: formData.telefone,
+            dealer_id: formData.dealer_id,
+            foto_url: formData.foto_url,
+            ativo: formData.ativo,
+            criado_por: user?.id
+          });
+
+        if (error) throw error;
+
+        toast({
+          title: "Agente criado",
+          description: "O agente foi criado com sucesso"
+        });
+      }
+
+      // Refresh data
+      if (formData.telefone) {
+        await buscarAgenteLocal(formData.telefone);
+      }
+      carregarAgentes();
+    } catch (error) {
+      console.error('Erro ao salvar agente:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar o agente",
+        variant: "destructive"
+      });
+    } finally {
+      setSavingAgente(false);
+    }
+  };
+
+  const handleToggleStatus = async () => {
+    if (!agenteLocal) return;
+    
+    try {
+      const newStatus = !formData.ativo;
+      
+      const { error } = await supabase
+        .from('agentes_ia')
+        .update({ ativo: newStatus })
+        .eq('id', agenteLocal.id);
+
+      if (error) throw error;
+
+      setFormData(prev => ({ ...prev, ativo: newStatus }));
+
+      toast({
+        title: newStatus ? "Agente ativado" : "Agente inativado",
+        description: `O agente foi ${newStatus ? 'ativado' : 'inativado'} com sucesso`
+      });
+    } catch (error) {
+      console.error('Erro ao alterar status:', error);
+      toast({
+        title: "Erro ao alterar status",
+        description: "Não foi possível alterar o status do agente",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteAgente = async () => {
+    if (!agenteLocal) return;
+    
+    if (!confirm(`Tem certeza que deseja excluir o agente "${formData.nome}"? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('agentes_ia')
+        .delete()
+        .eq('id', agenteLocal.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Agente excluído",
+        description: "O agente foi excluído com sucesso"
+      });
+
+      handleCloseAgentModal();
+      carregarAgentes();
+    } catch (error) {
+      console.error('Erro ao excluir agente:', error);
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível excluir o agente",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Instancia edit handlers
+  const handleEditInstancia = () => {
+    if (instanciaData) {
+      setEditedInstancia({ ...instanciaData });
+      setEditInstancia(true);
+    }
+  };
+
+  const handleCancelInstanciaEdit = () => {
+    setEditInstancia(false);
+    setEditedInstancia(null);
+  };
+
+  const handleInstanciaFieldChange = (field: keyof InstanciaData, value: string) => {
+    if (editedInstancia) {
+      setEditedInstancia({
+        ...editedInstancia,
+        [field]: value
+      });
+    }
+  };
+
+  const handleSaveInstancia = async () => {
+    if (!editedInstancia || !selectedAgente?.telefone) return;
+
+    try {
+      setSavingInstancia(true);
 
       const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-instancias_evo', {
         method: 'POST',
@@ -340,7 +649,7 @@ export default function AdminAgentes() {
         },
         body: JSON.stringify({
           telefone: selectedAgente.telefone,
-          ...editedData
+          ...editedInstancia
         })
       });
 
@@ -349,39 +658,23 @@ export default function AdminAgentes() {
       }
 
       toast({
-        title: "Dados atualizados",
-        description: "Os dados foram salvos com sucesso"
+        title: "Instância atualizada",
+        description: "Os dados da instância foram salvos com sucesso"
       });
 
-      // Atualizar dados locais
-      if (instanciaData) {
-        setInstanciaData({ ...instanciaData, ...editedData });
-      }
-      setEditMode(false);
+      setInstanciaData(editedInstancia);
+      setEditInstancia(false);
+      setEditedInstancia(null);
       carregarAgentes();
     } catch (error) {
-      console.error('Erro ao salvar edições:', error);
+      console.error('Erro ao salvar instância:', error);
       toast({
         title: "Erro ao salvar",
-        description: "Não foi possível salvar as alterações",
+        description: "Não foi possível salvar as alterações da instância",
         variant: "destructive"
       });
     } finally {
-      setSavingEdit(false);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditMode(false);
-    setEditedData(null);
-  };
-
-  const handleEditFieldChange = (field: string, value: string) => {
-    if (editedData) {
-      setEditedData({
-        ...editedData,
-        [field]: value
-      });
+      setSavingInstancia(false);
     }
   };
 
@@ -414,25 +707,6 @@ export default function AdminAgentes() {
     }
   };
 
-  const handleCloseDetailsModal = () => {
-    setShowDetailsModal(false);
-    setSelectedAgente(null);
-    setInstanciaData(null);
-    setEditMode(false);
-    setEditedData(null);
-  };
-
-  const handleCreateAgente = () => {
-    setAgenteEdicao(null);
-    setShowCreateAgente(true);
-  };
-
-  const handleCloseCreateAgente = () => {
-    setShowCreateAgente(false);
-    setAgenteEdicao(null);
-    carregarAgentes();
-  };
-
   useEffect(() => {
     if (canAccess) {
       carregarAgentes();
@@ -462,71 +736,6 @@ export default function AdminAgentes() {
     );
   }
 
-  // Mostrar tela de criar/editar agente
-  if (showCreateAgente) {
-    return (
-      <AgenteDetalhes 
-        agente={agenteEdicao}
-        onClose={handleCloseCreateAgente}
-      />
-    );
-  }
-
-  const renderTokenField = (
-    label: string,
-    value: string | null,
-    showToken: boolean,
-    onToggle: () => void
-  ) => (
-    <div className="space-y-2">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <div className="flex items-center gap-2">
-        <code className="flex-1 text-sm bg-muted px-2 py-1 rounded truncate">
-          {showToken ? (value || "N/A") : "••••••••••••••••"}
-        </code>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8 shrink-0"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
-        >
-          {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </Button>
-        {value && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 shrink-0"
-            onClick={(e) => handleCopyToClipboard(e, value, label)}
-          >
-            <Copy className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-
-  // Campos a serem exibidos no modal
-  const camposExibicao = [
-    { key: "nome", label: "Nome" },
-    { key: "telefone", label: "Telefone" },
-    { key: "num_maia", label: "Número Maia" },
-    { key: "marca", label: "Marca" },
-    { key: "loja", label: "Loja" },
-    { key: "uf", label: "UF" },
-    { key: "instancia", label: "Instância" },
-    { key: "id_numero_meta", label: "ID Número Meta" },
-    { key: "waba", label: "WABA" },
-    { key: "meta_app_id", label: "Meta App ID" },
-    { key: "tb_histories", label: "TB Histories" },
-    { key: "cw_inbox", label: "CW Inbox" },
-    { key: "criado_em", label: "Criado em" },
-    { key: "agente", label: "Agente" },
-  ];
-
   return (
     <DashboardLayout title="Agentes - Administração">
       <ScrollIndicator className="flex-1 h-full">
@@ -539,7 +748,7 @@ export default function AdminAgentes() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleCreateAgente}>
+              <Button onClick={handleCreateNewAgent}>
                 <Plus className="h-4 w-4 mr-2" />
                 Criar Agente
               </Button>
@@ -622,7 +831,7 @@ export default function AdminAgentes() {
                       <TableRow 
                         key={agente.id || index} 
                         className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleOpenDetails(agente)}
+                        onClick={() => handleOpenAgentModal(agente)}
                       >
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -723,164 +932,583 @@ export default function AdminAgentes() {
             </CardContent>
           </Card>
 
-          {/* Modal de Detalhes do Agente */}
-          <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          {/* Modal Principal do Agente */}
+          <Dialog open={showAgentModal} onOpenChange={setShowAgentModal}>
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Bot className="h-5 w-5" />
-                  {getAgenteTipo(selectedAgente)} - {selectedAgente?.loja || selectedAgente?.marca || "Agente"}
+                  {isNewAgente ? "Novo Agente" : `${selectedAgente?.marca || formData.nome || "Agente"}`}
                 </DialogTitle>
                 <DialogDescription>
-                  Detalhes completos do agente
+                  {isNewAgente ? "Criar um novo agente de IA" : "Visualize e edite os dados do agente"}
                 </DialogDescription>
               </DialogHeader>
 
-              {selectedAgente && (
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="w-full">
-                    <TabsTrigger value="info" className="flex-1">Informações</TabsTrigger>
-                    <TabsTrigger value="instancia" className="flex-1">Instância</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="info" className="space-y-4 mt-4">
-                    <div className="flex justify-end">
-                      {!editMode ? (
-                        <Button size="sm" variant="outline" onClick={handleEditarDados}>
-                          <Edit className="h-4 w-4 mr-1" />
-                          Editar
-                        </Button>
+              {/* Action buttons */}
+              <div className="flex flex-wrap gap-2 justify-end border-b pb-4">
+                <Button onClick={handleSaveAgente} disabled={savingAgente}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {savingAgente ? "Salvando..." : "Salvar"}
+                </Button>
+                
+                {agenteLocal && (
+                  <>
+                    <Button variant="outline" onClick={handleToggleStatus}>
+                      {formData.ativo ? (
+                        <><PowerOff className="h-4 w-4 mr-2" />Inativar</>
                       ) : (
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={handleCancelEdit}>
-                            <X className="h-4 w-4 mr-1" />
-                            Cancelar
-                          </Button>
-                          <Button size="sm" onClick={handleSaveEdit} disabled={savingEdit}>
-                            {savingEdit ? (
-                              <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                            ) : (
-                              <Save className="h-4 w-4 mr-1" />
-                            )}
-                            Salvar
-                          </Button>
-                        </div>
+                        <><Power className="h-4 w-4 mr-2" />Ativar</>
                       )}
-                    </div>
+                    </Button>
+                    
+                    <Button variant="destructive" onClick={handleDeleteAgente}>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Excluir
+                    </Button>
+                  </>
+                )}
+              </div>
 
-                    {editMode && editedData ? (
-                      <div className="grid grid-cols-2 gap-4">
-                        {camposExibicao.map(({ key, label }) => (
-                          <div key={key} className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">{label}</Label>
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                  <TabsList className="w-max sm:w-auto flex-nowrap">
+                    <TabsTrigger value="dados-gerais">Dados Gerais</TabsTrigger>
+                    {agenteLocal && (
+                      <>
+                        <TabsTrigger value="qualificacao">Qualificação</TabsTrigger>
+                        <TabsTrigger value="cadencia">Cadência</TabsTrigger>
+                        <TabsTrigger value="periodo">Período</TabsTrigger>
+                        <TabsTrigger value="acompanhamento">Acompanhamento</TabsTrigger>
+                        <TabsTrigger value="integracao">Integração</TabsTrigger>
+                        <TabsTrigger value="followup">Follow-up</TabsTrigger>
+                      </>
+                    )}
+                    <TabsTrigger value="instancias">Instâncias</TabsTrigger>
+                  </TabsList>
+                </div>
+
+                {/* Dados Gerais Tab */}
+                <TabsContent value="dados-gerais">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Dados Gerais do Agente</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-col lg:flex-row gap-6">
+                        {/* Foto do agente */}
+                        <div className="flex flex-col items-center space-y-4 w-full lg:w-auto lg:shrink-0">
+                          {formData.foto_url ? (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <div className="h-32 w-32 relative cursor-pointer hover:opacity-80 transition-opacity">
+                                  <img 
+                                    src={formData.foto_url} 
+                                    alt={`Foto do agente ${formData.nome}`}
+                                    className="w-full h-full object-cover rounded-lg"
+                                  />
+                                </div>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-2">
+                                <img 
+                                  src={formData.foto_url} 
+                                  alt={`Foto completa do agente ${formData.nome}`}
+                                  className="w-full h-auto max-w-full max-h-[90vh] object-contain rounded-lg"
+                                />
+                              </DialogContent>
+                            </Dialog>
+                          ) : (
+                            <div className="h-32 w-32 bg-primary/10 rounded-lg flex items-center justify-center">
+                              <span className="text-3xl font-semibold text-primary">
+                                {formData.nome.charAt(0).toUpperCase() || "A"}
+                              </span>
+                            </div>
+                          )}
+                          
+                          <div className="w-full max-w-[200px] space-y-2">
+                            <Label htmlFor="foto_url">URL da Foto</Label>
                             <Input
-                              value={editedData[key] || ""}
-                              onChange={(e) => handleEditFieldChange(key, e.target.value)}
+                              id="foto_url"
+                              value={formData.foto_url}
+                              onChange={(e) => setFormData(prev => ({ ...prev, foto_url: e.target.value }))}
+                              placeholder="https://exemplo.com/foto.jpg"
+                            />
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              onChange={handleFileUpload}
+                              accept="image/*"
+                              className="hidden"
+                            />
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={uploading}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              {uploading ? "Carregando..." : "Upload de Imagem"}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Campos de texto */}
+                        <div className="flex-1 min-w-0 space-y-4">
+                          <div>
+                            <Label htmlFor="nome">Nome do Agente</Label>
+                            <Input
+                              id="nome"
+                              value={formData.nome}
+                              onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
+                              placeholder="Ex: Assistente Virtual"
+                              required
                             />
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-4">
-                        {camposExibicao.map(({ key, label }) => {
-                          const value = selectedAgente[key] || instanciaData?.[key] || null;
-                          if (!value) return null;
-                          return (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">{label}</Label>
-                              <p className="font-medium">{value}</p>
-                            </div>
-                          );
-                        })}
-                        <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Status</Label>
-                          <Badge variant={selectedAgente.ativo !== false ? "default" : "secondary"}>
-                            {selectedAgente.ativo !== false ? "Ativo" : "Inativo"}
-                          </Badge>
+
+                          <div>
+                            <Label htmlFor="persona">Persona do Agente</Label>
+                            <Textarea
+                              id="persona"
+                              value={formData.persona}
+                              onChange={(e) => setFormData(prev => ({ ...prev, persona: e.target.value }))}
+                              placeholder="Descrição breve sobre a identidade do agente..."
+                              rows={3}
+                            />
+                          </div>
+
+                          <div>
+                            <Label htmlFor="cerebro">Cérebro do Agente</Label>
+                            <Textarea
+                              id="cerebro"
+                              value={formData.cerebro}
+                              onChange={(e) => setFormData(prev => ({ ...prev, cerebro: e.target.value }))}
+                              placeholder="Texto longo em linguagem natural que define o comportamento do agente..."
+                              rows={6}
+                            />
+                          </div>
+
+                          <div>
+                            <Label htmlFor="telefone">Telefone</Label>
+                            <Input
+                              id="telefone"
+                              value={formData.telefone}
+                              onChange={(e) => setFormData(prev => ({ ...prev, telefone: e.target.value }))}
+                              placeholder="+55 11 99999-9999"
+                            />
+                          </div>
+
+                          <div>
+                            <Label htmlFor="dealer_id">DealerID</Label>
+                            <Input
+                              id="dealer_id"
+                              value={formData.dealer_id}
+                              onChange={(e) => setFormData(prev => ({ ...prev, dealer_id: e.target.value }))}
+                              placeholder="1234"
+                            />
+                          </div>
                         </div>
                       </div>
-                    )}
-                  </TabsContent>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
 
-                  <TabsContent value="instancia" className="space-y-4 mt-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-semibold flex items-center gap-2">
-                        <Server className="h-4 w-4" />
-                        Instância Evolution
-                      </h4>
-                      {instanciaData && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => selectedAgente.telefone && buscarInstancia(selectedAgente.telefone)}
-                          disabled={loadingInstancia}
-                        >
-                          <RefreshCw className={`h-4 w-4 mr-1 ${loadingInstancia ? 'animate-spin' : ''}`} />
-                          Atualizar
-                        </Button>
+                {/* Qualificação Tab */}
+                {agenteLocal && (
+                  <TabsContent value="qualificacao">
+                    <AgenteVariaveis agenteId={agenteLocal.id} />
+                  </TabsContent>
+                )}
+
+                {/* Cadência Tab */}
+                {agenteLocal && (
+                  <TabsContent value="cadencia">
+                    <AgenteCadenciasNova agenteId={agenteLocal.id} />
+                  </TabsContent>
+                )}
+
+                {/* Período Tab */}
+                {agenteLocal && (
+                  <TabsContent value="periodo">
+                    <AgenteCadencia 
+                      agenteId={agenteLocal.id}
+                      tipoCadencia="rapida"
+                      titulo="Período de Trabalho"
+                      descricao="Configure o horário e dias de trabalho para execução da cadência"
+                    />
+                  </TabsContent>
+                )}
+
+                {/* Acompanhamento Tab */}
+                {agenteLocal && (
+                  <TabsContent value="acompanhamento">
+                    <AgenteCadencia 
+                      agenteId={agenteLocal.id}
+                      tipoCadencia="acompanhamento"
+                      titulo="Cadência de Acompanhamento"
+                      descricao="Configure uma cadência de acompanhamento contínuo com intervalos maiores"
+                    />
+                  </TabsContent>
+                )}
+
+                {/* Integração Tab */}
+                {agenteLocal && (
+                  <TabsContent value="integracao">
+                    <AgenteIntegracao agenteId={agenteLocal.id} />
+                  </TabsContent>
+                )}
+
+                {/* Follow-up Tab */}
+                {agenteLocal && (
+                  <TabsContent value="followup">
+                    <AgenteFollowups agenteId={agenteLocal.id} />
+                  </TabsContent>
+                )}
+
+                {/* Instâncias Tab */}
+                <TabsContent value="instancias">
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="flex items-center gap-2">
+                            <Server className="h-5 w-5" />
+                            Editar Instância
+                          </CardTitle>
+                          <CardDescription className="mt-1">
+                            Gerencie as configurações da instância Evolution
+                          </CardDescription>
+                        </div>
+                        {instanciaData && !editInstancia && (
+                          <Button size="sm" variant="outline" onClick={handleEditInstancia}>
+                            <Edit className="h-4 w-4 mr-1" />
+                            Editar
+                          </Button>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {loadingInstancia ? (
+                        <div className="flex items-center justify-center py-8">
+                          <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : editInstancia && editedInstancia ? (
+                        /* Modo de edição */
+                        <div className="space-y-4">
+                          <Card className="border">
+                            <CardContent className="p-4">
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between mb-4">
+                                  <div className="space-y-1">
+                                    <span className="text-muted-foreground text-sm">Instância:</span>
+                                    <h4 className="font-semibold text-lg">{editedInstancia.instancia}</h4>
+                                  </div>
+                                  <Badge variant="secondary">Editando</Badge>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label>Número Maia</Label>
+                                    <Input
+                                      value={editedInstancia.num_maia}
+                                      onChange={(e) => handleInstanciaFieldChange('num_maia', e.target.value)}
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label>Marca</Label>
+                                    <Input
+                                      value={editedInstancia.marca}
+                                      onChange={(e) => handleInstanciaFieldChange('marca', e.target.value)}
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label>UF</Label>
+                                    <Input
+                                      value={editedInstancia.uf}
+                                      onChange={(e) => handleInstanciaFieldChange('uf', e.target.value)}
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label>ID Número Meta</Label>
+                                    <Input
+                                      value={editedInstancia.id_numero_meta || ''}
+                                      onChange={(e) => handleInstanciaFieldChange('id_numero_meta', e.target.value)}
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Instância</Label>
+                                    <Input
+                                      value={editedInstancia.instancia}
+                                      onChange={(e) => handleInstanciaFieldChange('instancia', e.target.value)}
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label>CW Inbox</Label>
+                                    <Input
+                                      value={editedInstancia.cw_inbox || ''}
+                                      onChange={(e) => handleInstanciaFieldChange('cw_inbox', e.target.value)}
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Agente</Label>
+                                    <Input
+                                      value={editedInstancia.agente || ''}
+                                      onChange={(e) => handleInstanciaFieldChange('agente', e.target.value)}
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>WABA</Label>
+                                    <Input
+                                      value={editedInstancia.waba || ''}
+                                      onChange={(e) => handleInstanciaFieldChange('waba', e.target.value)}
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Meta App ID</Label>
+                                    <Input
+                                      value={editedInstancia.meta_app_id || ''}
+                                      onChange={(e) => handleInstanciaFieldChange('meta_app_id', e.target.value)}
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>TB Histories</Label>
+                                    <Input
+                                      value={editedInstancia.tb_histories || ''}
+                                      onChange={(e) => handleInstanciaFieldChange('tb_histories', e.target.value)}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2 pt-2 border-t">
+                                  <Label>Token Evo</Label>
+                                  <Input
+                                    type={showEvoToken ? "text" : "password"}
+                                    value={editedInstancia.evo_token || ''}
+                                    onChange={(e) => handleInstanciaFieldChange('evo_token', e.target.value)}
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      type="button"
+                                      onClick={() => setShowEvoToken(!showEvoToken)}
+                                    >
+                                      {showEvoToken ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+                                      {showEvoToken ? "Ocultar" : "Mostrar"}
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>CW Token Maia</Label>
+                                  <Input
+                                    type={showCwToken ? "text" : "password"}
+                                    value={editedInstancia.cw_token_maia || ''}
+                                    onChange={(e) => handleInstanciaFieldChange('cw_token_maia', e.target.value)}
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      type="button"
+                                      onClick={() => setShowCwToken(!showCwToken)}
+                                    >
+                                      {showCwToken ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+                                      {showCwToken ? "Ocultar" : "Mostrar"}
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                <div className="flex gap-3 pt-4 border-t">
+                                  <Button 
+                                    onClick={handleSaveInstancia}
+                                    disabled={savingInstancia}
+                                  >
+                                    {savingInstancia ? (
+                                      <>
+                                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                        Salvando...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Save className="h-4 w-4 mr-2" />
+                                        Salvar Alterações
+                                      </>
+                                    )}
+                                  </Button>
+                                  <Button 
+                                    variant="outline"
+                                    onClick={handleCancelInstanciaEdit}
+                                    disabled={savingInstancia}
+                                  >
+                                    <X className="h-4 w-4 mr-2" />
+                                    Cancelar
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ) : instanciaData ? (
+                        /* Modo de visualização */
+                        <div className="space-y-4">
+                          <Card className="border">
+                            <CardContent className="p-4">
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="space-y-1">
+                                    <span className="text-muted-foreground text-sm">Instância:</span>
+                                    <h4 className="font-semibold text-lg">{instanciaData.instancia}</h4>
+                                  </div>
+                                  <Badge variant="default">Ativa</Badge>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                  <div className="space-y-1">
+                                    <span className="text-muted-foreground">Número Maia:</span>
+                                    <p className="font-medium">{instanciaData.num_maia}</p>
+                                  </div>
+                                  
+                                  <div className="space-y-1">
+                                    <span className="text-muted-foreground">Marca:</span>
+                                    <p className="font-medium capitalize">{instanciaData.marca}</p>
+                                  </div>
+                                  
+                                  <div className="space-y-1">
+                                    <span className="text-muted-foreground">UF:</span>
+                                    <p className="font-medium">{instanciaData.uf}</p>
+                                  </div>
+                                  
+                                  <div className="space-y-1">
+                                    <span className="text-muted-foreground">ID Número Meta:</span>
+                                    <p className="font-medium">{instanciaData.id_numero_meta || '-'}</p>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-muted-foreground">CW Inbox:</span>
+                                    <p className="font-medium">{instanciaData.cw_inbox || '-'}</p>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-muted-foreground">WABA:</span>
+                                    <p className="font-medium">{instanciaData.waba || '-'}</p>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-muted-foreground">Agente:</span>
+                                    <p className="font-medium">{instanciaData.agente || '-'}</p>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-muted-foreground">Meta App ID:</span>
+                                    <p className="font-medium">{instanciaData.meta_app_id || '-'}</p>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-muted-foreground">TB Histories:</span>
+                                    <p className="font-medium">{instanciaData.tb_histories || '-'}</p>
+                                  </div>
+                                  
+                                  {instanciaData.criado_em && (
+                                    <div className="space-y-1">
+                                      <span className="text-muted-foreground">Criado em:</span>
+                                      <p className="font-medium">
+                                        {new Date(instanciaData.criado_em).toLocaleDateString('pt-BR', {
+                                          day: '2-digit',
+                                          month: '2-digit',
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {instanciaData.evo_token && (
+                                  <div className="space-y-2 pt-2 border-t">
+                                    <span className="text-muted-foreground text-sm">Token Evo:</span>
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex-1 min-w-0 font-mono text-xs bg-muted p-2 rounded break-all overflow-hidden">
+                                        {showEvoToken
+                                          ? instanciaData.evo_token
+                                          : "••••••••••••••••••••••••••••••••••••••••••••••••••"}
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => setShowEvoToken(!showEvoToken)}
+                                        title={showEvoToken ? "Ocultar" : "Mostrar"}
+                                      >
+                                        {showEvoToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={(e) => handleCopyToClipboard(e, instanciaData.evo_token, "Token Evo")}
+                                        title="Copiar"
+                                      >
+                                        <Copy className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {instanciaData.cw_token_maia && (
+                                  <div className="space-y-2">
+                                    <span className="text-muted-foreground text-sm">CW Token Maia:</span>
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex-1 min-w-0 font-mono text-xs bg-muted p-2 rounded break-all overflow-hidden">
+                                        {showCwToken
+                                          ? instanciaData.cw_token_maia
+                                          : "••••••••••••••••••••••••"}
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => setShowCwToken(!showCwToken)}
+                                        title={showCwToken ? "Ocultar" : "Mostrar"}
+                                      >
+                                        {showCwToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={(e) => handleCopyToClipboard(e, instanciaData.cw_token_maia!, "CW Token Maia")}
+                                        title="Copiar"
+                                      >
+                                        <Copy className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Server className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>Nenhuma instância encontrada para este agente</p>
+                          <p className="text-sm mt-1">Verifique se o telefone está correto</p>
+                        </div>
                       )}
-                    </div>
-
-                    {loadingInstancia ? (
-                      <div className="flex items-center justify-center py-6">
-                        <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : !instanciaData ? (
-                      <p className="text-muted-foreground text-sm py-4">
-                        Nenhuma instância encontrada para este agente
-                      </p>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">Número Maia</Label>
-                            <p className="text-sm">{instanciaData.num_maia}</p>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">Instância</Label>
-                            <p className="text-sm">{instanciaData.instancia}</p>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">Marca</Label>
-                            <p className="text-sm">{instanciaData.marca}</p>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">UF</Label>
-                            <p className="text-sm">{instanciaData.uf}</p>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">ID Número Meta</Label>
-                            <p className="text-sm">{instanciaData.id_numero_meta || "N/A"}</p>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">WABA</Label>
-                            <p className="text-sm">{instanciaData.waba || "N/A"}</p>
-                          </div>
-                        </div>
-
-                        <div className="border-t pt-4 space-y-4">
-                          {renderTokenField(
-                            "Evo Token",
-                            instanciaData.evo_token,
-                            showEvoToken,
-                            () => setShowEvoToken(!showEvoToken)
-                          )}
-
-                          {renderTokenField(
-                            "CW Token Maia",
-                            instanciaData.cw_token_maia,
-                            showCwToken,
-                            () => setShowCwToken(!showCwToken)
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
-              )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
 
               <DialogFooter>
-                <Button variant="outline" onClick={handleCloseDetailsModal}>
+                <Button variant="outline" onClick={handleCloseAgentModal}>
                   Fechar
                 </Button>
               </DialogFooter>
@@ -891,32 +1519,35 @@ export default function AdminAgentes() {
           <Dialog open={showAssignModal} onOpenChange={setShowAssignModal}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Atribuir Agente à Empresa</DialogTitle>
+                <DialogTitle>Atribuir Agente a Empresa</DialogTitle>
                 <DialogDescription>
-                  Selecione a empresa para atribuir o agente "{agenteToAssign?.nome}"
+                  Selecione a empresa para vincular o agente "{agenteToAssign?.nome}"
                 </DialogDescription>
               </DialogHeader>
-              <div className="py-4">
-                <Label>Empresa</Label>
-                <Select value={selectedEmpresaId} onValueChange={setSelectedEmpresaId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma empresa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhuma (remover atribuição)</SelectItem>
-                    {empresas.map((empresa) => (
-                      <SelectItem key={empresa.id} value={empresa.id}>
-                        {empresa.nome_empresa}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Empresa</Label>
+                  <Select value={selectedEmpresaId} onValueChange={setSelectedEmpresaId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma empresa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {empresas.map((empresa) => (
+                        <SelectItem key={empresa.id} value={empresa.id}>
+                          {empresa.nome_empresa}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowAssignModal(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleAssignAgente}>
+                <Button onClick={handleAssignAgente} disabled={!selectedEmpresaId}>
                   Confirmar
                 </Button>
               </DialogFooter>
