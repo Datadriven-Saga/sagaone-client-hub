@@ -609,10 +609,10 @@ export default function AdminAgentes() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Loja</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Agente</TableHead>
-                      <TableHead>Número</TableHead>
+                      <TableHead>Marca</TableHead>
+                      <TableHead>UF</TableHead>
+                      <TableHead>Num Maia</TableHead>
+                      <TableHead>Instância</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -627,7 +627,7 @@ export default function AdminAgentes() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Store className="h-4 w-4 text-muted-foreground" />
-                            <span>{agente.loja || agente.marca || "N/A"}</span>
+                            <span className="font-medium">{agente.marca || "N/A"}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -638,14 +638,14 @@ export default function AdminAgentes() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Bot className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{getAgenteTipo(agente)}</span>
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <span>{agente.num_maia || "N/A"}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                            <span>{getAgenteNumero(agente)}</span>
+                            <Server className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">{agente.instancia || "N/A"}</span>
                           </div>
                         </TableCell>
                         <TableCell>
