@@ -322,7 +322,7 @@ export default function AdminAgentes() {
     }
   };
 
-  const buscarAgenteLocal = async (telefone: string) => {
+  const buscarAgenteLocal = async (telefone: string, agenteWebhook?: AgenteWebhook | null) => {
     try {
       const { data, error } = await supabase
         .from('agentes_ia')
@@ -343,6 +343,34 @@ export default function AdminAgentes() {
           foto_url: data.foto_url || "",
           ativo: data.ativo ?? true
         });
+      } else if (agenteWebhook) {
+        // Se o agente existe no webhook mas não no banco local, criar automaticamente
+        const { data: newAgent, error: insertError } = await supabase
+          .from('agentes_ia')
+          .insert({
+            nome: agenteWebhook.nome || "Novo Agente",
+            telefone: telefone,
+            ativo: agenteWebhook.ativo !== false,
+            criado_por: user?.id
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Erro ao criar agente local:', insertError);
+          setAgenteLocal(null);
+        } else if (newAgent) {
+          setAgenteLocal(newAgent as AgenteLocal);
+          setFormData({
+            nome: newAgent.nome || "",
+            persona: newAgent.persona || "",
+            cerebro: newAgent.cerebro || "",
+            telefone: newAgent.telefone || "",
+            dealer_id: newAgent.dealer_id || "",
+            foto_url: newAgent.foto_url || "",
+            ativo: newAgent.ativo ?? true
+          });
+        }
       } else {
         setAgenteLocal(null);
       }
@@ -379,10 +407,8 @@ export default function AdminAgentes() {
     // Buscar dados da instância e agente local
     if (agente.telefone || agente.num_maia) {
       const tel = agente.telefone || agente.num_maia || "";
-      await Promise.all([
-        buscarInstancia(tel),
-        buscarAgenteLocal(tel)
-      ]);
+      await buscarInstancia(tel);
+      await buscarAgenteLocal(tel, agente);
     }
   };
 
