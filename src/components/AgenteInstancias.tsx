@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Edit, RefreshCw, Check, Building2, Server } from "lucide-react";
+import { Eye, Edit, RefreshCw, Check, Building2, Server, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -43,28 +43,29 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
   
   const [loading, setLoading] = useState(false);
   const [loadingInstancias, setLoadingInstancias] = useState(false);
-  const [editingMaiaId, setEditingMaiaId] = useState(false);
-  const [maiaId, setMaiaId] = useState("");
-  const [savedMaiaId, setSavedMaiaId] = useState("");
+  const [loadingUpdate, setLoadingUpdate] = useState(false);
+  const [editingTelefone, setEditingTelefone] = useState(false);
+  const [telefoneMaia, setTelefoneMaia] = useState("");
+  const [savedTelefoneMaia, setSavedTelefoneMaia] = useState("");
   const [instancias, setInstancias] = useState<InstanciaEvo[]>([]);
   const [showInstancias, setShowInstancias] = useState(false);
   const [empresaNome, setEmpresaNome] = useState("");
 
-  // Carregar dados do agente (dealer_id = maiaId)
+  // Carregar dados do agente (telefone = telefone maia)
   const carregarDados = async () => {
     try {
-      // Buscar o agente para obter o dealer_id (que é o maiaId)
+      // Buscar o agente para obter o telefone
       const { data: agente, error } = await supabase
         .from('agentes_ia')
-        .select('dealer_id, empresa_id')
+        .select('telefone, empresa_id')
         .eq('id', agenteId)
         .single();
 
       if (error) throw error;
 
-      if (agente?.dealer_id) {
-        setMaiaId(agente.dealer_id);
-        setSavedMaiaId(agente.dealer_id);
+      if (agente?.telefone) {
+        setTelefoneMaia(agente.telefone);
+        setSavedTelefoneMaia(agente.telefone);
       }
 
       // Buscar nome da empresa
@@ -86,11 +87,11 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
     }
   };
 
-  const handleSaveMaiaId = async () => {
-    if (!maiaId.trim()) {
+  const handleSaveTelefone = async () => {
+    if (!telefoneMaia.trim()) {
       toast({
         title: "Erro",
-        description: "O Maia ID não pode estar vazio",
+        description: "O Telefone Maia não pode estar vazio",
         variant: "destructive"
       });
       return;
@@ -101,23 +102,23 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
 
       const { error } = await supabase
         .from('agentes_ia')
-        .update({ dealer_id: maiaId.trim() })
+        .update({ telefone: telefoneMaia.trim() })
         .eq('id', agenteId);
 
       if (error) throw error;
 
-      setSavedMaiaId(maiaId.trim());
-      setEditingMaiaId(false);
+      setSavedTelefoneMaia(telefoneMaia.trim());
+      setEditingTelefone(false);
 
       toast({
-        title: "Maia ID salvo",
-        description: "O Maia ID foi atualizado com sucesso"
+        title: "Telefone Maia salvo",
+        description: "O Telefone Maia foi atualizado com sucesso"
       });
     } catch (error) {
-      console.error('Erro ao salvar Maia ID:', error);
+      console.error('Erro ao salvar Telefone Maia:', error);
       toast({
         title: "Erro ao salvar",
-        description: "Não foi possível salvar o Maia ID",
+        description: "Não foi possível salvar o Telefone Maia",
         variant: "destructive"
       });
     } finally {
@@ -126,10 +127,10 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
   };
 
   const handleVerInstancias = async () => {
-    if (!savedMaiaId) {
+    if (!savedTelefoneMaia) {
       toast({
-        title: "Maia ID não configurado",
-        description: "Configure o Maia ID antes de buscar as instâncias",
+        title: "Telefone Maia não configurado",
+        description: "Configure o Telefone Maia antes de buscar as instâncias",
         variant: "destructive"
       });
       return;
@@ -146,7 +147,7 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          maiaId: savedMaiaId,
+          telefone: savedTelefoneMaia,
           action: 'list'
         })
       });
@@ -185,18 +186,53 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
     }
   };
 
-  const handleEditarInstancias = () => {
-    if (!savedMaiaId) {
+  const handleAtualizarInstancias = async () => {
+    if (!savedTelefoneMaia) {
       toast({
-        title: "Maia ID não configurado",
-        description: "Configure o Maia ID antes de editar instâncias",
+        title: "Telefone Maia não configurado",
+        description: "Configure o Telefone Maia antes de atualizar instâncias",
         variant: "destructive"
       });
       return;
     }
 
-    // Abrir URL de edição (pode ser customizado conforme necessidade)
-    window.open(`https://automatemaiawh.sagadatadriven.com.br/admin/instances?maiaId=${savedMaiaId}`, '_blank');
+    try {
+      setLoadingUpdate(true);
+
+      // Chamar o webhook para atualizar instâncias
+      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-instancias_evo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          telefone: savedTelefoneMaia
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro na requisição: ${response.status}`);
+      }
+
+      toast({
+        title: "Instâncias atualizadas",
+        description: "A tabela da Evo foi atualizada com sucesso"
+      });
+
+      // Recarregar instâncias após atualização
+      if (showInstancias) {
+        await handleVerInstancias();
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar instâncias:', error);
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível atualizar as instâncias da Evo",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingUpdate(false);
+    }
   };
 
   useEffect(() => {
@@ -220,23 +256,23 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Campo Maia ID com nome da empresa */}
+          {/* Campo Telefone Maia com nome da empresa */}
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
             <div className="flex-1 space-y-2">
-              <Label htmlFor="maiaId">Maia ID</Label>
-              <div className="flex gap-2 items-center">
-                {editingMaiaId ? (
+              <Label htmlFor="telefoneMaia">Telefone Maia</Label>
+              <div className="flex gap-2 items-center flex-wrap">
+                {editingTelefone ? (
                   <>
                     <Input
-                      id="maiaId"
-                      value={maiaId}
-                      onChange={(e) => setMaiaId(e.target.value)}
-                      placeholder="Digite o número da Maia"
+                      id="telefoneMaia"
+                      value={telefoneMaia}
+                      onChange={(e) => setTelefoneMaia(e.target.value)}
+                      placeholder="Digite o telefone da Maia"
                       className="max-w-xs"
                     />
                     <Button 
                       size="sm" 
-                      onClick={handleSaveMaiaId}
+                      onClick={handleSaveTelefone}
                       disabled={loading}
                     >
                       <Check className="h-4 w-4 mr-1" />
@@ -246,8 +282,8 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
                       size="sm" 
                       variant="outline"
                       onClick={() => {
-                        setMaiaId(savedMaiaId);
-                        setEditingMaiaId(false);
+                        setTelefoneMaia(savedTelefoneMaia);
+                        setEditingTelefone(false);
                       }}
                     >
                       Cancelar
@@ -257,12 +293,12 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
                   <>
                     <div className="flex items-center gap-3">
                       <Badge variant="secondary" className="text-lg px-4 py-2">
-                        {savedMaiaId || "Não configurado"}
+                        {savedTelefoneMaia || "Não configurado"}
                       </Badge>
                       <Button 
                         size="sm" 
                         variant="outline"
-                        onClick={() => setEditingMaiaId(true)}
+                        onClick={() => setEditingTelefone(true)}
                       >
                         <Edit className="h-4 w-4 mr-1" />
                         Alterar
@@ -284,7 +320,7 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
           <div className="flex flex-wrap gap-3">
             <Button 
               onClick={handleVerInstancias}
-              disabled={loadingInstancias || !savedMaiaId}
+              disabled={loadingInstancias || !savedTelefoneMaia}
             >
               {loadingInstancias ? (
                 <>
@@ -301,11 +337,20 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
 
             <Button 
               variant="outline"
-              onClick={handleEditarInstancias}
-              disabled={!savedMaiaId}
+              onClick={handleAtualizarInstancias}
+              disabled={loadingUpdate || !savedTelefoneMaia}
             >
-              <Edit className="h-4 w-4 mr-2" />
-              Editar Instâncias Evo
+              {loadingUpdate ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Atualizando...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Atualizar Instâncias Evo
+                </>
+              )}
             </Button>
           </div>
         </CardContent>
