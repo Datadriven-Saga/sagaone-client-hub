@@ -21,7 +21,8 @@ import {
   Save,
   Store,
   Phone,
-  Activity
+  Plus,
+  MapPin
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +51,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AgenteDetalhes } from "@/components/AgenteDetalhes";
 
 interface AgenteWebhook {
   id?: string;
@@ -62,6 +64,10 @@ interface AgenteWebhook {
   instancia?: string;
   evo_token?: string;
   cw_token_maia?: string;
+  num_maia?: string;
+  uf?: string;
+  // Outros campos que podem vir do webhook
+  [key: string]: any;
 }
 
 interface Empresa {
@@ -83,6 +89,18 @@ interface InstanciaData {
   meta_app_id: string | null;
   agente: string | null;
   cw_token_maia: string | null;
+  [key: string]: any;
+}
+
+interface AgenteLocal {
+  id: string;
+  nome: string;
+  persona: string;
+  cerebro: string;
+  telefone: string;
+  dealer_id?: string;
+  foto_url?: string;
+  ativo: boolean;
 }
 
 export default function AdminAgentes() {
@@ -104,7 +122,7 @@ export default function AdminAgentes() {
   const [showEvoToken, setShowEvoToken] = useState(false);
   const [showCwToken, setShowCwToken] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [editedData, setEditedData] = useState<InstanciaData | null>(null);
+  const [editedData, setEditedData] = useState<Record<string, any> | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [activeTab, setActiveTab] = useState("info");
 
@@ -113,7 +131,26 @@ export default function AdminAgentes() {
   const [agenteToAssign, setAgenteToAssign] = useState<AgenteWebhook | null>(null);
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>("");
 
+  // Criar novo agente
+  const [showCreateAgente, setShowCreateAgente] = useState(false);
+  const [agenteEdicao, setAgenteEdicao] = useState<AgenteLocal | null>(null);
+
   const canAccess = isDepartamentoTI && isAdminOrTI;
+
+  // Determinar tipo do agente (Maia ou Outro)
+  const getAgenteTipo = (agente: AgenteWebhook): string => {
+    const nome = (agente.nome || "").toLowerCase();
+    return nome.includes("maia") ? "Maia" : "Outro";
+  };
+
+  // Determinar número a exibir
+  const getAgenteNumero = (agente: AgenteWebhook): string => {
+    const tipo = getAgenteTipo(agente);
+    if (tipo === "Maia") {
+      return agente.num_maia || agente.telefone || "N/A";
+    }
+    return agente.telefone || "N/A";
+  };
 
   const carregarAgentes = async () => {
     try {
@@ -181,7 +218,8 @@ export default function AdminAgentes() {
         a.nome?.toLowerCase().includes(lowerTerm) ||
         a.telefone?.toLowerCase().includes(lowerTerm) ||
         a.marca?.toLowerCase().includes(lowerTerm) ||
-        a.loja?.toLowerCase().includes(lowerTerm)
+        a.loja?.toLowerCase().includes(lowerTerm) ||
+        a.uf?.toLowerCase().includes(lowerTerm)
       );
     }
     
@@ -261,11 +299,14 @@ export default function AdminAgentes() {
     }
   };
 
-  const handleEditarInstancia = () => {
-    if (instanciaData) {
-      setEditedData({ ...instanciaData });
-      setEditMode(true);
-    }
+  const handleEditarDados = () => {
+    // Combina dados do agente com dados da instância para edição
+    const dadosParaEditar = {
+      ...selectedAgente,
+      ...(instanciaData || {})
+    };
+    setEditedData(dadosParaEditar);
+    setEditMode(true);
   };
 
   const handleSaveEdit = async () => {
@@ -290,12 +331,16 @@ export default function AdminAgentes() {
       }
 
       toast({
-        title: "Instância atualizada",
-        description: "Os dados da instância foram salvos com sucesso"
+        title: "Dados atualizados",
+        description: "Os dados foram salvos com sucesso"
       });
 
-      setInstanciaData(editedData);
+      // Atualizar dados locais
+      if (instanciaData) {
+        setInstanciaData({ ...instanciaData, ...editedData });
+      }
       setEditMode(false);
+      carregarAgentes();
     } catch (error) {
       console.error('Erro ao salvar edições:', error);
       toast({
@@ -313,7 +358,7 @@ export default function AdminAgentes() {
     setEditedData(null);
   };
 
-  const handleEditFieldChange = (field: keyof InstanciaData, value: string) => {
+  const handleEditFieldChange = (field: string, value: string) => {
     if (editedData) {
       setEditedData({
         ...editedData,
@@ -359,6 +404,17 @@ export default function AdminAgentes() {
     setEditedData(null);
   };
 
+  const handleCreateAgente = () => {
+    setAgenteEdicao(null);
+    setShowCreateAgente(true);
+  };
+
+  const handleCloseCreateAgente = () => {
+    setShowCreateAgente(false);
+    setAgenteEdicao(null);
+    carregarAgentes();
+  };
+
   useEffect(() => {
     if (canAccess) {
       carregarAgentes();
@@ -385,6 +441,16 @@ export default function AdminAgentes() {
           </AlertDescription>
         </Alert>
       </DashboardLayout>
+    );
+  }
+
+  // Mostrar tela de criar/editar agente
+  if (showCreateAgente) {
+    return (
+      <AgenteDetalhes 
+        agente={agenteEdicao}
+        onClose={handleCloseCreateAgente}
+      />
     );
   }
 
@@ -425,6 +491,24 @@ export default function AdminAgentes() {
     </div>
   );
 
+  // Campos a serem exibidos no modal
+  const camposExibicao = [
+    { key: "nome", label: "Nome" },
+    { key: "telefone", label: "Telefone" },
+    { key: "num_maia", label: "Número Maia" },
+    { key: "marca", label: "Marca" },
+    { key: "loja", label: "Loja" },
+    { key: "uf", label: "UF" },
+    { key: "instancia", label: "Instância" },
+    { key: "id_numero_meta", label: "ID Número Meta" },
+    { key: "waba", label: "WABA" },
+    { key: "meta_app_id", label: "Meta App ID" },
+    { key: "tb_histories", label: "TB Histories" },
+    { key: "cw_inbox", label: "CW Inbox" },
+    { key: "criado_em", label: "Criado em" },
+    { key: "agente", label: "Agente" },
+  ];
+
   return (
     <DashboardLayout title="Agentes - Administração">
       <ScrollIndicator className="flex-1 h-full">
@@ -436,14 +520,20 @@ export default function AdminAgentes() {
                 Gerencie todos os agentes de todas as lojas
               </p>
             </div>
-            <Button onClick={carregarAgentes} disabled={loading}>
-              {loading ? (
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
-              )}
-              Atualizar
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleCreateAgente}>
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Agente
+              </Button>
+              <Button onClick={carregarAgentes} disabled={loading} variant="outline">
+                {loading ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Atualizar
+              </Button>
+            </div>
           </div>
 
           {/* Filtros */}
@@ -454,7 +544,7 @@ export default function AdminAgentes() {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar por nome, telefone, marca..."
+                      placeholder="Buscar por nome, telefone, loja, estado..."
                       value={searchTerm}
                       onChange={(e) => handleSearch(e.target.value)}
                       className="pl-9"
@@ -501,9 +591,10 @@ export default function AdminAgentes() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Telefone</TableHead>
-                      <TableHead>Marca / Loja</TableHead>
+                      <TableHead>Loja</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Agente</TableHead>
+                      <TableHead>Número</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -515,14 +606,29 @@ export default function AdminAgentes() {
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => handleOpenDetails(agente)}
                       >
-                        <TableCell className="font-medium">{agente.nome}</TableCell>
-                        <TableCell>{agente.telefone}</TableCell>
                         <TableCell>
-                          {agente.marca && (
-                            <span className="text-sm">
-                              {agente.marca} {agente.loja && `- ${agente.loja}`}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <Store className="h-4 w-4 text-muted-foreground" />
+                            <span>{agente.loja || agente.marca || "N/A"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            <span>{agente.uf || "N/A"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Bot className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{getAgenteTipo(agente)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <span>{getAgenteNumero(agente)}</span>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant={agente.ativo !== false ? "default" : "secondary"}>
@@ -549,11 +655,11 @@ export default function AdminAgentes() {
 
           {/* Modal de Detalhes do Agente */}
           <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Bot className="h-5 w-5" />
-                  {selectedAgente?.nome}
+                  {getAgenteTipo(selectedAgente)} - {selectedAgente?.loja || selectedAgente?.marca || "Agente"}
                 </DialogTitle>
                 <DialogDescription>
                   Detalhes completos do agente
@@ -568,80 +674,19 @@ export default function AdminAgentes() {
                   </TabsList>
 
                   <TabsContent value="info" className="space-y-4 mt-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Nome</Label>
-                        <p className="font-medium">{selectedAgente.nome}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Telefone</Label>
-                        <p className="font-medium flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {selectedAgente.telefone || "N/A"}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Marca</Label>
-                        <p className="font-medium flex items-center gap-1">
-                          <Store className="h-3 w-3" />
-                          {selectedAgente.marca || "N/A"}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Loja</Label>
-                        <p className="font-medium">{selectedAgente.loja || "N/A"}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Status</Label>
-                        <Badge variant={selectedAgente.ativo !== false ? "default" : "secondary"}>
-                          {selectedAgente.ativo !== false ? "Ativo" : "Inativo"}
-                        </Badge>
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="instancia" className="space-y-4 mt-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-semibold flex items-center gap-2">
-                        <Server className="h-4 w-4" />
-                        Instância Evolution
-                      </h4>
-                      {instanciaData && !editMode && (
+                    <div className="flex justify-end">
+                      {!editMode ? (
+                        <Button size="sm" variant="outline" onClick={handleEditarDados}>
+                          <Edit className="h-4 w-4 mr-1" />
+                          Editar
+                        </Button>
+                      ) : (
                         <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => selectedAgente.telefone && buscarInstancia(selectedAgente.telefone)}
-                            disabled={loadingInstancia}
-                          >
-                            <RefreshCw className={`h-4 w-4 mr-1 ${loadingInstancia ? 'animate-spin' : ''}`} />
-                            Atualizar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleEditarInstancia}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Editar
-                          </Button>
-                        </div>
-                      )}
-                      {editMode && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleCancelEdit}
-                          >
+                          <Button size="sm" variant="outline" onClick={handleCancelEdit}>
                             <X className="h-4 w-4 mr-1" />
                             Cancelar
                           </Button>
-                          <Button
-                            size="sm"
-                            onClick={handleSaveEdit}
-                            disabled={savingEdit}
-                          >
+                          <Button size="sm" onClick={handleSaveEdit} disabled={savingEdit}>
                             {savingEdit ? (
                               <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
                             ) : (
@@ -653,6 +698,59 @@ export default function AdminAgentes() {
                       )}
                     </div>
 
+                    {editMode && editedData ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        {camposExibicao.map(({ key, label }) => (
+                          <div key={key} className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">{label}</Label>
+                            <Input
+                              value={editedData[key] || ""}
+                              onChange={(e) => handleEditFieldChange(key, e.target.value)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-4">
+                        {camposExibicao.map(({ key, label }) => {
+                          const value = selectedAgente[key] || instanciaData?.[key] || null;
+                          if (!value) return null;
+                          return (
+                            <div key={key} className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">{label}</Label>
+                              <p className="font-medium">{value}</p>
+                            </div>
+                          );
+                        })}
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Status</Label>
+                          <Badge variant={selectedAgente.ativo !== false ? "default" : "secondary"}>
+                            {selectedAgente.ativo !== false ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="instancia" className="space-y-4 mt-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold flex items-center gap-2">
+                        <Server className="h-4 w-4" />
+                        Instância Evolution
+                      </h4>
+                      {instanciaData && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => selectedAgente.telefone && buscarInstancia(selectedAgente.telefone)}
+                          disabled={loadingInstancia}
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-1 ${loadingInstancia ? 'animate-spin' : ''}`} />
+                          Atualizar
+                        </Button>
+                      )}
+                    </div>
+
                     {loadingInstancia ? (
                       <div className="flex items-center justify-center py-6">
                         <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -661,18 +759,6 @@ export default function AdminAgentes() {
                       <p className="text-muted-foreground text-sm py-4">
                         Nenhuma instância encontrada para este agente
                       </p>
-                    ) : editMode && editedData ? (
-                      <div className="grid grid-cols-1 gap-3">
-                        {Object.entries(editedData).map(([key, value]) => (
-                          <div key={key} className="space-y-1">
-                            <Label className="text-xs">{key}</Label>
-                            <Input
-                              value={value || ""}
-                              onChange={(e) => handleEditFieldChange(key as keyof InstanciaData, e.target.value)}
-                            />
-                          </div>
-                        ))}
-                      </div>
                     ) : (
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
