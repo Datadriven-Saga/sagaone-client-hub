@@ -903,7 +903,7 @@ export default function AdminAgentes() {
                     <SelectValue placeholder="Selecione uma empresa" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhuma (remover atribuição)</SelectItem>
+                    <SelectItem value="none">Nenhuma (remover atribuição)</SelectItem>
                     {empresas.map((empresa) => (
                       <SelectItem key={empresa.id} value={empresa.id}>
                         {empresa.nome_empresa}
