@@ -509,13 +509,24 @@ export default function AdminAgentes() {
 
         if (error) throw error;
 
+        // Reload agent data after update
+        const { data: updatedAgent } = await supabase
+          .from('agentes_ia')
+          .select('*')
+          .eq('id', agenteLocal.id)
+          .single();
+
+        if (updatedAgent) {
+          setAgenteLocal(updatedAgent as AgenteLocal);
+        }
+
         toast({
           title: "Agente atualizado",
           description: "O agente foi atualizado com sucesso"
         });
       } else {
         // Create new
-        const { error } = await supabase
+        const { data: newAgent, error } = await supabase
           .from('agentes_ia')
           .insert({
             nome: formData.nome,
@@ -526,19 +537,27 @@ export default function AdminAgentes() {
             foto_url: formData.foto_url,
             ativo: formData.ativo,
             criado_por: user?.id
-          });
+          })
+          .select()
+          .single();
 
         if (error) throw error;
 
+        // Set the newly created agent as agenteLocal to enable other tabs
+        if (newAgent) {
+          setAgenteLocal(newAgent as AgenteLocal);
+          setIsNewAgente(false);
+        }
+
         toast({
           title: "Agente criado",
-          description: "O agente foi criado com sucesso"
+          description: "O agente foi criado com sucesso. As demais abas agora estão disponíveis."
         });
       }
 
       // Refresh data
       if (formData.telefone) {
-        await buscarAgenteLocal(formData.telefone);
+        await buscarInstancia(formData.telefone);
       }
       carregarAgentes();
     } catch (error) {
@@ -974,19 +993,30 @@ export default function AdminAgentes() {
                 <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
                   <TabsList className="w-max sm:w-auto flex-nowrap">
                     <TabsTrigger value="dados-gerais">Dados Gerais</TabsTrigger>
-                    {agenteLocal && (
-                      <>
-                        <TabsTrigger value="qualificacao">Qualificação</TabsTrigger>
-                        <TabsTrigger value="cadencia">Cadência</TabsTrigger>
-                        <TabsTrigger value="periodo">Período</TabsTrigger>
-                        <TabsTrigger value="acompanhamento">Acompanhamento</TabsTrigger>
-                        <TabsTrigger value="integracao">Integração</TabsTrigger>
-                        <TabsTrigger value="followup">Follow-up</TabsTrigger>
-                      </>
-                    )}
+                    <TabsTrigger value="qualificacao" disabled={!agenteLocal}>Qualificação</TabsTrigger>
+                    <TabsTrigger value="cadencia" disabled={!agenteLocal}>Cadência</TabsTrigger>
+                    <TabsTrigger value="periodo" disabled={!agenteLocal}>Período</TabsTrigger>
+                    <TabsTrigger value="acompanhamento" disabled={!agenteLocal}>Acompanhamento</TabsTrigger>
+                    <TabsTrigger value="integracao" disabled={!agenteLocal}>Integração</TabsTrigger>
+                    <TabsTrigger value="followup" disabled={!agenteLocal}>Follow-up</TabsTrigger>
                     <TabsTrigger value="instancias">Instâncias</TabsTrigger>
                   </TabsList>
                 </div>
+
+                {/* Aviso para novo agente */}
+                {!agenteLocal && activeTab !== "dados-gerais" && activeTab !== "instancias" && (
+                  <div className="flex items-center justify-center py-12 text-center">
+                    <div className="space-y-2">
+                      <Bot className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground">
+                        Salve o agente primeiro para acessar esta configuração.
+                      </p>
+                      <Button onClick={() => setActiveTab("dados-gerais")}>
+                        Voltar para Dados Gerais
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Dados Gerais Tab */}
                 <TabsContent value="dados-gerais">
