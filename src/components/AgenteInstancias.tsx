@@ -9,28 +9,20 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 
-interface InstanciaEvo {
-  instance: {
-    instanceName: string;
-    instanceId: string;
-    owner: string;
-    profileName: string;
-    profilePicUrl: string;
-    integration: string;
-    number: string;
-    serverUrl: string;
-    chatwootUrl?: string;
-    chatwootAccountId?: string;
-    chatwootInboxId?: string;
-    typebotUrl?: string;
-    evolutionUrl?: string;
-    n8nUrl?: string;
-    flowise?: string;
-    dify?: string;
-    maiaId?: string;
-    status: string;
-    connectionStatus: string;
-  };
+interface InstanciaData {
+  num_maia: string;
+  marca: string;
+  uf: string;
+  instancia: string;
+  evo_token: string;
+  id_numero_meta: string;
+  criado_em: string;
+  tb_histories: string | null;
+  cw_inbox: string | null;
+  waba: string | null;
+  meta_app_id: string | null;
+  agente: string | null;
+  cw_token_maia: string | null;
 }
 
 interface AgenteInstanciasProps {
@@ -47,7 +39,7 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
   const [editingTelefone, setEditingTelefone] = useState(false);
   const [telefoneMaia, setTelefoneMaia] = useState("");
   const [savedTelefoneMaia, setSavedTelefoneMaia] = useState("");
-  const [instancias, setInstancias] = useState<InstanciaEvo[]>([]);
+  const [instanciaData, setInstanciaData] = useState<InstanciaData | null>(null);
   const [showInstancias, setShowInstancias] = useState(false);
   const [empresaNome, setEmpresaNome] = useState("");
 
@@ -139,6 +131,7 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
     try {
       setLoadingInstancias(true);
       setShowInstancias(true);
+      setInstanciaData(null);
 
       // Chamar o webhook para verificar instâncias
       const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-instancias_evo', {
@@ -156,22 +149,24 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
       }
 
       const data = await response.json();
+      console.log('Resposta do webhook verifica-instancias_evo:', data);
       
-      // Verificar se a resposta é um array ou objeto com instâncias
-      if (Array.isArray(data)) {
-        setInstancias(data);
-      } else if (data.instances && Array.isArray(data.instances)) {
-        setInstancias(data.instances);
-      } else if (data.instance) {
-        setInstancias([data]);
+      // Verificar se a resposta tem dados válidos
+      if (data && Object.keys(data).length > 0 && data.num_maia) {
+        setInstanciaData(data);
+        
+        toast({
+          title: "Instância encontrada",
+          description: `Instância ${data.instancia || data.num_maia} carregada com sucesso`
+        });
       } else {
-        setInstancias([]);
+        setInstanciaData(null);
+        toast({
+          title: "Nenhuma instância encontrada",
+          description: "Não foram encontradas instâncias para este telefone",
+          variant: "destructive"
+        });
       }
-
-      toast({
-        title: "Instâncias carregadas",
-        description: `${Array.isArray(data) ? data.length : 1} instância(s) encontrada(s)`
-      });
     } catch (error) {
       console.error('Erro ao buscar instâncias:', error);
       toast({
@@ -179,7 +174,7 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
         description: "Não foi possível carregar as instâncias da Evo",
         variant: "destructive"
       });
-      setInstancias([]);
+      setInstanciaData(null);
     } finally {
       setLoadingInstancias(false);
     }
@@ -377,51 +372,94 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
               <div className="flex items-center justify-center py-8">
                 <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
-            ) : instancias.length > 0 ? (
+            ) : instanciaData ? (
               <div className="space-y-4">
-                {instancias.map((item, index) => (
-                  <Card key={item.instance?.instanceId || index} className="border">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        {item.instance?.profilePicUrl && (
-                          <img 
-                            src={item.instance.profilePicUrl} 
-                            alt="Profile"
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                        )}
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-semibold">{item.instance?.instanceName || 'Instância'}</h4>
-                            <Badge 
-                              variant={item.instance?.connectionStatus === 'open' ? 'default' : 'secondary'}
-                            >
-                              {item.instance?.connectionStatus || 'Desconhecido'}
-                            </Badge>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
-                            {item.instance?.number && (
-                              <span><strong>Número:</strong> {item.instance.number}</span>
-                            )}
-                            {item.instance?.profileName && (
-                              <span><strong>Nome:</strong> {item.instance.profileName}</span>
-                            )}
-                            {item.instance?.instanceId && (
-                              <span><strong>ID:</strong> {item.instance.instanceId}</span>
-                            )}
-                            {item.instance?.integration && (
-                              <span><strong>Integração:</strong> {item.instance.integration}</span>
-                            )}
-                            {item.instance?.serverUrl && (
-                              <span className="md:col-span-2"><strong>Server:</strong> {item.instance.serverUrl}</span>
-                            )}
-                          </div>
-                        </div>
+                <Card className="border">
+                  <CardContent className="p-4">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-lg">{instanciaData.instancia}</h4>
+                        <Badge variant="default">Ativa</Badge>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div className="space-y-1">
+                          <span className="text-muted-foreground">Número Maia:</span>
+                          <p className="font-medium">{instanciaData.num_maia}</p>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <span className="text-muted-foreground">Marca:</span>
+                          <p className="font-medium capitalize">{instanciaData.marca}</p>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <span className="text-muted-foreground">UF:</span>
+                          <p className="font-medium">{instanciaData.uf}</p>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <span className="text-muted-foreground">ID Número Meta:</span>
+                          <p className="font-medium">{instanciaData.id_numero_meta || '-'}</p>
+                        </div>
+                        
+                        {instanciaData.criado_em && (
+                          <div className="space-y-1">
+                            <span className="text-muted-foreground">Criado em:</span>
+                            <p className="font-medium">
+                              {new Date(instanciaData.criado_em).toLocaleDateString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {instanciaData.cw_inbox && (
+                          <div className="space-y-1">
+                            <span className="text-muted-foreground">CW Inbox:</span>
+                            <p className="font-medium">{instanciaData.cw_inbox}</p>
+                          </div>
+                        )}
+
+                        {instanciaData.agente && (
+                          <div className="space-y-1">
+                            <span className="text-muted-foreground">Agente:</span>
+                            <p className="font-medium">{instanciaData.agente}</p>
+                          </div>
+                        )}
+
+                        {instanciaData.waba && (
+                          <div className="space-y-1">
+                            <span className="text-muted-foreground">WABA:</span>
+                            <p className="font-medium">{instanciaData.waba}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {instanciaData.evo_token && (
+                        <div className="space-y-1 pt-2 border-t">
+                          <span className="text-muted-foreground text-sm">Token Evo:</span>
+                          <p className="font-mono text-xs bg-muted p-2 rounded break-all">
+                            {instanciaData.evo_token.substring(0, 50)}...
+                          </p>
+                        </div>
+                      )}
+
+                      {instanciaData.cw_token_maia && (
+                        <div className="space-y-1">
+                          <span className="text-muted-foreground text-sm">CW Token Maia:</span>
+                          <p className="font-mono text-xs bg-muted p-2 rounded">
+                            {instanciaData.cw_token_maia}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
