@@ -48,22 +48,56 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
   const [editMode, setEditMode] = useState(false);
   const [editedData, setEditedData] = useState<InstanciaData | null>(null);
 
-  const handleCopyToClipboard = async (e: React.MouseEvent, text: string, label: string) => {
+  const handleCopyToClipboard = async (
+    e: React.MouseEvent,
+    text: string,
+    label: string
+  ) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const fallbackCopy = () => {
+      const el = document.createElement("textarea");
+      el.value = text;
+      el.setAttribute("readonly", "");
+      el.style.position = "fixed";
+      el.style.left = "-9999px";
+      el.style.top = "0";
+      document.body.appendChild(el);
+      el.focus();
+      el.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(el);
+      if (!ok) throw new Error("execCommand(copy) falhou");
+    };
+
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        fallbackCopy();
+      }
+
       toast({
         title: "Copiado!",
-        description: `${label} copiado para a área de transferência`
+        description: `${label} copiado para a área de transferência`,
       });
     } catch (err) {
-      console.error('Erro ao copiar:', err);
-      toast({
-        title: "Erro ao copiar",
-        description: "Não foi possível copiar para a área de transferência",
-        variant: "destructive"
-      });
+      // tenta fallback caso o Clipboard API tenha sido bloqueado por permissões
+      try {
+        fallbackCopy();
+        toast({
+          title: "Copiado!",
+          description: `${label} copiado para a área de transferência`,
+        });
+      } catch (err2) {
+        console.error("Erro ao copiar:", err, err2);
+        toast({
+          title: "Erro ao copiar",
+          description: "Não foi possível copiar para a área de transferência",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -706,25 +740,33 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
                         <div className="space-y-2 pt-2 border-t">
                           <span className="text-muted-foreground text-sm">Token Evo:</span>
                           <div className="flex items-center gap-2">
-                            <div className="flex-1 font-mono text-xs bg-muted p-2 rounded break-all">
-                              {showEvoToken 
-                                ? instanciaData.evo_token 
-                                : '••••••••••••••••••••••••••••••••••••••••••••••••••'}
+                            <div className="flex-1 min-w-0 font-mono text-xs bg-muted p-2 rounded break-all overflow-hidden">
+                              {showEvoToken
+                                ? instanciaData.evo_token
+                                : "••••••••••••••••••••••••••••••••••••••••••••••••••"}
                             </div>
                             <Button
                               size="sm"
                               variant="ghost"
                               type="button"
+                              className="shrink-0 relative z-10"
                               onClick={handleToggleEvoToken}
                               title={showEvoToken ? "Ocultar" : "Mostrar"}
                             >
-                              {showEvoToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              {showEvoToken ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
                             </Button>
                             <Button
                               size="sm"
                               variant="ghost"
                               type="button"
-                              onClick={(e) => handleCopyToClipboard(e, instanciaData.evo_token, "Token Evo")}
+                              className="shrink-0 relative z-10"
+                              onClick={(e) =>
+                                handleCopyToClipboard(e, instanciaData.evo_token, "Token Evo")
+                              }
                               title="Copiar"
                             >
                               <Copy className="h-4 w-4" />
@@ -737,25 +779,37 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
                         <div className="space-y-2">
                           <span className="text-muted-foreground text-sm">CW Token Maia:</span>
                           <div className="flex items-center gap-2">
-                            <div className="flex-1 font-mono text-xs bg-muted p-2 rounded">
-                              {showCwToken 
-                                ? instanciaData.cw_token_maia 
-                                : '••••••••••••••••••••••••'}
+                            <div className="flex-1 min-w-0 font-mono text-xs bg-muted p-2 rounded break-all overflow-hidden">
+                              {showCwToken
+                                ? instanciaData.cw_token_maia
+                                : "••••••••••••••••••••••••"}
                             </div>
                             <Button
                               size="sm"
                               variant="ghost"
                               type="button"
+                              className="shrink-0 relative z-10"
                               onClick={handleToggleCwToken}
                               title={showCwToken ? "Ocultar" : "Mostrar"}
                             >
-                              {showCwToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              {showCwToken ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
                             </Button>
                             <Button
                               size="sm"
                               variant="ghost"
                               type="button"
-                              onClick={(e) => handleCopyToClipboard(e, instanciaData.cw_token_maia!, "CW Token Maia")}
+                              className="shrink-0 relative z-10"
+                              onClick={(e) =>
+                                handleCopyToClipboard(
+                                  e,
+                                  instanciaData.cw_token_maia!,
+                                  "CW Token Maia"
+                                )
+                              }
                               title="Copiar"
                             >
                               <Copy className="h-4 w-4" />
