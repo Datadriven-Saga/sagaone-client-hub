@@ -42,6 +42,7 @@ interface NovaInstanciaData {
 
 interface AgenteInstanciasProps {
   agenteId: string;
+  isNewAgent?: boolean;
 }
 
 const UF_LIST = [
@@ -50,7 +51,7 @@ const UF_LIST = [
   "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
-export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
+export function AgenteInstancias({ agenteId, isNewAgent = false }: AgenteInstanciasProps) {
   const { toast } = useToast();
   const { activeCompany } = useCompany();
   
@@ -63,13 +64,13 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
   const [telefoneMaia, setTelefoneMaia] = useState("");
   const [savedTelefoneMaia, setSavedTelefoneMaia] = useState("");
   const [instanciaData, setInstanciaData] = useState<InstanciaData | null>(null);
-  const [showInstancias, setShowInstancias] = useState(false);
+  const [showInstancias, setShowInstancias] = useState(isNewAgent);
   const [empresaNome, setEmpresaNome] = useState("");
   const [showEvoToken, setShowEvoToken] = useState(false);
   const [showCwToken, setShowCwToken] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editedData, setEditedData] = useState<InstanciaData | null>(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(isNewAgent);
   const [novaInstancia, setNovaInstancia] = useState<NovaInstanciaData>({
     num_maia: "",
     marca: "",
@@ -149,6 +150,14 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
   };
 
   const carregarDados = async () => {
+    // Se for novo agente, não buscar dados do banco
+    if (isNewAgent || !agenteId) {
+      if (activeCompany) {
+        setEmpresaNome(activeCompany.nome_empresa);
+      }
+      return;
+    }
+    
     try {
       const { data: agente, error } = await supabase
         .from('agentes_ia')
@@ -553,161 +562,338 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Server className="h-5 w-5" />
-                Instâncias Evolution
-              </CardTitle>
-              <CardDescription className="mt-1">
-                Gerencie as instâncias da Evolution API vinculadas a esta Maia
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Campo Telefone Maia com nome da empresa */}
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="telefoneMaia">Telefone Maia</Label>
-              <div className="flex gap-2 items-center flex-wrap">
-                {editingTelefone ? (
-                  <>
-                    <Input
-                      id="telefoneMaia"
-                      value={telefoneMaia}
-                      onChange={(e) => setTelefoneMaia(e.target.value)}
-                      placeholder="Digite o telefone da Maia"
-                      className="max-w-xs"
-                    />
-                    <Button 
-                      size="sm" 
-                      onClick={handleSaveTelefone}
-                      disabled={loading}
-                    >
-                      <Check className="h-4 w-4 mr-1" />
-                      {loading ? "Salvando..." : "Confirmar"}
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => {
-                        setTelefoneMaia(savedTelefoneMaia);
-                        setEditingTelefone(false);
-                      }}
-                    >
-                      Cancelar
-                    </Button>
-                  </>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <Badge variant="secondary" className="text-lg px-4 py-2">
-                      {savedTelefoneMaia || "Não configurado"}
-                    </Badge>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => setEditingTelefone(true)}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Alterar
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Nome da loja/empresa */}
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Building2 className="h-4 w-4" />
-              <span className="text-sm">{empresaNome || "Loja não identificada"}</span>
-            </div>
-          </div>
-
-          {/* Botões de ação */}
-          <div className="flex flex-wrap gap-3">
-            <Button 
-              onClick={handleVerInstancias}
-              disabled={loadingInstancias || !savedTelefoneMaia}
-            >
-              {loadingInstancias ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Carregando...
-                </>
-              ) : (
-                <>
-                  <Eye className="h-4 w-4 mr-2" />
-                  Ver Instâncias Evo
-                </>
-              )}
-            </Button>
-
-            <Button 
-              variant="outline"
-              onClick={handleAtualizarInstancias}
-              disabled={loadingUpdate || !savedTelefoneMaia}
-            >
-              {loadingUpdate ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Carregando...
-                </>
-              ) : (
-                <>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Atualizar Instâncias Evo
-                </>
-              )}
-            </Button>
-
-            <Button 
-              variant="secondary"
-              onClick={handleShowCreateForm}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Criar Nova Instância
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Lista de instâncias ou formulário de criação */}
-      {showInstancias && (
+      {/* Mostrar o formulário de criação diretamente para novos agentes */}
+      {isNewAgent ? (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>
-                {showCreateForm ? "Criar Nova Instância" : editMode ? "Editar Instância" : "Instâncias Encontradas"}
-              </CardTitle>
-              {!editMode && !showCreateForm && (
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={handleVerInstancias}
-                  disabled={loadingInstancias}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-1 ${loadingInstancias ? 'animate-spin' : ''}`} />
-                  Atualizar
-                </Button>
-              )}
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Server className="h-5 w-5" />
+                  Criar Nova Instância
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Preencha os dados para criar uma nova instância no sistema
+                </CardDescription>
+              </div>
             </div>
-            {showCreateForm && (
-              <CardDescription>
-                Preencha os dados para criar uma nova instância no sistema
-              </CardDescription>
-            )}
           </CardHeader>
           <CardContent>
-            {loadingInstancias || loadingUpdate ? (
-              <div className="flex items-center justify-center py-8">
-                <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="space-y-4">
+              <Card className="border">
+                <CardContent className="p-4">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="space-y-1">
+                        <span className="text-muted-foreground text-sm">Nova Instância:</span>
+                        <h4 className="font-semibold text-lg">
+                          {instanciaPreview || "Preencha os campos obrigatórios"}
+                        </h4>
+                      </div>
+                      <Badge variant="outline">Novo Agente</Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Nome do Agente *</Label>
+                        <Input
+                          value={novaInstancia.nome_agente}
+                          onChange={(e) => handleNovaInstanciaChange('nome_agente', e.target.value)}
+                          placeholder="Ex: Pri, Maia..."
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Número Maia *</Label>
+                        <Input
+                          value={novaInstancia.num_maia}
+                          onChange={(e) => handleNovaInstanciaChange('num_maia', e.target.value)}
+                          placeholder="Ex: 61999999999"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Marca *</Label>
+                        <Input
+                          value={novaInstancia.marca}
+                          onChange={(e) => handleNovaInstanciaChange('marca', e.target.value)}
+                          placeholder="Ex: Volkswagen, Chevrolet..."
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>UF *</Label>
+                        <Select
+                          value={novaInstancia.uf}
+                          onValueChange={(value) => handleNovaInstanciaChange('uf', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a UF" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {UF_LIST.map((uf) => (
+                              <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>ID Número Meta</Label>
+                        <Input
+                          value={novaInstancia.id_numero_meta}
+                          onChange={(e) => handleNovaInstanciaChange('id_numero_meta', e.target.value)}
+                          placeholder="ID do número Meta"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>CW Inbox</Label>
+                        <Input
+                          value={novaInstancia.cw_inbox}
+                          onChange={(e) => handleNovaInstanciaChange('cw_inbox', e.target.value)}
+                          placeholder="CW Inbox ID"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>WABA</Label>
+                        <Input
+                          value={novaInstancia.waba}
+                          onChange={(e) => handleNovaInstanciaChange('waba', e.target.value)}
+                          placeholder="WABA ID"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Meta App ID</Label>
+                        <Input
+                          value={novaInstancia.meta_app_id}
+                          onChange={(e) => handleNovaInstanciaChange('meta_app_id', e.target.value)}
+                          placeholder="Meta App ID"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>TB Histories</Label>
+                        <Input
+                          value={novaInstancia.tb_histories}
+                          onChange={(e) => handleNovaInstanciaChange('tb_histories', e.target.value)}
+                          placeholder="Tabela de histórico"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t">
+                      <Label>Token Evo</Label>
+                      <Input
+                        type="password"
+                        value={novaInstancia.evo_token}
+                        onChange={(e) => handleNovaInstanciaChange('evo_token', e.target.value)}
+                        placeholder="Token da Evolution API"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>CW Token Maia</Label>
+                      <Input
+                        type="password"
+                        value={novaInstancia.cw_token_maia}
+                        onChange={(e) => handleNovaInstanciaChange('cw_token_maia', e.target.value)}
+                        placeholder="Token do Chatwoot"
+                      />
+                    </div>
+
+                    {/* Preview da instância gerada */}
+                    {instanciaPreview && (
+                      <div className="p-3 bg-muted rounded-lg">
+                        <Label className="text-xs text-muted-foreground">Instância gerada automaticamente:</Label>
+                        <p className="font-mono text-sm mt-1">{instanciaPreview}</p>
+                      </div>
+                    )}
+
+                    <div className="flex gap-3 pt-4 border-t">
+                      <Button 
+                        onClick={handleCriarAgente}
+                        disabled={creatingAgente}
+                      >
+                        {creatingAgente ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Criando...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Criar Agente
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Interface padrão para agentes existentes */
+        <>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Server className="h-5 w-5" />
+                    Instâncias Evolution
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    Gerencie as instâncias da Evolution API vinculadas a esta Maia
+                  </CardDescription>
+                </div>
               </div>
-            ) : showCreateForm ? (
-              /* Formulário de criação */
-              <div className="space-y-4">
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Campo Telefone Maia com nome da empresa */}
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="telefoneMaia">Telefone Maia</Label>
+                  <div className="flex gap-2 items-center flex-wrap">
+                    {editingTelefone ? (
+                      <>
+                        <Input
+                          id="telefoneMaia"
+                          value={telefoneMaia}
+                          onChange={(e) => setTelefoneMaia(e.target.value)}
+                          placeholder="Digite o telefone da Maia"
+                          className="max-w-xs"
+                        />
+                        <Button 
+                          size="sm" 
+                          onClick={handleSaveTelefone}
+                          disabled={loading}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          {loading ? "Salvando..." : "Confirmar"}
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            setTelefoneMaia(savedTelefoneMaia);
+                            setEditingTelefone(false);
+                          }}
+                        >
+                          Cancelar
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <Badge variant="secondary" className="text-lg px-4 py-2">
+                          {savedTelefoneMaia || "Não configurado"}
+                        </Badge>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => setEditingTelefone(true)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Alterar
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Nome da loja/empresa */}
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Building2 className="h-4 w-4" />
+                  <span className="text-sm">{empresaNome || "Loja não identificada"}</span>
+                </div>
+              </div>
+
+              {/* Botões de ação */}
+              <div className="flex flex-wrap gap-3">
+                <Button 
+                  onClick={handleVerInstancias}
+                  disabled={loadingInstancias || !savedTelefoneMaia}
+                >
+                  {loadingInstancias ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Carregando...
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Ver Instâncias Evo
+                    </>
+                  )}
+                </Button>
+
+                <Button 
+                  variant="outline"
+                  onClick={handleAtualizarInstancias}
+                  disabled={loadingUpdate || !savedTelefoneMaia}
+                >
+                  {loadingUpdate ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Carregando...
+                    </>
+                  ) : (
+                    <>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Atualizar Instâncias Evo
+                    </>
+                  )}
+                </Button>
+
+                <Button 
+                  variant="secondary"
+                  onClick={handleShowCreateForm}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Nova Instância
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lista de instâncias ou formulário de criação */}
+          {showInstancias && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>
+                    {showCreateForm ? "Criar Nova Instância" : editMode ? "Editar Instância" : "Instâncias Encontradas"}
+                  </CardTitle>
+                  {!editMode && !showCreateForm && (
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={handleVerInstancias}
+                      disabled={loadingInstancias}
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-1 ${loadingInstancias ? 'animate-spin' : ''}`} />
+                      Atualizar
+                    </Button>
+                  )}
+                </div>
+                {showCreateForm && (
+                  <CardDescription>
+                    Preencha os dados para criar uma nova instância no sistema
+                  </CardDescription>
+                )}
+              </CardHeader>
+              <CardContent>
+                {loadingInstancias || loadingUpdate ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : showCreateForm ? (
+                  /* Formulário de criação */
+                  <div className="space-y-4">
                 <Card className="border">
                   <CardContent className="p-4">
                     <div className="space-y-4">
@@ -1193,23 +1379,25 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
                   </CardContent>
                 </Card>
               </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Server className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Nenhuma instância encontrada para este agente</p>
-                <p className="text-sm mt-1">Verifique se o Telefone Maia está correto ou crie uma nova instância</p>
-                <Button 
-                  variant="outline" 
-                  className="mt-4"
-                  onClick={handleShowCreateForm}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Criar Nova Instância
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Server className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Nenhuma instância encontrada para este agente</p>
+                    <p className="text-sm mt-1">Verifique se o Telefone Maia está correto ou crie uma nova instância</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4"
+                      onClick={handleShowCreateForm}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Criar Nova Instância
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );

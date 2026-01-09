@@ -310,9 +310,9 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                   <TabsTrigger value="cadencia-acompanhamento">Acompanhamento</TabsTrigger>
                   <TabsTrigger value="integracao">Integração</TabsTrigger>
                   <TabsTrigger value="followup">Follow-up</TabsTrigger>
-                  <TabsTrigger value="instancias">Instâncias</TabsTrigger>
                 </>
               )}
+              <TabsTrigger value="instancias">Instâncias</TabsTrigger>
             </TabsList>
           </div>
 
@@ -475,12 +475,12 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
               <TabsContent value="followup">
                 <AgenteFollowups agenteId={agente.id} />
               </TabsContent>
-
-              <TabsContent value="instancias">
-                <AgenteInstancias agenteId={agente.id} />
-              </TabsContent>
             </>
           )}
+
+          <TabsContent value="instancias">
+            <AgenteInstancias agenteId={agente?.id || ""} isNewAgent={!isEditing} />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
