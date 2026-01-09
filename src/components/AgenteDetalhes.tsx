@@ -17,6 +17,7 @@ import { AgenteCadencia } from "@/components/AgenteCadencia";
 import { AgenteIntegracao } from "@/components/AgenteIntegracao";
 import AgenteVariaveis from "@/components/AgenteVariaveis";
 import { AgenteCadenciasNova } from "@/components/AgenteCadenciasNova";
+import { AgenteInstancias } from "@/components/AgenteInstancias";
 
 interface Agente {
   id: string;
@@ -309,6 +310,7 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                   <TabsTrigger value="cadencia-acompanhamento">Acompanhamento</TabsTrigger>
                   <TabsTrigger value="integracao">Integração</TabsTrigger>
                   <TabsTrigger value="followup">Follow-up</TabsTrigger>
+                  <TabsTrigger value="instancias">Instâncias</TabsTrigger>
                 </>
               )}
             </TabsList>
@@ -472,6 +474,10 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
 
               <TabsContent value="followup">
                 <AgenteFollowups agenteId={agente.id} />
+              </TabsContent>
+
+              <TabsContent value="instancias">
+                <AgenteInstancias agenteId={agente.id} />
               </TabsContent>
             </>
           )}
