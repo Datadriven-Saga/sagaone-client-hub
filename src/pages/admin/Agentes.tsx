@@ -113,6 +113,8 @@ export default function AdminAgentes() {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterEmpresa, setFilterEmpresa] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   // Modal de detalhes
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -228,6 +230,17 @@ export default function AdminAgentes() {
     }
     
     setFilteredAgentes(filtered);
+    setCurrentPage(1); // Reset para primeira página ao filtrar
+  };
+
+  // Cálculos de paginação
+  const totalPages = Math.ceil(filteredAgentes.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedAgentes = filteredAgentes.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
   };
 
   const handleCopyToClipboard = async (e: React.MouseEvent, text: string, label: string) => {
@@ -600,7 +613,7 @@ export default function AdminAgentes() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAgentes.map((agente, index) => (
+                    {paginatedAgentes.map((agente, index) => (
                       <TableRow 
                         key={agente.id || index} 
                         className="cursor-pointer hover:bg-muted/50"
@@ -649,6 +662,58 @@ export default function AdminAgentes() {
                     ))}
                   </TableBody>
                 </Table>
+              )}
+
+              {/* Paginação */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    Mostrando {startIndex + 1}-{Math.min(endIndex, filteredAgentes.length)} de {filteredAgentes.length} agentes
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      Anterior
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(page => {
+                          if (totalPages <= 7) return true;
+                          if (page === 1 || page === totalPages) return true;
+                          if (Math.abs(page - currentPage) <= 1) return true;
+                          return false;
+                        })
+                        .map((page, index, arr) => (
+                          <span key={page} className="flex items-center">
+                            {index > 0 && arr[index - 1] !== page - 1 && (
+                              <span className="px-2 text-muted-foreground">...</span>
+                            )}
+                            <Button
+                              variant={currentPage === page ? "default" : "outline"}
+                              size="sm"
+                              className="w-8 h-8 p-0"
+                              onClick={() => handlePageChange(page)}
+                            >
+                              {page}
+                            </Button>
+                          </span>
+                        ))
+                      }
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      Próximo
+                    </Button>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
