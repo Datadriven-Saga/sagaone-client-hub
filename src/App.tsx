@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CompanyProvider } from "@/contexts/CompanyContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
+import { TIAdminProtectedRoute } from "@/components/TIAdminProtectedRoute";
 import { useUserColors } from "@/hooks/useUserColors";
 
 // Page imports
@@ -36,6 +37,9 @@ import CamposObrigatorios from "./pages/admin/CamposObrigatorios";
 import APIs from "./pages/admin/APIs";
 import TestAPIs from "./pages/admin/TestAPIs";
 
+// Agentes IA page imports
+import Instancias from "./pages/agentes-ia/Instancias";
+
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
@@ -61,7 +65,12 @@ const AppRoutes = () => {
       <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
       <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
       <Route path="/gatilhos" element={<ProtectedRoute><Gatilhos /></ProtectedRoute>} />
-      <Route path="/agentes-ia" element={<ProtectedRoute><AgentesIA /></ProtectedRoute>} />
+      
+      {/* Agentes IA - apenas TI e Admin */}
+      <Route path="/agentes-ia" element={<TIAdminProtectedRoute><AgentesIA /></TIAdminProtectedRoute>} />
+      <Route path="/agentes-ia/instancias" element={<TIAdminProtectedRoute><Instancias /></TIAdminProtectedRoute>} />
+      <Route path="/agentes-ia/performance" element={<TIAdminProtectedRoute><Resultados /></TIAdminProtectedRoute>} />
+      
       <Route path="/administracao" element={<AdminProtectedRoute><Administracao /></AdminProtectedRoute>} />
       <Route path="/administracao/empresas" element={<AdminProtectedRoute><Empresas /></AdminProtectedRoute>} />
       <Route path="/administracao/acessos" element={<AdminProtectedRoute><Acessos /></AdminProtectedRoute>} />
