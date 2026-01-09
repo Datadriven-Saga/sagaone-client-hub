@@ -15,9 +15,7 @@ import {
   BarChart3,
   MessageSquareText,
   UserCheck,
-  ShoppingCart,
-  Server,
-  Activity
+  ShoppingCart
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -50,8 +48,6 @@ const prospeccaoSubItems = [
 
 const agentesIASubItems = [
   { title: "Agentes", url: "/agentes-ia", icon: Bot },
-  { title: "Instâncias", url: "/agentes-ia/instancias", icon: Server },
-  { title: "Performance", url: "/agentes-ia/performance", icon: Activity },
 ];
 
 // Items apenas para Administrador
