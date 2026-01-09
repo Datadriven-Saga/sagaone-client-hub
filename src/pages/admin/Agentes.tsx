@@ -140,13 +140,15 @@ export default function AdminAgentes() {
   const canAccess = isDepartamentoTI && isAdminOrTI;
 
   // Determinar tipo do agente (Maia ou Outro)
-  const getAgenteTipo = (agente: AgenteWebhook): string => {
+  const getAgenteTipo = (agente: AgenteWebhook | null | undefined): string => {
+    if (!agente) return "Outro";
     const nome = (agente.nome || "").toLowerCase();
     return nome.includes("maia") ? "Maia" : "Outro";
   };
 
   // Determinar número a exibir
-  const getAgenteNumero = (agente: AgenteWebhook): string => {
+  const getAgenteNumero = (agente: AgenteWebhook | null | undefined): string => {
+    if (!agente) return "N/A";
     const tipo = getAgenteTipo(agente);
     if (tipo === "Maia") {
       return agente.num_maia || agente.telefone || "N/A";
@@ -172,7 +174,10 @@ export default function AdminAgentes() {
       const data = await response.json();
       console.log('Agentes do webhook:', data);
       
-      const agentesArray = Array.isArray(data) ? data : [data];
+      // Filtra itens nulos/undefined do array
+      const agentesArray = (Array.isArray(data) ? data : [data]).filter(
+        (item): item is AgenteWebhook => item !== null && item !== undefined
+      );
       setAgentes(agentesArray);
       setFilteredAgentes(agentesArray);
     } catch (error) {
