@@ -305,20 +305,26 @@ export default function Instancias() {
     onToggle: (e: React.MouseEvent) => void,
     onCopy: (e: React.MouseEvent) => void
   ) => (
-    <div className="space-y-2">
+    <div className="space-y-2 relative">
       <Label className="text-xs text-muted-foreground">{label}</Label>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 relative">
         <div className="flex-1 min-w-0 overflow-hidden">
-          <code className="text-sm bg-muted px-2 py-1 rounded block truncate">
+          <code className="text-sm bg-muted px-2 py-1 rounded block truncate pointer-events-none select-none">
             {showToken ? (value || "N/A") : "••••••••••••••••"}
           </code>
         </div>
-        <div className="flex gap-1 shrink-0">
+        <div className="flex gap-1 shrink-0 relative z-10 pointer-events-auto">
           <Button
             type="button"
             size="icon"
             variant="ghost"
             className="h-8 w-8"
+            title={showToken ? `Ocultar ${label}` : `Ver ${label}`}
+            aria-label={showToken ? `Ocultar ${label}` : `Ver ${label}`}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
             onClick={onToggle}
           >
             {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -329,6 +335,12 @@ export default function Instancias() {
               size="icon"
               variant="ghost"
               className="h-8 w-8"
+              title={`Copiar ${label}`}
+              aria-label={`Copiar ${label}`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               onClick={onCopy}
             >
               <Copy className="h-4 w-4" />
