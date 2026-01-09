@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Edit, RefreshCw, Check, Building2, Server, Upload } from "lucide-react";
+import { Eye, EyeOff, Edit, RefreshCw, Check, Building2, Server, Upload, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -42,6 +42,16 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
   const [instanciaData, setInstanciaData] = useState<InstanciaData | null>(null);
   const [showInstancias, setShowInstancias] = useState(false);
   const [empresaNome, setEmpresaNome] = useState("");
+  const [showEvoToken, setShowEvoToken] = useState(false);
+  const [showCwToken, setShowCwToken] = useState(false);
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copiado!",
+      description: `${label} copiado para a área de transferência`
+    });
+  };
 
   // Carregar dados do agente (telefone = telefone maia)
   const carregarDados = async () => {
@@ -378,7 +388,10 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
                   <CardContent className="p-4">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-lg">{instanciaData.instancia}</h4>
+                        <div className="space-y-1">
+                          <span className="text-muted-foreground text-sm">Instância:</span>
+                          <h4 className="font-semibold text-lg">{instanciaData.instancia}</h4>
+                        </div>
                         <Badge variant="default">Ativa</Badge>
                       </div>
                       
@@ -441,20 +454,60 @@ export function AgenteInstancias({ agenteId }: AgenteInstanciasProps) {
                       </div>
 
                       {instanciaData.evo_token && (
-                        <div className="space-y-1 pt-2 border-t">
+                        <div className="space-y-2 pt-2 border-t">
                           <span className="text-muted-foreground text-sm">Token Evo:</span>
-                          <p className="font-mono text-xs bg-muted p-2 rounded break-all">
-                            {instanciaData.evo_token.substring(0, 50)}...
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 font-mono text-xs bg-muted p-2 rounded break-all">
+                              {showEvoToken 
+                                ? instanciaData.evo_token 
+                                : '••••••••••••••••••••••••••••••••••••••••••••••••••'}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setShowEvoToken(!showEvoToken)}
+                              title={showEvoToken ? "Ocultar" : "Mostrar"}
+                            >
+                              {showEvoToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => copyToClipboard(instanciaData.evo_token, "Token Evo")}
+                              title="Copiar"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       )}
 
                       {instanciaData.cw_token_maia && (
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           <span className="text-muted-foreground text-sm">CW Token Maia:</span>
-                          <p className="font-mono text-xs bg-muted p-2 rounded">
-                            {instanciaData.cw_token_maia}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 font-mono text-xs bg-muted p-2 rounded">
+                              {showCwToken 
+                                ? instanciaData.cw_token_maia 
+                                : '••••••••••••••••••••••••'}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setShowCwToken(!showCwToken)}
+                              title={showCwToken ? "Ocultar" : "Mostrar"}
+                            >
+                              {showCwToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => copyToClipboard(instanciaData.cw_token_maia!, "CW Token Maia")}
+                              title="Copiar"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
