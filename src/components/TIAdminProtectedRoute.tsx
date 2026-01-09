@@ -9,7 +9,7 @@ interface TIAdminProtectedRouteProps {
 
 export function TIAdminProtectedRoute({ children }: TIAdminProtectedRouteProps) {
   const { user, loading: authLoading } = useAuth();
-  const { isAdminOrTI, loading: accessLoading } = useUserAccessType();
+  const { canAccessAgentesIA, loading: accessLoading } = useUserAccessType();
 
   const loading = authLoading || accessLoading;
 
@@ -28,7 +28,8 @@ export function TIAdminProtectedRoute({ children }: TIAdminProtectedRouteProps) 
     return <Navigate to="/login" replace />;
   }
 
-  if (!isAdminOrTI) {
+  // Apenas: departamento TI + tipo de acesso TI/Administrador
+  if (!canAccessAgentesIA) {
     return <Navigate to="/" replace />;
   }
 
