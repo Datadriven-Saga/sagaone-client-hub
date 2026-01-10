@@ -75,6 +75,7 @@ const AppRoutes = () => {
       <Route path="/administracao" element={<AdminProtectedRoute><Administracao /></AdminProtectedRoute>} />
       <Route path="/administracao/empresas" element={<AdminProtectedRoute><Empresas /></AdminProtectedRoute>} />
       <Route path="/administracao/acessos" element={<AdminProtectedRoute><Acessos /></AdminProtectedRoute>} />
+      <Route path="/admin/acessos" element={<AdminProtectedRoute><Acessos /></AdminProtectedRoute>} />
       <Route path="/administracao/agentes" element={<TIAdminProtectedRoute><AdminAgentes /></TIAdminProtectedRoute>} />
       <Route path="/administracao/campos" element={<AdminProtectedRoute><CamposObrigatorios /></AdminProtectedRoute>} />
       <Route path="/administracao/apis" element={<AdminProtectedRoute><APIs /></AdminProtectedRoute>} />
