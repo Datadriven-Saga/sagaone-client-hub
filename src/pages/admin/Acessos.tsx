@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,7 +93,10 @@ const Acessos = () => {
     }
   });
 
-  const fetchCompanies = async () => {
+  const hasFetchedRef = useRef(false);
+  const isFetchingRef = useRef(false);
+
+  const fetchCompanies = useCallback(async () => {
     try {
       console.log('Acessos: Fetching companies...');
       const { data, error } = await supabase
@@ -116,32 +119,40 @@ const Acessos = () => {
         variant: "destructive"
       });
     }
-  };
+  }, [toast]);
 
-  const fetchProfiles = async () => {
+  const fetchProfiles = useCallback(async () => {
+    // Prevent concurrent fetches
+    if (isFetchingRef.current) {
+      console.log('Acessos: Already fetching, skipping...');
+      return;
+    }
+
+    isFetchingRef.current = true;
+    
     try {
-      console.log('Fetching profiles...');
+      console.log('Acessos: Fetching profiles...');
       
       const { data, error } = await supabase.functions.invoke('manage-users', {
         body: { action: 'list_users' }
       });
 
-      console.log('Response from edge function:', data, error);
+      console.log('Acessos: Response from edge function:', { data, error });
 
       if (error) {
-        console.error('Edge function error:', error);
+        console.error('Acessos: Edge function error:', error);
         throw new Error(error.message || 'Erro ao chamar a função de gerenciamento de usuários');
       }
 
       if (data?.users) {
-        console.log('Found users from edge function:', data.users.length);
+        console.log('Acessos: Found users from edge function:', data.users.length);
         setProfiles(data.users);
       } else {
-        console.warn('No users found in response');
+        console.warn('Acessos: No users found in response');
         setProfiles([]);
       }
     } catch (error: any) {
-      console.error('Erro ao buscar perfis:', error);
+      console.error('Acessos: Erro ao buscar perfis:', error);
       toast({
         title: "Erro",
         description: error.message || "Não foi possível carregar os usuários",
@@ -150,16 +161,22 @@ const Acessos = () => {
       setProfiles([]);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
-    console.log('Acessos: Component mounted, current user:', authUser?.id);
-    console.log('Acessos: Session:', session ? 'exists' : 'null');
+    // Only fetch once when user is authenticated
+    if (!authUser?.id || hasFetchedRef.current) {
+      return;
+    }
+
+    console.log('Acessos: Initial fetch for user:', authUser?.id);
+    hasFetchedRef.current = true;
     
     fetchCompanies();
     fetchProfiles();
-  }, [authUser, session]);
+  }, [authUser?.id, fetchProfiles, fetchCompanies]);
 
   const handleCreateUser = async (data: UserForm) => {
     setSubmitting(true);
