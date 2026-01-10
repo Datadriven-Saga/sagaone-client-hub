@@ -73,6 +73,7 @@ const AppRoutes = () => {
       <Route path="/agentes-ia/performance" element={<TIAdminProtectedRoute><Resultados /></TIAdminProtectedRoute>} />
       
       <Route path="/administracao" element={<AdminProtectedRoute><Administracao /></AdminProtectedRoute>} />
+      <Route path="/admin" element={<AdminProtectedRoute><Administracao /></AdminProtectedRoute>} />
       <Route path="/administracao/empresas" element={<AdminProtectedRoute><Empresas /></AdminProtectedRoute>} />
       <Route path="/administracao/acessos" element={<AdminProtectedRoute><Acessos /></AdminProtectedRoute>} />
       <Route path="/admin/acessos" element={<AdminProtectedRoute><Acessos /></AdminProtectedRoute>} />
