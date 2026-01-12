@@ -41,8 +41,10 @@ import {
   Trash2,
   Edit2,
   Music,
-  RefreshCw
+  RefreshCw,
+  Eye
 } from "lucide-react";
+import { TemplatePreview } from "@/components/TemplatePreview";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -136,6 +138,8 @@ export default function Templates() {
   const [nomeDuplicado, setNomeDuplicado] = useState(false);
   const [verificandoNome, setVerificandoNome] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Helper function to upload media to Supabase Storage
   const uploadMediaToStorage = async (file: File, mediaType: 'image' | 'audio' | 'video'): Promise<string | null> => {
@@ -1885,6 +1889,17 @@ export default function Templates() {
                           <Button 
                             variant="ghost" 
                             size="icon"
+                            onClick={() => {
+                              setPreviewTemplate(template);
+                              setIsPreviewOpen(true);
+                            }}
+                            title="Preview"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
                             onClick={() => handleEditTemplate(template)}
                             title="Editar"
                           >
@@ -1941,9 +1956,47 @@ export default function Templates() {
                 {isSaving ? "Salvando..." : "Salvar Template"}
               </Button>
             )}
+            {currentStep === 3 && (
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  const cardData = formData.formato === "texto" ? {} : {
+                    imagemUrl: formData.cardData.imagemPreviewUrl,
+                    audioUrl: formData.cardData.audioPreviewUrl,
+                    videoUrl: formData.cardData.videoPreviewUrl,
+                    textoCabecalho: formData.cardData.textoCabecalho,
+                    rodape: formData.cardData.rodape,
+                    botoes: formData.cardData.botoes,
+                  };
+                  setPreviewTemplate({
+                    nome: formData.nome,
+                    formato: formData.formato,
+                    conteudo: formData.formato === "texto" ? formData.conteudo : formData.cardData.corpoTexto,
+                    card_data: cardData,
+                  });
+                  setIsPreviewOpen(true);
+                }}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Preview
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Template Preview Modal */}
+      <TemplatePreview
+        isOpen={isPreviewOpen}
+        onClose={() => {
+          setIsPreviewOpen(false);
+          setPreviewTemplate(null);
+        }}
+        nome={previewTemplate?.nome || ""}
+        formato={previewTemplate?.formato || ""}
+        conteudo={previewTemplate?.conteudo || ""}
+        cardData={previewTemplate?.card_data}
+      />
     </DashboardLayout>
   );
 }
