@@ -2477,14 +2477,33 @@ export default function AdminAgentes() {
                   </div>
                 </div>
 
-                {/* Contador de selecionados */}
+                {/* Contador de selecionados e botão selecionar todas */}
                 <div className="flex items-center justify-between pb-2 border-b flex-shrink-0">
                   <span className="text-sm text-muted-foreground">
                     {filteredEmpresasModal.length} empresa(s) encontrada(s)
                   </span>
-                  <Badge variant="secondary">
-                    {selectedEmpresaIds.length} selecionada(s)
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const filteredIds = filteredEmpresasModal.map(e => e.id);
+                        const allSelected = filteredIds.every(id => selectedEmpresaIds.includes(id));
+                        if (allSelected) {
+                          setSelectedEmpresaIds(prev => prev.filter(id => !filteredIds.includes(id)));
+                        } else {
+                          setSelectedEmpresaIds(prev => [...new Set([...prev, ...filteredIds])]);
+                        }
+                      }}
+                    >
+                      {filteredEmpresasModal.length > 0 && filteredEmpresasModal.every(e => selectedEmpresaIds.includes(e.id))
+                        ? "Desmarcar todas"
+                        : "Selecionar todas"}
+                    </Button>
+                    <Badge variant="secondary">
+                      {selectedEmpresaIds.length} selecionada(s)
+                    </Badge>
+                  </div>
                 </div>
 
                 {/* Lista de empresas */}

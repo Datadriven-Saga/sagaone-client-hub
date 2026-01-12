@@ -17,6 +17,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { useCompany } from "@/contexts/CompanyContext";
 
 interface AgenteLocal {
   id: string;
@@ -32,36 +33,25 @@ interface AgenteLocal {
 export default function AgentesIA() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { activeCompany } = useCompany();
   
   const [agentes, setAgentes] = useState<AgenteLocal[]>([]);
   const [loading, setLoading] = useState(false);
-  const [userEmpresaId, setUserEmpresaId] = useState<string | null>(null);
   const [selectedAgente, setSelectedAgente] = useState<AgenteLocal | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  const getUserEmpresa = async () => {
-    if (!user) return;
-    
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('empresa_id')
-        .eq('id', user.id)
-        .single();
-      
-      setUserEmpresaId(profile?.empresa_id || null);
-    } catch (error) {
-      console.error('Erro ao buscar empresa do usuário:', error);
-    }
-  };
-
   const carregarAgentes = async () => {
-    if (!userEmpresaId) return;
+    if (!activeCompany?.id) {
+      console.log('Nenhuma empresa selecionada');
+      setAgentes([]);
+      return;
+    }
     
     try {
       setLoading(true);
+      console.log('Buscando agentes para empresa:', activeCompany.id);
       
-      // Buscar agentes atribuídos à empresa do usuário via tabela de relacionamento
+      // Buscar agentes atribuídos à empresa selecionada via tabela de relacionamento
       const { data: agenteEmpresas, error: errorRelacionamento } = await supabase
         .from('agente_empresas')
         .select(`
@@ -77,12 +67,14 @@ export default function AgentesIA() {
             dealer_id
           )
         `)
-        .eq('empresa_id', userEmpresaId);
+        .eq('empresa_id', activeCompany.id);
 
       if (errorRelacionamento) {
         console.error('Erro ao buscar agentes:', errorRelacionamento);
         throw errorRelacionamento;
       }
+
+      console.log('Dados retornados:', agenteEmpresas);
 
       // Extrair agentes únicos do resultado
       const agentesUnicos: AgenteLocal[] = [];
@@ -98,6 +90,7 @@ export default function AgentesIA() {
         }
       }
       
+      console.log('Agentes únicos encontrados:', agentesUnicos);
       setAgentes(agentesUnicos);
     } catch (error) {
       console.error('Erro ao carregar agentes:', error);
@@ -117,14 +110,8 @@ export default function AgentesIA() {
   };
 
   useEffect(() => {
-    getUserEmpresa();
-  }, [user]);
-
-  useEffect(() => {
-    if (userEmpresaId) {
-      carregarAgentes();
-    }
-  }, [userEmpresaId]);
+    carregarAgentes();
+  }, [activeCompany?.id]);
 
   return (
     <DashboardLayout title="Agentes de IA">
