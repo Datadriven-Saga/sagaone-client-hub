@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Building, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { SyncEmpresasButton } from "@/components/SyncEmpresasButton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -290,14 +291,15 @@ export default function Empresas() {
           </div>
           
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
           <div className="flex gap-2">
-            <Button onClick={handleNewEmpresa}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Empresa
-            </Button>
-          </div>
+            <SyncEmpresasButton />
+            <DialogTrigger asChild>
+              <Button onClick={handleNewEmpresa}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Empresa
+              </Button>
             </DialogTrigger>
+          </div>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
