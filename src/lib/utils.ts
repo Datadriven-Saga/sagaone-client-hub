@@ -16,3 +16,71 @@ export function normalizePhone(phone: string | null | undefined): string | null 
   // Remove tudo exceto dígitos e +
   return phone.replace(/[^\d+]/g, '') || null;
 }
+
+/**
+ * Formata um número de telefone brasileiro no padrão (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+ * @param phone - Número de telefone (pode estar com ou sem formatação)
+ * @returns Telefone formatado ou o valor original se não for possível formatar
+ */
+export function formatPhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  
+  // Remove tudo exceto dígitos
+  const digits = phone.replace(/\D/g, '');
+  
+  if (digits.length === 0) return null;
+  
+  // Se tiver 10 dígitos (fixo): (XX) XXXX-XXXX
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  
+  // Se tiver 11 dígitos (celular): (XX) XXXXX-XXXX
+  if (digits.length === 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+  
+  // Se tiver 12 ou 13 dígitos (com código do país)
+  if (digits.length === 12) {
+    // +XX XX XXXX-XXXX (fixo com DDI)
+    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 8)}-${digits.slice(8)}`;
+  }
+  
+  if (digits.length === 13) {
+    // +XX XX XXXXX-XXXX (celular com DDI)
+    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`;
+  }
+  
+  // Retorna o número original se não se encaixar em nenhum padrão
+  return phone;
+}
+
+/**
+ * Formata um nome para ter a primeira letra de cada palavra em maiúscula
+ * @param name - Nome a ser formatado
+ * @returns Nome formatado ou o valor original se vazio
+ */
+export function formatName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  
+  // Palavras que devem permanecer em minúsculo (exceto se forem a primeira palavra)
+  const lowerCaseWords = ['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'para', 'por', 'com'];
+  
+  return trimmed
+    .toLowerCase()
+    .split(' ')
+    .filter(word => word.length > 0)
+    .map((word, index) => {
+      if (index === 0) {
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      }
+      if (lowerCaseWords.includes(word)) {
+        return word;
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+}
