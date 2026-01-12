@@ -317,8 +317,8 @@ export function SyncEmpresasButton() {
           Sincronizar Empresas
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Sincronizar Empresas</DialogTitle>
           <DialogDescription>
             Faça upload de um arquivo (CSV, XLS ou XLSX) para sincronizar as empresas.
@@ -326,98 +326,104 @@ export function SyncEmpresasButton() {
         </DialogHeader>
 
         {!syncResult ? (
-          <div className="flex flex-col gap-4">
-            {/* Upload Area */}
-            <div 
-              className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.xls,.xlsx"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-sm text-muted-foreground mb-2">
-                Arraste um arquivo aqui ou clique para selecionar
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Formatos aceitos: CSV, XLS, XLSX
-              </p>
-            </div>
-
-            {/* Selected File Info */}
-            {selectedFile && (
-              <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                <FileSpreadsheet className="h-5 w-5 text-primary" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* Scrollable content area */}
+            <ScrollArea className="flex-1 pr-4">
+              <div className="flex flex-col gap-4 pb-2">
+                {/* Upload Area */}
+                <div 
+                  className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors"
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,.xls,.xlsx"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <FileSpreadsheet className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-sm text-muted-foreground mb-1">
+                    Arraste um arquivo aqui ou clique para selecionar
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    {(selectedFile.size / 1024).toFixed(1)} KB
+                    Formatos aceitos: CSV, XLS, XLSX
                   </p>
                 </div>
-                {parsedData.length > 0 && (
-                  <Badge variant="secondary" className="bg-green-100 text-green-800">
-                    {parsedData.length} empresas
-                  </Badge>
+
+                {/* Selected File Info */}
+                {selectedFile && (
+                  <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                    <FileSpreadsheet className="h-5 w-5 text-primary flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(selectedFile.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                    {parsedData.length > 0 && (
+                      <Badge variant="secondary" className="bg-green-100 text-green-800 flex-shrink-0">
+                        {parsedData.length} empresas
+                      </Badge>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
 
-            {/* Parse Error */}
-            {parseError && (
-              <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg">
-                <XCircle className="h-5 w-5" />
-                <p className="text-sm">{parseError}</p>
-              </div>
-            )}
+                {/* Parse Error */}
+                {parseError && (
+                  <div className="flex items-start gap-2 p-3 bg-destructive/10 text-destructive rounded-lg">
+                    <XCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm">{parseError}</p>
+                  </div>
+                )}
 
-            {/* Preview Table */}
-            {parsedData.length > 0 && (
-              <div className="space-y-2">
-                <Label>Pré-visualização ({Math.min(5, parsedData.length)} de {parsedData.length})</Label>
-                <ScrollArea className="h-[150px] border rounded-lg">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted sticky top-0">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium">CRM ID</th>
-                        <th className="px-3 py-2 text-left font-medium">Nome</th>
-                        <th className="px-3 py-2 text-left font-medium">CNPJ</th>
-                        <th className="px-3 py-2 text-left font-medium">Marca</th>
-                        <th className="px-3 py-2 text-left font-medium">UF</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {parsedData.slice(0, 5).map((empresa, index) => (
-                        <tr key={index} className="border-t">
-                          <td className="px-3 py-2">{empresa.crm_id}</td>
-                          <td className="px-3 py-2 truncate max-w-[150px]">{empresa.nome}</td>
-                          <td className="px-3 py-2">{empresa.cnpj}</td>
-                          <td className="px-3 py-2">{empresa.marca}</td>
-                          <td className="px-3 py-2">{empresa.uf}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </ScrollArea>
-              </div>
-            )}
+                {/* Preview Table */}
+                {parsedData.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Pré-visualização ({Math.min(5, parsedData.length)} de {parsedData.length})</Label>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium text-xs">CRM ID</th>
+                            <th className="px-3 py-2 text-left font-medium text-xs">Nome</th>
+                            <th className="px-3 py-2 text-left font-medium text-xs">CNPJ</th>
+                            <th className="px-3 py-2 text-left font-medium text-xs">Marca</th>
+                            <th className="px-3 py-2 text-left font-medium text-xs">UF</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {parsedData.slice(0, 5).map((empresa, index) => (
+                            <tr key={index} className="border-t">
+                              <td className="px-3 py-2 text-xs">{empresa.crm_id}</td>
+                              <td className="px-3 py-2 text-xs truncate max-w-[120px]">{empresa.nome}</td>
+                              <td className="px-3 py-2 text-xs">{empresa.cnpj}</td>
+                              <td className="px-3 py-2 text-xs">{empresa.marca}</td>
+                              <td className="px-3 py-2 text-xs">{empresa.uf}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
-            {/* Info */}
-            <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-              <p className="font-medium mb-1">Esta operação irá:</p>
-              <ul className="list-disc list-inside space-y-1 text-xs">
-                <li><span className="text-green-600 font-medium">Adicionar</span> empresas que estão no arquivo mas não no banco</li>
-                <li><span className="text-blue-600 font-medium">Atualizar</span> dados de empresas existentes (usando crm_id)</li>
-                <li><span className="text-red-600 font-medium">Remover</span> empresas do banco que não estão no arquivo</li>
-              </ul>
-            </div>
+                {/* Info */}
+                <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                  <p className="font-medium mb-1 text-xs">Esta operação irá:</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-xs">
+                    <li><span className="text-green-600 font-medium">Adicionar</span> empresas que estão no arquivo mas não no banco</li>
+                    <li><span className="text-blue-600 font-medium">Atualizar</span> dados de empresas existentes (usando crm_id)</li>
+                    <li><span className="text-red-600 font-medium">Remover</span> empresas do banco que não estão no arquivo</li>
+                  </ul>
+                </div>
+              </div>
+            </ScrollArea>
             
-            <div className="flex justify-end gap-3">
+            {/* Fixed footer with buttons */}
+            <div className="flex justify-end gap-3 pt-4 border-t mt-4 flex-shrink-0">
               <Button
                 variant="outline"
                 onClick={handleClose}
