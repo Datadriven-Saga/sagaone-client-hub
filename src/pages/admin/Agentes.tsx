@@ -1428,6 +1428,7 @@ export default function AdminAgentes() {
                       <TableHead>UF</TableHead>
                       <TableHead>Número Agente</TableHead>
                       <TableHead>Nome Agente</TableHead>
+                      <TableHead>Instância</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -1461,7 +1462,15 @@ export default function AdminAgentes() {
                           <div className="flex items-center gap-2">
                             <Bot className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm font-medium">
-                              {agente.instancia?.split('+')[0] || agente.nome || "N/A"}
+                              {(agente as any).agente || agente.nome || "N/A"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Server className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground font-mono truncate max-w-[200px]" title={agente.instancia || "N/A"}>
+                              {agente.instancia || "N/A"}
                             </span>
                           </div>
                         </TableCell>
