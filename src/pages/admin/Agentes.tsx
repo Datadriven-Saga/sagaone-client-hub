@@ -295,18 +295,21 @@ export default function AdminAgentes() {
   // Extrair opções únicas para os filtros
   const uniqueMarcas = [...new Set(agentes.map(a => a.marca).filter(Boolean))].sort();
   const uniqueUFs = [...new Set(agentes.map(a => a.uf).filter(Boolean))].sort();
-  const uniqueAgentes = [...new Set(agentes.map(a => a.instancia?.split('+')[0]).filter(Boolean))].sort();
+  const uniqueAgentesNomes = [...new Set(agentes.map(a => (a as any).agente || a.nome).filter(Boolean))].sort();
 
   const applyFilters = (term: string, empresaId: string, marca: string, uf: string, status: string, numero: string) => {
     let filtered = [...agentes];
     
-    // Filtro por termo de busca (nome do agente)
+    // Filtro por termo de busca (nome do agente) - busca em múltiplos campos
     if (term) {
       const lowerTerm = term.toLowerCase();
       filtered = filtered.filter(a => 
+        // Campo 'agente' do webhook (nome real do agente)
+        (a as any).agente?.toLowerCase().includes(lowerTerm) ||
+        // Campo 'nome' fallback
         a.nome?.toLowerCase().includes(lowerTerm) ||
-        a.instancia?.toLowerCase().includes(lowerTerm) ||
-        (a.instancia?.split('+')[0] || '').toLowerCase().includes(lowerTerm)
+        // Instância completa
+        a.instancia?.toLowerCase().includes(lowerTerm)
       );
     }
     
@@ -1296,41 +1299,57 @@ export default function AdminAgentes() {
           </div>
 
           {/* Filtros */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                {/* Primeira linha de filtros */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="border-muted">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex flex-col gap-3">
+                {/* Linha principal de filtros */}
+                <div className="flex flex-wrap items-center gap-2">
                   {/* Busca por Nome do Agente */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <div className="relative flex-1 min-w-[200px] max-w-[280px]">
+                    <Bot className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar nome do agente..."
+                      placeholder="Nome do agente..."
                       value={searchTerm}
                       onChange={(e) => handleSearch(e.target.value)}
-                      className="pl-9"
+                      className="pl-8 h-9 text-sm"
                     />
                   </div>
 
                   {/* Filtro por Número */}
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <div className="relative min-w-[150px] max-w-[180px]">
+                    <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Filtrar por número..."
+                      placeholder="Número..."
                       value={filterNumero}
                       onChange={(e) => handleFilterNumero(e.target.value)}
-                      className="pl-9"
+                      className="pl-8 h-9 text-sm"
                     />
                   </div>
 
-                  {/* Filtro por Marca */}
-                  <Select value={filterMarca} onValueChange={handleFilterMarca}>
-                    <SelectTrigger>
-                      <Store className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <SelectValue placeholder="Todas as marcas" />
+                  {/* Filtro por UF */}
+                  <Select value={filterUF} onValueChange={handleFilterUF}>
+                    <SelectTrigger className="w-[100px] h-9">
+                      <MapPin className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                      <SelectValue placeholder="UF" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todas as marcas</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {uniqueUFs.map((uf) => (
+                        <SelectItem key={uf} value={uf!}>
+                          {uf}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Filtro por Marca */}
+                  <Select value={filterMarca} onValueChange={handleFilterMarca}>
+                    <SelectTrigger className="w-[160px] h-9">
+                      <Store className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                      <SelectValue placeholder="Marca" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
                       {uniqueMarcas.map((marca) => (
                         <SelectItem key={marca} value={marca!}>
                           {marca}
@@ -1339,45 +1358,36 @@ export default function AdminAgentes() {
                     </SelectContent>
                   </Select>
 
-                  {/* Filtro por UF */}
-                  <Select value={filterUF} onValueChange={handleFilterUF}>
-                    <SelectTrigger>
-                      <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <SelectValue placeholder="Todos os estados" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os estados</SelectItem>
-                      {uniqueUFs.map((uf) => (
-                        <SelectItem key={uf} value={uf!}>
-                          {uf}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Segunda linha de filtros */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* Filtro por Status */}
                   <Select value={filterStatus} onValueChange={handleFilterStatus}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos os status" />
+                    <SelectTrigger className="w-[130px] h-9">
+                      <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos os status</SelectItem>
-                      <SelectItem value="ativo">Ativo</SelectItem>
-                      <SelectItem value="inativo">Desativado</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="ativo">
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-green-500" />
+                          Ativo
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="inativo">
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-red-500" />
+                          Desativado
+                        </span>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
 
                   {/* Filtro por Empresa */}
                   <Select value={filterEmpresa} onValueChange={handleFilterEmpresa}>
-                    <SelectTrigger>
-                      <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <SelectValue placeholder="Todas as empresas" />
+                    <SelectTrigger className="w-[180px] h-9">
+                      <Building2 className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                      <SelectValue placeholder="Empresa" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todas as empresas</SelectItem>
+                      <SelectItem value="all">Todas</SelectItem>
                       {empresas.map((empresa) => (
                         <SelectItem key={empresa.id} value={empresa.id}>
                           {empresa.nome_empresa}
@@ -1387,18 +1397,55 @@ export default function AdminAgentes() {
                   </Select>
 
                   {/* Botão limpar filtros */}
-                  <div className="lg:col-span-2 flex justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearAllFilters}
-                      className="gap-2"
-                    >
-                      <X className="h-4 w-4" />
-                      Limpar filtros
-                    </Button>
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="h-9 px-3 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Limpar
+                  </Button>
                 </div>
+
+                {/* Indicador de filtros ativos */}
+                {(searchTerm || filterNumero || filterMarca !== "all" || filterUF !== "all" || filterStatus !== "all" || filterEmpresa !== "all") && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>Filtros ativos:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {searchTerm && (
+                        <Badge variant="secondary" className="text-xs font-normal">
+                          Nome: {searchTerm}
+                        </Badge>
+                      )}
+                      {filterNumero && (
+                        <Badge variant="secondary" className="text-xs font-normal">
+                          Número: {filterNumero}
+                        </Badge>
+                      )}
+                      {filterUF !== "all" && (
+                        <Badge variant="secondary" className="text-xs font-normal">
+                          UF: {filterUF}
+                        </Badge>
+                      )}
+                      {filterMarca !== "all" && (
+                        <Badge variant="secondary" className="text-xs font-normal">
+                          Marca: {filterMarca}
+                        </Badge>
+                      )}
+                      {filterStatus !== "all" && (
+                        <Badge variant="secondary" className="text-xs font-normal">
+                          Status: {filterStatus === "ativo" ? "Ativo" : "Desativado"}
+                        </Badge>
+                      )}
+                      {filterEmpresa !== "all" && (
+                        <Badge variant="secondary" className="text-xs font-normal">
+                          Empresa: {empresas.find(e => e.id === filterEmpresa)?.nome_empresa || filterEmpresa}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
