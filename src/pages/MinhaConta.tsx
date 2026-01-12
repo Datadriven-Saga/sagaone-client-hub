@@ -295,8 +295,13 @@ const MinhaConta = () => {
             <CardContent className="space-y-4">
               <div className="flex justify-between">
                 <span className="text-sm font-medium">Status:</span>
-                <Badge variant={profile?.status === "Ativo" ? "default" : "secondary"}>
-                  {profile?.status}
+                <Badge 
+                  className={profile?.status === "Ativo" 
+                    ? "bg-green-500 hover:bg-green-600 text-white" 
+                    : "bg-red-500 hover:bg-red-600 text-white"
+                  }
+                >
+                  {profile?.status === "Ativo" ? "Ativo" : "Desativado"}
                 </Badge>
               </div>
 

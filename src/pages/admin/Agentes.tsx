@@ -793,7 +793,7 @@ export default function AdminAgentes() {
     }
   };
 
-  // Nova instância handlers - sincroniza telefone entre abas
+  // Nova instância handlers - sincroniza dados entre abas
   const handleNovaInstanciaChange = (field: keyof NovaInstanciaData, value: string) => {
     setNovaInstancia(prev => ({
       ...prev,
@@ -803,12 +803,22 @@ export default function AdminAgentes() {
     if (field === 'num_maia') {
       setFormData(prev => ({ ...prev, telefone: value }));
     }
+    // Sincronizar nome do agente com dados gerais
+    if (field === 'agente') {
+      setFormData(prev => ({ ...prev, nome: value }));
+    }
   };
 
   // Sincronizar telefone de dados gerais com instância
   const handleTelefoneChange = (value: string) => {
     setFormData(prev => ({ ...prev, telefone: value }));
     setNovaInstancia(prev => ({ ...prev, num_maia: value }));
+  };
+
+  // Sincronizar nome de dados gerais com instância
+  const handleNomeChange = (value: string) => {
+    setFormData(prev => ({ ...prev, nome: value }));
+    setNovaInstancia(prev => ({ ...prev, agente: value }));
   };
 
   // Gerar instância automaticamente
@@ -856,8 +866,9 @@ export default function AdminAgentes() {
         novaInstancia.num_maia.trim()
       );
 
+      // Combinar dados de Dados Gerais e Instâncias
       const payload = {
-        num_maia: novaInstancia.num_maia.trim(),
+        num_maia: novaInstancia.num_maia.trim() || formData.telefone.trim(),
         marca: novaInstancia.marca.trim().toLowerCase(),
         uf: novaInstancia.uf.trim(),
         instancia: instanciaGerada,
@@ -868,8 +879,14 @@ export default function AdminAgentes() {
         cw_inbox: novaInstancia.cw_inbox.trim() || null,
         waba: novaInstancia.waba.trim() || null,
         meta_app_id: novaInstancia.meta_app_id.trim() || null,
-        agente: novaInstancia.agente.trim() || null,
-        cw_token_maia: novaInstancia.cw_token_maia.trim() || null
+        agente: novaInstancia.agente.trim() || formData.nome.trim() || null,
+        cw_token_maia: novaInstancia.cw_token_maia.trim() || null,
+        // Dados adicionais de Dados Gerais
+        nome_agente: formData.nome.trim() || novaInstancia.agente.trim(),
+        telefone: formData.telefone.trim() || novaInstancia.num_maia.trim(),
+        dealer_id: formData.dealer_id.trim() || null,
+        foto_url: formData.foto_url.trim() || null,
+        ativo: formData.ativo
       };
 
       console.log('Enviando para webhook cria-agente:', payload);
@@ -890,13 +907,18 @@ export default function AdminAgentes() {
       const result = await response.json();
       console.log('Resposta do webhook cria-agente:', result);
 
+      // Determinar o nome do agente para salvar no banco
+      const nomeAgente = formData.nome.trim() || novaInstancia.agente.trim() || `${novaInstancia.agente.trim() || 'Maia'} ${novaInstancia.marca.trim()} ${novaInstancia.uf.trim()}`;
+
       // Salvar no banco Supabase
       const { data: newAgent, error } = await supabase
         .from('agentes_ia')
         .insert({
-          nome: `Maia ${novaInstancia.marca.trim()} ${novaInstancia.uf.trim()}`,
-          telefone: novaInstancia.num_maia.trim(),
-          ativo: true,
+          nome: nomeAgente,
+          telefone: novaInstancia.num_maia.trim() || formData.telefone.trim(),
+          dealer_id: formData.dealer_id.trim() || null,
+          foto_url: formData.foto_url.trim() || null,
+          ativo: formData.ativo,
           criado_por: user?.id
         })
         .select()
@@ -1413,7 +1435,7 @@ export default function AdminAgentes() {
                             <Input
                               id="nome"
                               value={formData.nome}
-                              onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
+                              onChange={(e) => handleNomeChange(e.target.value)}
                               placeholder="Ex: Assistente Virtual"
                               required
                             />
@@ -1580,11 +1602,11 @@ export default function AdminAgentes() {
                                   </div>
                                   
                                   <div className="space-y-2">
-                                    <Label>Agente</Label>
+                                    <Label>Nome Agente *</Label>
                                     <Input
                                       value={novaInstancia.agente}
                                       onChange={(e) => handleNovaInstanciaChange('agente', e.target.value)}
-                                      placeholder="Ex: maia (deixe vazio para usar 'maia')"
+                                      placeholder="Ex: maia, pri, bela..."
                                     />
                                   </div>
 

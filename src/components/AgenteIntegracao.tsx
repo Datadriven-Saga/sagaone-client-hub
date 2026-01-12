@@ -460,7 +460,7 @@ export function AgenteIntegracao({ agenteId }: AgenteIntegracaoProps) {
             <div>
               <p><strong>Método webhook:</strong> {formData.webhook_metodo}</p>
               <p><strong>URL webhook:</strong> {formData.webhook_url || "Não configurado"}</p>
-              <p><strong>Status:</strong> {formData.ativo ? "Ativo" : "Inativo"}</p>
+              <p><strong>Status:</strong> <span className={formData.ativo ? "text-green-600" : "text-red-600"}>{formData.ativo ? "Ativo" : "Desativado"}</span></p>
             </div>
           </div>
           

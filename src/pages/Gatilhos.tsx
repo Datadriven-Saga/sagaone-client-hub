@@ -525,8 +525,13 @@ const Gatilhos = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={gatilho.ativo ? "default" : "secondary"}>
-                      {gatilho.ativo ? "Ativo" : "Inativo"}
+                    <Badge 
+                      className={gatilho.ativo 
+                        ? "bg-green-500 hover:bg-green-600 text-white" 
+                        : "bg-red-500 hover:bg-red-600 text-white"
+                      }
+                    >
+                      {gatilho.ativo ? "Ativo" : "Desativado"}
                     </Badge>
                     <Button 
                       variant="outline" 

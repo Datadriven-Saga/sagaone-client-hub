@@ -169,8 +169,8 @@ export function DepartamentosTab() {
                 <TableCell>{dept.nome}</TableCell>
                 <TableCell>{dept.modelo_distribuicao}</TableCell>
                 <TableCell>
-                  <span className={dept.ativo ? "text-green-600" : "text-muted-foreground"}>
-                    {dept.ativo ? "Ativo" : "Inativo"}
+                  <span className={dept.ativo ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                    {dept.ativo ? "Ativo" : "Desativado"}
                   </span>
                 </TableCell>
                 <TableCell>

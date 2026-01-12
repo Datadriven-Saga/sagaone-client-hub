@@ -181,8 +181,8 @@ export function TemperaturasTab() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <span className={temp.ativo ? "text-green-600" : "text-muted-foreground"}>
-                    {temp.ativo ? "Ativo" : "Inativo"}
+                  <span className={temp.ativo ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                    {temp.ativo ? "Ativo" : "Desativado"}
                   </span>
                 </TableCell>
                 <TableCell>

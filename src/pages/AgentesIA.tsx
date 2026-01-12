@@ -180,10 +180,12 @@ export default function AgentesIA() {
                       <div className="flex-1">
                         <CardTitle className="text-lg">{agente.nome}</CardTitle>
                         <Badge 
-                          variant={agente.ativo !== false ? "default" : "secondary"}
-                          className="mt-1"
+                          className={agente.ativo !== false 
+                            ? "bg-green-500 hover:bg-green-600 text-white mt-1" 
+                            : "bg-red-500 hover:bg-red-600 text-white mt-1"
+                          }
                         >
-                          {agente.ativo !== false ? "Ativo" : "Inativo"}
+                          {agente.ativo !== false ? "Ativo" : "Desativado"}
                         </Badge>
                       </div>
                     </div>

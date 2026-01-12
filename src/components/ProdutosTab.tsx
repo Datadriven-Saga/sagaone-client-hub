@@ -203,8 +203,13 @@ export function ProdutosTab() {
                   )}
                   {/* Status badge */}
                   <div className="absolute top-2 left-2">
-                    <Badge variant={produto.ativo ? "default" : "secondary"}>
-                      {produto.ativo ? "Ativo" : "Inativo"}
+                    <Badge 
+                      className={produto.ativo 
+                        ? "bg-green-500 hover:bg-green-600 text-white" 
+                        : "bg-red-500 hover:bg-red-600 text-white"
+                      }
+                    >
+                      {produto.ativo ? "Ativo" : "Desativado"}
                     </Badge>
                   </div>
                 </div>

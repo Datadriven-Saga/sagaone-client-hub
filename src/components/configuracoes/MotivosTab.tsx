@@ -164,8 +164,8 @@ export function MotivosTab() {
               <TableRow key={motivo.id}>
                 <TableCell>{motivo.descricao}</TableCell>
                 <TableCell>
-                  <span className={motivo.ativo ? "text-green-600" : "text-muted-foreground"}>
-                    {motivo.ativo ? "Ativo" : "Inativo"}
+                  <span className={motivo.ativo ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                    {motivo.ativo ? "Ativo" : "Desativado"}
                   </span>
                 </TableCell>
                 <TableCell>
