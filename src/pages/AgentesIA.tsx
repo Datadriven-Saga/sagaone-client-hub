@@ -195,15 +195,17 @@ export default function AgentesIA() {
                       {/* Info principal */}
                       <div className="flex items-center gap-4 min-w-0">
                         <Avatar className="h-10 w-10 shrink-0">
-                          <AvatarImage src={agente.foto_url || undefined} alt={agente.nome} />
+                          <AvatarImage src={agente.foto_url || undefined} alt={agente.nome || "Agente"} />
                           <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                            {agente.nome.charAt(0).toUpperCase()}
+                            {agente.nome?.charAt(0).toUpperCase() || "?"}
                           </AvatarFallback>
                         </Avatar>
                         
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium truncate">{agente.nome}</span>
+                            <span className={`font-medium truncate ${!agente.nome || agente.nome === "Novo agente" ? "text-muted-foreground italic" : ""}`}>
+                              {agente.nome && agente.nome !== "Novo agente" ? agente.nome : "Sem nome"}
+                            </span>
                             <Badge 
                               variant="secondary"
                               className={`shrink-0 text-[10px] px-1.5 py-0 ${agente.ativo 
@@ -243,13 +245,15 @@ export default function AgentesIA() {
           <DialogHeader className="pb-4 border-b">
             <div className="flex items-center gap-4">
               <Avatar className="h-12 w-12">
-                <AvatarImage src={selectedAgente?.foto_url || undefined} alt={selectedAgente?.nome} />
+                <AvatarImage src={selectedAgente?.foto_url || undefined} alt={selectedAgente?.nome || "Agente"} />
                 <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                  {selectedAgente?.nome?.charAt(0).toUpperCase() || 'A'}
+                  {selectedAgente?.nome?.charAt(0).toUpperCase() || "?"}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <DialogTitle className="text-lg">{selectedAgente?.nome}</DialogTitle>
+                <DialogTitle className={`text-lg ${!selectedAgente?.nome || selectedAgente?.nome === "Novo agente" ? "text-muted-foreground italic" : ""}`}>
+                  {selectedAgente?.nome && selectedAgente?.nome !== "Novo agente" ? selectedAgente.nome : "Sem nome"}
+                </DialogTitle>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge 
                     variant="secondary"
