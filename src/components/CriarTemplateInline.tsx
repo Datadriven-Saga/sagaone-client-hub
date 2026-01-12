@@ -81,31 +81,44 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
   const [agentesIAWhatsapp, setAgentesIAWhatsapp] = useState<{ id: string; nome: string; telefone: string | null }[]>([]);
   const [selectedAgenteId, setSelectedAgenteId] = useState<string | null>(null);
 
-  // Buscar todos os agentes ativos da empresa
+  // Buscar todos os agentes ativos vinculados à empresa (via agente_empresas)
   useEffect(() => {
     const fetchAgentesIA = async () => {
       if (!empresaId) return;
 
+      // Buscar agentes vinculados à empresa via tabela de relacionamento
       const { data, error } = await supabase
-        .from("agentes_ia")
-        .select("id, nome, telefone")
-        .eq("empresa_id", empresaId)
-        .eq("ativo", true)
-        .order("nome");
+        .from("agente_empresas")
+        .select(`
+          agente_id,
+          agentes_ia (
+            id,
+            nome,
+            telefone,
+            ativo
+          )
+        `)
+        .eq("empresa_id", empresaId);
 
       if (error) {
-        console.error("Erro ao buscar agentes IA Whatsapp:", error);
+        console.error("Erro ao buscar agentes IA:", error);
         setAgentesIAWhatsapp([]);
         return;
       }
 
-      const agentes = data || [];
+      // Extrair agentes únicos e ativos
+      const agentes = (data || [])
+        .map((ae: any) => ae.agentes_ia)
+        .filter((a: any) => a && a.ativo)
+        .filter((a: any, index: number, self: any[]) => 
+          index === self.findIndex((t) => t.id === a.id)
+        );
+
       setAgentesIAWhatsapp(agentes);
       
       // Selecionar primeiro agente por padrão
       if (agentes.length > 0 && !selectedAgenteId) {
         setSelectedAgenteId(agentes[0].id);
-        // Definir o telefone do primeiro agente
         const telefone = agentes[0].telefone?.replace(/\D/g, "") || null;
         setPriTelefone(telefone);
       }
@@ -792,7 +805,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
           </Select>
           {agentesIAWhatsapp.length === 0 && (
             <p className="text-xs text-amber-600">
-              Nenhum agente "Pri" ou "Pri - Whatsapp" encontrado.
+              Nenhum agente encontrado. Vincule um agente à empresa primeiro.
             </p>
           )}
         </div>
