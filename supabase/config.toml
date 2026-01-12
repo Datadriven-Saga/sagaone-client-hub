@@ -37,3 +37,9 @@ verify_jwt = true
 
 [functions.sync-empresas]
 verify_jwt = false
+
+[functions.validate-domain]
+verify_jwt = false
+
+[functions.cleanup-invalid-users]
+verify_jwt = false

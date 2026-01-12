@@ -13,6 +13,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Users, Edit, Trash2, Shield, Loader2, Building2, ArrowLeft, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { CleanupInvalidUsersButton } from "@/components/CleanupInvalidUsersButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -370,13 +371,15 @@ const Acessos = () => {
               </p>
             </div>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={handleNewUser}>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Usuário
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <CleanupInvalidUsersButton />
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={handleNewUser}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Usuário
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
@@ -567,6 +570,7 @@ const Acessos = () => {
               </Form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Filtros */}

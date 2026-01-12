@@ -3,22 +3,31 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { clearAuthData } from "@/hooks/useUserPreferences";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const SESSION_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours max session
 const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour of inactivity
 const SESSION_START_KEY = 'session_start_time';
 const LAST_ACTIVITY_KEY = 'last_activity_time';
+const ALLOWED_DOMAIN = '@gruposaga.com.br';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  authUser: User | null; // Alias para compatibilidade
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signInWithAzure: () => Promise<{ error: any }>;
   signInWithMagicLink: (email: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
 }
+
+// Função para validar domínio do email
+const isValidDomain = (email: string | undefined): boolean => {
+  if (!email) return false;
+  return email.toLowerCase().endsWith(ALLOWED_DOMAIN.toLowerCase());
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -195,27 +204,58 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     };
   }, [user, handleSessionExpired, startSessionTimer]);
 
+  // Validar domínio após autenticação
+  const validateAndSetUser = useCallback(async (session: Session | null) => {
+    if (session?.user) {
+      const email = session.user.email;
+      
+      // Validar domínio
+      if (!isValidDomain(email)) {
+        console.log('Invalid domain detected:', email);
+        toast.error(`Acesso negado. Apenas emails do domínio ${ALLOWED_DOMAIN} são permitidos.`);
+        await clearSession();
+        setUser(null);
+        setSession(null);
+        navigate('/login', { replace: true });
+        return;
+      }
+      
+      setSession(session);
+      setUser(session.user);
+    } else {
+      setSession(null);
+      setUser(null);
+    }
+    setLoading(false);
+  }, [clearSession, navigate]);
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-        
         if (event === 'SIGNED_OUT') {
           clearAuthData();
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          // Defer domain validation to avoid deadlock
+          setTimeout(() => {
+            validateAndSetUser(session);
+          }, 0);
+        } else {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
         }
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+      validateAndSetUser(session);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [validateAndSetUser]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -266,6 +306,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     user,
+    authUser: user, // Alias para compatibilidade
     session,
     loading,
     signIn,
