@@ -91,7 +91,7 @@ interface InstanciaData {
   uf: string;
   instancia: string;
   evo_token: string;
-  id_numero_meta: string;
+  id_numero_meta: string | null;
   criado_em: string;
   tb_histories: string | null;
   cw_inbox: string | null;
@@ -101,6 +101,27 @@ interface InstanciaData {
   cw_token_maia: string | null;
   [key: string]: any;
 }
+
+interface NovaInstanciaData {
+  num_maia: string;
+  marca: string;
+  uf: string;
+  instancia: string;
+  evo_token: string;
+  id_numero_meta: string;
+  tb_histories: string;
+  cw_inbox: string;
+  waba: string;
+  meta_app_id: string;
+  agente: string;
+  cw_token_maia: string;
+}
+
+const UF_LIST = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 
+  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", 
+  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+];
 
 interface AgenteLocal {
   id: string;
@@ -141,6 +162,21 @@ export default function AdminAgentes() {
   const [savingInstancia, setSavingInstancia] = useState(false);
   const [activeTab, setActiveTab] = useState("dados-gerais");
   const [isNewAgente, setIsNewAgente] = useState(false);
+  const [creatingInstancia, setCreatingInstancia] = useState(false);
+  const [novaInstancia, setNovaInstancia] = useState<NovaInstanciaData>({
+    num_maia: "",
+    marca: "",
+    uf: "",
+    instancia: "",
+    evo_token: "",
+    id_numero_meta: "",
+    tb_histories: "",
+    cw_inbox: "",
+    waba: "",
+    meta_app_id: "",
+    agente: "",
+    cw_token_maia: ""
+  });
 
   // Formulário do agente local (banco de dados)
   const [formData, setFormData] = useState({
@@ -420,7 +456,7 @@ export default function AdminAgentes() {
     setEditedInstancia(null);
     setShowEvoToken(false);
     setShowCwToken(false);
-    setActiveTab("dados-gerais");
+    setActiveTab("instancias"); // Ir direto para a aba de instâncias
     setIsNewAgente(true);
     
     setFormData({
@@ -431,6 +467,22 @@ export default function AdminAgentes() {
       dealer_id: "",
       foto_url: "",
       ativo: true
+    });
+
+    // Resetar o formulário de nova instância
+    setNovaInstancia({
+      num_maia: "",
+      marca: "",
+      uf: "",
+      instancia: "",
+      evo_token: "",
+      id_numero_meta: "",
+      tb_histories: "",
+      cw_inbox: "",
+      waba: "",
+      meta_app_id: "",
+      agente: "",
+      cw_token_maia: ""
     });
 
     setShowAgentModal(true);
@@ -444,6 +496,20 @@ export default function AdminAgentes() {
     setEditInstancia(false);
     setEditedInstancia(null);
     setIsNewAgente(false);
+    setNovaInstancia({
+      num_maia: "",
+      marca: "",
+      uf: "",
+      instancia: "",
+      evo_token: "",
+      id_numero_meta: "",
+      tb_histories: "",
+      cw_inbox: "",
+      waba: "",
+      meta_app_id: "",
+      agente: "",
+      cw_token_maia: ""
+    });
   };
 
   // File upload
@@ -723,6 +789,172 @@ export default function AdminAgentes() {
     }
   };
 
+  // Nova instância handlers
+  const handleNovaInstanciaChange = (field: keyof NovaInstanciaData, value: string) => {
+    setNovaInstancia(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Gerar instância automaticamente
+  const gerarInstancia = (agente: string, marca: string, uf: string, num_maia: string) => {
+    if (!marca || !uf || !num_maia) return "";
+    return `${agente || 'maia'}${marca.toLowerCase()}${uf.toLowerCase()}+55${num_maia}`;
+  };
+
+  // Criar nova instância via webhook e salvar no Supabase
+  const handleCriarInstancia = async () => {
+    // Validar campos obrigatórios
+    if (!novaInstancia.num_maia.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O número Maia é obrigatório",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!novaInstancia.marca.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "A marca é obrigatória",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!novaInstancia.uf.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "A UF é obrigatória",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setCreatingInstancia(true);
+
+      // Gerar instância automaticamente
+      const instanciaGerada = gerarInstancia(
+        novaInstancia.agente.trim() || 'maia',
+        novaInstancia.marca.trim(),
+        novaInstancia.uf.trim(),
+        novaInstancia.num_maia.trim()
+      );
+
+      const payload = {
+        num_maia: novaInstancia.num_maia.trim(),
+        marca: novaInstancia.marca.trim().toLowerCase(),
+        uf: novaInstancia.uf.trim(),
+        instancia: instanciaGerada,
+        evo_token: novaInstancia.evo_token.trim() || "",
+        id_numero_meta: novaInstancia.id_numero_meta.trim() || null,
+        criado_em: new Date().toISOString(),
+        tb_histories: novaInstancia.tb_histories.trim() || null,
+        cw_inbox: novaInstancia.cw_inbox.trim() || null,
+        waba: novaInstancia.waba.trim() || null,
+        meta_app_id: novaInstancia.meta_app_id.trim() || null,
+        agente: novaInstancia.agente.trim() || null,
+        cw_token_maia: novaInstancia.cw_token_maia.trim() || null
+      };
+
+      console.log('Enviando para webhook cria-agente:', payload);
+
+      // Enviar para o webhook
+      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/cria-agente', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro na requisição do webhook: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Resposta do webhook cria-agente:', result);
+
+      // Salvar no banco Supabase
+      const { data: newAgent, error } = await supabase
+        .from('agentes_ia')
+        .insert({
+          nome: `Maia ${novaInstancia.marca.trim()} ${novaInstancia.uf.trim()}`,
+          telefone: novaInstancia.num_maia.trim(),
+          ativo: true,
+          criado_por: user?.id
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro ao salvar no Supabase:', error);
+        throw error;
+      }
+
+      // Atualizar estado local
+      if (newAgent) {
+        setAgenteLocal(newAgent as AgenteLocal);
+        setFormData({
+          nome: newAgent.nome || "",
+          persona: newAgent.persona || "",
+          cerebro: newAgent.cerebro || "",
+          telefone: newAgent.telefone || "",
+          dealer_id: newAgent.dealer_id || "",
+          foto_url: newAgent.foto_url || "",
+          ativo: newAgent.ativo ?? true
+        });
+        setIsNewAgente(false);
+      }
+
+      // Atualizar instanciaData com os dados criados
+      setInstanciaData(payload as InstanciaData);
+
+      toast({
+        title: "Agente criado com sucesso!",
+        description: `O agente foi criado no webhook e salvo no banco de dados.`
+      });
+
+      // Resetar formulário
+      setNovaInstancia({
+        num_maia: "",
+        marca: "",
+        uf: "",
+        instancia: "",
+        evo_token: "",
+        id_numero_meta: "",
+        tb_histories: "",
+        cw_inbox: "",
+        waba: "",
+        meta_app_id: "",
+        agente: "",
+        cw_token_maia: ""
+      });
+
+      // Recarregar lista de agentes
+      carregarAgentes();
+
+    } catch (error) {
+      console.error('Erro ao criar agente:', error);
+      toast({
+        title: "Erro ao criar agente",
+        description: "Não foi possível criar o agente. Verifique os dados e tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setCreatingInstancia(false);
+    }
+  };
+
+  // Preview da instância gerada
+  const instanciaPreview = gerarInstancia(
+    novaInstancia.agente,
+    novaInstancia.marca,
+    novaInstancia.uf,
+    novaInstancia.num_maia
+  );
+
   const handleOpenAssignModal = (e: React.MouseEvent, agente: AgenteWebhook) => {
     e.stopPropagation();
     setAgenteToAssign(agente);
@@ -992,10 +1224,12 @@ export default function AdminAgentes() {
 
               {/* Action buttons */}
               <div className="flex flex-wrap gap-2 justify-end border-b pb-4">
-                <Button onClick={handleSaveAgente} disabled={savingAgente}>
-                  <Save className="h-4 w-4 mr-2" />
-                  {savingAgente ? "Salvando..." : "Salvar"}
-                </Button>
+                {!isNewAgente && (
+                  <Button onClick={handleSaveAgente} disabled={savingAgente}>
+                    <Save className="h-4 w-4 mr-2" />
+                    {savingAgente ? "Salvando..." : "Salvar"}
+                  </Button>
+                )}
                 
                 {agenteLocal && (
                   <>
@@ -1012,6 +1246,12 @@ export default function AdminAgentes() {
                       Excluir
                     </Button>
                   </>
+                )}
+
+                {isNewAgente && (
+                  <p className="text-sm text-muted-foreground self-center mr-auto">
+                    Preencha os dados na aba "Instâncias" e clique em "Criar Agente"
+                  </p>
                 )}
               </div>
 
@@ -1229,13 +1469,16 @@ export default function AdminAgentes() {
                         <div>
                           <CardTitle className="flex items-center gap-2">
                             <Server className="h-5 w-5" />
-                            Editar Instância
+                            {isNewAgente ? "Criar Nova Instância" : "Editar Instância"}
                           </CardTitle>
                           <CardDescription className="mt-1">
-                            Gerencie as configurações da instância Evolution
+                            {isNewAgente 
+                              ? "Preencha os dados para criar uma nova instância no sistema"
+                              : "Gerencie as configurações da instância Evolution"
+                            }
                           </CardDescription>
                         </div>
-                        {instanciaData && !editInstancia && (
+                        {instanciaData && !editInstancia && !isNewAgente && (
                           <Button size="sm" variant="outline" onClick={handleEditInstancia}>
                             <Edit className="h-4 w-4 mr-1" />
                             Editar
@@ -1247,6 +1490,163 @@ export default function AdminAgentes() {
                       {loadingInstancia ? (
                         <div className="flex items-center justify-center py-8">
                           <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : isNewAgente ? (
+                        /* Formulário de criação de nova instância */
+                        <div className="space-y-4">
+                          <Card className="border">
+                            <CardContent className="p-4">
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between mb-4">
+                                  <div className="space-y-1">
+                                    <span className="text-muted-foreground text-sm">Nova Instância:</span>
+                                    <h4 className="font-semibold text-lg">
+                                      {instanciaPreview || "Preencha os campos obrigatórios"}
+                                    </h4>
+                                  </div>
+                                  <Badge variant="outline">Novo Agente</Badge>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label>Número Maia *</Label>
+                                    <Input
+                                      value={novaInstancia.num_maia}
+                                      onChange={(e) => handleNovaInstanciaChange('num_maia', e.target.value)}
+                                      placeholder="Ex: 61999999999"
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label>Marca *</Label>
+                                    <Input
+                                      value={novaInstancia.marca}
+                                      onChange={(e) => handleNovaInstanciaChange('marca', e.target.value)}
+                                      placeholder="Ex: volkswagen, chevrolet, corretora..."
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label>UF *</Label>
+                                    <Select
+                                      value={novaInstancia.uf}
+                                      onValueChange={(value) => handleNovaInstanciaChange('uf', value)}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Selecione a UF" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {UF_LIST.map((uf) => (
+                                          <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label>Agente</Label>
+                                    <Input
+                                      value={novaInstancia.agente}
+                                      onChange={(e) => handleNovaInstanciaChange('agente', e.target.value)}
+                                      placeholder="Ex: maia (deixe vazio para usar 'maia')"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>ID Número Meta</Label>
+                                    <Input
+                                      value={novaInstancia.id_numero_meta}
+                                      onChange={(e) => handleNovaInstanciaChange('id_numero_meta', e.target.value)}
+                                      placeholder="ID do número Meta"
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <Label>CW Inbox</Label>
+                                    <Input
+                                      value={novaInstancia.cw_inbox}
+                                      onChange={(e) => handleNovaInstanciaChange('cw_inbox', e.target.value)}
+                                      placeholder="CW Inbox ID"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>WABA</Label>
+                                    <Input
+                                      value={novaInstancia.waba}
+                                      onChange={(e) => handleNovaInstanciaChange('waba', e.target.value)}
+                                      placeholder="WABA ID"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Meta App ID</Label>
+                                    <Input
+                                      value={novaInstancia.meta_app_id}
+                                      onChange={(e) => handleNovaInstanciaChange('meta_app_id', e.target.value)}
+                                      placeholder="Meta App ID"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>TB Histories</Label>
+                                    <Input
+                                      value={novaInstancia.tb_histories}
+                                      onChange={(e) => handleNovaInstanciaChange('tb_histories', e.target.value)}
+                                      placeholder="Tabela de histórico"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2 pt-2 border-t">
+                                  <Label>Token Evo</Label>
+                                  <Input
+                                    type="password"
+                                    value={novaInstancia.evo_token}
+                                    onChange={(e) => handleNovaInstanciaChange('evo_token', e.target.value)}
+                                    placeholder="Token da Evolution API"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>CW Token Maia</Label>
+                                  <Input
+                                    type="password"
+                                    value={novaInstancia.cw_token_maia}
+                                    onChange={(e) => handleNovaInstanciaChange('cw_token_maia', e.target.value)}
+                                    placeholder="Token do Chatwoot"
+                                  />
+                                </div>
+
+                                {/* Preview da instância gerada */}
+                                {instanciaPreview && (
+                                  <div className="p-3 bg-muted rounded-lg">
+                                    <Label className="text-xs text-muted-foreground">Instância gerada automaticamente:</Label>
+                                    <p className="font-mono text-sm mt-1">{instanciaPreview}</p>
+                                  </div>
+                                )}
+
+                                <div className="flex gap-3 pt-4 border-t">
+                                  <Button 
+                                    onClick={handleCriarInstancia}
+                                    disabled={creatingInstancia}
+                                  >
+                                    {creatingInstancia ? (
+                                      <>
+                                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                        Criando...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Criar Agente
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
                         </div>
                       ) : editInstancia && editedInstancia ? (
                         /* Modo de edição */
