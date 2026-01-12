@@ -164,6 +164,8 @@ export default function AdminAgentes() {
   const [editInstancia, setEditInstancia] = useState(false);
   const [editedInstancia, setEditedInstancia] = useState<InstanciaData | null>(null);
   const [savingInstancia, setSavingInstancia] = useState(false);
+  const [lojasAtribuidas, setLojasAtribuidas] = useState<Empresa[]>([]);
+  const [loadingLojas, setLoadingLojas] = useState(false);
   const [activeTab, setActiveTab] = useState("dados-gerais");
   const [isNewAgente, setIsNewAgente] = useState(false);
   const [creatingInstancia, setCreatingInstancia] = useState(false);
@@ -286,6 +288,36 @@ export default function AdminAgentes() {
       setSelectedEmpresaIds([]);
     } finally {
       setLoadingAssignedEmpresas(false);
+    }
+  };
+
+  // Buscar lojas atribuídas ao agente (para exibir no modal)
+  const carregarLojasAtribuidas = async (agenteId: string) => {
+    try {
+      setLoadingLojas(true);
+      const { data, error } = await supabase
+        .from('agente_empresas')
+        .select(`
+          empresa_id,
+          empresas (
+            id,
+            nome_empresa,
+            marca,
+            cidade,
+            uf
+          )
+        `)
+        .eq('agente_id', agenteId);
+
+      if (error) throw error;
+      
+      const lojas = data?.map(d => d.empresas).filter(Boolean) as Empresa[] || [];
+      setLojasAtribuidas(lojas);
+    } catch (error) {
+      console.error('Erro ao carregar lojas atribuídas:', error);
+      setLojasAtribuidas([]);
+    } finally {
+      setLoadingLojas(false);
     }
   };
 
@@ -465,7 +497,7 @@ export default function AdminAgentes() {
     }
   };
 
-  const buscarAgenteLocal = async (telefone: string, agenteWebhook?: AgenteWebhook | null) => {
+  const buscarAgenteLocal = async (telefone: string, agenteWebhook?: AgenteWebhook | null): Promise<AgenteLocal | null> => {
     try {
       const { data, error } = await supabase
         .from('agentes_ia')
@@ -486,6 +518,7 @@ export default function AdminAgentes() {
           foto_url: data.foto_url || "",
           ativo: data.ativo ?? true
         });
+        return data as AgenteLocal;
       } else if (agenteWebhook) {
         // Se o agente existe no webhook mas não no banco local, criar automaticamente
         const { data: newAgent, error: insertError } = await supabase
@@ -502,6 +535,7 @@ export default function AdminAgentes() {
         if (insertError) {
           console.error('Erro ao criar agente local:', insertError);
           setAgenteLocal(null);
+          return null;
         } else if (newAgent) {
           setAgenteLocal(newAgent as AgenteLocal);
           setFormData({
@@ -513,13 +547,16 @@ export default function AdminAgentes() {
             foto_url: newAgent.foto_url || "",
             ativo: newAgent.ativo ?? true
           });
+          return newAgent as AgenteLocal;
         }
       } else {
         setAgenteLocal(null);
       }
+      return null;
     } catch (error) {
       console.error('Erro ao buscar agente local:', error);
       setAgenteLocal(null);
+      return null;
     }
   };
 
@@ -533,6 +570,7 @@ export default function AdminAgentes() {
     setShowCwToken(false);
     setActiveTab("dados-gerais");
     setIsNewAgente(false);
+    setLojasAtribuidas([]);
     
     // Reset form with webhook data
     setFormData({
@@ -551,7 +589,12 @@ export default function AdminAgentes() {
     if (agente.telefone || agente.num_maia) {
       const tel = agente.telefone || agente.num_maia || "";
       await buscarInstancia(tel);
-      await buscarAgenteLocal(tel, agente);
+      const agenteLocalData = await buscarAgenteLocal(tel, agente);
+      
+      // Buscar lojas atribuídas se o agente existe no banco local
+      if (agenteLocalData?.id) {
+        await carregarLojasAtribuidas(agenteLocalData.id);
+      }
     }
   };
 
@@ -603,6 +646,7 @@ export default function AdminAgentes() {
     setEditInstancia(false);
     setEditedInstancia(null);
     setIsNewAgente(false);
+    setLojasAtribuidas([]);
     setNovaInstancia({
       num_maia: "",
       marca: "",
@@ -1898,6 +1942,48 @@ export default function AdminAgentes() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Lojas Atribuídas */}
+                      {agenteLocal && (
+                        <div className="mt-6 pt-6 border-t">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Store className="h-5 w-5 text-muted-foreground" />
+                            <Label className="text-base font-medium">Lojas Atribuídas</Label>
+                            {loadingLojas && (
+                              <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+                            )}
+                          </div>
+                          
+                          {lojasAtribuidas.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                              {lojasAtribuidas.map((loja) => (
+                                <div 
+                                  key={loja.id}
+                                  className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border"
+                                >
+                                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium truncate">{loja.nome_empresa}</p>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {[loja.marca, loja.cidade, loja.uf].filter(Boolean).join(' • ')}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-6 bg-muted/30 rounded-lg border border-dashed">
+                              <Store className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+                              <p className="text-sm text-muted-foreground">
+                                Este agente não está atribuído a nenhuma loja.
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Use o botão "Atribuir a Lojas" na listagem para associar este agente a empresas.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
