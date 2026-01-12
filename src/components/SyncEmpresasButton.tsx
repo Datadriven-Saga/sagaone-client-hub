@@ -449,11 +449,11 @@ export function SyncEmpresasButton() {
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Summary */}
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* Summary - Fixed at top */}
             {syncResult.success && (
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-semibold mb-2">Resultado da Sincronização:</h4>
+              <div className="p-3 bg-muted rounded-lg flex-shrink-0 mb-4">
+                <h4 className="font-semibold mb-2 text-sm">Resultado da Sincronização:</h4>
                 <div className="flex gap-4 text-sm flex-wrap">
                   <span className="text-green-600 flex items-center gap-1">
                     <Plus className="h-4 w-4" /> {syncResult.summary.added} adicionadas
@@ -473,8 +473,9 @@ export function SyncEmpresasButton() {
               </div>
             )}
 
-            <ScrollArea className="h-[400px] w-full border rounded-md p-4">
-              <div className="space-y-2">
+            {/* Scrollable results list */}
+            <ScrollArea className="flex-1 min-h-0 border rounded-md">
+              <div className="p-4 space-y-2">
                 {/* Added */}
                 {syncResult.details.added.map((item, index) => (
                   <div key={`added-${index}`} className="flex items-center gap-3 p-2 border rounded">
@@ -514,12 +515,12 @@ export function SyncEmpresasButton() {
                 {/* Errors */}
                 {syncResult.details.errors.map((item, index) => (
                   <div key={`error-${index}`} className="flex items-center gap-3 p-2 border rounded border-destructive">
-                    <XCircle className="h-4 w-4 text-destructive" />
+                    <XCircle className="h-4 w-4 text-destructive flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{item.nome || 'Desconhecido'}</div>
                       <div className="text-xs text-destructive">{item.error}</div>
                     </div>
-                    <Badge variant="destructive">Erro</Badge>
+                    <Badge variant="destructive" className="flex-shrink-0">Erro</Badge>
                   </div>
                 ))}
                 
@@ -535,7 +536,8 @@ export function SyncEmpresasButton() {
               </div>
             </ScrollArea>
             
-            <div className="flex justify-end">
+            {/* Fixed footer with button */}
+            <div className="flex justify-end pt-4 border-t mt-4 flex-shrink-0">
               <Button onClick={handleClose}>
                 Fechar
               </Button>
