@@ -83,6 +83,9 @@ interface AgenteWebhook {
 interface Empresa {
   id: string;
   nome_empresa: string;
+  marca?: string | null;
+  cidade?: string | null;
+  uf?: string | null;
 }
 
 interface InstanciaData {
@@ -195,7 +198,11 @@ export default function AdminAgentes() {
   // Modal para atribuir agente a empresa
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [agenteToAssign, setAgenteToAssign] = useState<AgenteWebhook | null>(null);
-  const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>("");
+  const [selectedEmpresaIds, setSelectedEmpresaIds] = useState<string[]>([]);
+  const [assignFilterMarca, setAssignFilterMarca] = useState<string>("all");
+  const [assignFilterNome, setAssignFilterNome] = useState<string>("");
+  const [assignFilterUF, setAssignFilterUF] = useState<string>("all");
+  const [loadingAssignedEmpresas, setLoadingAssignedEmpresas] = useState(false);
 
   const canAccess = isDepartamentoTI && isAdminOrTI;
 
@@ -253,13 +260,32 @@ export default function AdminAgentes() {
     try {
       const { data, error } = await supabase
         .from('empresas')
-        .select('id, nome_empresa')
+        .select('id, nome_empresa, marca, cidade, uf')
         .order('nome_empresa');
 
       if (error) throw error;
       setEmpresas(data || []);
     } catch (error) {
       console.error('Erro ao carregar empresas:', error);
+    }
+  };
+
+  // Buscar empresas já atribuídas ao agente
+  const carregarEmpresasAtribuidas = async (agenteId: string) => {
+    try {
+      setLoadingAssignedEmpresas(true);
+      const { data, error } = await supabase
+        .from('agente_empresas')
+        .select('empresa_id')
+        .eq('agente_id', agenteId);
+
+      if (error) throw error;
+      setSelectedEmpresaIds(data?.map(d => d.empresa_id) || []);
+    } catch (error) {
+      console.error('Erro ao carregar empresas atribuídas:', error);
+      setSelectedEmpresaIds([]);
+    } finally {
+      setLoadingAssignedEmpresas(false);
     }
   };
 
@@ -1191,72 +1217,134 @@ export default function AdminAgentes() {
     novaInstancia.num_maia
   );
 
-  const handleOpenAssignModal = (e: React.MouseEvent, agente: AgenteWebhook) => {
+  const handleOpenAssignModal = async (e: React.MouseEvent, agente: AgenteWebhook) => {
     e.stopPropagation();
     setAgenteToAssign(agente);
-    setSelectedEmpresaId(agente.empresa_id || "");
+    setAssignFilterMarca("all");
+    setAssignFilterNome("");
+    setAssignFilterUF("all");
     setShowAssignModal(true);
+    
+    // Buscar o agente local e suas empresas atribuídas
+    const telefone = agente.telefone || agente.num_maia;
+    if (telefone) {
+      const { data: existingAgent } = await supabase
+        .from('agentes_ia')
+        .select('id')
+        .eq('telefone', telefone)
+        .maybeSingle();
+
+      if (existingAgent) {
+        await carregarEmpresasAtribuidas(existingAgent.id);
+      } else {
+        setSelectedEmpresaIds([]);
+      }
+    } else {
+      setSelectedEmpresaIds([]);
+    }
+  };
+
+  const handleToggleEmpresa = (empresaId: string) => {
+    setSelectedEmpresaIds(prev => 
+      prev.includes(empresaId) 
+        ? prev.filter(id => id !== empresaId)
+        : [...prev, empresaId]
+    );
   };
 
   const handleAssignAgente = async () => {
-    if (!agenteToAssign || !selectedEmpresaId) return;
+    if (!agenteToAssign) return;
 
     try {
-      // Buscar o agente local correspondente pelo telefone
       const telefone = agenteToAssign.telefone || agenteToAssign.num_maia;
       
-      if (telefone) {
-        // Verificar se já existe um agente com esse telefone
-        const { data: existingAgent } = await supabase
-          .from('agentes_ia')
-          .select('id')
-          .eq('telefone', telefone)
-          .maybeSingle();
-
-        if (existingAgent) {
-          // Atualizar o agente existente com a empresa
-          const { error } = await supabase
-            .from('agentes_ia')
-            .update({ empresa_id: selectedEmpresaId })
-            .eq('id', existingAgent.id);
-
-          if (error) throw error;
-        } else {
-          // Criar um novo agente com a empresa
-          const { error } = await supabase
-            .from('agentes_ia')
-            .insert({
-              nome: agenteToAssign.nome || `Agente ${agenteToAssign.marca} ${agenteToAssign.uf}`,
-              telefone: telefone,
-              empresa_id: selectedEmpresaId,
-              ativo: true,
-              criado_por: user?.id
-            });
-
-          if (error) throw error;
-        }
+      if (!telefone) {
+        toast({
+          title: "Erro",
+          description: "Agente não possui telefone definido",
+          variant: "destructive"
+        });
+        return;
       }
 
-      const empresaSelecionada = empresas.find(e => e.id === selectedEmpresaId);
+      // Verificar se já existe um agente com esse telefone
+      let agenteId: string;
+      const { data: existingAgent } = await supabase
+        .from('agentes_ia')
+        .select('id')
+        .eq('telefone', telefone)
+        .maybeSingle();
+
+      if (existingAgent) {
+        agenteId = existingAgent.id;
+      } else {
+        // Criar um novo agente
+        const { data: newAgent, error: insertError } = await supabase
+          .from('agentes_ia')
+          .insert({
+            nome: agenteToAssign.nome || `Agente ${agenteToAssign.marca} ${agenteToAssign.uf}`,
+            telefone: telefone,
+            ativo: true,
+            criado_por: user?.id
+          })
+          .select('id')
+          .single();
+
+        if (insertError) throw insertError;
+        agenteId = newAgent.id;
+      }
+
+      // Remover todas as atribuições atuais
+      await supabase
+        .from('agente_empresas')
+        .delete()
+        .eq('agente_id', agenteId);
+
+      // Adicionar novas atribuições
+      if (selectedEmpresaIds.length > 0) {
+        const atribuicoes = selectedEmpresaIds.map(empresaId => ({
+          agente_id: agenteId,
+          empresa_id: empresaId,
+          created_by: user?.id
+        }));
+
+        const { error: assignError } = await supabase
+          .from('agente_empresas')
+          .insert(atribuicoes);
+
+        if (assignError) throw assignError;
+      }
       
       toast({
-        title: "Agente atribuído",
-        description: `Agente ${agenteToAssign.nome || agenteToAssign.marca} foi atribuído à empresa ${empresaSelecionada?.nome_empresa || 'selecionada'}`
+        title: "Atribuições atualizadas",
+        description: `Agente ${agenteToAssign.nome || agenteToAssign.marca} foi atribuído a ${selectedEmpresaIds.length} empresa(s)`
       });
       
       setShowAssignModal(false);
       setAgenteToAssign(null);
-      setSelectedEmpresaId("");
+      setSelectedEmpresaIds([]);
       carregarAgentes();
     } catch (error) {
       console.error('Erro ao atribuir agente:', error);
       toast({
         title: "Erro ao atribuir",
-        description: "Não foi possível atribuir o agente à empresa",
+        description: "Não foi possível atribuir o agente às empresas",
         variant: "destructive"
       });
     }
   };
+
+  // Filtrar empresas para o modal de atribuição
+  const filteredEmpresasModal = empresas.filter(empresa => {
+    if (assignFilterMarca !== "all" && empresa.marca !== assignFilterMarca) return false;
+    if (assignFilterUF !== "all" && empresa.uf !== assignFilterUF) return false;
+    if (assignFilterNome && !empresa.nome_empresa.toLowerCase().includes(assignFilterNome.toLowerCase())) return false;
+    return true;
+  });
+
+  // Extrair opções únicas para os filtros do modal
+  const uniqueEmpresaMarcas = [...new Set(empresas.map(e => e.marca).filter(Boolean))].sort() as string[];
+  const uniqueEmpresaUFs = [...new Set(empresas.map(e => e.uf).filter(Boolean))].sort() as string[];
 
   useEffect(() => {
     if (canAccess) {
@@ -2339,38 +2427,118 @@ export default function AdminAgentes() {
 
           {/* Modal de Atribuição de Empresa */}
           <Dialog open={showAssignModal} onOpenChange={setShowAssignModal}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Atribuir Agente a Empresa</DialogTitle>
+            <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+              <DialogHeader className="flex-shrink-0">
+                <DialogTitle>Atribuir Agente a Empresas</DialogTitle>
                 <DialogDescription>
-                  Selecione a empresa para vincular o agente "{agenteToAssign?.nome}"
+                  Selecione as empresas para vincular o agente "{agenteToAssign?.nome || agenteToAssign?.marca}"
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Empresa</Label>
-                  <Select value={selectedEmpresaId} onValueChange={setSelectedEmpresaId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma empresa" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {empresas.map((empresa) => (
-                        <SelectItem key={empresa.id} value={empresa.id}>
-                          {empresa.nome_empresa}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+                {/* Filtros */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pb-4 flex-shrink-0">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Buscar por Nome</Label>
+                    <Input
+                      placeholder="Filtrar por nome..."
+                      value={assignFilterNome}
+                      onChange={(e) => setAssignFilterNome(e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Marca</Label>
+                    <Select value={assignFilterMarca} onValueChange={setAssignFilterMarca}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Todas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {uniqueEmpresaMarcas.map((marca) => (
+                          <SelectItem key={marca} value={marca}>{marca}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">UF</Label>
+                    <Select value={assignFilterUF} onValueChange={setAssignFilterUF}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Todas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {uniqueEmpresaUFs.map((uf) => (
+                          <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+
+                {/* Contador de selecionados */}
+                <div className="flex items-center justify-between pb-2 border-b flex-shrink-0">
+                  <span className="text-sm text-muted-foreground">
+                    {filteredEmpresasModal.length} empresa(s) encontrada(s)
+                  </span>
+                  <Badge variant="secondary">
+                    {selectedEmpresaIds.length} selecionada(s)
+                  </Badge>
+                </div>
+
+                {/* Lista de empresas */}
+                {loadingAssignedEmpresas ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="flex-1 overflow-y-auto mt-2 space-y-1 min-h-0">
+                    {filteredEmpresasModal.map((empresa) => (
+                      <div 
+                        key={empresa.id}
+                        className={`flex items-center gap-3 p-2 rounded-md border cursor-pointer transition-colors ${
+                          selectedEmpresaIds.includes(empresa.id)
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:bg-muted/50'
+                        }`}
+                        onClick={() => handleToggleEmpresa(empresa.id)}
+                      >
+                        <div className={`w-5 h-5 rounded border flex items-center justify-center ${
+                          selectedEmpresaIds.includes(empresa.id)
+                            ? 'bg-primary border-primary text-primary-foreground'
+                            : 'border-input'
+                        }`}>
+                          {selectedEmpresaIds.includes(empresa.id) && (
+                            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">{empresa.nome_empresa}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {empresa.marca} • {empresa.cidade} - {empresa.uf}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {filteredEmpresasModal.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Nenhuma empresa encontrada</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <DialogFooter>
+              <DialogFooter className="flex-shrink-0 pt-4 border-t">
                 <Button variant="outline" onClick={() => setShowAssignModal(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleAssignAgente} disabled={!selectedEmpresaId}>
-                  Confirmar
+                <Button onClick={handleAssignAgente}>
+                  Confirmar ({selectedEmpresaIds.length})
                 </Button>
               </DialogFooter>
             </DialogContent>

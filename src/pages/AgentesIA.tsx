@@ -3,29 +3,41 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Bot, Phone, Store, RefreshCw } from "lucide-react";
+import { Bot, Phone, Store, RefreshCw, User, Brain } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
-interface AgenteWebhook {
-  id?: string;
+interface AgenteLocal {
+  id: string;
   nome: string;
-  telefone: string;
-  marca?: string;
-  loja?: string;
-  empresa_id?: string;
-  ativo?: boolean;
+  telefone: string | null;
+  persona: string | null;
+  cerebro: string | null;
+  foto_url: string | null;
+  ativo: boolean;
+  dealer_id: string | null;
 }
 
 export default function AgentesIA() {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  const [agentes, setAgentes] = useState<AgenteWebhook[]>([]);
+  const [agentes, setAgentes] = useState<AgenteLocal[]>([]);
   const [loading, setLoading] = useState(false);
   const [userEmpresaId, setUserEmpresaId] = useState<string | null>(null);
+  const [selectedAgente, setSelectedAgente] = useState<AgenteLocal | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   const getUserEmpresa = async () => {
     if (!user) return;
@@ -49,70 +61,44 @@ export default function AgentesIA() {
     try {
       setLoading(true);
       
-      // Buscar agentes do banco de dados Supabase atribuídos à empresa
-      const { data: agentesLocais, error: errorLocal } = await supabase
-        .from('agentes_ia')
-        .select('*')
+      // Buscar agentes atribuídos à empresa do usuário via tabela de relacionamento
+      const { data: agenteEmpresas, error: errorRelacionamento } = await supabase
+        .from('agente_empresas')
+        .select(`
+          agente_id,
+          agentes_ia (
+            id,
+            nome,
+            telefone,
+            persona,
+            cerebro,
+            foto_url,
+            ativo,
+            dealer_id
+          )
+        `)
         .eq('empresa_id', userEmpresaId);
 
-      if (errorLocal) {
-        console.error('Erro ao buscar agentes locais:', errorLocal);
+      if (errorRelacionamento) {
+        console.error('Erro ao buscar agentes:', errorRelacionamento);
+        throw errorRelacionamento;
       }
 
-      // Tentar buscar também do webhook externo
-      let agentesWebhook: AgenteWebhook[] = [];
-      try {
-        const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/busca-dados-agentes', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
+      // Extrair agentes únicos do resultado
+      const agentesUnicos: AgenteLocal[] = [];
+      const idsAdicionados = new Set<string>();
+
+      if (agenteEmpresas) {
+        for (const item of agenteEmpresas) {
+          const agente = item.agentes_ia as unknown as AgenteLocal;
+          if (agente && !idsAdicionados.has(agente.id)) {
+            agentesUnicos.push(agente);
+            idsAdicionados.add(agente.id);
           }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const agentesArray = Array.isArray(data) ? data : [data];
-          
-          // Filtrar apenas agentes da empresa do usuário logado
-          agentesWebhook = agentesArray.filter(
-            (agente: AgenteWebhook) => agente.empresa_id === userEmpresaId
-          );
-        }
-      } catch (webhookError) {
-        console.error('Erro ao buscar agentes do webhook:', webhookError);
-      }
-
-      // Combinar agentes locais e do webhook (evitando duplicatas pelo telefone)
-      const todosAgentes: AgenteWebhook[] = [];
-      const telefonesAdicionados = new Set<string>();
-
-      // Primeiro adicionar agentes locais
-      if (agentesLocais) {
-        for (const agente of agentesLocais) {
-          const telefone = agente.telefone || '';
-          if (!telefonesAdicionados.has(telefone)) {
-            todosAgentes.push({
-              id: agente.id,
-              nome: agente.nome,
-              telefone: agente.telefone || '',
-              empresa_id: agente.empresa_id || undefined,
-              ativo: agente.ativo
-            });
-            telefonesAdicionados.add(telefone);
-          }
-        }
-      }
-
-      // Depois adicionar agentes do webhook que não estão na lista
-      for (const agente of agentesWebhook) {
-        const telefone = agente.telefone || '';
-        if (!telefonesAdicionados.has(telefone)) {
-          todosAgentes.push(agente);
-          telefonesAdicionados.add(telefone);
         }
       }
       
-      setAgentes(todosAgentes);
+      setAgentes(agentesUnicos);
     } catch (error) {
       console.error('Erro ao carregar agentes:', error);
       toast({
@@ -123,6 +109,11 @@ export default function AgentesIA() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpenAgente = (agente: AgenteLocal) => {
+    setSelectedAgente(agente);
+    setShowModal(true);
   };
 
   useEffect(() => {
@@ -170,22 +161,29 @@ export default function AgentesIA() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {agentes.map((agente, index) => (
-                <Card key={agente.id || index} className="hover:shadow-card transition-shadow">
+              {agentes.map((agente) => (
+                <Card 
+                  key={agente.id} 
+                  className="hover:shadow-card transition-shadow cursor-pointer"
+                  onClick={() => handleOpenAgente(agente)}
+                >
                   <CardHeader className="pb-3">
                     <div className="flex items-center space-x-4">
-                      <div className="h-14 w-14 bg-primary/10 rounded-lg flex items-center justify-center">
-                        <Bot className="h-7 w-7 text-primary" />
-                      </div>
+                      <Avatar className="h-14 w-14">
+                        <AvatarImage src={agente.foto_url || undefined} alt={agente.nome} />
+                        <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                          {agente.nome.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                       <div className="flex-1">
                         <CardTitle className="text-lg">{agente.nome}</CardTitle>
                         <Badge 
-                          className={agente.ativo !== false 
+                          className={agente.ativo 
                             ? "bg-green-500 hover:bg-green-600 text-white mt-1" 
                             : "bg-red-500 hover:bg-red-600 text-white mt-1"
                           }
                         >
-                          {agente.ativo !== false ? "Ativo" : "Desativado"}
+                          {agente.ativo ? "Ativo" : "Desativado"}
                         </Badge>
                       </div>
                     </div>
@@ -198,13 +196,16 @@ export default function AgentesIA() {
                           <span>{agente.telefone}</span>
                         </div>
                       )}
-                      {agente.marca && (
+                      {agente.dealer_id && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Store className="h-4 w-4" />
-                          <span>
-                            {agente.marca}
-                            {agente.loja && ` - ${agente.loja}`}
-                          </span>
+                          <span>DealerID: {agente.dealer_id}</span>
+                        </div>
+                      )}
+                      {agente.persona && (
+                        <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <User className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span className="line-clamp-2">{agente.persona}</span>
                         </div>
                       )}
                     </div>
@@ -215,6 +216,84 @@ export default function AgentesIA() {
           )}
         </div>
       </ScrollIndicator>
+
+      {/* Modal de Detalhes do Agente (Somente Leitura) */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={selectedAgente?.foto_url || undefined} alt={selectedAgente?.nome} />
+                <AvatarFallback className="bg-primary/10 text-primary">
+                  {selectedAgente?.nome?.charAt(0).toUpperCase() || 'A'}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <span>{selectedAgente?.nome}</span>
+                <Badge 
+                  className={`ml-2 ${selectedAgente?.ativo 
+                    ? "bg-green-500 hover:bg-green-600 text-white" 
+                    : "bg-red-500 hover:bg-red-600 text-white"
+                  }`}
+                >
+                  {selectedAgente?.ativo ? "Ativo" : "Desativado"}
+                </Badge>
+              </div>
+            </DialogTitle>
+            <DialogDescription>
+              Informações do agente de IA
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Dados Básicos */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-xs">Telefone</Label>
+                <p className="font-medium">{selectedAgente?.telefone || '-'}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-xs">DealerID</Label>
+                <p className="font-medium">{selectedAgente?.dealer_id || '-'}</p>
+              </div>
+            </div>
+
+            {/* Persona */}
+            {selectedAgente?.persona && (
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-xs flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Persona do Agente
+                </Label>
+                <Card className="p-4 bg-muted/30">
+                  <p className="text-sm whitespace-pre-wrap">{selectedAgente.persona}</p>
+                </Card>
+              </div>
+            )}
+
+            {/* Cérebro */}
+            {selectedAgente?.cerebro && (
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-xs flex items-center gap-2">
+                  <Brain className="h-4 w-4" />
+                  Cérebro do Agente
+                </Label>
+                <Card className="p-4 bg-muted/30 max-h-[200px] overflow-y-auto">
+                  <p className="text-sm whitespace-pre-wrap">{selectedAgente.cerebro}</p>
+                </Card>
+              </div>
+            )}
+
+            {/* Nota de somente leitura */}
+            <div className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 p-3 rounded-lg text-sm flex items-center gap-2">
+              <svg className="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <span>Estas informações são somente para visualização. Entre em contato com o administrador para solicitar alterações.</span>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

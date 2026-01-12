@@ -132,6 +132,45 @@ export type Database = {
           },
         ]
       }
+      agente_empresas: {
+        Row: {
+          agente_id: string
+          created_at: string
+          created_by: string | null
+          empresa_id: string
+          id: string
+        }
+        Insert: {
+          agente_id: string
+          created_at?: string
+          created_by?: string | null
+          empresa_id: string
+          id?: string
+        }
+        Update: {
+          agente_id?: string
+          created_at?: string
+          created_by?: string | null
+          empresa_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agente_empresas_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "agentes_ia"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agente_empresas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agente_followups: {
         Row: {
           acoes: Json | null
