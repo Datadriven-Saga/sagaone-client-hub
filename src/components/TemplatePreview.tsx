@@ -246,21 +246,6 @@ export function TemplatePreview({
           </div>
         </div>
         
-        {/* Footer */}
-        <div className="px-4 py-3 border-t bg-background">
-          <Button 
-            type="button"
-            variant="outline" 
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onClose();
-            }}
-            className="w-full"
-          >
-            Fechar Preview
-          </Button>
-        </div>
       </DialogContent>
     </Dialog>
   );
