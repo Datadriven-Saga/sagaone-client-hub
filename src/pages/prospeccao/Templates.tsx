@@ -659,37 +659,49 @@ export default function Templates() {
     formato: string;
     conteudo: string;
     cardData: Record<string, any>;
+    agenteId: string | null;
   }): Promise<{ template_id_pri?: string; id_meta?: string; status_meta?: string; category_meta?: string } | null> => {
     if (!activeCompany?.id) return null;
 
     try {
-      // Buscar dados da Pri (agente de IA)
-      const { data: priAgent } = await supabase
-        .from("agentes_ia")
-        .select("telefone, dealer_id, ativo")
-        .eq("empresa_id", activeCompany.id)
-        .eq("nome", "Pri")
-        .single();
+      // Buscar dados completos do agente selecionado
+      let agenteData: { telefone: string | null; dealer_id: string | null; ativo: boolean; nome: string } | null = null;
+      
+      if (templateData.agenteId) {
+        const { data } = await supabase
+          .from("agentes_ia")
+          .select("telefone, dealer_id, ativo, nome")
+          .eq("id", templateData.agenteId)
+          .single();
+        agenteData = data;
+      }
+
+      if (!agenteData) {
+        console.error("Agente não encontrado para o template");
+        return null;
+      }
 
       // Construir payload Meta-compatível (async para buscar binários de mídia)
       const metaPayload = await buildMetaPayload(templateData);
 
-      // Adicionar dados da Pri e empresa ao payload
-      const payloadWithPri = {
+      // Adicionar dados do agente selecionado ao payload
+      const payloadWithAgente = {
         ...metaPayload,
         empresa_id: activeCompany.id,
-        pri_telefone: normalizePhone(priAgent?.telefone),
-        pri_dealer_id: priAgent?.dealer_id || null,
-        pri_status: priAgent?.ativo ? "Ativo" : "Inativo",
+        agente_id: templateData.agenteId,
+        agente_nome: agenteData.nome,
+        pri_telefone: normalizePhone(agenteData.telefone),
+        pri_dealer_id: agenteData.dealer_id || null,
+        pri_status: agenteData.ativo ? "Ativo" : "Inativo",
       };
 
-      console.log("Chamando Edge Function trigger-webhook com payload:", JSON.stringify(payloadWithPri, null, 2));
+      console.log("Chamando Edge Function trigger-webhook com payload:", JSON.stringify(payloadWithAgente, null, 2));
 
       // Chamar Edge Function que serve como proxy para os webhooks
       const { data: webhookResult, error: webhookError } = await supabase.functions.invoke('trigger-webhook', {
         body: {
           gatilho: 'novo_template_whatsapp',
-          dados: payloadWithPri
+          dados: payloadWithAgente
         }
       });
 
@@ -872,6 +884,7 @@ export default function Templates() {
         formato: formData.formato,
         conteudo: conteudo,
         cardData: cardData,
+        agenteId: selectedAgenteId,
       });
 
       // Se o webhook retornou dados do Meta, atualizar o template
@@ -915,16 +928,20 @@ export default function Templates() {
 
     setIsUpdatingStatus(true);
     try {
-      // Buscar dados da Pri (agente de IA)
-      const { data: priAgent } = await supabase
-        .from("agentes_ia")
-        .select("telefone, dealer_id, ativo")
-        .eq("empresa_id", activeCompany.id)
-        .eq("nome", "Pri")
-        .single();
+      // Buscar dados do agente selecionado
+      let agenteData: { telefone: string | null; dealer_id: string | null; ativo: boolean; nome: string } | null = null;
+      
+      if (selectedAgenteId) {
+        const { data } = await supabase
+          .from("agentes_ia")
+          .select("telefone, dealer_id, ativo, nome")
+          .eq("id", selectedAgenteId)
+          .single();
+        agenteData = data;
+      }
 
-      if (!priAgent?.dealer_id) {
-        toast.error("Agente Pri não encontrado ou sem dealer_id configurado");
+      if (!agenteData?.dealer_id) {
+        toast.error("Agente não encontrado ou sem dealer_id configurado. Selecione um agente válido.");
         return;
       }
 
@@ -952,9 +969,11 @@ export default function Templates() {
       }
 
       const payload = {
-        pri_telefone: priAgent.telefone || null,
-        pri_dealer_id: priAgent.dealer_id,
-        pri_status: priAgent.ativo ? "Ativo" : "Inativo",
+        agente_id: selectedAgenteId,
+        agente_nome: agenteData.nome,
+        pri_telefone: normalizePhone(agenteData.telefone),
+        pri_dealer_id: agenteData.dealer_id,
+        pri_status: agenteData.ativo ? "Ativo" : "Inativo",
         data: new Date().toISOString(),
       };
 
