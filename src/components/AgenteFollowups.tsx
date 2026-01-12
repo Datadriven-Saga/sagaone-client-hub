@@ -422,8 +422,13 @@ export function AgenteFollowups({ agenteId }: AgenteFollowupsProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={followup.ativo ? "default" : "secondary"}>
-                    {followup.ativo ? "Ativo" : "Inativo"}
+                  <Badge 
+                    className={followup.ativo 
+                      ? "bg-green-500 hover:bg-green-600 text-white" 
+                      : "bg-red-500 hover:bg-red-600 text-white"
+                    }
+                  >
+                    {followup.ativo ? "Ativo" : "Desativado"}
                   </Badge>
                   <Button 
                     variant="outline" 

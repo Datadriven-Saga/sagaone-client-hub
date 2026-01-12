@@ -167,8 +167,8 @@ export function OrigensTab() {
                 <TableCell className="font-medium">{origem.nome}</TableCell>
                 <TableCell className="text-muted-foreground">{origem.descricao || '-'}</TableCell>
                 <TableCell>
-                  <span className={origem.ativo ? "text-green-600" : "text-muted-foreground"}>
-                    {origem.ativo ? "Ativo" : "Inativo"}
+                  <span className={origem.ativo ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                    {origem.ativo ? "Ativo" : "Desativado"}
                   </span>
                 </TableCell>
                 <TableCell>

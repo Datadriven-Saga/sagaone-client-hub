@@ -341,8 +341,8 @@ const Personas = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Status:</span>
-                    <span className={persona.acaoAtiva ? "text-green-600" : "text-red-600"}>
-                      {persona.acaoAtiva ? "Ativo" : "Inativo"}
+                    <span className={persona.acaoAtiva ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                      {persona.acaoAtiva ? "Ativo" : "Desativado"}
                     </span>
                   </div>
                   <div className="flex justify-between">
