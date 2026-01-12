@@ -1970,7 +1970,7 @@ export default function Templates() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleUpdateStatusMeta} disabled={isUpdatingStatus}>
+            <Button variant="outline" onClick={() => handleUpdateStatusMeta({ showToasts: true })} disabled={isUpdatingStatus}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isUpdatingStatus ? 'animate-spin' : ''}`} />
               {isUpdatingStatus ? "Atualizando..." : "Atualizar Status"}
             </Button>
