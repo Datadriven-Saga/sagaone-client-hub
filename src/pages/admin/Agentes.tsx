@@ -1510,8 +1510,8 @@ export default function AdminAgentes() {
                     <TableRow>
                       <TableHead>Marca</TableHead>
                       <TableHead>UF</TableHead>
-                      <TableHead>Número Agente</TableHead>
-                      <TableHead>Nome Agente</TableHead>
+                      <TableHead>Número</TableHead>
+                      <TableHead>Nome</TableHead>
                       <TableHead>Instância</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
