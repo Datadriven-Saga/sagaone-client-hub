@@ -81,7 +81,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
   const [agentesIAWhatsapp, setAgentesIAWhatsapp] = useState<{ id: string; nome: string; telefone: string | null }[]>([]);
   const [selectedAgenteId, setSelectedAgenteId] = useState<string | null>(null);
 
-  // Buscar agentes Pri (nome contendo "pri") da empresa
+  // Buscar todos os agentes ativos da empresa
   useEffect(() => {
     const fetchAgentesIA = async () => {
       if (!empresaId) return;
@@ -90,7 +90,6 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
         .from("agentes_ia")
         .select("id, nome, telefone")
         .eq("empresa_id", empresaId)
-        .ilike("nome", "%pri%")
         .eq("ativo", true)
         .order("nome");
 
