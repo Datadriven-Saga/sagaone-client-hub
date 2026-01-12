@@ -49,26 +49,70 @@ export default function AgentesIA() {
     try {
       setLoading(true);
       
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/busca-dados-agentes', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+      // Buscar agentes do banco de dados Supabase atribuídos à empresa
+      const { data: agentesLocais, error: errorLocal } = await supabase
+        .from('agentes_ia')
+        .select('*')
+        .eq('empresa_id', userEmpresaId);
 
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
+      if (errorLocal) {
+        console.error('Erro ao buscar agentes locais:', errorLocal);
       }
 
-      const data = await response.json();
-      const agentesArray = Array.isArray(data) ? data : [data];
+      // Tentar buscar também do webhook externo
+      let agentesWebhook: AgenteWebhook[] = [];
+      try {
+        const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/busca-dados-agentes', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const agentesArray = Array.isArray(data) ? data : [data];
+          
+          // Filtrar apenas agentes da empresa do usuário logado
+          agentesWebhook = agentesArray.filter(
+            (agente: AgenteWebhook) => agente.empresa_id === userEmpresaId
+          );
+        }
+      } catch (webhookError) {
+        console.error('Erro ao buscar agentes do webhook:', webhookError);
+      }
+
+      // Combinar agentes locais e do webhook (evitando duplicatas pelo telefone)
+      const todosAgentes: AgenteWebhook[] = [];
+      const telefonesAdicionados = new Set<string>();
+
+      // Primeiro adicionar agentes locais
+      if (agentesLocais) {
+        for (const agente of agentesLocais) {
+          const telefone = agente.telefone || '';
+          if (!telefonesAdicionados.has(telefone)) {
+            todosAgentes.push({
+              id: agente.id,
+              nome: agente.nome,
+              telefone: agente.telefone || '',
+              empresa_id: agente.empresa_id || undefined,
+              ativo: agente.ativo
+            });
+            telefonesAdicionados.add(telefone);
+          }
+        }
+      }
+
+      // Depois adicionar agentes do webhook que não estão na lista
+      for (const agente of agentesWebhook) {
+        const telefone = agente.telefone || '';
+        if (!telefonesAdicionados.has(telefone)) {
+          todosAgentes.push(agente);
+          telefonesAdicionados.add(telefone);
+        }
+      }
       
-      // Filtrar apenas agentes da empresa do usuário logado
-      const agentesFiltrados = agentesArray.filter(
-        (agente: AgenteWebhook) => agente.empresa_id === userEmpresaId
-      );
-      
-      setAgentes(agentesFiltrados);
+      setAgentes(todosAgentes);
     } catch (error) {
       console.error('Erro ao carregar agentes:', error);
       toast({
