@@ -261,6 +261,7 @@ export default function Templates() {
             id,
             nome,
             telefone,
+            dealer_id,
             ativo
           )
         `)
@@ -275,14 +276,22 @@ export default function Templates() {
       const agentes = (data || [])
         .map((ae: any) => ae.agentes_ia)
         .filter((a: any) => a && a.ativo)
-        .filter((a: any, index: number, self: any[]) => 
-          index === self.findIndex((t) => t.id === a.id)
+        .filter(
+          (a: any, index: number, self: any[]) =>
+            index === self.findIndex((t) => t.id === a.id)
         );
 
       return agentes;
     },
     enabled: !!activeCompany?.id,
   });
+
+  // Selecionar primeiro agente disponível por padrão (para Atualizar Status funcionar sem abrir modal)
+  useEffect(() => {
+    if (!selectedAgenteId && agentesIAWhatsapp.length > 0) {
+      setSelectedAgenteId(agentesIAWhatsapp[0].id);
+    }
+  }, [selectedAgenteId, agentesIAWhatsapp]);
 
   // Buscar o telefone do agente selecionado ou primeiro disponível
   const { data: priTelefone } = useQuery({
@@ -972,25 +981,20 @@ export default function Templates() {
   };
 
   // Função para atualizar status dos templates via webhook
-  const handleUpdateStatusMeta = async () => {
+  const handleUpdateStatusMeta = async (options?: { showToasts?: boolean }) => {
+    const showToasts = options?.showToasts ?? true;
+
     if (!activeCompany?.id || isUpdatingStatus) return;
 
     setIsUpdatingStatus(true);
     try {
-      // Buscar dados do agente selecionado
-      let agenteData: { telefone: string | null; dealer_id: string | null; ativo: boolean; nome: string } | null = null;
-      
-      if (selectedAgenteId) {
-        const { data } = await supabase
-          .from("agentes_ia")
-          .select("telefone, dealer_id, ativo, nome")
-          .eq("id", selectedAgenteId)
-          .single();
-        agenteData = data;
-      }
+      const agenteId = selectedAgenteId ?? agentesIAWhatsapp[0]?.id ?? null;
+      const agente = agenteId ? agentesIAWhatsapp.find((a: any) => a.id === agenteId) : null;
 
-      if (!agenteData?.dealer_id) {
-        toast.error("Agente não encontrado ou sem dealer_id configurado. Selecione um agente válido.");
+      if (!agente?.dealer_id) {
+        const msg = "Agente não encontrado ou sem dealer_id configurado. Selecione um agente válido.";
+        if (showToasts) toast.error(msg);
+        else console.warn(msg);
         return;
       }
 
@@ -1003,7 +1007,7 @@ export default function Templates() {
 
       if (error) {
         console.error("Erro ao buscar gatilhos:", error);
-        toast.error("Erro ao buscar gatilhos");
+        if (showToasts) toast.error("Erro ao buscar gatilhos");
         return;
       }
 
@@ -1013,16 +1017,16 @@ export default function Templates() {
       });
 
       if (gatilhosFiltrados.length === 0) {
-        toast.error("Nenhum gatilho 'Atualiza Status Meta' ativo encontrado");
+        if (showToasts) toast.error("Nenhum gatilho 'Atualiza Status Meta' ativo encontrado");
         return;
       }
 
       const payload = {
-        agente_id: selectedAgenteId,
-        agente_nome: agenteData.nome,
-        pri_telefone: normalizePhone(agenteData.telefone),
-        pri_dealer_id: agenteData.dealer_id,
-        pri_status: agenteData.ativo ? "Ativo" : "Inativo",
+        agente_id: agente.id,
+        agente_nome: agente.nome,
+        pri_telefone: normalizePhone(agente.telefone),
+        pri_dealer_id: agente.dealer_id,
+        pri_status: agente.ativo ? "Ativo" : "Inativo",
         data: new Date().toISOString(),
       };
 
@@ -1051,7 +1055,7 @@ export default function Templates() {
 
             // O retorno pode estar em responseData.data ou ser diretamente um array
             const templatesArray = responseData.data || responseData;
-            
+
             if (Array.isArray(templatesArray)) {
               let updatedCount = 0;
               for (const item of templatesArray) {
@@ -1060,25 +1064,25 @@ export default function Templates() {
                 const metaStatus = item.status || item.status_meta;
                 const metaName = item.name; // nome do template na Meta (formato snake_case)
                 const metaCategory = item.category;
-                
+
                 if (!metaId || !metaStatus) continue;
-                
+
                 // Primeiro tenta atualizar pelo id_meta
                 const { data: updatedById, error: updateByIdErr } = await supabase
                   .from("whatsapp_templates")
-                  .update({ 
+                  .update({
                     status_meta: metaStatus,
-                    category_meta: metaCategory || null
+                    category_meta: metaCategory || null,
                   })
                   .eq("id_meta", metaId)
                   .eq("empresa_id", activeCompany.id)
                   .select("id");
-                
+
                 if (!updateByIdErr && updatedById && updatedById.length > 0) {
                   updatedCount++;
                   continue;
                 }
-                
+
                 // Se não encontrou pelo id_meta, tenta pelo nome normalizado
                 if (metaName) {
                   // Buscar templates da empresa que ainda não têm id_meta
@@ -1087,41 +1091,41 @@ export default function Templates() {
                     .select("id, nome")
                     .eq("empresa_id", activeCompany.id)
                     .is("id_meta", null);
-                  
+
                   if (localTemplates) {
                     // Procurar template cujo nome normalizado corresponda ao nome da Meta
-                    const matchingTemplate = localTemplates.find(t => {
+                    const matchingTemplate = localTemplates.find((t) => {
                       const normalizedLocalName = formatNameForMeta(t.nome);
                       return normalizedLocalName === metaName;
                     });
-                    
+
                     if (matchingTemplate) {
                       const { error: updateByNameErr } = await supabase
                         .from("whatsapp_templates")
-                        .update({ 
+                        .update({
                           id_meta: metaId,
                           status_meta: metaStatus,
-                          category_meta: metaCategory || null
+                          category_meta: metaCategory || null,
                         })
                         .eq("id", matchingTemplate.id)
                         .eq("empresa_id", activeCompany.id);
-                      
+
                       if (!updateByNameErr) updatedCount++;
                     }
                   }
                 }
               }
-              toast.success(`Status atualizado para ${updatedCount} templates`);
+              if (showToasts) toast.success(`Status atualizado para ${updatedCount} templates`);
             } else if (templatesArray.id_meta && templatesArray.status_meta) {
               await supabase
                 .from("whatsapp_templates")
-                .update({ 
+                .update({
                   status_meta: templatesArray.status_meta,
-                  category_meta: templatesArray.category || null
+                  category_meta: templatesArray.category || null,
                 })
                 .eq("id_meta", templatesArray.id_meta)
                 .eq("empresa_id", activeCompany.id);
-              toast.success("Status atualizado com sucesso");
+              if (showToasts) toast.success("Status atualizado com sucesso");
             }
 
             await supabase
@@ -1133,16 +1137,16 @@ export default function Templates() {
           } else {
             const errorBody = await response.text();
             console.error("Erro no webhook:", response.status, errorBody);
-            toast.error(`Erro ao atualizar status: ${response.status}`);
+            if (showToasts) toast.error(`Erro ao atualizar status: ${response.status}`);
           }
         } catch (err: any) {
           console.error("Erro ao chamar webhook:", err);
-          toast.error("Erro ao conectar com o webhook");
+          if (showToasts) toast.error("Erro ao conectar com o webhook");
         }
       }
     } catch (err) {
       console.error("Erro ao atualizar status:", err);
-      toast.error("Erro ao atualizar status dos templates");
+      if (showToasts) toast.error("Erro ao atualizar status dos templates");
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -1153,7 +1157,7 @@ export default function Templates() {
     if (activeCompany?.id && templates.length > 0) {
       // Delay pequeno para garantir que os dados estejam carregados
       const timer = setTimeout(() => {
-        handleUpdateStatusMeta();
+        handleUpdateStatusMeta({ showToasts: false });
       }, 1000);
       return () => clearTimeout(timer);
     }
