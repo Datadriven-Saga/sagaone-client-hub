@@ -286,12 +286,12 @@ export default function Templates() {
     enabled: !!activeCompany?.id,
   });
 
-  // Selecionar primeiro agente disponível por padrão (para Atualizar Status funcionar sem abrir modal)
+  // Selecionar primeiro agente disponível por padrão
   useEffect(() => {
-    if (!selectedAgenteId && agentesIAWhatsapp.length > 0) {
+    if (agentesIAWhatsapp.length > 0 && !agentesIAWhatsapp.some((a: any) => a.id === selectedAgenteId)) {
       setSelectedAgenteId(agentesIAWhatsapp[0].id);
     }
-  }, [selectedAgenteId, agentesIAWhatsapp]);
+  }, [agentesIAWhatsapp, selectedAgenteId]);
 
   // Buscar o telefone do agente selecionado ou primeiro disponível
   const { data: priTelefone } = useQuery({
@@ -986,17 +986,22 @@ export default function Templates() {
 
     if (!activeCompany?.id || isUpdatingStatus) return;
 
+    // Usa o agente selecionado ou o primeiro disponível
+    const agenteId = selectedAgenteId || agentesIAWhatsapp[0]?.id;
+    const agente = agenteId ? agentesIAWhatsapp.find((a: any) => a.id === agenteId) : null;
+
+    if (!agente) {
+      if (showToasts) toast.error("Nenhum agente IA ativo encontrado para esta empresa.");
+      return;
+    }
+
+    if (!agente.dealer_id) {
+      if (showToasts) toast.error(`O agente "${agente.nome}" não possui dealer_id configurado.`);
+      return;
+    }
+
     setIsUpdatingStatus(true);
     try {
-      const agenteId = selectedAgenteId ?? agentesIAWhatsapp[0]?.id ?? null;
-      const agente = agenteId ? agentesIAWhatsapp.find((a: any) => a.id === agenteId) : null;
-
-      if (!agente?.dealer_id) {
-        const msg = "Agente não encontrado ou sem dealer_id configurado. Selecione um agente válido.";
-        if (showToasts) toast.error(msg);
-        else console.warn(msg);
-        return;
-      }
 
       // Buscar gatilhos ativos do tipo atualiza_status_meta
       const { data: gatilhos, error } = await supabase
@@ -1962,19 +1967,41 @@ export default function Templates() {
   return (
     <DashboardLayout>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Templates WhatsApp</h1>
             <p className="text-sm text-muted-foreground">
               Gerencie os templates de mensagens para integração com a Meta
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => handleUpdateStatusMeta({ showToasts: true })} disabled={isUpdatingStatus}>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Seletor de Agente */}
+            {agentesIAWhatsapp.length > 0 && (
+              <Select
+                value={selectedAgenteId || agentesIAWhatsapp[0]?.id || ""}
+                onValueChange={(value) => setSelectedAgenteId(value)}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Selecione o agente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {agentesIAWhatsapp.map((agente: any) => (
+                    <SelectItem key={agente.id} value={agente.id}>
+                      {agente.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button 
+              variant="outline" 
+              onClick={() => handleUpdateStatusMeta({ showToasts: true })} 
+              disabled={isUpdatingStatus || agentesIAWhatsapp.length === 0}
+            >
               <RefreshCw className={`h-4 w-4 mr-2 ${isUpdatingStatus ? 'animate-spin' : ''}`} />
               {isUpdatingStatus ? "Atualizando..." : "Atualizar Status"}
             </Button>
-            <Button onClick={handleOpenModal}>
+            <Button onClick={handleOpenModal} disabled={agentesIAWhatsapp.length === 0}>
               <Plus className="h-4 w-4 mr-2" />
               Novo Template
             </Button>
