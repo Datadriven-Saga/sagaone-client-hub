@@ -119,10 +119,10 @@ export function EmpresasSelector({ companies, selectedCompanies, onSelectionChan
   const allFilteredSelected = filteredCompanies.length > 0 && filteredCompanies.every(c => selectedCompanies.includes(c.id));
 
   return (
-    <Card className="p-4 flex flex-col max-h-[400px]">
-      <div className="flex flex-col flex-1 min-h-0">
-        {/* Cabeçalho com controles - fixo */}
-        <div className="flex items-center justify-between mb-4 flex-shrink-0">
+    <Card className="p-4">
+      <div className="flex flex-col">
+        {/* Cabeçalho com controles */}
+        <div className="flex items-center justify-between mb-4">
           <Label className="text-base font-semibold flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             Empresas com Acesso * ({selectedCompanies.length} selecionadas)
@@ -142,7 +142,7 @@ export function EmpresasSelector({ companies, selectedCompanies, onSelectionChan
 
         {/* Filtros */}
         {showFilters && (
-          <Card className="p-3 bg-muted/50 mb-4 flex-shrink-0">
+          <Card className="p-3 bg-muted/50 mb-4">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Filtrar empresas</Label>
@@ -210,13 +210,35 @@ export function EmpresasSelector({ companies, selectedCompanies, onSelectionChan
           </Card>
         )}
 
-        {/* Contador de empresas */}
-        <div className="text-sm text-muted-foreground mb-2 flex-shrink-0">
-          Mostrando {filteredCompanies.length} de {companies.length} empresas
+        {/* Contador de empresas e botão de seleção */}
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-muted-foreground">
+            Mostrando {filteredCompanies.length} de {companies.length} empresas
+          </span>
+          {filteredCompanies.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={allFilteredSelected ? unselectAllFiltered : selectAllFiltered}
+            >
+              {allFilteredSelected ? (
+                <>
+                  <Square className="h-4 w-4 mr-1" />
+                  Desmarcar Filtradas
+                </>
+              ) : (
+                <>
+                  <CheckSquare className="h-4 w-4 mr-1" />
+                  Selecionar Filtradas
+                </>
+              )}
+            </Button>
+          )}
         </div>
 
         {/* Lista de empresas - área de scroll com indicador */}
-        <div className="relative flex-1 min-h-0">
+        <div className="relative">
           <div 
             ref={scrollContainerRef}
             onScroll={handleScroll}
@@ -271,30 +293,6 @@ export function EmpresasSelector({ companies, selectedCompanies, onSelectionChan
             >
               <ChevronDown className="w-5 h-5 text-primary-foreground/50" />
             </button>
-          )}
-        </div>
-
-        {/* Rodapé fixo com botões */}
-        <div className="flex items-center justify-end gap-2 pt-3 mt-3 border-t flex-shrink-0">
-          {filteredCompanies.length > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={allFilteredSelected ? unselectAllFiltered : selectAllFiltered}
-            >
-              {allFilteredSelected ? (
-                <>
-                  <Square className="h-4 w-4 mr-1" />
-                  Desmarcar Filtradas
-                </>
-              ) : (
-                <>
-                  <CheckSquare className="h-4 w-4 mr-1" />
-                  Selecionar Filtradas
-                </>
-              )}
-            </Button>
           )}
         </div>
       </div>
