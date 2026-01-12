@@ -2789,6 +2789,10 @@ export type Database = {
         Args: { new_empresa_id: string }
         Returns: undefined
       }
+      user_can_access_empresa: {
+        Args: { target_empresa_id: string; user_id?: string }
+        Returns: boolean
+      }
       user_in_same_company: {
         Args: { target_empresa_id: string }
         Returns: boolean
