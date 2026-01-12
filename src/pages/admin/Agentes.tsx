@@ -142,6 +142,10 @@ export default function AdminAgentes() {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterEmpresa, setFilterEmpresa] = useState<string>("all");
+  const [filterMarca, setFilterMarca] = useState<string>("all");
+  const [filterUF, setFilterUF] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterNumero, setFilterNumero] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -260,33 +264,95 @@ export default function AdminAgentes() {
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    filterAgentes(term, filterEmpresa);
+    applyFilters(term, filterEmpresa, filterMarca, filterUF, filterStatus, filterNumero);
   };
 
   const handleFilterEmpresa = (empresaId: string) => {
     setFilterEmpresa(empresaId);
-    filterAgentes(searchTerm, empresaId);
+    applyFilters(searchTerm, empresaId, filterMarca, filterUF, filterStatus, filterNumero);
   };
 
-  const filterAgentes = (term: string, empresaId: string) => {
+  const handleFilterMarca = (marca: string) => {
+    setFilterMarca(marca);
+    applyFilters(searchTerm, filterEmpresa, marca, filterUF, filterStatus, filterNumero);
+  };
+
+  const handleFilterUF = (uf: string) => {
+    setFilterUF(uf);
+    applyFilters(searchTerm, filterEmpresa, filterMarca, uf, filterStatus, filterNumero);
+  };
+
+  const handleFilterStatus = (status: string) => {
+    setFilterStatus(status);
+    applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, status, filterNumero);
+  };
+
+  const handleFilterNumero = (numero: string) => {
+    setFilterNumero(numero);
+    applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, filterStatus, numero);
+  };
+
+  // Extrair opções únicas para os filtros
+  const uniqueMarcas = [...new Set(agentes.map(a => a.marca).filter(Boolean))].sort();
+  const uniqueUFs = [...new Set(agentes.map(a => a.uf).filter(Boolean))].sort();
+  const uniqueAgentes = [...new Set(agentes.map(a => a.instancia?.split('+')[0]).filter(Boolean))].sort();
+
+  const applyFilters = (term: string, empresaId: string, marca: string, uf: string, status: string, numero: string) => {
     let filtered = [...agentes];
     
+    // Filtro por termo de busca (nome do agente)
     if (term) {
       const lowerTerm = term.toLowerCase();
       filtered = filtered.filter(a => 
         a.nome?.toLowerCase().includes(lowerTerm) ||
-        a.telefone?.toLowerCase().includes(lowerTerm) ||
-        a.marca?.toLowerCase().includes(lowerTerm) ||
-        a.loja?.toLowerCase().includes(lowerTerm) ||
-        a.uf?.toLowerCase().includes(lowerTerm)
+        a.instancia?.toLowerCase().includes(lowerTerm) ||
+        (a.instancia?.split('+')[0] || '').toLowerCase().includes(lowerTerm)
       );
     }
     
+    // Filtro por empresa
     if (empresaId && empresaId !== "all") {
       filtered = filtered.filter(a => a.empresa_id === empresaId);
     }
+
+    // Filtro por marca
+    if (marca && marca !== "all") {
+      filtered = filtered.filter(a => a.marca?.toLowerCase() === marca.toLowerCase());
+    }
+
+    // Filtro por UF
+    if (uf && uf !== "all") {
+      filtered = filtered.filter(a => a.uf?.toUpperCase() === uf.toUpperCase());
+    }
+
+    // Filtro por status
+    if (status && status !== "all") {
+      if (status === "ativo") {
+        filtered = filtered.filter(a => a.ativo !== false);
+      } else if (status === "inativo") {
+        filtered = filtered.filter(a => a.ativo === false);
+      }
+    }
+
+    // Filtro por número
+    if (numero) {
+      filtered = filtered.filter(a => 
+        a.num_maia?.includes(numero) || a.telefone?.includes(numero)
+      );
+    }
     
     setFilteredAgentes(filtered);
+    setCurrentPage(1);
+  };
+
+  const clearAllFilters = () => {
+    setSearchTerm("");
+    setFilterEmpresa("all");
+    setFilterMarca("all");
+    setFilterUF("all");
+    setFilterStatus("all");
+    setFilterNumero("");
+    setFilteredAgentes(agentes);
     setCurrentPage(1);
   };
 
@@ -1232,21 +1298,82 @@ export default function AdminAgentes() {
           {/* Filtros */}
           <Card>
             <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
+              <div className="space-y-4">
+                {/* Primeira linha de filtros */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Busca por Nome do Agente */}
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar por nome, telefone, loja, estado..."
+                      placeholder="Buscar nome do agente..."
                       value={searchTerm}
                       onChange={(e) => handleSearch(e.target.value)}
                       className="pl-9"
                     />
                   </div>
+
+                  {/* Filtro por Número */}
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Filtrar por número..."
+                      value={filterNumero}
+                      onChange={(e) => handleFilterNumero(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+
+                  {/* Filtro por Marca */}
+                  <Select value={filterMarca} onValueChange={handleFilterMarca}>
+                    <SelectTrigger>
+                      <Store className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <SelectValue placeholder="Todas as marcas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as marcas</SelectItem>
+                      {uniqueMarcas.map((marca) => (
+                        <SelectItem key={marca} value={marca!}>
+                          {marca}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Filtro por UF */}
+                  <Select value={filterUF} onValueChange={handleFilterUF}>
+                    <SelectTrigger>
+                      <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <SelectValue placeholder="Todos os estados" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os estados</SelectItem>
+                      {uniqueUFs.map((uf) => (
+                        <SelectItem key={uf} value={uf!}>
+                          {uf}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="w-full sm:w-64">
+
+                {/* Segunda linha de filtros */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Filtro por Status */}
+                  <Select value={filterStatus} onValueChange={handleFilterStatus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todos os status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os status</SelectItem>
+                      <SelectItem value="ativo">Ativo</SelectItem>
+                      <SelectItem value="inativo">Desativado</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Filtro por Empresa */}
                   <Select value={filterEmpresa} onValueChange={handleFilterEmpresa}>
                     <SelectTrigger>
+                      <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
                       <SelectValue placeholder="Todas as empresas" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1258,6 +1385,19 @@ export default function AdminAgentes() {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  {/* Botão limpar filtros */}
+                  <div className="lg:col-span-2 flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearAllFilters}
+                      className="gap-2"
+                    >
+                      <X className="h-4 w-4" />
+                      Limpar filtros
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -1287,7 +1427,7 @@ export default function AdminAgentes() {
                       <TableHead>Marca</TableHead>
                       <TableHead>UF</TableHead>
                       <TableHead>Número Agente</TableHead>
-                      <TableHead>Instância</TableHead>
+                      <TableHead>Nome Agente</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -1319,8 +1459,10 @@ export default function AdminAgentes() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Server className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">{agente.instancia || "N/A"}</span>
+                            <Bot className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium">
+                              {agente.instancia?.split('+')[0] || agente.nome || "N/A"}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell>
