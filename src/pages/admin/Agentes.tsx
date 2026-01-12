@@ -1462,7 +1462,7 @@ export default function AdminAgentes() {
                       <SelectItem value="all">Todos</SelectItem>
                       {uniqueAgentesNomes.map((nome) => (
                         <SelectItem key={nome} value={nome}>
-                          {nome}
+                          {nome.toUpperCase()}
                         </SelectItem>
                       ))}
                     </SelectContent>
