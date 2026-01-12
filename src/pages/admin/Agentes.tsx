@@ -146,6 +146,7 @@ export default function AdminAgentes() {
   const [filterUF, setFilterUF] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterNumero, setFilterNumero] = useState<string>("");
+  const [filterNomeAgente, setFilterNomeAgente] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -264,43 +265,48 @@ export default function AdminAgentes() {
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    applyFilters(term, filterEmpresa, filterMarca, filterUF, filterStatus, filterNumero);
+    applyFilters(term, filterEmpresa, filterMarca, filterUF, filterStatus, filterNumero, filterNomeAgente);
   };
 
   const handleFilterEmpresa = (empresaId: string) => {
     setFilterEmpresa(empresaId);
-    applyFilters(searchTerm, empresaId, filterMarca, filterUF, filterStatus, filterNumero);
+    applyFilters(searchTerm, empresaId, filterMarca, filterUF, filterStatus, filterNumero, filterNomeAgente);
   };
 
   const handleFilterMarca = (marca: string) => {
     setFilterMarca(marca);
-    applyFilters(searchTerm, filterEmpresa, marca, filterUF, filterStatus, filterNumero);
+    applyFilters(searchTerm, filterEmpresa, marca, filterUF, filterStatus, filterNumero, filterNomeAgente);
   };
 
   const handleFilterUF = (uf: string) => {
     setFilterUF(uf);
-    applyFilters(searchTerm, filterEmpresa, filterMarca, uf, filterStatus, filterNumero);
+    applyFilters(searchTerm, filterEmpresa, filterMarca, uf, filterStatus, filterNumero, filterNomeAgente);
   };
 
   const handleFilterStatus = (status: string) => {
     setFilterStatus(status);
-    applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, status, filterNumero);
+    applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, status, filterNumero, filterNomeAgente);
   };
 
   const handleFilterNumero = (numero: string) => {
     setFilterNumero(numero);
-    applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, filterStatus, numero);
+    applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, filterStatus, numero, filterNomeAgente);
+  };
+
+  const handleFilterNomeAgente = (nome: string) => {
+    setFilterNomeAgente(nome);
+    applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, filterStatus, filterNumero, nome);
   };
 
   // Extrair opções únicas para os filtros
   const uniqueMarcas = [...new Set(agentes.map(a => a.marca).filter(Boolean))].sort();
   const uniqueUFs = [...new Set(agentes.map(a => a.uf).filter(Boolean))].sort();
-  const uniqueAgentesNomes = [...new Set(agentes.map(a => (a as any).agente || a.nome).filter(Boolean))].sort();
+  const uniqueAgentesNomes = [...new Set(agentes.map(a => (a as any).agente || a.nome).filter(Boolean))].sort() as string[];
 
-  const applyFilters = (term: string, empresaId: string, marca: string, uf: string, status: string, numero: string) => {
+  const applyFilters = (term: string, empresaId: string, marca: string, uf: string, status: string, numero: string, nomeAgente: string) => {
     let filtered = [...agentes];
     
-    // Filtro por termo de busca (nome do agente) - busca em múltiplos campos
+    // Filtro por termo de busca (busca livre em múltiplos campos)
     if (term) {
       const lowerTerm = term.toLowerCase();
       filtered = filtered.filter(a => 
@@ -311,6 +317,15 @@ export default function AdminAgentes() {
         // Instância completa
         a.instancia?.toLowerCase().includes(lowerTerm)
       );
+    }
+
+    // Filtro por nome do agente (dropdown)
+    if (nomeAgente && nomeAgente !== "all") {
+      const lowerNome = nomeAgente.toLowerCase();
+      filtered = filtered.filter(a => {
+        const agenteNome = ((a as any).agente || a.nome || "").toLowerCase();
+        return agenteNome === lowerNome;
+      });
     }
     
     // Filtro por empresa
@@ -355,6 +370,7 @@ export default function AdminAgentes() {
     setFilterUF("all");
     setFilterStatus("all");
     setFilterNumero("");
+    setFilterNomeAgente("all");
     setFilteredAgentes(agentes);
     setCurrentPage(1);
   };
@@ -1304,11 +1320,27 @@ export default function AdminAgentes() {
               <div className="flex flex-col gap-3">
                 {/* Linha principal de filtros */}
                 <div className="flex flex-wrap items-center gap-2">
-                  {/* Busca por Nome do Agente */}
-                  <div className="relative flex-1 min-w-[200px] max-w-[280px]">
-                    <Bot className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  {/* Filtro por Nome do Agente (dropdown) */}
+                  <Select value={filterNomeAgente} onValueChange={handleFilterNomeAgente}>
+                    <SelectTrigger className="w-[140px] h-9">
+                      <Bot className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                      <SelectValue placeholder="Agente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {uniqueAgentesNomes.map((nome) => (
+                        <SelectItem key={nome} value={nome}>
+                          {nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Busca livre */}
+                  <div className="relative flex-1 min-w-[180px] max-w-[240px]">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Nome do agente..."
+                      placeholder="Buscar..."
                       value={searchTerm}
                       onChange={(e) => handleSearch(e.target.value)}
                       className="pl-8 h-9 text-sm"
@@ -1316,7 +1348,7 @@ export default function AdminAgentes() {
                   </div>
 
                   {/* Filtro por Número */}
-                  <div className="relative min-w-[150px] max-w-[180px]">
+                  <div className="relative min-w-[140px] max-w-[160px]">
                     <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Número..."
@@ -1409,13 +1441,18 @@ export default function AdminAgentes() {
                 </div>
 
                 {/* Indicador de filtros ativos */}
-                {(searchTerm || filterNumero || filterMarca !== "all" || filterUF !== "all" || filterStatus !== "all" || filterEmpresa !== "all") && (
+                {(searchTerm || filterNumero || filterMarca !== "all" || filterUF !== "all" || filterStatus !== "all" || filterEmpresa !== "all" || filterNomeAgente !== "all") && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>Filtros ativos:</span>
                     <div className="flex flex-wrap gap-1.5">
+                      {filterNomeAgente !== "all" && (
+                        <Badge variant="secondary" className="text-xs font-normal">
+                          Agente: {filterNomeAgente}
+                        </Badge>
+                      )}
                       {searchTerm && (
                         <Badge variant="secondary" className="text-xs font-normal">
-                          Nome: {searchTerm}
+                          Busca: {searchTerm}
                         </Badge>
                       )}
                       {filterNumero && (
