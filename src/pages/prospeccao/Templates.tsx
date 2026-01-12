@@ -246,32 +246,47 @@ export default function Templates() {
     enabled: !!activeCompany?.id,
   });
 
-  // Buscar todos os agentes ativos da empresa (para seleção no formulário)
+  // Buscar todos os agentes ativos vinculados à empresa (via agente_empresas)
   const { data: agentesIAWhatsapp = [] } = useQuery({
     queryKey: ["agentes_ia_whatsapp", activeCompany?.id],
     queryFn: async () => {
       if (!activeCompany?.id) return [];
 
+      // Buscar agentes vinculados à empresa via tabela de relacionamento
       const { data, error } = await supabase
-        .from("agentes_ia")
-        .select("id, nome, telefone")
-        .eq("empresa_id", activeCompany.id)
-        .eq("ativo", true)
-        .order("nome");
+        .from("agente_empresas")
+        .select(`
+          agente_id,
+          agentes_ia (
+            id,
+            nome,
+            telefone,
+            ativo
+          )
+        `)
+        .eq("empresa_id", activeCompany.id);
 
       if (error) {
         console.error("Erro ao buscar agentes IA:", error);
         return [];
       }
 
-      return data || [];
+      // Extrair agentes únicos e ativos
+      const agentes = (data || [])
+        .map((ae: any) => ae.agentes_ia)
+        .filter((a: any) => a && a.ativo)
+        .filter((a: any, index: number, self: any[]) => 
+          index === self.findIndex((t) => t.id === a.id)
+        );
+
+      return agentes;
     },
     enabled: !!activeCompany?.id,
   });
 
-  // Buscar o telefone PRI da empresa atual (baseado no agente selecionado ou primeiro disponível)
+  // Buscar o telefone do agente selecionado ou primeiro disponível
   const { data: priTelefone } = useQuery({
-    queryKey: ["pri_telefone", activeCompany?.id, selectedAgenteId],
+    queryKey: ["pri_telefone", activeCompany?.id, selectedAgenteId, agentesIAWhatsapp],
     queryFn: async () => {
       if (!activeCompany?.id) return null;
 
@@ -283,24 +298,15 @@ export default function Templates() {
         }
       }
 
-      // Buscar todos os agentes ativos
-      const { data, error } = await supabase
-        .from("agentes_ia")
-        .select("telefone")
-        .eq("empresa_id", activeCompany.id)
-        .eq("ativo", true);
-
-      if (error) {
-        console.error("Erro ao buscar agentes Pri:", error);
-        return null;
+      // Se há agentes disponíveis, usar o primeiro
+      if (agentesIAWhatsapp.length > 0) {
+        const primeiroAgente = agentesIAWhatsapp[0];
+        if (primeiroAgente?.telefone) {
+          return normalizePhone(primeiroAgente.telefone);
+        }
       }
 
-      // Preferir telefone com 10+ dígitos
-      const telefones = (data || [])
-        .map((a) => normalizePhone(a.telefone || ""))
-        .filter(Boolean);
-
-      return telefones.find((t) => t.length >= 10) || telefones[0] || null;
+      return null;
     },
     enabled: !!activeCompany?.id,
   });
@@ -1215,7 +1221,7 @@ export default function Templates() {
         <div className="flex items-center gap-4">
           <div className="w-40 shrink-0" />
           <p className="text-sm text-amber-600">
-            Nenhum agente "Pri" ou "Pri - Whatsapp" encontrado. Configure um agente primeiro.
+            Nenhum agente encontrado. Vincule um agente à empresa primeiro.
           </p>
         </div>
       )}
