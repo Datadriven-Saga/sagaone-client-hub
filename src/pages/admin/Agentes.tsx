@@ -1690,10 +1690,7 @@ export default function AdminAgentes() {
                     <TabsTrigger value="dados-gerais">Dados Gerais</TabsTrigger>
                     <TabsTrigger value="qualificacao" disabled={!agenteLocal}>Qualificação</TabsTrigger>
                     <TabsTrigger value="cadencia" disabled={!agenteLocal}>Cadência</TabsTrigger>
-                    <TabsTrigger value="periodo" disabled={!agenteLocal}>Período</TabsTrigger>
-                    <TabsTrigger value="acompanhamento" disabled={!agenteLocal}>Acompanhamento</TabsTrigger>
-                    <TabsTrigger value="integracao" disabled={!agenteLocal}>Integração</TabsTrigger>
-                    <TabsTrigger value="followup" disabled={!agenteLocal}>Follow-up</TabsTrigger>
+                    <TabsTrigger value="periodo" disabled={!agenteLocal}>Jornada da IA</TabsTrigger>
                     <TabsTrigger value="instancias">Instâncias</TabsTrigger>
                   </TabsList>
                 </div>
@@ -1824,48 +1821,35 @@ export default function AdminAgentes() {
                   </TabsContent>
                 )}
 
-                {/* Cadência Tab */}
+                {/* Cadência Tab - Unificada com Follow-up, Acompanhamento e Integração */}
                 {agenteLocal && (
                   <TabsContent value="cadencia">
-                    <AgenteCadenciasNova agenteId={agenteLocal.id} />
+                    <div className="space-y-6">
+                      <AgenteCadenciasNova agenteId={agenteLocal.id} />
+                      
+                      <AgenteCadencia 
+                        agenteId={agenteLocal.id}
+                        tipoCadencia="acompanhamento"
+                        titulo="Cadência de Acompanhamento"
+                        descricao="Configure uma cadência de acompanhamento contínuo com intervalos maiores"
+                      />
+
+                      <AgenteFollowups agenteId={agenteLocal.id} />
+                      
+                      <AgenteIntegracao agenteId={agenteLocal.id} />
+                    </div>
                   </TabsContent>
                 )}
 
-                {/* Período Tab */}
+                {/* Jornada da IA Tab */}
                 {agenteLocal && (
                   <TabsContent value="periodo">
                     <AgenteCadencia 
                       agenteId={agenteLocal.id}
                       tipoCadencia="rapida"
-                      titulo="Período de Trabalho"
+                      titulo="Jornada de Trabalho da IA"
                       descricao="Configure o horário e dias de trabalho para execução da cadência"
                     />
-                  </TabsContent>
-                )}
-
-                {/* Acompanhamento Tab */}
-                {agenteLocal && (
-                  <TabsContent value="acompanhamento">
-                    <AgenteCadencia 
-                      agenteId={agenteLocal.id}
-                      tipoCadencia="acompanhamento"
-                      titulo="Cadência de Acompanhamento"
-                      descricao="Configure uma cadência de acompanhamento contínuo com intervalos maiores"
-                    />
-                  </TabsContent>
-                )}
-
-                {/* Integração Tab */}
-                {agenteLocal && (
-                  <TabsContent value="integracao">
-                    <AgenteIntegracao agenteId={agenteLocal.id} />
-                  </TabsContent>
-                )}
-
-                {/* Follow-up Tab */}
-                {agenteLocal && (
-                  <TabsContent value="followup">
-                    <AgenteFollowups agenteId={agenteLocal.id} />
                   </TabsContent>
                 )}
 
@@ -2192,32 +2176,6 @@ export default function AdminAgentes() {
                                   </div>
                                 </div>
 
-                                <div className="flex gap-3 pt-4 border-t">
-                                  <Button 
-                                    onClick={handleSaveInstancia}
-                                    disabled={savingInstancia}
-                                  >
-                                    {savingInstancia ? (
-                                      <>
-                                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                                        Salvando...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Save className="h-4 w-4 mr-2" />
-                                        Salvar Alterações
-                                      </>
-                                    )}
-                                  </Button>
-                                  <Button 
-                                    variant="outline"
-                                    onClick={handleCancelInstanciaEdit}
-                                    disabled={savingInstancia}
-                                  >
-                                    <X className="h-4 w-4 mr-2" />
-                                    Cancelar
-                                  </Button>
-                                </div>
                               </div>
                             </CardContent>
                           </Card>

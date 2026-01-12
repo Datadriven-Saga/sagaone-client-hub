@@ -442,10 +442,7 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                   <>
                     <TabsTrigger value="variaveis">Qualificação</TabsTrigger>
                     <TabsTrigger value="nova-cadencia">Cadência</TabsTrigger>
-                    <TabsTrigger value="cadencia-rapida">Período</TabsTrigger>
-                    <TabsTrigger value="cadencia-acompanhamento">Acompanhamento</TabsTrigger>
-                    <TabsTrigger value="integracao">Integração</TabsTrigger>
-                    <TabsTrigger value="followup">Follow-up</TabsTrigger>
+                    <TabsTrigger value="cadencia-rapida">Jornada da IA</TabsTrigger>
                   </>
                 )}
                 <TabsTrigger value="instancias">Instâncias</TabsTrigger>
@@ -583,33 +580,29 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
                 </TabsContent>
 
                 <TabsContent value="nova-cadencia">
-                  <AgenteCadenciasNova agenteId={agente.id} />
+                  <div className="space-y-6">
+                    <AgenteCadenciasNova agenteId={agente.id} />
+                    
+                    <AgenteCadencia 
+                      agenteId={agente.id}
+                      tipoCadencia="acompanhamento"
+                      titulo="Cadência de Acompanhamento"
+                      descricao="Configure uma cadência de acompanhamento contínuo com intervalos maiores"
+                    />
+
+                    <AgenteFollowups agenteId={agente.id} />
+                    
+                    <AgenteIntegracao agenteId={agente.id} />
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="cadencia-rapida">
                   <AgenteCadencia 
                     agenteId={agente.id}
                     tipoCadencia="rapida"
-                    titulo="Período de Trabalho"
+                    titulo="Jornada de Trabalho da IA"
                     descricao="Configure o horário e dias de trabalho para execução da cadência"
                   />
-                </TabsContent>
-
-                <TabsContent value="cadencia-acompanhamento">
-                  <AgenteCadencia 
-                    agenteId={agente.id}
-                    tipoCadencia="acompanhamento"
-                    titulo="Cadência de Acompanhamento"
-                    descricao="Configure uma cadência de acompanhamento contínuo com intervalos maiores"
-                  />
-                </TabsContent>
-
-                <TabsContent value="integracao">
-                  <AgenteIntegracao agenteId={agente.id} />
-                </TabsContent>
-
-                <TabsContent value="followup">
-                  <AgenteFollowups agenteId={agente.id} />
                 </TabsContent>
               </>
             )}
