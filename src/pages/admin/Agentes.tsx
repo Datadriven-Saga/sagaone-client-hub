@@ -586,32 +586,38 @@ export default function AdminAgentes() {
     }
 
     const buildAtualizaAgentePayload = () => {
+      // Prioridade: editedInstancia > instanciaData > selectedAgente (do webhook busca-dados-agentes)
       const instanciaFonte = (editInstancia && editedInstancia) ? editedInstancia : instanciaData;
-      const numeroAgente = formData.telefone.trim() || instanciaFonte?.num_maia || selectedAgente?.telefone || "";
+      
+      // Usar selectedAgente como fallback para os dados de instância
+      const numeroAgente = formData.telefone.trim() || instanciaFonte?.num_maia || selectedAgente?.num_maia || selectedAgente?.telefone || "";
       const nomeAgente = formData.nome.trim() || instanciaFonte?.agente || selectedAgente?.nome || "";
 
+      // Combinar dados: instanciaFonte tem prioridade, depois selectedAgente
       return {
-        // Campos de Instâncias
+        // Campos de Instâncias - usar instanciaFonte, fallback para selectedAgente
         num_maia: numeroAgente,
-        marca: instanciaFonte?.marca ?? null,
-        uf: instanciaFonte?.uf ?? null,
-        instancia: instanciaFonte?.instancia ?? null,
-        evo_token: instanciaFonte?.evo_token ?? null,
-        id_numero_meta: instanciaFonte?.id_numero_meta ?? null,
-        criado_em: instanciaFonte?.criado_em ?? null,
-        tb_histories: instanciaFonte?.tb_histories ?? null,
-        cw_inbox: instanciaFonte?.cw_inbox ?? null,
-        waba: instanciaFonte?.waba ?? null,
-        meta_app_id: instanciaFonte?.meta_app_id ?? null,
-        agente: nomeAgente || null,
-        cw_token_maia: instanciaFonte?.cw_token_maia ?? null,
+        marca: instanciaFonte?.marca ?? selectedAgente?.marca ?? null,
+        uf: instanciaFonte?.uf ?? selectedAgente?.uf ?? null,
+        instancia: instanciaFonte?.instancia ?? selectedAgente?.instancia ?? null,
+        evo_token: instanciaFonte?.evo_token ?? selectedAgente?.evo_token ?? null,
+        id_numero_meta: instanciaFonte?.id_numero_meta ?? (selectedAgente as any)?.id_numero_meta ?? null,
+        criado_em: instanciaFonte?.criado_em ?? (selectedAgente as any)?.criado_em ?? null,
+        tb_histories: instanciaFonte?.tb_histories ?? (selectedAgente as any)?.tb_histories ?? null,
+        cw_inbox: instanciaFonte?.cw_inbox ?? (selectedAgente as any)?.cw_inbox ?? null,
+        waba: instanciaFonte?.waba ?? (selectedAgente as any)?.waba ?? null,
+        meta_app_id: instanciaFonte?.meta_app_id ?? (selectedAgente as any)?.meta_app_id ?? null,
+        agente: nomeAgente || instanciaFonte?.agente || null,
+        cw_token_maia: instanciaFonte?.cw_token_maia ?? selectedAgente?.cw_token_maia ?? null,
 
         // Campos de Dados Gerais
         nome_agente: nomeAgente,
         telefone: numeroAgente,
-        dealer_id: formData.dealer_id.trim() || null,
-        foto_url: formData.foto_url.trim() || null,
+        dealer_id: formData.dealer_id.trim() || agenteLocal?.dealer_id || null,
+        foto_url: formData.foto_url.trim() || agenteLocal?.foto_url || null,
         ativo: formData.ativo,
+        persona: formData.persona.trim() || agenteLocal?.persona || null,
+        cerebro: formData.cerebro.trim() || agenteLocal?.cerebro || null,
 
         // Auditoria
         atualizado_em: new Date().toISOString(),
