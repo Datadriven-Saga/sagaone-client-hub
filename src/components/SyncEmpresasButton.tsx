@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { RefreshCw, CheckCircle, XCircle, AlertCircle, Trash2, Plus, Pencil } from "lucide-react";
+import { RefreshCw, CheckCircle, XCircle, AlertCircle, Trash2, Plus, Pencil, Upload, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import * as XLSX from 'xlsx';
 
 interface SyncResult {
   success: boolean;
@@ -18,17 +21,99 @@ interface SyncResult {
   details: {
     added: Array<{ nome: string; crm_id: string; status: string }>;
     updated: Array<{ nome: string; crm_id: string; status: string }>;
-    deleted: Array<{ id: string; crm_id: string; status: string }>;
+    deleted: Array<{ id: string; crm_id: string; nome?: string; status: string }>;
     errors: Array<{ nome?: string; crm_id?: string; error: string }>;
   };
+}
+
+interface EmpresaCSV {
+  cnpj: string;
+  nome: string;
+  marca: string;
+  uf: string;
+  crm_id: string;
+  cidade?: string;
 }
 
 export function SyncEmpresasButton() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [parsedData, setParsedData] = useState<EmpresaCSV[]>([]);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const normalizeColumnName = (name: string): string => {
+    return name.toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Remove accents
+      .replace(/[^a-z0-9]/g, "_")
+      .trim();
+  };
+
+  const parseFile = async (file: File) => {
+    setParseError(null);
+    setParsedData([]);
+    
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      // Parse to JSON with header row
+      const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { defval: '' });
+      
+      if (jsonData.length === 0) {
+        setParseError("Arquivo vazio ou sem dados válidos");
+        return;
+      }
+
+      // Map columns to expected format
+      const empresas: EmpresaCSV[] = jsonData.map((row) => {
+        const normalizedRow: Record<string, string> = {};
+        for (const [key, value] of Object.entries(row)) {
+          normalizedRow[normalizeColumnName(key)] = String(value || '').trim();
+        }
+
+        return {
+          cnpj: normalizedRow['cnpj'] || normalizedRow['cnpj_cpf'] || '',
+          nome: normalizedRow['nome'] || normalizedRow['nome_empresa'] || normalizedRow['razao_social'] || '',
+          marca: normalizedRow['marca'] || normalizedRow['bandeira'] || '',
+          uf: normalizedRow['uf'] || normalizedRow['estado'] || '',
+          crm_id: normalizedRow['crm_id'] || normalizedRow['crmid'] || normalizedRow['crm'] || normalizedRow['id_crm'] || '',
+          cidade: normalizedRow['cidade'] || normalizedRow['municipio'] || '',
+        };
+      }).filter(e => e.crm_id && e.nome); // Filtrar apenas registros válidos
+
+      if (empresas.length === 0) {
+        setParseError("Nenhum registro válido encontrado. Verifique se o arquivo possui as colunas: crm_id, nome, cnpj, marca, uf");
+        return;
+      }
+
+      setParsedData(empresas);
+      toast.success(`${empresas.length} empresas encontradas no arquivo`);
+    } catch (error) {
+      console.error('Erro ao processar arquivo:', error);
+      setParseError(`Erro ao processar arquivo: ${(error as Error).message}`);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setSelectedFile(file);
+    await parseFile(file);
+  };
 
   const handleSync = async () => {
+    if (parsedData.length === 0) {
+      toast.error("Nenhum dado válido para sincronizar");
+      return;
+    }
+
     setIsSyncing(true);
     setSyncResult(null);
     
@@ -42,6 +127,9 @@ export function SyncEmpresasButton() {
       const { data, error } = await supabase.functions.invoke('sync-empresas', {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
+        },
+        body: {
+          empresas: parsedData,
         },
       });
 
@@ -95,6 +183,25 @@ export function SyncEmpresasButton() {
   const handleClose = () => {
     setDialogOpen(false);
     setSyncResult(null);
+    setSelectedFile(null);
+    setParsedData([]);
+    setParseError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      setSelectedFile(file);
+      await parseFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
   };
 
   return (
@@ -107,11 +214,134 @@ export function SyncEmpresasButton() {
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[80vh]">
         <DialogHeader>
-          <DialogTitle>Sincronizar Empresas do Grupo Saga</DialogTitle>
+          <DialogTitle>Sincronizar Empresas</DialogTitle>
           <DialogDescription>
-            Esta ação irá sincronizar as empresas com a lista oficial do CSV.
-            {syncResult && syncResult.success && (
-              <div className="mt-4 p-4 bg-muted rounded-lg">
+            Faça upload de um arquivo (CSV, XLS ou XLSX) para sincronizar as empresas.
+          </DialogDescription>
+        </DialogHeader>
+
+        {!syncResult ? (
+          <div className="flex flex-col gap-4">
+            {/* Upload Area */}
+            <div 
+              className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.xls,.xlsx"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-sm text-muted-foreground mb-2">
+                Arraste um arquivo aqui ou clique para selecionar
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Formatos aceitos: CSV, XLS, XLSX
+              </p>
+            </div>
+
+            {/* Selected File Info */}
+            {selectedFile && (
+              <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                <FileSpreadsheet className="h-5 w-5 text-primary" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(selectedFile.size / 1024).toFixed(1)} KB
+                  </p>
+                </div>
+                {parsedData.length > 0 && (
+                  <Badge variant="secondary" className="bg-green-100 text-green-800">
+                    {parsedData.length} empresas
+                  </Badge>
+                )}
+              </div>
+            )}
+
+            {/* Parse Error */}
+            {parseError && (
+              <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg">
+                <XCircle className="h-5 w-5" />
+                <p className="text-sm">{parseError}</p>
+              </div>
+            )}
+
+            {/* Preview Table */}
+            {parsedData.length > 0 && (
+              <div className="space-y-2">
+                <Label>Pré-visualização ({Math.min(5, parsedData.length)} de {parsedData.length})</Label>
+                <ScrollArea className="h-[150px] border rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">CRM ID</th>
+                        <th className="px-3 py-2 text-left font-medium">Nome</th>
+                        <th className="px-3 py-2 text-left font-medium">CNPJ</th>
+                        <th className="px-3 py-2 text-left font-medium">Marca</th>
+                        <th className="px-3 py-2 text-left font-medium">UF</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parsedData.slice(0, 5).map((empresa, index) => (
+                        <tr key={index} className="border-t">
+                          <td className="px-3 py-2">{empresa.crm_id}</td>
+                          <td className="px-3 py-2 truncate max-w-[150px]">{empresa.nome}</td>
+                          <td className="px-3 py-2">{empresa.cnpj}</td>
+                          <td className="px-3 py-2">{empresa.marca}</td>
+                          <td className="px-3 py-2">{empresa.uf}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </ScrollArea>
+              </div>
+            )}
+
+            {/* Info */}
+            <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+              <p className="font-medium mb-1">Esta operação irá:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li><span className="text-green-600 font-medium">Adicionar</span> empresas que estão no arquivo mas não no banco</li>
+                <li><span className="text-blue-600 font-medium">Atualizar</span> dados de empresas existentes (usando crm_id)</li>
+                <li><span className="text-red-600 font-medium">Remover</span> empresas do banco que não estão no arquivo</li>
+              </ul>
+            </div>
+            
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={handleClose}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSync}
+                disabled={isSyncing || parsedData.length === 0}
+              >
+                {isSyncing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Sincronizar ({parsedData.length})
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Summary */}
+            {syncResult.success && (
+              <div className="p-4 bg-muted rounded-lg">
                 <h4 className="font-semibold mb-2">Resultado da Sincronização:</h4>
                 <div className="flex gap-4 text-sm flex-wrap">
                   <span className="text-green-600 flex items-center gap-1">
@@ -131,45 +361,7 @@ export function SyncEmpresasButton() {
                 </div>
               </div>
             )}
-          </DialogDescription>
-        </DialogHeader>
 
-        {!syncResult ? (
-          <div className="flex flex-col gap-4">
-            <div className="text-sm text-muted-foreground">
-              <p>Esta operação irá:</p>
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Adicionar empresas que estão no CSV mas não no banco</li>
-                <li>Atualizar dados de empresas existentes</li>
-                <li>Remover empresas que não estão no CSV</li>
-                <li>Usar o crm_id como identificador único</li>
-              </ul>
-            </div>
-            
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={handleClose}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSync}
-                disabled={isSyncing}
-              >
-                {isSyncing ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Sincronizando...
-                  </>
-                ) : (
-                  "Iniciar Sincronização"
-                )}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
             <ScrollArea className="h-[400px] w-full border rounded-md p-4">
               <div className="space-y-2">
                 {/* Added */}
@@ -201,7 +393,7 @@ export function SyncEmpresasButton() {
                   <div key={`deleted-${index}`} className="flex items-center gap-3 p-2 border rounded">
                     {getStatusIcon('deleted')}
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">ID: {item.id}</div>
+                      <div className="text-sm font-medium truncate">{item.nome || `ID: ${item.id}`}</div>
                       <div className="text-xs text-muted-foreground">CRM ID: {item.crm_id}</div>
                     </div>
                     {getStatusBadge('deleted')}
