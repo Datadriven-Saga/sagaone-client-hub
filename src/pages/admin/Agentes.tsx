@@ -2188,25 +2188,27 @@ export default function AdminAgentes() {
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>Número Agente *</Label>
                                     <Input
                                       value={novaInstancia.num_maia}
                                       onChange={(e) => handleNovaInstanciaChange('num_maia', e.target.value)}
                                       placeholder="Ex: 61999999999"
                                     />
+                                    <p className="text-xs text-muted-foreground">Número do WhatsApp do agente (apenas dígitos)</p>
                                   </div>
                                   
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>Marca</Label>
                                     <Input
                                       value={novaInstancia.marca}
                                       onChange={(e) => handleNovaInstanciaChange('marca', e.target.value)}
                                       placeholder="Ex: volkswagen, chevrolet, corretora..."
                                     />
+                                    <p className="text-xs text-muted-foreground">Marca/fabricante associado ao agente</p>
                                   </div>
                                   
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>UF *</Label>
                                     <Select
                                       value={novaInstancia.uf}
@@ -2221,64 +2223,71 @@ export default function AdminAgentes() {
                                         ))}
                                       </SelectContent>
                                     </Select>
+                                    <p className="text-xs text-muted-foreground">Estado onde o agente atua</p>
                                   </div>
                                   
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>Nome Agente *</Label>
                                     <Input
                                       value={novaInstancia.agente}
                                       onChange={(e) => handleNovaInstanciaChange('agente', e.target.value)}
                                       placeholder="Ex: maia, pri, bela..."
                                     />
+                                    <p className="text-xs text-muted-foreground">Nome/persona do agente de IA</p>
                                   </div>
 
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>ID Número Meta</Label>
                                     <Input
                                       value={novaInstancia.id_numero_meta}
                                       onChange={(e) => handleNovaInstanciaChange('id_numero_meta', e.target.value)}
                                       placeholder="ID do número Meta"
                                     />
+                                    <p className="text-xs text-muted-foreground">ID do número de telefone no Meta Business</p>
                                   </div>
                                   
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>CW Inbox</Label>
                                     <Input
                                       value={novaInstancia.cw_inbox}
                                       onChange={(e) => handleNovaInstanciaChange('cw_inbox', e.target.value)}
                                       placeholder="CW Inbox ID"
                                     />
+                                    <p className="text-xs text-muted-foreground">ID da caixa de entrada no Chatwoot</p>
                                   </div>
 
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>WABA</Label>
                                     <Input
                                       value={novaInstancia.waba}
                                       onChange={(e) => handleNovaInstanciaChange('waba', e.target.value)}
                                       placeholder="WABA ID"
                                     />
+                                    <p className="text-xs text-muted-foreground">ID da conta WhatsApp Business API</p>
                                   </div>
 
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>Meta App ID</Label>
                                     <Input
                                       value={novaInstancia.meta_app_id}
                                       onChange={(e) => handleNovaInstanciaChange('meta_app_id', e.target.value)}
                                       placeholder="Meta App ID"
                                     />
+                                    <p className="text-xs text-muted-foreground">ID do aplicativo no Meta Developers</p>
                                   </div>
 
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>TB Histories</Label>
                                     <Input
                                       value={novaInstancia.tb_histories}
                                       onChange={(e) => handleNovaInstanciaChange('tb_histories', e.target.value)}
                                       placeholder="Tabela de histórico"
                                     />
+                                    <p className="text-xs text-muted-foreground">Nome da tabela para guardar histórico de conversas</p>
                                   </div>
                                 </div>
 
-                                <div className="space-y-2 pt-2 border-t">
+                                <div className="space-y-1 pt-2 border-t">
                                   <Label>Token Evo</Label>
                                   <Input
                                     type="password"
@@ -2286,9 +2295,10 @@ export default function AdminAgentes() {
                                     onChange={(e) => handleNovaInstanciaChange('evo_token', e.target.value)}
                                     placeholder="Token da Evolution API"
                                   />
+                                  <p className="text-xs text-muted-foreground">Token de autenticação da Evolution API</p>
                                 </div>
 
-                                <div className="space-y-2">
+                                <div className="space-y-1">
                                   <Label>CW Token Maia</Label>
                                   <Input
                                     type="password"
@@ -2296,6 +2306,7 @@ export default function AdminAgentes() {
                                     onChange={(e) => handleNovaInstanciaChange('cw_token_maia', e.target.value)}
                                     placeholder="Token do Chatwoot"
                                   />
+                                  <p className="text-xs text-muted-foreground">Token de acesso do agente no Chatwoot</p>
                                 </div>
 
                                 {/* Preview da instância gerada */}
@@ -2343,94 +2354,105 @@ export default function AdminAgentes() {
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>Número Agente</Label>
                                     <Input
                                       value={editedInstancia.num_maia}
                                       onChange={(e) => handleInstanciaFieldChange('num_maia', e.target.value)}
                                     />
+                                    <p className="text-xs text-muted-foreground">Número do WhatsApp do agente</p>
                                   </div>
                                   
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>Marca</Label>
                                     <Input
                                       value={editedInstancia.marca}
                                       onChange={(e) => handleInstanciaFieldChange('marca', e.target.value)}
                                     />
+                                    <p className="text-xs text-muted-foreground">Marca/fabricante associado</p>
                                   </div>
                                   
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>UF</Label>
                                     <Input
                                       value={editedInstancia.uf}
                                       onChange={(e) => handleInstanciaFieldChange('uf', e.target.value)}
                                     />
+                                    <p className="text-xs text-muted-foreground">Estado onde o agente atua</p>
                                   </div>
                                   
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>ID Número Meta</Label>
                                     <Input
                                       value={editedInstancia.id_numero_meta || ''}
                                       onChange={(e) => handleInstanciaFieldChange('id_numero_meta', e.target.value)}
                                     />
+                                    <p className="text-xs text-muted-foreground">ID do número no Meta Business</p>
                                   </div>
 
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>Instância</Label>
                                     <Input
                                       value={editedInstancia.instancia}
                                       onChange={(e) => handleInstanciaFieldChange('instancia', e.target.value)}
                                     />
+                                    <p className="text-xs text-muted-foreground">Identificador único da instância Evolution</p>
                                   </div>
                                   
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>CW Inbox</Label>
                                     <Input
                                       value={editedInstancia.cw_inbox || ''}
                                       onChange={(e) => handleInstanciaFieldChange('cw_inbox', e.target.value)}
                                     />
+                                    <p className="text-xs text-muted-foreground">ID da caixa de entrada no Chatwoot</p>
                                   </div>
 
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>Agente</Label>
                                     <Input
                                       value={editedInstancia.agente || ''}
                                       onChange={(e) => handleInstanciaFieldChange('agente', e.target.value)}
                                     />
+                                    <p className="text-xs text-muted-foreground">Nome/persona do agente de IA</p>
                                   </div>
 
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>WABA</Label>
                                     <Input
                                       value={editedInstancia.waba || ''}
                                       onChange={(e) => handleInstanciaFieldChange('waba', e.target.value)}
                                     />
+                                    <p className="text-xs text-muted-foreground">ID da conta WhatsApp Business API</p>
                                   </div>
 
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>Meta App ID</Label>
                                     <Input
                                       value={editedInstancia.meta_app_id || ''}
                                       onChange={(e) => handleInstanciaFieldChange('meta_app_id', e.target.value)}
                                     />
+                                    <p className="text-xs text-muted-foreground">ID do aplicativo no Meta Developers</p>
                                   </div>
 
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label>TB Histories</Label>
                                     <Input
                                       value={editedInstancia.tb_histories || ''}
                                       onChange={(e) => handleInstanciaFieldChange('tb_histories', e.target.value)}
                                     />
+                                    <p className="text-xs text-muted-foreground">Tabela para histórico de conversas</p>
                                   </div>
                                 </div>
 
-                                <div className="space-y-2 pt-2 border-t">
+                                <div className="space-y-1 pt-2 border-t">
                                   <Label>Token Evo</Label>
                                   <Input
                                     type={showEvoToken ? "text" : "password"}
                                     value={editedInstancia.evo_token || ''}
                                     onChange={(e) => handleInstanciaFieldChange('evo_token', e.target.value)}
                                   />
+                                  <p className="text-xs text-muted-foreground">Token de autenticação da Evolution API</p>
                                   <div className="flex gap-2">
                                     <Button
                                       size="sm"
@@ -2444,13 +2466,14 @@ export default function AdminAgentes() {
                                   </div>
                                 </div>
 
-                                <div className="space-y-2">
+                                <div className="space-y-1">
                                   <Label>CW Token Maia</Label>
                                   <Input
                                     type={showCwToken ? "text" : "password"}
                                     value={editedInstancia.cw_token_maia || ''}
                                     onChange={(e) => handleInstanciaFieldChange('cw_token_maia', e.target.value)}
                                   />
+                                  <p className="text-xs text-muted-foreground">Token de acesso do agente no Chatwoot</p>
                                   <div className="flex gap-2">
                                     <Button
                                       size="sm"
@@ -2483,49 +2506,58 @@ export default function AdminAgentes() {
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                                  <div className="space-y-1">
+                                  <div className="space-y-0.5">
                                     <span className="text-muted-foreground">Número Agente:</span>
                                     <p className="font-medium">{instanciaData.num_maia}</p>
+                                    <p className="text-[10px] text-muted-foreground/70">Número do WhatsApp do agente</p>
                                   </div>
                                   
-                                  <div className="space-y-1">
+                                  <div className="space-y-0.5">
                                     <span className="text-muted-foreground">Marca:</span>
                                     <p className="font-medium capitalize">{instanciaData.marca}</p>
+                                    <p className="text-[10px] text-muted-foreground/70">Marca/fabricante associado</p>
                                   </div>
                                   
-                                  <div className="space-y-1">
+                                  <div className="space-y-0.5">
                                     <span className="text-muted-foreground">UF:</span>
                                     <p className="font-medium">{instanciaData.uf}</p>
+                                    <p className="text-[10px] text-muted-foreground/70">Estado onde o agente atua</p>
                                   </div>
                                   
-                                  <div className="space-y-1">
+                                  <div className="space-y-0.5">
                                     <span className="text-muted-foreground">ID Número Meta:</span>
                                     <p className="font-medium">{instanciaData.id_numero_meta || '-'}</p>
+                                    <p className="text-[10px] text-muted-foreground/70">ID do número no Meta Business</p>
                                   </div>
 
-                                  <div className="space-y-1">
+                                  <div className="space-y-0.5">
                                     <span className="text-muted-foreground">CW Inbox:</span>
                                     <p className="font-medium">{instanciaData.cw_inbox || '-'}</p>
+                                    <p className="text-[10px] text-muted-foreground/70">ID da caixa de entrada no Chatwoot</p>
                                   </div>
 
-                                  <div className="space-y-1">
+                                  <div className="space-y-0.5">
                                     <span className="text-muted-foreground">WABA:</span>
                                     <p className="font-medium">{instanciaData.waba || '-'}</p>
+                                    <p className="text-[10px] text-muted-foreground/70">ID da conta WhatsApp Business API</p>
                                   </div>
 
-                                  <div className="space-y-1">
+                                  <div className="space-y-0.5">
                                     <span className="text-muted-foreground">Agente:</span>
                                     <p className="font-medium">{instanciaData.agente || '-'}</p>
+                                    <p className="text-[10px] text-muted-foreground/70">Nome/persona do agente de IA</p>
                                   </div>
 
-                                  <div className="space-y-1">
+                                  <div className="space-y-0.5">
                                     <span className="text-muted-foreground">Meta App ID:</span>
                                     <p className="font-medium">{instanciaData.meta_app_id || '-'}</p>
+                                    <p className="text-[10px] text-muted-foreground/70">ID do aplicativo no Meta Developers</p>
                                   </div>
 
-                                  <div className="space-y-1">
+                                  <div className="space-y-0.5">
                                     <span className="text-muted-foreground">TB Histories:</span>
                                     <p className="font-medium">{instanciaData.tb_histories || '-'}</p>
+                                    <p className="text-[10px] text-muted-foreground/70">Tabela para histórico de conversas</p>
                                   </div>
                                   
                                   {instanciaData.criado_em && (
