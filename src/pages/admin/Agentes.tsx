@@ -585,6 +585,39 @@ export default function AdminAgentes() {
       return;
     }
 
+    const buildAtualizaAgentePayload = () => {
+      const instanciaFonte = (editInstancia && editedInstancia) ? editedInstancia : instanciaData;
+      const numeroAgente = formData.telefone.trim() || instanciaFonte?.num_maia || selectedAgente?.telefone || "";
+      const nomeAgente = formData.nome.trim() || instanciaFonte?.agente || selectedAgente?.nome || "";
+
+      return {
+        // Campos de Instâncias
+        num_maia: numeroAgente,
+        marca: instanciaFonte?.marca ?? null,
+        uf: instanciaFonte?.uf ?? null,
+        instancia: instanciaFonte?.instancia ?? null,
+        evo_token: instanciaFonte?.evo_token ?? null,
+        id_numero_meta: instanciaFonte?.id_numero_meta ?? null,
+        criado_em: instanciaFonte?.criado_em ?? null,
+        tb_histories: instanciaFonte?.tb_histories ?? null,
+        cw_inbox: instanciaFonte?.cw_inbox ?? null,
+        waba: instanciaFonte?.waba ?? null,
+        meta_app_id: instanciaFonte?.meta_app_id ?? null,
+        agente: nomeAgente || null,
+        cw_token_maia: instanciaFonte?.cw_token_maia ?? null,
+
+        // Campos de Dados Gerais
+        nome_agente: nomeAgente,
+        telefone: numeroAgente,
+        dealer_id: formData.dealer_id.trim() || null,
+        foto_url: formData.foto_url.trim() || null,
+        ativo: formData.ativo,
+
+        // Auditoria
+        atualizado_em: new Date().toISOString(),
+      };
+    };
+
     try {
       setSavingAgente(true);
 
@@ -615,11 +648,6 @@ export default function AdminAgentes() {
         if (updatedAgent) {
           setAgenteLocal(updatedAgent as AgenteLocal);
         }
-
-        toast({
-          title: "Agente atualizado",
-          description: "O agente foi atualizado com sucesso"
-        });
       } else {
         // Create new
         const { data: newAgent, error } = await supabase
@@ -644,12 +672,42 @@ export default function AdminAgentes() {
           setAgenteLocal(newAgent as AgenteLocal);
           setIsNewAgente(false);
         }
+      }
 
+      // Sempre chamar o webhook de atualização ao salvar
+      const webhookPayload = buildAtualizaAgentePayload();
+      console.log('Enviando para webhook atualiza-agente:', webhookPayload);
+
+      try {
+        const webhookResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-agente', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(webhookPayload)
+        });
+
+        if (!webhookResponse.ok) {
+          console.error('Webhook atualiza-agente retornou erro:', webhookResponse.status);
+          toast({
+            title: "Atenção",
+            description: "Salvo no sistema, mas falhou ao atualizar no webhook (atualiza-agente).",
+            variant: "destructive"
+          });
+        }
+      } catch (webhookError) {
+        console.error('Erro ao chamar webhook atualiza-agente:', webhookError);
         toast({
-          title: "Agente criado",
-          description: "O agente foi criado com sucesso. As demais abas agora estão disponíveis."
+          title: "Atenção",
+          description: "Salvo no sistema, mas não foi possível chamar o webhook (atualiza-agente).",
+          variant: "destructive"
         });
       }
+
+      toast({
+        title: agenteLocal ? "Agente atualizado" : "Agente criado",
+        description: agenteLocal ? "O agente foi atualizado com sucesso" : "O agente foi criado com sucesso"
+      });
 
       // Refresh data
       if (formData.telefone) {
@@ -748,6 +806,14 @@ export default function AdminAgentes() {
         ...editedInstancia,
         [field]: value
       });
+
+      // Sincronizar campos comuns com Dados Gerais
+      if (field === 'num_maia') {
+        setFormData(prev => ({ ...prev, telefone: value }));
+      }
+      if (field === 'agente') {
+        setFormData(prev => ({ ...prev, nome: value }));
+      }
     }
   };
 
@@ -813,12 +879,28 @@ export default function AdminAgentes() {
   const handleTelefoneChange = (value: string) => {
     setFormData(prev => ({ ...prev, telefone: value }));
     setNovaInstancia(prev => ({ ...prev, num_maia: value }));
+
+    // Se já existe instância carregada/edição, sincronizar também
+    if (instanciaData) {
+      setInstanciaData(prev => prev ? ({ ...prev, num_maia: value }) : prev);
+    }
+    if (editedInstancia) {
+      setEditedInstancia(prev => prev ? ({ ...prev, num_maia: value }) : prev);
+    }
   };
 
   // Sincronizar nome de dados gerais com instância
   const handleNomeChange = (value: string) => {
     setFormData(prev => ({ ...prev, nome: value }));
     setNovaInstancia(prev => ({ ...prev, agente: value }));
+
+    // Se já existe instância carregada/edição, sincronizar também
+    if (instanciaData) {
+      setInstanciaData(prev => prev ? ({ ...prev, agente: value }) : prev);
+    }
+    if (editedInstancia) {
+      setEditedInstancia(prev => prev ? ({ ...prev, agente: value }) : prev);
+    }
   };
 
   // Gerar instância automaticamente
