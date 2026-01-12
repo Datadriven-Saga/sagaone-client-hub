@@ -246,7 +246,7 @@ export default function Templates() {
     enabled: !!activeCompany?.id,
   });
 
-  // Buscar agentes Pri e Pri - Whatsapp da empresa (para seleção no formulário)
+  // Buscar agentes Pri (nome contendo "pri") da empresa (para seleção no formulário)
   const { data: agentesIAWhatsapp = [] } = useQuery({
     queryKey: ["agentes_ia_whatsapp", activeCompany?.id],
     queryFn: async () => {
@@ -256,7 +256,7 @@ export default function Templates() {
         .from("agentes_ia")
         .select("id, nome, telefone")
         .eq("empresa_id", activeCompany.id)
-        .in("nome", ["Pri", "Pri - Whatsapp"])
+        .ilike("nome", "%pri%")
         .eq("ativo", true)
         .order("nome");
 
@@ -289,7 +289,7 @@ export default function Templates() {
         .from("agentes_ia")
         .select("telefone")
         .eq("empresa_id", activeCompany.id)
-        .in("nome", ["Pri", "Pri - Whatsapp"])
+        .ilike("nome", "%pri%")
         .eq("ativo", true);
 
       if (error) {
