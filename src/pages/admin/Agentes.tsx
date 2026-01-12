@@ -117,11 +117,7 @@ interface NovaInstanciaData {
   cw_token_maia: string;
 }
 
-const UF_LIST = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 
-  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", 
-  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-];
+const UF_LIST = ["DF", "GO", "MG", "MT", "RO"];
 
 interface AgenteLocal {
   id: string;
@@ -797,12 +793,22 @@ export default function AdminAgentes() {
     }
   };
 
-  // Nova instância handlers
+  // Nova instância handlers - sincroniza telefone entre abas
   const handleNovaInstanciaChange = (field: keyof NovaInstanciaData, value: string) => {
     setNovaInstancia(prev => ({
       ...prev,
       [field]: value
     }));
+    // Sincronizar número do agente com telefone em dados gerais
+    if (field === 'num_maia') {
+      setFormData(prev => ({ ...prev, telefone: value }));
+    }
+  };
+
+  // Sincronizar telefone de dados gerais com instância
+  const handleTelefoneChange = (value: string) => {
+    setFormData(prev => ({ ...prev, telefone: value }));
+    setNovaInstancia(prev => ({ ...prev, num_maia: value }));
   };
 
   // Gerar instância automaticamente
@@ -818,14 +824,6 @@ export default function AdminAgentes() {
       toast({
         title: "Campo obrigatório",
         description: "O número do agente é obrigatório",
-        variant: "destructive"
-      });
-      return;
-    }
-    if (!novaInstancia.marca.trim()) {
-      toast({
-        title: "Campo obrigatório",
-        description: "A marca é obrigatória",
         variant: "destructive"
       });
       return;
@@ -1383,7 +1381,7 @@ export default function AdminAgentes() {
                             <Input
                               id="telefone"
                               value={formData.telefone}
-                              onChange={(e) => setFormData(prev => ({ ...prev, telefone: e.target.value }))}
+                              onChange={(e) => handleTelefoneChange(e.target.value)}
                               placeholder="+55 11 99999-9999"
                               required
                             />
@@ -1513,7 +1511,7 @@ export default function AdminAgentes() {
                                   </div>
                                   
                                   <div className="space-y-2">
-                                    <Label>Marca *</Label>
+                                    <Label>Marca</Label>
                                     <Input
                                       value={novaInstancia.marca}
                                       onChange={(e) => handleNovaInstanciaChange('marca', e.target.value)}
