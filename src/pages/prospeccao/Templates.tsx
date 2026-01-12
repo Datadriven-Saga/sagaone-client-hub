@@ -995,11 +995,6 @@ export default function Templates() {
       return;
     }
 
-    if (!agente.dealer_id) {
-      if (showToasts) toast.error(`O agente "${agente.nome}" não possui dealer_id configurado.`);
-      return;
-    }
-
     setIsUpdatingStatus(true);
     try {
 
@@ -1974,34 +1969,37 @@ export default function Templates() {
               Gerencie os templates de mensagens para integração com a Meta
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Seletor de Agente */}
-            {agentesIAWhatsapp.length > 0 && (
-              <Select
-                value={selectedAgenteId || agentesIAWhatsapp[0]?.id || ""}
-                onValueChange={(value) => setSelectedAgenteId(value)}
+          <div className="flex flex-col items-end gap-2">
+            {/* Linha com seletor e botão atualizar */}
+            <div className="flex items-center gap-2">
+              {agentesIAWhatsapp.length > 0 && (
+                <Select
+                  value={selectedAgenteId || agentesIAWhatsapp[0]?.id || ""}
+                  onValueChange={(value) => setSelectedAgenteId(value)}
+                >
+                  <SelectTrigger className="w-[180px] bg-background">
+                    <SelectValue placeholder="Selecione o agente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {agentesIAWhatsapp.map((agente: any) => (
+                      <SelectItem key={agente.id} value={agente.id}>
+                        {agente.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Button 
+                variant="outline" 
+                onClick={() => handleUpdateStatusMeta({ showToasts: true })} 
+                disabled={isUpdatingStatus || agentesIAWhatsapp.length === 0}
               >
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Selecione o agente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {agentesIAWhatsapp.map((agente: any) => (
-                    <SelectItem key={agente.id} value={agente.id}>
-                      {agente.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Button 
-              variant="outline" 
-              onClick={() => handleUpdateStatusMeta({ showToasts: true })} 
-              disabled={isUpdatingStatus || agentesIAWhatsapp.length === 0}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isUpdatingStatus ? 'animate-spin' : ''}`} />
-              {isUpdatingStatus ? "Atualizando..." : "Atualizar Status"}
-            </Button>
-            <Button onClick={handleOpenModal} disabled={agentesIAWhatsapp.length === 0}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${isUpdatingStatus ? 'animate-spin' : ''}`} />
+                Atualizar Status
+              </Button>
+            </div>
+            {/* Botão novo template em destaque */}
+            <Button onClick={handleOpenModal} disabled={agentesIAWhatsapp.length === 0} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Novo Template
             </Button>
@@ -2009,7 +2007,7 @@ export default function Templates() {
         </div>
 
         <Card className="flex-1 overflow-hidden">
-          <CardContent className="p-0 h-[calc(100vh-200px)] overflow-auto">
+          <CardContent className="p-0 h-[calc(100vh-220px)] overflow-auto">
             {templates.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Type className="h-12 w-12 text-muted-foreground mb-4" />
