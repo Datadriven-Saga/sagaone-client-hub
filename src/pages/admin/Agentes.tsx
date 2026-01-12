@@ -809,7 +809,7 @@ export default function AdminAgentes() {
     if (!novaInstancia.num_maia.trim()) {
       toast({
         title: "Campo obrigatório",
-        description: "O número Maia é obrigatório",
+        description: "O número do agente é obrigatório",
         variant: "destructive"
       });
       return;
@@ -1509,7 +1509,7 @@ export default function AdminAgentes() {
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div className="space-y-2">
-                                    <Label>Número Maia *</Label>
+                                    <Label>Número Agente *</Label>
                                     <Input
                                       value={novaInstancia.num_maia}
                                       onChange={(e) => handleNovaInstanciaChange('num_maia', e.target.value)}
@@ -1664,7 +1664,7 @@ export default function AdminAgentes() {
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div className="space-y-2">
-                                    <Label>Número Maia</Label>
+                                    <Label>Número Agente</Label>
                                     <Input
                                       value={editedInstancia.num_maia}
                                       onChange={(e) => handleInstanciaFieldChange('num_maia', e.target.value)}
@@ -1830,7 +1830,7 @@ export default function AdminAgentes() {
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                                   <div className="space-y-1">
-                                    <span className="text-muted-foreground">Número Maia:</span>
+                                    <span className="text-muted-foreground">Número Agente:</span>
                                     <p className="font-medium">{instanciaData.num_maia}</p>
                                   </div>
                                   
