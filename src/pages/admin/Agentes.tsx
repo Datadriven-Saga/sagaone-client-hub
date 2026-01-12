@@ -1059,11 +1059,38 @@ export default function AdminAgentes() {
       // Recarregar lista de agentes
       carregarAgentes();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao criar agente:', error);
+      
+      // Construir mensagem de erro detalhada
+      let errorMessage = "";
+      
+      if (error?.message?.includes('webhook')) {
+        errorMessage = `Erro no webhook: ${error.message}`;
+      } else if (error?.code) {
+        // Erro do Supabase
+        switch (error.code) {
+          case '23505':
+            errorMessage = "Já existe um agente com este telefone.";
+            break;
+          case '23503':
+            errorMessage = "Referência inválida: empresa ou usuário não encontrado.";
+            break;
+          case '23502':
+            errorMessage = `Campo obrigatório faltando: ${error.details || error.message}`;
+            break;
+          default:
+            errorMessage = `Erro no banco de dados: ${error.message || error.code}`;
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else {
+        errorMessage = "Erro desconhecido ao criar agente.";
+      }
+      
       toast({
         title: "Erro ao criar agente",
-        description: "Não foi possível criar o agente. Verifique os dados e tente novamente.",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
