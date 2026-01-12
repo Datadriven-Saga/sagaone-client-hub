@@ -246,7 +246,7 @@ export default function Templates() {
     enabled: !!activeCompany?.id,
   });
 
-  // Buscar agentes Pri (nome contendo "pri") da empresa (para seleção no formulário)
+  // Buscar todos os agentes ativos da empresa (para seleção no formulário)
   const { data: agentesIAWhatsapp = [] } = useQuery({
     queryKey: ["agentes_ia_whatsapp", activeCompany?.id],
     queryFn: async () => {
@@ -256,12 +256,11 @@ export default function Templates() {
         .from("agentes_ia")
         .select("id, nome, telefone")
         .eq("empresa_id", activeCompany.id)
-        .ilike("nome", "%pri%")
         .eq("ativo", true)
         .order("nome");
 
       if (error) {
-        console.error("Erro ao buscar agentes IA Whatsapp:", error);
+        console.error("Erro ao buscar agentes IA:", error);
         return [];
       }
 
@@ -284,12 +283,11 @@ export default function Templates() {
         }
       }
 
-      // Caso contrário, buscar o primeiro agente Pri disponível
+      // Buscar todos os agentes ativos
       const { data, error } = await supabase
         .from("agentes_ia")
         .select("telefone")
         .eq("empresa_id", activeCompany.id)
-        .ilike("nome", "%pri%")
         .eq("ativo", true);
 
       if (error) {
