@@ -148,31 +148,35 @@ export function SyncEmpresasButton() {
         const getCrmId = () => {
           return normalizedRow['crm_id'] || normalizedRow['crmid'] || normalizedRow['crm'] || 
                  normalizedRow['id_crm'] || normalizedRow['dealer_id'] || normalizedRow['dealerid'] ||
-                 normalizedRow['cod_crm'] || normalizedRow['codigo_crm'] || normalizedRow['id'] || '';
+                 normalizedRow['cod_crm'] || normalizedRow['codigo_crm'] || normalizedRow['id'] ||
+                 normalizedRow['nm_codigo_svm'] || normalizedRow['codigo_svm'] || '';
         };
 
         const getNome = () => {
           return normalizedRow['nome'] || normalizedRow['nome_empresa'] || normalizedRow['razao_social'] ||
                  normalizedRow['empresa'] || normalizedRow['fantasia'] || normalizedRow['nome_fantasia'] ||
-                 normalizedRow['dealer'] || normalizedRow['concessionaria'] || '';
+                 normalizedRow['dealer'] || normalizedRow['concessionaria'] || 
+                 normalizedRow['vc_empresa'] || '';
         };
 
         const getCnpj = () => {
           return normalizedRow['cnpj'] || normalizedRow['cnpj_cpf'] || normalizedRow['documento'] ||
-                 normalizedRow['cpf_cnpj'] || '';
+                 normalizedRow['cpf_cnpj'] || normalizedRow['id_cnpj'] || '';
         };
 
         const getMarca = () => {
           return normalizedRow['marca'] || normalizedRow['bandeira'] || normalizedRow['fabricante'] ||
-                 normalizedRow['montadora'] || '';
+                 normalizedRow['montadora'] || normalizedRow['vc_marca'] || '';
         };
 
         const getUf = () => {
-          return normalizedRow['uf'] || normalizedRow['estado'] || normalizedRow['sigla_uf'] || '';
+          return normalizedRow['uf'] || normalizedRow['estado'] || normalizedRow['sigla_uf'] || 
+                 normalizedRow['vc_uf'] || '';
         };
 
         const getCidade = () => {
-          return normalizedRow['cidade'] || normalizedRow['municipio'] || normalizedRow['cidade_sede'] || '';
+          return normalizedRow['cidade'] || normalizedRow['municipio'] || normalizedRow['cidade_sede'] || 
+                 normalizedRow['vc_cidade'] || '';
         };
 
         return {
