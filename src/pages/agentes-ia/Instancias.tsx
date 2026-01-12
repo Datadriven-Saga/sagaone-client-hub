@@ -486,7 +486,7 @@ export default function Instancias() {
                 {editMode && editedData ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="edit_num_maia">Número Maia</Label>
+                      <Label htmlFor="edit_num_maia">Número Agente</Label>
                       <Input
                         id="edit_num_maia"
                         value={editedData.num_maia}
@@ -585,7 +585,7 @@ export default function Instancias() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Número Maia</Label>
+                      <Label className="text-xs text-muted-foreground">Número Agente</Label>
                       <p className="text-sm font-medium">{instanciaData.num_maia}</p>
                     </div>
                     <div className="space-y-1">
