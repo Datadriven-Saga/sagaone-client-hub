@@ -92,16 +92,25 @@ export default function AgentesIA() {
 
       console.log('Dados retornados:', agenteEmpresas);
 
-      // Extrair agentes únicos e filtrar apenas os do webhook
+      // Extrair agentes únicos por ID e TELEFONE (um agente pode estar em várias empresas, mas só aparece uma vez)
       const agentesUnicos: AgenteLocal[] = [];
       const idsAdicionados = new Set<string>();
+      const telefonesAdicionados = new Set<string>();
 
       if (agenteEmpresas) {
         for (const item of agenteEmpresas) {
           const agente = item.agentes_ia as unknown as AgenteLocal;
           if (agente && !idsAdicionados.has(agente.id) && isWebhookAgent(agente)) {
+            // Também verificar por telefone para evitar duplicatas visuais
+            const telefoneNormalizado = agente.telefone?.replace(/\D/g, '') || '';
+            if (telefoneNormalizado && telefonesAdicionados.has(telefoneNormalizado)) {
+              continue; // Já existe agente com esse telefone
+            }
             agentesUnicos.push(agente);
             idsAdicionados.add(agente.id);
+            if (telefoneNormalizado) {
+              telefonesAdicionados.add(telefoneNormalizado);
+            }
           }
         }
       }
