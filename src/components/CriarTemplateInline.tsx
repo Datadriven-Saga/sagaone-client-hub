@@ -352,6 +352,8 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
         formato,
         conteudo: conteudoFinal,
         cardData,
+        agenteId: selectedAgenteId,
+        agenteTelefone: priTelefone,
       });
 
       toast.success("Template criado com sucesso!");
@@ -371,16 +373,17 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
     formato: string;
     conteudo: string;
     cardData: Record<string, any>;
+    agenteId: string;
+    agenteTelefone: string | null;
   }) => {
     if (!empresaId) return;
 
     try {
-      // Buscar dados da Pri (agente de IA)
-      const { data: priAgent } = await supabase
+      // Buscar dados completos do agente selecionado
+      const { data: agenteData } = await supabase
         .from("agentes_ia")
-        .select("telefone, dealer_id, ativo")
-        .eq("empresa_id", empresaId)
-        .eq("nome", "Pri")
+        .select("telefone, dealer_id, ativo, nome")
+        .eq("id", templateData.agenteId)
         .single();
 
       // Buscar gatilhos ativos
@@ -406,7 +409,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
         return;
       }
 
-      // Construir payload básico
+      // Construir payload com dados do agente selecionado
       const payload = {
         template: {
           name: templateData.nome.toLowerCase().replace(/\s+/g, "_"),
@@ -414,9 +417,11 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
           language: "pt_BR",
           components: buildTemplateComponents(templateData),
         },
-        pri_telefone: priAgent?.telefone || null,
-        pri_dealer_id: priAgent?.dealer_id || null,
-        pri_status: priAgent?.ativo ? "Ativo" : "Inativo",
+        agente_id: templateData.agenteId,
+        agente_nome: agenteData?.nome || null,
+        pri_telefone: agenteData?.telefone?.replace(/\D/g, "") || templateData.agenteTelefone,
+        pri_dealer_id: agenteData?.dealer_id || null,
+        pri_status: agenteData?.ativo ? "Ativo" : "Inativo",
       };
 
       // Disparar webhooks para cada gatilho
