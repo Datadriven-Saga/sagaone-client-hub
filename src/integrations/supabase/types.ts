@@ -2754,6 +2754,7 @@ export type Database = {
         Args: { target_empresa_id: string }
         Returns: boolean
       }
+      validate_email_domain: { Args: { email_input: string }; Returns: boolean }
     }
     Enums: {
       canal_optout: "Whatsapp" | "Ligação" | "SMS" | "E-mail"
