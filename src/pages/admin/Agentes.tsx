@@ -572,10 +572,18 @@ export default function AdminAgentes() {
 
   // Save agent to local database
   const handleSaveAgente = async () => {
-    if (!formData.nome) {
+    if (!formData.nome.trim()) {
       toast({
-        title: "Erro",
+        title: "Campo obrigatório",
         description: "O nome do agente é obrigatório",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!formData.telefone.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O telefone do agente é obrigatório",
         variant: "destructive"
       });
       return;
@@ -826,6 +834,14 @@ export default function AdminAgentes() {
       toast({
         title: "Campo obrigatório",
         description: "A UF é obrigatória",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!novaInstancia.agente.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "O nome do agente é obrigatório",
         variant: "destructive"
       });
       return;
@@ -1352,7 +1368,7 @@ export default function AdminAgentes() {
                         {/* Campos de texto */}
                         <div className="flex-1 min-w-0 space-y-4">
                           <div>
-                            <Label htmlFor="nome">Nome do Agente</Label>
+                            <Label htmlFor="nome">Nome do Agente *</Label>
                             <Input
                               id="nome"
                               value={formData.nome}
@@ -1363,34 +1379,13 @@ export default function AdminAgentes() {
                           </div>
 
                           <div>
-                            <Label htmlFor="persona">Persona do Agente</Label>
-                            <Textarea
-                              id="persona"
-                              value={formData.persona}
-                              onChange={(e) => setFormData(prev => ({ ...prev, persona: e.target.value }))}
-                              placeholder="Descrição breve sobre a identidade do agente..."
-                              rows={3}
-                            />
-                          </div>
-
-                          <div>
-                            <Label htmlFor="cerebro">Cérebro do Agente</Label>
-                            <Textarea
-                              id="cerebro"
-                              value={formData.cerebro}
-                              onChange={(e) => setFormData(prev => ({ ...prev, cerebro: e.target.value }))}
-                              placeholder="Texto longo em linguagem natural que define o comportamento do agente..."
-                              rows={6}
-                            />
-                          </div>
-
-                          <div>
-                            <Label htmlFor="telefone">Telefone</Label>
+                            <Label htmlFor="telefone">Telefone *</Label>
                             <Input
                               id="telefone"
                               value={formData.telefone}
                               onChange={(e) => setFormData(prev => ({ ...prev, telefone: e.target.value }))}
                               placeholder="+55 11 99999-9999"
+                              required
                             />
                           </div>
 
