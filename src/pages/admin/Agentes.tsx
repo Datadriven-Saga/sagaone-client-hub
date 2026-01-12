@@ -977,16 +977,54 @@ export default function AdminAgentes() {
   };
 
   const handleAssignAgente = async () => {
-    if (!agenteToAssign) return;
+    if (!agenteToAssign || !selectedEmpresaId) return;
 
     try {
+      // Buscar o agente local correspondente pelo telefone
+      const telefone = agenteToAssign.telefone || agenteToAssign.num_maia;
+      
+      if (telefone) {
+        // Verificar se já existe um agente com esse telefone
+        const { data: existingAgent } = await supabase
+          .from('agentes_ia')
+          .select('id')
+          .eq('telefone', telefone)
+          .maybeSingle();
+
+        if (existingAgent) {
+          // Atualizar o agente existente com a empresa
+          const { error } = await supabase
+            .from('agentes_ia')
+            .update({ empresa_id: selectedEmpresaId })
+            .eq('id', existingAgent.id);
+
+          if (error) throw error;
+        } else {
+          // Criar um novo agente com a empresa
+          const { error } = await supabase
+            .from('agentes_ia')
+            .insert({
+              nome: agenteToAssign.nome || `Agente ${agenteToAssign.marca} ${agenteToAssign.uf}`,
+              telefone: telefone,
+              empresa_id: selectedEmpresaId,
+              ativo: true,
+              criado_por: user?.id
+            });
+
+          if (error) throw error;
+        }
+      }
+
+      const empresaSelecionada = empresas.find(e => e.id === selectedEmpresaId);
+      
       toast({
         title: "Agente atribuído",
-        description: `Agente ${agenteToAssign.nome} foi atribuído à empresa selecionada`
+        description: `Agente ${agenteToAssign.nome || agenteToAssign.marca} foi atribuído à empresa ${empresaSelecionada?.nome_empresa || 'selecionada'}`
       });
       
       setShowAssignModal(false);
       setAgenteToAssign(null);
+      setSelectedEmpresaId("");
       carregarAgentes();
     } catch (error) {
       console.error('Erro ao atribuir agente:', error);
@@ -1111,7 +1149,7 @@ export default function AdminAgentes() {
                     <TableRow>
                       <TableHead>Marca</TableHead>
                       <TableHead>UF</TableHead>
-                      <TableHead>Num Maia</TableHead>
+                      <TableHead>Número Agente</TableHead>
                       <TableHead>Instância</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
@@ -1149,8 +1187,13 @@ export default function AdminAgentes() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={agente.ativo !== false ? "default" : "secondary"}>
-                            {agente.ativo !== false ? "Ativo" : "Inativo"}
+                          <Badge 
+                            className={agente.ativo !== false 
+                              ? "bg-green-500 hover:bg-green-600 text-white" 
+                              : "bg-red-500 hover:bg-red-600 text-white"
+                            }
+                          >
+                            {agente.ativo !== false ? "Ativo" : "Desativado"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
