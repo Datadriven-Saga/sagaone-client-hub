@@ -140,6 +140,7 @@ export default function Templates() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [selectedAgenteId, setSelectedAgenteId] = useState<string | null>(null);
 
   // Helper function to upload media to Supabase Storage
   const uploadMediaToStorage = async (file: File, mediaType: 'image' | 'audio' | 'video'): Promise<string | null> => {
@@ -245,17 +246,51 @@ export default function Templates() {
     enabled: !!activeCompany?.id,
   });
 
-  // Buscar o telefone PRI da empresa atual (usado para associar templates)
+  // Buscar agentes Pri e Pri - Whatsapp da empresa (para seleção no formulário)
+  const { data: agentesIAWhatsapp = [] } = useQuery({
+    queryKey: ["agentes_ia_whatsapp", activeCompany?.id],
+    queryFn: async () => {
+      if (!activeCompany?.id) return [];
+
+      const { data, error } = await supabase
+        .from("agentes_ia")
+        .select("id, nome, telefone")
+        .eq("empresa_id", activeCompany.id)
+        .in("nome", ["Pri", "Pri - Whatsapp"])
+        .eq("ativo", true)
+        .order("nome");
+
+      if (error) {
+        console.error("Erro ao buscar agentes IA Whatsapp:", error);
+        return [];
+      }
+
+      return data || [];
+    },
+    enabled: !!activeCompany?.id,
+  });
+
+  // Buscar o telefone PRI da empresa atual (baseado no agente selecionado ou primeiro disponível)
   const { data: priTelefone } = useQuery({
-    queryKey: ["pri_telefone", activeCompany?.id],
+    queryKey: ["pri_telefone", activeCompany?.id, selectedAgenteId],
     queryFn: async () => {
       if (!activeCompany?.id) return null;
 
+      // Se há um agente selecionado, usar o telefone dele
+      if (selectedAgenteId) {
+        const agenteSelecionado = agentesIAWhatsapp.find(a => a.id === selectedAgenteId);
+        if (agenteSelecionado?.telefone) {
+          return normalizePhone(agenteSelecionado.telefone);
+        }
+      }
+
+      // Caso contrário, buscar o primeiro agente Pri disponível
       const { data, error } = await supabase
         .from("agentes_ia")
         .select("telefone")
         .eq("empresa_id", activeCompany.id)
-        .eq("nome", "Pri");
+        .in("nome", ["Pri", "Pri - Whatsapp"])
+        .eq("ativo", true);
 
       if (error) {
         console.error("Erro ao buscar agentes Pri:", error);
@@ -336,6 +371,8 @@ export default function Templates() {
       variaveis: [],
       cardData: initialCardData,
     });
+    // Selecionar primeiro agente disponível por padrão
+    setSelectedAgenteId(agentesIAWhatsapp.length > 0 ? agentesIAWhatsapp[0].id : null);
     setCurrentStep(1);
     setIsModalOpen(true);
   };
@@ -370,6 +407,8 @@ export default function Templates() {
         })),
       },
     });
+    // Definir agente do template se existir
+    setSelectedAgenteId(template.agente_id || (agentesIAWhatsapp.length > 0 ? agentesIAWhatsapp[0].id : null));
     setCurrentStep(1);
     setIsModalOpen(true);
   };
@@ -405,6 +444,10 @@ export default function Templates() {
     if (currentStep === 1) {
       if (!formData.nome || !formData.categoria) {
         toast.error("Preencha todos os campos obrigatórios");
+        return;
+      }
+      if (!selectedAgenteId) {
+        toast.error("Selecione um agente IA WhatsApp");
         return;
       }
       if (nomeDuplicado) {
@@ -776,6 +819,12 @@ export default function Templates() {
           break;
       }
 
+      // Obter telefone do agente selecionado
+      const agenteSelecionado = agentesIAWhatsapp.find(a => a.id === selectedAgenteId);
+      const telefoneAgente = agenteSelecionado?.telefone 
+        ? normalizePhone(agenteSelecionado.telefone) 
+        : priTelefone;
+
       const templateData = {
         empresa_id: activeCompany.id,
         departamento_id: formData.departamento_id || null,
@@ -784,8 +833,8 @@ export default function Templates() {
         formato: formData.formato,
         conteudo: conteudo,
         card_data: cardData,
-        agente_id: null,
-        pri_telefone: priTelefone, // Chave principal de compartilhamento
+        agente_id: selectedAgenteId, // Vincula ao agente selecionado
+        pri_telefone: telefoneAgente, // Chave principal de compartilhamento (telefone do agente)
       };
 
       let error;
@@ -1146,6 +1195,32 @@ export default function Templates() {
           </SelectContent>
         </Select>
       </div>
+      <div className="flex items-center gap-4">
+        <Label htmlFor="agente" className="w-40 shrink-0 text-right">Agente IA WhatsApp *</Label>
+        <Select
+          value={selectedAgenteId || ""}
+          onValueChange={(value) => setSelectedAgenteId(value)}
+        >
+          <SelectTrigger className="flex-1 bg-white">
+            <SelectValue placeholder="Selecione o agente" />
+          </SelectTrigger>
+          <SelectContent>
+            {agentesIAWhatsapp.map((agente) => (
+              <SelectItem key={agente.id} value={agente.id}>
+                {agente.nome} {agente.telefone ? `(${agente.telefone})` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {agentesIAWhatsapp.length === 0 && (
+        <div className="flex items-center gap-4">
+          <div className="w-40 shrink-0" />
+          <p className="text-sm text-amber-600">
+            Nenhum agente "Pri" ou "Pri - Whatsapp" encontrado. Configure um agente primeiro.
+          </p>
+        </div>
+      )}
     </div>
   );
 

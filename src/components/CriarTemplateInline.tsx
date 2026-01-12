@@ -78,33 +78,52 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
   const [nomeDuplicado, setNomeDuplicado] = useState(false);
   const [verificandoNome, setVerificandoNome] = useState(false);
   const [priTelefone, setPriTelefone] = useState<string | null>(null);
+  const [agentesIAWhatsapp, setAgentesIAWhatsapp] = useState<{ id: string; nome: string; telefone: string | null }[]>([]);
+  const [selectedAgenteId, setSelectedAgenteId] = useState<string | null>(null);
 
-  // Buscar telefone PRI da empresa
+  // Buscar agentes Pri e Pri - Whatsapp da empresa
   useEffect(() => {
-    const fetchPriTelefone = async () => {
+    const fetchAgentesIA = async () => {
       if (!empresaId) return;
 
       const { data, error } = await supabase
         .from("agentes_ia")
-        .select("telefone")
+        .select("id, nome, telefone")
         .eq("empresa_id", empresaId)
-        .eq("nome", "Pri");
+        .in("nome", ["Pri", "Pri - Whatsapp"])
+        .eq("ativo", true)
+        .order("nome");
 
       if (error) {
-        console.error("Erro ao buscar agentes Pri:", error);
-        setPriTelefone(null);
+        console.error("Erro ao buscar agentes IA Whatsapp:", error);
+        setAgentesIAWhatsapp([]);
         return;
       }
 
-      const telefones = (data || [])
-        .map((a) => (a.telefone ? a.telefone.replace(/\D/g, "") : ""))
-        .filter(Boolean);
-
-      setPriTelefone(telefones.find((t) => t.length >= 10) || telefones[0] || null);
+      const agentes = data || [];
+      setAgentesIAWhatsapp(agentes);
+      
+      // Selecionar primeiro agente por padrão
+      if (agentes.length > 0 && !selectedAgenteId) {
+        setSelectedAgenteId(agentes[0].id);
+        // Definir o telefone do primeiro agente
+        const telefone = agentes[0].telefone?.replace(/\D/g, "") || null;
+        setPriTelefone(telefone);
+      }
     };
 
-    fetchPriTelefone();
+    fetchAgentesIA();
   }, [empresaId]);
+
+  // Atualizar priTelefone quando agente selecionado mudar
+  useEffect(() => {
+    if (selectedAgenteId && agentesIAWhatsapp.length > 0) {
+      const agenteSelecionado = agentesIAWhatsapp.find(a => a.id === selectedAgenteId);
+      if (agenteSelecionado?.telefone) {
+        setPriTelefone(agenteSelecionado.telefone.replace(/\D/g, ""));
+      }
+    }
+  }, [selectedAgenteId, agentesIAWhatsapp]);
 
   // Verificar nome duplicado (usando pri_telefone)
   useEffect(() => {
@@ -210,6 +229,10 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
       toast.error("Selecione o formato");
       return;
     }
+    if (!selectedAgenteId) {
+      toast.error("Selecione um agente IA WhatsApp");
+      return;
+    }
 
     // Verificar se já existe template com o mesmo nome (usando pri_telefone)
     if (priTelefone) {
@@ -304,8 +327,8 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
           formato,
           conteudo: conteudoFinal,
           card_data: cardData,
-          agente_id: null,
-          pri_telefone: priTelefone, // Chave principal de compartilhamento
+          agente_id: selectedAgenteId, // Vincula ao agente selecionado
+          pri_telefone: priTelefone, // Chave principal de compartilhamento (telefone do agente)
         }]);
 
       if (error) throw error;
@@ -755,6 +778,27 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
         </div>
 
         <div className="space-y-1">
+          <Label className="text-xs">Agente IA WhatsApp *</Label>
+          <Select value={selectedAgenteId || ""} onValueChange={(v) => setSelectedAgenteId(v)}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Selecione o agente..." />
+            </SelectTrigger>
+            <SelectContent>
+              {agentesIAWhatsapp.map((agente) => (
+                <SelectItem key={agente.id} value={agente.id}>
+                  {agente.nome} {agente.telefone ? `(${agente.telefone})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {agentesIAWhatsapp.length === 0 && (
+            <p className="text-xs text-amber-600">
+              Nenhum agente "Pri" ou "Pri - Whatsapp" encontrado.
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1">
           <Label className="text-xs">Formato</Label>
           <div className="grid grid-cols-3 gap-2">
             {formatOptions.map((opt) => {
@@ -784,7 +828,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="button" size="sm" onClick={handleSave} disabled={loading || isUploading || nomeDuplicado || verificandoNome}>
+          <Button type="button" size="sm" onClick={handleSave} disabled={loading || isUploading || nomeDuplicado || verificandoNome || !selectedAgenteId}>
             {loading ? "Salvando..." : "Criar Template"}
           </Button>
         </div>
