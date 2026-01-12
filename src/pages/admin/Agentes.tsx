@@ -58,6 +58,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AgenteFollowups } from "@/components/AgenteFollowups";
 import { AgenteCadencia } from "@/components/AgenteCadencia";
 import { AgenteIntegracao } from "@/components/AgenteIntegracao";
@@ -166,6 +167,8 @@ export default function AdminAgentes() {
   const [savingInstancia, setSavingInstancia] = useState(false);
   const [lojasAtribuidas, setLojasAtribuidas] = useState<Empresa[]>([]);
   const [loadingLojas, setLoadingLojas] = useState(false);
+  const [selectedLojasToRemove, setSelectedLojasToRemove] = useState<string[]>([]);
+  const [removingLojas, setRemovingLojas] = useState(false);
   const [activeTab, setActiveTab] = useState("dados-gerais");
   const [isNewAgente, setIsNewAgente] = useState(false);
   const [creatingInstancia, setCreatingInstancia] = useState(false);
@@ -318,6 +321,57 @@ export default function AdminAgentes() {
       setLojasAtribuidas([]);
     } finally {
       setLoadingLojas(false);
+    }
+  };
+
+  // Remover lojas atribuídas
+  const handleRemoveLojas = async (lojaIds: string[]) => {
+    if (!agenteLocal?.id || lojaIds.length === 0) return;
+    
+    try {
+      setRemovingLojas(true);
+      
+      const { error } = await supabase
+        .from('agente_empresas')
+        .delete()
+        .eq('agente_id', agenteLocal.id)
+        .in('empresa_id', lojaIds);
+
+      if (error) throw error;
+
+      toast({
+        title: "Lojas removidas",
+        description: `${lojaIds.length} loja${lojaIds.length > 1 ? 's removidas' : ' removida'} com sucesso`,
+      });
+
+      // Recarregar lojas atribuídas
+      await carregarLojasAtribuidas(agenteLocal.id);
+      setSelectedLojasToRemove([]);
+    } catch (error) {
+      console.error('Erro ao remover lojas:', error);
+      toast({
+        title: "Erro ao remover lojas",
+        description: "Não foi possível remover as lojas selecionadas",
+        variant: "destructive"
+      });
+    } finally {
+      setRemovingLojas(false);
+    }
+  };
+
+  const toggleLojaSelection = (lojaId: string) => {
+    setSelectedLojasToRemove(prev => 
+      prev.includes(lojaId) 
+        ? prev.filter(id => id !== lojaId)
+        : [...prev, lojaId]
+    );
+  };
+
+  const toggleSelectAllLojas = () => {
+    if (selectedLojasToRemove.length === lojasAtribuidas.length) {
+      setSelectedLojasToRemove([]);
+    } else {
+      setSelectedLojasToRemove(lojasAtribuidas.map(l => l.id));
     }
   };
 
@@ -647,6 +701,7 @@ export default function AdminAgentes() {
     setEditedInstancia(null);
     setIsNewAgente(false);
     setLojasAtribuidas([]);
+    setSelectedLojasToRemove([]);
     setNovaInstancia({
       num_maia: "",
       marca: "",
@@ -1946,11 +2001,47 @@ export default function AdminAgentes() {
                       {/* Lojas Atribuídas */}
                       {agenteLocal && (
                         <div className="mt-6 pt-6 border-t">
-                          <div className="flex items-center gap-2 mb-4">
-                            <Store className="h-5 w-5 text-muted-foreground" />
-                            <Label className="text-base font-medium">Lojas Atribuídas</Label>
-                            {loadingLojas && (
-                              <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+                          <div className="flex items-center justify-between gap-2 mb-4">
+                            <div className="flex items-center gap-2">
+                              <Store className="h-5 w-5 text-muted-foreground" />
+                              <Label className="text-base font-medium">Lojas Atribuídas</Label>
+                              {loadingLojas && (
+                                <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+                              )}
+                              {lojasAtribuidas.length > 0 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {lojasAtribuidas.length}
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            {lojasAtribuidas.length > 0 && (
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={toggleSelectAllLojas}
+                                  className="text-xs h-7"
+                                >
+                                  {selectedLojasToRemove.length === lojasAtribuidas.length ? "Desmarcar Todas" : "Selecionar Todas"}
+                                </Button>
+                                {selectedLojasToRemove.length > 0 && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleRemoveLojas(selectedLojasToRemove)}
+                                    disabled={removingLojas}
+                                    className="text-xs h-7"
+                                  >
+                                    {removingLojas ? (
+                                      <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3 mr-1" />
+                                    )}
+                                    Remover ({selectedLojasToRemove.length})
+                                  </Button>
+                                )}
+                              </div>
                             )}
                           </div>
                           
@@ -1959,8 +2050,19 @@ export default function AdminAgentes() {
                               {lojasAtribuidas.map((loja) => (
                                 <div 
                                   key={loja.id}
-                                  className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border"
+                                  className={`flex items-center gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
+                                    selectedLojasToRemove.includes(loja.id) 
+                                      ? "bg-destructive/10 border-destructive/30" 
+                                      : "bg-muted/50 hover:bg-muted/70"
+                                  }`}
+                                  onClick={() => toggleLojaSelection(loja.id)}
                                 >
+                                  <Checkbox 
+                                    checked={selectedLojasToRemove.includes(loja.id)}
+                                    onCheckedChange={() => toggleLojaSelection(loja.id)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="shrink-0"
+                                  />
                                   <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
                                   <div className="min-w-0 flex-1">
                                     <p className="text-sm font-medium truncate">{loja.nome_empresa}</p>
@@ -1968,6 +2070,18 @@ export default function AdminAgentes() {
                                       {[loja.marca, loja.cidade, loja.uf].filter(Boolean).join(' • ')}
                                     </p>
                                   </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveLojas([loja.id]);
+                                    }}
+                                    disabled={removingLojas}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
                                 </div>
                               ))}
                             </div>
