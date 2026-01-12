@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAgenteSync } from "@/components/AgenteDetalhes";
 
 interface InstanciaData {
   num_maia: string;
@@ -45,15 +46,12 @@ interface AgenteInstanciasProps {
   isNewAgent?: boolean;
 }
 
-const UF_LIST = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 
-  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", 
-  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-];
+const UF_LIST = ["DF", "GO", "MG", "MT", "RO"];
 
 export function AgenteInstancias({ agenteId, isNewAgent = false }: AgenteInstanciasProps) {
   const { toast } = useToast();
   const { activeCompany } = useCompany();
+  const syncContext = useAgenteSync();
   
   const [loading, setLoading] = useState(false);
   const [loadingInstancias, setLoadingInstancias] = useState(false);
@@ -84,6 +82,19 @@ export function AgenteInstancias({ agenteId, isNewAgent = false }: AgenteInstanc
     meta_app_id: "",
     cw_token_maia: ""
   });
+
+  // Sincronizar dados do contexto para novaInstancia
+  useEffect(() => {
+    if (syncContext) {
+      setNovaInstancia(prev => ({
+        ...prev,
+        num_maia: syncContext.formData.telefone || prev.num_maia,
+        nome_agente: syncContext.formData.nome || prev.nome_agente
+      }));
+      setTelefoneMaia(syncContext.formData.telefone || "");
+      setSavedTelefoneMaia(syncContext.formData.telefone || "");
+    }
+  }, [syncContext?.formData.telefone, syncContext?.formData.nome]);
 
   const handleCopyToClipboard = async (
     e: React.MouseEvent,
@@ -349,6 +360,7 @@ export function AgenteInstancias({ agenteId, isNewAgent = false }: AgenteInstanc
     try {
       setSavingEdit(true);
 
+      // Primeiro, atualizar instância via webhook atualiza-instancias_evo
       const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-instancias_evo', {
         method: 'POST',
         headers: {
@@ -362,6 +374,47 @@ export function AgenteInstancias({ agenteId, isNewAgent = false }: AgenteInstanc
 
       if (!response.ok) {
         throw new Error(`Erro na requisição: ${response.status}`);
+      }
+
+      // Também chamar o webhook de atualização de agente
+      try {
+        const agentePayload = {
+          num_maia: editedData.num_maia,
+          nome_agente: editedData.agente,
+          marca: editedData.marca,
+          uf: editedData.uf,
+          instancia: editedData.instancia,
+          evo_token: editedData.evo_token || null,
+          id_numero_meta: editedData.id_numero_meta || null,
+          tb_histories: editedData.tb_histories || null,
+          cw_inbox: editedData.cw_inbox || null,
+          waba: editedData.waba || null,
+          meta_app_id: editedData.meta_app_id || null,
+          cw_token_maia: editedData.cw_token_maia || null,
+          atualizado_em: new Date().toISOString()
+        };
+
+        console.log('Enviando para webhook atualiza-agente:', agentePayload);
+
+        await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-agente', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(agentePayload)
+        });
+      } catch (webhookError) {
+        console.error('Erro ao chamar webhook atualiza-agente:', webhookError);
+      }
+
+      // Sincronizar com o contexto se disponível
+      if (syncContext && editedData.num_maia) {
+        syncContext.updateInstanciaData('num_maia', editedData.num_maia);
+        syncContext.updateInstanciaData('marca', editedData.marca);
+        syncContext.updateInstanciaData('uf', editedData.uf);
+        if (editedData.agente) {
+          syncContext.updateInstanciaData('nome_agente', editedData.agente);
+        }
       }
 
       toast({
@@ -403,12 +456,49 @@ export function AgenteInstancias({ agenteId, isNewAgent = false }: AgenteInstanc
     return `${nome_agente}${marca}${uf}+55${num_maia}`;
   };
 
-  // Atualizar campo da nova instância
+  // Atualizar campo da nova instância com sincronização
   const handleNovaInstanciaChange = (field: keyof NovaInstanciaData, value: string) => {
     setNovaInstancia(prev => ({
       ...prev,
       [field]: value
     }));
+    
+    // Sincronizar com o contexto do AgenteDetalhes
+    if (syncContext) {
+      if (field === 'num_maia') {
+        syncContext.updateInstanciaData('num_maia', value);
+      }
+      if (field === 'nome_agente') {
+        syncContext.updateInstanciaData('nome_agente', value);
+      }
+      if (field === 'marca') {
+        syncContext.updateInstanciaData('marca', value);
+      }
+      if (field === 'uf') {
+        syncContext.updateInstanciaData('uf', value);
+      }
+      if (field === 'evo_token') {
+        syncContext.updateInstanciaData('evo_token', value);
+      }
+      if (field === 'id_numero_meta') {
+        syncContext.updateInstanciaData('id_numero_meta', value);
+      }
+      if (field === 'tb_histories') {
+        syncContext.updateInstanciaData('tb_histories', value);
+      }
+      if (field === 'cw_inbox') {
+        syncContext.updateInstanciaData('cw_inbox', value);
+      }
+      if (field === 'waba') {
+        syncContext.updateInstanciaData('waba', value);
+      }
+      if (field === 'meta_app_id') {
+        syncContext.updateInstanciaData('meta_app_id', value);
+      }
+      if (field === 'cw_token_maia') {
+        syncContext.updateInstanciaData('cw_token_maia', value);
+      }
+    }
   };
 
   // Criar nova instância via webhook
