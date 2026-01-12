@@ -57,38 +57,139 @@ export function SyncEmpresasButton() {
     setParsedData([]);
     
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
+      const fileName = file.name.toLowerCase();
+      const isCSV = fileName.endsWith('.csv');
       
-      // Parse to JSON with header row
-      const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { defval: '' });
+      let jsonData: Record<string, any>[] = [];
+
+      if (isCSV) {
+        // Handle CSV files manually to support different delimiters
+        const text = await file.text();
+        const lines = text.split(/\r?\n/).filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          setParseError("Arquivo vazio ou sem dados válidos");
+          return;
+        }
+
+        // Try to detect delimiter (semicolon, comma, or tab)
+        const firstLine = lines[0];
+        let delimiter = ',';
+        if (firstLine.includes(';')) {
+          delimiter = ';';
+        } else if (firstLine.includes('\t')) {
+          delimiter = '\t';
+        }
+
+        // Parse headers
+        const headers = firstLine.split(delimiter).map(h => h.trim().replace(/^["']|["']$/g, ''));
+        
+        // Parse data rows
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i];
+          if (!line.trim()) continue;
+          
+          // Handle quoted values that might contain delimiters
+          const values: string[] = [];
+          let inQuotes = false;
+          let currentValue = '';
+          
+          for (let j = 0; j < line.length; j++) {
+            const char = line[j];
+            if (char === '"' || char === "'") {
+              inQuotes = !inQuotes;
+            } else if (char === delimiter && !inQuotes) {
+              values.push(currentValue.trim().replace(/^["']|["']$/g, ''));
+              currentValue = '';
+            } else {
+              currentValue += char;
+            }
+          }
+          values.push(currentValue.trim().replace(/^["']|["']$/g, ''));
+          
+          const row: Record<string, any> = {};
+          headers.forEach((header, index) => {
+            row[header] = values[index] || '';
+          });
+          jsonData.push(row);
+        }
+      } else {
+        // Handle XLS/XLSX files with XLSX library
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array', codepage: 65001 });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Parse to JSON with header row
+        jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { defval: '' });
+      }
+      
+      console.log('Dados brutos do arquivo:', jsonData.slice(0, 3)); // Debug log
       
       if (jsonData.length === 0) {
         setParseError("Arquivo vazio ou sem dados válidos");
         return;
       }
 
-      // Map columns to expected format
+      // Log available columns for debugging
+      if (jsonData.length > 0) {
+        console.log('Colunas encontradas:', Object.keys(jsonData[0]));
+      }
+
+      // Map columns to expected format with more flexible matching
       const empresas: EmpresaCSV[] = jsonData.map((row) => {
         const normalizedRow: Record<string, string> = {};
         for (const [key, value] of Object.entries(row)) {
-          normalizedRow[normalizeColumnName(key)] = String(value || '').trim();
+          const normalizedKey = normalizeColumnName(key);
+          normalizedRow[normalizedKey] = String(value || '').trim();
         }
 
+        // Try multiple possible column name variations
+        const getCrmId = () => {
+          return normalizedRow['crm_id'] || normalizedRow['crmid'] || normalizedRow['crm'] || 
+                 normalizedRow['id_crm'] || normalizedRow['dealer_id'] || normalizedRow['dealerid'] ||
+                 normalizedRow['cod_crm'] || normalizedRow['codigo_crm'] || normalizedRow['id'] || '';
+        };
+
+        const getNome = () => {
+          return normalizedRow['nome'] || normalizedRow['nome_empresa'] || normalizedRow['razao_social'] ||
+                 normalizedRow['empresa'] || normalizedRow['fantasia'] || normalizedRow['nome_fantasia'] ||
+                 normalizedRow['dealer'] || normalizedRow['concessionaria'] || '';
+        };
+
+        const getCnpj = () => {
+          return normalizedRow['cnpj'] || normalizedRow['cnpj_cpf'] || normalizedRow['documento'] ||
+                 normalizedRow['cpf_cnpj'] || '';
+        };
+
+        const getMarca = () => {
+          return normalizedRow['marca'] || normalizedRow['bandeira'] || normalizedRow['fabricante'] ||
+                 normalizedRow['montadora'] || '';
+        };
+
+        const getUf = () => {
+          return normalizedRow['uf'] || normalizedRow['estado'] || normalizedRow['sigla_uf'] || '';
+        };
+
+        const getCidade = () => {
+          return normalizedRow['cidade'] || normalizedRow['municipio'] || normalizedRow['cidade_sede'] || '';
+        };
+
         return {
-          cnpj: normalizedRow['cnpj'] || normalizedRow['cnpj_cpf'] || '',
-          nome: normalizedRow['nome'] || normalizedRow['nome_empresa'] || normalizedRow['razao_social'] || '',
-          marca: normalizedRow['marca'] || normalizedRow['bandeira'] || '',
-          uf: normalizedRow['uf'] || normalizedRow['estado'] || '',
-          crm_id: normalizedRow['crm_id'] || normalizedRow['crmid'] || normalizedRow['crm'] || normalizedRow['id_crm'] || '',
-          cidade: normalizedRow['cidade'] || normalizedRow['municipio'] || '',
+          cnpj: getCnpj(),
+          nome: getNome(),
+          marca: getMarca(),
+          uf: getUf(),
+          crm_id: getCrmId(),
+          cidade: getCidade(),
         };
       }).filter(e => e.crm_id && e.nome); // Filtrar apenas registros válidos
 
+      console.log('Empresas processadas:', empresas.slice(0, 3)); // Debug log
+
       if (empresas.length === 0) {
-        setParseError("Nenhum registro válido encontrado. Verifique se o arquivo possui as colunas: crm_id, nome, cnpj, marca, uf");
+        const availableCols = jsonData.length > 0 ? Object.keys(jsonData[0]).join(', ') : 'nenhuma';
+        setParseError(`Nenhum registro válido encontrado. Colunas no arquivo: ${availableCols}. Necessário ter ao menos: crm_id (ou id) e nome (ou empresa).`);
         return;
       }
 
