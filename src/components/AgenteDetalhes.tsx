@@ -18,6 +18,7 @@ import { AgenteIntegracao } from "@/components/AgenteIntegracao";
 import AgenteVariaveis from "@/components/AgenteVariaveis";
 import { AgenteCadenciasNova } from "@/components/AgenteCadenciasNova";
 import { AgenteInstancias } from "@/components/AgenteInstancias";
+import { formatPhone, formatName } from "@/lib/utils";
 
 interface Agente {
   id: string;
@@ -239,15 +240,19 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
     try {
       setLoading(true);
 
+      // Aplicar formatação automática ao nome e telefone
+      const nomeFormatado = formatName(formData.nome) || formData.nome;
+      const telefoneFormatado = formatPhone(formData.telefone) || formData.telefone;
+
       if (isEditing) {
         // Atualizar agente existente no Supabase
         const { error } = await supabase
           .from('agentes_ia')
           .update({
-            nome: formData.nome,
+            nome: nomeFormatado,
             persona: formData.persona,
             cerebro: formData.cerebro,
-            telefone: formData.telefone,
+            telefone: telefoneFormatado,
             dealer_id: formData.dealer_id,
             foto_url: formData.foto_url,
             ativo: formData.ativo
@@ -259,8 +264,8 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
         // Chamar webhook para atualizar no banco externo
         try {
           const webhookPayload = {
-            num_maia: formData.telefone,
-            nome_agente: formData.nome,
+            num_maia: telefoneFormatado,
+            nome_agente: nomeFormatado,
             dealer_id: formData.dealer_id,
             foto_url: formData.foto_url,
             ativo: formData.ativo,
@@ -299,6 +304,13 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
           // Não interrompe o fluxo, pois o Supabase já foi atualizado
         }
 
+        // Atualizar formData local com valores formatados
+        setFormData(prev => ({
+          ...prev,
+          nome: nomeFormatado,
+          telefone: telefoneFormatado
+        }));
+
         toast({
           title: "Agente atualizado",
           description: "O agente foi atualizado com sucesso"
@@ -308,10 +320,10 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
         const { error } = await supabase
           .from('agentes_ia')
           .insert({
-            nome: formData.nome,
+            nome: nomeFormatado,
             persona: formData.persona,
             cerebro: formData.cerebro,
-            telefone: formData.telefone,
+            telefone: telefoneFormatado,
             dealer_id: formData.dealer_id,
             foto_url: formData.foto_url,
             ativo: formData.ativo,
