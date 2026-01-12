@@ -447,6 +447,68 @@ serve(async (req) => {
         );
       }
 
+      case 'toggle_empresa_ativa': {
+        const { user_id, empresa_id, is_ativa } = payload;
+
+        if (!user_id || !empresa_id) {
+          throw new Error('User ID and Empresa ID are required');
+        }
+
+        // Update the is_ativa status
+        const { error: updateError } = await supabaseAdmin
+          .from('user_empresas')
+          .update({ is_ativa, updated_at: new Date().toISOString() })
+          .eq('user_id', user_id)
+          .eq('empresa_id', empresa_id);
+
+        if (updateError) throw updateError;
+
+        console.log('User empresa toggled:', user_id, empresa_id, is_ativa);
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: is_ativa ? 'Empresa ativada' : 'Empresa desativada'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'set_active_empresa': {
+        const { user_id, empresa_id } = payload;
+
+        if (!user_id || !empresa_id) {
+          throw new Error('User ID and Empresa ID are required');
+        }
+
+        // First, deactivate all empresas for this user
+        const { error: deactivateError } = await supabaseAdmin
+          .from('user_empresas')
+          .update({ is_ativa: false, updated_at: new Date().toISOString() })
+          .eq('user_id', user_id);
+
+        if (deactivateError) throw deactivateError;
+
+        // Then activate the selected one
+        const { error: activateError } = await supabaseAdmin
+          .from('user_empresas')
+          .update({ is_ativa: true, updated_at: new Date().toISOString() })
+          .eq('user_id', user_id)
+          .eq('empresa_id', empresa_id);
+
+        if (activateError) throw activateError;
+
+        console.log('Active empresa set:', user_id, empresa_id);
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'Empresa ativa definida com sucesso'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }

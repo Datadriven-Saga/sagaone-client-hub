@@ -9,15 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Users, Edit, Trash2, Shield, Loader2, Building2, ArrowLeft, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Plus, Users, Edit, Trash2, Shield, Loader2, Building2, ArrowLeft, ChevronLeft, ChevronRight, Search, Star } from "lucide-react";
 import { CleanupInvalidUsersButton } from "@/components/CleanupInvalidUsersButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { EmpresasSelector } from "@/components/EmpresasSelector";
+import { UserEmpresasManager } from "@/components/UserEmpresasManager";
 
 import { Database } from "@/integrations/supabase/types";
 
@@ -386,24 +388,210 @@ const Acessos = () => {
                   {editingUser ? "Editar Usuário" : "Novo Usuário"}
                 </DialogTitle>
               </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="nome_completo"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Nome Completo *</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+              
+              {editingUser ? (
+                <Tabs defaultValue="dados" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="dados">Dados do Usuário</TabsTrigger>
+                    <TabsTrigger value="empresas">
+                      <Building2 className="h-4 w-4 mr-2" />
+                      Empresas
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="dados" className="mt-4">
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="nome_completo"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Nome Completo *</FormLabel>
+                                <FormControl>
+                                  <Input {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="password"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Nova Senha (deixe em branco para não alterar)</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="password" 
+                                    placeholder="Digite apenas se quiser alterar"
+                                    {...field} 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="tipo_acesso"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Tipo de Acesso *</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Selecione o tipo" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="SDR">SDR</SelectItem>
+                                    <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
+                                    <SelectItem value="Vendedor">Vendedor</SelectItem>
+                                    <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
+                                    <SelectItem value="Diretor">Diretor</SelectItem>
+                                    <SelectItem value="TI">TI</SelectItem>
+                                    <SelectItem value="Administrador">Administrador</SelectItem>
+                                    <SelectItem value="Proprietário">Proprietário</SelectItem>
+                                    <SelectItem value="CRM">CRM</SelectItem>
+                                    <SelectItem value="Recepcionista">Recepcionista</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="departamento"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Departamento</FormLabel>
+                                <FormControl>
+                                  <Input {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="celular"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Celular</FormLabel>
+                                <FormControl>
+                                  <Input {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="cpf"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>CPF</FormLabel>
+                                <FormControl>
+                                  <Input {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="status"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Status *</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Selecione o status" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="Ativo">Ativo</SelectItem>
+                                    <SelectItem value="Inativo">Inativo</SelectItem>
+                                    <SelectItem value="Suspenso">Suspenso</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        {/* Seleção de Empresas - mantido para adicionar/remover empresas */}
+                        <FormField
+                          control={form.control}
+                          name="empresas"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <EmpresasSelector
+                                  companies={companies}
+                                  selectedCompanies={field.value}
+                                  onSelectionChange={field.onChange}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="flex justify-end space-x-2 pt-4">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => setIsDialogOpen(false)}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button type="submit" disabled={submitting}>
+                            {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                            Atualizar Usuário
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </TabsContent>
+                  
+                  <TabsContent value="empresas" className="mt-4">
+                    <UserEmpresasManager 
+                      userId={editingUser.id}
+                      userNome={editingUser.nome_completo}
+                      onUpdate={fetchProfiles}
                     />
-                    
-                    {!editingUser && (
+                  </TabsContent>
+                </Tabs>
+              ) : (
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="nome_completo"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Nome Completo *</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
                       <FormField
                         control={form.control}
                         name="email"
@@ -417,21 +605,128 @@ const Acessos = () => {
                           </FormItem>
                         )}
                       />
-                    )}
-                    
+                      
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Senha *</FormLabel>
+                            <FormControl>
+                              <Input type="password" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="tipo_acesso"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tipo de Acesso *</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione o tipo" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="SDR">SDR</SelectItem>
+                                <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
+                                <SelectItem value="Vendedor">Vendedor</SelectItem>
+                                <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
+                                <SelectItem value="Diretor">Diretor</SelectItem>
+                                <SelectItem value="TI">TI</SelectItem>
+                                <SelectItem value="Administrador">Administrador</SelectItem>
+                                <SelectItem value="Proprietário">Proprietário</SelectItem>
+                                <SelectItem value="CRM">CRM</SelectItem>
+                                <SelectItem value="Recepcionista">Recepcionista</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="departamento"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Departamento</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="celular"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Celular</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="cpf"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>CPF</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="status"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Status *</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione o status" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="Ativo">Ativo</SelectItem>
+                                <SelectItem value="Inativo">Inativo</SelectItem>
+                                <SelectItem value="Suspenso">Suspenso</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Seleção de Empresas */}
                     <FormField
                       control={form.control}
-                      name="password"
+                      name="empresas"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>
-                            {editingUser ? "Nova Senha (deixe em branco para não alterar)" : "Senha *"}
-                          </FormLabel>
                           <FormControl>
-                            <Input 
-                              type="password" 
-                              placeholder={editingUser ? "Digite apenas se quiser alterar" : ""}
-                              {...field} 
+                            <EmpresasSelector
+                              companies={companies}
+                              selectedCompanies={field.value}
+                              onSelectionChange={field.onChange}
                             />
                           </FormControl>
                           <FormMessage />
@@ -439,135 +734,22 @@ const Acessos = () => {
                       )}
                     />
                     
-                    <FormField
-                      control={form.control}
-                      name="tipo_acesso"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tipo de Acesso *</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione o tipo" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="SDR">SDR</SelectItem>
-                              <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
-                              <SelectItem value="Vendedor">Vendedor</SelectItem>
-                              <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
-                              <SelectItem value="Diretor">Diretor</SelectItem>
-                              <SelectItem value="TI">TI</SelectItem>
-                              <SelectItem value="Administrador">Administrador</SelectItem>
-                              <SelectItem value="Proprietário">Proprietário</SelectItem>
-                              <SelectItem value="CRM">CRM</SelectItem>
-                              <SelectItem value="Recepcionista">Recepcionista</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="departamento"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Departamento</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="celular"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Celular</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="cpf"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>CPF</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="status"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Status *</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione o status" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="Ativo">Ativo</SelectItem>
-                              <SelectItem value="Inativo">Inativo</SelectItem>
-                              <SelectItem value="Suspenso">Suspenso</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* Seleção de Empresas */}
-                  <FormField
-                    control={form.control}
-                    name="empresas"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <EmpresasSelector
-                            companies={companies}
-                            selectedCompanies={field.value}
-                            onSelectionChange={field.onChange}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <div className="flex justify-end space-x-2 pt-4">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => setIsDialogOpen(false)}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button type="submit" disabled={submitting}>
-                      {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      {editingUser ? "Atualizar" : "Criar"} Usuário
-                    </Button>
-                  </div>
-                </form>
-              </Form>
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setIsDialogOpen(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={submitting}>
+                        {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Criar Usuário
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              )}
             </DialogContent>
           </Dialog>
           </div>
