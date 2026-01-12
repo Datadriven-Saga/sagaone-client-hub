@@ -58,10 +58,10 @@ export function ScrollIndicator({ children, className = '' }: ScrollIndicatorPro
       {showIndicator && (
         <button
           onClick={handleIndicatorClick}
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 w-10 h-10 rounded-full bg-primary/50 flex items-center justify-center cursor-pointer transition-opacity duration-300 hover:bg-primary/70"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 w-10 h-10 rounded-full bg-primary/80 shadow-lg flex items-center justify-center cursor-pointer transition-all duration-300 hover:bg-primary pointer-events-auto"
           aria-label="Rolar para baixo"
         >
-          <ChevronDown className="w-6 h-6 text-primary-foreground/50" />
+          <ChevronDown className="w-6 h-6 text-primary-foreground animate-bounce" />
         </button>
       )}
     </div>
