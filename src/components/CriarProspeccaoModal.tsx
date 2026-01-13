@@ -1476,43 +1476,50 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         }
 
         // 2) telefone do agente Pri - Whatsapp (OBRIGATÓRIO)
-        // Preferir match exato "Pri - Whatsapp", senão fallback por contains
+        // IMPORTANTE: buscar via agente_empresas (vínculo correto) já que empresa_id em agentes_ia pode ser NULL
         let priWhatsappData: { telefone: string | null; nome: string | null } | null = null;
 
-        const { data: priWhatsappExato, error: priWhatsappExatoError } = await supabase
-          .from('agentes_ia')
-          .select('telefone, nome')
-          .eq('empresa_id', activeCompany.id)
-          .eq('ativo', true)
-          .ilike('nome', 'pri - whatsapp')
-          .not('telefone', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        // Buscar agentes vinculados à empresa via agente_empresas (mesma lógica do upload de planilha e templates)
+        const { data: agentesVinculados, error: agentesVinculadosErr } = await supabase
+          .from('agente_empresas')
+          .select(`
+            agente_id,
+            agentes_ia (
+              id,
+              nome,
+              telefone,
+              ativo
+            )
+          `)
+          .eq('empresa_id', activeCompany.id);
 
-        if (priWhatsappExatoError) {
-          console.error('❌ Erro ao buscar agente "Pri - Whatsapp" (exato):', priWhatsappExatoError);
+        if (agentesVinculadosErr) {
+          console.error('❌ Erro ao buscar agentes vinculados (agente_empresas):', agentesVinculadosErr);
         }
 
-        priWhatsappData = priWhatsappExato?.telefone ? priWhatsappExato : null;
+        const agentes = (agentesVinculados || [])
+          .map((ae: any) => ae.agentes_ia)
+          .filter((a: any) => a && a.ativo)
+          .filter((a: any, idx: number, self: any[]) => idx === self.findIndex(t => t?.id === a?.id));
 
+        const normalizeTel = (value: any) => (value ? String(value).replace(/\D/g, '') : '');
+
+        // Prioridade: agente com nome contendo "pri" e "whatsapp"
+        const agentePriWhatsapp = agentes.find((a: any) => {
+          const nome = String(a?.nome || '').toLowerCase();
+          return nome.includes('pri') && nome.includes('whatsapp') && normalizeTel(a?.telefone);
+        });
+
+        if (agentePriWhatsapp) {
+          priWhatsappData = { telefone: agentePriWhatsapp.telefone, nome: agentePriWhatsapp.nome };
+        }
+
+        // Fallback: qualquer agente ativo com telefone
         if (!priWhatsappData) {
-          const { data: priWhatsappContains, error: priWhatsappContainsError } = await supabase
-            .from('agentes_ia')
-            .select('telefone, nome')
-            .eq('empresa_id', activeCompany.id)
-            .eq('ativo', true)
-            .ilike('nome', '%pri%whatsapp%')
-            .not('telefone', 'is', null)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (priWhatsappContainsError) {
-            console.error('❌ Erro ao buscar agente Pri - Whatsapp (contains):', priWhatsappContainsError);
+          const agenteComTelefone = agentes.find((a: any) => normalizeTel(a?.telefone));
+          if (agenteComTelefone) {
+            priWhatsappData = { telefone: agenteComTelefone.telefone, nome: agenteComTelefone.nome };
           }
-
-          priWhatsappData = priWhatsappContains?.telefone ? priWhatsappContains : null;
         }
 
         nomePri = priWhatsappData?.nome || nomePri;
@@ -1520,6 +1527,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
         // VALIDAÇÃO CRÍTICA: não criar/atualizar evento sem pri_telefone
         if (!priTelefoneLimpo) {
+          console.warn('⚠️ telefone_pri não encontrado para empresa', activeCompany.id, {
+            totalVinculos: (agentesVinculados || []).length,
+            totalAgentesAtivos: agentes.length,
+          });
           toast({
             title: 'Agente Pri - Whatsapp não configurado',
             description: "Configure um agente 'Pri - Whatsapp' ativo com telefone nesta loja antes de criar/atualizar eventos.",
