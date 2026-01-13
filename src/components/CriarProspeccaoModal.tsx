@@ -67,7 +67,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [imagemDivulgacao, setImagemDivulgacao] = useState("");
   
   // Templates WhatsApp disponíveis
-  const [whatsappTemplates, setWhatsappTemplates] = useState<{ id: string; nome: string; template_id_pri: string | null; id_meta: string | null }[]>([]);
+  const [whatsappTemplates, setWhatsappTemplates] = useState<{ id: string; nome: string; template_id_pri: string | null; id_meta: string | null; agente_id: string | null; pri_telefone: string | null }[]>([]);
 
   // Novos campos para IA Whatsapp
   const [eventoPrincipal, setEventoPrincipal] = useState(true);
@@ -468,7 +468,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     if (priTelefone) {
       const result = await supabase
         .from('whatsapp_templates')
-        .select('id, nome, template_id_pri, id_meta')
+        .select('id, nome, template_id_pri, id_meta, agente_id, pri_telefone')
         .eq('pri_telefone', priTelefone)
         .eq('status_meta', 'APPROVED')
         .order('nome');
@@ -479,7 +479,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       // Fallback: buscar apenas templates da empresa (sem pri_telefone)
       const result = await supabase
         .from('whatsapp_templates')
-        .select('id, nome, template_id_pri, id_meta')
+        .select('id, nome, template_id_pri, id_meta, agente_id, pri_telefone')
         .eq('empresa_id', activeCompany.id)
         .eq('status_meta', 'APPROVED')
         .order('nome');
@@ -1445,6 +1445,40 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         : [];
       
       console.log(`📤 Enviando para webhook (${acao}) com`, contatosParaEnviar.length, 'contatos...');
+
+      // Buscar dados do agente a partir do template de prospecção selecionado
+      let agenteDoTemplate: { telefone: string | null; dealer_id: string | null; nome: string } | null = null;
+      
+      // Primeiro, tentar buscar pelo template_prospeccao do evento
+      const templateSelecionado = whatsappTemplates.find(t => t.nome === prospeccaoData.template_prospeccao);
+      
+      if (templateSelecionado?.agente_id) {
+        console.log('📱 Template selecionado tem agente_id:', templateSelecionado.agente_id);
+        
+        // Buscar dados completos do agente vinculado ao template
+        const { data: agenteData, error: agenteError } = await supabase
+          .from('agentes_ia')
+          .select('telefone, dealer_id, nome')
+          .eq('id', templateSelecionado.agente_id)
+          .single();
+        
+        if (!agenteError && agenteData) {
+          agenteDoTemplate = agenteData;
+          console.log('✅ Dados do agente do template:', agenteDoTemplate);
+        } else {
+          console.warn('⚠️ Erro ao buscar agente do template:', agenteError);
+        }
+      } else if (templateSelecionado?.pri_telefone) {
+        // Se o template tem pri_telefone mas não agente_id, usar o pri_telefone
+        console.log('📱 Template tem pri_telefone:', templateSelecionado.pri_telefone);
+        agenteDoTemplate = {
+          telefone: templateSelecionado.pri_telefone,
+          dealer_id: null,
+          nome: 'Pri'
+        };
+      }
+
+      console.log('📤 Dados do agente para webhook:', agenteDoTemplate);
       
       const response = await supabase.functions.invoke('ia-ligacao-webhook', {
         body: {
@@ -1468,6 +1502,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           contatos: contatosParaEnviar,
           empresa_id: activeCompany.id,
           acao: acao,
+          // Dados do agente do template (para usar no webhook)
+          agente_template: agenteDoTemplate ? {
+            telefone: agenteDoTemplate.telefone?.replace(/\D/g, '') || '',
+            dealer_id: agenteDoTemplate.dealer_id || '',
+            nome: agenteDoTemplate.nome || ''
+          } : null,
         },
       });
       

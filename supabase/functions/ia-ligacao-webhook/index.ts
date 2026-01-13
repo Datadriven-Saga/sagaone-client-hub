@@ -120,11 +120,12 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();
-    const { evento, contatos, empresa_id, acao } = body as {
+    const { evento, contatos, empresa_id, acao, agente_template } = body as {
       evento: EventoInput;
       contatos?: ContatoInput[];
       empresa_id: string;
       acao?: 'criar' | 'atualizar' | 'deletar';
+      agente_template?: { telefone: string; dealer_id: string; nome: string } | null;
     };
 
     // Determinar qual ação executar (padrão: criar)
@@ -133,6 +134,7 @@ Deno.serve(async (req: Request) => {
     console.log('📞 IA Ligação Webhook - Operação:', operacao);
     console.log('📞 Evento:', evento?.titulo);
     console.log('📞 Total contatos:', contatos?.length || 0);
+    console.log('📞 Agente do template recebido:', agente_template);
 
     // Buscar dados completos da empresa
     const { data: empresaData, error: empresaError } = await supabase
@@ -147,47 +149,64 @@ Deno.serve(async (req: Request) => {
 
     const empresa = empresaData as EmpresaData | null;
 
-    // Buscar agente "Pri" (Pri de Ligação) da empresa
-    const { data: priData, error: priError } = await supabase
-      .from('agentes_ia')
-      .select('telefone, dealer_id, nome')
-      .eq('empresa_id', empresa_id)
-      .ilike('nome', '%pri%')
-      .eq('ativo', true)
-      .limit(1)
-      .single();
+    // PRIORIDADE 1: Usar dados do agente do template (se passados pelo frontend)
+    let telefonePri = '';
+    let dealerId = '';
 
-    if (priError) {
-      console.log('⚠️ Agente Pri não encontrado, usando fallback:', priError.message);
-    }
-
-    const agentePri = priData as AgenteData | null;
-
-    // Se não encontrou Pri, buscar qualquer agente ativo da empresa
-    let agenteBackup: AgenteData | null = null;
-    if (!agentePri) {
-      const { data: backupData } = await supabase
+    if (agente_template?.telefone) {
+      console.log('✅ Usando dados do agente do template (prioridade)');
+      telefonePri = agente_template.telefone.replace(/\D/g, '');
+      dealerId = agente_template.dealer_id || empresa?.crm_id || '';
+      console.log('📱 Telefone Pri (do template):', telefonePri);
+      console.log('🏪 Dealer ID (do template):', dealerId);
+    } else {
+      // PRIORIDADE 2: Buscar agente "Pri" da empresa (fallback)
+      console.log('⚠️ Agente do template não fornecido, buscando Pri da empresa...');
+      
+      const { data: priData, error: priError } = await supabase
         .from('agentes_ia')
         .select('telefone, dealer_id, nome')
         .eq('empresa_id', empresa_id)
+        .ilike('nome', '%pri%')
         .eq('ativo', true)
-        .order('created_at', { ascending: true })
         .limit(1)
         .single();
+
+      if (priError) {
+        console.log('⚠️ Agente Pri não encontrado, usando fallback:', priError.message);
+      }
+
+      const agentePri = priData as AgenteData | null;
+
+      // Se não encontrou Pri, buscar qualquer agente ativo da empresa
+      let agenteBackup: AgenteData | null = null;
+      if (!agentePri) {
+        const { data: backupData } = await supabase
+          .from('agentes_ia')
+          .select('telefone, dealer_id, nome')
+          .eq('empresa_id', empresa_id)
+          .eq('ativo', true)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .single();
+        
+        agenteBackup = backupData as AgenteData | null;
+      }
+
+      // Usar dados da Pri ou fallback
+      const agente = agentePri || agenteBackup;
       
-      agenteBackup = backupData as AgenteData | null;
+      // Telefone da Pri: do agente Pri > de qualquer agente > default
+      telefonePri = agentePri?.telefone?.replace(/\D/g, '') || 
+                    agenteBackup?.telefone?.replace(/\D/g, '') || 
+                    TELEFONE_PRI_DEFAULT;
+
+      // Dealer ID: do agente > crm_id da empresa
+      dealerId = agente?.dealer_id || empresa?.crm_id || '';
+      
+      console.log('📱 Telefone Pri (fallback):', telefonePri);
+      console.log('🏪 Dealer ID (fallback):', dealerId);
     }
-
-    // Usar dados da Pri ou fallback
-    const agente = agentePri || agenteBackup;
-    
-    // Telefone da Pri: do agente Pri > de qualquer agente > default
-    const telefonePri = agentePri?.telefone?.replace(/\D/g, '') || 
-                        agenteBackup?.telefone?.replace(/\D/g, '') || 
-                        TELEFONE_PRI_DEFAULT;
-
-    // Dealer ID: do agente > crm_id da empresa
-    const dealerId = agente?.dealer_id || empresa?.crm_id || '';
 
     const formatarDataISO = (data: string | null): string => {
       if (!data) return '';
