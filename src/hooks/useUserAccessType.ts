@@ -87,8 +87,8 @@ export function useUserAccessType() {
   // Permissões para criar/editar/excluir eventos: todos EXCETO Recepcionista
   const canManageEvents = !isRecepcionista;
 
-  // Permissões para adicionar clientes manualmente/importar: Administrador, CRM
-  const canImportClientes = isAdmin || isCRM;
+  // Permissões para adicionar clientes manualmente/importar: Administrador, TI, CRM
+  const canImportClientes = isAdmin || isTI || isCRM;
 
   // Permissões para gerar convites/QR Codes: todos EXCETO Recepcionista
   const canGenerateInvites = !isRecepcionista;
@@ -102,8 +102,11 @@ export function useUserAccessType() {
   // Permissão para criar eventos de IA Ligação: apenas TI e Administrador
   const canCreateIALigacao = isAdminOrTI;
 
-  // Permissão para criar Grande Evento e IA Whatsapp: Administrador, TI, Gerente de Leads, CRM
-  const canCreateGrandeEventoOuIAWhatsapp = isAdmin || isTI || isGerenteLeads || isCRM;
+  // Permissão para criar eventos (Prospecção Mensal, Grande Evento, IA Whatsapp): Administrador, TI, Gerente de Leads, CRM
+  const canCreateEventos = isAdmin || isTI || isGerenteLeads || isCRM;
+
+  // Permissão para subir base de todos os eventos: apenas Administrador, TI, CRM
+  const canUploadBase = isAdmin || isTI || isCRM;
 
   return {
     tipoAcesso,
@@ -122,7 +125,8 @@ export function useUserAccessType() {
     isDepartamentoTI,
     canAccessAgentesIA,
     canCreateIALigacao,
-    canCreateGrandeEventoOuIAWhatsapp,
+    canCreateEventos,
+    canUploadBase,
     // Permissões específicas
     canAddClientes,
     canAccessRecepcao,
