@@ -1476,23 +1476,49 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         }
 
         // 2) telefone do agente Pri - Whatsapp (OBRIGATÓRIO)
-        const { data: priWhatsappData, error: priWhatsappError } = await supabase
+        // Preferir match exato "Pri - Whatsapp", senão fallback por contains
+        let priWhatsappData: { telefone: string | null; nome: string | null } | null = null;
+
+        const { data: priWhatsappExato, error: priWhatsappExatoError } = await supabase
           .from('agentes_ia')
           .select('telefone, nome')
           .eq('empresa_id', activeCompany.id)
           .eq('ativo', true)
-          .ilike('nome', '%pri%whatsapp%')
+          .ilike('nome', 'pri - whatsapp')
           .not('telefone', 'is', null)
+          .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        if (priWhatsappError) {
-          console.error('❌ Erro ao buscar agente Pri - Whatsapp:', priWhatsappError);
+        if (priWhatsappExatoError) {
+          console.error('❌ Erro ao buscar agente "Pri - Whatsapp" (exato):', priWhatsappExatoError);
+        }
+
+        priWhatsappData = priWhatsappExato?.telefone ? priWhatsappExato : null;
+
+        if (!priWhatsappData) {
+          const { data: priWhatsappContains, error: priWhatsappContainsError } = await supabase
+            .from('agentes_ia')
+            .select('telefone, nome')
+            .eq('empresa_id', activeCompany.id)
+            .eq('ativo', true)
+            .ilike('nome', '%pri%whatsapp%')
+            .not('telefone', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (priWhatsappContainsError) {
+            console.error('❌ Erro ao buscar agente Pri - Whatsapp (contains):', priWhatsappContainsError);
+          }
+
+          priWhatsappData = priWhatsappContains?.telefone ? priWhatsappContains : null;
         }
 
         nomePri = priWhatsappData?.nome || nomePri;
         priTelefoneLimpo = priWhatsappData?.telefone ? priWhatsappData.telefone.replace(/\D/g, '') : '';
 
+        // VALIDAÇÃO CRÍTICA: não criar/atualizar evento sem pri_telefone
         if (!priTelefoneLimpo) {
           toast({
             title: 'Agente Pri - Whatsapp não configurado',
