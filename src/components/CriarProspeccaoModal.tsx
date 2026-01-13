@@ -1446,79 +1446,65 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       
       console.log(`📤 Enviando para webhook (${acao}) com`, contatosParaEnviar.length, 'contatos...');
 
-      // BUSCAR AGENTE PRI DA EMPRESA - SEMPRE buscar primeiro o agente Pri
-      let agenteDoTemplate: { telefone: string | null; dealer_id: string | null; nome: string } | null = null;
-      
-      console.log('🔍 Buscando agente Pri-Whatsapp da empresa:', activeCompany.id);
-      
-      // PRIORIDADE 1: Buscar agente "Pri" ativo da empresa
-      const { data: priData, error: priError } = await supabase
-        .from('agentes_ia')
-        .select('telefone, dealer_id, nome')
-        .eq('empresa_id', activeCompany.id)
-        .ilike('nome', '%pri%')
-        .eq('ativo', true)
-        .not('telefone', 'is', null)
-        .limit(1)
-        .single();
+      // BUSCAR DADOS OBRIGATÓRIOS PARA CRIAR/ATUALIZAR EVENTO
+      // - pri_telefone: SEMPRE do agente "Pri - Whatsapp" ativo da loja
+      // - pri_dealer_id: SEMPRE o crm_id da loja (empresa)
+      let priTelefoneLimpo = '';
+      let dealerIdFinal = '';
+      let nomePri = 'Pri - Whatsapp';
 
-      if (priData?.telefone) {
-        agenteDoTemplate = priData;
-        console.log('✅ Agente Pri encontrado na empresa:', agenteDoTemplate);
-      } else {
-        console.log('⚠️ Agente Pri não encontrado ou sem telefone:', priError?.message);
-        
-        // PRIORIDADE 2: Buscar qualquer agente ativo com telefone
-        const { data: qualquerAgente } = await supabase
+      if (acao !== 'deletar') {
+        // 1) crm_id da loja (OBRIGATÓRIO)
+        const { data: empresaCrmData, error: empresaCrmError } = await supabase
+          .from('empresas')
+          .select('crm_id')
+          .eq('id', activeCompany.id)
+          .single();
+
+        if (empresaCrmError) {
+          console.error('❌ Erro ao buscar crm_id da empresa:', empresaCrmError);
+        }
+
+        dealerIdFinal = (empresaCrmData?.crm_id ?? '').trim();
+        if (!dealerIdFinal) {
+          toast({
+            title: 'CRM ID da loja não configurado',
+            description: 'Preencha o crm_id desta loja antes de criar/atualizar eventos.',
+            variant: 'destructive',
+          });
+          return false;
+        }
+
+        // 2) telefone do agente Pri - Whatsapp (OBRIGATÓRIO)
+        const { data: priWhatsappData, error: priWhatsappError } = await supabase
           .from('agentes_ia')
-          .select('telefone, dealer_id, nome')
+          .select('telefone, nome')
           .eq('empresa_id', activeCompany.id)
           .eq('ativo', true)
+          .ilike('nome', '%pri%whatsapp%')
           .not('telefone', 'is', null)
-          .order('created_at', { ascending: true })
           .limit(1)
-          .single();
-        
-        if (qualquerAgente?.telefone) {
-          agenteDoTemplate = qualquerAgente;
-          console.log('✅ Agente ativo encontrado (fallback):', agenteDoTemplate);
-        } else {
-          console.log('❌ Nenhum agente com telefone encontrado na empresa');
+          .maybeSingle();
+
+        if (priWhatsappError) {
+          console.error('❌ Erro ao buscar agente Pri - Whatsapp:', priWhatsappError);
         }
+
+        nomePri = priWhatsappData?.nome || nomePri;
+        priTelefoneLimpo = priWhatsappData?.telefone ? priWhatsappData.telefone.replace(/\D/g, '') : '';
+
+        if (!priTelefoneLimpo) {
+          toast({
+            title: 'Agente Pri - Whatsapp não configurado',
+            description: "Configure um agente 'Pri - Whatsapp' ativo com telefone nesta loja antes de criar/atualizar eventos.",
+            variant: 'destructive',
+          });
+          return false;
+        }
+
+        console.log('✅ Pri-Whatsapp OK:', { priTelefoneLimpo, dealerIdFinal, nomePri });
       }
 
-      // PRIORIDADE 3: Se template tiver agente_id, usar dados dele (sobrescreve)
-      const templateSelecionado = whatsappTemplates.find(t => t.nome === prospeccaoData.template_prospeccao);
-      
-      if (templateSelecionado?.agente_id) {
-        console.log('📱 Template tem agente_id vinculado:', templateSelecionado.agente_id);
-        
-        const { data: agenteData, error: agenteError } = await supabase
-          .from('agentes_ia')
-          .select('telefone, dealer_id, nome')
-          .eq('id', templateSelecionado.agente_id)
-          .single();
-        
-        if (!agenteError && agenteData?.telefone) {
-          agenteDoTemplate = agenteData;
-          console.log('✅ Usando dados do agente do template:', agenteDoTemplate);
-        }
-      } else if (templateSelecionado?.pri_telefone && !agenteDoTemplate?.telefone) {
-        // Se template tem pri_telefone e ainda não temos agente
-        console.log('📱 Usando pri_telefone do template:', templateSelecionado.pri_telefone);
-        agenteDoTemplate = {
-          telefone: templateSelecionado.pri_telefone,
-          dealer_id: agenteDoTemplate?.dealer_id || null,
-          nome: 'Pri'
-        };
-      }
-
-      console.log('📤 Dados finais do agente para webhook:', {
-        telefone: agenteDoTemplate?.telefone,
-        dealer_id: agenteDoTemplate?.dealer_id,
-        nome: agenteDoTemplate?.nome
-      });
-      
       const response = await supabase.functions.invoke('ia-ligacao-webhook', {
         body: {
           evento: {
@@ -1541,12 +1527,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           contatos: contatosParaEnviar,
           empresa_id: activeCompany.id,
           acao: acao,
-          // Dados do agente do template (para usar no webhook)
-          agente_template: agenteDoTemplate ? {
-            telefone: agenteDoTemplate.telefone?.replace(/\D/g, '') || '',
-            dealer_id: agenteDoTemplate.dealer_id || '',
-            nome: agenteDoTemplate.nome || ''
-          } : null,
+          // SEMPRE enviar pri_telefone e pri_dealer_id (crm_id) ao criar/atualizar
+          agente_template: acao === 'deletar' ? null : {
+            telefone: priTelefoneLimpo,
+            dealer_id: dealerIdFinal,
+            nome: nomePri,
+          },
         },
       });
       

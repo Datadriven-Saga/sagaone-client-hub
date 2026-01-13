@@ -149,64 +149,65 @@ Deno.serve(async (req: Request) => {
 
     const empresa = empresaData as EmpresaData | null;
 
-    // PRIORIDADE 1: Usar dados do agente do template (se passados pelo frontend)
+    // Dealer ID SEMPRE vem do crm_id da empresa (OBRIGATÓRIO)
+    const dealerId = (empresa?.crm_id || '').trim();
+    if (!dealerId) {
+      console.error('❌ crm_id da empresa está vazio - bloqueando operação:', empresa_id);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'crm_id da loja não configurado. Preencha o crm_id da empresa antes de criar/atualizar o evento.',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Telefone Pri SEMPRE vem do agente "Pri - Whatsapp" ativo da loja (OBRIGATÓRIO)
     let telefonePri = '';
-    let dealerId = '';
+    let priStatus: 'Ativo' | 'Inativo' = 'Ativo';
+    let fontePri = '';
 
     if (agente_template?.telefone) {
-      console.log('✅ Usando dados do agente do template (prioridade)');
+      console.log('✅ Usando telefone Pri recebido do frontend (agente_template)');
       telefonePri = agente_template.telefone.replace(/\D/g, '');
-      dealerId = agente_template.dealer_id || empresa?.crm_id || '';
-      console.log('📱 Telefone Pri (do template):', telefonePri);
-      console.log('🏪 Dealer ID (do template):', dealerId);
+      fontePri = 'frontend_agente_template';
     } else {
-      // PRIORIDADE 2: Buscar agente "Pri" da empresa (fallback)
-      console.log('⚠️ Agente do template não fornecido, buscando Pri da empresa...');
-      
-      const { data: priData, error: priError } = await supabase
+      console.log('🔍 Frontend não enviou agente_template, buscando "Pri - Whatsapp" na empresa...');
+
+      const { data: priWhatsappData, error: priWhatsappError } = await supabase
         .from('agentes_ia')
-        .select('telefone, dealer_id, nome')
+        .select('telefone, nome, ativo')
         .eq('empresa_id', empresa_id)
-        .ilike('nome', '%pri%')
         .eq('ativo', true)
+        .ilike('nome', '%pri%whatsapp%')
+        .not('telefone', 'is', null)
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (priError) {
-        console.log('⚠️ Agente Pri não encontrado, usando fallback:', priError.message);
+      if (priWhatsappError) {
+        console.error('⚠️ Erro ao buscar Pri - Whatsapp:', priWhatsappError);
       }
 
-      const agentePri = priData as AgenteData | null;
-
-      // Se não encontrou Pri, buscar qualquer agente ativo da empresa
-      let agenteBackup: AgenteData | null = null;
-      if (!agentePri) {
-        const { data: backupData } = await supabase
-          .from('agentes_ia')
-          .select('telefone, dealer_id, nome')
-          .eq('empresa_id', empresa_id)
-          .eq('ativo', true)
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .single();
-        
-        agenteBackup = backupData as AgenteData | null;
+      if (priWhatsappData?.telefone) {
+        telefonePri = priWhatsappData.telefone.replace(/\D/g, '');
+        priStatus = priWhatsappData.ativo ? 'Ativo' : 'Inativo';
+        fontePri = 'db_pri_whatsapp';
       }
-
-      // Usar dados da Pri ou fallback
-      const agente = agentePri || agenteBackup;
-      
-      // Telefone da Pri: do agente Pri > de qualquer agente > default
-      telefonePri = agentePri?.telefone?.replace(/\D/g, '') || 
-                    agenteBackup?.telefone?.replace(/\D/g, '') || 
-                    TELEFONE_PRI_DEFAULT;
-
-      // Dealer ID: do agente > crm_id da empresa
-      dealerId = agente?.dealer_id || empresa?.crm_id || '';
-      
-      console.log('📱 Telefone Pri (fallback):', telefonePri);
-      console.log('🏪 Dealer ID (fallback):', dealerId);
     }
+
+    if (!telefonePri) {
+      console.error('❌ Telefone Pri não encontrado - bloqueando operação:', empresa_id);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Agente "Pri - Whatsapp" não encontrado (ou sem telefone). Configure o agente na loja antes de criar/atualizar o evento.',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('📱 Telefone Pri definido:', telefonePri, '| fonte:', fontePri);
+    console.log('🏪 Dealer ID (crm_id) definido:', dealerId);
 
     const formatarDataISO = (data: string | null): string => {
       if (!data) return '';
