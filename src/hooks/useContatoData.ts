@@ -404,7 +404,97 @@ export const useContatoData = () => {
           await Promise.all(batch.map(processarContato));
         }
         
-        console.log('✅ Todos os webhooks disparados');
+        console.log('✅ Todos os webhooks individuais disparados');
+        
+        // WEBHOOK RECEBE-LEADS-PRI - Enviar TODOS os contatos de uma vez para IA Whatsapp
+        if (prospeccaoData?.canal === 'Whatsapp') {
+          console.log('📤 Enviando base completa para webhook recebe-leads-pri...');
+          
+          try {
+            // Buscar dados da empresa para pegar crm_id e agente Pri
+            const { data: empresaData } = await supabase
+              .from('empresas')
+              .select('crm_id, nome_empresa, uf, cidade')
+              .eq('id', activeCompany.id)
+              .single();
+            
+            // Buscar agente Pri - Whatsapp da loja
+            let priTelefone = '';
+            const { data: priAgent } = await supabase
+              .from('agentes_ia')
+              .select('telefone, nome')
+              .eq('empresa_id', activeCompany.id)
+              .eq('ativo', true)
+              .ilike('nome', '%pri%whatsapp%')
+              .not('telefone', 'is', null)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            priTelefone = priAgent?.telefone ? priAgent.telefone.replace(/\D/g, '') : '';
+            
+            // Preparar payload com todos os contatos
+            const contatosPayload = data.map(c => ({
+              id: c.id,
+              lead_id: c.lead_id,
+              nome: c.nome,
+              telefone: normalizePhone(c.telefone),
+              email: c.email || '',
+              status: c.status || 'Novo',
+              origem: c.origem || 'Importação'
+            }));
+            
+            const webhookPayload = {
+              // Dados do evento/prospecção
+              prospeccao_id: prospeccaoId,
+              evento_nome: prospeccaoData?.titulo || '',
+              data_inicio: prospeccaoData?.data_inicio || null,
+              data_fim: prospeccaoData?.data_fim || null,
+              canal: prospeccaoData?.canal || 'Whatsapp',
+              
+              // Dados do agente
+              pri_telefone: priTelefone,
+              pri_dealer_id: empresaData?.crm_id || '',
+              
+              // Dados da loja
+              empresa_id: activeCompany.id,
+              nome_empresa: empresaData?.nome_empresa || '',
+              uf: empresaData?.uf || '',
+              cidade: empresaData?.cidade || '',
+              
+              // Base de contatos
+              contatos: contatosPayload,
+              total_contatos: contatosPayload.length,
+              
+              // Metadados
+              data_importacao: new Date().toISOString(),
+              tipo_importacao: 'planilha'
+            };
+            
+            console.log('📤 Payload recebe-leads-pri:', { 
+              total: contatosPayload.length, 
+              prospeccao: prospeccaoData?.titulo,
+              pri_telefone: priTelefone,
+              dealer_id: empresaData?.crm_id 
+            });
+            
+            const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/recebe-leads-pri', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(webhookPayload)
+            });
+            
+            if (!response.ok) {
+              console.error('❌ Erro ao enviar para recebe-leads-pri:', response.status);
+            } else {
+              const result = await response.json().catch(() => ({}));
+              console.log('✅ Webhook recebe-leads-pri enviado com sucesso:', result);
+            }
+          } catch (priError) {
+            console.error('❌ Erro ao chamar webhook recebe-leads-pri:', priError);
+            // Não bloqueia o fluxo principal
+          }
+        }
       }
       // Leads sem prospecção NÃO disparam webhook de status
       
