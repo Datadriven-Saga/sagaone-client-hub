@@ -162,68 +162,73 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Telefone Pri SEMPRE vem do agente "Pri - Whatsapp" ativo da loja (OBRIGATÓRIO)
+    // Telefone Pri SEMPRE vem do agente correto baseado no tipo de evento
+    // IA Ligação → "Pri(Ligação)" | IA Whatsapp → "Pri - Whatsapp"
     let telefonePri = '';
     let priStatus: 'Ativo' | 'Inativo' = 'Ativo';
     let fontePri = '';
+    
+    // Determinar qual agente buscar baseado no canal do evento
+    const isIALigacao = evento?.canal === 'IA Ligação' || evento?.canal === 'Ligação';
+    const nomeAgenteEsperado = isIALigacao ? 'Pri(Ligação)' : 'Pri - Whatsapp';
+    const searchPatterns = isIALigacao 
+      ? ['pri(ligação)', 'pri(ligacao)', 'pri - ligação', 'pri - ligacao', 'pri ligação', 'pri ligacao']
+      : ['pri - whatsapp', 'pri whatsapp'];
+
+    console.log('🔍 Canal do evento:', evento?.canal, '| Buscando agente:', nomeAgenteEsperado);
 
     if (agente_template?.telefone) {
-      console.log('✅ Usando telefone Pri recebido do frontend (agente_template)');
+      console.log('✅ Usando telefone Pri recebido do frontend (agente_template):', agente_template.nome);
       telefonePri = agente_template.telefone.replace(/\D/g, '');
       fontePri = 'frontend_agente_template';
     } else {
-      console.log('🔍 Frontend não enviou agente_template, buscando "Pri - Whatsapp" na empresa...');
+      console.log('🔍 Frontend não enviou agente_template, buscando agente na empresa via agente_empresas...');
 
-      // Preferir match exato "Pri - Whatsapp", senão fallback por contains
-      const { data: priExato, error: priExatoError } = await supabase
-        .from('agentes_ia')
-        .select('telefone, nome, ativo')
-        .eq('empresa_id', empresa_id)
-        .eq('ativo', true)
-        .ilike('nome', 'pri - whatsapp')
-        .not('telefone', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Buscar agentes vinculados à empresa via agente_empresas (evita problemas de RLS)
+      const { data: agentesVinculados, error: agentesVinculadosErr } = await supabase
+        .from('agente_empresas')
+        .select(`
+          agente_id,
+          agentes_ia (
+            id,
+            nome,
+            telefone,
+            ativo
+          )
+        `)
+        .eq('empresa_id', empresa_id);
 
-      if (priExatoError) {
-        console.error('⚠️ Erro ao buscar Pri - Whatsapp (exato):', priExatoError);
+      if (agentesVinculadosErr) {
+        console.error('⚠️ Erro ao buscar agente_empresas:', agentesVinculadosErr);
       }
 
-      let priWhatsappData = priExato?.telefone ? priExato : null;
+      const agentes = (agentesVinculados || [])
+        .map((ae: any) => ae.agentes_ia)
+        .filter((a: any) => a && a.ativo)
+        .filter((a: any, idx: number, self: any[]) => idx === self.findIndex(t => t?.id === a?.id));
 
-      if (!priWhatsappData) {
-        const { data: priContains, error: priContainsError } = await supabase
-          .from('agentes_ia')
-          .select('telefone, nome, ativo')
-          .eq('empresa_id', empresa_id)
-          .eq('ativo', true)
-          .ilike('nome', '%pri%whatsapp%')
-          .not('telefone', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      console.log('📋 Agentes vinculados encontrados:', agentes.map((a: any) => a?.nome));
 
-        if (priContainsError) {
-          console.error('⚠️ Erro ao buscar Pri - Whatsapp (contains):', priContainsError);
-        }
+      // Buscar agente específico para o tipo de evento
+      const agenteEspecifico = agentes.find((a: any) => {
+        const nome = String(a?.nome || '').toLowerCase();
+        return searchPatterns.some(pattern => nome.includes(pattern)) && a?.telefone;
+      });
 
-        priWhatsappData = priContains?.telefone ? priContains : null;
-      }
-
-      if (priWhatsappData?.telefone) {
-        telefonePri = priWhatsappData.telefone.replace(/\D/g, '');
-        priStatus = priWhatsappData.ativo ? 'Ativo' : 'Inativo';
-        fontePri = 'db_pri_whatsapp';
+      if (agenteEspecifico?.telefone) {
+        telefonePri = agenteEspecifico.telefone.replace(/\D/g, '');
+        priStatus = agenteEspecifico.ativo ? 'Ativo' : 'Inativo';
+        fontePri = `db_${isIALigacao ? 'pri_ligacao' : 'pri_whatsapp'}`;
+        console.log('✅ Agente encontrado:', agenteEspecifico.nome);
       }
     }
 
     if (!telefonePri) {
-      console.error('❌ Telefone Pri não encontrado - bloqueando operação:', empresa_id);
+      console.error('❌ Telefone Pri não encontrado - bloqueando operação:', empresa_id, '| Agente esperado:', nomeAgenteEsperado);
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Agente "Pri - Whatsapp" não encontrado (ou sem telefone). Configure o agente na loja antes de criar/atualizar o evento.',
+          error: `Agente "${nomeAgenteEsperado}" não encontrado (ou sem telefone). Configure o agente na loja antes de criar/atualizar o evento.`,
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
