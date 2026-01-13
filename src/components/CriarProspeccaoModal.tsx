@@ -450,16 +450,39 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const fetchWhatsappTemplates = async () => {
     if (!activeCompany?.id) return;
     
-    // Buscar o telefone do agente "Pri" da empresa ativa (normalizado)
-    const { data: agenteData } = await supabase
-      .from('agentes_ia')
-      .select('telefone')
-      .eq('empresa_id', activeCompany.id)
-      .eq('nome', 'Pri')
-      .not('telefone', 'is', null)
-      .maybeSingle();
+    // Buscar agentes vinculados à empresa via agente_empresas (evita problemas de RLS e empresa_id NULL)
+    const { data: agentesVinculados, error: agentesErr } = await supabase
+      .from('agente_empresas')
+      .select(`
+        agente_id,
+        agentes_ia (
+          id,
+          nome,
+          telefone,
+          ativo
+        )
+      `)
+      .eq('empresa_id', activeCompany.id);
     
-    const priTelefone = agenteData?.telefone?.replace(/\D/g, '') || null;
+    if (agentesErr) {
+      console.error('Erro ao buscar agentes vinculados:', agentesErr);
+    }
+    
+    // Extrair telefones únicos de agentes ativos (priorizar Pri - Whatsapp)
+    const agentes = (agentesVinculados || [])
+      .map((ae: any) => ae.agentes_ia)
+      .filter((a: any) => a && a.ativo && a.telefone);
+    
+    // Buscar Pri - Whatsapp primeiro, depois qualquer agente com telefone
+    const priWhatsapp = agentes.find((a: any) => {
+      const nome = String(a?.nome || '').toLowerCase();
+      return nome.includes('pri') && nome.includes('whatsapp');
+    });
+    
+    const agenteComTelefone = priWhatsapp || agentes[0];
+    const priTelefone = agenteComTelefone?.telefone?.replace(/\D/g, '') || null;
+    
+    console.log('📱 Buscando templates WhatsApp com pri_telefone:', priTelefone);
     
     let data;
     let error;
@@ -493,6 +516,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       return;
     }
     
+    console.log('📋 Templates encontrados:', data?.length || 0);
     setWhatsappTemplates(data || []);
   };
 
@@ -1428,6 +1452,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   };
 
   // Função para chamar webhooks de IA Ligação (criar, atualizar, deletar)
+  // IMPORTANTE: Esta função SEMPRE envia o payload padronizado para o webhook
   const callIALigacaoWebhooks = async (prospeccaoData: any, acao: 'criar' | 'atualizar' | 'deletar' = 'criar'): Promise<boolean> => {
     if (!activeCompany?.id) return false;
     
@@ -1435,16 +1460,15 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     
     try {
       // Mapear contatos da planilha importada ou da base existente (apenas para criar/atualizar)
-      const contatosParaEnviar = acao !== 'deletar' 
+      // PADRONIZADO: Sempre enviar como array de {nome, telefone, loja}
+      const contatosParaEnviarPadronizado = acao !== 'deletar' 
         ? (contatosLigacao || []).map((c) => ({
             nome: c.nome || '',
-            telefone: c.telefone || '',
-            email: c.email || '',
-            origem: c.origem || 'IA Ligação',
+            telefone: (c.telefone || '').replace(/\D/g, ''),
           }))
         : [];
       
-      console.log(`📤 Enviando para webhook (${acao}) com`, contatosParaEnviar.length, 'contatos...');
+      console.log(`📤 Enviando para webhook (${acao}) com`, contatosParaEnviarPadronizado.length, 'contatos...');
 
       // BUSCAR DADOS OBRIGATÓRIOS PARA CRIAR/ATUALIZAR EVENTO
       // - pri_telefone: SEMPRE do agente "Pri - Whatsapp" ativo da loja
@@ -1602,13 +1626,13 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
               criado_em: now,
               atualizado_em: now,
             },
-            contatos: contatosParaEnviar.map((c) => ({
+            contatos: contatosParaEnviarPadronizado.map((c) => ({
               nome: c.nome || '',
               telefone: c.telefone || '',
               loja: nomeEmpresa,
             })),
-            total_clientes: contatosParaEnviar.length,
-            total_contatos: contatosParaEnviar.length,
+            total_clientes: contatosParaEnviarPadronizado.length,
+            total_contatos: contatosParaEnviarPadronizado.length,
             timestamp: now,
             acao: acao,
           };
@@ -1654,7 +1678,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
             // ID numérico do evento (se existir)
             id_evento: prospeccaoData.event_id_pri ? parseInt(prospeccaoData.event_id_pri, 10) : undefined,
           },
-          contatos: contatosParaEnviar,
+          contatos: contatosParaEnviarPadronizado,
           empresa_id: activeCompany.id,
           acao: acao,
           // SEMPRE enviar pri_telefone e pri_dealer_id (crm_id) ao criar/atualizar
@@ -1714,7 +1738,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       }
       
       const mensagens = {
-        criar: `${contatosParaEnviar.length} contatos enviados para ligação.`,
+        criar: `${contatosParaEnviarPadronizado.length} contatos enviados para ligação.`,
         atualizar: 'Evento atualizado com sucesso.',
         deletar: 'Evento removido com sucesso.',
       };
