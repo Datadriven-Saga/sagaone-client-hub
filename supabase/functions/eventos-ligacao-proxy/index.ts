@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };
 
 serve(async (req) => {
@@ -51,17 +51,51 @@ serve(async (req) => {
 
     console.log(`Chamando webhook ${action}:`, webhookUrl, body);
 
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    // N8N pode estar configurado para aceitar GET no "verifica-eventos".
+    // Fazemos POST primeiro, e se o endpoint retornar o erro clássico de method mismatch,
+    // tentamos novamente via GET usando querystring.
+    const tryPostFirst = action === 'listar';
 
-    const responseText = await response.text();
+    const buildGetUrl = (baseUrl: string, payload: Record<string, any>) => {
+      const url = new URL(baseUrl);
+      for (const [k, v] of Object.entries(payload)) {
+        if (v !== undefined && v !== null && String(v).length > 0) {
+          url.searchParams.set(k, String(v));
+        }
+      }
+      return url.toString();
+    };
+
+    const doPost = async () => {
+      return await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+    };
+
+    const doGet = async () => {
+      return await fetch(buildGetUrl(webhookUrl, body), {
+        method: 'GET',
+      });
+    };
+
+    let response = tryPostFirst ? await doPost() : await doPost();
+    let responseText = await response.text();
+
+    if (
+      tryPostFirst &&
+      response.status === 404 &&
+      responseText.toLowerCase().includes('not registered for post')
+    ) {
+      console.log('Webhook listar parece exigir GET; tentando novamente via GET...');
+      response = await doGet();
+      responseText = await response.text();
+    }
+
     console.log(`Resposta do webhook (${response.status}):`, responseText);
-
     // Tenta parsear como JSON, se falhar retorna como texto
     let data;
     try {
