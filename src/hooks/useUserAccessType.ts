@@ -97,6 +97,9 @@ export function useUserAccessType() {
   // Permissão específica para área de TI (Agentes IA / Instâncias)
   const canAccessAgentesIA = isDepartamentoTI && isAdminOrTI;
 
+  // Permissão para criar eventos de IA Ligação: apenas TI e Administrador
+  const canCreateIALigacao = isAdminOrTI;
+
   return {
     tipoAcesso,
     departamento,
@@ -113,6 +116,7 @@ export function useUserAccessType() {
     isProprietario,
     isDepartamentoTI,
     canAccessAgentesIA,
+    canCreateIALigacao,
     // Permissões específicas
     canAddClientes,
     canAccessRecepcao,
