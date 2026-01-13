@@ -64,6 +64,7 @@ import { AgenteCadencia } from "@/components/AgenteCadencia";
 import { AgenteIntegracao } from "@/components/AgenteIntegracao";
 import AgenteVariaveis from "@/components/AgenteVariaveis";
 import { AgenteCadenciasNova } from "@/components/AgenteCadenciasNova";
+import { AgenteEventos } from "@/components/AgenteEventos";
 
 interface AgenteWebhook {
   id?: string;
@@ -215,6 +216,13 @@ export default function AdminAgentes() {
     if (!agente) return "Outro";
     const nome = (agente.nome || "").toLowerCase();
     return nome.includes("maia") ? "Maia" : "Outro";
+  };
+
+  // Verificar se é agente Pri (Ligação)
+  const isPriLigacao = (agente: AgenteWebhook | null | undefined): boolean => {
+    if (!agente) return false;
+    const nome = (agente.nome || "").toLowerCase();
+    return nome.includes("pri") || nome.includes("ligação") || nome.includes("ligacao");
   };
 
   const getAgenteNumero = (agente: AgenteWebhook | null | undefined): string => {
@@ -1879,6 +1887,10 @@ export default function AdminAgentes() {
                     <TabsTrigger value="cadencia" disabled={!agenteLocal}>Cadência</TabsTrigger>
                     <TabsTrigger value="periodo" disabled={!agenteLocal}>Jornada da IA</TabsTrigger>
                     <TabsTrigger value="instancias">Instâncias</TabsTrigger>
+                    {/* Aba de Eventos - apenas para agentes Pri(Ligação) */}
+                    {isPriLigacao(selectedAgente) && agenteLocal && (
+                      <TabsTrigger value="eventos">Eventos</TabsTrigger>
+                    )}
                   </TabsList>
                 </div>
 
@@ -2647,6 +2659,16 @@ export default function AdminAgentes() {
                     </CardContent>
                   </Card>
                 </TabsContent>
+
+                {/* Eventos Tab - apenas para agentes Pri(Ligação) */}
+                {isPriLigacao(selectedAgente) && agenteLocal && (
+                  <TabsContent value="eventos">
+                    <AgenteEventos 
+                      agenteId={agenteLocal.id} 
+                      agenteTelefone={formData.telefone}
+                    />
+                  </TabsContent>
+                )}
               </Tabs>
 
               <DialogFooter>
