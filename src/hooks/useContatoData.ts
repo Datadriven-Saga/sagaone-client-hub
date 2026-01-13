@@ -418,20 +418,36 @@ export const useContatoData = () => {
               .eq('id', activeCompany.id)
               .single();
             
-            // Buscar agente Pri - Whatsapp da loja
+            // Buscar agente Pri - Whatsapp vinculado à loja via agente_empresas (mesma lógica dos templates)
             let telefonePri = '';
-            const { data: priAgent } = await supabase
-              .from('agentes_ia')
-              .select('telefone, nome')
+            
+            // 1) Primeiro: buscar agente "Pri - Whatsapp" vinculado à loja via agente_empresas
+            const { data: priLink } = await supabase
+              .from('agente_empresas')
+              .select(`agente_id, agentes_ia!inner(telefone, nome, ativo)`)
               .eq('empresa_id', activeCompany.id)
-              .eq('ativo', true)
-              .ilike('nome', '%pri%whatsapp%')
-              .not('telefone', 'is', null)
-              .order('created_at', { ascending: false })
+              .eq('agentes_ia.ativo', true)
+              .ilike('agentes_ia.nome', '%pri%whatsapp%')
               .limit(1)
               .maybeSingle();
             
-            telefonePri = priAgent?.telefone ? priAgent.telefone.replace(/\D/g, '') : '';
+            const agentePri = (priLink as any)?.agentes_ia;
+            telefonePri = agentePri?.telefone ? String(agentePri.telefone).replace(/\D/g, '') : '';
+            
+            // 2) Fallback: qualquer agente ativo vinculado à loja
+            if (!telefonePri) {
+              const { data: anyLink } = await supabase
+                .from('agente_empresas')
+                .select(`agente_id, agentes_ia!inner(telefone, nome, ativo)`)
+                .eq('empresa_id', activeCompany.id)
+                .eq('agentes_ia.ativo', true)
+                .not('agentes_ia.telefone', 'is', null)
+                .limit(1)
+                .maybeSingle();
+              
+              const agenteAny = (anyLink as any)?.agentes_ia;
+              telefonePri = agenteAny?.telefone ? String(agenteAny.telefone).replace(/\D/g, '') : '';
+            }
             
             // Pegar event_id_pri da prospecção
             const eventIdPri = prospeccaoData?.event_id_pri || '';
