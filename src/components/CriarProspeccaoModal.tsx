@@ -51,7 +51,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [currentStep, setCurrentStep] = useState(0);
-  const { canCreateIALigacao } = useUserAccessType();
+  const { canCreateIALigacao, canCreateGrandeEventoOuIAWhatsapp } = useUserAccessType();
   
   // Tipo de Evento
   const [tipoEvento, setTipoEvento] = useState<TipoEvento>('Prospecção Mensal');
@@ -2492,8 +2492,12 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Prospecção Mensal">Prospecção Mensal</SelectItem>
-                  <SelectItem value="Grande Evento">Grande Evento</SelectItem>
-                  <SelectItem value="IA Whatsapp">IA Whatsapp</SelectItem>
+                  {canCreateGrandeEventoOuIAWhatsapp && (
+                    <SelectItem value="Grande Evento">Grande Evento</SelectItem>
+                  )}
+                  {canCreateGrandeEventoOuIAWhatsapp && (
+                    <SelectItem value="IA Whatsapp">IA Whatsapp</SelectItem>
+                  )}
                   {canCreateIALigacao && (
                     <SelectItem value="IA Ligação">IA Ligação</SelectItem>
                   )}
