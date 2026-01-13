@@ -1457,7 +1457,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         // 1) crm_id da loja (OBRIGATÓRIO)
         const { data: empresaCrmData, error: empresaCrmError } = await supabase
           .from('empresas')
-          .select('crm_id')
+          .select('crm_id, nome_empresa, uf, cidade, endereco')
           .eq('id', activeCompany.id)
           .single();
 
@@ -1529,6 +1529,74 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         }
 
         console.log('✅ Pri-Whatsapp OK:', { priTelefoneLimpo, dealerIdFinal, nomePri });
+
+        // ============================================================
+        // ENVIAR PARA WEBHOOK CONFIGURA-EVENTOS-SAGA-ONE IMEDIATAMENTE
+        // (mesmo dados do agente e loja usados no template)
+        // ============================================================
+        try {
+          const formatarDataISO = (data: string | null) => {
+            if (!data) return null;
+            try {
+              return new Date(data + 'T11:00:00.000Z').toISOString();
+            } catch {
+              return null;
+            }
+          };
+
+          const webhookPayload = {
+            // Dados do evento
+            id: prospeccaoData.id,
+            event_id_pri: prospeccaoData.event_id_pri || null,
+            titulo: prospeccaoData.titulo,
+            descricao: prospeccaoData.descricao,
+            data_inicio: formatarDataISO(prospeccaoData.data_inicio),
+            data_fim: formatarDataISO(prospeccaoData.data_fim),
+            canal: prospeccaoData.canal || 'Ligação',
+            evento_principal: prospeccaoData.evento_principal ?? false,
+            qualificar_lead: prospeccaoData.qualificar_lead ?? true,
+            
+            // Dados do agente (mesmo do template)
+            pri_telefone: priTelefoneLimpo,
+            pri_dealer_id: dealerIdFinal,
+            nome_agente: nomePri,
+            
+            // Dados da loja
+            empresa_id: activeCompany.id,
+            nome_empresa: empresaCrmData?.nome_empresa || '',
+            uf: eventoUF.trim() || empresaCrmData?.uf || '',
+            cidade: eventoCidade.trim() || empresaCrmData?.cidade || '',
+            endereco: eventoEndereco.trim() || empresaCrmData?.endereco || '',
+            
+            // Base de contatos
+            contatos: contatosParaEnviar,
+            total_contatos: contatosParaEnviar.length,
+            
+            // Metadados
+            acao: acao,
+            data_criacao: new Date().toISOString(),
+          };
+
+          console.log('📤 Enviando para webhook configura-eventos-saga-one:', webhookPayload);
+
+          const configResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(webhookPayload),
+          });
+
+          if (!configResponse.ok) {
+            console.error('❌ Erro ao enviar para webhook configura-eventos-saga-one:', configResponse.status);
+          } else {
+            const configResult = await configResponse.json().catch(() => ({}));
+            console.log('✅ Webhook configura-eventos-saga-one enviado com sucesso:', configResult);
+          }
+        } catch (configError) {
+          console.error('❌ Erro ao chamar webhook configura-eventos-saga-one:', configError);
+          // Não bloqueia o fluxo principal
+        }
       }
 
       const response = await supabase.functions.invoke('ia-ligacao-webhook', {
