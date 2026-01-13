@@ -1475,11 +1475,23 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           return false;
         }
 
-        // 2) telefone do agente Pri - Whatsapp (OBRIGATÓRIO)
+        // 2) telefone do agente PRI correto baseado no tipo de evento
+        // IA Whatsapp → "Pri - Whatsapp" | IA Ligação → "Pri(Ligação)"
         // IMPORTANTE: buscar via agente_empresas (vínculo correto) já que empresa_id em agentes_ia pode ser NULL
-        let priWhatsappData: { telefone: string | null; nome: string | null } | null = null;
+        let priAgenteData: { telefone: string | null; nome: string | null } | null = null;
 
-        // Buscar agentes vinculados à empresa via agente_empresas (mesma lógica do upload de planilha e templates)
+        // Determinar qual agente buscar baseado no tipo de evento
+        const isIALigacao = tipoEvento === 'IA Ligação';
+        const isIAWhatsapp = tipoEvento === 'IA Whatsapp';
+        
+        // Padrões de busca para cada tipo
+        // IA Ligação: "Pri(Ligação)", "Pri - Ligação", "Pri Ligação"
+        // IA Whatsapp: "Pri - Whatsapp", "Pri Whatsapp"
+        const agenteSearchPatterns = isIALigacao 
+          ? ['ligação', 'ligacao'] 
+          : ['whatsapp'];
+
+        // Buscar agentes vinculados à empresa via agente_empresas
         const { data: agentesVinculados, error: agentesVinculadosErr } = await supabase
           .from('agente_empresas')
           .select(`
@@ -1504,42 +1516,50 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
         const normalizeTel = (value: any) => (value ? String(value).replace(/\D/g, '') : '');
 
-        // Prioridade: agente com nome contendo "pri" e "whatsapp"
-        const agentePriWhatsapp = agentes.find((a: any) => {
+        // Buscar agente específico para o tipo de evento
+        const agenteEspecifico = agentes.find((a: any) => {
           const nome = String(a?.nome || '').toLowerCase();
-          return nome.includes('pri') && nome.includes('whatsapp') && normalizeTel(a?.telefone);
+          const temPri = nome.includes('pri');
+          const temPatternCorreto = agenteSearchPatterns.some(pattern => nome.includes(pattern));
+          return temPri && temPatternCorreto && normalizeTel(a?.telefone);
         });
 
-        if (agentePriWhatsapp) {
-          priWhatsappData = { telefone: agentePriWhatsapp.telefone, nome: agentePriWhatsapp.nome };
+        if (agenteEspecifico) {
+          priAgenteData = { telefone: agenteEspecifico.telefone, nome: agenteEspecifico.nome };
+          console.log(`✅ Agente ${isIALigacao ? 'Pri(Ligação)' : 'Pri - Whatsapp'} encontrado:`, agenteEspecifico.nome);
         }
 
-        // Fallback: qualquer agente ativo com telefone
-        if (!priWhatsappData) {
+        // Fallback: qualquer agente ativo com telefone (apenas se não for IA específica)
+        if (!priAgenteData && !isIALigacao && !isIAWhatsapp) {
           const agenteComTelefone = agentes.find((a: any) => normalizeTel(a?.telefone));
           if (agenteComTelefone) {
-            priWhatsappData = { telefone: agenteComTelefone.telefone, nome: agenteComTelefone.nome };
+            priAgenteData = { telefone: agenteComTelefone.telefone, nome: agenteComTelefone.nome };
           }
         }
 
-        nomePri = priWhatsappData?.nome || nomePri;
-        priTelefoneLimpo = priWhatsappData?.telefone ? priWhatsappData.telefone.replace(/\D/g, '') : '';
+        nomePri = priAgenteData?.nome || nomePri;
+        priTelefoneLimpo = priAgenteData?.telefone ? priAgenteData.telefone.replace(/\D/g, '') : '';
+
+        // Nome do agente esperado para mensagem de erro
+        const nomeAgenteEsperado = isIALigacao ? "Pri(Ligação)" : "Pri - Whatsapp";
 
         // VALIDAÇÃO CRÍTICA: não criar/atualizar evento sem pri_telefone
         if (!priTelefoneLimpo) {
-          console.warn('⚠️ telefone_pri não encontrado para empresa', activeCompany.id, {
+          console.warn(`⚠️ Agente ${nomeAgenteEsperado} não encontrado para empresa`, activeCompany.id, {
+            tipoEvento,
             totalVinculos: (agentesVinculados || []).length,
             totalAgentesAtivos: agentes.length,
+            agentesDisponiveis: agentes.map((a: any) => a?.nome),
           });
           toast({
-            title: 'Agente Pri - Whatsapp não configurado',
-            description: "Configure um agente 'Pri - Whatsapp' ativo com telefone nesta loja antes de criar/atualizar eventos.",
+            title: `Agente ${nomeAgenteEsperado} não configurado`,
+            description: `Configure um agente '${nomeAgenteEsperado}' ativo com telefone nesta loja antes de criar/atualizar eventos de ${tipoEvento}.`,
             variant: 'destructive',
           });
           return false;
         }
 
-        console.log('✅ Pri-Whatsapp OK:', { priTelefoneLimpo, dealerIdFinal, nomePri });
+        console.log(`✅ Agente ${nomeAgenteEsperado} OK:`, { priTelefoneLimpo, dealerIdFinal, nomePri });
 
         // ============================================================
         // ENVIAR PARA WEBHOOK CONFIGURA-EVENTOS-SAGA-ONE IMEDIATAMENTE
