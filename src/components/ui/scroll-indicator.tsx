@@ -56,7 +56,7 @@ export function ScrollIndicator({ children, className = '' }: ScrollIndicatorPro
       </div>
       
       {showIndicator && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
           <button
             onClick={handleIndicatorClick}
             className="w-10 h-10 rounded-full bg-primary/80 shadow-lg flex items-center justify-center cursor-pointer transition-all duration-300 hover:bg-primary pointer-events-auto"

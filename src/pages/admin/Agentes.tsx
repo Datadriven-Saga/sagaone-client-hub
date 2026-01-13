@@ -483,16 +483,23 @@ export default function AdminAgentes() {
         // Campo 'nome' fallback
         a.nome?.toLowerCase().includes(lowerTerm) ||
         // Instância completa
-        a.instancia?.toLowerCase().includes(lowerTerm)
+        a.instancia?.toLowerCase().includes(lowerTerm) ||
+        // Marca
+        a.marca?.toLowerCase().includes(lowerTerm) ||
+        // UF
+        a.uf?.toLowerCase().includes(lowerTerm) ||
+        // Telefone/Número
+        a.telefone?.includes(lowerTerm) ||
+        a.num_maia?.includes(lowerTerm)
       );
     }
 
-    // Filtro por nome do agente (dropdown)
+    // Filtro por nome do agente (dropdown) - comparação exata case-insensitive
     if (nomeAgente && nomeAgente !== "all") {
-      const lowerNome = nomeAgente.toLowerCase();
       filtered = filtered.filter(a => {
-        const agenteNome = ((a as any).agente || a.nome || "").toLowerCase();
-        return agenteNome === lowerNome;
+        const agenteNome = ((a as any).agente || a.nome || "");
+        // Comparação case-insensitive
+        return agenteNome.toLowerCase() === nomeAgente.toLowerCase();
       });
     }
     
@@ -501,14 +508,18 @@ export default function AdminAgentes() {
       filtered = filtered.filter(a => a.empresa_id === empresaId);
     }
 
-    // Filtro por marca
+    // Filtro por marca - comparação case-insensitive
     if (marca && marca !== "all") {
-      filtered = filtered.filter(a => a.marca?.toLowerCase() === marca.toLowerCase());
+      filtered = filtered.filter(a => 
+        a.marca?.toLowerCase() === marca.toLowerCase()
+      );
     }
 
-    // Filtro por UF
+    // Filtro por UF - comparação case-insensitive
     if (uf && uf !== "all") {
-      filtered = filtered.filter(a => a.uf?.toUpperCase() === uf.toUpperCase());
+      filtered = filtered.filter(a => 
+        a.uf?.toUpperCase() === uf.toUpperCase()
+      );
     }
 
     // Filtro por status
@@ -520,11 +531,14 @@ export default function AdminAgentes() {
       }
     }
 
-    // Filtro por número
+    // Filtro por número - busca parcial
     if (numero) {
-      filtered = filtered.filter(a => 
-        a.num_maia?.includes(numero) || a.telefone?.includes(numero)
-      );
+      const numeroLimpo = numero.replace(/\D/g, ''); // Remove caracteres não numéricos
+      filtered = filtered.filter(a => {
+        const numMaia = (a.num_maia || '').replace(/\D/g, '');
+        const telefone = (a.telefone || '').replace(/\D/g, '');
+        return numMaia.includes(numeroLimpo) || telefone.includes(numeroLimpo);
+      });
     }
     
     setFilteredAgentes(filtered);
