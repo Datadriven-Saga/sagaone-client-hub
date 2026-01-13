@@ -52,7 +52,9 @@ export function useUserAccessType() {
   const isAdminOrTI = isAdmin || isTI;
 
   const isDiretor = tipoAcesso === "Diretor";
-  const isGerente = tipoAcesso === "Gerente de Leads" || tipoAcesso === "Gerente de Loja";
+  const isGerenteLeads = tipoAcesso === "Gerente de Leads";
+  const isGerenteLoja = tipoAcesso === "Gerente de Loja";
+  const isGerente = isGerenteLeads || isGerenteLoja;
   const isCRM = tipoAcesso === "CRM";
   const isRecepcionista = tipoAcesso === "Recepcionista";
   const isVendedor = tipoAcesso === "Vendedor";
@@ -91,14 +93,17 @@ export function useUserAccessType() {
   // Permissões para gerar convites/QR Codes: todos EXCETO Recepcionista
   const canGenerateInvites = !isRecepcionista;
 
-  // Permissões para criar templates: Administrador, TI, Gerente de Leads
-  const canCreateTemplates = isAdmin || isTI || tipoAcesso === "Gerente de Leads" || tipoAcesso === "Gerente de Loja";
+  // Permissões para criar templates: Administrador, TI, Gerente de Leads, CRM
+  const canCreateTemplates = isAdmin || isTI || isGerenteLeads || isCRM;
 
   // Permissão específica para área de TI (Agentes IA / Instâncias)
   const canAccessAgentesIA = isDepartamentoTI && isAdminOrTI;
 
   // Permissão para criar eventos de IA Ligação: apenas TI e Administrador
   const canCreateIALigacao = isAdminOrTI;
+
+  // Permissão para criar Grande Evento e IA Whatsapp: Administrador, TI, Gerente de Leads, CRM
+  const canCreateGrandeEventoOuIAWhatsapp = isAdmin || isTI || isGerenteLeads || isCRM;
 
   return {
     tipoAcesso,
@@ -117,6 +122,7 @@ export function useUserAccessType() {
     isDepartamentoTI,
     canAccessAgentesIA,
     canCreateIALigacao,
+    canCreateGrandeEventoOuIAWhatsapp,
     // Permissões específicas
     canAddClientes,
     canAccessRecepcao,
