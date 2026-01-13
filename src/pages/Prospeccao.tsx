@@ -976,15 +976,15 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     if (!user) return;
 
     try {
-      // Verificar se o usuário tem contatos na coluna "Atribuídos"
+      // Verificar se o usuário tem contatos na coluna "Atribuídos" (status 'Atribuído')
       const contatosAtribuidos = contatos.filter(
-        contato => contato && contato.status === 'Negociação' && contato.responsavel_email === user.email
+        contato => contato && contato.status === 'Atribuído' && contato.responsavel_email === user.email
       );
 
       if (contatosAtribuidos.length > 0) {
         toast({
           title: "Não é possível solicitar clientes",
-          description: "Você possui clientes parados na coluna Atribuídos. Finalize o atendimento antes de solicitar novos clientes.",
+          description: `Você possui ${contatosAtribuidos.length} cliente(s) parado(s) na coluna Atribuídos. Finalize o atendimento antes de solicitar novos clientes.`,
           variant: "destructive"
         });
         return;
@@ -1009,8 +1009,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       
       for (const contato of clientesParaAtribuir) {
         await atribuirResponsavel(contato.id, user.email!);
-        // Mover para coluna "Atribuídos" (status 'Negociação')
-        await atualizarStatusContato(contato.id, 'Negociação');
+        // Mover para coluna "Atribuídos" (status 'Atribuído')
+        await atualizarStatusContato(contato.id, 'Atribuído');
       }
 
       toast({
