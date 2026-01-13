@@ -98,7 +98,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     }
   }, [defaultTab]);
   const [showAdicionarClientes, setShowAdicionarClientes] = useState(false);
-  const { canAddClientes } = useUserAccessType();
+  const { canAddClientes, isAdminOrTI, canUploadBase } = useUserAccessType();
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [recepcaoInitialData, setRecepcaoInitialData] = useState<any>(null);
   const [isQRCodeScannerOpen, setIsQRCodeScannerOpen] = useState(false);
@@ -1280,21 +1280,27 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
-                                        <Edit className="mr-2 h-4 w-4" />
-                                        Editar
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem 
-                                        onClick={() => setDeleteProspeccao({ 
-                                          id: prospeccao.id, 
-                                          canal: prospeccao.canal || '', 
-                                          eventIdPri: prospeccao.event_id_pri || null 
-                                        })}
-                                        className="text-red-600"
-                                      >
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Excluir
-                                      </DropdownMenuItem>
+                                      {/* Para IA Ligação, não exibe botão de editar */}
+                                      {prospeccao.canal !== 'Ligação' && (
+                                        <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
+                                          <Edit className="mr-2 h-4 w-4" />
+                                          Editar
+                                        </DropdownMenuItem>
+                                      )}
+                                      {/* Para IA Ligação, apenas Adm/TI podem excluir */}
+                                      {(prospeccao.canal !== 'Ligação' || isAdminOrTI) && (
+                                        <DropdownMenuItem 
+                                          onClick={() => setDeleteProspeccao({ 
+                                            id: prospeccao.id, 
+                                            canal: prospeccao.canal || '', 
+                                            eventIdPri: prospeccao.event_id_pri || null 
+                                          })}
+                                          className="text-red-600"
+                                        >
+                                          <Trash2 className="mr-2 h-4 w-4" />
+                                          Excluir
+                                        </DropdownMenuItem>
+                                      )}
                                     </DropdownMenuContent>
                                   </DropdownMenu>
                                 </td>
