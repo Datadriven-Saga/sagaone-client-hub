@@ -50,7 +50,7 @@ interface AgenteEventosProps {
 
 export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) {
   const { toast } = useToast();
-  const { isAdminOrTI } = useUserAccessType();
+  const { isAdminOrTI, canCreateEventos } = useUserAccessType();
   
   const [loading, setLoading] = useState(false);
   const [eventos, setEventos] = useState<Evento[]>([]);
@@ -222,7 +222,7 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
                   <TableHead>ID</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-center">Ativo/Inativo</TableHead>
-                  {isAdminOrTI && (
+                  {canCreateEventos && (
                     <TableHead className="text-right">Ações</TableHead>
                   )}
                 </TableRow>
@@ -254,7 +254,7 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
                         disabled={changingStatus === evento.id_evento}
                       />
                     </TableCell>
-                    {isAdminOrTI && (
+                    {canCreateEventos && (
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"
