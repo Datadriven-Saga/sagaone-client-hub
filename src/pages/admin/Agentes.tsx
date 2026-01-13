@@ -222,11 +222,24 @@ export default function AdminAgentes() {
     return nome.includes("maia") ? "Maia" : "Outro";
   };
 
-  // Verificar se é agente Pri (Ligação)
-  const isPriLigacao = (agente: AgenteWebhook | null | undefined): boolean => {
-    if (!agente) return false;
-    const nome = (agente.nome || "").toLowerCase();
-    return nome.includes("pri") || nome.includes("ligação") || nome.includes("ligacao");
+  // Verificar se é agente Pri (Ligação) - verifica selectedAgente, agenteLocal e instanciaData
+  const isPriLigacao = (): boolean => {
+    // Verifica no selectedAgente
+    if (selectedAgente) {
+      const nome = (selectedAgente.nome || "").toLowerCase();
+      if (nome.includes("pri") || nome.includes("ligação") || nome.includes("ligacao")) return true;
+    }
+    // Verifica no agenteLocal
+    if (agenteLocal) {
+      const nome = (agenteLocal.nome || "").toLowerCase();
+      if (nome.includes("pri") || nome.includes("ligação") || nome.includes("ligacao")) return true;
+    }
+    // Verifica no instanciaData.agente
+    if (instanciaData?.agente) {
+      const agente = instanciaData.agente.toLowerCase();
+      if (agente.includes("pri") || agente.includes("ligação") || agente.includes("ligacao")) return true;
+    }
+    return false;
   };
 
   const getAgenteNumero = (agente: AgenteWebhook | null | undefined): string => {
@@ -1924,7 +1937,7 @@ export default function AdminAgentes() {
                     <TabsTrigger value="periodo" disabled={!agenteLocal}>Jornada da IA</TabsTrigger>
                     <TabsTrigger value="instancias">Instâncias</TabsTrigger>
                     {/* Aba de Eventos - apenas para agentes Pri(Ligação) */}
-                    {isPriLigacao(selectedAgente) && agenteLocal && (
+                    {isPriLigacao() && agenteLocal && (
                       <TabsTrigger value="eventos">Eventos</TabsTrigger>
                     )}
                   </TabsList>
@@ -2767,7 +2780,7 @@ export default function AdminAgentes() {
                 </TabsContent>
 
                 {/* Eventos Tab - apenas para agentes Pri(Ligação) */}
-                {isPriLigacao(selectedAgente) && agenteLocal && (
+                {isPriLigacao() && agenteLocal && (
                   <TabsContent value="eventos">
                     <AgenteEventos 
                       agenteId={agenteLocal.id} 
