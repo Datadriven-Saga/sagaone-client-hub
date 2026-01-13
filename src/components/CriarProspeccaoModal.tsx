@@ -1766,10 +1766,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         acao: isEditing ? 'alterado' : 'criado',
         empresa_id: activeCompany.id,
         data: new Date().toISOString(),
-        // Dados da Pri
-        pri_telefone: priAgent?.telefone || null,
-        pri_dealer_id: priAgent?.dealer_id || null,
-        pri_status: priAgent?.ativo ? 'Ativo' : 'Inativo',
+        // Dados da Pri (agente IA Whatsapp da loja)
+        pri_telefone: priTelefone || null,
+        pri_dealer_id: dealerIdLoja || null,
+        pri_status: priStatus,
         // Novos campos
         evento_principal: prospeccaoData.evento_principal ?? false,
         qualificar_lead: prospeccaoData.qualificar_lead ?? true,
