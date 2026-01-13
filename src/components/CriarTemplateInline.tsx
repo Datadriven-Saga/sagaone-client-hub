@@ -376,15 +376,32 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
     agenteId: string;
     agenteTelefone: string | null;
   }) => {
-    if (!empresaId) return;
+    if (!empresaId || !templateData.agenteId) {
+      console.warn("⚠️ Dados insuficientes para disparar webhooks:", { empresaId, agenteId: templateData.agenteId });
+      return;
+    }
 
     try {
-      // Buscar dados completos do agente selecionado
-      const { data: agenteData } = await supabase
+      // Buscar dados completos do agente selecionado diretamente do banco
+      const { data: agenteData, error: agenteError } = await supabase
         .from("agentes_ia")
-        .select("telefone, dealer_id, ativo, nome")
+        .select("id, nome, telefone, dealer_id, ativo")
         .eq("id", templateData.agenteId)
         .single();
+
+      if (agenteError) {
+        console.error("❌ Erro ao buscar dados do agente:", agenteError);
+      }
+
+      // Log para debug - dados do agente
+      console.log("📱 Dados do agente para webhook:", {
+        agenteId: templateData.agenteId,
+        agenteNome: agenteData?.nome,
+        agenteTelefone: agenteData?.telefone,
+        agenteDealerId: agenteData?.dealer_id,
+        agenteAtivo: agenteData?.ativo,
+        telefoneFromState: templateData.agenteTelefone
+      });
 
       // Buscar gatilhos ativos
       const { data: gatilhos, error } = await supabase
@@ -409,6 +426,9 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
         return;
       }
 
+      // Garantir que o telefone seja formatado corretamente (apenas números)
+      const telefoneLimpo = agenteData?.telefone?.replace(/\D/g, "") || templateData.agenteTelefone?.replace(/\D/g, "") || "";
+
       // Construir payload com dados do agente selecionado
       const payload = {
         template: {
@@ -418,11 +438,13 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
           components: buildTemplateComponents(templateData),
         },
         agente_id: templateData.agenteId,
-        agente_nome: agenteData?.nome || null,
-        pri_telefone: agenteData?.telefone?.replace(/\D/g, "") || templateData.agenteTelefone,
-        pri_dealer_id: agenteData?.dealer_id || null,
+        agente_nome: agenteData?.nome || "",
+        pri_telefone: telefoneLimpo,
+        pri_dealer_id: agenteData?.dealer_id || "",
         pri_status: agenteData?.ativo ? "Ativo" : "Inativo",
       };
+
+      console.log("📤 Payload do webhook:", payload);
 
       // Disparar webhooks para cada gatilho
       for (const gatilho of gatilhosFiltrados) {
