@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
+import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,22 +61,18 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
     try {
       setLoading(true);
       
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
+      const { data, error } = await supabase.functions.invoke('eventos-ligacao-proxy', {
+        body: {
+          action: 'listar',
           agente_id: agenteId,
-          telefone: agenteTelefone 
-        })
+          telefone: agenteTelefone
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
+      if (error) {
+        throw error;
       }
 
-      const data = await response.json();
       console.log('Eventos carregados:', data);
       
       // Garantir que sempre temos um array
@@ -100,19 +97,16 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
       
       const novoStatus = evento.evt_status === 'ativo' ? 'inativo' : 'ativo';
       
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/muda-status-evento', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { error } = await supabase.functions.invoke('eventos-ligacao-proxy', {
+        body: {
+          action: 'mudar_status',
           id_evento: evento.id_evento,
           evt_status: novoStatus
-        })
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
+      if (error) {
+        throw error;
       }
 
       toast({
@@ -142,18 +136,15 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
     try {
       setDeletingEvento(evento.id_evento);
       
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/deleta-eventos-saga-one', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { error } = await supabase.functions.invoke('eventos-ligacao-proxy', {
+        body: {
+          action: 'deletar',
           id_evento: evento.id_evento
-        })
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
+      if (error) {
+        throw error;
       }
 
       toast({
