@@ -170,6 +170,10 @@ export default function AdminAgentes() {
   const [loadingLojas, setLoadingLojas] = useState(false);
   const [selectedLojasToRemove, setSelectedLojasToRemove] = useState<string[]>([]);
   const [removingLojas, setRemovingLojas] = useState(false);
+  // Filtros para lojas atribuídas
+  const [filterLojaMarca, setFilterLojaMarca] = useState<string>("all");
+  const [filterLojaUF, setFilterLojaUF] = useState<string>("all");
+  const [filterLojaCidade, setFilterLojaCidade] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("dados-gerais");
   const [isNewAgente, setIsNewAgente] = useState(false);
   const [creatingInstancia, setCreatingInstancia] = useState(false);
@@ -373,6 +377,37 @@ export default function AdminAgentes() {
         ? prev.filter(id => id !== lojaId)
         : [...prev, lojaId]
     );
+  };
+
+  // Filtrar lojas atribuídas com base nos filtros
+  const filteredLojasAtribuidas = lojasAtribuidas.filter(loja => {
+    if (filterLojaMarca !== "all" && loja.marca !== filterLojaMarca) return false;
+    if (filterLojaUF !== "all" && loja.uf !== filterLojaUF) return false;
+    if (filterLojaCidade !== "all" && loja.cidade !== filterLojaCidade) return false;
+    return true;
+  });
+
+  // Extrair opções únicas para os filtros de lojas atribuídas
+  const uniqueLojasMarcas = [...new Set(lojasAtribuidas.map(l => l.marca).filter(Boolean))].sort() as string[];
+  const uniqueLojasUFs = [...new Set(lojasAtribuidas.map(l => l.uf).filter(Boolean))].sort() as string[];
+  const uniqueLojasCidades = [...new Set(lojasAtribuidas.map(l => l.cidade).filter(Boolean))].sort() as string[];
+
+  // Resetar filtros de lojas quando muda o agente
+  const resetLojaFilters = () => {
+    setFilterLojaMarca("all");
+    setFilterLojaUF("all");
+    setFilterLojaCidade("all");
+  };
+
+  // Toggle para selecionar todas as lojas filtradas
+  const toggleSelectAllLojasFiltered = () => {
+    const filteredIds = filteredLojasAtribuidas.map(l => l.id);
+    const allSelected = filteredIds.every(id => selectedLojasToRemove.includes(id));
+    if (allSelected) {
+      setSelectedLojasToRemove(prev => prev.filter(id => !filteredIds.includes(id)));
+    } else {
+      setSelectedLojasToRemove(prev => [...new Set([...prev, ...filteredIds])]);
+    }
   };
 
   const toggleSelectAllLojas = () => {
@@ -710,6 +745,7 @@ export default function AdminAgentes() {
     setIsNewAgente(false);
     setLojasAtribuidas([]);
     setSelectedLojasToRemove([]);
+    resetLojaFilters();
     setNovaInstancia({
       num_maia: "",
       marca: "",
@@ -2022,7 +2058,10 @@ export default function AdminAgentes() {
                               )}
                               {lojasAtribuidas.length > 0 && (
                                 <Badge variant="secondary" className="text-xs">
-                                  {lojasAtribuidas.length}
+                                  {filteredLojasAtribuidas.length !== lojasAtribuidas.length 
+                                    ? `${filteredLojasAtribuidas.length}/${lojasAtribuidas.length}`
+                                    : lojasAtribuidas.length
+                                  }
                                 </Badge>
                               )}
                             </div>
@@ -2032,10 +2071,12 @@ export default function AdminAgentes() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={toggleSelectAllLojas}
+                                  onClick={toggleSelectAllLojasFiltered}
                                   className="text-xs h-7"
                                 >
-                                  {selectedLojasToRemove.length === lojasAtribuidas.length ? "Desmarcar Todas" : "Selecionar Todas"}
+                                  {filteredLojasAtribuidas.length > 0 && filteredLojasAtribuidas.every(l => selectedLojasToRemove.includes(l.id)) 
+                                    ? "Desmarcar Todas" 
+                                    : "Selecionar Todas"}
                                 </Button>
                                 {selectedLojasToRemove.length > 0 && (
                                   <Button
@@ -2056,47 +2097,112 @@ export default function AdminAgentes() {
                               </div>
                             )}
                           </div>
+
+                          {/* Filtros de Lojas Atribuídas */}
+                          {lojasAtribuidas.length > 0 && (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Marca</Label>
+                                <Select value={filterLojaMarca} onValueChange={setFilterLojaMarca}>
+                                  <SelectTrigger className="h-8">
+                                    <SelectValue placeholder="Todas as marcas" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all">Todas as marcas</SelectItem>
+                                    {uniqueLojasMarcas.map((marca) => (
+                                      <SelectItem key={marca} value={marca}>{marca}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">UF</Label>
+                                <Select value={filterLojaUF} onValueChange={setFilterLojaUF}>
+                                  <SelectTrigger className="h-8">
+                                    <SelectValue placeholder="Todos os estados" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all">Todos os estados</SelectItem>
+                                    {uniqueLojasUFs.map((uf) => (
+                                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Cidade</Label>
+                                <Select value={filterLojaCidade} onValueChange={setFilterLojaCidade}>
+                                  <SelectTrigger className="h-8">
+                                    <SelectValue placeholder="Todas as cidades" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all">Todas as cidades</SelectItem>
+                                    {uniqueLojasCidades.map((cidade) => (
+                                      <SelectItem key={cidade} value={cidade}>{cidade}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          )}
                           
                           {lojasAtribuidas.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                              {lojasAtribuidas.map((loja) => (
-                                <div 
-                                  key={loja.id}
-                                  className={`flex items-center gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
-                                    selectedLojasToRemove.includes(loja.id) 
-                                      ? "bg-destructive/10 border-destructive/30" 
-                                      : "bg-muted/50 hover:bg-muted/70"
-                                  }`}
-                                  onClick={() => toggleLojaSelection(loja.id)}
-                                >
-                                  <Checkbox 
-                                    checked={selectedLojasToRemove.includes(loja.id)}
-                                    onCheckedChange={() => toggleLojaSelection(loja.id)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="shrink-0"
-                                  />
-                                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium truncate">{loja.nome_empresa}</p>
-                                    <p className="text-xs text-muted-foreground truncate">
-                                      {[loja.marca, loja.cidade, loja.uf].filter(Boolean).join(' • ')}
-                                    </p>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleRemoveLojas([loja.id]);
-                                    }}
-                                    disabled={removingLojas}
+                            filteredLojasAtribuidas.length > 0 ? (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {filteredLojasAtribuidas.map((loja) => (
+                                  <div 
+                                    key={loja.id}
+                                    className={`flex items-center gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
+                                      selectedLojasToRemove.includes(loja.id) 
+                                        ? "bg-destructive/10 border-destructive/30" 
+                                        : "bg-muted/50 hover:bg-muted/70"
+                                    }`}
+                                    onClick={() => toggleLojaSelection(loja.id)}
                                   >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
+                                    <Checkbox 
+                                      checked={selectedLojasToRemove.includes(loja.id)}
+                                      onCheckedChange={() => toggleLojaSelection(loja.id)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="shrink-0"
+                                    />
+                                    <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-medium truncate">{loja.nome_empresa}</p>
+                                      <p className="text-xs text-muted-foreground truncate">
+                                        {[loja.marca, loja.cidade, loja.uf].filter(Boolean).join(' • ')}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveLojas([loja.id]);
+                                      }}
+                                      disabled={removingLojas}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-6 bg-muted/30 rounded-lg border border-dashed">
+                                <Search className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+                                <p className="text-sm text-muted-foreground">
+                                  Nenhuma loja encontrada com os filtros selecionados.
+                                </p>
+                                <Button 
+                                  variant="link" 
+                                  size="sm" 
+                                  onClick={resetLojaFilters}
+                                  className="mt-2"
+                                >
+                                  Limpar filtros
+                                </Button>
+                              </div>
+                            )
                           ) : (
                             <div className="text-center py-6 bg-muted/30 rounded-lg border border-dashed">
                               <Store className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
