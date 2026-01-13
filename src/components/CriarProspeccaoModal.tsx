@@ -1644,13 +1644,82 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     console.log('🔔 Verificando gatilhos para evento tipo:', tipoEvento);
 
     try {
-      // Buscar dados da Pri (agente de IA)
-      const { data: priAgent } = await supabase
-        .from('agentes_ia')
-        .select('telefone, dealer_id, ativo')
-        .eq('empresa_id', activeCompany.id)
-        .eq('nome', 'Pri')
+      // Buscar crm_id da loja (dealerid)
+      const { data: empresaData, error: empresaErr } = await supabase
+        .from('empresas')
+        .select('crm_id')
+        .eq('id', activeCompany.id)
         .single();
+
+      if (empresaErr) {
+        console.error('❌ Erro ao buscar crm_id da empresa:', empresaErr);
+      }
+
+      const dealerIdLoja = (empresaData?.crm_id ?? '').toString().trim();
+
+      // Resolver telefone do agente IA Whatsapp que está disponível na loja (preferir "Pri - Whatsapp")
+      const normalize = (v?: string | null) => (v ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+
+      const templateNome = prospeccaoData.template_prospeccao;
+      const templateLocal = whatsappTemplates.find((t) => normalize(t.nome) === normalize(templateNome));
+
+      let priTelefone = '';
+      let priStatus: 'Ativo' | 'Inativo' = 'Inativo';
+
+      // 1) Se o template aponta para um agente, usar o telefone dele (mesmo que foi usado na criação do template)
+      if (templateLocal?.agente_id) {
+        const { data: agente, error: agenteErr } = await supabase
+          .from('agentes_ia')
+          .select('telefone, ativo')
+          .eq('id', templateLocal.agente_id)
+          .single();
+
+        if (agenteErr) console.error('❌ Erro ao buscar agente do template:', agenteErr);
+
+        priTelefone = agente?.telefone ? agente.telefone.replace(/\D/g, '') : '';
+        priStatus = agente?.ativo ? 'Ativo' : 'Inativo';
+      }
+
+      // 2) Se não tiver agente_id no template, usar pri_telefone salvo no template
+      if (!priTelefone && templateLocal?.pri_telefone) {
+        priTelefone = templateLocal.pri_telefone.replace(/\D/g, '');
+        priStatus = 'Ativo';
+      }
+
+      // 3) Fallback: procurar agente "Pri - Whatsapp" vinculado à loja via agente_empresas
+      if (!priTelefone) {
+        const { data: priLink, error: priLinkErr } = await supabase
+          .from('agente_empresas')
+          .select(`agente_id, agentes_ia!inner(telefone, nome, ativo)`)
+          .eq('empresa_id', activeCompany.id)
+          .eq('agentes_ia.ativo', true)
+          .ilike('agentes_ia.nome', '%pri%whatsapp%')
+          .limit(1)
+          .maybeSingle();
+
+        if (priLinkErr) console.error('❌ Erro ao buscar Pri - Whatsapp (agente_empresas):', priLinkErr);
+
+        const a = (priLink as any)?.agentes_ia;
+        priTelefone = a?.telefone ? String(a.telefone).replace(/\D/g, '') : '';
+        priStatus = a?.ativo ? 'Ativo' : 'Inativo';
+      }
+
+      // 4) Último fallback: qualquer agente ativo vinculado à loja
+      if (!priTelefone) {
+        const { data: anyLink } = await supabase
+          .from('agente_empresas')
+          .select(`agente_id, agentes_ia!inner(telefone, nome, ativo)`)
+          .eq('empresa_id', activeCompany.id)
+          .eq('agentes_ia.ativo', true)
+          .limit(1)
+          .maybeSingle();
+
+        const a = (anyLink as any)?.agentes_ia;
+        priTelefone = a?.telefone ? String(a.telefone).replace(/\D/g, '') : '';
+        priStatus = a?.ativo ? 'Ativo' : 'Inativo';
+      }
+
+      console.log('📌 Evento (novo_evento_criado) - pri resolvido:', { dealerIdLoja, priTelefone, priStatus, templateNome });
 
       // Buscar gatilhos ativos do tipo "novo_evento_criado"
       const { data: gatilhos, error } = await supabase
