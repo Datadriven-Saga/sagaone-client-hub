@@ -342,7 +342,7 @@ export const useContatoData = () => {
         // Buscar dados da prospecção para incluir no webhook
         const { data: prospeccaoData } = await supabase
           .from('prospeccoes')
-          .select('id, titulo, data_inicio, data_fim, canal')
+          .select('id, titulo, data_inicio, data_fim, canal, event_id_pri')
           .eq('id', prospeccaoId)
           .single();
         
@@ -406,9 +406,9 @@ export const useContatoData = () => {
         
         console.log('✅ Todos os webhooks individuais disparados');
         
-        // WEBHOOK RECEBE-LEADS-PRI - Enviar TODOS os contatos de uma vez para IA Whatsapp
+        // WEBHOOK RECEBE-LEADS-PRI - Enviar cada lead INDIVIDUALMENTE em batches para IA Whatsapp
         if (prospeccaoData?.canal === 'Whatsapp') {
-          console.log('📤 Enviando base completa para webhook recebe-leads-pri...');
+          console.log('📤 Enviando leads individualmente para webhook recebe-leads-pri...');
           
           try {
             // Buscar dados da empresa para pegar crm_id e agente Pri
@@ -419,7 +419,7 @@ export const useContatoData = () => {
               .single();
             
             // Buscar agente Pri - Whatsapp da loja
-            let priTelefone = '';
+            let telefonePri = '';
             const { data: priAgent } = await supabase
               .from('agentes_ia')
               .select('telefone, nome')
@@ -431,65 +431,78 @@ export const useContatoData = () => {
               .limit(1)
               .maybeSingle();
             
-            priTelefone = priAgent?.telefone ? priAgent.telefone.replace(/\D/g, '') : '';
+            telefonePri = priAgent?.telefone ? priAgent.telefone.replace(/\D/g, '') : '';
             
-            // Preparar payload com todos os contatos
-            const contatosPayload = data.map(c => ({
-              id: c.id,
-              lead_id: c.lead_id,
-              nome: c.nome,
-              telefone: normalizePhone(c.telefone),
-              email: c.email || '',
-              status: c.status || 'Novo',
-              origem: c.origem || 'Importação'
-            }));
+            // Pegar event_id_pri da prospecção
+            const eventIdPri = prospeccaoData?.event_id_pri || '';
             
-            const webhookPayload = {
-              // Dados do evento/prospecção
-              prospeccao_id: prospeccaoId,
-              evento_nome: prospeccaoData?.titulo || '',
-              data_inicio: prospeccaoData?.data_inicio || null,
-              data_fim: prospeccaoData?.data_fim || null,
-              canal: prospeccaoData?.canal || 'Whatsapp',
+            console.log('📤 Dados da Pri:', { 
+              telefone_pri: telefonePri,
+              event_id_pri: eventIdPri,
+              dealer_id: empresaData?.crm_id,
+              total_leads: data.length
+            });
+            
+            // Função para enviar um lead individual
+            const enviarLeadPri = async (contato: typeof data[0]) => {
+              const payload = {
+                // Dados do lead
+                id: contato.id,
+                lead_id: contato.lead_id,
+                nome: contato.nome,
+                telefone: normalizePhone(contato.telefone),
+                email: contato.email || '',
+                status: contato.status || 'Novo',
+                origem: contato.origem || 'Importação',
+                
+                // Dados do evento/prospecção
+                prospeccao_id: prospeccaoId,
+                evento_nome: prospeccaoData?.titulo || '',
+                event_id_pri: eventIdPri,
+                data_inicio: prospeccaoData?.data_inicio || null,
+                data_fim: prospeccaoData?.data_fim || null,
+                canal: prospeccaoData?.canal || 'Whatsapp',
+                
+                // Dados do agente
+                telefone_pri: telefonePri,
+                dealer_id: empresaData?.crm_id || '',
+                
+                // Dados da loja
+                empresa_id: activeCompany.id,
+                nome_empresa: empresaData?.nome_empresa || '',
+                uf: empresaData?.uf || '',
+                cidade: empresaData?.cidade || '',
+                
+                // Metadados
+                data_importacao: new Date().toISOString(),
+                tipo_importacao: 'planilha'
+              };
               
-              // Dados do agente
-              pri_telefone: priTelefone,
-              pri_dealer_id: empresaData?.crm_id || '',
-              
-              // Dados da loja
-              empresa_id: activeCompany.id,
-              nome_empresa: empresaData?.nome_empresa || '',
-              uf: empresaData?.uf || '',
-              cidade: empresaData?.cidade || '',
-              
-              // Base de contatos
-              contatos: contatosPayload,
-              total_contatos: contatosPayload.length,
-              
-              // Metadados
-              data_importacao: new Date().toISOString(),
-              tipo_importacao: 'planilha'
+              try {
+                const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/recebe-leads-pri', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                  console.error(`❌ Erro ao enviar lead ${contato.nome}:`, response.status);
+                }
+              } catch (err) {
+                console.error(`❌ Erro ao enviar lead ${contato.nome}:`, err);
+              }
             };
             
-            console.log('📤 Payload recebe-leads-pri:', { 
-              total: contatosPayload.length, 
-              prospeccao: prospeccaoData?.titulo,
-              pri_telefone: priTelefone,
-              dealer_id: empresaData?.crm_id 
-            });
-            
-            const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/recebe-leads-pri', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(webhookPayload)
-            });
-            
-            if (!response.ok) {
-              console.error('❌ Erro ao enviar para recebe-leads-pri:', response.status);
-            } else {
-              const result = await response.json().catch(() => ({}));
-              console.log('✅ Webhook recebe-leads-pri enviado com sucesso:', result);
+            // Processar em batches de 20 para performance
+            const PRI_BATCH_SIZE = 20;
+            for (let i = 0; i < data.length; i += PRI_BATCH_SIZE) {
+              const batch = data.slice(i, i + PRI_BATCH_SIZE);
+              console.log(`📦 Enviando batch Pri ${Math.floor(i / PRI_BATCH_SIZE) + 1}/${Math.ceil(data.length / PRI_BATCH_SIZE)} (${batch.length} leads)`);
+              
+              await Promise.all(batch.map(enviarLeadPri));
             }
+            
+            console.log('✅ Todos os leads enviados para recebe-leads-pri');
           } catch (priError) {
             console.error('❌ Erro ao chamar webhook recebe-leads-pri:', priError);
             // Não bloqueia o fluxo principal
