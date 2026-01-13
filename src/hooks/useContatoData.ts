@@ -418,71 +418,55 @@ export const useContatoData = () => {
               .eq('id', activeCompany.id)
               .single();
             
-            // Buscar agente Pri - Whatsapp vinculado à loja (mesma origem do telefone usado nos templates)
-            // Obs: o vínculo correto é via agente_empresas; o agente pode ter empresa_id NULL em agentes_ia.
+            // Buscar agente Pri - Whatsapp vinculado à loja (mesma lógica usada nos templates de WhatsApp)
+            // IMPORTANTE: para evitar RLS inconsistentes, fazemos a leitura via agente_empresas -> agentes_ia (como no CriarTemplateInline/Templates)
             let telefonePri = '';
 
-            // 1) Buscar todos os agentes vinculados à empresa
-            const { data: links, error: linksErr } = await supabase
+            const { data: agentesVinculados, error: agentesVinculadosErr } = await supabase
               .from('agente_empresas')
-              .select('agente_id')
+              .select(`
+                agente_id,
+                agentes_ia (
+                  id,
+                  nome,
+                  telefone,
+                  ativo
+                )
+              `)
               .eq('empresa_id', activeCompany.id);
 
-            if (linksErr) {
-              console.error('❌ Erro ao buscar agente_empresas:', linksErr);
+            if (agentesVinculadosErr) {
+              console.error('❌ Erro ao buscar agentes vinculados (agente_empresas):', agentesVinculadosErr);
             }
 
-            const agenteIds = (links || []).map(l => l.agente_id).filter(Boolean);
+            const agentes = (agentesVinculados || [])
+              .map((ae: any) => ae.agentes_ia)
+              .filter((a: any) => a && a.ativo)
+              .filter((a: any, idx: number, self: any[]) => idx === self.findIndex(t => t?.id === a?.id));
 
-            // 2) Tentar achar "Pri - Whatsapp" dentre os agentes vinculados
-            if (agenteIds.length > 0) {
-              const { data: priAgent, error: priAgentErr } = await supabase
-                .from('agentes_ia')
-                .select('telefone, nome, ativo')
-                .in('id', agenteIds)
-                .eq('ativo', true)
-                .ilike('nome', '%pri%whatsapp%')
-                .not('telefone', 'is', null)
-                .limit(1)
-                .maybeSingle();
+            const normalizeTelefonePri = (value: any) => (value ? String(value).replace(/\D/g, '') : '');
 
-              if (priAgentErr) {
-                console.error('❌ Erro ao buscar Pri - Whatsapp (agentes_ia):', priAgentErr);
-              }
+            const agentePriWhatsapp = agentes.find((a: any) => {
+              const nome = String(a?.nome || '').toLowerCase();
+              return nome.includes('pri') && nome.includes('whatsapp') && normalizeTelefonePri(a?.telefone);
+            });
 
-              telefonePri = priAgent?.telefone ? String(priAgent.telefone).replace(/\D/g, '') : '';
+            if (agentePriWhatsapp) {
+              telefonePri = normalizeTelefonePri(agentePriWhatsapp.telefone);
             }
 
-            // 3) Fallback: qualquer agente ativo vinculado à loja
-            if (!telefonePri && agenteIds.length > 0) {
-              const { data: anyAgent, error: anyAgentErr } = await supabase
-                .from('agentes_ia')
-                .select('telefone, nome, ativo')
-                .in('id', agenteIds)
-                .eq('ativo', true)
-                .not('telefone', 'is', null)
-                .limit(1)
-                .maybeSingle();
-
-              if (anyAgentErr) {
-                console.error('❌ Erro ao buscar agente fallback (agentes_ia):', anyAgentErr);
-              }
-
-              telefonePri = anyAgent?.telefone ? String(anyAgent.telefone).replace(/\D/g, '') : '';
-            }
-
-            // 4) Último fallback (defensivo): procurar em agentes_ia por nome, sem depender do vínculo
+            // Fallback: qualquer agente ativo com telefone, vinculado à loja
             if (!telefonePri) {
-              const { data: globalPri } = await supabase
-                .from('agentes_ia')
-                .select('telefone, nome, ativo')
-                .eq('ativo', true)
-                .ilike('nome', '%pri%whatsapp%')
-                .not('telefone', 'is', null)
-                .limit(1)
-                .maybeSingle();
+              const agenteComTelefone = agentes.find((a: any) => normalizeTelefonePri(a?.telefone));
+              telefonePri = normalizeTelefonePri(agenteComTelefone?.telefone);
+            }
 
-              telefonePri = globalPri?.telefone ? String(globalPri.telefone).replace(/\D/g, '') : '';
+            // Log defensivo para facilitar debug
+            if (!telefonePri) {
+              console.warn('⚠️ telefone_pri não encontrado para empresa', activeCompany.id, {
+                totalVinculos: (agentesVinculados || []).length,
+                totalAgentesAtivos: agentes.length,
+              });
             }
             
             // Pegar event_id_pri da prospecção
