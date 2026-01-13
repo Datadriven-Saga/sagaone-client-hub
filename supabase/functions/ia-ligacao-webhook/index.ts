@@ -174,18 +174,41 @@ Deno.serve(async (req: Request) => {
     } else {
       console.log('🔍 Frontend não enviou agente_template, buscando "Pri - Whatsapp" na empresa...');
 
-      const { data: priWhatsappData, error: priWhatsappError } = await supabase
+      // Preferir match exato "Pri - Whatsapp", senão fallback por contains
+      const { data: priExato, error: priExatoError } = await supabase
         .from('agentes_ia')
         .select('telefone, nome, ativo')
         .eq('empresa_id', empresa_id)
         .eq('ativo', true)
-        .ilike('nome', '%pri%whatsapp%')
+        .ilike('nome', 'pri - whatsapp')
         .not('telefone', 'is', null)
+        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (priWhatsappError) {
-        console.error('⚠️ Erro ao buscar Pri - Whatsapp:', priWhatsappError);
+      if (priExatoError) {
+        console.error('⚠️ Erro ao buscar Pri - Whatsapp (exato):', priExatoError);
+      }
+
+      let priWhatsappData = priExato?.telefone ? priExato : null;
+
+      if (!priWhatsappData) {
+        const { data: priContains, error: priContainsError } = await supabase
+          .from('agentes_ia')
+          .select('telefone, nome, ativo')
+          .eq('empresa_id', empresa_id)
+          .eq('ativo', true)
+          .ilike('nome', '%pri%whatsapp%')
+          .not('telefone', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (priContainsError) {
+          console.error('⚠️ Erro ao buscar Pri - Whatsapp (contains):', priContainsError);
+        }
+
+        priWhatsappData = priContains?.telefone ? priContains : null;
       }
 
       if (priWhatsappData?.telefone) {
@@ -257,8 +280,16 @@ Deno.serve(async (req: Request) => {
       descricao: evento.descricao || '',
       categoria: 'evento',
       marca: empresa?.marca || empresa?.nome_empresa || '',
+
+      // Campos usados pelo fluxo Saga One
       dealerid: dealerId,
       telefone_pri: telefonePri,
+
+      // Compatibilidade (N8N / integrações antigas)
+      pri_dealer_id: dealerId,
+      pri_telefone: telefonePri,
+      pri_status: priStatus,
+
       uf: evento.uf || empresa?.uf || '',
       cidade: evento.cidade || empresa?.cidade || '',
       endereco: evento.endereco || empresa?.endereco || '',
@@ -307,6 +338,9 @@ Deno.serve(async (req: Request) => {
       nome: payload.nome,
       dealerid: payload.dealerid,
       telefone_pri: payload.telefone_pri,
+      pri_dealer_id: payload.pri_dealer_id,
+      pri_telefone: payload.pri_telefone,
+      pri_status: payload.pri_status,
       uf: payload.uf,
       cidade: payload.cidade,
       total_clientes: payload.total_clientes,
@@ -344,6 +378,9 @@ Deno.serve(async (req: Request) => {
           nome: payload.nome,
           dealerid: payload.dealerid,
           telefone_pri: payload.telefone_pri,
+          pri_dealer_id: payload.pri_dealer_id,
+          pri_telefone: payload.pri_telefone,
+          pri_status: payload.pri_status,
           uf: payload.uf,
           cidade: payload.cidade,
           endereco: payload.endereco,
