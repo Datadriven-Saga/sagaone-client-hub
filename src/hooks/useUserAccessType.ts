@@ -108,6 +108,9 @@ export function useUserAccessType() {
   // Permissão para subir base de todos os eventos: apenas Administrador, TI, CRM
   const canUploadBase = isAdmin || isTI || isCRM;
 
+  // Permissão para gerenciar equipes de prospecção (ver vendedores/SDR, definir integrantes): Admin, TI, Gerente de Leads, CRM
+  const canManageProspeccaoEquipes = isAdmin || isTI || isGerenteLeads || isCRM;
+
   return {
     tipoAcesso,
     departamento,
@@ -127,6 +130,7 @@ export function useUserAccessType() {
     canCreateIALigacao,
     canCreateEventos,
     canUploadBase,
+    canManageProspeccaoEquipes,
     // Permissões específicas
     canAddClientes,
     canAccessRecepcao,
