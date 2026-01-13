@@ -33,6 +33,7 @@ import {
 
 interface Evento {
   id_evento: string;
+  nome?: string;
   nome_evento?: string;
   titulo?: string;
   evt_status: 'ativo' | 'inativo';
@@ -230,7 +231,7 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
                 {eventos.map((evento) => (
                   <TableRow key={evento.id_evento}>
                     <TableCell className="font-medium">
-                      {evento.nome_evento || evento.titulo || `Evento ${evento.id_evento}`}
+                      {evento.nome || evento.nome_evento || evento.titulo || `Evento ${evento.id_evento}`}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {evento.id_evento}
@@ -287,7 +288,7 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
               </AlertDialogTitle>
               <AlertDialogDescription>
                 Tem certeza que deseja excluir o evento{' '}
-                <strong>"{eventoToDelete?.nome_evento || eventoToDelete?.titulo || eventoToDelete?.id_evento}"</strong>?
+                <strong>"{eventoToDelete?.nome || eventoToDelete?.nome_evento || eventoToDelete?.titulo || eventoToDelete?.id_evento}"</strong>?
                 <br /><br />
                 Esta ação não pode ser desfeita.
               </AlertDialogDescription>
