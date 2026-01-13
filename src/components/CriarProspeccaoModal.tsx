@@ -1575,40 +1575,45 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
             }
           };
 
+          const now = new Date().toISOString();
+          const nomeEmpresa = empresaCrmData?.nome_empresa || '';
+
+          // PAYLOAD PADRONIZADO - SEMPRE ENVIAR NESTE FORMATO
           const webhookPayload = {
-            // Dados do evento
-            id: prospeccaoData.id,
-            event_id_pri: prospeccaoData.event_id_pri || null,
-            titulo: prospeccaoData.titulo,
-            descricao: prospeccaoData.descricao,
-            data_inicio: formatarDataISO(prospeccaoData.data_inicio),
-            data_fim: formatarDataISO(prospeccaoData.data_fim),
-            canal: prospeccaoData.canal || 'Ligação',
-            evento_principal: prospeccaoData.evento_principal ?? false,
-            qualificar_lead: prospeccaoData.qualificar_lead ?? true,
-            
-            // Dados do agente (mesmo do template)
-            pri_telefone: priTelefoneLimpo,
-            pri_dealer_id: dealerIdFinal,
-            nome_agente: nomePri,
-            
-            // Dados da loja
-            empresa_id: activeCompany.id,
-            nome_empresa: empresaCrmData?.nome_empresa || '',
-            uf: eventoUF.trim() || empresaCrmData?.uf || '',
-            cidade: eventoCidade.trim() || empresaCrmData?.cidade || '',
-            endereco: eventoEndereco.trim() || empresaCrmData?.endereco || '',
-            
-            // Base de contatos
-            contatos: contatosParaEnviar,
+            evento: {
+              id: prospeccaoData.id,
+              event_id_pri: prospeccaoData.event_id_pri || null,
+              titulo: prospeccaoData.titulo,
+              descricao: prospeccaoData.descricao || '',
+              canal: prospeccaoData.canal || 'IA Ligação',
+              evento_principal: prospeccaoData.evento_principal ?? false,
+              qualificar_lead: prospeccaoData.qualificar_lead ?? true,
+              empresa_id: activeCompany.id,
+              nome_empresa: nomeEmpresa,
+              pri_telefone: priTelefoneLimpo,
+              pri_dealer_id: dealerIdFinal,
+              nome_agente: nomePri,
+              uf: eventoUF.trim() || empresaCrmData?.uf || '',
+              cidade: eventoCidade.trim() || empresaCrmData?.cidade || '',
+              endereco: eventoEndereco.trim() || empresaCrmData?.endereco || '',
+              data_inicio: formatarDataISO(prospeccaoData.data_inicio),
+              data_fim: formatarDataISO(prospeccaoData.data_fim),
+              evt_status: 'ativo',
+              criado_em: now,
+              atualizado_em: now,
+            },
+            contatos: contatosParaEnviar.map((c) => ({
+              nome: c.nome || '',
+              telefone: c.telefone || '',
+              loja: nomeEmpresa,
+            })),
+            total_clientes: contatosParaEnviar.length,
             total_contatos: contatosParaEnviar.length,
-            
-            // Metadados
+            timestamp: now,
             acao: acao,
-            data_criacao: new Date().toISOString(),
           };
 
-          console.log('📤 Enviando para webhook configura-eventos-saga-one:', webhookPayload);
+          console.log('📤 Enviando para webhook configura-eventos-saga-one (payload padronizado):', JSON.stringify(webhookPayload, null, 2));
 
           const configResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one', {
             method: 'POST',
