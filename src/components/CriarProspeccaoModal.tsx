@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound, Image, FileImage, Megaphone, Upload, QrCode, User, Building, CalendarDays, Clock, Link, Palette, ChevronLeft, ChevronRight, AlertTriangle, Maximize2, Minimize2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
@@ -50,6 +51,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [currentStep, setCurrentStep] = useState(0);
+  const { canCreateIALigacao } = useUserAccessType();
   
   // Tipo de Evento
   const [tipoEvento, setTipoEvento] = useState<TipoEvento>('Prospecção Mensal');
@@ -2492,7 +2494,9 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                   <SelectItem value="Prospecção Mensal">Prospecção Mensal</SelectItem>
                   <SelectItem value="Grande Evento">Grande Evento</SelectItem>
                   <SelectItem value="IA Whatsapp">IA Whatsapp</SelectItem>
-                  <SelectItem value="IA Ligação">IA Ligação</SelectItem>
+                  {canCreateIALigacao && (
+                    <SelectItem value="IA Ligação">IA Ligação</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
