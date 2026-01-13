@@ -171,7 +171,7 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
     if (agenteId) {
       carregarEventos();
     }
-  }, [agenteId]);
+  }, [agenteId, agenteTelefone]);
 
   return (
     <Card>
