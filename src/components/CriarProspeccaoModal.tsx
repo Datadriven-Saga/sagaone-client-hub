@@ -1446,10 +1446,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       
       console.log(`📤 Enviando para webhook (${acao}) com`, contatosParaEnviar.length, 'contatos...');
 
-      // Buscar dados do agente a partir do template de prospecção selecionado
+      // Buscar dados do agente - PRIORIDADE: template > agente Pri da empresa
       let agenteDoTemplate: { telefone: string | null; dealer_id: string | null; nome: string } | null = null;
       
-      // Primeiro, tentar buscar pelo template_prospeccao do evento
+      // Primeiro, tentar buscar pelo template_prospeccao do evento (se for IA Whatsapp)
       const templateSelecionado = whatsappTemplates.find(t => t.nome === prospeccaoData.template_prospeccao);
       
       if (templateSelecionado?.agente_id) {
@@ -1478,7 +1478,43 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         };
       }
 
-      console.log('📤 Dados do agente para webhook:', agenteDoTemplate);
+      // FALLBACK: Se não encontrou agente pelo template, buscar agente Pri da empresa
+      if (!agenteDoTemplate || !agenteDoTemplate.telefone) {
+        console.log('🔍 Buscando agente Pri da empresa como fallback...');
+        
+        // Primeiro tentar buscar agente chamado "Pri"
+        const { data: priData } = await supabase
+          .from('agentes_ia')
+          .select('telefone, dealer_id, nome')
+          .eq('empresa_id', activeCompany.id)
+          .ilike('nome', '%pri%')
+          .eq('ativo', true)
+          .limit(1)
+          .single();
+
+        if (priData?.telefone) {
+          agenteDoTemplate = priData;
+          console.log('✅ Agente Pri encontrado:', agenteDoTemplate);
+        } else {
+          // Se não encontrar Pri, buscar qualquer agente ativo
+          const { data: qualquerAgente } = await supabase
+            .from('agentes_ia')
+            .select('telefone, dealer_id, nome')
+            .eq('empresa_id', activeCompany.id)
+            .eq('ativo', true)
+            .not('telefone', 'is', null)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .single();
+          
+          if (qualquerAgente?.telefone) {
+            agenteDoTemplate = qualquerAgente;
+            console.log('✅ Agente ativo encontrado (fallback):', agenteDoTemplate);
+          }
+        }
+      }
+
+      console.log('📤 Dados finais do agente para webhook:', agenteDoTemplate);
       
       const response = await supabase.functions.invoke('ia-ligacao-webhook', {
         body: {
