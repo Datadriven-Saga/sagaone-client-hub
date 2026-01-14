@@ -407,6 +407,41 @@ export type Database = {
         }
         Relationships: []
       }
+      bases_importadas: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          empresa_id: string
+          id: string
+          nome: string
+          total_contatos: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          empresa_id: string
+          id?: string
+          nome: string
+          total_contatos?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          empresa_id?: string
+          id?: string
+          nome?: string
+          total_contatos?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bases_importadas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           cep: string | null
@@ -485,6 +520,7 @@ export type Database = {
       }
       contatos: {
         Row: {
+          base_id: string | null
           cliente_id: string | null
           created_at: string | null
           data_disparo_ia: string | null
@@ -506,6 +542,7 @@ export type Database = {
           vendedor_nome: string | null
         }
         Insert: {
+          base_id?: string | null
           cliente_id?: string | null
           created_at?: string | null
           data_disparo_ia?: string | null
@@ -527,6 +564,7 @@ export type Database = {
           vendedor_nome?: string | null
         }
         Update: {
+          base_id?: string | null
           cliente_id?: string | null
           created_at?: string | null
           data_disparo_ia?: string | null
@@ -548,6 +586,13 @@ export type Database = {
           vendedor_nome?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contatos_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: false
+            referencedRelation: "bases_importadas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "leads_cliente_id_fkey"
             columns: ["cliente_id"]

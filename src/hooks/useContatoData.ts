@@ -266,6 +266,7 @@ export const useContatoData = () => {
     origem: Contato['origem'];
     observacoes?: string;
     responsavel_email?: string;
+    base_id?: string;
   }[], prospeccaoId?: string) => {
     if (!activeCompany?.id) {
       toast({ 

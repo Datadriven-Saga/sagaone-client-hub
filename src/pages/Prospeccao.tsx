@@ -45,6 +45,7 @@ interface ClienteData {
   cpf?: string;
   segmentacao?: string;
   responsavel?: string;
+  base_id?: string;
 }
 
 interface ProspeccaoProps {
@@ -878,13 +879,17 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       }
       
       // Processar cada cliente usando o hook useContatoData
+      // Pegar o base_id do primeiro cliente (todos terão o mesmo base_id)
+      const baseId = clientes[0]?.base_id;
+      
       const novosContatos = clientes.map(cliente => ({
         nome: cliente.nome,
         telefone: cliente.telefone,
         email: cliente.email || undefined,
         origem: 'Outros' as const,
         observacoes: `Importado da campanha: ${campanha}`,
-        responsavel_email: cliente.responsavel && cliente.responsavel.trim() ? cliente.responsavel : undefined
+        responsavel_email: cliente.responsavel && cliente.responsavel.trim() ? cliente.responsavel : undefined,
+        base_id: cliente.base_id
       }));
 
       console.log('=== PROCESSANDO CLIENTES ===');
