@@ -2157,10 +2157,13 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
     
-    if (!selectedFile.type.includes('excel') && !selectedFile.type.includes('spreadsheet') && !selectedFile.name.endsWith('.xlsx') && !selectedFile.name.endsWith('.xls')) {
+    const isExcel = selectedFile.type.includes('excel') || selectedFile.type.includes('spreadsheet') || selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls');
+    const isCsv = selectedFile.type === 'text/csv' || selectedFile.name.endsWith('.csv');
+    
+    if (!isExcel && !isCsv) {
       toast({
         title: "Formato inválido",
-        description: "Por favor, selecione um arquivo Excel (.xlsx ou .xls)",
+        description: "Por favor, selecione um arquivo Excel (.xlsx, .xls) ou CSV (.csv)",
         variant: "destructive",
       });
       return;
@@ -2976,7 +2979,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
               <Card className="p-4 border-dashed border-2 border-muted flex flex-col justify-center items-center">
                 <input
                   type="file"
-                  accept=".xlsx,.xls"
+                  accept=".xlsx,.xls,.csv"
                   onChange={(e) => {
                     setModoImportBase('upload');
                     handleFileLigacao(e);
@@ -2990,7 +2993,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                     Clique para selecionar arquivo
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    (.xlsx ou .xls)
+                    (.csv, .xlsx ou .xls)
                   </p>
                   {processandoPlanilha && (
                     <div className="mt-2">
