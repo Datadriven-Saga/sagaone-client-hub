@@ -324,14 +324,66 @@ export default function EventoBase() {
     }
   };
 
+  // Buscar contatos pendentes para disparo
+  const fetchContatosPendentes = async (idsToFetch?: string[]): Promise<ContatoEvento[]> => {
+    if (!activeCompany?.id) return [];
+    
+    const targetIds = idsToFetch || contatoIds;
+    if (targetIds.length === 0) return [];
+    
+    const BATCH_SIZE = 500;
+    let allContatos: ContatoEvento[] = [];
+
+    for (let i = 0; i < targetIds.length; i += BATCH_SIZE) {
+      const batchIds = targetIds.slice(i, i + BATCH_SIZE);
+      const { data } = await supabase
+        .from('contatos')
+        .select('id, nome, telefone, email, status, origem, created_at, updated_at, data_disparo_ia, responsavel_email, vendedor_nome')
+        .in('id', batchIds)
+        .eq('empresa_id', activeCompany.id)
+        .is('data_disparo_ia', null); // Apenas pendentes
+
+      if (data) allContatos = [...allContatos, ...data];
+    }
+
+    return allContatos;
+  };
+
   // Disparar IA para todos os pendentes
   const handleDispararTodos = async () => {
-    if (!prospeccao) return;
+    if (!prospeccao || !activeCompany?.id) return;
 
     setIsDisparandoIA(true);
     try {
+      // Buscar todos os contatos pendentes
+      const contatosPendentes = await fetchContatosPendentes();
+      
+      if (contatosPendentes.length === 0) {
+        toast({ title: "Atenção", description: "Nenhum contato pendente para disparar" });
+        return;
+      }
+
+      // Formatar leads no formato esperado pela edge function
+      const leads = contatosPendentes.map(c => ({
+        id: c.id,
+        nome: c.nome,
+        telefone: c.telefone,
+        email: c.email,
+        status: c.status,
+        origem: c.origem
+      }));
+
+      console.log('🚀 Disparando para IA:', { 
+        total: leads.length, 
+        empresa_id: activeCompany.id, 
+        prospeccao_id: prospeccao.id,
+        canal: prospeccao.canal 
+      });
+
       const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
         body: {
+          leads,
+          empresa_id: activeCompany.id,
           prospeccao_id: prospeccao.id,
           canal: prospeccao.canal
         }
@@ -339,9 +391,11 @@ export default function EventoBase() {
 
       if (error) throw error;
 
+      console.log('✅ Resposta do disparo:', data);
+
       toast({
         title: "Sucesso",
-        description: `Disparo iniciado para ${metricas.pendentes} contatos pendentes`
+        description: `Disparo iniciado para ${leads.length} contatos pendentes`
       });
 
       // Recarregar dados
@@ -356,19 +410,39 @@ export default function EventoBase() {
 
   // Disparar IA para contato individual
   const handleDispararContato = async (contato: ContatoEvento) => {
-    if (!prospeccao) return;
+    if (!prospeccao || !activeCompany?.id) return;
 
     setDisparandoContato(contato.id);
     try {
-      const { error } = await supabase.functions.invoke('dispatch-leads-webhook', {
+      // Formatar lead no formato esperado
+      const leads = [{
+        id: contato.id,
+        nome: contato.nome,
+        telefone: contato.telefone,
+        email: contato.email,
+        status: contato.status,
+        origem: contato.origem
+      }];
+
+      console.log('🚀 Disparando contato individual:', { 
+        contato: contato.nome,
+        empresa_id: activeCompany.id, 
+        prospeccao_id: prospeccao.id,
+        canal: prospeccao.canal 
+      });
+
+      const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
         body: {
+          leads,
+          empresa_id: activeCompany.id,
           prospeccao_id: prospeccao.id,
-          canal: prospeccao.canal,
-          contato_ids: [contato.id]
+          canal: prospeccao.canal
         }
       });
 
       if (error) throw error;
+
+      console.log('✅ Resposta do disparo individual:', data);
 
       toast({ title: "Sucesso", description: `Disparo enviado para ${contato.nome}` });
 
