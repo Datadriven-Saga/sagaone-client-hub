@@ -52,12 +52,60 @@ export const useVideoCompression = (): UseVideoCompressionReturn => {
       message: 'Carregando compressor de vídeo...'
     });
 
-    // Load FFmpeg with CORS-enabled URLs
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    });
+    // Check if SharedArrayBuffer is available (required for multi-threaded FFmpeg)
+    const hasSharedArrayBuffer = typeof SharedArrayBuffer !== 'undefined';
+    console.log('[FFmpeg] SharedArrayBuffer available:', hasSharedArrayBuffer);
+
+    // Add timeout to prevent infinite loading
+    const loadWithTimeout = async (loadFn: () => Promise<void>, timeoutMs: number = 30000): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('FFmpeg load timeout'));
+        }, timeoutMs);
+
+        loadFn()
+          .then(() => {
+            clearTimeout(timeout);
+            resolve();
+          })
+          .catch((err) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+      });
+    };
+
+    // Try single-threaded UMD version first (most compatible)
+    const umdURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+    
+    try {
+      console.log('[FFmpeg] Loading single-threaded UMD version...');
+      await loadWithTimeout(async () => {
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${umdURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${umdURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+      }, 45000);
+      console.log('[FFmpeg] Loaded successfully (UMD)');
+    } catch (umdError) {
+      console.error('[FFmpeg] UMD load failed:', umdError);
+      
+      // Try ESM version as fallback
+      const esmURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+      try {
+        console.log('[FFmpeg] Trying ESM version...');
+        await loadWithTimeout(async () => {
+          await ffmpeg.load({
+            coreURL: await toBlobURL(`${esmURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${esmURL}/ffmpeg-core.wasm`, 'application/wasm'),
+          });
+        }, 45000);
+        console.log('[FFmpeg] Loaded successfully (ESM)');
+      } catch (esmError) {
+        console.error('[FFmpeg] ESM load also failed:', esmError);
+        throw new Error('Não foi possível carregar o compressor de vídeo. Tente usar um vídeo menor que 12MB.');
+      }
+    }
 
     ffmpegRef.current = ffmpeg;
     return ffmpeg;
@@ -254,10 +302,11 @@ export const useVideoCompression = (): UseVideoCompressionReturn => {
 
     } catch (error) {
       console.error('Video compression error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao comprimir vídeo. Tente novamente.';
       setCompressionProgress({
         stage: 'error',
         progress: 0,
-        message: 'Erro ao comprimir vídeo. Tente novamente.'
+        message: errorMessage
       });
       setIsCompressing(false);
       return null;
