@@ -555,6 +555,25 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     return true; // Permitir mover o card
   };
 
+  // Carregar contagens de pendentes para eventos IA (sempre antes de qualquer early return)
+  useEffect(() => {
+    const carregarContagens = async () => {
+      const eventosIA = prospeccoes.filter(p => {
+        const canalStr = String(p.canal).toLowerCase();
+        return canalStr === 'whatsapp' || canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
+      });
+
+      for (const evento of eventosIA) {
+        const contagem = await contarContatosPendentesDisparo(evento.id);
+        setContagemPendentes(prev => ({ ...prev, [evento.id]: contagem }));
+      }
+    };
+
+    if (prospeccoes.length > 0) {
+      carregarContagens();
+    }
+  }, [prospeccoes]);
+
   // Calcular métricas dos contatos (antes do early return para uso nos useMemo)
   const metricas = getMetricas();
 
@@ -1217,26 +1236,6 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       setDisparandoIA(null);
     }
   };
-
-  // Carregar contagens de pendentes para eventos IA ao montar
-  useEffect(() => {
-    const carregarContagens = async () => {
-      const eventosIA = prospeccoes.filter(p => {
-        const canalStr = String(p.canal).toLowerCase();
-        return canalStr === 'whatsapp' || canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
-      });
-
-      for (const evento of eventosIA) {
-        const contagem = await contarContatosPendentesDisparo(evento.id);
-        setContagemPendentes(prev => ({ ...prev, [evento.id]: contagem }));
-      }
-    };
-
-    if (prospeccoes.length > 0) {
-      carregarContagens();
-    }
-  }, [prospeccoes]);
-
 
   return (
     <DashboardLayout title="Prospecção">
