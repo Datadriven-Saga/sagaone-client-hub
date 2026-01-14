@@ -1589,58 +1589,59 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
         // ============================================================
         // ENVIAR PARA WEBHOOK CONFIGURA-EVENTOS-SAGA-ONE IMEDIATAMENTE
-        // (mesmo dados do agente e loja usados no template)
+        // Este é o ÚNICO ponto de envio de dados do evento e contatos
+        // para evitar duplicação de dados
         // ============================================================
+        const formatarDataISO = (data: string | null) => {
+          if (!data) return null;
+          try {
+            return new Date(data + 'T11:00:00.000Z').toISOString();
+          } catch {
+            return null;
+          }
+        };
+
+        const now = new Date().toISOString();
+        const nomeEmpresa = empresaCrmData?.nome_empresa || '';
+
+        // PAYLOAD PADRONIZADO - SEMPRE ENVIAR NESTE FORMATO (ÚNICO ENVIO)
+        const webhookPayload = {
+          evento: {
+            id: prospeccaoData.id,
+            event_id_pri: prospeccaoData.event_id_pri || null,
+            titulo: prospeccaoData.titulo,
+            descricao: prospeccaoData.descricao || '',
+            canal: prospeccaoData.canal || 'IA Ligação',
+            evento_principal: prospeccaoData.evento_principal ?? false,
+            qualificar_lead: prospeccaoData.qualificar_lead ?? true,
+            empresa_id: activeCompany.id,
+            nome_empresa: nomeEmpresa,
+            pri_telefone: priTelefoneLimpo,
+            pri_dealer_id: dealerIdFinal,
+            nome_agente: nomePri,
+            uf: eventoUF.trim() || empresaCrmData?.uf || '',
+            cidade: eventoCidade.trim() || empresaCrmData?.cidade || '',
+            endereco: eventoEndereco.trim() || empresaCrmData?.endereco || '',
+            data_inicio: formatarDataISO(prospeccaoData.data_inicio),
+            data_fim: formatarDataISO(prospeccaoData.data_fim),
+            evt_status: 'ativo',
+            criado_em: now,
+            atualizado_em: now,
+          },
+          contatos: contatosParaEnviarPadronizado.map((c) => ({
+            nome: c.nome || '',
+            telefone: c.telefone || '',
+            loja: nomeEmpresa,
+          })),
+          total_clientes: contatosParaEnviarPadronizado.length,
+          total_contatos: contatosParaEnviarPadronizado.length,
+          timestamp: now,
+          acao: acao,
+        };
+
+        console.log(`📤 Enviando para webhook configura-eventos-saga-one (${acao}) - ÚNICO ENVIO:`, JSON.stringify(webhookPayload, null, 2));
+
         try {
-          const formatarDataISO = (data: string | null) => {
-            if (!data) return null;
-            try {
-              return new Date(data + 'T11:00:00.000Z').toISOString();
-            } catch {
-              return null;
-            }
-          };
-
-          const now = new Date().toISOString();
-          const nomeEmpresa = empresaCrmData?.nome_empresa || '';
-
-          // PAYLOAD PADRONIZADO - SEMPRE ENVIAR NESTE FORMATO
-          const webhookPayload = {
-            evento: {
-              id: prospeccaoData.id,
-              event_id_pri: prospeccaoData.event_id_pri || null,
-              titulo: prospeccaoData.titulo,
-              descricao: prospeccaoData.descricao || '',
-              canal: prospeccaoData.canal || 'IA Ligação',
-              evento_principal: prospeccaoData.evento_principal ?? false,
-              qualificar_lead: prospeccaoData.qualificar_lead ?? true,
-              empresa_id: activeCompany.id,
-              nome_empresa: nomeEmpresa,
-              pri_telefone: priTelefoneLimpo,
-              pri_dealer_id: dealerIdFinal,
-              nome_agente: nomePri,
-              uf: eventoUF.trim() || empresaCrmData?.uf || '',
-              cidade: eventoCidade.trim() || empresaCrmData?.cidade || '',
-              endereco: eventoEndereco.trim() || empresaCrmData?.endereco || '',
-              data_inicio: formatarDataISO(prospeccaoData.data_inicio),
-              data_fim: formatarDataISO(prospeccaoData.data_fim),
-              evt_status: 'ativo',
-              criado_em: now,
-              atualizado_em: now,
-            },
-            contatos: contatosParaEnviarPadronizado.map((c) => ({
-              nome: c.nome || '',
-              telefone: c.telefone || '',
-              loja: nomeEmpresa,
-            })),
-            total_clientes: contatosParaEnviarPadronizado.length,
-            total_contatos: contatosParaEnviarPadronizado.length,
-            timestamp: now,
-            acao: acao,
-          };
-
-          console.log('📤 Enviando para webhook configura-eventos-saga-one (payload padronizado):', JSON.stringify(webhookPayload, null, 2));
-
           const configResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one', {
             method: 'POST',
             headers: {
@@ -1651,110 +1652,111 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
           if (!configResponse.ok) {
             console.error('❌ Erro ao enviar para webhook configura-eventos-saga-one:', configResponse.status);
-          } else {
-            const configResult = await configResponse.json().catch(() => ({}));
-            console.log('✅ Webhook configura-eventos-saga-one enviado com sucesso:', configResult);
+            toast({
+              title: `Erro na operação (${acao})`,
+              description: `Falha ao enviar dados para o servidor. Status: ${configResponse.status}`,
+              variant: "destructive",
+            });
+            return false;
           }
+
+          const configResult = await configResponse.json().catch(() => ({}));
+          console.log('✅ Webhook configura-eventos-saga-one enviado com sucesso:', configResult);
+
+          // Verificar se a resposta indica sucesso
+          if (configResult?.success === false || configResult?.error) {
+            console.error('❌ Webhook retornou erro:', configResult);
+            const detalhe = configResult?.message || configResult?.error || `Falha ao ${acao} evento.`;
+            toast({
+              title: `Erro na operação (${acao})`,
+              description: detalhe,
+              variant: "destructive",
+            });
+            return false;
+          }
+
+          // Se for criação e retornou id_evento, salvar na prospecção
+          if (acao === 'criar' && configResult?.id_evento) {
+            const { error: updateError } = await supabase
+              .from('prospeccoes')
+              .update({ event_id_pri: String(configResult.id_evento) })
+              .eq('id', prospeccaoData.id);
+            
+            if (updateError) {
+              console.error('❌ Erro ao salvar event_id_pri:', updateError);
+            } else {
+              console.log(`✅ event_id_pri "${configResult.id_evento}" salvo na prospecção ${prospeccaoData.id}`);
+            }
+          }
+
+          const mensagens = {
+            criar: `${contatosParaEnviarPadronizado.length} contatos enviados para ligação.`,
+            atualizar: 'Evento atualizado com sucesso.',
+            deletar: 'Evento removido com sucesso.',
+          };
+          
+          toast({
+            title: acao === 'criar' ? "Disparo configurado!" : acao === 'atualizar' ? "Evento atualizado!" : "Evento removido!",
+            description: mensagens[acao],
+          });
+
+          return true;
+
         } catch (configError) {
           console.error('❌ Erro ao chamar webhook configura-eventos-saga-one:', configError);
-          // Não bloqueia o fluxo principal
+          toast({
+            title: `Erro na operação (${acao})`,
+            description: "Ocorreu um erro inesperado. Tente novamente.",
+            variant: "destructive",
+          });
+          return false;
         }
       }
 
-      const response = await supabase.functions.invoke('ia-ligacao-webhook', {
-        body: {
-          evento: {
-            id: prospeccaoData.id,
-            titulo: prospeccaoData.titulo,
-            descricao: prospeccaoData.descricao,
-            data_inicio: prospeccaoData.data_inicio,
-            data_fim: prospeccaoData.data_fim,
-            canal: prospeccaoData.canal,
-            evento_principal: prospeccaoData.evento_principal,
-            qualificar_lead: prospeccaoData.qualificar_lead,
-            imagem_divulgacao_url: prospeccaoData.imagem_divulgacao_url,
-            // Localização específica do evento
-            uf: eventoUF.trim(),
-            cidade: eventoCidade.trim(),
-            endereco: eventoEndereco.trim(),
-            // ID numérico do evento (se existir)
-            id_evento: prospeccaoData.event_id_pri ? parseInt(prospeccaoData.event_id_pri, 10) : undefined,
-          },
-          contatos: contatosParaEnviarPadronizado,
-          empresa_id: activeCompany.id,
-          acao: acao,
-          // SEMPRE enviar pri_telefone e pri_dealer_id (crm_id) ao criar/atualizar
-          agente_template: acao === 'deletar' ? null : {
-            telefone: priTelefoneLimpo,
-            dealer_id: dealerIdFinal,
-            nome: nomePri,
-          },
-        },
-      });
-      
-      if (response.error) {
-        console.error('❌ Erro ao enviar webhook:', response.error);
-        toast({
-          title: `Erro na operação (${acao})`,
-          description: "Não foi possível processar a operação. Tente novamente.",
-          variant: "destructive",
-        });
-        return false;
-      }
-      
-      // Verificar se a resposta indica sucesso
-      const responseData: any = response.data;
-      if (responseData?.success === false || responseData?.error) {
-        console.error('❌ Webhook retornou erro:', responseData);
+      // Para ação 'deletar' sem contatos, apenas enviar para o webhook
+      if (acao === 'deletar') {
+        try {
+          const deletePayload = {
+            evento: {
+              id: prospeccaoData.id,
+              event_id_pri: prospeccaoData.event_id_pri || null,
+            },
+            acao: 'deletar',
+          };
 
-        const detalhe =
-          responseData?.data?.message ||
-          responseData?.data?.hint ||
-          responseData?.data?.raw ||
-          responseData?.error ||
-          responseData?.message ||
-          `Falha ao ${acao} evento.`;
+          console.log('📤 Enviando deleção para webhook:', deletePayload);
 
-        toast({
-          title: `Erro na operação (${acao})`,
-          description: `(${responseData?.status ?? 'sem status'}) ${detalhe}`,
-          variant: "destructive",
-        });
-        return false;
-      }
-      
-      console.log(`✅ Webhook (${acao}) enviado com sucesso:`, responseData);
-      
-      // Se for criação e retornou id_evento, salvar na prospecção
-      if (acao === 'criar' && responseData?.id_evento) {
-        const { error: updateError } = await supabase
-          .from('prospeccoes')
-          .update({ event_id_pri: String(responseData.id_evento) })
-          .eq('id', prospeccaoData.id);
-        
-        if (updateError) {
-          console.error('❌ Erro ao salvar event_id_pri:', updateError);
-        } else {
-          console.log(`✅ event_id_pri "${responseData.id_evento}" salvo na prospecção ${prospeccaoData.id}`);
+          const deleteResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(deletePayload),
+          });
+
+          if (!deleteResponse.ok) {
+            console.error('❌ Erro ao deletar evento:', deleteResponse.status);
+            return false;
+          }
+
+          toast({
+            title: "Evento removido!",
+            description: "Evento removido com sucesso.",
+          });
+          return true;
+
+        } catch (deleteError) {
+          console.error('❌ Erro ao deletar evento:', deleteError);
+          return false;
         }
       }
-      
-      const mensagens = {
-        criar: `${contatosParaEnviarPadronizado.length} contatos enviados para ligação.`,
-        atualizar: 'Evento atualizado com sucesso.',
-        deletar: 'Evento removido com sucesso.',
-      };
-      
-      toast({
-        title: acao === 'criar' ? "Disparo configurado!" : acao === 'atualizar' ? "Evento atualizado!" : "Evento removido!",
-        description: mensagens[acao],
-      });
+
       return true;
       
     } catch (error) {
       console.error('❌ Erro ao chamar webhook IA Ligação:', error);
       toast({
-        title: `Erro na operação (${acao})`,
+        title: `Erro na operação`,
         description: "Ocorreu um erro inesperado. Tente novamente.",
         variant: "destructive",
       });
