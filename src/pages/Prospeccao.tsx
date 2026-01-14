@@ -1287,8 +1287,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                           Editar
                                         </DropdownMenuItem>
                                       )}
-                                      {/* Para IA Ligação, apenas Adm/TI podem excluir */}
-                                      {(prospeccao.canal !== 'Ligação' || isAdminOrTI) && (
+                                      {/* Para IA Ligação, não permite exclusão (evento gerenciado externamente) */}
+                                      {prospeccao.canal !== 'Ligação' && (
                                         <DropdownMenuItem 
                                           onClick={() => setDeleteProspeccao({ 
                                             id: prospeccao.id, 
