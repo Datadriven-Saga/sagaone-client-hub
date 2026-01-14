@@ -654,16 +654,16 @@ export default function Templates() {
         media_length: mediaData?.size || null,
       });
     } else if (savedData.formato === "video" && savedData.cardData?.videoUrl) {
-      // Para vídeos, NÃO enviar base64 no payload do invoke (fica grande demais e pode falhar antes de chamar o webhook).
-      // Enviamos apenas a URL + metadados; o webhook externo deve baixar o vídeo via media_url.
+      // Para vídeos, enviar em base64 (limite de 12MB garante que o payload não fica muito grande)
+      const mediaData = await fetchMediaAsBase64(savedData.cardData.videoUrl);
       components.push({
         type: "HEADER",
         format: "VIDEO",
         media_url: savedData.cardData.videoUrl,
-        media_base64: null,
-        media_mime_type: savedData.cardData.videoMimeType || "video/mp4",
+        media_base64: mediaData?.base64 || null,
+        media_mime_type: mediaData?.mimeType || savedData.cardData.videoMimeType || "video/mp4",
         media_type: "video",
-        media_length: savedData.cardData.videoSizeBytes || null,
+        media_length: mediaData?.size || savedData.cardData.videoSizeBytes || null,
       });
     }
 
@@ -1866,11 +1866,11 @@ export default function Templates() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const maxSizeBytes = 100 * 1024 * 1024; // 100MB
+        const maxSizeBytes = 12 * 1024 * 1024; // 12MB
         if (file.size > maxSizeBytes) {
           const sizeInMB = (file.size / 1024 / 1024).toFixed(2);
           toast.error(
-            `O vídeo selecionado tem ${sizeInMB}MB e excede o limite de 100MB permitido. Por favor, faça o upload de um vídeo com até 100MB.`
+            `O vídeo selecionado tem ${sizeInMB}MB e excede o limite de 12MB permitido. Por favor, faça o upload de um vídeo com até 12MB.`
           );
           // Permite selecionar o mesmo arquivo novamente caso o usuário ajuste
           e.target.value = "";
@@ -1940,6 +1940,7 @@ export default function Templates() {
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary transition-colors">
                   <Video className="h-8 w-8 text-muted-foreground mb-2" />
                   <span className="text-sm text-muted-foreground">Clique para enviar vídeo</span>
+                  <span className="text-xs text-muted-foreground">(máx. 12MB)</span>
                   <input
                     type="file"
                     accept="video/*"

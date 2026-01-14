@@ -200,6 +200,19 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
     const file = e.target.files?.[0];
     if (!file) return;
     
+    // Limite de 12MB para vídeo
+    if (mediaType === 'video') {
+      const maxSizeBytes = 12 * 1024 * 1024; // 12MB
+      if (file.size > maxSizeBytes) {
+        const sizeInMB = (file.size / 1024 / 1024).toFixed(2);
+        toast.error(
+          `O vídeo selecionado tem ${sizeInMB}MB e excede o limite de 12MB permitido. Por favor, faça o upload de um vídeo com até 12MB.`
+        );
+        e.target.value = "";
+        return;
+      }
+    }
+    
     setMediaFile(file);
     const url = await uploadMediaToStorage(file, mediaType);
     if (url) {
