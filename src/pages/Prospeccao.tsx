@@ -54,6 +54,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   console.log('🚀 Prospeccao component initiated');
   
   // ✅ TODOS OS HOOKS DEVEM VIR PRIMEIRO - ANTES DE QUALQUER LÓGICA
+  // === useState hooks ===
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProspeccao, setEditingProspeccao] = useState<any>(null);
@@ -84,22 +85,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   const [viewMode, setViewMode] = useState<'kanban' | 'lista'>('kanban');
   const [listaSortColumn, setListaSortColumn] = useState<string>('updated_at');
   const [listaSortDirection, setListaSortDirection] = useState<'asc' | 'desc'>('desc');
-  
-  // Atualizar activeTab quando defaultTab mudar (navegação entre sub-módulos)
-  useEffect(() => {
-    if (defaultTab === 'eventos') {
-      setActiveTab('eventos');
-      setShowAdicionarClientes(false);
-    } else if (defaultTab === 'atendimento') {
-      setActiveTab('kanban');
-    } else if (defaultTab === 'recepcao') {
-      setActiveTab('recepcao');
-    } else if (defaultTab === 'vendas') {
-      setActiveTab('vendas');
-    }
-  }, [defaultTab]);
   const [showAdicionarClientes, setShowAdicionarClientes] = useState(false);
-  const { canAddClientes, isAdminOrTI, canUploadBase } = useUserAccessType();
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [recepcaoInitialData, setRecepcaoInitialData] = useState<any>(null);
   const [isQRCodeScannerOpen, setIsQRCodeScannerOpen] = useState(false);
@@ -118,13 +104,9 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     fromStatus: ''
   });
   const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string; departamento?: string | null }[]>([]);
-  
-  // Estado para guardar IDs de eventos de Ligação válidos do webhook externo
   const [eventosLigacaoValidos, setEventosLigacaoValidos] = useState<Set<string>>(new Set());
   const [loadingEventosLigacao, setLoadingEventosLigacao] = useState(false);
   const [eventosLigacaoVerificados, setEventosLigacaoVerificados] = useState(false);
-  
-  // Filtro global unificado para todas as abas
   const [globalFilters, setGlobalFilters] = useState<ProspeccaoGlobalFilters>({
     prospeccaoId: "todos",
     dataInicio: "",
@@ -133,11 +115,21 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     status: "todos",
     dadosLead: ""
   });
+  const [disparandoIA, setDisparandoIA] = useState<string | null>(null);
+  const [contagemPendentes, setContagemPendentes] = useState<Record<string, { total: number; pendentes: number; disparados: number }>>({});
+  const [eventoBaseModal, setEventoBaseModal] = useState<{
+    isOpen: boolean;
+    prospeccao: any | null;
+  }>({
+    isOpen: false,
+    prospeccao: null
+  });
   
-  // ✅ HOOKS DE CONTEXTO E CUSTOM HOOKS
+  // === Custom Hooks e Context Hooks ===
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeCompany, loading: companyLoading, switchCompany } = useCompany();
+  const { canAddClientes, isAdminOrTI, canUploadBase } = useUserAccessType();
   const { registrarMovimentacao } = useProspeccaoLogs();
   const { 
     contatos, 
@@ -159,28 +151,28 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     contarContatosPendentesDisparo,
     refetch
   } = useContatoData();
-  
-  // Estado para controle de disparo para IA
-  const [disparandoIA, setDisparandoIA] = useState<string | null>(null);
-  const [contagemPendentes, setContagemPendentes] = useState<Record<string, { total: number; pendentes: number; disparados: number }>>({});
-  
-  // Estado para modal de base do evento
-  const [eventoBaseModal, setEventoBaseModal] = useState<{
-    isOpen: boolean;
-    prospeccao: any | null;
-  }>({
-    isOpen: false,
-    prospeccao: null
-  });
-  
   const { vendas, criarVenda, refetch: refetchVendas } = useVendasProspeccao();
-  
   const { 
     visitas, 
-    loading: loadingVisitas, 
+    loading: loadingVisitas,
     adicionarVisita, 
     excluirVisita 
   } = useRecepcaoData();
+
+  // === useEffect hooks ===
+  // Atualizar activeTab quando defaultTab mudar (navegação entre sub-módulos)
+  useEffect(() => {
+    if (defaultTab === 'eventos') {
+      setActiveTab('eventos');
+      setShowAdicionarClientes(false);
+    } else if (defaultTab === 'atendimento') {
+      setActiveTab('kanban');
+    } else if (defaultTab === 'recepcao') {
+      setActiveTab('recepcao');
+    } else if (defaultTab === 'vendas') {
+      setActiveTab('vendas');
+    }
+  }, [defaultTab]);
   
   console.log('🔑 User from auth:', user);
   console.log('📊 Data from hooks - contatos:', contatos?.length, 'prospeccoes:', prospeccoes?.length, 'loading:', loading);
