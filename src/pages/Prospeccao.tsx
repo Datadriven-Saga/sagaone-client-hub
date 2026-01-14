@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, ScanLine, Send, Loader2 } from "lucide-react";
+import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, ScanLine, Send, Loader2, Eye } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProspeccaoGlobalFilter, ProspeccaoGlobalFilters } from "@/components/ProspeccaoGlobalFilter";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
@@ -24,6 +24,7 @@ import { NovoLeadModal } from "@/components/NovoLeadModal";
 import { DescarteLeadModal } from "@/components/DescarteLeadModal";
 import { ClientesImportadosList } from "@/components/ClientesImportadosList";
 import { VendasProspeccaoTab } from "@/components/VendasProspeccaoTab";
+import { EventoBaseModal } from "@/components/EventoBaseModal";
 import { useVendasProspeccao } from "@/hooks/useVendasProspeccao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
@@ -162,6 +163,15 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   // Estado para controle de disparo para IA
   const [disparandoIA, setDisparandoIA] = useState<string | null>(null);
   const [contagemPendentes, setContagemPendentes] = useState<Record<string, { total: number; pendentes: number; disparados: number }>>({});
+  
+  // Estado para modal de base do evento
+  const [eventoBaseModal, setEventoBaseModal] = useState<{
+    isOpen: boolean;
+    prospeccao: any | null;
+  }>({
+    isOpen: false,
+    prospeccao: null
+  });
   
   const { vendas, criarVenda, refetch: refetchVendas } = useVendasProspeccao();
   
@@ -1484,6 +1494,17 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                           </span>
                                         )}
 
+                                        {/* Botão Ver Base */}
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => setEventoBaseModal({ isOpen: true, prospeccao })}
+                                          className="h-8 text-xs"
+                                        >
+                                          <Eye className="mr-1.5 h-3.5 w-3.5" />
+                                          Ver Base
+                                        </Button>
+
                                         {/* Menu de ações - não exibe para canal Ligação */}
                                         {prospeccao.canal !== 'Ligação' && (
                                           <DropdownMenu>
@@ -1493,6 +1514,12 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                               </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
+                                              <DropdownMenuItem 
+                                                onClick={() => setEventoBaseModal({ isOpen: true, prospeccao })}
+                                              >
+                                                <Eye className="mr-2 h-4 w-4" />
+                                                Ver Base Importada
+                                              </DropdownMenuItem>
                                               {isIA && pendentes > 0 && (
                                                 <DropdownMenuItem 
                                                   onClick={() => handleDispararParaIA(prospeccao.id, prospeccao.canal || '')}
@@ -2045,6 +2072,20 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         onNovoLead={handleNovoLead}
         onNovoCheckin={handleNovoCheckin}
         onNovaVenda={handleNovaVenda}
+      />
+
+      {/* Modal de Base do Evento */}
+      <EventoBaseModal
+        isOpen={eventoBaseModal.isOpen}
+        onClose={() => setEventoBaseModal({ isOpen: false, prospeccao: null })}
+        prospeccao={eventoBaseModal.prospeccao}
+        onDispararParaIA={async (prospeccaoId, canal) => {
+          await handleDispararParaIA(prospeccaoId, canal);
+          // Recarregar contagem após disparo
+          const contagem = await contarContatosPendentesDisparo(prospeccaoId);
+          setContagemPendentes(prev => ({ ...prev, [prospeccaoId]: contagem }));
+        }}
+        isDisparandoIA={disparandoIA === eventoBaseModal.prospeccao?.id}
       />
     </DashboardLayout>
   );
