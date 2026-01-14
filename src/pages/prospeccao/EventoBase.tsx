@@ -60,7 +60,7 @@ const statusColors: Record<string, string> = {
   'Em Espera': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100',
 };
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 20;
 
 export default function EventoBase() {
   const { eventoId } = useParams<{ eventoId: string }>();
@@ -83,7 +83,7 @@ export default function EventoBase() {
   const [metricas, setMetricas] = useState({ total: 0, pendentes: 0, disparados: 0, vendas: 0 });
   const [isDisparandoIA, setIsDisparandoIA] = useState(false);
   const [disparandoContato, setDisparandoContato] = useState<string | null>(null);
-  const [contatoIds, setContatoIds] = useState<string[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
   
   // Estados do modal de progresso
   const [showProgressModal, setShowProgressModal] = useState(false);
@@ -123,193 +123,144 @@ export default function EventoBase() {
     fetchProspeccao();
   }, [eventoId, activeCompany?.id, navigate, toast]);
 
-  // Buscar IDs dos contatos do evento e métricas
-  useEffect(() => {
-    const fetchContatoIds = async () => {
-      if (!eventoId || !activeCompany?.id) return;
+  // Buscar métricas usando função SQL otimizada (sem carregar todos os IDs)
+  const fetchMetricas = useCallback(async () => {
+    if (!eventoId || !activeCompany?.id) return;
 
-      // Buscar todos os IDs de contatos vinculados ao evento com paginação
-      // Usando 500 por página para evitar limite de 1000 do Supabase
-      const PAGE_SIZE_IDS = 500;
-      let allIds: string[] = [];
-      let page = 0;
-      let hasMore = true;
-      
-      while (hasMore) {
-        const from = page * PAGE_SIZE_IDS;
-        const to = from + PAGE_SIZE_IDS - 1;
-        
-        const { data: eventosData, error: eventosError } = await supabase
-          .from('eventos_prospeccao')
-          .select('contato_id')
-          .eq('prospeccao_id', eventoId)
-          .range(from, to);
+    try {
+      // Usar função SQL otimizada para contagens
+      const { data: metricasData, error: metricasError } = await supabase
+        .rpc('get_prospeccao_metricas' as any, {
+          p_prospeccao_id: eventoId,
+          p_empresa_id: activeCompany.id
+        });
 
-        if (eventosError) {
-          console.error('Erro ao buscar contatos:', eventosError);
-          break;
-        }
-
-        const ids = (eventosData || []).map(e => e.contato_id).filter(Boolean) as string[];
-        allIds = [...allIds, ...ids];
-        
-        // Se retornou menos que o tamanho da página, não há mais dados
-        hasMore = eventosData && eventosData.length === PAGE_SIZE_IDS;
-        page++;
-        
-        // Limite de segurança para evitar loops infinitos
-        if (page > 100) {
-          console.warn('⚠️ Limite de páginas atingido (100)');
-          break;
-        }
-      }
-      
-      console.log(`📊 Total de contatos no evento: ${allIds.length}`);
-      setContatoIds(allIds);
-
-      if (allIds.length === 0) {
-        setMetricas({ total: 0, pendentes: 0, disparados: 0, vendas: 0 });
-        setStatusOptions([]);
+      if (metricasError) {
+        console.error('Erro ao buscar métricas:', metricasError);
         return;
       }
 
-      // Buscar métricas gerais (contagem por status e disparo)
-      // Fazer em lotes para evitar limite de array
-      const BATCH_SIZE = 200;
-      let allContatos: { status: string | null; data_disparo_ia: string | null }[] = [];
-      const uniqueStatuses = new Set<string>();
-
-      for (let i = 0; i < allIds.length; i += BATCH_SIZE) {
-        const batchIds = allIds.slice(i, i + BATCH_SIZE);
-        const { data: contatosData } = await supabase
-          .from('contatos')
-          .select('status, data_disparo_ia')
-          .in('id', batchIds)
-          .eq('empresa_id', activeCompany.id);
-
-        if (contatosData) {
-          allContatos = [...allContatos, ...contatosData];
-          contatosData.forEach(c => {
-            if (c.status) uniqueStatuses.add(c.status);
-          });
-        }
+      if (metricasData && Array.isArray(metricasData) && metricasData.length > 0) {
+        const m = metricasData[0] as { total: number; pendentes: number; disparados: number; vendas: number };
+        setMetricas({
+          total: Number(m.total) || 0,
+          pendentes: Number(m.pendentes) || 0,
+          disparados: Number(m.disparados) || 0,
+          vendas: Number(m.vendas) || 0
+        });
+        setTotalCount(Number(m.total) || 0);
       }
 
-      // Calcular métricas
-      const total = allContatos.length;
-      const pendentes = allContatos.filter(c => !c.data_disparo_ia).length;
-      const disparados = total - pendentes;
-      const vendas = allContatos.filter(c => c.status === 'Venda').length;
+      // Buscar opções de status
+      const { data: statusData } = await supabase
+        .rpc('get_prospeccao_status_options' as any, {
+          p_prospeccao_id: eventoId,
+          p_empresa_id: activeCompany.id
+        });
 
-      setMetricas({ total, pendentes, disparados, vendas });
-      setStatusOptions(Array.from(uniqueStatuses).sort());
-      setTotalCount(total);
-    };
-
-    fetchContatoIds();
+      if (statusData && Array.isArray(statusData)) {
+        setStatusOptions(statusData.map((s: { status: string }) => s.status).filter(Boolean));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar métricas:', error);
+    }
   }, [eventoId, activeCompany?.id]);
 
-  // Buscar contatos paginados - usando lotes para consultas com muitos IDs
+  // Carregar métricas iniciais
+  useEffect(() => {
+    fetchMetricas().finally(() => setLoading(false));
+  }, [fetchMetricas]);
+
+  // Buscar contatos paginados diretamente (sem carregar todos os IDs primeiro)
   const fetchContatos = useCallback(async () => {
-    if (!eventoId || !activeCompany?.id || contatoIds.length === 0) {
+    if (!eventoId || !activeCompany?.id) {
       setContatos([]);
       setLoadingPage(false);
-      setLoading(false);
       return;
     }
 
     setLoadingPage(true);
 
     try {
-      // Para evitar URL longa, vamos usar paginação manual sobre os IDs
-      // Primeiro, filtrar os IDs relevantes usando lotes menores
-      const IN_BATCH_SIZE = 200;
-      
-      // Se não há filtro de busca/status, podemos paginar diretamente sobre os IDs
-      // Se há filtro, precisamos buscar todos os IDs filtrados primeiro
-      
-      if (!searchTerm && statusFilter === 'todos' && disparoFilter === 'todos') {
-        // Paginação simples: pegar slice dos IDs e buscar
-        const from = (currentPage - 1) * PAGE_SIZE;
-        const to = Math.min(from + PAGE_SIZE, contatoIds.length);
-        const pageIds = contatoIds.slice(from, to);
-        
-        if (pageIds.length === 0) {
-          setContatos([]);
-          setTotalCount(contatoIds.length);
-          setLoadingPage(false);
-          setLoading(false);
-          return;
-        }
-        
-        const { data, error } = await supabase
+      const offset = (currentPage - 1) * PAGE_SIZE;
+
+      // Query base: join entre eventos_prospeccao e contatos
+      // Aplicar filtros diretamente na query
+      let query = supabase
+        .from('contatos')
+        .select(`
+          id, nome, telefone, email, status, origem, 
+          created_at, updated_at, data_disparo_ia, 
+          responsavel_email, vendedor_nome,
+          eventos_prospeccao!inner(prospeccao_id)
+        `)
+        .eq('empresa_id', activeCompany.id)
+        .eq('eventos_prospeccao.prospeccao_id', eventoId);
+
+      // Aplicar filtros
+      if (searchTerm) {
+        query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
+      }
+      if (statusFilter !== 'todos') {
+        query = query.eq('status', statusFilter as any);
+      }
+      if (disparoFilter === 'pendente') {
+        query = query.is('data_disparo_ia', null);
+      } else if (disparoFilter === 'disparado') {
+        query = query.not('data_disparo_ia', 'is', null);
+      }
+
+      // Ordenar e paginar
+      query = query
+        .order('created_at', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      const { data, error, count } = await query;
+
+      if (error) throw error;
+
+      // Remover a propriedade eventos_prospeccao dos resultados
+      const cleanData = (data || []).map(({ eventos_prospeccao, ...rest }) => rest) as ContatoEvento[];
+      setContatos(cleanData);
+
+      // Se temos filtros, precisamos contar o total filtrado
+      if (searchTerm || statusFilter !== 'todos' || disparoFilter !== 'todos') {
+        let countQuery = supabase
           .from('contatos')
-          .select('id, nome, telefone, email, status, origem, created_at, updated_at, data_disparo_ia, responsavel_email, vendedor_nome')
-          .in('id', pageIds)
+          .select('id, eventos_prospeccao!inner(prospeccao_id)', { count: 'exact', head: true })
           .eq('empresa_id', activeCompany.id)
-          .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        
-        setContatos(data || []);
-        setTotalCount(contatoIds.length);
-      } else {
-        // Com filtros: buscar IDs filtrados em lotes, depois paginar
-        let filteredContatos: ContatoEvento[] = [];
-        
-        for (let i = 0; i < contatoIds.length; i += IN_BATCH_SIZE) {
-          const batchIds = contatoIds.slice(i, i + IN_BATCH_SIZE);
-          let query = supabase
-            .from('contatos')
-            .select('id, nome, telefone, email, status, origem, created_at, updated_at, data_disparo_ia, responsavel_email, vendedor_nome')
-            .in('id', batchIds)
-            .eq('empresa_id', activeCompany.id);
-          
-          if (searchTerm) {
-            query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
-          }
-          if (statusFilter !== 'todos') {
-            query = query.eq('status', statusFilter as any);
-          }
-          if (disparoFilter === 'pendente') {
-            query = query.is('data_disparo_ia', null);
-          } else if (disparoFilter === 'disparado') {
-            query = query.not('data_disparo_ia', 'is', null);
-          }
-          
-          const { data } = await query;
-          if (data) filteredContatos = [...filteredContatos, ...data];
+          .eq('eventos_prospeccao.prospeccao_id', eventoId);
+
+        if (searchTerm) {
+          countQuery = countQuery.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
         }
-        
-        // Ordenar por data de criação (mais recentes primeiro)
-        filteredContatos.sort((a, b) => {
-          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-          return dateB - dateA;
-        });
-        
-        // Aplicar paginação
-        const from = (currentPage - 1) * PAGE_SIZE;
-        const to = Math.min(from + PAGE_SIZE, filteredContatos.length);
-        
-        setContatos(filteredContatos.slice(from, to));
-        setTotalCount(filteredContatos.length);
+        if (statusFilter !== 'todos') {
+          countQuery = countQuery.eq('status', statusFilter as any);
+        }
+        if (disparoFilter === 'pendente') {
+          countQuery = countQuery.is('data_disparo_ia', null);
+        } else if (disparoFilter === 'disparado') {
+          countQuery = countQuery.not('data_disparo_ia', 'is', null);
+        }
+
+        const { count: filteredCount } = await countQuery;
+        setTotalCount(filteredCount || 0);
+      } else {
+        // Sem filtros, usar a contagem das métricas
+        setTotalCount(metricas.total);
       }
     } catch (error) {
       console.error('Erro ao buscar contatos:', error);
       toast({ title: "Erro", description: "Erro ao carregar contatos", variant: "destructive" });
     } finally {
       setLoadingPage(false);
-      setLoading(false);
     }
-  }, [eventoId, activeCompany?.id, contatoIds, searchTerm, statusFilter, disparoFilter, currentPage, toast]);
+  }, [eventoId, activeCompany?.id, searchTerm, statusFilter, disparoFilter, currentPage, metricas.total, toast]);
 
   // Executar busca quando filtros mudarem
   useEffect(() => {
-    if (contatoIds.length > 0) {
-      fetchContatos();
-    }
-  }, [fetchContatos, contatoIds]);
+    fetchContatos();
+  }, [fetchContatos]);
 
   // Atualizar URL quando filtros mudarem
   useEffect(() => {
@@ -329,27 +280,34 @@ export default function EventoBase() {
     if (type === 'disparo') setDisparoFilter(value as DisparoFilter);
   };
 
-  // Exportar dados
+  // Exportar dados - carrega sob demanda
   const handleExport = async () => {
-    if (contatoIds.length === 0) {
+    if (metricas.total === 0) {
       toast({ title: "Atenção", description: "Nenhum contato para exportar" });
       return;
     }
 
-    toast({ title: "Exportando...", description: "Preparando arquivo CSV" });
+    setIsExporting(true);
+    toast({ title: "Exportando...", description: "Preparando arquivo CSV, isso pode levar alguns segundos..." });
 
     try {
-      // Buscar todos os contatos (sem paginação) para export
-      const BATCH_SIZE = 500;
+      // Buscar todos os contatos para export (com paginação interna)
+      const EXPORT_BATCH_SIZE = 1000;
       let allContatos: ContatoEvento[] = [];
+      let offset = 0;
+      let hasMore = true;
 
-      for (let i = 0; i < contatoIds.length; i += BATCH_SIZE) {
-        const batchIds = contatoIds.slice(i, i + BATCH_SIZE);
+      while (hasMore) {
         let query = supabase
           .from('contatos')
-          .select('id, nome, telefone, email, status, origem, created_at, updated_at, data_disparo_ia, responsavel_email, vendedor_nome')
-          .in('id', batchIds)
-          .eq('empresa_id', activeCompany!.id);
+          .select(`
+            id, nome, telefone, email, status, origem, 
+            created_at, updated_at, data_disparo_ia, 
+            responsavel_email, vendedor_nome,
+            eventos_prospeccao!inner(prospeccao_id)
+          `)
+          .eq('empresa_id', activeCompany!.id)
+          .eq('eventos_prospeccao.prospeccao_id', eventoId!);
 
         // Aplicar mesmos filtros
         if (searchTerm) {
@@ -364,8 +322,22 @@ export default function EventoBase() {
           query = query.not('data_disparo_ia', 'is', null);
         }
 
-        const { data } = await query;
-        if (data) allContatos = [...allContatos, ...data];
+        query = query
+          .order('created_at', { ascending: false })
+          .range(offset, offset + EXPORT_BATCH_SIZE - 1);
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const cleanData = data.map(({ eventos_prospeccao, ...rest }) => rest) as ContatoEvento[];
+          allContatos = [...allContatos, ...cleanData];
+          offset += EXPORT_BATCH_SIZE;
+          hasMore = data.length === EXPORT_BATCH_SIZE;
+        } else {
+          hasMore = false;
+        }
       }
 
       if (allContatos.length === 0) {
@@ -392,55 +364,73 @@ export default function EventoBase() {
     } catch (error) {
       console.error('Erro ao exportar:', error);
       toast({ title: "Erro", description: "Erro ao exportar contatos", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
     }
   };
 
+  // Função para buscar contagem atualizada de disparados (para polling)
+  const fetchDisparadosCount = useCallback(async (): Promise<number> => {
+    if (!activeCompany?.id || !eventoId) return 0;
+    
+    try {
+      const { data } = await supabase
+        .rpc('get_prospeccao_metricas' as any, {
+          p_prospeccao_id: eventoId,
+          p_empresa_id: activeCompany.id
+        });
+      
+      if (data && Array.isArray(data) && data.length > 0) {
+        const result = data[0] as { total: number; pendentes: number; disparados: number; vendas: number };
+        return Number(result.disparados) || 0;
+      }
+    } catch (error) {
+      console.error('Erro ao buscar contagem de disparados:', error);
+    }
+    return 0;
+  }, [activeCompany?.id, eventoId]);
+
   // Buscar contatos pendentes para disparo
-  const fetchContatosPendentes = async (idsToFetch?: string[]): Promise<ContatoEvento[]> => {
-    if (!activeCompany?.id) return [];
+  const fetchContatosPendentes = async (): Promise<ContatoEvento[]> => {
+    if (!activeCompany?.id || !eventoId) return [];
     
-    const targetIds = idsToFetch || contatoIds;
-    if (targetIds.length === 0) return [];
-    
+    // Buscar todos os contatos pendentes com paginação
     const BATCH_SIZE = 500;
     let allContatos: ContatoEvento[] = [];
+    let offset = 0;
+    let hasMore = true;
 
-    for (let i = 0; i < targetIds.length; i += BATCH_SIZE) {
-      const batchIds = targetIds.slice(i, i + BATCH_SIZE);
-      const { data } = await supabase
+    while (hasMore) {
+      const { data, error } = await supabase
         .from('contatos')
-        .select('id, nome, telefone, email, status, origem, created_at, updated_at, data_disparo_ia, responsavel_email, vendedor_nome')
-        .in('id', batchIds)
+        .select(`
+          id, nome, telefone, email, status, origem, 
+          created_at, updated_at, data_disparo_ia, 
+          responsavel_email, vendedor_nome,
+          eventos_prospeccao!inner(prospeccao_id)
+        `)
         .eq('empresa_id', activeCompany.id)
-        .is('data_disparo_ia', null); // Apenas pendentes
+        .eq('eventos_prospeccao.prospeccao_id', eventoId)
+        .is('data_disparo_ia', null)
+        .range(offset, offset + BATCH_SIZE - 1);
 
-      if (data) allContatos = [...allContatos, ...data];
+      if (error) {
+        console.error('Erro ao buscar contatos pendentes:', error);
+        break;
+      }
+
+      if (data && data.length > 0) {
+        const cleanData = data.map(({ eventos_prospeccao, ...rest }) => rest) as ContatoEvento[];
+        allContatos = [...allContatos, ...cleanData];
+        offset += BATCH_SIZE;
+        hasMore = data.length === BATCH_SIZE;
+      } else {
+        hasMore = false;
+      }
     }
 
     return allContatos;
   };
-
-  // Função para buscar contagem atualizada de disparados
-  const fetchDisparadosCount = useCallback(async (): Promise<number> => {
-    if (!activeCompany?.id || contatoIds.length === 0) return 0;
-    
-    const BATCH_SIZE = 500;
-    let totalDisparados = 0;
-
-    for (let i = 0; i < contatoIds.length; i += BATCH_SIZE) {
-      const batchIds = contatoIds.slice(i, i + BATCH_SIZE);
-      const { count } = await supabase
-        .from('contatos')
-        .select('id', { count: 'exact', head: true })
-        .in('id', batchIds)
-        .eq('empresa_id', activeCompany.id)
-        .not('data_disparo_ia', 'is', null);
-
-      totalDisparados += count || 0;
-    }
-
-    return totalDisparados;
-  }, [activeCompany?.id, contatoIds]);
 
   // Iniciar polling para atualizar progresso
   const startProgressPolling = useCallback((totalToDispatch: number) => {
@@ -485,7 +475,8 @@ export default function EventoBase() {
   const handleCloseProgressModal = () => {
     setShowProgressModal(false);
     // Não para o polling - continua em segundo plano
-    // Atualizar dados quando fechar
+    // Atualizar dados e métricas quando fechar
+    fetchMetricas();
     fetchContatos();
   };
 
@@ -597,12 +588,8 @@ export default function EventoBase() {
         }
       }
 
-      // Atualizar métricas
-      setMetricas(prev => ({
-        ...prev,
-        pendentes: Math.max(0, prev.total - finalCount),
-        disparados: finalCount
-      }));
+      // Atualizar métricas do banco
+      await fetchMetricas();
 
       // Recarregar dados
       fetchContatos();
@@ -741,9 +728,13 @@ export default function EventoBase() {
               <RefreshCw className={`h-4 w-4 mr-2 ${loadingPage ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExport}>
-              <Download className="h-4 w-4 mr-2" />
-              Exportar
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              {isExporting ? 'Exportando...' : 'Exportar'}
             </Button>
           </div>
         </div>

@@ -2808,6 +2808,12 @@ export type Database = {
           empresa_id: string
         }[]
       }
+      get_prospeccao_status_options: {
+        Args: { p_empresa_id: string; p_prospeccao_id: string }
+        Returns: {
+          status: string
+        }[]
+      }
       get_user_accessible_clients: {
         Args: { user_id_param?: string }
         Returns: {
