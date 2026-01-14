@@ -654,31 +654,22 @@ export default function Templates() {
       // O webhook precisa receber o vídeo em base64
       const mediaData = await fetchMediaAsBase64(savedData.cardData.videoUrl);
       
-      // Verificar se o vídeo é muito grande (limite de ~15MB para base64)
-      const maxSizeBytes = 15 * 1024 * 1024; // 15MB
+      // Verificar se o vídeo excede o limite da Meta (100MB)
+      const maxSizeBytes = 100 * 1024 * 1024; // 100MB - limite da Meta
       if (mediaData && mediaData.size > maxSizeBytes) {
-        console.warn(`⚠️ Vídeo muito grande (${(mediaData.size / 1024 / 1024).toFixed(2)}MB), enviando apenas URL`);
-        components.push({
-          type: "HEADER",
-          format: "VIDEO",
-          media_url: savedData.cardData.videoUrl,
-          media_base64: null,
-          media_mime_type: "video/mp4",
-          media_type: "video",
-          media_length: mediaData.size,
-          video_too_large: true,
-        });
-      } else {
-        components.push({
-          type: "HEADER",
-          format: "VIDEO",
-          media_url: savedData.cardData.videoUrl,
-          media_base64: mediaData?.base64 || null,
-          media_mime_type: mediaData?.mimeType || "video/mp4",
-          media_type: "video",
-          media_length: mediaData?.size || null,
-        });
+        const sizeInMB = (mediaData.size / 1024 / 1024).toFixed(2);
+        throw new Error(`VIDEO_TOO_LARGE:${sizeInMB}`);
       }
+      
+      components.push({
+        type: "HEADER",
+        format: "VIDEO",
+        media_url: savedData.cardData.videoUrl,
+        media_base64: mediaData?.base64 || null,
+        media_mime_type: mediaData?.mimeType || "video/mp4",
+        media_type: "video",
+        media_length: mediaData?.size || null,
+      });
     }
 
     // FOOTER (opcional)
@@ -993,7 +984,16 @@ export default function Templates() {
       handleCloseModal();
     } catch (error: any) {
       console.error("Erro ao salvar template:", error);
-      toast.error("Erro ao salvar template: " + error.message);
+      
+      // Verificar se é erro de vídeo muito grande
+      if (error.message?.startsWith("VIDEO_TOO_LARGE:")) {
+        const sizeInMB = error.message.split(":")[1];
+        toast.error(`O vídeo selecionado tem ${sizeInMB}MB e excede o limite de 100MB permitido pela Meta. Por favor, faça o upload de um vídeo menor.`, {
+          duration: 8000,
+        });
+      } else {
+        toast.error("Erro ao salvar template: " + error.message);
+      }
     } finally {
       setIsSaving(false);
     }
