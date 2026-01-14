@@ -222,6 +222,8 @@ serve(async (req) => {
     const BATCH_SIZE = 50;
     const totalBatches = Math.ceil(leads.length / BATCH_SIZE);
     const resultados: { lead_id: string; nome: string; success: boolean; status?: number; error?: string }[] = [];
+    const dataDisparoIA = new Date().toISOString();
+    let totalAtualizadosNoBanco = 0;
     
     console.log(`\n${'─'.repeat(60)}`);
     console.log(`📤 [${requestId}] Iniciando envio de ${leads.length} leads em ${totalBatches} batches`);
@@ -235,6 +237,7 @@ serve(async (req) => {
       console.log(`\n📦 [${requestId}] BATCH ${batchNum}/${totalBatches} - Processando ${batch.length} leads (${batchStart + 1} a ${batchStart + batch.length})`);
       
       const batchStartTime = Date.now();
+      const batchResultados: { lead_id: string; nome: string; success: boolean; status?: number; error?: string }[] = [];
       
       const promessas = batch.map(async (lead, leadIndex) => {
         const payload = {
@@ -275,7 +278,7 @@ serve(async (req) => {
           if (response.ok) {
             console.log(`   ✅ [${requestId}] Lead #${leadNum} ENVIADO - Status: ${response.status} - Tempo: ${fetchDuration}ms`);
             console.log(`      └─ Resposta: ${responseBody.substring(0, 100)}${responseBody.length > 100 ? '...' : ''}`);
-            resultados.push({ 
+            batchResultados.push({ 
               lead_id: lead.id, 
               nome: lead.nome, 
               success: true, 
@@ -284,7 +287,7 @@ serve(async (req) => {
           } else {
             console.error(`   ❌ [${requestId}] Lead #${leadNum} FALHOU - Status: ${response.status} - Tempo: ${fetchDuration}ms`);
             console.error(`      └─ Resposta: ${responseBody.substring(0, 200)}${responseBody.length > 200 ? '...' : ''}`);
-            resultados.push({ 
+            batchResultados.push({ 
               lead_id: lead.id, 
               nome: lead.nome, 
               success: false, 
@@ -294,7 +297,7 @@ serve(async (req) => {
           }
         } catch (err: any) {
           console.error(`   ❌ [${requestId}] Lead #${leadNum} ERRO DE REDE:`, err.message);
-          resultados.push({ 
+          batchResultados.push({ 
             lead_id: lead.id, 
             nome: lead.nome, 
             success: false, 
@@ -304,6 +307,25 @@ serve(async (req) => {
       });
 
       await Promise.all(promessas);
+      
+      // ATUALIZAR data_disparo_ia IMEDIATAMENTE após cada batch
+      const leadsComSucessoBatch = batchResultados.filter(r => r.success).map(r => r.lead_id);
+      if (leadsComSucessoBatch.length > 0) {
+        const { error: updateError } = await supabase
+          .from('contatos')
+          .update({ data_disparo_ia: dataDisparoIA })
+          .in('id', leadsComSucessoBatch);
+        
+        if (updateError) {
+          console.error(`   ❌ [${requestId}] Erro ao atualizar banco no batch ${batchNum}:`, updateError);
+        } else {
+          totalAtualizadosNoBanco += leadsComSucessoBatch.length;
+          console.log(`   💾 [${requestId}] Batch ${batchNum}: ${leadsComSucessoBatch.length} leads atualizados no banco (total: ${totalAtualizadosNoBanco})`);
+        }
+      }
+      
+      // Adicionar resultados do batch ao total
+      resultados.push(...batchResultados);
       
       const batchDuration = Date.now() - batchStartTime;
       console.log(`   ⏱️ [${requestId}] Batch ${batchNum} concluído em ${batchDuration}ms`);
@@ -320,6 +342,7 @@ serve(async (req) => {
     console.log(`   ├─ Total de leads: ${leads.length}`);
     console.log(`   ├─ Sucessos: ${sucessos} (${((sucessos/leads.length)*100).toFixed(1)}%)`);
     console.log(`   ├─ Falhas: ${falhas} (${((falhas/leads.length)*100).toFixed(1)}%)`);
+    console.log(`   ├─ Atualizados no banco: ${totalAtualizadosNoBanco}`);
     console.log(`   ├─ Tempo total: ${totalDuration}ms (${(totalDuration/1000).toFixed(2)}s)`);
     console.log(`   ├─ Média por lead: ${(totalDuration/leads.length).toFixed(1)}ms`);
     console.log(`   └─ Webhook: ${webhookUrl}`);
@@ -331,36 +354,6 @@ serve(async (req) => {
       resultados.filter(r => !r.success).forEach((r, i) => {
         console.log(`   ${i + 1}. ${r.nome} (${r.lead_id}): ${r.error}`);
       });
-    }
-
-    // ATUALIZAR data_disparo_ia para os leads que foram enviados com sucesso
-    const leadsComSucesso = resultados.filter(r => r.success).map(r => r.lead_id);
-    const dataDisparoIA = new Date().toISOString();
-    
-    if (leadsComSucesso.length > 0) {
-      console.log(`\n📝 [${requestId}] Atualizando data_disparo_ia para ${leadsComSucesso.length} leads...`);
-      
-      // Atualizar em batches de 200 para evitar URLs muito longas
-      const UPDATE_BATCH_SIZE = 200;
-      let totalAtualizados = 0;
-      
-      for (let i = 0; i < leadsComSucesso.length; i += UPDATE_BATCH_SIZE) {
-        const batchIds = leadsComSucesso.slice(i, i + UPDATE_BATCH_SIZE);
-        
-        const { error: updateError, count } = await supabase
-          .from('contatos')
-          .update({ data_disparo_ia: dataDisparoIA })
-          .in('id', batchIds);
-        
-        if (updateError) {
-          console.error(`   ❌ [${requestId}] Erro ao atualizar batch ${Math.floor(i/UPDATE_BATCH_SIZE) + 1}:`, updateError);
-        } else {
-          totalAtualizados += batchIds.length;
-          console.log(`   ✅ [${requestId}] Batch ${Math.floor(i/UPDATE_BATCH_SIZE) + 1}: ${batchIds.length} leads atualizados`);
-        }
-      }
-      
-      console.log(`   📊 [${requestId}] Total de leads com data_disparo_ia atualizado: ${totalAtualizados}`);
     }
 
     return new Response(
