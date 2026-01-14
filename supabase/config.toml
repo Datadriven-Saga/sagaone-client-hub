@@ -43,3 +43,6 @@ verify_jwt = false
 
 [functions.cleanup-invalid-users]
 verify_jwt = false
+
+[functions.dispatch-leads-webhook]
+verify_jwt = true
