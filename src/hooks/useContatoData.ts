@@ -361,14 +361,49 @@ export const useContatoData = () => {
 
       console.log('➕ Adding contatos:', contatosComEmpresa.length, '(', duplicados.length, 'duplicados ignorados)');
 
-      const { data, error } = await supabase
-        .from('contatos')
-        .insert(contatosComEmpresa)
-        .select();
+      // Inserir em lotes de 500 para evitar timeout/limite do Supabase
+      const INSERT_BATCH_SIZE = 500;
+      const insertBatches: typeof contatosComEmpresa[] = [];
+      
+      for (let i = 0; i < contatosComEmpresa.length; i += INSERT_BATCH_SIZE) {
+        insertBatches.push(contatosComEmpresa.slice(i, i + INSERT_BATCH_SIZE));
+      }
 
-      if (error) {
-        console.error('Error adding contatos:', error);
-        throw error;
+      console.log(`📦 Inserindo ${contatosComEmpresa.length} contatos em ${insertBatches.length} lotes de até ${INSERT_BATCH_SIZE}`);
+
+      let allInsertedData: any[] = [];
+      let insertErrors = 0;
+
+      for (let i = 0; i < insertBatches.length; i++) {
+        const batch = insertBatches[i];
+        console.log(`📥 Inserindo lote ${i + 1}/${insertBatches.length} (${batch.length} contatos)`);
+        
+        const { data: batchData, error: batchError } = await supabase
+          .from('contatos')
+          .insert(batch)
+          .select();
+
+        if (batchError) {
+          console.error(`❌ Erro no lote ${i + 1}:`, batchError);
+          insertErrors += batch.length;
+        } else if (batchData) {
+          allInsertedData = [...allInsertedData, ...batchData];
+          console.log(`✅ Lote ${i + 1} inserido: ${batchData.length} contatos`);
+        }
+      }
+
+      const data = allInsertedData;
+      
+      if (insertErrors > 0 && data.length === 0) {
+        throw new Error(`Falha ao inserir contatos: ${insertErrors} erros`);
+      }
+      
+      if (insertErrors > 0) {
+        toast({
+          title: "Atenção",
+          description: `${data.length} contatos inseridos, ${insertErrors} falharam`,
+          variant: "destructive"
+        });
       }
       
       console.log('✅ Contatos added successfully:', data?.length);
