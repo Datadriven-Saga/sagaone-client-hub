@@ -1,7 +1,75 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { encodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const MAX_VIDEO_BYTES = 100 * 1024 * 1024; // 100MB
+
+async function enrichVideoBase64ForTemplateWebhook(dados: any) {
+  try {
+    const components = dados?.payload?.components;
+    if (!Array.isArray(components)) return dados;
+
+    let changed = false;
+
+    for (const comp of components) {
+      const isVideoHeader =
+        comp?.type === "HEADER" &&
+        String(comp?.format || "").toUpperCase() === "VIDEO" &&
+        typeof comp?.media_url === "string" &&
+        comp.media_url.length > 0;
+
+      if (!isVideoHeader) continue;
+
+      // Se já vier base64, não mexe
+      if (comp?.media_base64) continue;
+
+      const mediaUrl = comp.media_url as string;
+      console.log("🎥 Enriquecendo template de VÍDEO com base64 a partir de:", mediaUrl);
+
+      const res = await fetch(mediaUrl);
+      if (!res.ok) {
+        console.error("❌ Falha ao baixar vídeo para base64:", res.status, mediaUrl);
+        throw new Error(`VIDEO_FETCH_FAILED:${res.status}`);
+      }
+
+      const contentLength = res.headers.get("content-length");
+      const length = contentLength ? Number(contentLength) : null;
+      if (length && length > MAX_VIDEO_BYTES) {
+        throw new Error(`VIDEO_TOO_LARGE_BYTES:${length}`);
+      }
+
+      const arrayBuffer = await res.arrayBuffer();
+      if (arrayBuffer.byteLength > MAX_VIDEO_BYTES) {
+        throw new Error(`VIDEO_TOO_LARGE_BYTES:${arrayBuffer.byteLength}`);
+      }
+
+      const bytes = new Uint8Array(arrayBuffer);
+      const base64 = encodeBase64(bytes);
+
+      comp.media_base64 = base64;
+      comp.media_mime_type = comp.media_mime_type || res.headers.get("content-type") || "video/mp4";
+      comp.media_type = comp.media_type || "video";
+      comp.media_length = comp.media_length || arrayBuffer.byteLength;
+      changed = true;
+
+      console.log("✅ Vídeo convertido para base64 com sucesso. bytes=", arrayBuffer.byteLength);
+    }
+
+    if (!changed) return dados;
+
+    return {
+      ...dados,
+      payload: {
+        ...dados.payload,
+        components,
+      },
+    };
+  } catch (err) {
+    console.error("Erro ao enriquecer vídeo em base64:", err);
+    throw err;
+  }
+}
 // Allowed origins for CORS
 const allowedOrigins = [
   'https://one.sagadatadriven.com.br',
@@ -349,9 +417,13 @@ serve(async (req) => {
         }
         // Para novo_template_whatsapp, enviar os dados diretamente no body
         else if (gatilho === 'novo_template_whatsapp' && dados) {
+          // Se for template de vídeo, o frontend envia somente a URL para não estourar o tamanho do invoke.
+          // Aqui no Edge Function buscamos o vídeo e anexamos base64 antes de disparar o webhook externo.
+          const dadosEnriquecidos = await enrichVideoBase64ForTemplateWebhook(dados);
+
           webhookBody = {
             ...webhookBody,
-            ...dados // Espalha os dados diretamente no body
+            ...dadosEnriquecidos // Espalha os dados diretamente no body
           };
         }
         // Para outros gatilhos, incluir dados completos
