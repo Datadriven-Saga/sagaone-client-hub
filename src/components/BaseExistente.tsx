@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,12 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CalendarIcon, Users, Filter } from 'lucide-react';
+import { CalendarIcon, Users, Filter, Database, Loader2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useCompany } from '@/contexts/CompanyContext';
 
 interface Cliente {
   id: string;
@@ -41,113 +43,114 @@ interface Prospeccao {
   data_fim?: string | null;
 }
 
+interface BaseImportada {
+  id: string;
+  nome: string;
+  total_contatos: number;
+  created_at: string;
+}
+
 interface BaseExistenteProps {
   onClientesSelected: (campanha: string, clientes: Cliente[]) => void;
   prospeccoes: Prospeccao[];
 }
 
 export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistenteProps) => {
+  const { activeCompany } = useCompany();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCampanha, setSelectedCampanha] = useState<string>('');
+  const [selectedBase, setSelectedBase] = useState<string>('');
+  const [bases, setBases] = useState<BaseImportada[]>([]);
   const [filtros, setFiltros] = useState<FiltrosBase>({});
   const [clientesFiltrados, setClientesFiltrados] = useState<Cliente[]>([]);
   const [selectedClientes, setSelectedClientes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingBases, setIsLoadingBases] = useState(false);
   const { toast } = useToast();
 
+  // Buscar bases importadas quando abrir o modal
+  useEffect(() => {
+    const fetchBases = async () => {
+      if (!isOpen || !activeCompany?.id) return;
+      
+      setIsLoadingBases(true);
+      try {
+        const { data, error } = await supabase
+          .from('bases_importadas')
+          .select('id, nome, total_contatos, created_at')
+          .eq('empresa_id', activeCompany.id)
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        setBases(data || []);
+      } catch (error) {
+        console.error('Erro ao buscar bases:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar as bases importadas",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingBases(false);
+      }
+    };
+    
+    fetchBases();
+  }, [isOpen, activeCompany?.id, toast]);
 
-  // Mock de dados de clientes
-  const mockClientes: Cliente[] = [
-    {
-      id: '1',
-      nome: 'João Silva',
-      telefone: '(11) 99999-1111',
-      email: 'joao@email.com',
-      cpf: '123.456.789-01',
-      sexo: 'M',
-      dataNascimento: new Date('1985-05-15'),
-      ultimaCompra: new Date('2024-12-15')
-    },
-    {
-      id: '2',
-      nome: 'Maria Santos',
-      telefone: '(11) 99999-2222',
-      email: 'maria@email.com',
-      sexo: 'F',
-      dataNascimento: new Date('1990-08-22'),
-      ultimaCompra: new Date('2024-11-10')
-    },
-    {
-      id: '3',
-      nome: 'Pedro Costa',
-      telefone: '(11) 99999-3333',
-      email: 'pedro@email.com',
-      cpf: '987.654.321-02',
-      sexo: 'M',
-      dataNascimento: new Date('1978-03-10'),
-      ultimaCompra: new Date('2024-10-05')
-    },
-    {
-      id: '4',
-      nome: 'Ana Paula',
-      telefone: '(11) 99999-4444',
-      email: 'ana@email.com',
-      sexo: 'F',
-      dataNascimento: new Date('1995-12-01'),
-      ultimaCompra: new Date('2024-01-20')
-    },
-  ];
+  // Buscar contatos da base selecionada
+  const buscarContatosDaBase = async () => {
+    if (!selectedBase) {
+      toast({
+        title: "Selecione uma base",
+        description: "Você deve escolher uma base para buscar os contatos",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const aplicarFiltros = () => {
     setIsLoading(true);
     
-    // Simular busca com filtros
-    setTimeout(() => {
-      let resultado = [...mockClientes];
-      
+    try {
+      // Buscar contatos vinculados à base selecionada
+      let query = supabase
+        .from('contatos')
+        .select('id, nome, telefone, email')
+        .eq('base_id', selectedBase);
+
+      // Aplicar filtro de nome se houver
       if (filtros.nome) {
-        resultado = resultado.filter(cliente => 
-          cliente.nome.toLowerCase().includes(filtros.nome!.toLowerCase())
-        );
+        query = query.ilike('nome', `%${filtros.nome}%`);
       }
-      
-      if (filtros.sexo) {
-        resultado = resultado.filter(cliente => cliente.sexo === filtros.sexo);
-      }
-      
-      if (filtros.dataNascimentoInicio) {
-        resultado = resultado.filter(cliente => 
-          cliente.dataNascimento && cliente.dataNascimento >= filtros.dataNascimentoInicio!
-        );
-      }
-      
-      if (filtros.dataNascimentoFim) {
-        resultado = resultado.filter(cliente => 
-          cliente.dataNascimento && cliente.dataNascimento <= filtros.dataNascimentoFim!
-        );
-      }
-      
-      if (filtros.ultimaCompraInicio) {
-        resultado = resultado.filter(cliente => 
-          cliente.ultimaCompra && cliente.ultimaCompra >= filtros.ultimaCompraInicio!
-        );
-      }
-      
-      if (filtros.ultimaCompraFim) {
-        resultado = resultado.filter(cliente => 
-          cliente.ultimaCompra && cliente.ultimaCompra <= filtros.ultimaCompraFim!
-        );
-      }
-      
-      setClientesFiltrados(resultado);
+
+      const { data, error } = await query.limit(5000);
+
+      if (error) throw error;
+
+      const clientes: Cliente[] = (data || []).map(c => ({
+        id: c.id,
+        nome: c.nome,
+        telefone: c.telefone || '',
+        email: c.email || undefined,
+      }));
+
+      setClientesFiltrados(clientes);
       setSelectedClientes([]);
-      setIsLoading(false);
       
       toast({
         title: "Busca realizada",
-        description: `${resultado.length} clientes encontrados`,
+        description: `${clientes.length} clientes encontrados`,
       });
-    }, 1000);
+    } catch (error) {
+      console.error('Erro ao buscar contatos:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível buscar os contatos da base",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClienteSelection = (clienteId: string, checked: boolean) => {
@@ -180,6 +183,9 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
     onClientesSelected(selectedCampanha, clientesSelecionados);
     setIsOpen(false);
     setSelectedCampanha('');
+    setSelectedBase('');
+    setClientesFiltrados([]);
+    setSelectedClientes([]);
     
     toast({
       title: "Clientes selecionados",
@@ -219,6 +225,37 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
                   ))}
               </SelectContent>
             </Select>
+          </Card>
+
+          {/* Seleção de Base Importada */}
+          <Card className="p-4 bg-blue-50 border-blue-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Database size={16} className="text-blue-700" />
+              <Label className="text-blue-800 font-medium">Selecione uma Base Importada</Label>
+            </div>
+            {isLoadingBases ? (
+              <div className="flex items-center gap-2 text-blue-600 py-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Carregando bases...</span>
+              </div>
+            ) : bases.length === 0 ? (
+              <p className="text-sm text-blue-600 py-2">
+                Nenhuma base importada ainda. Use "Upload de Planilha" para criar uma base.
+              </p>
+            ) : (
+              <Select value={selectedBase} onValueChange={setSelectedBase}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Escolha uma base de contatos..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {bases.map((base) => (
+                    <SelectItem key={base.id} value={base.id}>
+                      {base.nome} ({base.total_contatos} contatos) - {format(new Date(base.created_at), 'dd/MM/yyyy')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </Card>
 
           {/* Filtros */}
@@ -340,8 +377,15 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
               </div>
             </div>
             
-            <Button onClick={aplicarFiltros} disabled={isLoading}>
-              {isLoading ? "Buscando..." : "Aplicar Filtros"}
+            <Button onClick={buscarContatosDaBase} disabled={isLoading || !selectedBase}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Buscando...
+                </>
+              ) : (
+                "Buscar Contatos da Base"
+              )}
             </Button>
           </Card>
 
@@ -368,9 +412,6 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
                         <TableHead className="w-[180px]">Nome</TableHead>
                         <TableHead className="w-[140px]">Telefone</TableHead>
                         <TableHead className="w-[180px]">E-mail</TableHead>
-                        <TableHead className="w-[80px]">Sexo</TableHead>
-                        <TableHead className="w-[110px]">Nasc.</TableHead>
-                        <TableHead className="w-[110px]">Últ. Compra</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -385,13 +426,6 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
                           <TableCell>{cliente.nome}</TableCell>
                           <TableCell>{cliente.telefone}</TableCell>
                           <TableCell>{cliente.email || '-'}</TableCell>
-                          <TableCell>{cliente.sexo || '-'}</TableCell>
-                          <TableCell>
-                            {cliente.dataNascimento ? format(cliente.dataNascimento, 'dd/MM/yyyy') : '-'}
-                          </TableCell>
-                          <TableCell>
-                            {cliente.ultimaCompra ? format(cliente.ultimaCompra, 'dd/MM/yyyy') : '-'}
-                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

@@ -20,6 +20,7 @@ interface ClienteData {
   segmentacao?: string;
   responsavel?: string;
   origem?: string;
+  base_id?: string;
 }
 
 interface Prospeccao {
@@ -44,6 +45,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCampanha, setSelectedCampanha] = useState<string>('');
   const [selectedOrigem, setSelectedOrigem] = useState<string>('');
+  const [nomeBase, setNomeBase] = useState<string>('');
   const [origens, setOrigens] = useState<OrigemOption[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<ClienteData[]>([]);
@@ -238,11 +240,20 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
     }
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!selectedCampanha) {
       toast({
         title: "Selecione uma campanha",
         description: "Você deve escolher uma campanha para adicionar os contatos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!nomeBase.trim()) {
+      toast({
+        title: "Nome da base obrigatório",
+        description: "Por favor, informe um nome para identificar esta base de contatos",
         variant: "destructive",
       });
       return;
@@ -260,22 +271,56 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       return;
     }
 
-    // Adicionar origem aos clientes se selecionada
-    const clientesComOrigem = selectedOrigem 
-      ? previewData.map(c => ({ ...c, origem: selectedOrigem }))
-      : previewData;
-    
-    onClientesImported(selectedCampanha, clientesComOrigem);
-    setIsOpen(false);
-    setSelectedCampanha('');
-    setSelectedOrigem('');
-    setFile(null);
-    setPreviewData([]);
-    
-    toast({
-      title: "Importação concluída",
-      description: `${previewData.length} contatos importados com sucesso`,
-    });
+    setIsProcessing(true);
+
+    try {
+      // Criar registro da base importada
+      const { data: baseData, error: baseError } = await supabase
+        .from('bases_importadas')
+        .insert({
+          nome: nomeBase.trim(),
+          empresa_id: activeCompany?.id,
+          total_contatos: previewData.length
+        })
+        .select()
+        .single();
+
+      if (baseError) {
+        console.error('Erro ao criar base:', baseError);
+        throw baseError;
+      }
+
+      console.log('✅ Base criada:', baseData);
+
+      // Adicionar origem e base_id aos clientes
+      const clientesComDados = previewData.map(c => ({ 
+        ...c, 
+        origem: selectedOrigem || undefined,
+        base_id: baseData.id
+      }));
+      
+      onClientesImported(selectedCampanha, clientesComDados);
+      setIsOpen(false);
+      setSelectedCampanha('');
+      setSelectedOrigem('');
+      setNomeBase('');
+      setFile(null);
+      setPreviewData([]);
+      
+      toast({
+        title: "Importação concluída",
+        description: `${previewData.length} contatos importados na base "${nomeBase}"`,
+      });
+    } catch (error) {
+      console.error('Erro na importação:', error);
+      toast({
+        title: "Erro na importação",
+        description: "Não foi possível criar a base de contatos",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const clearData = () => {
@@ -283,6 +328,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
     setPreviewData([]);
     setSelectedCampanha('');
     setSelectedOrigem('');
+    setNomeBase('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -320,6 +366,20 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
                   ))}
               </SelectContent>
             </Select>
+          </Card>
+
+          {/* Nome da Base */}
+          <Card className="p-4 bg-orange-50 border-orange-200">
+            <Label className="text-orange-800 font-medium">Nome da Base *</Label>
+            <Input
+              className="mt-2"
+              placeholder="Ex: Base Janeiro 2026, Clientes VIP, etc."
+              value={nomeBase}
+              onChange={(e) => setNomeBase(e.target.value)}
+            />
+            <p className="text-xs text-orange-600 mt-1">
+              Este nome ajuda a identificar a base para reutilização futura
+            </p>
           </Card>
 
           {/* Seleção de Origem */}
