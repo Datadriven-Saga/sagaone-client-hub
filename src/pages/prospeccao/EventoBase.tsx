@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import DispararProgressModal from '@/components/DispararProgressModal';
 
 interface ContatoEvento {
   id: string;
@@ -83,6 +84,13 @@ export default function EventoBase() {
   const [isDisparandoIA, setIsDisparandoIA] = useState(false);
   const [disparandoContato, setDisparandoContato] = useState<string | null>(null);
   const [contatoIds, setContatoIds] = useState<string[]>([]);
+  
+  // Estados do modal de progresso
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progressTotal, setProgressTotal] = useState(0);
+  const [progressCount, setProgressCount] = useState(0);
+  const [progressCompleted, setProgressCompleted] = useState(false);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   // Buscar dados do evento
   useEffect(() => {
@@ -412,6 +420,75 @@ export default function EventoBase() {
     return allContatos;
   };
 
+  // Função para buscar contagem atualizada de disparados
+  const fetchDisparadosCount = useCallback(async (): Promise<number> => {
+    if (!activeCompany?.id || contatoIds.length === 0) return 0;
+    
+    const BATCH_SIZE = 500;
+    let totalDisparados = 0;
+
+    for (let i = 0; i < contatoIds.length; i += BATCH_SIZE) {
+      const batchIds = contatoIds.slice(i, i + BATCH_SIZE);
+      const { count } = await supabase
+        .from('contatos')
+        .select('id', { count: 'exact', head: true })
+        .in('id', batchIds)
+        .eq('empresa_id', activeCompany.id)
+        .not('data_disparo_ia', 'is', null);
+
+      totalDisparados += count || 0;
+    }
+
+    return totalDisparados;
+  }, [activeCompany?.id, contatoIds]);
+
+  // Iniciar polling para atualizar progresso
+  const startProgressPolling = useCallback((totalToDispatch: number) => {
+    // Limpar polling anterior se existir
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+    }
+
+    pollingRef.current = setInterval(async () => {
+      const currentDisparados = await fetchDisparadosCount();
+      setProgressCount(currentDisparados);
+      
+      // Verificar se completou
+      if (currentDisparados >= metricas.total) {
+        setProgressCompleted(true);
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+        // Atualizar métricas locais
+        setMetricas(prev => ({
+          ...prev,
+          pendentes: 0,
+          disparados: prev.total
+        }));
+        // Recarregar lista
+        fetchContatos();
+      }
+    }, 5000); // A cada 5 segundos
+  }, [fetchDisparadosCount, metricas.total, fetchContatos]);
+
+  // Cleanup do polling
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, []);
+
+  // Fechar modal de progresso
+  const handleCloseProgressModal = () => {
+    setShowProgressModal(false);
+    // Não para o polling - continua em segundo plano
+    // Atualizar dados quando fechar
+    fetchContatos();
+  };
+
   // Disparar IA para todos os pendentes
   const handleDispararTodos = async () => {
     if (!prospeccao || !activeCompany?.id) return;
@@ -423,8 +500,15 @@ export default function EventoBase() {
       
       if (contatosPendentes.length === 0) {
         toast({ title: "Atenção", description: "Nenhum contato pendente para disparar" });
+        setIsDisparandoIA(false);
         return;
       }
+
+      // Configurar modal de progresso
+      setProgressTotal(metricas.total);
+      setProgressCount(metricas.disparados);
+      setProgressCompleted(false);
+      setShowProgressModal(true);
 
       // Formatar leads no formato esperado pela edge function
       const leads = contatosPendentes.map(c => ({
@@ -443,6 +527,9 @@ export default function EventoBase() {
         canal: prospeccao.canal 
       });
 
+      // Iniciar polling para acompanhar progresso
+      startProgressPolling(leads.length);
+
       const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
         body: {
           leads,
@@ -451,7 +538,7 @@ export default function EventoBase() {
           prospeccao_data: {
             titulo: prospeccao.titulo,
             canal: prospeccao.canal,
-            event_id_pri: null, // Buscar se necessário
+            event_id_pri: null,
             data_inicio: prospeccao.data_inicio || null,
             data_fim: prospeccao.data_fim || null
           }
@@ -462,16 +549,35 @@ export default function EventoBase() {
 
       console.log('✅ Resposta do disparo:', data);
 
-      toast({
-        title: "Sucesso",
-        description: `Disparo iniciado para ${leads.length} contatos pendentes`
-      });
+      // Marcar como completo após resposta da API
+      const finalCount = await fetchDisparadosCount();
+      setProgressCount(finalCount);
+      
+      if (finalCount >= metricas.total) {
+        setProgressCompleted(true);
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+      }
+
+      // Atualizar métricas
+      setMetricas(prev => ({
+        ...prev,
+        pendentes: Math.max(0, prev.total - finalCount),
+        disparados: finalCount
+      }));
 
       // Recarregar dados
       fetchContatos();
     } catch (error) {
       console.error('Erro ao disparar IA:', error);
       toast({ title: "Erro", description: "Erro ao iniciar disparo", variant: "destructive" });
+      setShowProgressModal(false);
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
     } finally {
       setIsDisparandoIA(false);
     }
@@ -837,6 +943,16 @@ export default function EventoBase() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de Progresso do Disparo */}
+      <DispararProgressModal
+        isOpen={showProgressModal}
+        onClose={handleCloseProgressModal}
+        totalContatos={progressTotal}
+        disparadosCount={progressCount}
+        isCompleted={progressCompleted}
+        isProcessing={isDisparandoIA}
+      />
     </DashboardLayout>
   );
 }
