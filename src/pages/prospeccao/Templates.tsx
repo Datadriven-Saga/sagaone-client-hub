@@ -650,17 +650,35 @@ export default function Templates() {
         media_length: mediaData?.size || null,
       });
     } else if (savedData.formato === "video" && savedData.cardData?.videoUrl) {
-      // Para vídeos, NÃO converter para base64 (muito pesado, causa memory overflow)
-      // Apenas enviar a URL pública do vídeo
-      components.push({
-        type: "HEADER",
-        format: "VIDEO",
-        media_url: savedData.cardData.videoUrl,
-        media_base64: null, // Vídeos são muito grandes para base64
-        media_mime_type: "video/mp4",
-        media_type: "video",
-        media_length: null,
-      });
+      // Para vídeos, converter para base64 no frontend
+      // O webhook precisa receber o vídeo em base64
+      const mediaData = await fetchMediaAsBase64(savedData.cardData.videoUrl);
+      
+      // Verificar se o vídeo é muito grande (limite de ~15MB para base64)
+      const maxSizeBytes = 15 * 1024 * 1024; // 15MB
+      if (mediaData && mediaData.size > maxSizeBytes) {
+        console.warn(`⚠️ Vídeo muito grande (${(mediaData.size / 1024 / 1024).toFixed(2)}MB), enviando apenas URL`);
+        components.push({
+          type: "HEADER",
+          format: "VIDEO",
+          media_url: savedData.cardData.videoUrl,
+          media_base64: null,
+          media_mime_type: "video/mp4",
+          media_type: "video",
+          media_length: mediaData.size,
+          video_too_large: true,
+        });
+      } else {
+        components.push({
+          type: "HEADER",
+          format: "VIDEO",
+          media_url: savedData.cardData.videoUrl,
+          media_base64: mediaData?.base64 || null,
+          media_mime_type: mediaData?.mimeType || "video/mp4",
+          media_type: "video",
+          media_length: mediaData?.size || null,
+        });
+      }
     }
 
     // FOOTER (opcional)
