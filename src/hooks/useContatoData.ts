@@ -493,11 +493,35 @@ export const useContatoData = () => {
       console.log('✅ Contatos added successfully:', data?.length);
       console.log('🔗 Prospeccao ID for webhook:', prospeccaoId);
       
-      // Disparar webhooks para cada contato inserido se prospeccaoId foi fornecido
-      if (data && prospeccaoId) {
-        console.log('🚀 Iniciando disparo de webhooks para', data.length, 'contatos');
+      // Vincular contatos à prospecção na tabela eventos_prospeccao
+      if (data && data.length > 0 && prospeccaoId) {
+        console.log('🔗 Vinculando contatos à prospecção:', prospeccaoId);
         
-        // Buscar dados da prospecção para incluir no webhook
+        const eventosParaInserir = data.map((contato: any) => ({
+          contato_id: contato.id,
+          prospeccao_id: prospeccaoId
+        }));
+        
+        // Inserir em lotes para evitar timeout
+        const EVENTO_BATCH_SIZE = 500;
+        let eventosInseridos = 0;
+        
+        for (let i = 0; i < eventosParaInserir.length; i += EVENTO_BATCH_SIZE) {
+          const batch = eventosParaInserir.slice(i, i + EVENTO_BATCH_SIZE);
+          const { error: eventoError } = await supabase
+            .from('eventos_prospeccao')
+            .insert(batch);
+          
+          if (eventoError) {
+            console.error('Erro ao vincular contatos à prospecção:', eventoError);
+          } else {
+            eventosInseridos += batch.length;
+          }
+        }
+        
+        console.log(`✅ ${eventosInseridos} contatos vinculados à prospecção`);
+        
+        // Buscar dados da prospecção para log
         const { data: prospeccaoData } = await supabase
           .from('prospeccoes')
           .select('id, titulo, data_inicio, data_fim, canal, event_id_pri')
@@ -505,11 +529,9 @@ export const useContatoData = () => {
           .single();
         
         console.log('📊 Dados da prospecção:', prospeccaoData);
-        console.log('✅ Contatos importados. Disparo para IA será feito manualmente via botão "Disparar para IA".');
-        
-        // NÃO dispara webhooks automaticamente - isso será feito manualmente pelo botão "Disparar para IA"
+        console.log('✅ Contatos importados e vinculados. Disparo para IA será feito manualmente via botão "Disparar para IA".');
       }
-      // Leads sem prospecção NÃO disparam webhook de status
+      // Leads sem prospecção NÃO disparam webhook de status e não são vinculados
       
       if (data) setContatos(prev => [...data, ...prev]);
       
