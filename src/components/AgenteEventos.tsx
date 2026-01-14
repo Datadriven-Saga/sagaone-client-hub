@@ -318,6 +318,11 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
                   <p className="text-destructive font-medium">
                     Esta ação não pode ser desfeita.
                   </p>
+                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3">
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      <strong>Atenção:</strong> Ao apagar esse evento todos os dados do evento, dos leads e da cadência serão apagados permanentemente e não terá mais como recuperar.
+                    </p>
+                  </div>
                   <div className="space-y-2 pt-2">
                     <Label htmlFor="confirmName" className="text-sm font-medium text-foreground">
                       Para confirmar, digite o nome do evento abaixo:
