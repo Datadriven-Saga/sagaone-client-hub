@@ -650,25 +650,16 @@ export default function Templates() {
         media_length: mediaData?.size || null,
       });
     } else if (savedData.formato === "video" && savedData.cardData?.videoUrl) {
-      // Para vídeos, converter para base64 no frontend
-      // O webhook precisa receber o vídeo em base64
-      const mediaData = await fetchMediaAsBase64(savedData.cardData.videoUrl);
-      
-      // Verificar se o vídeo excede o limite da Meta (100MB)
-      const maxSizeBytes = 100 * 1024 * 1024; // 100MB - limite da Meta
-      if (mediaData && mediaData.size > maxSizeBytes) {
-        const sizeInMB = (mediaData.size / 1024 / 1024).toFixed(2);
-        throw new Error(`VIDEO_TOO_LARGE:${sizeInMB}`);
-      }
-      
+      // Para vídeos, NÃO enviar base64 no payload do invoke (fica grande demais e pode falhar antes de chamar o webhook).
+      // O base64 será gerado no Edge Function (trigger-webhook) e repassado ao webhook externo.
       components.push({
         type: "HEADER",
         format: "VIDEO",
         media_url: savedData.cardData.videoUrl,
-        media_base64: mediaData?.base64 || null,
-        media_mime_type: mediaData?.mimeType || "video/mp4",
+        media_base64: null,
+        media_mime_type: "video/mp4",
         media_type: "video",
-        media_length: mediaData?.size || null,
+        media_length: null,
       });
     }
 
@@ -1867,18 +1858,29 @@ export default function Templates() {
     if (formData.formato === "video") {
       const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-          const publicUrl = await uploadMediaToStorage(file, 'video');
-          if (publicUrl) {
-            setFormData(prev => ({
-              ...prev,
-              cardData: {
-                ...prev.cardData,
-                videoCampanha: file,
-                videoPreviewUrl: publicUrl,
-              }
-            }));
-          }
+        if (!file) return;
+
+        const maxSizeBytes = 100 * 1024 * 1024; // 100MB
+        if (file.size > maxSizeBytes) {
+          const sizeInMB = (file.size / 1024 / 1024).toFixed(2);
+          toast.error(
+            `O vídeo selecionado tem ${sizeInMB}MB e excede o limite de 100MB permitido. Por favor, faça o upload de um vídeo com até 100MB.`
+          );
+          // Permite selecionar o mesmo arquivo novamente caso o usuário ajuste
+          e.target.value = "";
+          return;
+        }
+
+        const publicUrl = await uploadMediaToStorage(file, 'video');
+        if (publicUrl) {
+          setFormData(prev => ({
+            ...prev,
+            cardData: {
+              ...prev.cardData,
+              videoCampanha: file,
+              videoPreviewUrl: publicUrl,
+            }
+          }));
         }
       };
 
