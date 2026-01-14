@@ -107,27 +107,12 @@ serve(async (req) => {
 
     switch (action) {
       case 'list_users': {
-        // Fetch all auth users in a single call
-        const { data: authUsersData, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers({
-          perPage: 1000
-        });
-
-        if (authUsersError) {
-          console.error('Error fetching auth users:', authUsersError);
-          throw authUsersError;
-        }
-
-        // Create email map from auth users
-        const emailsByUserId = new Map<string, string>();
-        (authUsersData?.users || []).forEach(u => {
-          emailsByUserId.set(u.id, u.email || 'Email não disponível');
-        });
-
-        // Fetch profiles
+        // Fetch profiles first with a limit to avoid timeout
         const { data: profiles, error: profilesError } = await supabaseAdmin
           .from('profiles')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(500);
 
         if (profilesError) {
           console.error('Error fetching profiles:', profilesError);
@@ -136,29 +121,46 @@ serve(async (req) => {
 
         console.log('Found profiles:', profiles?.length || 0);
 
-        // Fetch all user_empresas in a single query
-        const profileIds = (profiles || []).map(p => p.id);
-        
-        const { data: allUserEmpresas, error: allEmpresasError } = await supabaseAdmin
-          .from('user_empresas')
-          .select(`
-            user_id,
-            empresa_id,
-            is_ativa,
-            empresas (
-              id,
-              nome_empresa
-            )
-          `)
-          .in('user_id', profileIds.length > 0 ? profileIds : ['00000000-0000-0000-0000-000000000000']);
-
-        if (allEmpresasError) {
-          console.error('Error fetching all user companies:', allEmpresasError);
+        if (!profiles || profiles.length === 0) {
+          return new Response(
+            JSON.stringify({ users: [] }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
+
+        const profileIds = profiles.map(p => p.id);
+
+        // Fetch auth users and user_empresas in parallel for better performance
+        const [authUsersResult, userEmpresasResult] = await Promise.all([
+          supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
+          supabaseAdmin
+            .from('user_empresas')
+            .select(`
+              user_id,
+              empresa_id,
+              is_ativa,
+              empresas (
+                id,
+                nome_empresa
+              )
+            `)
+            .in('user_id', profileIds)
+        ]);
+
+        if (authUsersResult.error) {
+          console.error('Error fetching auth users:', authUsersResult.error);
+          throw authUsersResult.error;
+        }
+
+        // Create email map from auth users
+        const emailsByUserId = new Map<string, string>();
+        (authUsersResult.data?.users || []).forEach(u => {
+          emailsByUserId.set(u.id, u.email || 'Email não disponível');
+        });
 
         // Group companies by user_id
         const companiesByUser = new Map<string, any[]>();
-        (allUserEmpresas || []).forEach(ue => {
+        (userEmpresasResult.data || []).forEach(ue => {
           if (!companiesByUser.has(ue.user_id)) {
             companiesByUser.set(ue.user_id, []);
           }
@@ -167,8 +169,8 @@ serve(async (req) => {
           }
         });
 
-        // Combine profiles with emails and companies (no individual API calls)
-        const profilesWithDetails = (profiles || []).map(profile => ({
+        // Combine profiles with emails and companies
+        const profilesWithDetails = profiles.map(profile => ({
           ...profile,
           email: emailsByUserId.get(profile.id) || 'Email não disponível',
           empresas: companiesByUser.get(profile.id) || []
