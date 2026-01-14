@@ -22,6 +22,7 @@ import Notificacoes from "./pages/Notificacoes";
 import Prospeccao from "./pages/Prospeccao";
 import Resultados from "./pages/Resultados";
 import Templates from "./pages/prospeccao/Templates";
+import EventoBase from "./pages/prospeccao/EventoBase";
 import Relatorios from "./pages/Relatorios";
 import Treinamentos from "./pages/Treinamentos";
 import Configuracoes from "./pages/Configuracoes";
@@ -58,6 +59,7 @@ const AppRoutes = () => {
       <Route path="/prospeccao/recepcao" element={<ProtectedRoute><Prospeccao defaultTab="recepcao" /></ProtectedRoute>} />
       <Route path="/prospeccao/vendas" element={<ProtectedRoute><Prospeccao defaultTab="vendas" /></ProtectedRoute>} />
       <Route path="/prospeccao/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
+      <Route path="/prospeccao/eventos/:eventoId/base" element={<ProtectedRoute><EventoBase /></ProtectedRoute>} />
       <Route path="/prospeccao/performance" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
       <Route path="/resultados" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
       <Route path="/relatorios" element={<AdminProtectedRoute><Relatorios /></AdminProtectedRoute>} />
