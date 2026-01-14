@@ -305,17 +305,17 @@ Deno.serve(async (req: Request) => {
       atualizado_em: now,
     };
 
-    // Payload dos contatos no formato esperado
+    // Payload dos contatos no formato solicitado
     const contatosPayload = (contatos || []).map((c: ContatoInput) => ({
+      telefone_lead: c.telefone || '',
+      id_evento: idEvento,
       nome: c.nome || '',
-      telefone: c.telefone || '',
+      telefone_pri: telefonePri,
       loja: empresa?.nome_empresa || '',
     }));
 
-    // Payload completo
+    // Payload completo no formato solicitado
     const payload = {
-      ...eventoPayload,
-      clientes: contatosPayload,
       evento: eventoPayload,
       contatos: contatosPayload,
       total_clientes: contatosPayload.length,
