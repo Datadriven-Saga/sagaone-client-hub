@@ -138,19 +138,18 @@ export const useVideoCompression = (): UseVideoCompressionReturn => {
       }
 
       // Compress video with calculated bitrate
-      // Using libx264 for H.264 encoding, CRF for quality control
-      // -preset fast for balance between speed and quality
-      // -movflags +faststart for web optimization
+      // Otimizações para velocidade (WASM é lento): preset ultrafast + downscale 720p
       await ffmpeg.exec([
         '-i', inputFileName,
         '-c:v', 'libx264',
-        '-preset', 'fast',
-        '-crf', '28',
+        '-preset', 'ultrafast',
+        '-crf', '32',
+        '-vf', 'scale=-2:720',
         '-b:v', `${targetBitrate}k`,
-        '-maxrate', `${targetBitrate * 1.5}k`,
+        '-maxrate', `${Math.floor(targetBitrate * 1.2)}k`,
         '-bufsize', `${targetBitrate * 2}k`,
         '-c:a', 'aac',
-        '-b:a', '128k',
+        '-b:a', '96k',
         '-movflags', '+faststart',
         '-y',
         outputFileName
@@ -172,24 +171,24 @@ export const useVideoCompression = (): UseVideoCompressionReturn => {
         blobData = new Uint8Array(data).slice().buffer;
       }
       const compressedBlob = new Blob([blobData], { type: 'video/mp4' });
-      
+
       console.log(`Compressed size: ${(compressedBlob.size / 1024 / 1024).toFixed(2)}MB`);
 
-      // If still too large, try again with lower quality
+      // If still too large, try again with more aggressive settings
       if (compressedBlob.size > MAX_VIDEO_SIZE_BYTES) {
         console.log('First compression not enough, trying with lower quality...');
-        
+
         await ffmpeg.exec([
           '-i', inputFileName,
           '-c:v', 'libx264',
-          '-preset', 'fast',
-          '-crf', '32',
-          '-b:v', `${Math.floor(targetBitrate * 0.6)}k`,
-          '-maxrate', `${Math.floor(targetBitrate * 0.8)}k`,
-          '-bufsize', `${targetBitrate}k`,
-          '-vf', 'scale=-2:720', // Scale down to 720p max
+          '-preset', 'ultrafast',
+          '-crf', '36',
+          '-b:v', `${Math.floor(targetBitrate * 0.5)}k`,
+          '-maxrate', `${Math.floor(targetBitrate * 0.7)}k`,
+          '-bufsize', `${Math.floor(targetBitrate)}k`,
+          '-vf', 'scale=-2:480',
           '-c:a', 'aac',
-          '-b:a', '96k',
+          '-b:a', '64k',
           '-movflags', '+faststart',
           '-y',
           outputFileName
@@ -203,7 +202,7 @@ export const useVideoCompression = (): UseVideoCompressionReturn => {
           blobData2 = new Uint8Array(data2).slice().buffer;
         }
         const compressedBlob2 = new Blob([blobData2], { type: 'video/mp4' });
-        
+
         console.log(`Second compression size: ${(compressedBlob2.size / 1024 / 1024).toFixed(2)}MB`);
 
         if (compressedBlob2.size > MAX_VIDEO_SIZE_BYTES) {
@@ -230,8 +229,8 @@ export const useVideoCompression = (): UseVideoCompressionReturn => {
 
         // Create a new File object with original name but .mp4 extension
         const originalName = file.name.replace(/\.[^/.]+$/, '');
-        return new File([compressedBlob2], `${originalName}_compressed.mp4`, { 
-          type: 'video/mp4' 
+        return new File([compressedBlob2], `${originalName}_compressed.mp4`, {
+          type: 'video/mp4'
         });
       }
 

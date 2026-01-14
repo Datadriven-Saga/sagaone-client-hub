@@ -57,6 +57,7 @@ interface ClientesImportadosListProps {
   onEditContato: (contato: Contato) => void;
   onDeleteContato: (contatoId: string) => Promise<void>;
   onDeleteMultiplosContatos?: (contatoIds: string[]) => Promise<{ sucesso: number; falha: number }>;
+  onDeleteAllContatos?: () => Promise<{ sucesso: number; falha: number }>;
   onReenviarGatilhos?: (contatoIds: string[], prospeccaoId: string) => Promise<{ sucesso: number; falha: number }>;
   onUpdateContato: (contatoId: string, data: Partial<Contato>) => Promise<boolean>;
 }
@@ -70,6 +71,7 @@ export const ClientesImportadosList = ({
   onEditContato,
   onDeleteContato,
   onDeleteMultiplosContatos,
+  onDeleteAllContatos,
   onReenviarGatilhos,
   onUpdateContato
 }: ClientesImportadosListProps) => {
@@ -160,14 +162,29 @@ export const ClientesImportadosList = ({
 
   const handleConfirmDelete = async () => {
     if (deleteContatoIds.length === 0) return;
-    
+
     setIsDeleting(true);
     try {
-      if (onDeleteMultiplosContatos && deleteContatoIds.length > 1) {
+      // Modo "Excluir Todos" deve usar uma operação dedicada (sem lista gigante de IDs)
+      if (deleteAllMode && onDeleteAllContatos) {
+        const resultado = await onDeleteAllContatos();
+        toast({
+          title: "Contatos excluídos",
+          description: `${resultado.sucesso} excluídos com sucesso${resultado.falha > 0 ? `, ${resultado.falha} falharam` : ''}.`,
+        });
+        setSelectedContatos(new Set());
+      } else if (onDeleteMultiplosContatos && deleteContatoIds.length > 1) {
         const resultado = await onDeleteMultiplosContatos(deleteContatoIds);
         toast({
           title: "Contatos excluídos",
           description: `${resultado.sucesso} excluídos com sucesso${resultado.falha > 0 ? `, ${resultado.falha} falharam` : ''}.`,
+        });
+
+        // Limpar seleção após exclusão
+        setSelectedContatos(prev => {
+          const newSet = new Set(prev);
+          deleteContatoIds.forEach(id => newSet.delete(id));
+          return newSet;
         });
       } else {
         for (const id of deleteContatoIds) {
@@ -175,18 +192,19 @@ export const ClientesImportadosList = ({
         }
         toast({
           title: deleteContatoIds.length === 1 ? "Contato excluído" : "Contatos excluídos",
-          description: deleteContatoIds.length === 1 
-            ? "O contato foi removido com sucesso."
-            : `${deleteContatoIds.length} contatos foram removidos com sucesso.`,
+          description:
+            deleteContatoIds.length === 1
+              ? "O contato foi removido com sucesso."
+              : `${deleteContatoIds.length} contatos foram removidos com sucesso.`,
+        });
+
+        // Limpar seleção após exclusão
+        setSelectedContatos(prev => {
+          const newSet = new Set(prev);
+          deleteContatoIds.forEach(id => newSet.delete(id));
+          return newSet;
         });
       }
-      
-      // Limpar seleção após exclusão
-      setSelectedContatos(prev => {
-        const newSet = new Set(prev);
-        deleteContatoIds.forEach(id => newSet.delete(id));
-        return newSet;
-      });
     } catch (error) {
       toast({
         title: "Erro ao excluir",
