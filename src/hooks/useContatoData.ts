@@ -152,7 +152,7 @@ export const useContatoData = () => {
     }
   }, [activeCompany?.id, toast]);
 
-  // Buscar contatos com filtro de empresa
+  // Buscar contatos com filtro de empresa - SEM LIMITE (paginação automática)
   const fetchContatos = useCallback(async () => {
     if (!activeCompany?.id) {
       console.warn('useContatoData: No active company found for contatos');
@@ -161,21 +161,38 @@ export const useContatoData = () => {
     }
 
     try {
-      console.log('🔍 Fetching contatos for company:', activeCompany.id);
+      console.log('🔍 Fetching ALL contatos for company:', activeCompany.id);
       
-      const { data, error } = await supabase
-        .from('contatos')
-        .select('*')
-        .eq('empresa_id', activeCompany.id)
-        .order('created_at', { ascending: false });
+      const PAGE_SIZE = 1000;
+      let allContatos: any[] = [];
+      let page = 0;
+      let hasMore = true;
 
-      if (error) {
-        console.error('Error fetching contatos:', error);
-        throw error;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('contatos')
+          .select('*')
+          .eq('empresa_id', activeCompany.id)
+          .order('created_at', { ascending: false })
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+        if (error) {
+          console.error('Error fetching contatos page:', page, error);
+          throw error;
+        }
+        
+        if (data && data.length > 0) {
+          allContatos = [...allContatos, ...data];
+          hasMore = data.length === PAGE_SIZE;
+          page++;
+          console.log(`📥 Página ${page} carregada: ${data.length} contatos (total: ${allContatos.length})`);
+        } else {
+          hasMore = false;
+        }
       }
       
-      console.log('📞 Contatos fetched:', data?.length || 0);
-      setContatos(data || []);
+      console.log('📞 Total contatos fetched:', allContatos.length);
+      setContatos(allContatos);
     } catch (error) {
       console.error('Erro ao buscar contatos:', error);
       toast({
