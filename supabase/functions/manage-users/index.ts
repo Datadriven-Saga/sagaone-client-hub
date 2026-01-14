@@ -9,14 +9,18 @@ const allowedOrigins = [
   'https://id-preview--7bc578c3-4b3d-4f33-830e-6157c828c9e5.lovable.app',
   'https://maia.sagadatadriven.com.br',
   'https://sagaone.sagadatadriven.com.br',
+  'https://sagaone-client-hub.lovable.app',
 ];
 
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get('origin') || '';
-  const isAllowed = allowedOrigins.some(allowed => origin.includes(allowed.replace('https://', '')) || origin === allowed);
+  
+  // Check if origin is in the allowed list or matches lovable.app pattern
+  const isLovableOrigin = origin.includes('.lovable.app') || origin.includes('.lovableproject.com') || origin.includes('lovable.dev');
+  const isAllowed = isLovableOrigin || allowedOrigins.some(allowed => origin === allowed);
   
   return {
-    'Access-Control-Allow-Origin': isAllowed && origin ? origin : allowedOrigins[0],
+    'Access-Control-Allow-Origin': isAllowed && origin ? origin : '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
     'Access-Control-Max-Age': '86400',
