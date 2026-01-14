@@ -511,7 +511,7 @@ export const useContatoData = () => {
         
         const processarContato = async (contato: typeof data[0]) => {
           try {
-            // Webhook de prospecção (existente) - inclui lead_id
+            // Webhook de prospecção (existente) - inclui lead_id e empresa_id
             const webhookResponse = await supabase.functions.invoke('trigger-webhook', {
               body: {
                 gatilho: 'novo_contato_prospeccao',
@@ -519,6 +519,7 @@ export const useContatoData = () => {
                   contato_id: contato.id,
                   lead_id: contato.lead_id,
                   prospeccao_id: prospeccaoId,
+                  empresa_id: activeCompany.id, // IMPORTANTE: empresa_id para filtrar gatilhos
                   nome: contato.nome,
                   telefone: normalizePhone(contato.telefone),
                   email: contato.email,
