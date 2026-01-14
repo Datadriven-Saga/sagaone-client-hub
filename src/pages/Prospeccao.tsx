@@ -1272,23 +1272,20 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                     {status}
                                   </span>
                                 </td>
-                                <td className="py-3 px-3 text-right">
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      {/* Para IA Ligação, não exibe botão de editar */}
-                                      {prospeccao.canal !== 'Ligação' && (
+                                {/* Para canal Ligação, não exibe coluna de Ações */}
+                                {prospeccao.canal !== 'Ligação' && (
+                                  <td className="py-3 px-3 text-right">
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
                                         <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
                                           <Edit className="mr-2 h-4 w-4" />
                                           Editar
                                         </DropdownMenuItem>
-                                      )}
-                                      {/* Para IA Ligação, não permite exclusão (evento gerenciado externamente) */}
-                                      {prospeccao.canal !== 'Ligação' && (
                                         <DropdownMenuItem 
                                           onClick={() => setDeleteProspeccao({ 
                                             id: prospeccao.id, 
@@ -1300,10 +1297,13 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                           <Trash2 className="mr-2 h-4 w-4" />
                                           Excluir
                                         </DropdownMenuItem>
-                                      )}
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </td>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </td>
+                                )}
+                                {prospeccao.canal === 'Ligação' && (
+                                  <td className="py-3 px-3"></td>
+                                )}
                               </tr>
                             );
                           })}
