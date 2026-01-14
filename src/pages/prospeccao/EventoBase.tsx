@@ -489,12 +489,14 @@ export default function EventoBase() {
     fetchContatos();
   };
 
-  // Disparar IA para todos os pendentes
+  // Disparar IA para todos os pendentes - em batches para evitar timeout
   const handleDispararTodos = async () => {
     if (!prospeccao || !activeCompany?.id) return;
 
     setIsDisparandoIA(true);
     try {
+      console.log('🚀 Iniciando disparo em massa...');
+      
       // Buscar todos os contatos pendentes
       const contatosPendentes = await fetchContatosPendentes();
       
@@ -504,6 +506,8 @@ export default function EventoBase() {
         return;
       }
 
+      console.log(`📊 Total de contatos pendentes: ${contatosPendentes.length}`);
+
       // Configurar modal de progresso
       setProgressTotal(metricas.total);
       setProgressCount(metricas.disparados);
@@ -511,7 +515,7 @@ export default function EventoBase() {
       setShowProgressModal(true);
 
       // Formatar leads no formato esperado pela edge function
-      const leads = contatosPendentes.map(c => ({
+      const allLeads = contatosPendentes.map(c => ({
         id: c.id,
         nome: c.nome,
         telefone: c.telefone,
@@ -521,39 +525,71 @@ export default function EventoBase() {
       }));
 
       console.log('🚀 Disparando para IA:', { 
-        total: leads.length, 
+        total: allLeads.length, 
         empresa_id: activeCompany.id, 
         prospeccao_id: prospeccao.id,
         canal: prospeccao.canal 
       });
 
       // Iniciar polling para acompanhar progresso
-      startProgressPolling(leads.length);
+      startProgressPolling(allLeads.length);
 
-      const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
-        body: {
-          leads,
-          empresa_id: activeCompany.id,
-          prospeccao_id: prospeccao.id,
-          prospeccao_data: {
-            titulo: prospeccao.titulo,
-            canal: prospeccao.canal,
-            event_id_pri: null,
-            data_inicio: prospeccao.data_inicio || null,
-            data_fim: prospeccao.data_fim || null
+      // DIVIDIR EM BATCHES DE 500 PARA EVITAR TIMEOUT DA EDGE FUNCTION
+      const BATCH_SIZE = 500;
+      const totalBatches = Math.ceil(allLeads.length / BATCH_SIZE);
+      let totalErros = 0;
+      let totalSucessos = 0;
+
+      console.log(`📦 Dividindo em ${totalBatches} batches de até ${BATCH_SIZE} leads cada`);
+
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const batchStart = batchIndex * BATCH_SIZE;
+        const leads = allLeads.slice(batchStart, batchStart + BATCH_SIZE);
+        const batchNum = batchIndex + 1;
+
+        console.log(`📤 Enviando batch ${batchNum}/${totalBatches} (${leads.length} leads)`);
+
+        try {
+          const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
+            body: {
+              leads,
+              empresa_id: activeCompany.id,
+              prospeccao_id: prospeccao.id,
+              prospeccao_data: {
+                titulo: prospeccao.titulo,
+                canal: prospeccao.canal,
+                event_id_pri: null,
+                data_inicio: prospeccao.data_inicio || null,
+                data_fim: prospeccao.data_fim || null
+              }
+            }
+          });
+
+          if (error) {
+            console.error(`❌ Erro no batch ${batchNum}:`, error);
+            totalErros += leads.length;
+          } else {
+            console.log(`✅ Batch ${batchNum} concluído:`, data);
+            totalSucessos += data?.leads_processados || leads.length;
           }
+
+          // Atualizar contagem após cada batch
+          const currentCount = await fetchDisparadosCount();
+          setProgressCount(currentCount);
+
+        } catch (batchError) {
+          console.error(`❌ Exceção no batch ${batchNum}:`, batchError);
+          totalErros += leads.length;
         }
-      });
+      }
 
-      if (error) throw error;
+      console.log(`📊 Disparo concluído: ${totalSucessos} sucessos, ${totalErros} erros`);
 
-      console.log('✅ Resposta do disparo:', data);
-
-      // Marcar como completo após resposta da API
+      // Marcar como completo após todos os batches
       const finalCount = await fetchDisparadosCount();
       setProgressCount(finalCount);
       
-      if (finalCount >= metricas.total) {
+      if (finalCount >= metricas.total || totalErros === 0) {
         setProgressCompleted(true);
         if (pollingRef.current) {
           clearInterval(pollingRef.current);
@@ -570,9 +606,17 @@ export default function EventoBase() {
 
       // Recarregar dados
       fetchContatos();
+
+      if (totalErros > 0) {
+        toast({ 
+          title: "Parcialmente concluído", 
+          description: `${totalSucessos} disparados, ${totalErros} erros`,
+          variant: "destructive" 
+        });
+      }
     } catch (error) {
       console.error('Erro ao disparar IA:', error);
-      toast({ title: "Erro", description: "Erro ao iniciar disparo", variant: "destructive" });
+      toast({ title: "Erro", description: "Erro ao iniciar disparo: " + (error as Error).message, variant: "destructive" });
       setShowProgressModal(false);
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
