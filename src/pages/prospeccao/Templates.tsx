@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -42,7 +43,8 @@ import {
   Edit2,
   Music,
   RefreshCw,
-  Eye
+  Eye,
+  Loader2
 } from "lucide-react";
 import { TemplatePreview } from "@/components/TemplatePreview";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -51,6 +53,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { normalizePhone } from "@/lib/utils";
+import { useVideoCompression, MAX_VIDEO_SIZE_BYTES } from "@/hooks/useVideoCompression";
 
 
 type TemplateFormat = "texto" | "botao" | "imagem" | "video" | "card" | "lista";
@@ -143,6 +146,9 @@ export default function Templates() {
   const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [selectedAgenteId, setSelectedAgenteId] = useState<string | null>(null);
+  
+  // Video compression hook
+  const { compressVideo, isCompressing, compressionProgress, cancelCompression } = useVideoCompression();
 
   // Helper function to upload media to Supabase Storage
   const uploadMediaToStorage = async (file: File, mediaType: 'image' | 'audio' | 'video'): Promise<string | null> => {
@@ -1866,33 +1872,50 @@ export default function Templates() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const maxSizeBytes = 12 * 1024 * 1024; // 12MB
-        if (file.size > maxSizeBytes) {
+        let fileToUpload = file;
+        
+        // Check if compression is needed
+        if (file.size > MAX_VIDEO_SIZE_BYTES) {
           const sizeInMB = (file.size / 1024 / 1024).toFixed(2);
-          toast.error(
-            `O vídeo selecionado tem ${sizeInMB}MB e excede o limite de 12MB permitido. Por favor, faça o upload de um vídeo com até 12MB.`
+          toast.info(
+            `O vídeo tem ${sizeInMB}MB. Iniciando compressão automática...`
           );
-          // Permite selecionar o mesmo arquivo novamente caso o usuário ajuste
-          e.target.value = "";
-          return;
+          
+          const compressedFile = await compressVideo(file);
+          
+          if (!compressedFile) {
+            toast.error(
+              'Não foi possível comprimir o vídeo para menos de 12MB. Tente um vídeo mais curto.'
+            );
+            e.target.value = "";
+            return;
+          }
+          
+          const compressedSizeMB = (compressedFile.size / 1024 / 1024).toFixed(2);
+          toast.success(
+            `Vídeo comprimido com sucesso! Novo tamanho: ${compressedSizeMB}MB`
+          );
+          
+          fileToUpload = compressedFile;
         }
 
-        const publicUrl = await uploadMediaToStorage(file, 'video');
+        const publicUrl = await uploadMediaToStorage(fileToUpload, 'video');
         if (publicUrl) {
           setFormData(prev => ({
             ...prev,
             cardData: {
               ...prev.cardData,
-              videoCampanha: file,
+              videoCampanha: fileToUpload,
               videoPreviewUrl: publicUrl,
-              videoMimeType: file.type || "video/mp4",
-              videoSizeBytes: file.size,
+              videoMimeType: fileToUpload.type || "video/mp4",
+              videoSizeBytes: fileToUpload.size,
             }
           }));
         }
       };
 
       const handleRemoveVideo = () => {
+        cancelCompression();
         setFormData(prev => ({
           ...prev,
           cardData: {
@@ -1914,8 +1937,37 @@ export default function Templates() {
               <Check className="h-3 w-3" />
               A URL da mídia é pública e permanente
             </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Vídeos maiores que 12MB serão comprimidos automaticamente
+            </p>
             <div className="mt-2">
-              {isUploading ? (
+              {isCompressing ? (
+                <div className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-primary rounded-lg p-4">
+                  <Loader2 className="h-8 w-8 text-primary animate-spin mb-2" />
+                  <span className="text-sm text-muted-foreground mb-2">
+                    {compressionProgress?.message || 'Comprimindo vídeo...'}
+                  </span>
+                  {compressionProgress && compressionProgress.stage === 'compressing' && (
+                    <div className="w-full max-w-xs">
+                      <Progress value={compressionProgress.progress} className="h-2" />
+                      <span className="text-xs text-muted-foreground mt-1 block text-center">
+                        {compressionProgress.progress}%
+                      </span>
+                    </div>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => {
+                      cancelCompression();
+                      toast.info('Compressão cancelada');
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              ) : isUploading ? (
                 <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-primary rounded-lg">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
                   <span className="text-sm text-muted-foreground">Enviando...</span>
@@ -1940,7 +1992,7 @@ export default function Templates() {
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary transition-colors">
                   <Video className="h-8 w-8 text-muted-foreground mb-2" />
                   <span className="text-sm text-muted-foreground">Clique para enviar vídeo</span>
-                  <span className="text-xs text-muted-foreground">(máx. 12MB)</span>
+                  <span className="text-xs text-muted-foreground">(compressão automática para &gt;12MB)</span>
                   <input
                     type="file"
                     accept="video/*"
