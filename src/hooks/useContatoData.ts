@@ -1067,56 +1067,64 @@ export const useContatoData = () => {
     return { sucesso, falha };
   };
 
-  // Excluir múltiplos contatos de uma vez (otimizado para lotes)
+  // Excluir um único contato
+  const excluirContatoUnico = async (contatoId: string): Promise<boolean> => {
+    try {
+      console.log(`🗑️ Excluindo contato: ${contatoId}`);
+      const { error } = await supabase
+        .from('contatos')
+        .delete()
+        .eq('id', contatoId);
+      
+      if (error) {
+        console.error('❌ Erro ao excluir contato:', error);
+        return false;
+      }
+      
+      setContatos(prev => prev.filter(c => c.id !== contatoId));
+      console.log('✅ Contato excluído com sucesso');
+      return true;
+    } catch (error) {
+      console.error('❌ Exceção ao excluir contato:', error);
+      return false;
+    }
+  };
+
+  // Excluir múltiplos contatos de uma vez (todos de uma só vez, sem batches)
   const excluirContatosEmMassa = async (contatoIds: string[]): Promise<{ sucesso: number; falha: number }> => {
     if (contatoIds.length === 0) {
       return { sucesso: 0, falha: 0 };
     }
 
-    let sucesso = 0;
-    let falha = 0;
-
-    // Processar em lotes de 100 para evitar timeout
-    const BATCH_SIZE = 100;
-    const batches: string[][] = [];
-    
-    for (let i = 0; i < contatoIds.length; i += BATCH_SIZE) {
-      batches.push(contatoIds.slice(i, i + BATCH_SIZE));
+    // Se for apenas 1 contato, usar função individual
+    if (contatoIds.length === 1) {
+      const resultado = await excluirContatoUnico(contatoIds[0]);
+      return resultado ? { sucesso: 1, falha: 0 } : { sucesso: 0, falha: 1 };
     }
 
-    console.log(`🗑️ Excluindo ${contatoIds.length} contatos em ${batches.length} lotes`);
+    console.log(`🗑️ Excluindo ${contatoIds.length} contatos de uma vez`);
 
-    for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i];
-      try {
-        console.log(`📦 Processando lote ${i + 1}/${batches.length} (${batch.length} contatos)`);
-        
-        // Usar .in() para deletar múltiplos registros de uma vez
-        const { error, count } = await supabase
-          .from('contatos')
-          .delete()
-          .in('id', batch);
-        
-        if (error) {
-          console.error(`❌ Erro no lote ${i + 1}:`, error);
-          falha += batch.length;
-        } else {
-          sucesso += batch.length;
-          console.log(`✅ Lote ${i + 1} concluído: ${batch.length} contatos excluídos`);
-        }
-      } catch (error) {
-        console.error(`❌ Exceção no lote ${i + 1}:`, error);
-        falha += batch.length;
+    try {
+      // Excluir TODOS de uma única vez usando .in()
+      const { error } = await supabase
+        .from('contatos')
+        .delete()
+        .in('id', contatoIds);
+      
+      if (error) {
+        console.error('❌ Erro ao excluir contatos:', error);
+        return { sucesso: 0, falha: contatoIds.length };
       }
-    }
-
-    // Atualizar estado local removendo os contatos excluídos
-    if (sucesso > 0) {
+      
+      // Atualizar estado local removendo os contatos excluídos
       setContatos(prev => prev.filter(c => !contatoIds.includes(c.id)));
+      
+      console.log(`✅ ${contatoIds.length} contatos excluídos com sucesso`);
+      return { sucesso: contatoIds.length, falha: 0 };
+    } catch (error) {
+      console.error('❌ Exceção ao excluir contatos:', error);
+      return { sucesso: 0, falha: contatoIds.length };
     }
-
-    console.log(`🏁 Exclusão em massa concluída: ${sucesso} sucesso, ${falha} falha`);
-    return { sucesso, falha };
   };
 
   return {
