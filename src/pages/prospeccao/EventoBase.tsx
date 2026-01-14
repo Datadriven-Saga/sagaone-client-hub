@@ -120,21 +120,35 @@ export default function EventoBase() {
     const fetchContatoIds = async () => {
       if (!eventoId || !activeCompany?.id) return;
 
-      // Buscar todos os IDs de contatos vinculados ao evento
-      const { data: eventosData, error: eventosError } = await supabase
-        .from('eventos_prospeccao')
-        .select('contato_id')
-        .eq('prospeccao_id', eventoId);
+      // Buscar todos os IDs de contatos vinculados ao evento com paginação
+      const PAGE_SIZE_IDS = 1000;
+      let allIds: string[] = [];
+      let page = 0;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data: eventosData, error: eventosError } = await supabase
+          .from('eventos_prospeccao')
+          .select('contato_id')
+          .eq('prospeccao_id', eventoId)
+          .range(page * PAGE_SIZE_IDS, (page + 1) * PAGE_SIZE_IDS - 1);
 
-      if (eventosError) {
-        console.error('Erro ao buscar contatos:', eventosError);
-        return;
+        if (eventosError) {
+          console.error('Erro ao buscar contatos:', eventosError);
+          break;
+        }
+
+        const ids = (eventosData || []).map(e => e.contato_id).filter(Boolean) as string[];
+        allIds = [...allIds, ...ids];
+        
+        hasMore = eventosData && eventosData.length === PAGE_SIZE_IDS;
+        page++;
       }
+      
+      console.log(`📊 Total de contatos no evento: ${allIds.length}`);
+      setContatoIds(allIds);
 
-      const ids = (eventosData || []).map(e => e.contato_id).filter(Boolean) as string[];
-      setContatoIds(ids);
-
-      if (ids.length === 0) {
+      if (allIds.length === 0) {
         setMetricas({ total: 0, pendentes: 0, disparados: 0, vendas: 0 });
         setStatusOptions([]);
         return;
@@ -146,8 +160,8 @@ export default function EventoBase() {
       let allContatos: { status: string | null; data_disparo_ia: string | null }[] = [];
       const uniqueStatuses = new Set<string>();
 
-      for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-        const batchIds = ids.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < allIds.length; i += BATCH_SIZE) {
+        const batchIds = allIds.slice(i, i + BATCH_SIZE);
         const { data: contatosData } = await supabase
           .from('contatos')
           .select('status, data_disparo_ia')
@@ -176,7 +190,7 @@ export default function EventoBase() {
     fetchContatoIds();
   }, [eventoId, activeCompany?.id]);
 
-  // Buscar contatos paginados
+  // Buscar contatos paginados - usando lotes para consultas com muitos IDs
   const fetchContatos = useCallback(async () => {
     if (!eventoId || !activeCompany?.id || contatoIds.length === 0) {
       setContatos([]);
@@ -188,42 +202,80 @@ export default function EventoBase() {
     setLoadingPage(true);
 
     try {
-      // Aplicar filtros e paginação
-      let query = supabase
-        .from('contatos')
-        .select('id, nome, telefone, email, status, origem, created_at, updated_at, data_disparo_ia, responsavel_email, vendedor_nome', { count: 'exact' })
-        .in('id', contatoIds)
-        .eq('empresa_id', activeCompany.id);
-
-      // Filtro de busca
-      if (searchTerm) {
-        query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
-      }
-
-      // Filtro de status
-      if (statusFilter !== 'todos') {
-        query = query.eq('status', statusFilter as any);
-      }
-
-      // Filtro de disparo
-      if (disparoFilter === 'pendente') {
-        query = query.is('data_disparo_ia', null);
-      } else if (disparoFilter === 'disparado') {
-        query = query.not('data_disparo_ia', 'is', null);
-      }
-
-      // Paginação
-      const from = (currentPage - 1) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
+      // Para evitar URL longa, vamos usar paginação manual sobre os IDs
+      // Primeiro, filtrar os IDs relevantes usando lotes menores
+      const IN_BATCH_SIZE = 200;
       
-      query = query.order('created_at', { ascending: false }).range(from, to);
-
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-
-      setContatos(data || []);
-      if (count !== null) setTotalCount(count);
+      // Se não há filtro de busca/status, podemos paginar diretamente sobre os IDs
+      // Se há filtro, precisamos buscar todos os IDs filtrados primeiro
+      
+      if (!searchTerm && statusFilter === 'todos' && disparoFilter === 'todos') {
+        // Paginação simples: pegar slice dos IDs e buscar
+        const from = (currentPage - 1) * PAGE_SIZE;
+        const to = Math.min(from + PAGE_SIZE, contatoIds.length);
+        const pageIds = contatoIds.slice(from, to);
+        
+        if (pageIds.length === 0) {
+          setContatos([]);
+          setTotalCount(contatoIds.length);
+          setLoadingPage(false);
+          setLoading(false);
+          return;
+        }
+        
+        const { data, error } = await supabase
+          .from('contatos')
+          .select('id, nome, telefone, email, status, origem, created_at, updated_at, data_disparo_ia, responsavel_email, vendedor_nome')
+          .in('id', pageIds)
+          .eq('empresa_id', activeCompany.id)
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        setContatos(data || []);
+        setTotalCount(contatoIds.length);
+      } else {
+        // Com filtros: buscar IDs filtrados em lotes, depois paginar
+        let filteredContatos: ContatoEvento[] = [];
+        
+        for (let i = 0; i < contatoIds.length; i += IN_BATCH_SIZE) {
+          const batchIds = contatoIds.slice(i, i + IN_BATCH_SIZE);
+          let query = supabase
+            .from('contatos')
+            .select('id, nome, telefone, email, status, origem, created_at, updated_at, data_disparo_ia, responsavel_email, vendedor_nome')
+            .in('id', batchIds)
+            .eq('empresa_id', activeCompany.id);
+          
+          if (searchTerm) {
+            query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
+          }
+          if (statusFilter !== 'todos') {
+            query = query.eq('status', statusFilter as any);
+          }
+          if (disparoFilter === 'pendente') {
+            query = query.is('data_disparo_ia', null);
+          } else if (disparoFilter === 'disparado') {
+            query = query.not('data_disparo_ia', 'is', null);
+          }
+          
+          const { data } = await query;
+          if (data) filteredContatos = [...filteredContatos, ...data];
+        }
+        
+        // Ordenar por data de criação (mais recentes primeiro)
+        filteredContatos.sort((a, b) => {
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return dateB - dateA;
+        });
+        
+        // Aplicar paginação
+        const from = (currentPage - 1) * PAGE_SIZE;
+        const to = Math.min(from + PAGE_SIZE, filteredContatos.length);
+        
+        setContatos(filteredContatos.slice(from, to));
+        setTotalCount(filteredContatos.length);
+      }
     } catch (error) {
       console.error('Erro ao buscar contatos:', error);
       toast({ title: "Erro", description: "Erro ao carregar contatos", variant: "destructive" });

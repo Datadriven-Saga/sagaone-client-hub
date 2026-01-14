@@ -914,14 +914,28 @@ export const useContatoData = () => {
       return { sucesso: 0, falha: 0 };
     }
 
-    // Buscar dados dos contatos
-    const { data: contatosData, error: contatosError } = await supabase
-      .from('contatos')
-      .select('id, nome, telefone, email, status, lead_id')
-      .in('id', contatoIds);
+    // Buscar dados dos contatos em lotes para evitar URL longa
+    const IN_BATCH_SIZE = 200;
+    let contatosData: { id: string; nome: string; telefone: string; email: string | null; status: string; lead_id: number | null }[] = [];
+    
+    for (let i = 0; i < contatoIds.length; i += IN_BATCH_SIZE) {
+      const batchIds = contatoIds.slice(i, i + IN_BATCH_SIZE);
+      const { data: batchData, error: batchError } = await supabase
+        .from('contatos')
+        .select('id, nome, telefone, email, status, lead_id')
+        .in('id', batchIds);
 
-    if (contatosError || !contatosData) {
-      toast({ title: "Erro", description: "Erro ao buscar contatos", variant: "destructive" });
+      if (batchError) {
+        toast({ title: "Erro", description: "Erro ao buscar contatos", variant: "destructive" });
+        return { sucesso: 0, falha: 0 };
+      }
+      if (batchData) {
+        contatosData = [...contatosData, ...batchData];
+      }
+    }
+
+    if (contatosData.length === 0) {
+      toast({ title: "Erro", description: "Nenhum contato encontrado", variant: "destructive" });
       return { sucesso: 0, falha: 0 };
     }
 
@@ -1024,23 +1038,33 @@ export const useContatoData = () => {
       return resultado ? { sucesso: 1, falha: 0 } : { sucesso: 0, falha: 1 };
     }
 
-    console.log(`🗑️ Excluindo ${contatoIds.length} contatos de uma vez`);
+    console.log(`🗑️ Excluindo ${contatoIds.length} contatos em lotes`);
 
     try {
-      const { error } = await supabase
-        .from('contatos')
-        .delete()
-        .in('id', contatoIds);
+      // Excluir em lotes para evitar URL longa
+      const DELETE_BATCH_SIZE = 200;
+      let deletedCount = 0;
+      let errors = 0;
+      
+      for (let i = 0; i < contatoIds.length; i += DELETE_BATCH_SIZE) {
+        const batchIds = contatoIds.slice(i, i + DELETE_BATCH_SIZE);
+        const { error } = await supabase
+          .from('contatos')
+          .delete()
+          .in('id', batchIds);
 
-      if (error) {
-        console.error('❌ Erro ao excluir contatos:', error);
-        return { sucesso: 0, falha: contatoIds.length };
+        if (error) {
+          console.error(`❌ Erro ao excluir lote ${Math.floor(i / DELETE_BATCH_SIZE) + 1}:`, error);
+          errors += batchIds.length;
+        } else {
+          deletedCount += batchIds.length;
+        }
       }
 
       setContatos(prev => prev.filter(c => !contatoIds.includes(c.id)));
 
-      console.log(`✅ ${contatoIds.length} contatos excluídos com sucesso`);
-      return { sucesso: contatoIds.length, falha: 0 };
+      console.log(`✅ ${deletedCount} contatos excluídos com sucesso (${errors} erros)`);
+      return { sucesso: deletedCount, falha: errors };
     } catch (error) {
       console.error('❌ Exceção ao excluir contatos:', error);
       return { sucesso: 0, falha: contatoIds.length };
@@ -1128,30 +1152,38 @@ export const useContatoData = () => {
         return { total: 0, disparados: 0, jaDisparados: 0 };
       }
 
-      const contatoIds = (eventosContatos || []).map(e => e.contato_id).filter(Boolean);
+      const contatoIds = (eventosContatos || []).map(e => e.contato_id).filter(Boolean) as string[];
       
       if (contatoIds.length === 0) {
         toast({ title: "Atenção", description: "Nenhum contato encontrado nesta prospecção", variant: "destructive" });
         return { total: 0, disparados: 0, jaDisparados: 0 };
       }
 
-      // Buscar contatos que ainda não foram disparados (data_disparo_ia IS NULL)
-      const { data: contatosNaoDisparados, error: contatosError } = await supabase
-        .from('contatos')
-        .select('id, lead_id, nome, telefone, email, status, origem')
-        .in('id', contatoIds)
-        .is('data_disparo_ia', null)
-        .eq('empresa_id', activeCompany.id);
+      // Buscar contatos que ainda não foram disparados (data_disparo_ia IS NULL) em lotes para evitar URL longa
+      const IN_BATCH_SIZE = 200;
+      let contatosNaoDisparados: { id: string; lead_id: number | null; nome: string; telefone: string; email: string | null; status: string; origem: string | null }[] = [];
       
-      if (contatosError) {
-        console.error('Erro ao buscar contatos:', contatosError);
-        toast({ title: "Erro", description: "Erro ao buscar contatos", variant: "destructive" });
-        return { total: 0, disparados: 0, jaDisparados: 0 };
+      for (let i = 0; i < contatoIds.length; i += IN_BATCH_SIZE) {
+        const batchIds = contatoIds.slice(i, i + IN_BATCH_SIZE);
+        const { data: batchData, error: batchError } = await supabase
+          .from('contatos')
+          .select('id, lead_id, nome, telefone, email, status, origem')
+          .in('id', batchIds)
+          .is('data_disparo_ia', null)
+          .eq('empresa_id', activeCompany.id);
+        
+        if (batchError) {
+          console.error('Erro ao buscar contatos lote:', batchError);
+          continue;
+        }
+        if (batchData) {
+          contatosNaoDisparados = [...contatosNaoDisparados, ...batchData];
+        }
       }
 
-      const jaDisparados = contatoIds.length - (contatosNaoDisparados?.length || 0);
+      const jaDisparados = contatoIds.length - contatosNaoDisparados.length;
       
-      if (!contatosNaoDisparados || contatosNaoDisparados.length === 0) {
+      if (contatosNaoDisparados.length === 0) {
         toast({ 
           title: "Atenção", 
           description: `Todos os ${contatoIds.length} contatos já foram disparados anteriormente.` 
@@ -1193,15 +1225,20 @@ export const useContatoData = () => {
 
       console.log('✅ Edge function retornou:', webhookResult);
 
-      // Marcar contatos como disparados
+      // Marcar contatos como disparados - em lotes para evitar URL longa
       const contatoIdsDisparados = contatosNaoDisparados.map(c => c.id);
-      const { error: updateError } = await supabase
-        .from('contatos')
-        .update({ data_disparo_ia: new Date().toISOString() })
-        .in('id', contatoIdsDisparados);
+      const UPDATE_BATCH_SIZE = 200;
+      
+      for (let i = 0; i < contatoIdsDisparados.length; i += UPDATE_BATCH_SIZE) {
+        const batchIds = contatoIdsDisparados.slice(i, i + UPDATE_BATCH_SIZE);
+        const { error: updateError } = await supabase
+          .from('contatos')
+          .update({ data_disparo_ia: new Date().toISOString() })
+          .in('id', batchIds);
 
-      if (updateError) {
-        console.error('Erro ao marcar contatos como disparados:', updateError);
+        if (updateError) {
+          console.error(`Erro ao marcar lote ${Math.floor(i / UPDATE_BATCH_SIZE) + 1} como disparados:`, updateError);
+        }
       }
 
       const tipoIA = isIALigacao ? 'IA Ligação' : 'IA Whatsapp';
@@ -1229,19 +1266,26 @@ export const useContatoData = () => {
         .select('contato_id')
         .eq('prospeccao_id', prospeccaoId);
       
-      const contatoIds = (eventosContatos || []).map(e => e.contato_id).filter(Boolean);
+      const contatoIds = (eventosContatos || []).map(e => e.contato_id).filter(Boolean) as string[];
       
       if (contatoIds.length === 0) return { total: 0, pendentes: 0, disparados: 0 };
 
-      // Contar quantos ainda não foram disparados
-      const { count: pendentes } = await supabase
-        .from('contatos')
-        .select('id', { count: 'exact', head: true })
-        .in('id', contatoIds)
-        .is('data_disparo_ia', null)
-        .eq('empresa_id', activeCompany.id);
+      // Contar quantos ainda não foram disparados - em lotes para evitar URL longa
+      const IN_BATCH_SIZE = 200;
+      let totalPendentes = 0;
       
-      const totalPendentes = pendentes || 0;
+      for (let i = 0; i < contatoIds.length; i += IN_BATCH_SIZE) {
+        const batchIds = contatoIds.slice(i, i + IN_BATCH_SIZE);
+        const { count } = await supabase
+          .from('contatos')
+          .select('id', { count: 'exact', head: true })
+          .in('id', batchIds)
+          .is('data_disparo_ia', null)
+          .eq('empresa_id', activeCompany.id);
+        
+        totalPendentes += count || 0;
+      }
+      
       const totalDisparados = contatoIds.length - totalPendentes;
 
       return { total: contatoIds.length, pendentes: totalPendentes, disparados: totalDisparados };
