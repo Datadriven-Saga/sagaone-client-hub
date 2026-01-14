@@ -570,161 +570,49 @@ export const useContatoData = () => {
         const isIAWhatsapp = canalStr === 'whatsapp';
         const isIALigacao = canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
         
-        // WEBHOOK RECEBE-LEADS-PRI - Para IA Whatsapp e IA Ligação (webhooks diferentes)
+        // WEBHOOK VIA EDGE FUNCTION - Para IA Whatsapp e IA Ligação
         if (isIAWhatsapp || isIALigacao) {
           const tipoIA = isIALigacao ? 'IA Ligação' : 'IA Whatsapp';
-          console.log(`📤 Enviando leads individualmente para webhook (${tipoIA})...`);
+          console.log(`📤 Enviando ${data.length} leads para edge function dispatch-leads-webhook (${tipoIA})...`);
           
           try {
-            // Buscar dados da empresa para pegar crm_id e agente Pri
-            const { data: empresaData } = await supabase
-              .from('empresas')
-              .select('crm_id, nome_empresa, uf, cidade')
-              .eq('id', activeCompany.id)
-              .single();
-            
-            // Buscar agente correto vinculado à loja
-            // IA Whatsapp → "Pri - Whatsapp" | IA Ligação → "Pri(Ligação)"
-            let telefonePri = '';
-            let nomeAgente = '';
+            // Preparar leads para envio
+            const leadsParaEnvio = data.map(contato => ({
+              id: contato.id,
+              lead_id: contato.lead_id,
+              nome: contato.nome,
+              telefone: contato.telefone,
+              email: contato.email,
+              status: contato.status,
+              origem: contato.origem
+            }));
 
-            const { data: agentesVinculados, error: agentesVinculadosErr } = await supabase
-              .from('agente_empresas')
-              .select(`
-                agente_id,
-                agentes_ia (
-                  id,
-                  nome,
-                  telefone,
-                  ativo
-                )
-              `)
-              .eq('empresa_id', activeCompany.id);
-
-            if (agentesVinculadosErr) {
-              console.error('❌ Erro ao buscar agentes vinculados (agente_empresas):', agentesVinculadosErr);
-            }
-
-            const agentes = (agentesVinculados || [])
-              .map((ae: any) => ae.agentes_ia)
-              .filter((a: any) => a && a.ativo)
-              .filter((a: any, idx: number, self: any[]) => idx === self.findIndex(t => t?.id === a?.id));
-
-            const normalizeTelefonePri = (value: any) => (value ? String(value).replace(/\D/g, '') : '');
-
-            // Padrões de busca para cada tipo de IA
-            const agenteSearchPatterns = isIALigacao 
-              ? ['ligação', 'ligacao', 'ligaçao'] 
-              : ['whatsapp'];
-
-            // Buscar agente específico para o tipo de evento
-            const agenteEspecifico = agentes.find((a: any) => {
-              const nome = String(a?.nome || '').toLowerCase();
-              const temPri = nome.includes('pri');
-              const temPatternCorreto = agenteSearchPatterns.some(pattern => nome.includes(pattern));
-              return temPri && temPatternCorreto && normalizeTelefonePri(a?.telefone);
-            });
-
-            if (agenteEspecifico) {
-              telefonePri = normalizeTelefonePri(agenteEspecifico.telefone);
-              nomeAgente = agenteEspecifico.nome;
-              console.log(`✅ Agente ${isIALigacao ? 'Pri(Ligação)' : 'Pri - Whatsapp'} encontrado:`, agenteEspecifico.nome);
-            }
-
-            // Log defensivo para facilitar debug
-            if (!telefonePri) {
-              const nomeAgenteEsperado = isIALigacao ? 'Pri(Ligação)' : 'Pri - Whatsapp';
-              console.warn(`⚠️ Agente ${nomeAgenteEsperado} não encontrado para empresa`, activeCompany.id, {
-                tipoIA,
-                totalVinculos: (agentesVinculados || []).length,
-                totalAgentesAtivos: agentes.length,
-                agentesDisponiveis: agentes.map((a: any) => a?.nome),
-              });
-            }
-            
-            // Pegar event_id_pri da prospecção
-            const eventIdPri = prospeccaoData?.event_id_pri || '';
-            
-            console.log(`📤 Dados do Agente (${tipoIA}):`, { 
-              telefone_pri: telefonePri,
-              nome_agente: nomeAgente,
-              event_id_pri: eventIdPri,
-              dealer_id: empresaData?.crm_id,
-              total_leads: data.length
-            });
-
-            // Determinar webhook correto baseado no tipo de IA
-            const webhookUrl = isIALigacao 
-              ? 'https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one'
-              : 'https://automatemaiawh.sagadatadriven.com.br/webhook/recebe-leads-pri';
-            
-            // Função para enviar um lead individual
-            const enviarLeadPri = async (contato: typeof data[0]) => {
-              const payload = {
-                // Dados do lead
-                id: contato.id,
-                lead_id: contato.lead_id,
-                nome: contato.nome,
-                telefone: normalizePhone(contato.telefone),
-                email: contato.email || '',
-                status: contato.status || 'Novo',
-                origem: contato.origem || 'Importação',
-                
-                // Dados do evento/prospecção
+            // Chamar edge function com todos os leads de uma vez
+            const { data: webhookResult, error: webhookError } = await supabase.functions.invoke('dispatch-leads-webhook', {
+              body: {
+                leads: leadsParaEnvio,
                 prospeccao_id: prospeccaoId,
-                evento_nome: prospeccaoData?.titulo || '',
-                event_id_pri: eventIdPri,
-                data_inicio: prospeccaoData?.data_inicio || null,
-                data_fim: prospeccaoData?.data_fim || null,
-                canal: prospeccaoData?.canal || (isIALigacao ? 'Ligação' : 'Whatsapp'),
-                
-                // Dados do agente
-                telefone_pri: telefonePri,
-                pri_telefone: telefonePri, // Alias para compatibilidade
-                nome_agente: nomeAgente,
-                dealer_id: empresaData?.crm_id || '',
-                pri_dealer_id: empresaData?.crm_id || '', // Alias para compatibilidade
-                
-                // Dados da loja
                 empresa_id: activeCompany.id,
-                nome_empresa: empresaData?.nome_empresa || '',
-                uf: empresaData?.uf || '',
-                cidade: empresaData?.cidade || '',
-                
-                // Metadados
-                data_importacao: new Date().toISOString(),
-                tipo_importacao: 'planilha',
-                tipo_ia: tipoIA,
-                acao: 'criar' // Para o webhook de IA Ligação
-              };
-              
-              try {
-                const response = await fetch(webhookUrl, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(payload)
-                });
-                
-                if (!response.ok) {
-                  console.error(`❌ Erro ao enviar lead ${contato.nome} para ${tipoIA}:`, response.status);
+                prospeccao_data: {
+                  titulo: prospeccaoData?.titulo || '',
+                  canal: prospeccaoData?.canal || '',
+                  event_id_pri: prospeccaoData?.event_id_pri || null,
+                  data_inicio: prospeccaoData?.data_inicio || null,
+                  data_fim: prospeccaoData?.data_fim || null
                 }
-              } catch (err) {
-                console.error(`❌ Erro ao enviar lead ${contato.nome} para ${tipoIA}:`, err);
               }
-            };
-            
-            // Processar em batches de 20 para performance
-            const PRI_BATCH_SIZE = 20;
-            for (let i = 0; i < data.length; i += PRI_BATCH_SIZE) {
-              const batch = data.slice(i, i + PRI_BATCH_SIZE);
-              console.log(`📦 Enviando batch ${tipoIA} ${Math.floor(i / PRI_BATCH_SIZE) + 1}/${Math.ceil(data.length / PRI_BATCH_SIZE)} (${batch.length} leads)`);
-              
-              await Promise.all(batch.map(enviarLeadPri));
+            });
+
+            if (webhookError) {
+              console.error(`❌ Erro ao chamar dispatch-leads-webhook:`, webhookError);
+            } else {
+              console.log(`✅ Edge function retornou:`, webhookResult);
+              if (webhookResult?.estatisticas) {
+                console.log(`📊 Estatísticas: ${webhookResult.estatisticas.sucessos}/${webhookResult.estatisticas.total} enviados em ${webhookResult.estatisticas.tempo_ms}ms`);
+              }
             }
-            
-            console.log(`✅ Todos os leads enviados para ${tipoIA}`);
           } catch (priError) {
-            console.error(`❌ Erro ao chamar webhook ${isIALigacao ? 'IA Ligação' : 'recebe-leads-pri'}:`, priError);
+            console.error(`❌ Erro ao chamar edge function dispatch-leads-webhook:`, priError);
             // Não bloqueia o fluxo principal
           }
         }
