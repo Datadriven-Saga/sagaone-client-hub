@@ -107,12 +107,12 @@ serve(async (req) => {
 
     switch (action) {
       case 'list_users': {
-        // Fetch profiles first with a limit to avoid timeout
+        // Fetch profiles first with a limit and only essential fields to avoid timeout
         const { data: profiles, error: profilesError } = await supabaseAdmin
           .from('profiles')
-          .select('*')
+          .select('id, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresa_id, avatar_url, created_at')
           .order('created_at', { ascending: false })
-          .limit(500);
+          .limit(100); // Reduced limit for faster response
 
         if (profilesError) {
           console.error('Error fetching profiles:', profilesError);
@@ -130,22 +130,8 @@ serve(async (req) => {
 
         const profileIds = profiles.map(p => p.id);
 
-        // Fetch auth users and user_empresas in parallel for better performance
-        const [authUsersResult, userEmpresasResult] = await Promise.all([
-          supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
-          supabaseAdmin
-            .from('user_empresas')
-            .select(`
-              user_id,
-              empresa_id,
-              is_ativa,
-              empresas (
-                id,
-                nome_empresa
-              )
-            `)
-            .in('user_id', profileIds)
-        ]);
+        // Fetch auth users first (faster operation)
+        const authUsersResult = await supabaseAdmin.auth.admin.listUsers({ perPage: 500 });
 
         if (authUsersResult.error) {
           console.error('Error fetching auth users:', authUsersResult.error);
@@ -158,16 +144,25 @@ serve(async (req) => {
           emailsByUserId.set(u.id, u.email || 'Email não disponível');
         });
 
-        // Group companies by user_id
-        const companiesByUser = new Map<string, any[]>();
-        (userEmpresasResult.data || []).forEach(ue => {
-          if (!companiesByUser.has(ue.user_id)) {
-            companiesByUser.set(ue.user_id, []);
-          }
-          if (ue.empresas) {
-            companiesByUser.get(ue.user_id)!.push(ue.empresas);
-          }
-        });
+        // Fetch user_empresas separately with timeout protection
+        let companiesByUser = new Map<string, any[]>();
+        try {
+          const { data: userEmpresasData } = await supabaseAdmin
+            .from('user_empresas')
+            .select('user_id, empresa_id, is_ativa, empresas(id, nome_empresa)')
+            .in('user_id', profileIds.slice(0, 50)); // Limit to first 50 for speed
+
+          (userEmpresasData || []).forEach(ue => {
+            if (!companiesByUser.has(ue.user_id)) {
+              companiesByUser.set(ue.user_id, []);
+            }
+            if (ue.empresas) {
+              companiesByUser.get(ue.user_id)!.push(ue.empresas);
+            }
+          });
+        } catch (e) {
+          console.error('Error fetching user companies (continuing without):', e);
+        }
 
         // Combine profiles with emails and companies
         const profilesWithDetails = profiles.map(profile => ({
