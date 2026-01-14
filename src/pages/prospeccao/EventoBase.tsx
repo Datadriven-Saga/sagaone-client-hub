@@ -121,17 +121,21 @@ export default function EventoBase() {
       if (!eventoId || !activeCompany?.id) return;
 
       // Buscar todos os IDs de contatos vinculados ao evento com paginação
-      const PAGE_SIZE_IDS = 1000;
+      // Usando 500 por página para evitar limite de 1000 do Supabase
+      const PAGE_SIZE_IDS = 500;
       let allIds: string[] = [];
       let page = 0;
       let hasMore = true;
       
       while (hasMore) {
+        const from = page * PAGE_SIZE_IDS;
+        const to = from + PAGE_SIZE_IDS - 1;
+        
         const { data: eventosData, error: eventosError } = await supabase
           .from('eventos_prospeccao')
           .select('contato_id')
           .eq('prospeccao_id', eventoId)
-          .range(page * PAGE_SIZE_IDS, (page + 1) * PAGE_SIZE_IDS - 1);
+          .range(from, to);
 
         if (eventosError) {
           console.error('Erro ao buscar contatos:', eventosError);
@@ -141,8 +145,15 @@ export default function EventoBase() {
         const ids = (eventosData || []).map(e => e.contato_id).filter(Boolean) as string[];
         allIds = [...allIds, ...ids];
         
+        // Se retornou menos que o tamanho da página, não há mais dados
         hasMore = eventosData && eventosData.length === PAGE_SIZE_IDS;
         page++;
+        
+        // Limite de segurança para evitar loops infinitos
+        if (page > 100) {
+          console.warn('⚠️ Limite de páginas atingido (100)');
+          break;
+        }
       }
       
       console.log(`📊 Total de contatos no evento: ${allIds.length}`);
@@ -156,7 +167,7 @@ export default function EventoBase() {
 
       // Buscar métricas gerais (contagem por status e disparo)
       // Fazer em lotes para evitar limite de array
-      const BATCH_SIZE = 500;
+      const BATCH_SIZE = 200;
       let allContatos: { status: string | null; data_disparo_ia: string | null }[] = [];
       const uniqueStatuses = new Set<string>();
 
