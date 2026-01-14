@@ -262,53 +262,92 @@ export const useContatoData = () => {
     console.log('🚀 adicionarContatos chamada com:', { novosContatos: novosContatos.length, prospeccaoId });
 
     try {
-      // Buscar contatos existentes para verificar duplicados
-      const { data: contatosExistentes } = await supabase
-        .from('contatos')
-        .select('telefone, email')
-        .eq('empresa_id', activeCompany.id);
+      // Se tem prospeccaoId, verificar duplicados apenas para esta prospecção
+      // Caso contrário, verificar duplicados globais na empresa
+      let telefonesExistentes = new Set<string>();
+      let emailsExistentes = new Set<string>();
       
-      // Criar sets para comparação rápida
-      const telefonesExistentes = new Set(
-        (contatosExistentes || [])
-          .filter(c => c.telefone)
-          .map(c => normalizeTelefoneForComparison(c.telefone!))
-      );
-      const emailsExistentes = new Set(
-        (contatosExistentes || [])
-          .filter(c => c.email)
-          .map(c => c.email!.toLowerCase())
-      );
+      if (prospeccaoId) {
+        // Buscar contatos JÁ vinculados a esta prospecção específica via eventos_prospeccao
+        const { data: eventosProspeccao } = await supabase
+          .from('eventos_prospeccao')
+          .select('contato_id')
+          .eq('prospeccao_id', prospeccaoId);
+        
+        const contatoIdsNaProspeccao = (eventosProspeccao || []).map(e => e.contato_id).filter(Boolean);
+        
+        if (contatoIdsNaProspeccao.length > 0) {
+          // Buscar telefones dos contatos que já estão nesta prospecção
+          const { data: contatosNaProspeccao } = await supabase
+            .from('contatos')
+            .select('telefone, email')
+            .in('id', contatoIdsNaProspeccao);
+          
+          telefonesExistentes = new Set(
+            (contatosNaProspeccao || [])
+              .filter(c => c.telefone)
+              .map(c => normalizeTelefoneForComparison(c.telefone!))
+          );
+          emailsExistentes = new Set(
+            (contatosNaProspeccao || [])
+              .filter(c => c.email)
+              .map(c => c.email!.toLowerCase())
+          );
+        }
+        
+        console.log(`📊 Verificando duplicados para prospecção ${prospeccaoId}:`, {
+          contatosExistentes: contatoIdsNaProspeccao.length,
+          telefonesUnicos: telefonesExistentes.size
+        });
+      } else {
+        // Verificar duplicados globais na empresa (comportamento original)
+        const { data: contatosExistentes } = await supabase
+          .from('contatos')
+          .select('telefone, email')
+          .eq('empresa_id', activeCompany.id);
+        
+        telefonesExistentes = new Set(
+          (contatosExistentes || [])
+            .filter(c => c.telefone)
+            .map(c => normalizeTelefoneForComparison(c.telefone!))
+        );
+        emailsExistentes = new Set(
+          (contatosExistentes || [])
+            .filter(c => c.email)
+            .map(c => c.email!.toLowerCase())
+        );
+      }
       
-      // Filtrar contatos que já existem (por telefone ou email)
+      // Filtrar contatos que já existem (por telefone)
       const contatosUnicos: typeof novosContatos = [];
       const duplicados: string[] = [];
       
       for (const contato of novosContatos) {
         const telNormalizado = normalizeTelefoneForComparison(contato.telefone);
-        const emailNormalizado = contato.email?.toLowerCase();
         
+        // Verificar duplicado apenas por telefone para evitar múltiplos leads com mesmo número no mesmo evento
         const duplicadoPorTel = telefonesExistentes.has(telNormalizado);
-        const duplicadoPorEmail = emailNormalizado && emailsExistentes.has(emailNormalizado);
         
-        if (duplicadoPorTel || duplicadoPorEmail) {
+        if (duplicadoPorTel) {
           duplicados.push(contato.nome);
         } else {
           contatosUnicos.push(contato);
           // Adicionar aos sets para evitar duplicatas dentro do próprio lote
           telefonesExistentes.add(telNormalizado);
-          if (emailNormalizado) emailsExistentes.add(emailNormalizado);
         }
       }
       
       if (duplicados.length > 0) {
-        console.log('⚠️ Contatos duplicados ignorados:', duplicados.length);
+        console.log('⚠️ Contatos duplicados ignorados (mesmo telefone no evento):', duplicados.length, duplicados);
       }
       
       if (contatosUnicos.length === 0) {
+        const mensagemDuplicados = prospeccaoId 
+          ? `Todos os ${novosContatos.length} contatos já existem neste evento.`
+          : `Todos os ${novosContatos.length} contatos já existem no sistema.`;
         toast({ 
           title: "Atenção", 
-          description: `Todos os ${novosContatos.length} contatos já existem no sistema.`,
+          description: mensagemDuplicados,
           variant: "destructive"
         });
         return [];
@@ -575,8 +614,12 @@ export const useContatoData = () => {
       if (data) setContatos(prev => [...data, ...prev]);
       
       // Mensagem diferenciada se houve duplicados
+      const mensagemDuplicados = prospeccaoId 
+        ? `${duplicados.length} já existiam neste evento e foram ignorados.`
+        : `${duplicados.length} já existiam e foram ignorados.`;
+      
       const mensagem = duplicados.length > 0 
-        ? `${data?.length || 0} contatos adicionados. ${duplicados.length} já existiam e foram ignorados.`
+        ? `${data?.length || 0} contatos adicionados. ${mensagemDuplicados}`
         : `${data?.length || 0} contatos adicionados com sucesso`;
       
       toast({ 
