@@ -314,19 +314,19 @@ export default function Empresas() {
               </DialogHeader>
 
               <Form {...form}>
-                <Tabs defaultValue="dados" className="space-y-4">
-                  <TabsList className={`grid w-full ${isAdmin && editingEmpresa ? 'grid-cols-3' : 'grid-cols-1'}`}>
-                    <TabsTrigger value="dados">Dados da Empresa</TabsTrigger>
-                    {isAdmin && editingEmpresa && (
-                      <>
-                        <TabsTrigger value="modulos">Módulos</TabsTrigger>
-                        <TabsTrigger value="motivos">Motivos Não Participação</TabsTrigger>
-                      </>
-                    )}
-                  </TabsList>
+                <form onSubmit={form.handleSubmit(handleSubmit)}>
+                  <Tabs defaultValue="dados" className="space-y-4">
+                    <TabsList className={`grid w-full ${isAdmin && editingEmpresa ? 'grid-cols-3' : 'grid-cols-1'}`}>
+                      <TabsTrigger value="dados">Dados da Empresa</TabsTrigger>
+                      {isAdmin && editingEmpresa && (
+                        <>
+                          <TabsTrigger value="modulos">Módulos</TabsTrigger>
+                          <TabsTrigger value="motivos">Motivos Não Participação</TabsTrigger>
+                        </>
+                      )}
+                    </TabsList>
 
-                  <TabsContent value="dados" className="space-y-4">
-                    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                    <TabsContent value="dados" className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -501,20 +501,20 @@ export default function Empresas() {
                           {submitting ? "Salvando..." : editingEmpresa ? "Atualizar" : "Criar"}
                         </Button>
                       </div>
-                    </form>
-                  </TabsContent>
+                    </TabsContent>
 
-                  {isAdmin && editingEmpresa && (
-                    <>
-                      <TabsContent value="modulos">
-                        <EmpresaModulosTab empresaId={editingEmpresa.id} />
-                      </TabsContent>
-                      <TabsContent value="motivos">
-                        <EmpresaMotivosTab empresaId={editingEmpresa.id} />
-                      </TabsContent>
-                    </>
-                  )}
-                </Tabs>
+                    {isAdmin && editingEmpresa && (
+                      <>
+                        <TabsContent value="modulos">
+                          <EmpresaModulosTab empresaId={editingEmpresa.id} />
+                        </TabsContent>
+                        <TabsContent value="motivos">
+                          <EmpresaMotivosTab empresaId={editingEmpresa.id} />
+                        </TabsContent>
+                      </>
+                    )}
+                  </Tabs>
+                </form>
               </Form>
             </DialogContent>
           </Dialog>
