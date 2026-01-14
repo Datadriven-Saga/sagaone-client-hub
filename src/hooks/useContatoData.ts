@@ -266,30 +266,98 @@ export const useContatoData = () => {
       // Caso contrário, verificar duplicados globais na empresa
       let telefonesExistentes = new Set<string>();
       let emailsExistentes = new Set<string>();
+
+      // Helper para buscar todos os registros sem limite (paginação automática)
+      const fetchAllContatos = async (empresaId: string): Promise<{ telefone: string | null; email: string | null }[]> => {
+        const PAGE_SIZE = 1000;
+        let allData: { telefone: string | null; email: string | null }[] = [];
+        let page = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('contatos')
+            .select('telefone, email')
+            .eq('empresa_id', empresaId)
+            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+          
+          if (error) {
+            console.error('Erro na paginação:', error);
+            break;
+          }
+          
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            hasMore = data.length === PAGE_SIZE;
+            page++;
+          } else {
+            hasMore = false;
+          }
+        }
+        
+        return allData;
+      };
+
+      const fetchAllEventos = async (prospeccaoId: string): Promise<{ contato_id: string | null }[]> => {
+        const PAGE_SIZE = 1000;
+        let allData: { contato_id: string | null }[] = [];
+        let page = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('eventos_prospeccao')
+            .select('contato_id')
+            .eq('prospeccao_id', prospeccaoId)
+            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+          
+          if (error) {
+            console.error('Erro na paginação eventos:', error);
+            break;
+          }
+          
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            hasMore = data.length === PAGE_SIZE;
+            page++;
+          } else {
+            hasMore = false;
+          }
+        }
+        
+        return allData;
+      };
       
       if (prospeccaoId) {
         // Buscar contatos JÁ vinculados a esta prospecção específica via eventos_prospeccao
-        const { data: eventosProspeccao } = await supabase
-          .from('eventos_prospeccao')
-          .select('contato_id')
-          .eq('prospeccao_id', prospeccaoId);
+        const eventosProspeccao = await fetchAllEventos(prospeccaoId);
         
-        const contatoIdsNaProspeccao = (eventosProspeccao || []).map(e => e.contato_id).filter(Boolean);
+        const contatoIdsNaProspeccao = eventosProspeccao.map(e => e.contato_id).filter(Boolean) as string[];
         
         if (contatoIdsNaProspeccao.length > 0) {
-          // Buscar telefones dos contatos que já estão nesta prospecção
-          const { data: contatosNaProspeccao } = await supabase
-            .from('contatos')
-            .select('telefone, email')
-            .in('id', contatoIdsNaProspeccao);
+          // Buscar telefones em lotes (limite de IN é ~32000 itens, mas usamos 500 para segurança)
+          const IN_BATCH_SIZE = 500;
+          const contatosNaProspeccao: { telefone: string | null; email: string | null }[] = [];
+          
+          for (let i = 0; i < contatoIdsNaProspeccao.length; i += IN_BATCH_SIZE) {
+            const batchIds = contatoIdsNaProspeccao.slice(i, i + IN_BATCH_SIZE);
+            const { data: batchData } = await supabase
+              .from('contatos')
+              .select('telefone, email')
+              .in('id', batchIds);
+            
+            if (batchData) {
+              contatosNaProspeccao.push(...batchData);
+            }
+          }
           
           telefonesExistentes = new Set(
-            (contatosNaProspeccao || [])
+            contatosNaProspeccao
               .filter(c => c.telefone)
               .map(c => normalizeTelefoneForComparison(c.telefone!))
           );
           emailsExistentes = new Set(
-            (contatosNaProspeccao || [])
+            contatosNaProspeccao
               .filter(c => c.email)
               .map(c => c.email!.toLowerCase())
           );
@@ -300,19 +368,18 @@ export const useContatoData = () => {
           telefonesUnicos: telefonesExistentes.size
         });
       } else {
-        // Verificar duplicados globais na empresa (comportamento original)
-        const { data: contatosExistentes } = await supabase
-          .from('contatos')
-          .select('telefone, email')
-          .eq('empresa_id', activeCompany.id);
+        // Verificar duplicados globais na empresa - SEM LIMITE (paginação)
+        const contatosExistentes = await fetchAllContatos(activeCompany.id);
+        
+        console.log(`📊 Total de contatos existentes na empresa: ${contatosExistentes.length}`);
         
         telefonesExistentes = new Set(
-          (contatosExistentes || [])
+          contatosExistentes
             .filter(c => c.telefone)
             .map(c => normalizeTelefoneForComparison(c.telefone!))
         );
         emailsExistentes = new Set(
-          (contatosExistentes || [])
+          contatosExistentes
             .filter(c => c.email)
             .map(c => c.email!.toLowerCase())
         );
