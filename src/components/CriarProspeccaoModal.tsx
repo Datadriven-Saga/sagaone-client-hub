@@ -1483,7 +1483,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         // 1) crm_id da loja (OBRIGATÓRIO)
         const { data: empresaCrmData, error: empresaCrmError } = await supabase
           .from('empresas')
-          .select('crm_id, nome_empresa, uf, cidade, endereco')
+          .select('crm_id, nome_empresa, uf, cidade, endereco, marca')
           .eq('id', activeCompany.id)
           .single();
 
@@ -1604,21 +1604,19 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         const now = new Date().toISOString();
         const nomeEmpresa = empresaCrmData?.nome_empresa || '';
 
-        // PAYLOAD PADRONIZADO - SEMPRE ENVIAR NESTE FORMATO (ÚNICO ENVIO)
+        // ID do evento para usar nos contatos
+        const eventIdPri = prospeccaoData.event_id_pri || null;
+
+        // PAYLOAD PADRONIZADO - FORMATO SOLICITADO
         const webhookPayload = {
           evento: {
-            id: prospeccaoData.id,
-            event_id_pri: prospeccaoData.event_id_pri || null,
-            titulo: prospeccaoData.titulo,
+            id_evento: eventIdPri,
+            nome: prospeccaoData.titulo,
             descricao: prospeccaoData.descricao || '',
-            canal: prospeccaoData.canal || 'IA Ligação',
-            evento_principal: prospeccaoData.evento_principal ?? false,
-            qualificar_lead: prospeccaoData.qualificar_lead ?? true,
-            empresa_id: activeCompany.id,
-            nome_empresa: nomeEmpresa,
-            pri_telefone: priTelefoneLimpo,
-            pri_dealer_id: dealerIdFinal,
-            nome_agente: nomePri,
+            categoria: prospeccaoData.canal || 'Ligação',
+            marca: empresaCrmData?.marca || '',
+            dealerid: dealerIdFinal,
+            telefone_pri: priTelefoneLimpo,
             uf: eventoUF.trim() || empresaCrmData?.uf || '',
             cidade: eventoCidade.trim() || empresaCrmData?.cidade || '',
             endereco: eventoEndereco.trim() || empresaCrmData?.endereco || '',
@@ -1629,14 +1627,23 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
             atualizado_em: now,
           },
           contatos: contatosParaEnviarPadronizado.map((c) => ({
+            telefone_lead: c.telefone || '',
+            id_evento: eventIdPri,
             nome: c.nome || '',
-            telefone: c.telefone || '',
+            telefone_pri: priTelefoneLimpo,
             loja: nomeEmpresa,
           })),
           total_clientes: contatosParaEnviarPadronizado.length,
           total_contatos: contatosParaEnviarPadronizado.length,
           timestamp: now,
           acao: acao,
+          // Campos auxiliares para referência interna (não usados no payload principal)
+          _internal: {
+            prospeccao_id: prospeccaoData.id,
+            empresa_id: activeCompany.id,
+            nome_empresa: nomeEmpresa,
+            nome_agente: nomePri,
+          },
         };
 
         console.log(`📤 Enviando para webhook configura-eventos-saga-one (${acao}) - ÚNICO ENVIO:`, JSON.stringify(webhookPayload, null, 2));
