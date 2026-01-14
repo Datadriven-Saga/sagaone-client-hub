@@ -650,15 +650,16 @@ export default function Templates() {
         media_length: mediaData?.size || null,
       });
     } else if (savedData.formato === "video" && savedData.cardData?.videoUrl) {
-      const mediaData = await fetchMediaAsBase64(savedData.cardData.videoUrl);
+      // Para vídeos, NÃO converter para base64 (muito pesado, causa memory overflow)
+      // Apenas enviar a URL pública do vídeo
       components.push({
         type: "HEADER",
         format: "VIDEO",
         media_url: savedData.cardData.videoUrl,
-        media_base64: mediaData?.base64 || null,
-        media_mime_type: mediaData?.mimeType || null,
+        media_base64: null, // Vídeos são muito grandes para base64
+        media_mime_type: "video/mp4",
         media_type: "video",
-        media_length: mediaData?.size || null,
+        media_length: null,
       });
     }
 
