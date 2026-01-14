@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   console.log('🚀 Prospeccao component initiated');
   
   // ✅ TODOS OS HOOKS DEVEM VIR PRIMEIRO - ANTES DE QUALQUER LÓGICA
+  const navigate = useNavigate();
+  
   // === useState hooks ===
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1489,7 +1492,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                         <Button
                                           variant="outline"
                                           size="sm"
-                                          onClick={() => setEventoBaseModal({ isOpen: true, prospeccao })}
+                                          onClick={() => navigate(`/prospeccao/eventos/${prospeccao.id}/base`)}
                                           className="h-8 text-xs"
                                         >
                                           <Eye className="mr-1.5 h-3.5 w-3.5" />
@@ -1506,7 +1509,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                               <DropdownMenuItem 
-                                                onClick={() => setEventoBaseModal({ isOpen: true, prospeccao })}
+                                                onClick={() => navigate(`/prospeccao/eventos/${prospeccao.id}/base`)}
                                               >
                                                 <Eye className="mr-2 h-4 w-4" />
                                                 Ver Base Importada
