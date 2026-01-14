@@ -1067,26 +1067,55 @@ export const useContatoData = () => {
     return { sucesso, falha };
   };
 
-  // Excluir múltiplos contatos de uma vez
+  // Excluir múltiplos contatos de uma vez (otimizado para lotes)
   const excluirContatosEmMassa = async (contatoIds: string[]): Promise<{ sucesso: number; falha: number }> => {
+    if (contatoIds.length === 0) {
+      return { sucesso: 0, falha: 0 };
+    }
+
     let sucesso = 0;
     let falha = 0;
 
-    for (const id of contatoIds) {
+    // Processar em lotes de 100 para evitar timeout
+    const BATCH_SIZE = 100;
+    const batches: string[][] = [];
+    
+    for (let i = 0; i < contatoIds.length; i += BATCH_SIZE) {
+      batches.push(contatoIds.slice(i, i + BATCH_SIZE));
+    }
+
+    console.log(`🗑️ Excluindo ${contatoIds.length} contatos em ${batches.length} lotes`);
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
       try {
-        const { error } = await supabase.from('contatos').delete().eq('id', id);
-        if (error) throw error;
-        sucesso++;
+        console.log(`📦 Processando lote ${i + 1}/${batches.length} (${batch.length} contatos)`);
+        
+        // Usar .in() para deletar múltiplos registros de uma vez
+        const { error, count } = await supabase
+          .from('contatos')
+          .delete()
+          .in('id', batch);
+        
+        if (error) {
+          console.error(`❌ Erro no lote ${i + 1}:`, error);
+          falha += batch.length;
+        } else {
+          sucesso += batch.length;
+          console.log(`✅ Lote ${i + 1} concluído: ${batch.length} contatos excluídos`);
+        }
       } catch (error) {
-        falha++;
-        console.error('Erro ao excluir contato:', id, error);
+        console.error(`❌ Exceção no lote ${i + 1}:`, error);
+        falha += batch.length;
       }
     }
 
+    // Atualizar estado local removendo os contatos excluídos
     if (sucesso > 0) {
       setContatos(prev => prev.filter(c => !contatoIds.includes(c.id)));
     }
 
+    console.log(`🏁 Exclusão em massa concluída: ${sucesso} sucesso, ${falha} falha`);
     return { sucesso, falha };
   };
 
