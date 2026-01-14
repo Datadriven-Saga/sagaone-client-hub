@@ -427,23 +427,12 @@ serve(async (req) => {
         }
         // Para novo_template_whatsapp, enviar os dados diretamente no body
         else if (gatilho === 'novo_template_whatsapp' && dados) {
-          // Se for template de vídeo, o frontend envia somente a URL para não estourar o tamanho do invoke.
-          // Aqui tentamos buscar o vídeo e anexar base64 antes de disparar o webhook externo.
-          // IMPORTANTE: mesmo se falhar o enriquecimento, ainda assim disparamos o webhook (com media_url).
-          let dadosEnriquecidos: any = dados;
-          try {
-            dadosEnriquecidos = await enrichVideoBase64ForTemplateWebhook(dados);
-          } catch (err) {
-            console.error('⚠️ Falha ao enriquecer vídeo em base64. Disparando webhook apenas com URL:', err);
-            dadosEnriquecidos = {
-              ...dados,
-              video_base64_enrichment_error: err instanceof Error ? err.message : String(err),
-            };
-          }
-
+          // IMPORTANTE (vídeo): NÃO baixar/transformar vídeo em base64 aqui.
+          // Isso pode causar OOM/timeout no Edge Function e impedir o disparo do webhook.
+          // O webhook externo deve baixar o vídeo via media_url.
           webhookBody = {
             ...webhookBody,
-            ...dadosEnriquecidos // Espalha os dados diretamente no body
+            ...dados
           };
         }
         // Para outros gatilhos, incluir dados completos
