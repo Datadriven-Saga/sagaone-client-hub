@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -21,10 +22,12 @@ import {
   Music,
   Upload,
   Plus,
-  Trash2
+  Trash2,
+  Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useVideoCompression, MAX_VIDEO_SIZE_BYTES } from "@/hooks/useVideoCompression";
 
 type TemplateFormat = "texto" | "botao" | "imagem" | "audio" | "video" | "card";
 type TemplateCategory = "marketing" | "utilidade" | "autenticacao";
@@ -80,6 +83,9 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
   const [priTelefone, setPriTelefone] = useState<string | null>(null);
   const [agentesIAWhatsapp, setAgentesIAWhatsapp] = useState<{ id: string; nome: string; telefone: string | null }[]>([]);
   const [selectedAgenteId, setSelectedAgenteId] = useState<string | null>(null);
+  
+  // Video compression hook
+  const { compressVideo, isCompressing, compressionProgress, cancelCompression } = useVideoCompression();
 
   // Buscar todos os agentes ativos vinculados à empresa (via agente_empresas)
   useEffect(() => {
@@ -200,21 +206,35 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Limite de 12MB para vídeo
-    if (mediaType === 'video') {
-      const maxSizeBytes = 12 * 1024 * 1024; // 12MB
-      if (file.size > maxSizeBytes) {
-        const sizeInMB = (file.size / 1024 / 1024).toFixed(2);
+    let fileToUpload = file;
+    
+    // Compressão automática para vídeos maiores que 12MB
+    if (mediaType === 'video' && file.size > MAX_VIDEO_SIZE_BYTES) {
+      const sizeInMB = (file.size / 1024 / 1024).toFixed(2);
+      toast.info(
+        `O vídeo tem ${sizeInMB}MB. Iniciando compressão automática...`
+      );
+      
+      const compressedFile = await compressVideo(file);
+      
+      if (!compressedFile) {
         toast.error(
-          `O vídeo selecionado tem ${sizeInMB}MB e excede o limite de 12MB permitido. Por favor, faça o upload de um vídeo com até 12MB.`
+          'Não foi possível comprimir o vídeo para menos de 12MB. Tente um vídeo mais curto.'
         );
         e.target.value = "";
         return;
       }
+      
+      const compressedSizeMB = (compressedFile.size / 1024 / 1024).toFixed(2);
+      toast.success(
+        `Vídeo comprimido com sucesso! Novo tamanho: ${compressedSizeMB}MB`
+      );
+      
+      fileToUpload = compressedFile;
     }
     
-    setMediaFile(file);
-    const url = await uploadMediaToStorage(file, mediaType);
+    setMediaFile(fileToUpload);
+    const url = await uploadMediaToStorage(fileToUpload, mediaType);
     if (url) {
       setMediaUrl(url);
     }
@@ -653,12 +673,34 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
       case "video":
         const mediaType = formato === "imagem" ? "image" : formato as "audio" | "video";
         const accept = formato === "imagem" ? "image/*" : formato === "audio" ? "audio/*" : "video/*";
+        const isVideoFormat = formato === "video";
         return (
           <div className="space-y-3">
             <div className="space-y-2">
               <Label>{formato === "imagem" ? "Imagem" : formato === "audio" ? "Áudio" : "Vídeo"}</Label>
+              {isVideoFormat && (
+                <p className="text-xs text-muted-foreground">
+                  Vídeos maiores que 12MB serão comprimidos automaticamente
+                </p>
+              )}
               <div className="border-2 border-dashed rounded-lg p-4 text-center">
-                {mediaUrl ? (
+                {isCompressing && isVideoFormat ? (
+                  <div className="space-y-2">
+                    <Loader2 className="w-8 h-8 mx-auto text-primary animate-spin" />
+                    <p className="text-sm text-muted-foreground">
+                      {compressionProgress?.message || 'Comprimindo vídeo...'}
+                    </p>
+                    {compressionProgress && compressionProgress.stage === 'compressing' && (
+                      <div className="w-full max-w-xs mx-auto">
+                        <Progress value={compressionProgress.progress} className="h-2" />
+                        <span className="text-xs text-muted-foreground">{compressionProgress.progress}%</span>
+                      </div>
+                    )}
+                    <Button type="button" variant="outline" size="sm" onClick={cancelCompression}>
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : mediaUrl ? (
                   <div className="space-y-2">
                     <p className="text-sm text-muted-foreground">Arquivo carregado</p>
                     <Button type="button" variant="outline" size="sm" onClick={() => setMediaUrl("")}>
@@ -676,7 +718,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
                       accept={accept}
                       className="hidden"
                       onChange={(e) => handleMediaUpload(e, mediaType)}
-                      disabled={isUploading}
+                      disabled={isUploading || isCompressing}
                     />
                   </label>
                 )}
