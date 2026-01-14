@@ -1105,25 +1105,56 @@ export const useContatoData = () => {
     console.log(`🗑️ Excluindo ${contatoIds.length} contatos de uma vez`);
 
     try {
-      // Excluir TODOS de uma única vez usando .in()
       const { error } = await supabase
         .from('contatos')
         .delete()
         .in('id', contatoIds);
-      
+
       if (error) {
         console.error('❌ Erro ao excluir contatos:', error);
         return { sucesso: 0, falha: contatoIds.length };
       }
-      
-      // Atualizar estado local removendo os contatos excluídos
+
       setContatos(prev => prev.filter(c => !contatoIds.includes(c.id)));
-      
+
       console.log(`✅ ${contatoIds.length} contatos excluídos com sucesso`);
       return { sucesso: contatoIds.length, falha: 0 };
     } catch (error) {
       console.error('❌ Exceção ao excluir contatos:', error);
       return { sucesso: 0, falha: contatoIds.length };
+    }
+  };
+
+  // Excluir TODOS os contatos da empresa (1 query, sem lista de IDs)
+  const excluirTodosContatosDaEmpresa = async (): Promise<{ sucesso: number; falha: number }> => {
+    if (!activeCompany?.id) {
+      return { sucesso: 0, falha: 0 };
+    }
+
+    const total = contatos.length;
+    if (total === 0) {
+      return { sucesso: 0, falha: 0 };
+    }
+
+    console.log(`🧨 Excluindo TODOS os ${total} contatos da empresa ${activeCompany.id}`);
+
+    try {
+      const { error } = await supabase
+        .from('contatos')
+        .delete()
+        .eq('empresa_id', activeCompany.id);
+
+      if (error) {
+        console.error('❌ Erro ao excluir todos os contatos:', error);
+        return { sucesso: 0, falha: total };
+      }
+
+      setContatos([]);
+      console.log('✅ Todos os contatos foram excluídos');
+      return { sucesso: total, falha: 0 };
+    } catch (error) {
+      console.error('❌ Exceção ao excluir todos os contatos:', error);
+      return { sucesso: 0, falha: total };
     }
   };
 
@@ -1136,6 +1167,7 @@ export const useContatoData = () => {
     atualizarStatusContato,
     excluirContato,
     excluirContatosEmMassa,
+    excluirTodosContatosDaEmpresa,
     atribuirResponsavel,
     getMetricas,
     updateDateFilter,

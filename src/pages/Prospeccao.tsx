@@ -147,6 +147,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     atualizarStatusContato,
     excluirContato,
     excluirContatosEmMassa,
+    excluirTodosContatosDaEmpresa,
     atribuirResponsavel,
     getMetricas, 
     criarProspeccao,
@@ -1492,6 +1493,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                       }}
                       onDeleteContato={excluirContato}
                       onDeleteMultiplosContatos={excluirContatosEmMassa}
+                      onDeleteAllContatos={excluirTodosContatosDaEmpresa}
                       onReenviarGatilhos={reenviarGatilhos}
                       onUpdateContato={atualizarContato}
                     />
