@@ -1,9 +1,19 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { encodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024; // 100MB
+
+function uint8ToBase64(bytes: Uint8Array) {
+  // Evita stack overflow em arrays grandes
+  const CHUNK_SIZE = 0x8000; // 32KB
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, i + CHUNK_SIZE);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
 
 async function enrichVideoBase64ForTemplateWebhook(dados: any) {
   try {
@@ -45,7 +55,7 @@ async function enrichVideoBase64ForTemplateWebhook(dados: any) {
       }
 
       const bytes = new Uint8Array(arrayBuffer);
-      const base64 = encodeBase64(bytes);
+      const base64 = uint8ToBase64(bytes);
 
       comp.media_base64 = base64;
       comp.media_mime_type = comp.media_mime_type || res.headers.get("content-type") || "video/mp4";
@@ -418,8 +428,18 @@ serve(async (req) => {
         // Para novo_template_whatsapp, enviar os dados diretamente no body
         else if (gatilho === 'novo_template_whatsapp' && dados) {
           // Se for template de vídeo, o frontend envia somente a URL para não estourar o tamanho do invoke.
-          // Aqui no Edge Function buscamos o vídeo e anexamos base64 antes de disparar o webhook externo.
-          const dadosEnriquecidos = await enrichVideoBase64ForTemplateWebhook(dados);
+          // Aqui tentamos buscar o vídeo e anexar base64 antes de disparar o webhook externo.
+          // IMPORTANTE: mesmo se falhar o enriquecimento, ainda assim disparamos o webhook (com media_url).
+          let dadosEnriquecidos: any = dados;
+          try {
+            dadosEnriquecidos = await enrichVideoBase64ForTemplateWebhook(dados);
+          } catch (err) {
+            console.error('⚠️ Falha ao enriquecer vídeo em base64. Disparando webhook apenas com URL:', err);
+            dadosEnriquecidos = {
+              ...dados,
+              video_base64_enrichment_error: err instanceof Error ? err.message : String(err),
+            };
+          }
 
           webhookBody = {
             ...webhookBody,
