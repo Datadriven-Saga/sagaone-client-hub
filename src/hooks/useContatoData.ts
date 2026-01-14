@@ -1256,63 +1256,33 @@ export const useContatoData = () => {
     }
   };
 
-  // Contar contatos pendentes de disparo para uma prospecção
+  // Contar contatos pendentes de disparo para uma prospecção - OTIMIZADO usando função SQL
   const contarContatosPendentesDisparo = async (prospeccaoId: string): Promise<{ total: number; pendentes: number; disparados: number }> => {
     if (!activeCompany?.id) return { total: 0, pendentes: 0, disparados: 0 };
 
     try {
-      // Buscar TODOS os contatos vinculados à prospecção com paginação
-      // Supabase tem limite padrão de 1000 registros por query
-      const FETCH_BATCH_SIZE = 1000;
-      let allContatoIds: string[] = [];
-      let offset = 0;
-      let hasMore = true;
-      
-      while (hasMore) {
-        const { data: eventosContatos, error } = await supabase
-          .from('eventos_prospeccao')
-          .select('contato_id')
-          .eq('prospeccao_id', prospeccaoId)
-          .range(offset, offset + FETCH_BATCH_SIZE - 1);
-        
-        if (error) {
-          console.error('Erro ao buscar eventos_prospeccao:', error);
-          break;
-        }
-        
-        const batchIds = (eventosContatos || []).map(e => e.contato_id).filter(Boolean) as string[];
-        allContatoIds = [...allContatoIds, ...batchIds];
-        
-        if (!eventosContatos || eventosContatos.length < FETCH_BATCH_SIZE) {
-          hasMore = false;
-        } else {
-          offset += FETCH_BATCH_SIZE;
-        }
-      }
-      
-      console.log(`📊 Total de contatos na prospecção ${prospeccaoId}: ${allContatoIds.length}`);
-      
-      if (allContatoIds.length === 0) return { total: 0, pendentes: 0, disparados: 0 };
+      // Usar função SQL otimizada que faz contagem agregada no banco
+      const { data: metricasData, error } = await supabase
+        .rpc('get_prospeccao_metricas' as any, {
+          p_prospeccao_id: prospeccaoId,
+          p_empresa_id: activeCompany.id
+        });
 
-      // Contar quantos ainda não foram disparados - em lotes para evitar URL longa
-      const IN_BATCH_SIZE = 200;
-      let totalPendentes = 0;
-      
-      for (let i = 0; i < allContatoIds.length; i += IN_BATCH_SIZE) {
-        const batchIds = allContatoIds.slice(i, i + IN_BATCH_SIZE);
-        const { count } = await supabase
-          .from('contatos')
-          .select('id', { count: 'exact', head: true })
-          .in('id', batchIds)
-          .is('data_disparo_ia', null)
-          .eq('empresa_id', activeCompany.id);
-        
-        totalPendentes += count || 0;
+      if (error) {
+        console.error('Erro ao buscar métricas via RPC:', error);
+        return { total: 0, pendentes: 0, disparados: 0 };
       }
-      
-      const totalDisparados = allContatoIds.length - totalPendentes;
 
-      return { total: allContatoIds.length, pendentes: totalPendentes, disparados: totalDisparados };
+      if (metricasData && Array.isArray(metricasData) && metricasData.length > 0) {
+        const m = metricasData[0] as { total: number; pendentes: number; disparados: number; vendas: number };
+        return {
+          total: Number(m.total) || 0,
+          pendentes: Number(m.pendentes) || 0,
+          disparados: Number(m.disparados) || 0
+        };
+      }
+
+      return { total: 0, pendentes: 0, disparados: 0 };
     } catch (error) {
       console.error('Erro ao contar contatos pendentes:', error);
       return { total: 0, pendentes: 0, disparados: 0 };
