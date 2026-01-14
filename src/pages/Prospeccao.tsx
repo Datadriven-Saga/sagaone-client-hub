@@ -118,6 +118,11 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   });
   const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string; departamento?: string | null }[]>([]);
   
+  // Estado para guardar IDs de eventos de Ligação válidos do webhook externo
+  const [eventosLigacaoValidos, setEventosLigacaoValidos] = useState<Set<string>>(new Set());
+  const [loadingEventosLigacao, setLoadingEventosLigacao] = useState(false);
+  const [eventosLigacaoVerificados, setEventosLigacaoVerificados] = useState(false);
+  
   // Filtro global unificado para todas as abas
   const [globalFilters, setGlobalFilters] = useState<ProspeccaoGlobalFilters>({
     prospeccaoId: "todos",
@@ -205,6 +210,114 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     };
     fetchProfiles();
   }, [activeCompany?.id]);
+
+  // Buscar eventos de Ligação válidos do webhook externo
+  useEffect(() => {
+    const fetchEventosLigacaoValidos = async () => {
+      if (!activeCompany?.id) return;
+      
+      // Verificar se existem eventos de Ligação na lista
+      const eventosLigacao = prospeccoes.filter(p => 
+        String(p.canal).toLowerCase().includes('liga') || 
+        p.canal === 'Ligação'
+      );
+      
+      if (eventosLigacao.length === 0) {
+        setEventosLigacaoValidos(new Set());
+        setEventosLigacaoVerificados(true);
+        return;
+      }
+      
+      setLoadingEventosLigacao(true);
+      
+      try {
+        // Buscar agente Pri(Ligação) vinculado à empresa para pegar o telefone
+        const { data: agentesVinculados } = await supabase
+          .from('agente_empresas')
+          .select(`
+            agente_id,
+            agentes_ia (
+              id,
+              nome,
+              telefone,
+              ativo
+            )
+          `)
+          .eq('empresa_id', activeCompany.id);
+        
+        const agentes = (agentesVinculados || [])
+          .map((ae: any) => ae.agentes_ia)
+          .filter((a: any) => a && a.ativo);
+        
+        // Buscar agente Pri(Ligação)
+        const agenteSearchPatterns = ['ligação', 'ligacao', 'ligaçao'];
+        const agenteLigacao = agentes.find((a: any) => {
+          const nome = String(a?.nome || '').toLowerCase();
+          const temPri = nome.includes('pri');
+          const temLigacao = agenteSearchPatterns.some(pattern => nome.includes(pattern));
+          return temPri && temLigacao && a?.telefone;
+        });
+        
+        if (!agenteLigacao?.telefone) {
+          console.log('⚠️ Agente Pri(Ligação) não encontrado para verificar eventos');
+          // Se não tem agente, mostrar todos os eventos de ligação (fallback)
+          setEventosLigacaoValidos(new Set(eventosLigacao.map(e => e.id)));
+          setEventosLigacaoVerificados(true);
+          setLoadingEventosLigacao(false);
+          return;
+        }
+        
+        const telefonePri = String(agenteLigacao.telefone).replace(/\D/g, '');
+        
+        // Chamar o edge function para buscar eventos do webhook
+        const { data: webhookData, error: webhookError } = await supabase.functions.invoke('eventos-ligacao-proxy', {
+          body: {
+            action: 'listar',
+            agente_id: telefonePri,
+            telefone: telefonePri
+          }
+        });
+        
+        if (webhookError) {
+          console.error('❌ Erro ao buscar eventos de Ligação do webhook:', webhookError);
+          // Em caso de erro, mostrar todos os eventos de ligação (fallback)
+          setEventosLigacaoValidos(new Set(eventosLigacao.map(e => e.id)));
+        } else {
+          // Extrair IDs dos eventos retornados pelo webhook
+          const eventosWebhook = Array.isArray(webhookData) ? webhookData : (webhookData?.eventos || webhookData?.data || []);
+          
+          console.log('📋 Eventos de Ligação do webhook:', eventosWebhook);
+          
+          // O webhook retorna event_id_pri, então precisamos mapear para o ID da prospecção local
+          const eventIdPris = new Set(eventosWebhook.map((e: any) => String(e.id_evento || e.event_id || e.id)));
+          
+          // Filtrar prospecções que têm event_id_pri no webhook
+          const idsValidos = new Set<string>();
+          eventosLigacao.forEach(p => {
+            if (p.event_id_pri && eventIdPris.has(String(p.event_id_pri))) {
+              idsValidos.add(p.id);
+            }
+          });
+          
+          console.log('✅ Eventos de Ligação válidos:', idsValidos.size, 'de', eventosLigacao.length);
+          setEventosLigacaoValidos(idsValidos);
+        }
+      } catch (error) {
+        console.error('❌ Erro ao buscar eventos de Ligação:', error);
+        // Em caso de erro, mostrar todos os eventos de ligação (fallback)
+        const eventosLigacao = prospeccoes.filter(p => 
+          String(p.canal).toLowerCase().includes('liga') || 
+          p.canal === 'Ligação'
+        );
+        setEventosLigacaoValidos(new Set(eventosLigacao.map(e => e.id)));
+      } finally {
+        setLoadingEventosLigacao(false);
+        setEventosLigacaoVerificados(true);
+      }
+    };
+    
+    fetchEventosLigacaoValidos();
+  }, [activeCompany?.id, prospeccoes]);
 
   // Persistir aba ativa
   useEffect(() => {
@@ -484,6 +597,12 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   // Função de filtragem global para prospecções/eventos
   const filteredProspeccoes = useMemo(() => {
     return prospeccoes.filter(prospeccao => {
+      // Filtrar eventos de Ligação para mostrar apenas os que existem no webhook
+      const isLigacao = String(prospeccao.canal).toLowerCase().includes('liga') || prospeccao.canal === 'Ligação';
+      if (isLigacao && eventosLigacaoVerificados && !eventosLigacaoValidos.has(prospeccao.id)) {
+        return false;
+      }
+      
       if (globalFilters.prospeccaoId !== "todos" && prospeccao.id !== globalFilters.prospeccaoId) {
         return false;
       }
@@ -503,7 +622,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       }
       return true;
     });
-  }, [prospeccoes, globalFilters]);
+  }, [prospeccoes, globalFilters, eventosLigacaoValidos, eventosLigacaoVerificados]);
 
   // Função de filtragem global para visitas (recepção)
   const filteredVisitas = useMemo(() => {
