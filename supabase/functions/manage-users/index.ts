@@ -110,7 +110,7 @@ serve(async (req) => {
         // Fetch profiles first with a limit and only essential fields to avoid timeout
         const { data: profiles, error: profilesError } = await supabaseAdmin
           .from('profiles')
-          .select('id, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresa_id, avatar_url, created_at')
+          .select('id, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresa_id, created_at')
           .order('created_at', { ascending: false })
           .limit(100); // Reduced limit for faster response
 
