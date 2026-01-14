@@ -75,13 +75,16 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.type.includes('excel') || selectedFile.type.includes('spreadsheet') || selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls')) {
+      const isExcel = selectedFile.type.includes('excel') || selectedFile.type.includes('spreadsheet') || selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls');
+      const isCsv = selectedFile.type === 'text/csv' || selectedFile.name.endsWith('.csv');
+      
+      if (isExcel || isCsv) {
         setFile(selectedFile);
         processFile(selectedFile);
       } else {
         toast({
           title: "Formato inválido",
-          description: "Por favor, selecione um arquivo Excel (.xlsx ou .xls)",
+          description: "Por favor, selecione um arquivo Excel (.xlsx, .xls) ou CSV (.csv)",
           variant: "destructive",
         });
       }
@@ -229,7 +232,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       setIsProcessing(false);
       toast({
         title: "Erro ao processar arquivo",
-        description: "Verifique se o arquivo está no formato correto (Excel .xlsx ou .xls)",
+        description: "Verifique se o arquivo está no formato correto (.csv, .xlsx ou .xls)",
         variant: "destructive",
       });
     }
@@ -346,7 +349,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
                   <p className="font-medium text-blue-800 mb-1">Formato da planilha:</p>
                   <p className="text-blue-700">
                     • Colunas: Nome*, Telefone*, E-mail, CPF, Segmentação, Responsável (* = obrigatório)<br/>
-                    • Formato: Excel (.xlsx ou .xls)<br/>
+                    • Formato: CSV (.csv) ou Excel (.xlsx, .xls)<br/>
                     • Primeira linha deve conter os cabeçalhos<br/>
                     • Responsável deve ser o e-mail do responsável
                   </p>
@@ -359,7 +362,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
               <Input
                 ref={fileInputRef}
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx,.xls,.csv"
                 onChange={handleFileSelect}
                 className="hidden"
                 id="file-upload"
