@@ -69,6 +69,8 @@ interface CardData {
   audioPreviewUrl: string;
   videoCampanha: File | null;
   videoPreviewUrl: string;
+  videoMimeType?: string;
+  videoSizeBytes?: number;
   textoCabecalho: string;
   corpoTexto: string;
   rodape: string;
@@ -184,6 +186,8 @@ export default function Templates() {
     audioPreviewUrl: "",
     videoCampanha: null,
     videoPreviewUrl: "",
+    videoMimeType: undefined,
+    videoSizeBytes: undefined,
     textoCabecalho: "",
     corpoTexto: "",
     rodape: "",
@@ -651,15 +655,15 @@ export default function Templates() {
       });
     } else if (savedData.formato === "video" && savedData.cardData?.videoUrl) {
       // Para vídeos, NÃO enviar base64 no payload do invoke (fica grande demais e pode falhar antes de chamar o webhook).
-      // O base64 será gerado no Edge Function (trigger-webhook) e repassado ao webhook externo.
+      // Enviamos apenas a URL + metadados; o webhook externo deve baixar o vídeo via media_url.
       components.push({
         type: "HEADER",
         format: "VIDEO",
         media_url: savedData.cardData.videoUrl,
         media_base64: null,
-        media_mime_type: "video/mp4",
+        media_mime_type: savedData.cardData.videoMimeType || "video/mp4",
         media_type: "video",
-        media_length: null,
+        media_length: savedData.cardData.videoSizeBytes || null,
       });
     }
 
@@ -875,6 +879,8 @@ export default function Templates() {
           conteudo = formData.cardData.corpoTexto;
           cardData = {
             videoUrl: formData.cardData.videoPreviewUrl,
+            videoMimeType: formData.cardData.videoMimeType || formData.cardData.videoCampanha?.type || null,
+            videoSizeBytes: formData.cardData.videoSizeBytes || formData.cardData.videoCampanha?.size || null,
           };
           break;
 
@@ -1879,6 +1885,8 @@ export default function Templates() {
               ...prev.cardData,
               videoCampanha: file,
               videoPreviewUrl: publicUrl,
+              videoMimeType: file.type || "video/mp4",
+              videoSizeBytes: file.size,
             }
           }));
         }
@@ -1891,6 +1899,8 @@ export default function Templates() {
             ...prev.cardData,
             videoCampanha: null,
             videoPreviewUrl: "",
+            videoMimeType: undefined,
+            videoSizeBytes: undefined,
           }
         }));
       };
