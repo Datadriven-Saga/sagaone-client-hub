@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   Table, 
   TableBody, 
@@ -50,13 +52,14 @@ interface AgenteEventosProps {
 
 export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) {
   const { toast } = useToast();
-  const { isAdminOrTI, canCreateEventos } = useUserAccessType();
+  const { isAdminOrTI } = useUserAccessType();
   
   const [loading, setLoading] = useState(false);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [changingStatus, setChangingStatus] = useState<string | null>(null);
   const [deletingEvento, setDeletingEvento] = useState<string | null>(null);
   const [eventoToDelete, setEventoToDelete] = useState<Evento | null>(null);
+  const [confirmationName, setConfirmationName] = useState("");
 
   const carregarEventos = async () => {
     try {
@@ -156,6 +159,7 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
       // Remover da lista local
       setEventos(prev => prev.filter(e => e.id_evento !== evento.id_evento));
       setEventoToDelete(null);
+      setConfirmationName("");
     } catch (error) {
       console.error('Erro ao excluir evento:', error);
       toast({
@@ -222,7 +226,7 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
                   <TableHead>ID</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-center">Ativo/Inativo</TableHead>
-                  {canCreateEventos && (
+                  {isAdminOrTI && (
                     <TableHead className="text-right">Ações</TableHead>
                   )}
                 </TableRow>
@@ -254,13 +258,16 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
                         disabled={changingStatus === evento.id_evento}
                       />
                     </TableCell>
-                    {canCreateEventos && (
+                    {isAdminOrTI && (
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => setEventoToDelete(evento)}
+                          onClick={() => {
+                            setEventoToDelete(evento);
+                            setConfirmationName("");
+                          }}
                           disabled={deletingEvento === evento.id_evento}
                         >
                           {deletingEvento === evento.id_evento ? (
@@ -278,26 +285,57 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
           </div>
         )}
 
-        {/* Diálogo de confirmação para exclusão */}
-        <AlertDialog open={!!eventoToDelete} onOpenChange={() => setEventoToDelete(null)}>
+        {/* Diálogo de confirmação para exclusão com digitação do nome */}
+        <AlertDialog open={!!eventoToDelete} onOpenChange={(open) => {
+          if (!open) {
+            setEventoToDelete(null);
+            setConfirmationName("");
+          }
+        }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-destructive" />
                 Confirmar Exclusão
               </AlertDialogTitle>
-              <AlertDialogDescription>
-                Tem certeza que deseja excluir o evento{' '}
-                <strong>"{eventoToDelete?.nome || eventoToDelete?.nome_evento || eventoToDelete?.titulo || eventoToDelete?.id_evento}"</strong>?
-                <br /><br />
-                Esta ação não pode ser desfeita.
+              <AlertDialogDescription asChild>
+                <div className="space-y-4">
+                  <p>
+                    Tem certeza que deseja excluir o evento{' '}
+                    <strong>"{eventoToDelete?.nome || eventoToDelete?.nome_evento || eventoToDelete?.titulo || eventoToDelete?.id_evento}"</strong>?
+                  </p>
+                  <p className="text-destructive font-medium">
+                    Esta ação não pode ser desfeita.
+                  </p>
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="confirmName" className="text-sm font-medium text-foreground">
+                      Para confirmar, digite o nome do evento abaixo:
+                    </Label>
+                    <Input
+                      id="confirmName"
+                      value={confirmationName}
+                      onChange={(e) => setConfirmationName(e.target.value)}
+                      placeholder={eventoToDelete?.nome || eventoToDelete?.nome_evento || eventoToDelete?.titulo || ""}
+                      className="mt-1"
+                      autoComplete="off"
+                    />
+                    {confirmationName && confirmationName !== (eventoToDelete?.nome || eventoToDelete?.nome_evento || eventoToDelete?.titulo || "") && (
+                      <p className="text-xs text-destructive">
+                        O nome digitado não corresponde ao evento
+                      </p>
+                    )}
+                  </div>
+                </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={!!deletingEvento}>Cancelar</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => eventoToDelete && handleDeleteEvento(eventoToDelete)}
-                disabled={!!deletingEvento}
+                disabled={
+                  !!deletingEvento || 
+                  confirmationName !== (eventoToDelete?.nome || eventoToDelete?.nome_evento || eventoToDelete?.titulo || "")
+                }
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {deletingEvento ? (
