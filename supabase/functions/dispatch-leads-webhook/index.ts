@@ -333,6 +333,36 @@ serve(async (req) => {
       });
     }
 
+    // ATUALIZAR data_disparo_ia para os leads que foram enviados com sucesso
+    const leadsComSucesso = resultados.filter(r => r.success).map(r => r.lead_id);
+    const dataDisparoIA = new Date().toISOString();
+    
+    if (leadsComSucesso.length > 0) {
+      console.log(`\n📝 [${requestId}] Atualizando data_disparo_ia para ${leadsComSucesso.length} leads...`);
+      
+      // Atualizar em batches de 200 para evitar URLs muito longas
+      const UPDATE_BATCH_SIZE = 200;
+      let totalAtualizados = 0;
+      
+      for (let i = 0; i < leadsComSucesso.length; i += UPDATE_BATCH_SIZE) {
+        const batchIds = leadsComSucesso.slice(i, i + UPDATE_BATCH_SIZE);
+        
+        const { error: updateError, count } = await supabase
+          .from('contatos')
+          .update({ data_disparo_ia: dataDisparoIA })
+          .in('id', batchIds);
+        
+        if (updateError) {
+          console.error(`   ❌ [${requestId}] Erro ao atualizar batch ${Math.floor(i/UPDATE_BATCH_SIZE) + 1}:`, updateError);
+        } else {
+          totalAtualizados += batchIds.length;
+          console.log(`   ✅ [${requestId}] Batch ${Math.floor(i/UPDATE_BATCH_SIZE) + 1}: ${batchIds.length} leads atualizados`);
+        }
+      }
+      
+      console.log(`   📊 [${requestId}] Total de leads com data_disparo_ia atualizado: ${totalAtualizados}`);
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true,
