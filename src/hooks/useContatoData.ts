@@ -506,36 +506,14 @@ export const useContatoData = () => {
         
         console.log('📊 Dados da prospecção para webhook:', prospeccaoData);
         
-        // Processar em lotes paralelos para maior velocidade
-        const BATCH_SIZE = 20; // Processa 20 contatos por vez em paralelo
-        
-        const processarContato = async (contato: typeof data[0]) => {
-          try {
-            // Webhook de prospecção (existente) - inclui lead_id e empresa_id
-            const webhookResponse = await supabase.functions.invoke('trigger-webhook', {
-              body: {
-                gatilho: 'novo_contato_prospeccao',
-                dados: {
-                  contato_id: contato.id,
-                  lead_id: contato.lead_id,
-                  prospeccao_id: prospeccaoId,
-                  empresa_id: activeCompany.id, // IMPORTANTE: empresa_id para filtrar gatilhos
-                  nome: contato.nome,
-                  telefone: normalizePhone(contato.telefone),
-                  email: contato.email,
-                  status: contato.status || 'Novo',
-                  prospeccao: {
-                    id: prospeccaoData?.id,
-                    nome: prospeccaoData?.titulo,
-                    data_inicio: prospeccaoData?.data_inicio,
-                    data_fim: prospeccaoData?.data_fim
-                  }
-                }
-              }
-            });
-            
-            // Webhook de status para atendimento - APENAS para campanhas WhatsApp
-            if (prospeccaoData?.canal === 'Whatsapp') {
+        // Processar webhook de status para atendimento - APENAS para campanhas WhatsApp
+        if (prospeccaoData?.canal === 'Whatsapp') {
+          console.log('📤 Disparando webhooks de status para campanhas WhatsApp...');
+          
+          const BATCH_SIZE = 20;
+          
+          const processarContatoStatus = async (contato: typeof data[0]) => {
+            try {
               await supabase.functions.invoke('atendimento-status-webhook', {
                 body: {
                   telefone_lead: normalizePhone(contato.telefone),
@@ -546,24 +524,21 @@ export const useContatoData = () => {
                   prospeccao_id: prospeccaoId
                 }
               });
+              return { success: true, id: contato.id };
+            } catch (webhookError) {
+              console.error('Erro ao disparar webhook de status para contato:', contato.id, webhookError);
+              return { success: false, id: contato.id };
             }
-            
-            return { success: true, id: contato.id };
-          } catch (webhookError) {
-            console.error('Erro ao disparar webhook para contato:', contato.id, webhookError);
-            return { success: false, id: contato.id };
-          }
-        };
-        
-        // Processar em batches paralelos
-        for (let i = 0; i < data.length; i += BATCH_SIZE) {
-          const batch = data.slice(i, i + BATCH_SIZE);
-          console.log(`📦 Processando batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(data.length / BATCH_SIZE)} (${batch.length} contatos)`);
+          };
           
-          await Promise.all(batch.map(processarContato));
+          for (let i = 0; i < data.length; i += BATCH_SIZE) {
+            const batch = data.slice(i, i + BATCH_SIZE);
+            console.log(`📦 Processando batch status ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(data.length / BATCH_SIZE)} (${batch.length} contatos)`);
+            await Promise.all(batch.map(processarContatoStatus));
+          }
+          
+          console.log('✅ Webhooks de status disparados');
         }
-        
-        console.log('✅ Todos os webhooks individuais disparados');
         
         // Determinar se é IA Whatsapp ou IA Ligação para escolher agente e webhook corretos
         const canalStr = String(prospeccaoData?.canal || '').toLowerCase();
