@@ -504,93 +504,10 @@ export const useContatoData = () => {
           .eq('id', prospeccaoId)
           .single();
         
-        console.log('📊 Dados da prospecção para webhook:', prospeccaoData);
+        console.log('📊 Dados da prospecção:', prospeccaoData);
+        console.log('✅ Contatos importados. Disparo para IA será feito manualmente via botão "Disparar para IA".');
         
-        // Processar webhook de status para atendimento - APENAS para campanhas WhatsApp
-        if (prospeccaoData?.canal === 'Whatsapp') {
-          console.log('📤 Disparando webhooks de status para campanhas WhatsApp...');
-          
-          const BATCH_SIZE = 20;
-          
-          const processarContatoStatus = async (contato: typeof data[0]) => {
-            try {
-              await supabase.functions.invoke('atendimento-status-webhook', {
-                body: {
-                  telefone_lead: normalizePhone(contato.telefone),
-                  status: contato.status || 'Novo',
-                  empresa_id: activeCompany.id,
-                  evento: 'criacao',
-                  leadId: contato.lead_id,
-                  prospeccao_id: prospeccaoId
-                }
-              });
-              return { success: true, id: contato.id };
-            } catch (webhookError) {
-              console.error('Erro ao disparar webhook de status para contato:', contato.id, webhookError);
-              return { success: false, id: contato.id };
-            }
-          };
-          
-          for (let i = 0; i < data.length; i += BATCH_SIZE) {
-            const batch = data.slice(i, i + BATCH_SIZE);
-            console.log(`📦 Processando batch status ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(data.length / BATCH_SIZE)} (${batch.length} contatos)`);
-            await Promise.all(batch.map(processarContatoStatus));
-          }
-          
-          console.log('✅ Webhooks de status disparados');
-        }
-        
-        // Determinar se é IA Whatsapp ou IA Ligação para escolher agente e webhook corretos
-        const canalStr = String(prospeccaoData?.canal || '').toLowerCase();
-        const isIAWhatsapp = canalStr === 'whatsapp';
-        const isIALigacao = canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
-        
-        // WEBHOOK VIA EDGE FUNCTION - Para IA Whatsapp e IA Ligação
-        if (isIAWhatsapp || isIALigacao) {
-          const tipoIA = isIALigacao ? 'IA Ligação' : 'IA Whatsapp';
-          console.log(`📤 Enviando ${data.length} leads para edge function dispatch-leads-webhook (${tipoIA})...`);
-          
-          try {
-            // Preparar leads para envio
-            const leadsParaEnvio = data.map(contato => ({
-              id: contato.id,
-              lead_id: contato.lead_id,
-              nome: contato.nome,
-              telefone: contato.telefone,
-              email: contato.email,
-              status: contato.status,
-              origem: contato.origem
-            }));
-
-            // Chamar edge function com todos os leads de uma vez
-            const { data: webhookResult, error: webhookError } = await supabase.functions.invoke('dispatch-leads-webhook', {
-              body: {
-                leads: leadsParaEnvio,
-                prospeccao_id: prospeccaoId,
-                empresa_id: activeCompany.id,
-                prospeccao_data: {
-                  titulo: prospeccaoData?.titulo || '',
-                  canal: prospeccaoData?.canal || '',
-                  event_id_pri: prospeccaoData?.event_id_pri || null,
-                  data_inicio: prospeccaoData?.data_inicio || null,
-                  data_fim: prospeccaoData?.data_fim || null
-                }
-              }
-            });
-
-            if (webhookError) {
-              console.error(`❌ Erro ao chamar dispatch-leads-webhook:`, webhookError);
-            } else {
-              console.log(`✅ Edge function retornou:`, webhookResult);
-              if (webhookResult?.estatisticas) {
-                console.log(`📊 Estatísticas: ${webhookResult.estatisticas.sucessos}/${webhookResult.estatisticas.total} enviados em ${webhookResult.estatisticas.tempo_ms}ms`);
-              }
-            }
-          } catch (priError) {
-            console.error(`❌ Erro ao chamar edge function dispatch-leads-webhook:`, priError);
-            // Não bloqueia o fluxo principal
-          }
-        }
+        // NÃO dispara webhooks automaticamente - isso será feito manualmente pelo botão "Disparar para IA"
       }
       // Leads sem prospecção NÃO disparam webhook de status
       
@@ -1141,6 +1058,177 @@ export const useContatoData = () => {
     }
   };
 
+  // Disparar contatos para IA (apenas os que ainda não foram disparados)
+  const dispararParaIA = async (prospeccaoId: string): Promise<{ total: number; disparados: number; jaDisparados: number }> => {
+    if (!activeCompany?.id) {
+      toast({ title: "Erro", description: "Nenhuma empresa ativa", variant: "destructive" });
+      return { total: 0, disparados: 0, jaDisparados: 0 };
+    }
+
+    try {
+      console.log('🚀 Iniciando disparo para IA - Prospecção:', prospeccaoId);
+      
+      // Buscar dados da prospecção
+      const { data: prospeccaoData, error: prospeccaoError } = await supabase
+        .from('prospeccoes')
+        .select('id, titulo, data_inicio, data_fim, canal, event_id_pri')
+        .eq('id', prospeccaoId)
+        .single();
+      
+      if (prospeccaoError || !prospeccaoData) {
+        toast({ title: "Erro", description: "Prospecção não encontrada", variant: "destructive" });
+        return { total: 0, disparados: 0, jaDisparados: 0 };
+      }
+
+      // Verificar se é IA Whatsapp ou IA Ligação
+      const canalStr = String(prospeccaoData.canal || '').toLowerCase();
+      const isIAWhatsapp = canalStr === 'whatsapp';
+      const isIALigacao = canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
+      
+      if (!isIAWhatsapp && !isIALigacao) {
+        toast({ 
+          title: "Atenção", 
+          description: `Esta prospecção é do tipo "${prospeccaoData.canal}" e não requer disparo para IA.`,
+          variant: "destructive" 
+        });
+        return { total: 0, disparados: 0, jaDisparados: 0 };
+      }
+
+      // Buscar contatos vinculados à prospecção que ainda não foram disparados
+      const { data: eventosContatos, error: eventosError } = await supabase
+        .from('eventos_prospeccao')
+        .select('contato_id')
+        .eq('prospeccao_id', prospeccaoId);
+      
+      if (eventosError) {
+        console.error('Erro ao buscar eventos:', eventosError);
+        toast({ title: "Erro", description: "Erro ao buscar contatos da prospecção", variant: "destructive" });
+        return { total: 0, disparados: 0, jaDisparados: 0 };
+      }
+
+      const contatoIds = (eventosContatos || []).map(e => e.contato_id).filter(Boolean);
+      
+      if (contatoIds.length === 0) {
+        toast({ title: "Atenção", description: "Nenhum contato encontrado nesta prospecção", variant: "destructive" });
+        return { total: 0, disparados: 0, jaDisparados: 0 };
+      }
+
+      // Buscar contatos que ainda não foram disparados (data_disparo_ia IS NULL)
+      const { data: contatosNaoDisparados, error: contatosError } = await supabase
+        .from('contatos')
+        .select('id, lead_id, nome, telefone, email, status, origem')
+        .in('id', contatoIds)
+        .is('data_disparo_ia', null)
+        .eq('empresa_id', activeCompany.id);
+      
+      if (contatosError) {
+        console.error('Erro ao buscar contatos:', contatosError);
+        toast({ title: "Erro", description: "Erro ao buscar contatos", variant: "destructive" });
+        return { total: 0, disparados: 0, jaDisparados: 0 };
+      }
+
+      const jaDisparados = contatoIds.length - (contatosNaoDisparados?.length || 0);
+      
+      if (!contatosNaoDisparados || contatosNaoDisparados.length === 0) {
+        toast({ 
+          title: "Atenção", 
+          description: `Todos os ${contatoIds.length} contatos já foram disparados anteriormente.` 
+        });
+        return { total: contatoIds.length, disparados: 0, jaDisparados };
+      }
+
+      console.log(`📤 Disparando ${contatosNaoDisparados.length} contatos para IA (${jaDisparados} já foram disparados antes)`);
+
+      // Chamar edge function com todos os leads de uma vez
+      const { data: webhookResult, error: webhookError } = await supabase.functions.invoke('dispatch-leads-webhook', {
+        body: {
+          leads: contatosNaoDisparados.map(c => ({
+            id: c.id,
+            lead_id: c.lead_id,
+            nome: c.nome,
+            telefone: c.telefone,
+            email: c.email,
+            status: c.status,
+            origem: c.origem
+          })),
+          prospeccao_id: prospeccaoId,
+          empresa_id: activeCompany.id,
+          prospeccao_data: {
+            titulo: prospeccaoData.titulo,
+            canal: prospeccaoData.canal,
+            event_id_pri: prospeccaoData.event_id_pri,
+            data_inicio: prospeccaoData.data_inicio,
+            data_fim: prospeccaoData.data_fim
+          }
+        }
+      });
+
+      if (webhookError) {
+        console.error('❌ Erro ao chamar dispatch-leads-webhook:', webhookError);
+        toast({ title: "Erro", description: "Erro ao disparar para IA: " + webhookError.message, variant: "destructive" });
+        return { total: contatoIds.length, disparados: 0, jaDisparados };
+      }
+
+      console.log('✅ Edge function retornou:', webhookResult);
+
+      // Marcar contatos como disparados
+      const contatoIdsDisparados = contatosNaoDisparados.map(c => c.id);
+      const { error: updateError } = await supabase
+        .from('contatos')
+        .update({ data_disparo_ia: new Date().toISOString() })
+        .in('id', contatoIdsDisparados);
+
+      if (updateError) {
+        console.error('Erro ao marcar contatos como disparados:', updateError);
+      }
+
+      const tipoIA = isIALigacao ? 'IA Ligação' : 'IA Whatsapp';
+      toast({ 
+        title: "Sucesso", 
+        description: `${contatosNaoDisparados.length} contatos enviados para ${tipoIA}. ${jaDisparados > 0 ? `(${jaDisparados} já haviam sido enviados antes)` : ''}` 
+      });
+
+      return { total: contatoIds.length, disparados: contatosNaoDisparados.length, jaDisparados };
+    } catch (error) {
+      console.error('❌ Erro ao disparar para IA:', error);
+      toast({ title: "Erro", description: "Erro ao disparar para IA: " + (error as Error).message, variant: "destructive" });
+      return { total: 0, disparados: 0, jaDisparados: 0 };
+    }
+  };
+
+  // Contar contatos pendentes de disparo para uma prospecção
+  const contarContatosPendentesDisparo = async (prospeccaoId: string): Promise<{ total: number; pendentes: number; disparados: number }> => {
+    if (!activeCompany?.id) return { total: 0, pendentes: 0, disparados: 0 };
+
+    try {
+      // Buscar contatos vinculados à prospecção
+      const { data: eventosContatos } = await supabase
+        .from('eventos_prospeccao')
+        .select('contato_id')
+        .eq('prospeccao_id', prospeccaoId);
+      
+      const contatoIds = (eventosContatos || []).map(e => e.contato_id).filter(Boolean);
+      
+      if (contatoIds.length === 0) return { total: 0, pendentes: 0, disparados: 0 };
+
+      // Contar quantos ainda não foram disparados
+      const { count: pendentes } = await supabase
+        .from('contatos')
+        .select('id', { count: 'exact', head: true })
+        .in('id', contatoIds)
+        .is('data_disparo_ia', null)
+        .eq('empresa_id', activeCompany.id);
+      
+      const totalPendentes = pendentes || 0;
+      const totalDisparados = contatoIds.length - totalPendentes;
+
+      return { total: contatoIds.length, pendentes: totalPendentes, disparados: totalDisparados };
+    } catch (error) {
+      console.error('Erro ao contar contatos pendentes:', error);
+      return { total: 0, pendentes: 0, disparados: 0 };
+    }
+  };
+
   return {
     contatos,
     prospeccoes,
@@ -1158,6 +1246,8 @@ export const useContatoData = () => {
     editarProspeccao,
     excluirProspeccao,
     reenviarGatilhos,
+    dispararParaIA,
+    contarContatosPendentesDisparo,
     refetch: () => {
       fetchProspeccoes();
       fetchContatos();

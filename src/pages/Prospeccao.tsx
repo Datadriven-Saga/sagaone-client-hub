@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, ScanLine } from "lucide-react";
+import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, ScanLine, Send, Loader2 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProspeccaoGlobalFilter, ProspeccaoGlobalFilters } from "@/components/ProspeccaoGlobalFilter";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
@@ -154,8 +154,14 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     editarProspeccao,
     excluirProspeccao,
     reenviarGatilhos,
+    dispararParaIA,
+    contarContatosPendentesDisparo,
     refetch
   } = useContatoData();
+  
+  // Estado para controle de disparo para IA
+  const [disparandoIA, setDisparandoIA] = useState<string | null>(null);
+  const [contagemPendentes, setContagemPendentes] = useState<Record<string, { total: number; pendentes: number; disparados: number }>>({});
   
   const { vendas, criarVenda, refetch: refetchVendas } = useVendasProspeccao();
   
@@ -1180,10 +1186,54 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         description: mensagemErro,
         variant: "destructive"
       });
-    } finally {
-      setIsDeleting(false);
     }
   };
+
+  // Handler para disparar leads para IA
+  const handleDispararParaIA = async (prospeccaoId: string, canal: string) => {
+    const canalStr = String(canal).toLowerCase();
+    const isIA = canalStr === 'whatsapp' || canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
+    
+    if (!isIA) {
+      toast({
+        title: "Atenção",
+        description: "Este evento não é do tipo IA Whatsapp ou IA Ligação.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setDisparandoIA(prospeccaoId);
+    try {
+      const resultado = await dispararParaIA(prospeccaoId);
+      // Atualizar contagem após disparo
+      setContagemPendentes(prev => ({
+        ...prev,
+        [prospeccaoId]: { total: resultado.total, pendentes: 0, disparados: resultado.total }
+      }));
+    } finally {
+      setDisparandoIA(null);
+    }
+  };
+
+  // Carregar contagens de pendentes para eventos IA ao montar
+  useEffect(() => {
+    const carregarContagens = async () => {
+      const eventosIA = prospeccoes.filter(p => {
+        const canalStr = String(p.canal).toLowerCase();
+        return canalStr === 'whatsapp' || canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
+      });
+
+      for (const evento of eventosIA) {
+        const contagem = await contarContatosPendentesDisparo(evento.id);
+        setContagemPendentes(prev => ({ ...prev, [evento.id]: contagem }));
+      }
+    };
+
+    if (prospeccoes.length > 0) {
+      carregarContagens();
+    }
+  }, [prospeccoes]);
 
 
   return (
@@ -1392,38 +1442,89 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                     {status}
                                   </span>
                                 </td>
-                                {/* Para canal Ligação, não exibe coluna de Ações */}
-                                {prospeccao.canal !== 'Ligação' && (
-                                  <td className="py-3 px-3 text-right">
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                          <MoreVertical className="h-4 w-4" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
-                                          <Edit className="mr-2 h-4 w-4" />
-                                          Editar
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem 
-                                          onClick={() => setDeleteProspeccao({ 
-                                            id: prospeccao.id, 
-                                            canal: prospeccao.canal || '', 
-                                            eventIdPri: prospeccao.event_id_pri || null 
-                                          })}
-                                          className="text-red-600"
-                                        >
-                                          <Trash2 className="mr-2 h-4 w-4" />
-                                          Excluir
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </td>
-                                )}
-                                {prospeccao.canal === 'Ligação' && (
-                                  <td className="py-3 px-3"></td>
-                                )}
+                                {/* Coluna de Ações */}
+                                <td className="py-3 px-3 text-right">
+                                  {(() => {
+                                    const canalStr = String(prospeccao.canal).toLowerCase();
+                                    const isIA = canalStr === 'whatsapp' || canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
+                                    const contagem = contagemPendentes[prospeccao.id];
+                                    const pendentes = contagem?.pendentes || 0;
+                                    const isDisparando = disparandoIA === prospeccao.id;
+                                    
+                                    return (
+                                      <div className="flex items-center justify-end gap-2">
+                                        {/* Botão Disparar para IA - apenas para eventos IA com pendentes */}
+                                        {isIA && pendentes > 0 && (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleDispararParaIA(prospeccao.id, prospeccao.canal || '')}
+                                            disabled={isDisparando}
+                                            className="h-8 text-xs"
+                                          >
+                                            {isDisparando ? (
+                                              <>
+                                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                                Enviando...
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Send className="mr-1.5 h-3.5 w-3.5" />
+                                                Disparar ({pendentes})
+                                              </>
+                                            )}
+                                          </Button>
+                                        )}
+                                        
+                                        {/* Indicador de todos disparados */}
+                                        {isIA && pendentes === 0 && contagem?.total > 0 && (
+                                          <span className="text-xs text-green-600 flex items-center gap-1">
+                                            <CheckCircle className="h-3.5 w-3.5" />
+                                            {contagem.disparados} enviados
+                                          </span>
+                                        )}
+
+                                        {/* Menu de ações - não exibe para canal Ligação */}
+                                        {prospeccao.canal !== 'Ligação' && (
+                                          <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                <MoreVertical className="h-4 w-4" />
+                                              </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                              {isIA && pendentes > 0 && (
+                                                <DropdownMenuItem 
+                                                  onClick={() => handleDispararParaIA(prospeccao.id, prospeccao.canal || '')}
+                                                  disabled={isDisparando}
+                                                  className="text-blue-600"
+                                                >
+                                                  <Send className="mr-2 h-4 w-4" />
+                                                  Disparar para IA ({pendentes} pendentes)
+                                                </DropdownMenuItem>
+                                              )}
+                                              <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
+                                                <Edit className="mr-2 h-4 w-4" />
+                                                Editar
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem 
+                                                onClick={() => setDeleteProspeccao({ 
+                                                  id: prospeccao.id, 
+                                                  canal: prospeccao.canal || '', 
+                                                  eventIdPri: prospeccao.event_id_pri || null 
+                                                })}
+                                                className="text-red-600"
+                                              >
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                Excluir
+                                              </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+                                </td>
                               </tr>
                             );
                           })}
