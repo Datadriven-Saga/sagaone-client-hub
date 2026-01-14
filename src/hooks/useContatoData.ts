@@ -1261,22 +1261,45 @@ export const useContatoData = () => {
     if (!activeCompany?.id) return { total: 0, pendentes: 0, disparados: 0 };
 
     try {
-      // Buscar contatos vinculados à prospecção
-      const { data: eventosContatos } = await supabase
-        .from('eventos_prospeccao')
-        .select('contato_id')
-        .eq('prospeccao_id', prospeccaoId);
+      // Buscar TODOS os contatos vinculados à prospecção com paginação
+      // Supabase tem limite padrão de 1000 registros por query
+      const FETCH_BATCH_SIZE = 1000;
+      let allContatoIds: string[] = [];
+      let offset = 0;
+      let hasMore = true;
       
-      const contatoIds = (eventosContatos || []).map(e => e.contato_id).filter(Boolean) as string[];
+      while (hasMore) {
+        const { data: eventosContatos, error } = await supabase
+          .from('eventos_prospeccao')
+          .select('contato_id')
+          .eq('prospeccao_id', prospeccaoId)
+          .range(offset, offset + FETCH_BATCH_SIZE - 1);
+        
+        if (error) {
+          console.error('Erro ao buscar eventos_prospeccao:', error);
+          break;
+        }
+        
+        const batchIds = (eventosContatos || []).map(e => e.contato_id).filter(Boolean) as string[];
+        allContatoIds = [...allContatoIds, ...batchIds];
+        
+        if (!eventosContatos || eventosContatos.length < FETCH_BATCH_SIZE) {
+          hasMore = false;
+        } else {
+          offset += FETCH_BATCH_SIZE;
+        }
+      }
       
-      if (contatoIds.length === 0) return { total: 0, pendentes: 0, disparados: 0 };
+      console.log(`📊 Total de contatos na prospecção ${prospeccaoId}: ${allContatoIds.length}`);
+      
+      if (allContatoIds.length === 0) return { total: 0, pendentes: 0, disparados: 0 };
 
       // Contar quantos ainda não foram disparados - em lotes para evitar URL longa
       const IN_BATCH_SIZE = 200;
       let totalPendentes = 0;
       
-      for (let i = 0; i < contatoIds.length; i += IN_BATCH_SIZE) {
-        const batchIds = contatoIds.slice(i, i + IN_BATCH_SIZE);
+      for (let i = 0; i < allContatoIds.length; i += IN_BATCH_SIZE) {
+        const batchIds = allContatoIds.slice(i, i + IN_BATCH_SIZE);
         const { count } = await supabase
           .from('contatos')
           .select('id', { count: 'exact', head: true })
@@ -1287,9 +1310,9 @@ export const useContatoData = () => {
         totalPendentes += count || 0;
       }
       
-      const totalDisparados = contatoIds.length - totalPendentes;
+      const totalDisparados = allContatoIds.length - totalPendentes;
 
-      return { total: contatoIds.length, pendentes: totalPendentes, disparados: totalDisparados };
+      return { total: allContatoIds.length, pendentes: totalPendentes, disparados: totalDisparados };
     } catch (error) {
       console.error('Erro ao contar contatos pendentes:', error);
       return { total: 0, pendentes: 0, disparados: 0 };
