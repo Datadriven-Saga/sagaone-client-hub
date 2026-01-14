@@ -154,7 +154,19 @@ export default function Empresas() {
       fetchEmpresas();
     } catch (error) {
       console.error("Erro ao criar empresa:", error);
-      toast.error("Erro ao criar empresa");
+      const err: any = error;
+
+      // Erro comum: CNPJ já cadastrado
+      if (err?.code === "23505" && String(err?.message || "").includes("empresas_cnpj_key")) {
+        form.setError("cnpj", {
+          type: "validate",
+          message: "Já existe uma empresa cadastrada com este CNPJ",
+        });
+        toast.error("Já existe uma empresa cadastrada com este CNPJ.");
+        return;
+      }
+
+      toast.error(err?.message ? `Erro ao criar empresa: ${err.message}` : "Erro ao criar empresa");
     }
   };
 
@@ -191,7 +203,18 @@ export default function Empresas() {
       fetchEmpresas();
     } catch (error) {
       console.error("Erro ao atualizar empresa:", error);
-      toast.error("Erro ao atualizar empresa");
+      const err: any = error;
+
+      if (err?.code === "23505" && String(err?.message || "").includes("empresas_cnpj_key")) {
+        form.setError("cnpj", {
+          type: "validate",
+          message: "Já existe uma empresa cadastrada com este CNPJ",
+        });
+        toast.error("Já existe uma empresa cadastrada com este CNPJ.");
+        return;
+      }
+
+      toast.error(err?.message ? `Erro ao atualizar empresa: ${err.message}` : "Erro ao atualizar empresa");
     }
   };
 
