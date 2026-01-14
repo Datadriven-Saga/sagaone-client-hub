@@ -79,8 +79,19 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
 
       console.log('Eventos carregados:', data);
       
-      // Garantir que sempre temos um array
-      const eventosArray = Array.isArray(data) ? data : (data?.eventos || [data]).filter(Boolean);
+      // Garantir que sempre temos um array válido
+      // Se retornar array vazio ou null/undefined, significa que não há eventos
+      let eventosArray: Evento[] = [];
+      
+      if (Array.isArray(data) && data.length > 0) {
+        // Filtrar apenas eventos válidos (com id_evento definido)
+        eventosArray = data.filter((e: any) => e && e.id_evento);
+      } else if (data && !Array.isArray(data) && data.eventos) {
+        eventosArray = Array.isArray(data.eventos) 
+          ? data.eventos.filter((e: any) => e && e.id_evento)
+          : [];
+      }
+      
       setEventos(eventosArray);
     } catch (error) {
       console.error('Erro ao carregar eventos:', error);
@@ -211,10 +222,10 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
           <div className="text-center py-12">
             <Calendar className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-medium text-muted-foreground mb-2">
-              Nenhum evento encontrado
+              Nenhum evento vinculado
             </h3>
             <p className="text-sm text-muted-foreground">
-              Este agente ainda não possui eventos de ligação cadastrados.
+              Nenhum evento de ligação vinculado a este telefone.
             </p>
           </div>
         ) : (
