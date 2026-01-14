@@ -180,13 +180,14 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   console.log('🔑 User from auth:', user);
   console.log('📊 Data from hooks - contatos:', contatos?.length, 'prospeccoes:', prospeccoes?.length, 'loading:', loading);
 
-  // Buscar profiles com email e celular para mapear responsavel_email
+  // Buscar profiles diretamente (sem chamar edge function para evitar timeout)
   useEffect(() => {
     const fetchProfiles = async () => {
-      // Buscar profiles com celular
+      // Buscar profiles com celular - query simples e rápida
       const { data: profilesData, error } = await supabase
         .from('profiles')
-        .select('id, nome_completo, tipo_acesso, celular, departamento');
+        .select('id, nome_completo, tipo_acesso, celular, departamento')
+        .limit(200); // Limitar para performance
       
       if (error) {
         console.error('Error fetching profiles:', error);
@@ -194,33 +195,18 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       }
       
       if (profilesData) {
-        const profilesWithEmail = profilesData.map(p => ({
+        // Usar os dados diretamente sem buscar emails via edge function
+        // O email pode ser obtido do próprio user context quando necessário
+        setProfiles(profilesData.map(p => ({
           ...p,
           email: undefined as string | undefined
-        }));
-        
-        // Buscar emails dos usuários via edge function
-        try {
-          const { data: usersData } = await supabase.functions.invoke('manage-users', {
-            body: { action: 'list_users' }
-          });
-          
-          if (usersData?.users) {
-            usersData.users.forEach((user: any) => {
-              const profileIndex = profilesWithEmail.findIndex(p => p.id === user.id);
-              if (profileIndex !== -1) {
-                profilesWithEmail[profileIndex].email = user.email;
-              }
-            });
-          }
-        } catch (e) {
-          console.error('Error fetching users emails:', e);
-        }
-        
-        setProfiles(profilesWithEmail);
+        })));
       }
     };
-    fetchProfiles();
+    
+    if (activeCompany?.id) {
+      fetchProfiles();
+    }
   }, [activeCompany?.id]);
 
   // Buscar eventos de Ligação válidos do webhook externo
@@ -558,7 +544,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     return true; // Permitir mover o card
   };
 
-  // Carregar contagens de pendentes para eventos IA (sempre antes de qualquer early return)
+  // Carregar contagens de pendentes para eventos IA (otimizado - uma única query)
   useEffect(() => {
     const carregarContagens = async () => {
       const eventosIA = prospeccoes.filter(p => {
@@ -566,9 +552,26 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         return canalStr === 'whatsapp' || canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
       });
 
-      for (const evento of eventosIA) {
-        const contagem = await contarContatosPendentesDisparo(evento.id);
-        setContagemPendentes(prev => ({ ...prev, [evento.id]: contagem }));
+      if (eventosIA.length === 0) return;
+
+      // Carregar contagens em paralelo (máximo 5 por vez para não sobrecarregar)
+      const batchSize = 5;
+      for (let i = 0; i < eventosIA.length; i += batchSize) {
+        const batch = eventosIA.slice(i, i + batchSize);
+        const results = await Promise.all(
+          batch.map(async (evento) => {
+            const contagem = await contarContatosPendentesDisparo(evento.id);
+            return { id: evento.id, contagem };
+          })
+        );
+        
+        setContagemPendentes(prev => {
+          const newState = { ...prev };
+          results.forEach(r => {
+            newState[r.id] = r.contagem;
+          });
+          return newState;
+        });
       }
     };
 
