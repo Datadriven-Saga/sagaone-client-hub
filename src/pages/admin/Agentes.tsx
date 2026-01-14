@@ -392,18 +392,55 @@ export default function AdminAgentes() {
     );
   };
 
-  // Filtrar lojas atribuídas com base nos filtros
+  // Filtrar lojas atribuídas com base nos filtros - comparação case-insensitive
   const filteredLojasAtribuidas = lojasAtribuidas.filter(loja => {
-    if (filterLojaMarca !== "all" && loja.marca !== filterLojaMarca) return false;
-    if (filterLojaUF !== "all" && loja.uf !== filterLojaUF) return false;
-    if (filterLojaCidade !== "all" && loja.cidade !== filterLojaCidade) return false;
+    if (filterLojaMarca !== "all" && loja.marca?.toLowerCase() !== filterLojaMarca.toLowerCase()) return false;
+    if (filterLojaUF !== "all" && loja.uf?.toUpperCase() !== filterLojaUF.toUpperCase()) return false;
+    if (filterLojaCidade !== "all" && loja.cidade?.toLowerCase() !== filterLojaCidade.toLowerCase()) return false;
     return true;
   });
 
-  // Extrair opções únicas para os filtros de lojas atribuídas
-  const uniqueLojasMarcas = [...new Set(lojasAtribuidas.map(l => l.marca).filter(Boolean))].sort() as string[];
-  const uniqueLojasUFs = [...new Set(lojasAtribuidas.map(l => l.uf).filter(Boolean))].sort() as string[];
-  const uniqueLojasCidades = [...new Set(lojasAtribuidas.map(l => l.cidade).filter(Boolean))].sort() as string[];
+  // Extrair opções únicas para os filtros de lojas atribuídas - normalizado
+  const uniqueLojasMarcas = (() => {
+    const marcasMap = new Map<string, string>();
+    lojasAtribuidas.forEach(l => {
+      if (l.marca) {
+        const key = l.marca.toLowerCase();
+        if (!marcasMap.has(key)) {
+          marcasMap.set(key, l.marca.charAt(0).toUpperCase() + l.marca.slice(1).toLowerCase());
+        }
+      }
+    });
+    return [...marcasMap.values()].sort();
+  })();
+  
+  const uniqueLojasUFs = (() => {
+    const ufsSet = new Set<string>();
+    lojasAtribuidas.forEach(l => {
+      if (l.uf) {
+        ufsSet.add(l.uf.toUpperCase());
+      }
+    });
+    return [...ufsSet].sort();
+  })();
+  
+  const uniqueLojasCidades = (() => {
+    const cidadesMap = new Map<string, string>();
+    lojasAtribuidas.forEach(l => {
+      if (l.cidade) {
+        const key = l.cidade.toLowerCase();
+        if (!cidadesMap.has(key)) {
+          // Capitaliza cada palavra da cidade
+          const capitalizado = l.cidade
+            .split(' ')
+            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+          cidadesMap.set(key, capitalizado);
+        }
+      }
+    });
+    return [...cidadesMap.values()].sort();
+  })();
 
   // Resetar filtros de lojas quando muda o agente
   const resetLojaFilters = () => {
@@ -466,10 +503,52 @@ export default function AdminAgentes() {
     applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, filterStatus, filterNumero, nome);
   };
 
-  // Extrair opções únicas para os filtros
-  const uniqueMarcas = [...new Set(agentes.map(a => a.marca).filter(Boolean))].sort();
-  const uniqueUFs = [...new Set(agentes.map(a => a.uf).filter(Boolean))].sort();
-  const uniqueAgentesNomes = [...new Set(agentes.map(a => (a as any).agente || a.nome).filter(Boolean))].sort() as string[];
+  // Extrair opções únicas para os filtros - normalizado para case-insensitive
+  // Para marcas: agrupa case-insensitive e usa a versão capitalizada
+  const uniqueMarcas = (() => {
+    const marcasMap = new Map<string, string>();
+    agentes.forEach(a => {
+      if (a.marca) {
+        const key = a.marca.toLowerCase();
+        if (!marcasMap.has(key)) {
+          // Capitaliza: primeira letra maiúscula, resto minúsculo
+          marcasMap.set(key, a.marca.charAt(0).toUpperCase() + a.marca.slice(1).toLowerCase());
+        }
+      }
+    });
+    return [...marcasMap.values()].sort();
+  })();
+
+  // Para UFs: sempre maiúsculo
+  const uniqueUFs = (() => {
+    const ufsSet = new Set<string>();
+    agentes.forEach(a => {
+      if (a.uf) {
+        ufsSet.add(a.uf.toUpperCase());
+      }
+    });
+    return [...ufsSet].sort();
+  })();
+
+  // Para nomes de agentes: agrupa case-insensitive e usa a versão capitalizada
+  const uniqueAgentesNomes = (() => {
+    const nomesMap = new Map<string, string>();
+    agentes.forEach(a => {
+      const nome = (a as any).agente || a.nome;
+      if (nome) {
+        const key = nome.toLowerCase();
+        if (!nomesMap.has(key)) {
+          // Capitaliza cada palavra
+          const capitalizado = nome
+            .split(/[\s-]+/)
+            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+          nomesMap.set(key, capitalizado);
+        }
+      }
+    });
+    return [...nomesMap.values()].sort();
+  })();
 
   const applyFilters = (term: string, empresaId: string, marca: string, uf: string, status: string, numero: string, nomeAgente: string) => {
     let filtered = [...agentes];
