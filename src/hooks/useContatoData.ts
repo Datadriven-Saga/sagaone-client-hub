@@ -114,8 +114,8 @@ export const useContatoData = () => {
   console.log('🏢 useContatoData - activeCompany:', activeCompany);
   console.log('👤 useContatoData - user:', user);
 
-  // Buscar prospecções com filtro de empresa
-  const fetchProspeccoes = useCallback(async () => {
+  // Buscar prospecções com filtro de empresa (apenas eventos ativos por padrão)
+  const fetchProspeccoes = useCallback(async (showAllEvents: boolean = false) => {
     if (!activeCompany?.id) {
       console.warn('useContatoData: No active company found for prospeccoes');
       setProspeccoes([]);
@@ -123,13 +123,20 @@ export const useContatoData = () => {
     }
 
     try {
-      console.log('🔍 Fetching prospeccoes for company:', activeCompany.id);
+      console.log('🔍 Fetching prospeccoes for company:', activeCompany.id, '| showAllEvents:', showAllEvents);
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('prospeccoes')
         .select('*')
-        .eq('empresa_id', activeCompany.id)
-        .order('created_at', { ascending: false });
+        .eq('empresa_id', activeCompany.id);
+      
+      // Filtrar apenas eventos ativos (data_fim >= hoje) se não for para mostrar todos
+      if (!showAllEvents) {
+        const today = new Date().toISOString().split('T')[0];
+        query = query.or(`data_fim.gte.${today},data_fim.is.null`);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching prospeccoes:', error);
@@ -1346,6 +1353,7 @@ export const useContatoData = () => {
     reenviarGatilhos,
     dispararParaIA,
     contarContatosPendentesDisparo,
+    fetchProspeccoes,
     refetch: async () => {
       console.log('🔄 Refetch triggered...');
       await Promise.all([fetchProspeccoes(), fetchContatos()]);
