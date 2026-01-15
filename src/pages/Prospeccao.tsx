@@ -1528,49 +1528,47 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                           Ver Base
                                         </Button>
 
-                                        {/* Menu de ações - não exibe para canal Ligação */}
-                                        {prospeccao.canal !== 'Ligação' && (
-                                          <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                <MoreVertical className="h-4 w-4" />
-                                              </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
+                                        {/* Menu de ações - sempre mostra para todos os eventos */}
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                              <MoreVertical className="h-4 w-4" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end">
+                                            <DropdownMenuItem 
+                                              onClick={() => navigate(`/prospeccao/eventos/${prospeccao.id}/base`)}
+                                            >
+                                              <Eye className="mr-2 h-4 w-4" />
+                                              Ver Base Importada
+                                            </DropdownMenuItem>
+                                            {isIA && pendentes > 0 && (
                                               <DropdownMenuItem 
-                                                onClick={() => navigate(`/prospeccao/eventos/${prospeccao.id}/base`)}
+                                                onClick={() => handleDispararParaIA(prospeccao.id, prospeccao.canal || '')}
+                                                disabled={isDisparando}
+                                                className="text-blue-600"
                                               >
-                                                <Eye className="mr-2 h-4 w-4" />
-                                                Ver Base Importada
+                                                <Send className="mr-2 h-4 w-4" />
+                                                Disparar para IA ({pendentes} pendentes)
                                               </DropdownMenuItem>
-                                              {isIA && pendentes > 0 && (
-                                                <DropdownMenuItem 
-                                                  onClick={() => handleDispararParaIA(prospeccao.id, prospeccao.canal || '')}
-                                                  disabled={isDisparando}
-                                                  className="text-blue-600"
-                                                >
-                                                  <Send className="mr-2 h-4 w-4" />
-                                                  Disparar para IA ({pendentes} pendentes)
-                                                </DropdownMenuItem>
-                                              )}
-                                              <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
-                                                <Edit className="mr-2 h-4 w-4" />
-                                                Editar
-                                              </DropdownMenuItem>
-                                              <DropdownMenuItem 
-                                                onClick={() => setDeleteProspeccao({ 
-                                                  id: prospeccao.id, 
-                                                  canal: prospeccao.canal || '', 
-                                                  eventIdPri: prospeccao.event_id_pri || null 
-                                                })}
-                                                className="text-red-600"
-                                              >
-                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                Excluir
-                                              </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                          </DropdownMenu>
-                                        )}
+                                            )}
+                                            <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
+                                              <Edit className="mr-2 h-4 w-4" />
+                                              Editar
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem 
+                                              onClick={() => setDeleteProspeccao({ 
+                                                id: prospeccao.id, 
+                                                canal: prospeccao.canal || '', 
+                                                eventIdPri: prospeccao.event_id_pri || null 
+                                              })}
+                                              className="text-red-600"
+                                            >
+                                              <Trash2 className="mr-2 h-4 w-4" />
+                                              Excluir
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
                                       </div>
                                     );
                                   })()}
