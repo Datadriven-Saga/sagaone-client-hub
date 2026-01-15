@@ -2770,25 +2770,9 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
             </div>
           );
         } else {
-          // IA Ligação - Sem templates e sem escolha de horário (disparo imediato)
+          // IA Ligação - Configuração de localização
           return (
             <div className="space-y-4">
-              {/* Aviso sobre disparo imediato */}
-              <div className="rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 p-4">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                      Disparo Imediato
-                    </p>
-                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                      Ao criar este evento, o disparo das ligações será iniciado imediatamente. 
-                      Não é possível agendar um horário específico para o início das ligações neste momento.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
               {/* Localização do Evento */}
               <div className="rounded-lg border border-border p-4 bg-card">
                 <div className="flex items-center gap-2 mb-4">

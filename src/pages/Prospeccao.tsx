@@ -862,6 +862,24 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     }
   ];
 
+  // Função para determinar origem baseada no canal do evento
+  const getOrigemFromProspeccao = (prospeccao: any): 'WhatsApp' | 'ligacao' | 'grande_evento' | 'prospeccao_mensal' | 'Outros' => {
+    // Verificar pelo título ou canal para determinar o tipo de evento
+    const titulo = prospeccao.titulo?.toLowerCase() || '';
+    const canal = prospeccao.canal;
+    
+    if (canal === 'Ligação') {
+      return 'ligacao';
+    } else if (titulo.includes('grande evento') || prospeccao.premio_equipe_campea != null) {
+      return 'grande_evento';
+    } else if (titulo.includes('prospecção mensal') || titulo.includes('prospeccao mensal')) {
+      return 'prospeccao_mensal';
+    } else if (canal === 'Whatsapp') {
+      return 'WhatsApp';
+    }
+    return 'Outros';
+  };
+
   // Função para importar clientes como contatos
   const handleClientesImported = async (prospeccaoId: string, clientes: ClienteData[]) => {
     try {
@@ -878,11 +896,15 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         throw new Error(`Prospecção (id: ${prospeccaoId}) não encontrada`);
       }
 
+      // Determinar origem baseada no tipo de evento
+      const origemContato = getOrigemFromProspeccao(prospeccaoSelecionada);
+      console.log('Origem determinada:', origemContato);
+
       const novosContatos = clientes.map(cliente => ({
         nome: cliente.nome,
         telefone: cliente.telefone,
         email: cliente.email || undefined,
-        origem: 'Outros' as const,
+        origem: origemContato,
         observacoes: `Importado para o evento: ${prospeccaoSelecionada.titulo}`,
         responsavel_email: cliente.responsavel && cliente.responsavel.trim() ? cliente.responsavel : undefined,
         base_id: cliente.base_id
@@ -918,11 +940,14 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       const prospeccaoSelecionada = prospeccoes.find(p => p.id === prospeccaoId);
       if (!prospeccaoSelecionada) return;
 
+      // Determinar origem baseada no tipo de evento
+      const origemContato = getOrigemFromProspeccao(prospeccaoSelecionada);
+
       const novosContatos = clientes.map(cliente => ({
         nome: cliente.nome,
         telefone: cliente.telefone,
         email: cliente.email,
-        origem: 'Outros' as const,
+        origem: origemContato,
         observacoes: `Selecionado da base para o evento: ${prospeccaoSelecionada.titulo}`
       }));
 
