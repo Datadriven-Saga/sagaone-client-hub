@@ -686,12 +686,17 @@ export default function EventoBase() {
   };
 
   // Verifica se é evento de IA (WhatsApp ou Ligação)
-  const isIAWhatsApp = prospeccao?.canal?.toLowerCase().includes('whatsapp');
-  const isIALigacao = prospeccao?.canal?.toLowerCase().includes('liga');
+  const canalLower = prospeccao?.canal?.toLowerCase() || '';
+  const isIAWhatsApp = canalLower.includes('whatsapp');
+  const isIALigacao = canalLower.includes('liga');
   const isIA = isIAWhatsApp || isIALigacao;
   
   // Permissão para disparar: WhatsApp = todos podem, Ligação = apenas ADM/TI
-  const canDispatch = isIAWhatsApp || (isIALigacao && isAdminOrTI);
+  // Só avalia permissão após carregar o tipo de acesso
+  const canDispatch = loadingAccess ? false : (isIAWhatsApp || (isIALigacao && isAdminOrTI));
+
+  // Log para debug
+  console.log('🔍 Canal:', prospeccao?.canal, '| isIALigacao:', isIALigacao, '| isIAWhatsApp:', isIAWhatsApp, '| isAdminOrTI:', isAdminOrTI, '| canDispatch:', canDispatch, '| loadingAccess:', loadingAccess);
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
@@ -821,7 +826,12 @@ export default function EventoBase() {
               )}
 
               {isIA && metricas.pendentes > 0 && (
-                canDispatch ? (
+                loadingAccess ? (
+                  <Button variant="outline" size="sm" disabled>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verificando...
+                  </Button>
+                ) : canDispatch ? (
                   <Button
                     variant="default"
                     size="sm"
@@ -845,7 +855,7 @@ export default function EventoBase() {
                       </>
                     )}
                   </Button>
-                ) : (
+                ) : isIALigacao ? (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -865,7 +875,7 @@ export default function EventoBase() {
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                )
+                ) : null
               )}
             </div>
           </CardContent>
@@ -958,37 +968,40 @@ export default function EventoBase() {
                           </TableCell>
                           {isIA && (
                             <TableCell>
-                              {!contato.data_disparo_ia && canDispatch && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDispararContato(contato)}
-                                  disabled={disparandoContato === contato.id}
-                                  className="h-8 px-2"
-                                  title={isIALigacao ? 'Disparar Ligação' : 'Disparar WhatsApp'}
-                                >
-                                  {disparandoContato === contato.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : isIALigacao ? (
-                                    <PhoneCall className="h-4 w-4 text-orange-600" />
-                                  ) : (
-                                    <MessageCircle className="h-4 w-4 text-primary" />
-                                  )}
-                                </Button>
-                              )}
-                              {!contato.data_disparo_ia && !canDispatch && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className="inline-flex items-center gap-1 text-muted-foreground text-xs">
-                                        <Lock className="h-3 w-3" />
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Apenas ADM/TI podem disparar</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
+                              {!contato.data_disparo_ia && (
+                                loadingAccess ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                ) : canDispatch ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDispararContato(contato)}
+                                    disabled={disparandoContato === contato.id}
+                                    className="h-8 px-2"
+                                    title={isIALigacao ? 'Disparar Ligação' : 'Disparar WhatsApp'}
+                                  >
+                                    {disparandoContato === contato.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : isIALigacao ? (
+                                      <PhoneCall className="h-4 w-4 text-orange-600" />
+                                    ) : (
+                                      <MessageCircle className="h-4 w-4 text-primary" />
+                                    )}
+                                  </Button>
+                                ) : isIALigacao ? (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="inline-flex items-center gap-1 text-muted-foreground text-xs">
+                                          <Lock className="h-3 w-3" />
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Apenas ADM/TI podem disparar</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                ) : null
                               )}
                             </TableCell>
                           )}
