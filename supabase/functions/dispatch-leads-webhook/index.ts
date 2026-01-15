@@ -155,9 +155,10 @@ serve(async (req) => {
       console.log(`   ${i === agentes.length - 1 ? '└' : '├'}─ ${a.nome} (Tel: ${a.telefone || 'N/A'})`);
     });
 
-    // Buscar agente específico
+    // Buscar agente específico para o tipo de disparo
     let telefonePri = '';
     let nomeAgente = '';
+    let telefonePriWhatsapp = ''; // Telefone do agente Pri - Whatsapp (para eventos de Ligação)
     
     const agenteSearchPatterns = isIALigacao 
       ? ['ligação', 'ligacao', 'ligaçao'] 
@@ -183,6 +184,25 @@ serve(async (req) => {
       console.log(`   └─ Agentes disponíveis: ${agentes.map((a: any) => a?.nome).join(', ') || 'Nenhum'}`);
     }
 
+    // Para eventos de Ligação, também buscar telefone do agente Pri - Whatsapp
+    if (isIALigacao) {
+      const agenteWhatsapp = agentes.find((a: any) => {
+        const nome = String(a?.nome || '').toLowerCase();
+        const temPri = nome.includes('pri');
+        const temWhatsapp = nome.includes('whatsapp');
+        return temPri && temWhatsapp && normalizePhone(a?.telefone);
+      });
+
+      if (agenteWhatsapp) {
+        telefonePriWhatsapp = normalizePhone(agenteWhatsapp.telefone);
+        console.log(`✅ [${requestId}] Agente Pri - Whatsapp encontrado para evento de Ligação:`);
+        console.log(`   ├─ Nome: ${agenteWhatsapp.nome}`);
+        console.log(`   └─ Telefone: ${telefonePriWhatsapp}`);
+      } else {
+        console.warn(`⚠️ [${requestId}] Agente Pri - Whatsapp NÃO encontrado para evento de Ligação`);
+      }
+    }
+
     // Determinar webhook
     const webhookUrl = isIALigacao 
       ? 'https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one'
@@ -201,6 +221,7 @@ serve(async (req) => {
       canal: prospeccao_data?.canal || (isIALigacao ? 'Ligação' : 'Whatsapp'),
       telefone_pri: telefonePri,
       pri_telefone: telefonePri,
+      telefone_pri_whatsapp: telefonePriWhatsapp, // Novo campo para eventos de Ligação
       nome_agente: nomeAgente,
       dealer_id: empresaData?.crm_id || '',
       pri_dealer_id: empresaData?.crm_id || '',
@@ -215,6 +236,7 @@ serve(async (req) => {
     console.log(`\n📦 [${requestId}] Dados comuns preparados:`);
     console.log(`   ├─ dealer_id: ${dadosComuns.dealer_id || 'N/A'}`);
     console.log(`   ├─ telefone_pri: ${dadosComuns.telefone_pri || 'N/A'}`);
+    console.log(`   ├─ telefone_pri_whatsapp: ${dadosComuns.telefone_pri_whatsapp || 'N/A'}`);
     console.log(`   ├─ nome_agente: ${dadosComuns.nome_agente || 'N/A'}`);
     console.log(`   └─ event_id_pri: ${dadosComuns.event_id_pri || 'N/A'}`);
 
