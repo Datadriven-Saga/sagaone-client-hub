@@ -13,6 +13,9 @@ interface WebhookContato {
   id?: string;
   nome?: string;
   telefone?: string;
+  telefone_lead?: string;
+  celular?: string;
+  phone?: string;
   email?: string;
   status?: string;
   data_disparo_ia?: string;
@@ -113,10 +116,14 @@ serve(async (req) => {
 
     // Criar mapa de contatos do webhook por telefone (normalizado)
     const webhookContatosMap = new Map<string, WebhookContato>();
-    contatosWebhook.forEach(c => {
-      const telefone = String(c.telefone || '').replace(/\D/g, '');
-      if (telefone) {
-        webhookContatosMap.set(telefone, c);
+    contatosWebhook.forEach((c) => {
+      const telefoneRaw = String(
+        c.telefone ?? c.telefone_lead ?? c.celular ?? c.phone ?? ''
+      );
+      const telefoneKey = telefoneRaw.replace(/\D/g, '');
+      if (telefoneKey) {
+        // Padronizar para o restante do fluxo sempre ter c.telefone
+        webhookContatosMap.set(telefoneKey, { ...c, telefone: telefoneRaw });
       }
     });
 
@@ -200,11 +207,13 @@ serve(async (req) => {
           } else {
             // Contato não existe, criar novo
             console.log(`🆕 Criando novo contato: ${telefone}`);
+            const telefoneToStore = webhookContato.telefone || webhookContato.telefone_lead || webhookContato.celular || webhookContato.phone || telefone;
+
             const { data: novoContato, error: createError } = await supabase
               .from('contatos')
               .insert({
                 nome: webhookContato.nome || `Contato ${telefone}`,
-                telefone: webhookContato.telefone || telefone,
+                telefone: telefoneToStore,
                 email: webhookContato.email || null,
                 status: webhookContato.status || 'Novo',
                 origem: 'ligacao',
