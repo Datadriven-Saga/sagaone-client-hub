@@ -818,28 +818,21 @@ export const useContatoData = () => {
         console.log('📞 Excluindo evento no webhook (IA Ligação) via edge function:', prospeccaoData.titulo);
         console.log('🔢 ID do evento:', idEventoNum);
 
-        const { data: webhookData, error: webhookError } = await supabase.functions.invoke('ia-ligacao-webhook', {
-          body: {
-            evento: {
-              id: prospeccaoData.id,
-              titulo: prospeccaoData.titulo,
-              descricao: null,
-              data_inicio: null,
-              data_fim: null,
-              canal: prospeccaoData.canal,
-              evento_principal: false,
-              qualificar_lead: false,
-              imagem_divulgacao_url: null,
-              uf: null,
-              cidade: null,
-              endereco: null,
-              id_evento: idEventoNum,
-            },
-            contatos: [],
-            empresa_id: prospeccaoData.empresa_id,
-            acao: 'deletar',
+        // Chamar webhook externo para apagar evento de ligação - apenas id_evento no payload
+        const deleteWebhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/apaga-evento-ligacao';
+        
+        const deleteResponse = await fetch(deleteWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            id_evento: idEventoNum
+          }),
         });
+
+        const webhookData = await deleteResponse.json().catch(() => ({}));
+        const webhookError = !deleteResponse.ok ? new Error(`HTTP ${deleteResponse.status}`) : null;
 
         if (webhookError) {
           console.error('❌ Erro ao chamar edge function ia-ligacao-webhook (deletar):', webhookError);
