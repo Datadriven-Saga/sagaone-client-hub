@@ -7,13 +7,15 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   Download, Users, Search, Filter, Send, Loader2, CheckCircle, Phone, Mail, 
-  Calendar, Clock, ArrowLeft, ChevronLeft, ChevronRight, RefreshCw
+  Calendar, Clock, ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, MessageCircle, PhoneCall, Lock
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
+import { useUserAccessType } from '@/hooks/useUserAccessType';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DispararProgressModal from '@/components/DispararProgressModal';
@@ -68,6 +70,7 @@ export default function EventoBase() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { activeCompany } = useCompany();
+  const { isAdminOrTI, loading: loadingAccess } = useUserAccessType();
 
   // Estados
   const [prospeccao, setProspeccao] = useState<Prospeccao | null>(null);
@@ -682,8 +685,13 @@ export default function EventoBase() {
     return format(new Date(dateStr), 'dd/MM/yyyy', { locale: ptBR });
   };
 
-  const isIA = prospeccao?.canal?.toLowerCase().includes('whatsapp') || 
-               prospeccao?.canal?.toLowerCase().includes('liga');
+  // Verifica se é evento de IA (WhatsApp ou Ligação)
+  const isIAWhatsApp = prospeccao?.canal?.toLowerCase().includes('whatsapp');
+  const isIALigacao = prospeccao?.canal?.toLowerCase().includes('liga');
+  const isIA = isIAWhatsApp || isIALigacao;
+  
+  // Permissão para disparar: WhatsApp = todos podem, Ligação = apenas ADM/TI
+  const canDispatch = isIAWhatsApp || (isIALigacao && isAdminOrTI);
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
@@ -813,24 +821,51 @@ export default function EventoBase() {
               )}
 
               {isIA && metricas.pendentes > 0 && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleDispararTodos}
-                  disabled={isDisparandoIA}
-                >
-                  {isDisparandoIA ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enviando...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="mr-2 h-4 w-4" />
-                      Disparar Todos ({metricas.pendentes})
-                    </>
-                  )}
-                </Button>
+                canDispatch ? (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleDispararTodos}
+                    disabled={isDisparandoIA}
+                    className={isIALigacao ? 'bg-orange-600 hover:bg-orange-700' : ''}
+                  >
+                    {isDisparandoIA ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        {isIALigacao ? (
+                          <PhoneCall className="mr-2 h-4 w-4" />
+                        ) : (
+                          <MessageCircle className="mr-2 h-4 w-4" />
+                        )}
+                        Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({metricas.pendentes})
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled
+                          className="opacity-60"
+                        >
+                          <Lock className="mr-2 h-4 w-4" />
+                          <PhoneCall className="mr-2 h-4 w-4" />
+                          Disparar Ligações ({metricas.pendentes})
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Apenas Administradores e TI podem disparar IA de Ligação</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )
               )}
             </div>
           </CardContent>
@@ -923,20 +958,37 @@ export default function EventoBase() {
                           </TableCell>
                           {isIA && (
                             <TableCell>
-                              {!contato.data_disparo_ia && (
+                              {!contato.data_disparo_ia && canDispatch && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleDispararContato(contato)}
                                   disabled={disparandoContato === contato.id}
                                   className="h-8 px-2"
+                                  title={isIALigacao ? 'Disparar Ligação' : 'Disparar WhatsApp'}
                                 >
                                   {disparandoContato === contato.id ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : isIALigacao ? (
+                                    <PhoneCall className="h-4 w-4 text-orange-600" />
                                   ) : (
-                                    <Send className="h-4 w-4" />
+                                    <MessageCircle className="h-4 w-4 text-primary" />
                                   )}
                                 </Button>
+                              )}
+                              {!contato.data_disparo_ia && !canDispatch && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-flex items-center gap-1 text-muted-foreground text-xs">
+                                        <Lock className="h-3 w-3" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Apenas ADM/TI podem disparar</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               )}
                             </TableCell>
                           )}
