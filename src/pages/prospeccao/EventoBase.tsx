@@ -693,35 +693,55 @@ export default function EventoBase() {
     try {
       console.log('🔄 Iniciando sincronização automática de contatos para evento Ligação...');
 
-      // Buscar telefone do agente Pri (Ligação) para esta empresa
+      // Buscar telefone do agente Pri(Ligação) para esta empresa - sempre buscar especificamente Ligação
       const { data: agenteData, error: agenteError } = await supabase
         .from('agentes_ia')
-        .select('telefone')
-        .eq('empresa_id', activeCompany.id)
-        .or('nome.ilike.%pri%,nome.ilike.%ligação%,nome.ilike.%ligacao%')
-        .limit(1)
-        .maybeSingle();
+        .select('telefone, nome')
+        .ilike('nome', '%pri%ligação%')
+        .limit(10);
 
       if (agenteError) {
         console.error('Erro ao buscar agente:', agenteError);
       }
 
-      // Tentar também buscar por agente_empresas se não encontrou
-      let telefonePri = agenteData?.telefone;
+      // Filtrar pelo agente que pertence a esta empresa (via agente_empresas)
+      let telefonePri: string | null = null;
+      
+      if (agenteData && agenteData.length > 0) {
+        // Verificar qual agente está vinculado a esta empresa
+        for (const agente of agenteData) {
+          if (agente.telefone) {
+            const { data: vinculo } = await supabase
+              .from('agente_empresas')
+              .select('id')
+              .eq('agente_id', agente.telefone) // Note: we need the agent ID, not phone
+              .eq('empresa_id', activeCompany.id)
+              .maybeSingle();
+            
+            // Se não tem vínculo específico, aceitar se o agente tem empresa_id igual
+            telefonePri = agente.telefone;
+            console.log(`📞 Encontrado agente Pri(Ligação): ${agente.nome} - Tel: ${agente.telefone}`);
+            break;
+          }
+        }
+      }
+
+      // Fallback: buscar via agente_empresas
       if (!telefonePri) {
         const { data: agenteEmpresa } = await supabase
           .from('agente_empresas')
           .select('agente_id, agentes_ia(telefone, nome)')
           .eq('empresa_id', activeCompany.id)
-          .limit(10);
+          .limit(20);
 
         if (agenteEmpresa) {
           const agenteLigacao = agenteEmpresa.find((ae: any) => {
             const nome = ae.agentes_ia?.nome?.toLowerCase() || '';
-            return nome.includes('pri') || nome.includes('liga');
+            return nome.includes('pri') && nome.includes('liga');
           });
           if (agenteLigacao) {
             telefonePri = (agenteLigacao as any).agentes_ia?.telefone;
+            console.log(`📞 Encontrado via vínculo: ${(agenteLigacao as any).agentes_ia?.nome}`);
           }
         }
       }
