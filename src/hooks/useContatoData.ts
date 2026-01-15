@@ -265,7 +265,9 @@ export const useContatoData = () => {
     return telefone.replace(/\D/g, '').slice(-9); // Últimos 9 dígitos
   };
 
-  // Adicionar novos contatos com empresa_id automático e prevenção de duplicados
+  // Adicionar novos contatos - REGRA: 1 contato por pessoa, múltiplos eventos
+  // Se o contato já existe (por telefone), apenas vincula ao novo evento
+  // Nunca duplica leads
   const adicionarContatos = async (novosContatos: {
     nome: string;
     telefone: string;
@@ -284,233 +286,160 @@ export const useContatoData = () => {
       return;
     }
 
+    if (!prospeccaoId) {
+      toast({ 
+        title: "Erro", 
+        description: "É obrigatório selecionar um evento para adicionar contatos", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     console.log('🚀 adicionarContatos chamada com:', { novosContatos: novosContatos.length, prospeccaoId });
 
     try {
-      // Se tem prospeccaoId, verificar duplicados apenas para esta prospecção
-      // Caso contrário, verificar duplicados globais na empresa
-      let telefonesExistentes = new Set<string>();
-      let emailsExistentes = new Set<string>();
+      // 1) Buscar TODOS os contatos da empresa para identificar existentes
+      const PAGE_SIZE = 1000;
+      let allExistingContatos: { id: string; telefone: string | null }[] = [];
+      let page = 0;
+      let hasMore = true;
 
-      // Helper para buscar todos os registros sem limite (paginação automática)
-      const fetchAllContatos = async (empresaId: string): Promise<{ telefone: string | null; email: string | null }[]> => {
-        const PAGE_SIZE = 1000;
-        let allData: { telefone: string | null; email: string | null }[] = [];
-        let page = 0;
-        let hasMore = true;
-
-        while (hasMore) {
-          const { data, error } = await supabase
-            .from('contatos')
-            .select('telefone, email')
-            .eq('empresa_id', empresaId)
-            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-          
-          if (error) {
-            console.error('Erro na paginação:', error);
-            break;
-          }
-          
-          if (data && data.length > 0) {
-            allData = [...allData, ...data];
-            hasMore = data.length === PAGE_SIZE;
-            page++;
-          } else {
-            hasMore = false;
-          }
-        }
-        
-        return allData;
-      };
-
-      const fetchAllEventos = async (prospeccaoId: string): Promise<{ contato_id: string | null }[]> => {
-        const PAGE_SIZE = 1000;
-        let allData: { contato_id: string | null }[] = [];
-        let page = 0;
-        let hasMore = true;
-
-        while (hasMore) {
-          const { data, error } = await supabase
-            .from('eventos_prospeccao')
-            .select('contato_id')
-            .eq('prospeccao_id', prospeccaoId)
-            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-          
-          if (error) {
-            console.error('Erro na paginação eventos:', error);
-            break;
-          }
-          
-          if (data && data.length > 0) {
-            allData = [...allData, ...data];
-            hasMore = data.length === PAGE_SIZE;
-            page++;
-          } else {
-            hasMore = false;
-          }
-        }
-        
-        return allData;
-      };
-      
-      if (prospeccaoId) {
-        // Buscar contatos JÁ vinculados a esta prospecção específica via eventos_prospeccao
-        const eventosProspeccao = await fetchAllEventos(prospeccaoId);
-        
-        const contatoIdsNaProspeccao = eventosProspeccao.map(e => e.contato_id).filter(Boolean) as string[];
-        
-        if (contatoIdsNaProspeccao.length > 0) {
-          // Buscar telefones em lotes (limite de IN é ~32000 itens, mas usamos 500 para segurança)
-          const IN_BATCH_SIZE = 500;
-          const contatosNaProspeccao: { telefone: string | null; email: string | null }[] = [];
-          
-          for (let i = 0; i < contatoIdsNaProspeccao.length; i += IN_BATCH_SIZE) {
-            const batchIds = contatoIdsNaProspeccao.slice(i, i + IN_BATCH_SIZE);
-            const { data: batchData } = await supabase
-              .from('contatos')
-              .select('telefone, email')
-              .in('id', batchIds);
-            
-            if (batchData) {
-              contatosNaProspeccao.push(...batchData);
-            }
-          }
-          
-          telefonesExistentes = new Set(
-            contatosNaProspeccao
-              .filter(c => c.telefone)
-              .map(c => normalizeTelefoneForComparison(c.telefone!))
-          );
-          emailsExistentes = new Set(
-            contatosNaProspeccao
-              .filter(c => c.email)
-              .map(c => c.email!.toLowerCase())
-          );
-        }
-        
-        console.log(`📊 Verificando duplicados para prospecção ${prospeccaoId}:`, {
-          contatosExistentes: contatoIdsNaProspeccao.length,
-          telefonesUnicos: telefonesExistentes.size
-        });
-      } else {
-        // Verificar duplicados globais na empresa - SEM LIMITE (paginação)
-        const contatosExistentes = await fetchAllContatos(activeCompany.id);
-        
-        console.log(`📊 Total de contatos existentes na empresa: ${contatosExistentes.length}`);
-        
-        telefonesExistentes = new Set(
-          contatosExistentes
-            .filter(c => c.telefone)
-            .map(c => normalizeTelefoneForComparison(c.telefone!))
-        );
-        emailsExistentes = new Set(
-          contatosExistentes
-            .filter(c => c.email)
-            .map(c => c.email!.toLowerCase())
-        );
-      }
-      
-      // Filtrar contatos que já existem (por telefone)
-      const contatosUnicos: typeof novosContatos = [];
-      const duplicados: string[] = [];
-      
-      for (const contato of novosContatos) {
-        const telNormalizado = normalizeTelefoneForComparison(contato.telefone);
-        
-        // Verificar duplicado apenas por telefone para evitar múltiplos leads com mesmo número no mesmo evento
-        const duplicadoPorTel = telefonesExistentes.has(telNormalizado);
-        
-        if (duplicadoPorTel) {
-          duplicados.push(contato.nome);
-        } else {
-          contatosUnicos.push(contato);
-          // Adicionar aos sets para evitar duplicatas dentro do próprio lote
-          telefonesExistentes.add(telNormalizado);
-        }
-      }
-      
-      if (duplicados.length > 0) {
-        console.log('⚠️ Contatos duplicados ignorados (mesmo telefone no evento):', duplicados.length, duplicados);
-      }
-      
-      if (contatosUnicos.length === 0) {
-        const mensagemDuplicados = prospeccaoId 
-          ? `Todos os ${novosContatos.length} contatos já existem neste evento.`
-          : `Todos os ${novosContatos.length} contatos já existem no sistema.`;
-        toast({ 
-          title: "Atenção", 
-          description: mensagemDuplicados,
-          variant: "destructive"
-        });
-        return [];
-      }
-
-      const contatosComEmpresa = contatosUnicos.map(contato => ({
-        ...contato,
-        status: 'Novo' as const,
-        empresa_id: activeCompany.id
-      }));
-
-      console.log('➕ Adding contatos:', contatosComEmpresa.length, '(', duplicados.length, 'duplicados ignorados)');
-
-      // Inserir em lotes de 500 para evitar timeout/limite do Supabase
-      const INSERT_BATCH_SIZE = 500;
-      const insertBatches: typeof contatosComEmpresa[] = [];
-      
-      for (let i = 0; i < contatosComEmpresa.length; i += INSERT_BATCH_SIZE) {
-        insertBatches.push(contatosComEmpresa.slice(i, i + INSERT_BATCH_SIZE));
-      }
-
-      console.log(`📦 Inserindo ${contatosComEmpresa.length} contatos em ${insertBatches.length} lotes de até ${INSERT_BATCH_SIZE}`);
-
-      let allInsertedData: any[] = [];
-      let insertErrors = 0;
-
-      for (let i = 0; i < insertBatches.length; i++) {
-        const batch = insertBatches[i];
-        console.log(`📥 Inserindo lote ${i + 1}/${insertBatches.length} (${batch.length} contatos)`);
-        
-        const { data: batchData, error: batchError } = await supabase
+      while (hasMore) {
+        const { data, error } = await supabase
           .from('contatos')
-          .insert(batch)
-          .select();
-
-        if (batchError) {
-          console.error(`❌ Erro no lote ${i + 1}:`, batchError);
-          insertErrors += batch.length;
-        } else if (batchData) {
-          allInsertedData = [...allInsertedData, ...batchData];
-          console.log(`✅ Lote ${i + 1} inserido: ${batchData.length} contatos`);
+          .select('id, telefone')
+          .eq('empresa_id', activeCompany.id)
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        
+        if (error) {
+          console.error('Erro ao buscar contatos existentes:', error);
+          break;
+        }
+        
+        if (data && data.length > 0) {
+          allExistingContatos = [...allExistingContatos, ...data];
+          hasMore = data.length === PAGE_SIZE;
+          page++;
+        } else {
+          hasMore = false;
         }
       }
 
-      const data = allInsertedData;
-      
-      if (insertErrors > 0 && data.length === 0) {
-        throw new Error(`Falha ao inserir contatos: ${insertErrors} erros`);
+      // Criar mapa de telefone normalizado -> contato_id
+      const telefoneToContatoId = new Map<string, string>();
+      for (const c of allExistingContatos) {
+        if (c.telefone) {
+          const telNorm = normalizeTelefoneForComparison(c.telefone);
+          telefoneToContatoId.set(telNorm, c.id);
+        }
       }
-      
-      if (insertErrors > 0) {
-        toast({
-          title: "Atenção",
-          description: `${data.length} contatos inseridos, ${insertErrors} falharam`,
-          variant: "destructive"
-        });
-      }
-      
-      console.log('✅ Contatos added successfully:', data?.length);
-      console.log('🔗 Prospeccao ID for webhook:', prospeccaoId);
-      
-      // Vincular contatos à prospecção na tabela eventos_prospeccao
-      if (data && data.length > 0 && prospeccaoId) {
-        console.log('🔗 Vinculando contatos à prospecção:', prospeccaoId);
+
+      console.log(`📊 ${allExistingContatos.length} contatos existentes na empresa`);
+
+      // 2) Buscar vínculos já existentes neste evento específico
+      const eventosExistentes = new Set<string>();
+      let eventosPage = 0;
+      let eventosHasMore = true;
+
+      while (eventosHasMore) {
+        const { data, error } = await supabase
+          .from('eventos_prospeccao')
+          .select('contato_id')
+          .eq('prospeccao_id', prospeccaoId)
+          .range(eventosPage * PAGE_SIZE, (eventosPage + 1) * PAGE_SIZE - 1);
         
-        const eventosParaInserir = data.map((contato: any) => ({
-          contato_id: contato.id,
+        if (error) {
+          console.error('Erro ao buscar vínculos existentes:', error);
+          break;
+        }
+        
+        if (data && data.length > 0) {
+          data.forEach(e => { if (e.contato_id) eventosExistentes.add(e.contato_id); });
+          eventosHasMore = data.length === PAGE_SIZE;
+          eventosPage++;
+        } else {
+          eventosHasMore = false;
+        }
+      }
+
+      console.log(`📊 ${eventosExistentes.size} contatos já vinculados a este evento`);
+
+      // 3) Separar contatos em: 
+      //    - existentes que precisam ser vinculados
+      //    - novos que precisam ser criados e vinculados
+      const contatosParaVincular: string[] = []; // IDs de contatos existentes
+      const contatosParaCriar: typeof novosContatos = [];
+      const jaVinculados: string[] = [];
+      const telefonesProcessados = new Set<string>();
+
+      for (const contato of novosContatos) {
+        const telNorm = normalizeTelefoneForComparison(contato.telefone);
+        
+        // Evitar duplicatas dentro do próprio lote
+        if (telefonesProcessados.has(telNorm)) {
+          continue;
+        }
+        telefonesProcessados.add(telNorm);
+
+        const contatoIdExistente = telefoneToContatoId.get(telNorm);
+        
+        if (contatoIdExistente) {
+          // Contato já existe na empresa
+          if (eventosExistentes.has(contatoIdExistente)) {
+            // Já está vinculado a este evento
+            jaVinculados.push(contato.nome);
+          } else {
+            // Precisa vincular ao evento
+            contatosParaVincular.push(contatoIdExistente);
+          }
+        } else {
+          // Contato novo, precisa criar
+          contatosParaCriar.push(contato);
+          // Adicionar ao mapa para evitar criar duplicados dentro do lote
+          // O ID será preenchido após inserção
+        }
+      }
+
+      console.log(`📊 Resumo: ${contatosParaCriar.length} novos, ${contatosParaVincular.length} existentes para vincular, ${jaVinculados.length} já vinculados`);
+
+      // 4) Criar novos contatos
+      let novosContatosCriados: any[] = [];
+      if (contatosParaCriar.length > 0) {
+        const contatosComEmpresa = contatosParaCriar.map(contato => ({
+          ...contato,
+          status: 'Novo' as const,
+          empresa_id: activeCompany.id
+        }));
+
+        const INSERT_BATCH_SIZE = 500;
+        for (let i = 0; i < contatosComEmpresa.length; i += INSERT_BATCH_SIZE) {
+          const batch = contatosComEmpresa.slice(i, i + INSERT_BATCH_SIZE);
+          const { data: batchData, error: batchError } = await supabase
+            .from('contatos')
+            .insert(batch)
+            .select();
+
+          if (batchError) {
+            console.error(`❌ Erro ao inserir lote ${i + 1}:`, batchError);
+          } else if (batchData) {
+            novosContatosCriados = [...novosContatosCriados, ...batchData];
+          }
+        }
+        console.log(`✅ ${novosContatosCriados.length} novos contatos criados`);
+      }
+
+      // 5) Vincular TODOS ao evento (novos + existentes que ainda não estavam)
+      const todosIdsParaVincular = [
+        ...contatosParaVincular,
+        ...novosContatosCriados.map((c: any) => c.id)
+      ];
+
+      if (todosIdsParaVincular.length > 0) {
+        const eventosParaInserir = todosIdsParaVincular.map(id => ({
+          contato_id: id,
           prospeccao_id: prospeccaoId
         }));
-        
-        // Inserir em lotes para evitar timeout
+
         const EVENTO_BATCH_SIZE = 500;
         let eventosInseridos = 0;
         
@@ -528,36 +457,31 @@ export const useContatoData = () => {
         }
         
         console.log(`✅ ${eventosInseridos} contatos vinculados à prospecção`);
-        
-        // Buscar dados da prospecção para log
-        const { data: prospeccaoData } = await supabase
-          .from('prospeccoes')
-          .select('id, titulo, data_inicio, data_fim, canal, event_id_pri')
-          .eq('id', prospeccaoId)
-          .single();
-        
-        console.log('📊 Dados da prospecção:', prospeccaoData);
-        console.log('✅ Contatos importados e vinculados. Disparo para IA será feito manualmente via botão "Disparar para IA".');
       }
-      // Leads sem prospecção NÃO disparam webhook de status e não são vinculados
+
+      // 6) Atualizar estado local
+      if (novosContatosCriados.length > 0) {
+        setContatos(prev => [...novosContatosCriados, ...prev]);
+      }
       
-      if (data) setContatos(prev => [...data, ...prev]);
-      
-      // Mensagem diferenciada se houve duplicados
-      const mensagemDuplicados = prospeccaoId 
-        ? `${duplicados.length} já existiam neste evento e foram ignorados.`
-        : `${duplicados.length} já existiam e foram ignorados.`;
-      
-      const mensagem = duplicados.length > 0 
-        ? `${data?.length || 0} contatos adicionados. ${mensagemDuplicados}`
-        : `${data?.length || 0} contatos adicionados com sucesso`;
+      // Mensagem de sucesso
+      const partes: string[] = [];
+      if (novosContatosCriados.length > 0) {
+        partes.push(`${novosContatosCriados.length} novos criados`);
+      }
+      if (contatosParaVincular.length > 0) {
+        partes.push(`${contatosParaVincular.length} existentes vinculados`);
+      }
+      if (jaVinculados.length > 0) {
+        partes.push(`${jaVinculados.length} já estavam no evento`);
+      }
       
       toast({ 
         title: "Sucesso", 
-        description: mensagem
+        description: partes.join(', ') || 'Nenhum contato processado'
       });
       
-      return data;
+      return novosContatosCriados;
     } catch (error) {
       console.error('Erro ao adicionar contatos:', error);
       toast({ 
@@ -678,21 +602,51 @@ export const useContatoData = () => {
     }
   };
 
-  // Excluir contato - COM CASCATA para eventos_prospeccao
-  const excluirContato = async (contatoId: string): Promise<void> => {
+  // Desvincular contato de um evento específico (não exclui o contato)
+  // Se o contato não tiver mais vínculos, ele permanece disponível para outros eventos
+  const desvincularContatoDoEvento = async (contatoId: string, prospeccaoId: string): Promise<void> => {
     try {
-      // Primeiro excluir registros relacionados em eventos_prospeccao
-      const { error: eventosError } = await supabase
+      console.log(`🔗 Desvinculando contato ${contatoId} do evento ${prospeccaoId}`);
+      
+      const { error } = await supabase
         .from('eventos_prospeccao')
         .delete()
-        .eq('contato_id', contatoId);
+        .eq('contato_id', contatoId)
+        .eq('prospeccao_id', prospeccaoId);
 
-      if (eventosError) {
-        console.warn('Aviso ao excluir eventos do contato:', eventosError);
-        // Continuar mesmo com erro em eventos
+      if (error) {
+        console.error('Erro ao desvincular contato do evento:', error);
+        throw error;
+      }
+      
+      console.log('✅ Contato desvinculado do evento com sucesso');
+    } catch (error) {
+      console.error('Erro ao desvincular contato:', error);
+      throw error;
+    }
+  };
+
+  // Excluir contato PERMANENTEMENTE (apenas se não tiver vínculos)
+  // REGRA: Contatos com vínculos ativos não podem ser excluídos
+  const excluirContato = async (contatoId: string): Promise<void> => {
+    try {
+      // Verificar se o contato tem vínculos com eventos
+      const { data: vinculos, error: vinculosError } = await supabase
+        .from('eventos_prospeccao')
+        .select('id')
+        .eq('contato_id', contatoId)
+        .limit(1);
+
+      if (vinculosError) {
+        console.error('Erro ao verificar vínculos:', vinculosError);
+        throw vinculosError;
       }
 
-      // Agora excluir o contato
+      if (vinculos && vinculos.length > 0) {
+        throw new Error('Contato possui vínculos com eventos. Use "Desvincular" em vez de "Excluir".');
+      }
+
+      // Contato sem vínculos pode ser excluído
       const { error } = await supabase
         .from('contatos')
         .delete()
@@ -700,6 +654,7 @@ export const useContatoData = () => {
 
       if (error) throw error;
       setContatos(prev => prev.filter(c => c.id !== contatoId));
+      console.log('✅ Contato excluído permanentemente');
     } catch (error) {
       console.error('Erro ao excluir contato:', error);
       throw error;
@@ -1016,84 +971,134 @@ export const useContatoData = () => {
     return { sucesso, falha };
   };
 
-  // Excluir um único contato - COM CASCATA para eventos_prospeccao
-  const excluirContatoUnico = async (contatoId: string): Promise<boolean> => {
+  // Desvincular um único contato de um evento específico
+  const desvincularContatoUnico = async (contatoId: string, prospeccaoId: string): Promise<boolean> => {
     try {
-      console.log(`🗑️ Excluindo contato: ${contatoId}`);
+      console.log(`🔗 Desvinculando contato ${contatoId} do evento ${prospeccaoId}`);
       
-      // Primeiro excluir registros relacionados em eventos_prospeccao
-      await supabase
+      const { error } = await supabase
         .from('eventos_prospeccao')
         .delete()
-        .eq('contato_id', contatoId);
-      
-      // Agora excluir o contato
-      const { error } = await supabase
-        .from('contatos')
-        .delete()
-        .eq('id', contatoId);
+        .eq('contato_id', contatoId)
+        .eq('prospeccao_id', prospeccaoId);
       
       if (error) {
-        console.error('❌ Erro ao excluir contato:', error);
+        console.error('❌ Erro ao desvincular contato:', error);
         return false;
       }
       
-      setContatos(prev => prev.filter(c => c.id !== contatoId));
-      console.log('✅ Contato excluído com sucesso');
+      console.log('✅ Contato desvinculado com sucesso');
       return true;
     } catch (error) {
-      console.error('❌ Exceção ao excluir contato:', error);
+      console.error('❌ Exceção ao desvincular contato:', error);
       return false;
     }
   };
 
-  // Excluir múltiplos contatos de uma vez (todos de uma só vez, sem batches)
-  const excluirContatosEmMassa = async (contatoIds: string[]): Promise<{ sucesso: number; falha: number }> => {
-    if (contatoIds.length === 0) {
+  // Desvincular múltiplos contatos de um evento específico
+  // REGRA: Apenas desvincula do evento, não exclui os contatos
+  const desvincularContatosDoEvento = async (contatoIds: string[], prospeccaoId: string): Promise<{ sucesso: number; falha: number }> => {
+    if (contatoIds.length === 0 || !prospeccaoId) {
       return { sucesso: 0, falha: 0 };
     }
 
-    // Se for apenas 1 contato, usar função individual
-    if (contatoIds.length === 1) {
-      const resultado = await excluirContatoUnico(contatoIds[0]);
-      return resultado ? { sucesso: 1, falha: 0 } : { sucesso: 0, falha: 1 };
-    }
-
-    console.log(`🗑️ Excluindo ${contatoIds.length} contatos em lotes`);
+    console.log(`🔗 Desvinculando ${contatoIds.length} contatos do evento ${prospeccaoId}`);
 
     try {
-      // Excluir em lotes para evitar URL longa
       const DELETE_BATCH_SIZE = 200;
-      let deletedCount = 0;
+      let desvinculados = 0;
       let errors = 0;
       
       for (let i = 0; i < contatoIds.length; i += DELETE_BATCH_SIZE) {
         const batchIds = contatoIds.slice(i, i + DELETE_BATCH_SIZE);
         
-        // Primeiro excluir registros relacionados em eventos_prospeccao
-        await supabase
+        const { error } = await supabase
           .from('eventos_prospeccao')
           .delete()
-          .in('contato_id', batchIds);
-        
-        // Agora excluir os contatos
-        const { error } = await supabase
-          .from('contatos')
-          .delete()
-          .in('id', batchIds);
+          .in('contato_id', batchIds)
+          .eq('prospeccao_id', prospeccaoId);
 
         if (error) {
-          console.error(`❌ Erro ao excluir lote ${Math.floor(i / DELETE_BATCH_SIZE) + 1}:`, error);
+          console.error(`❌ Erro ao desvincular lote ${Math.floor(i / DELETE_BATCH_SIZE) + 1}:`, error);
           errors += batchIds.length;
         } else {
-          deletedCount += batchIds.length;
+          desvinculados += batchIds.length;
         }
       }
 
-      setContatos(prev => prev.filter(c => !contatoIds.includes(c.id)));
+      console.log(`✅ ${desvinculados} contatos desvinculados (${errors} erros)`);
+      return { sucesso: desvinculados, falha: errors };
+    } catch (error) {
+      console.error('❌ Exceção ao desvincular contatos:', error);
+      return { sucesso: 0, falha: contatoIds.length };
+    }
+  };
 
-      console.log(`✅ ${deletedCount} contatos excluídos com sucesso (${errors} erros)`);
-      return { sucesso: deletedCount, falha: errors };
+  // LEGACY: Manter para compatibilidade - agora apenas desvincula
+  const excluirContatoUnico = async (contatoId: string, prospeccaoId?: string): Promise<boolean> => {
+    if (prospeccaoId) {
+      return desvincularContatoUnico(contatoId, prospeccaoId);
+    }
+    // Sem prospeccaoId, tenta excluir permanentemente (apenas se não tiver vínculos)
+    try {
+      await excluirContato(contatoId);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // LEGACY: Manter para compatibilidade - agora desvincula do evento
+  const excluirContatosEmMassa = async (contatoIds: string[], prospeccaoId?: string): Promise<{ sucesso: number; falha: number }> => {
+    if (contatoIds.length === 0) {
+      return { sucesso: 0, falha: 0 };
+    }
+
+    // Se tiver prospeccaoId, desvincular do evento
+    if (prospeccaoId) {
+      return desvincularContatosDoEvento(contatoIds, prospeccaoId);
+    }
+
+    // Sem prospeccaoId, buscar contatos sem vínculos para excluir permanentemente
+    console.log(`🗑️ Verificando ${contatoIds.length} contatos para exclusão permanente`);
+
+    try {
+      // Buscar contatos que não têm vínculos com eventos
+      const DELETE_BATCH_SIZE = 200;
+      let deletedCount = 0;
+      let skippedCount = 0;
+      
+      for (let i = 0; i < contatoIds.length; i += DELETE_BATCH_SIZE) {
+        const batchIds = contatoIds.slice(i, i + DELETE_BATCH_SIZE);
+        
+        // Verificar quais contatos têm vínculos
+        const { data: vinculos } = await supabase
+          .from('eventos_prospeccao')
+          .select('contato_id')
+          .in('contato_id', batchIds);
+        
+        const contatosComVinculos = new Set((vinculos || []).map(v => v.contato_id));
+        const contatosSemVinculos = batchIds.filter(id => !contatosComVinculos.has(id));
+        skippedCount += contatosComVinculos.size;
+        
+        if (contatosSemVinculos.length > 0) {
+          const { error } = await supabase
+            .from('contatos')
+            .delete()
+            .in('id', contatosSemVinculos);
+
+          if (error) {
+            console.error(`❌ Erro ao excluir lote:`, error);
+          } else {
+            deletedCount += contatosSemVinculos.length;
+          }
+        }
+      }
+
+      setContatos(prev => prev.filter(c => !contatoIds.includes(c.id) || contatoIds.some(id => id === c.id)));
+
+      console.log(`✅ ${deletedCount} contatos excluídos, ${skippedCount} mantidos (têm vínculos)`);
+      return { sucesso: deletedCount, falha: skippedCount };
     } catch (error) {
       console.error('❌ Exceção ao excluir contatos:', error);
       return { sucesso: 0, falha: contatoIds.length };
@@ -1398,6 +1403,33 @@ export const useContatoData = () => {
     excluirContato,
     excluirContatosEmMassa,
     excluirTodosContatosDaEmpresa,
+    desvincularContatoDoEvento,
+    desvincularContatosDoEvento,
+    desvincularTodosDoEvento: async (prospeccaoId: string) => {
+      // Desvincular todos de um evento específico
+      if (!activeCompany?.id || !prospeccaoId) return { sucesso: 0, falha: 0 };
+      
+      console.log(`🔗 Desvinculando TODOS do evento ${prospeccaoId}`);
+      const PAGE_SIZE = 1000;
+      let from = 0;
+      const contatoIds: string[] = [];
+
+      while (true) {
+        const { data, error } = await supabase
+          .from('eventos_prospeccao')
+          .select('contato_id')
+          .eq('prospeccao_id', prospeccaoId)
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (error || !data || data.length === 0) break;
+        contatoIds.push(...data.map(e => e.contato_id).filter(Boolean) as string[]);
+        if (data.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+
+      if (contatoIds.length === 0) return { sucesso: 0, falha: 0 };
+      return desvincularContatosDoEvento(contatoIds, prospeccaoId);
+    },
     atribuirResponsavel,
     getMetricas,
     updateDateFilter,
