@@ -1114,20 +1114,37 @@ export const useContatoData = () => {
     console.log(`🧨 Excluindo TODOS os ${total} contatos da empresa ${activeCompany.id}`);
 
     try {
-      // Primeiro excluir TODOS os eventos_prospeccao dos contatos desta empresa
-      // Buscar IDs dos contatos da empresa
-      const contatoIds = contatos.map(c => c.id);
-      
+      // Primeiro: buscar todos os IDs de contatos da empresa diretamente do banco
+      const { data: contatosDB, error: fetchError } = await supabase
+        .from('contatos')
+        .select('id')
+        .eq('empresa_id', activeCompany.id);
+
+      if (fetchError) {
+        console.error('❌ Erro ao buscar contatos para exclusão:', fetchError);
+        return { sucesso: 0, falha: total };
+      }
+
+      const contatoIds = (contatosDB || []).map(c => c.id);
+      console.log(`📊 Encontrados ${contatoIds.length} contatos no banco para excluir`);
+
       if (contatoIds.length > 0) {
-        // Excluir eventos em lotes para evitar URL longa
-        const DELETE_BATCH_SIZE = 200;
+        // Excluir eventos_prospeccao em lotes
+        const DELETE_BATCH_SIZE = 500;
+        console.log(`🔄 Excluindo eventos_prospeccao em lotes de ${DELETE_BATCH_SIZE}...`);
+        
         for (let i = 0; i < contatoIds.length; i += DELETE_BATCH_SIZE) {
           const batchIds = contatoIds.slice(i, i + DELETE_BATCH_SIZE);
-          await supabase
+          const { error: eventosError } = await supabase
             .from('eventos_prospeccao')
             .delete()
             .in('contato_id', batchIds);
+          
+          if (eventosError) {
+            console.warn(`⚠️ Erro ao excluir eventos lote ${i}-${i + DELETE_BATCH_SIZE}:`, eventosError);
+          }
         }
+        console.log('✅ Eventos_prospeccao excluídos');
       }
 
       // Agora excluir todos os contatos
@@ -1143,7 +1160,7 @@ export const useContatoData = () => {
 
       setContatos([]);
       console.log('✅ Todos os contatos foram excluídos');
-      return { sucesso: total, falha: 0 };
+      return { sucesso: contatoIds.length, falha: 0 };
     } catch (error) {
       console.error('❌ Exceção ao excluir todos os contatos:', error);
       return { sucesso: 0, falha: total };
