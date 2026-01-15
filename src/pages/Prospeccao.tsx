@@ -1228,6 +1228,9 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       await excluirProspeccao(toDelete.id);
       setDeleteProspeccao(null);
 
+      // Atualiza a lista de prospecções após exclusão
+      await refetch();
+
       toast({
         title: 'Prospecção excluída',
         description:
