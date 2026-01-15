@@ -1258,8 +1258,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           throw error;
         }
 
-      // Chamar webhook após atualização
-        await callWebhook(data);
+        // Chamar webhook após atualização (apenas IA Whatsapp)
+        if (tipoEvento === 'IA Whatsapp') {
+          await callWebhook(data);
+        }
         
         // Disparar gatilhos de "novo_evento_criado" (independente do webhook pri-config)
         await triggerNovoEventoCriadoWebhooks(data, true);
@@ -1279,8 +1281,13 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           await saveConvite(data.id);
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
-          // NÃO chamar webhook aqui - disparo será feito pelo botão "Disparar Ligações" na página do evento
-          console.log('✅ Evento IA Ligação atualizado. Disparo manual via botão na página do evento.');
+
+          const ok = await callIALigacaoWebhooks(data, 'atualizar');
+          if (!ok) {
+            throw new Error('Falha ao atualizar o evento externo (IA Ligação).');
+          }
+
+          console.log('✅ Evento IA Ligação atualizado e sincronizado externamente.');
         }
 
         toast({
@@ -1323,8 +1330,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           throw error;
         }
 
-      // Chamar webhook após criação
-        await callWebhook(data);
+        // Chamar webhook após criação (apenas IA Whatsapp)
+        if (tipoEvento === 'IA Whatsapp') {
+          await callWebhook(data);
+        }
         
         // Disparar gatilhos de "novo_evento_criado" (independente do webhook pri-config)
         await triggerNovoEventoCriadoWebhooks(data, false);
@@ -1344,8 +1353,23 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           await saveConvite(data.id);
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
-          // NÃO chamar webhook aqui - disparo será feito pelo botão "Disparar Ligações" na página do evento
-          console.log('✅ Evento IA Ligação criado. Disparo manual via botão na página do evento.');
+
+          const ok = await callIALigacaoWebhooks(data, 'criar');
+          if (!ok) {
+            // Reverter criação local se o evento externo não foi criado (fonte da verdade)
+            const { error: rollbackError } = await supabase
+              .from('prospeccoes')
+              .delete()
+              .eq('id', data.id);
+
+            if (rollbackError) {
+              console.error('❌ Falha ao reverter prospecção local após erro externo:', rollbackError);
+            }
+
+            throw new Error('Falha ao criar o evento externo (IA Ligação). O evento local foi revertido.');
+          }
+
+          console.log('✅ Evento IA Ligação criado e sincronizado externamente.');
         }
 
         toast({
@@ -1588,112 +1612,104 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         console.log(`✅ Agente ${nomeAgenteEsperado} OK:`, { priTelefoneLimpo, dealerIdFinal, nomePri });
 
         // ============================================================
-        // ENVIAR PARA WEBHOOK CRIA-EVENTO-LIGACAO
-        // Este webhook cria o evento no banco externo
+        // CRIAR/ATUALIZAR EVENTO EXTERNO (IA LIGAÇÃO) VIA EDGE FUNCTION
+        // (server-to-server, evita CORS e garante execução)
         // ============================================================
-        const formatarDataISO = (data: string | null) => {
-          if (!data) return null;
-          try {
-            return new Date(data + 'T11:00:00.000Z').toISOString();
-          } catch {
-            return null;
-          }
+        const idEventoNum = prospeccaoData?.event_id_pri
+          ? parseInt(String(prospeccaoData.event_id_pri), 10)
+          : undefined;
+        const idEventoFinal = Number.isFinite(idEventoNum) ? idEventoNum : undefined;
+
+        const eventoParaEdge = {
+          id: String(prospeccaoData.id),
+          titulo: String(prospeccaoData.titulo || ''),
+          descricao: prospeccaoData.descricao ?? null,
+          data_inicio: prospeccaoData.data_inicio ?? null,
+          data_fim: prospeccaoData.data_fim ?? null,
+          canal: String(prospeccaoData.canal || (isIALigacao ? 'Ligação' : 'Whatsapp')),
+          evento_principal: Boolean(prospeccaoData.evento_principal ?? false),
+          qualificar_lead: Boolean(prospeccaoData.qualificar_lead ?? true),
+          imagem_divulgacao_url: prospeccaoData.imagem_divulgacao_url ?? null,
+          uf: eventoUF.trim() || empresaCrmData?.uf || null,
+          cidade: eventoCidade.trim() || empresaCrmData?.cidade || null,
+          endereco: eventoEndereco.trim() || empresaCrmData?.endereco || null,
+          ...(idEventoFinal ? { id_evento: idEventoFinal } : {}),
         };
 
-        const now = new Date().toISOString();
-        const nomeEmpresa = empresaCrmData?.nome_empresa || '';
+        const contatosParaEdge = contatosParaEnviarPadronizado.map((c) => ({
+          nome: c.nome || '',
+          telefone: c.telefone || '',
+          email: null,
+          origem: null,
+        }));
 
-        // ID do evento para usar nos contatos
-        const eventIdPri = prospeccaoData.event_id_pri || null;
+        console.log(`📤 IA Ligação via edge function (${acao})`, {
+          prospeccao_id: prospeccaoData.id,
+          empresa_id: activeCompany.id,
+          id_evento: idEventoFinal,
+          total_contatos: contatosParaEdge.length,
+        });
 
-        // PAYLOAD PARA CRIAR EVENTO - webhook cria-evento-ligacao
-        const webhookEventoPayload = {
-          evento: {
-            id_evento: eventIdPri,
-            nome: prospeccaoData.titulo,
-            descricao: prospeccaoData.descricao || '',
-            categoria: prospeccaoData.canal || 'Ligação',
-            marca: empresaCrmData?.marca || '',
-            dealerid: dealerIdFinal,
-            telefone_pri: priTelefoneLimpo,
-            uf: eventoUF.trim() || empresaCrmData?.uf || '',
-            cidade: eventoCidade.trim() || empresaCrmData?.cidade || '',
-            endereco: eventoEndereco.trim() || empresaCrmData?.endereco || '',
-            data_inicio: formatarDataISO(prospeccaoData.data_inicio),
-            data_fim: formatarDataISO(prospeccaoData.data_fim),
-            evt_status: 'ativo',
-            criado_em: now,
-            atualizado_em: now,
-            telefone_pri_whatsapp: '', // Será preenchido quando necessário
-          },
-        };
-
-        console.log(`📤 Enviando para webhook cria-evento-ligacao (${acao}):`, JSON.stringify(webhookEventoPayload, null, 2));
-
-        try {
-          const configResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/cria-evento-ligacao', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
+        const { data: edgeData, error: edgeError } = await supabase.functions.invoke('ia-ligacao-webhook', {
+          body: {
+            evento: eventoParaEdge,
+            contatos: contatosParaEdge,
+            empresa_id: activeCompany.id,
+            acao,
+            agente_template: {
+              telefone: priTelefoneLimpo,
+              dealer_id: dealerIdFinal,
+              nome: nomePri,
             },
-            body: JSON.stringify(webhookEventoPayload),
-          });
+          },
+        });
 
-          if (!configResponse.ok) {
-            console.error('❌ Erro ao enviar para webhook cria-evento-ligacao:', configResponse.status);
-            toast({
-              title: `Erro na operação (${acao})`,
-              description: `Falha ao enviar dados para o servidor. Status: ${configResponse.status}`,
-              variant: "destructive",
-            });
-            return false;
-          }
-
-          const configResult = await configResponse.json().catch(() => ({}));
-          console.log('✅ Webhook cria-evento-ligacao enviado com sucesso:', configResult);
-
-          // Verificar se a resposta indica sucesso
-          if (configResult?.success === false || configResult?.error) {
-            console.error('❌ Webhook retornou erro:', configResult);
-            const detalhe = configResult?.message || configResult?.error || `Falha ao ${acao} evento.`;
-            toast({
-              title: `Erro na operação (${acao})`,
-              description: detalhe,
-              variant: "destructive",
-            });
-            return false;
-          }
-
-          // Se for criação e retornou id_evento, salvar na prospecção
-          if (acao === 'criar' && configResult?.id_evento) {
-            const { error: updateError } = await supabase
-              .from('prospeccoes')
-              .update({ event_id_pri: String(configResult.id_evento) })
-              .eq('id', prospeccaoData.id);
-            
-            if (updateError) {
-              console.error('❌ Erro ao salvar event_id_pri:', updateError);
-            } else {
-              console.log(`✅ event_id_pri "${configResult.id_evento}" salvo na prospecção ${prospeccaoData.id}`);
-            }
-          }
-
-          toast({
-            title: acao === 'criar' ? "Evento criado!" : "Evento atualizado!",
-            description: "Evento de ligação configurado com sucesso.",
-          });
-
-          return true;
-
-        } catch (configError) {
-          console.error('❌ Erro ao chamar webhook cria-evento-ligacao:', configError);
+        if (edgeError) {
+          console.error('❌ Erro ao chamar ia-ligacao-webhook:', edgeError);
           toast({
             title: `Erro na operação (${acao})`,
-            description: "Ocorreu um erro inesperado. Tente novamente.",
-            variant: "destructive",
+            description: `Falha ao sincronizar evento externo: ${edgeError.message}`,
+            variant: 'destructive',
           });
           return false;
         }
+
+        if ((edgeData as any)?.success === false || (edgeData as any)?.error) {
+          console.error('❌ ia-ligacao-webhook retornou erro:', edgeData);
+          const detalhe =
+            (edgeData as any)?.data?.message ||
+            (edgeData as any)?.data?.hint ||
+            (edgeData as any)?.data?.raw ||
+            (edgeData as any)?.error ||
+            (edgeData as any)?.message ||
+            'Falha ao sincronizar evento externo.';
+          toast({
+            title: `Erro na operação (${acao})`,
+            description: detalhe,
+            variant: 'destructive',
+          });
+          return false;
+        }
+
+        // Se retornou id_evento, garantir que está salvo localmente
+        const returnedIdEvento = (edgeData as any)?.id_evento;
+        if (returnedIdEvento) {
+          const returnedIdEventoStr = String(returnedIdEvento);
+          if (!prospeccaoData.event_id_pri || String(prospeccaoData.event_id_pri) !== returnedIdEventoStr) {
+            const { error: updateError } = await supabase
+              .from('prospeccoes')
+              .update({ event_id_pri: returnedIdEventoStr })
+              .eq('id', prospeccaoData.id);
+
+            if (updateError) {
+              console.error('❌ Erro ao salvar event_id_pri:', updateError);
+            } else {
+              console.log(`✅ event_id_pri "${returnedIdEventoStr}" salvo na prospecção ${prospeccaoData.id}`);
+            }
+          }
+        }
+
+        return true;
       }
 
       // Para ação 'deletar', enviar para webhook de deleção (se houver)
