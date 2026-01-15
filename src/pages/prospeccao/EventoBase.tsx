@@ -196,9 +196,9 @@ export default function EventoBase() {
         .from('contatos')
         .select(`
           id, nome, telefone, email, status, origem, 
-          created_at, updated_at, data_disparo_ia, 
+          created_at, updated_at, 
           responsavel_email, vendedor_nome,
-          eventos_prospeccao!inner(prospeccao_id)
+          eventos_prospeccao!inner(prospeccao_id, data_disparo_ia)
         `)
         .eq('empresa_id', activeCompany.id)
         .eq('eventos_prospeccao.prospeccao_id', eventoId);
@@ -211,9 +211,9 @@ export default function EventoBase() {
         query = query.eq('status', statusFilter as any);
       }
       if (disparoFilter === 'pendente') {
-        query = query.is('data_disparo_ia', null);
+        query = query.is('eventos_prospeccao.data_disparo_ia', null);
       } else if (disparoFilter === 'disparado') {
-        query = query.not('data_disparo_ia', 'is', null);
+        query = query.not('eventos_prospeccao.data_disparo_ia', 'is', null);
       }
 
       // Ordenar e paginar
@@ -225,15 +225,22 @@ export default function EventoBase() {
 
       if (error) throw error;
 
-      // Remover a propriedade eventos_prospeccao dos resultados
-      const cleanData = (data || []).map(({ eventos_prospeccao, ...rest }) => rest) as ContatoEvento[];
+      // Mapear dados extraindo data_disparo_ia de eventos_prospeccao
+      const cleanData = (data || []).map(({ eventos_prospeccao, ...rest }) => {
+        // eventos_prospeccao é um array (inner join), pegamos o primeiro que corresponde ao evento
+        const evento = Array.isArray(eventos_prospeccao) ? eventos_prospeccao[0] : eventos_prospeccao;
+        return {
+          ...rest,
+          data_disparo_ia: evento?.data_disparo_ia || null
+        };
+      }) as ContatoEvento[];
       setContatos(cleanData);
 
       // Se temos filtros, precisamos contar o total filtrado
       if (searchTerm || statusFilter !== 'todos' || disparoFilter !== 'todos') {
         let countQuery = supabase
           .from('contatos')
-          .select('id, eventos_prospeccao!inner(prospeccao_id)', { count: 'exact', head: true })
+          .select('id, eventos_prospeccao!inner(prospeccao_id, data_disparo_ia)', { count: 'exact', head: true })
           .eq('empresa_id', activeCompany.id)
           .eq('eventos_prospeccao.prospeccao_id', eventoId);
 
@@ -244,9 +251,9 @@ export default function EventoBase() {
           countQuery = countQuery.eq('status', statusFilter as any);
         }
         if (disparoFilter === 'pendente') {
-          countQuery = countQuery.is('data_disparo_ia', null);
+          countQuery = countQuery.is('eventos_prospeccao.data_disparo_ia', null);
         } else if (disparoFilter === 'disparado') {
-          countQuery = countQuery.not('data_disparo_ia', 'is', null);
+          countQuery = countQuery.not('eventos_prospeccao.data_disparo_ia', 'is', null);
         }
 
         const { count: filteredCount } = await countQuery;
@@ -308,9 +315,9 @@ export default function EventoBase() {
           .from('contatos')
           .select(`
             id, nome, telefone, email, status, origem, 
-            created_at, updated_at, data_disparo_ia, 
+            created_at, updated_at, 
             responsavel_email, vendedor_nome,
-            eventos_prospeccao!inner(prospeccao_id)
+            eventos_prospeccao!inner(prospeccao_id, data_disparo_ia)
           `)
           .eq('empresa_id', activeCompany!.id)
           .eq('eventos_prospeccao.prospeccao_id', eventoId!);
@@ -323,9 +330,9 @@ export default function EventoBase() {
           query = query.eq('status', statusFilter as any);
         }
         if (disparoFilter === 'pendente') {
-          query = query.is('data_disparo_ia', null);
+          query = query.is('eventos_prospeccao.data_disparo_ia', null);
         } else if (disparoFilter === 'disparado') {
-          query = query.not('data_disparo_ia', 'is', null);
+          query = query.not('eventos_prospeccao.data_disparo_ia', 'is', null);
         }
 
         query = query
@@ -337,7 +344,13 @@ export default function EventoBase() {
         if (error) throw error;
 
         if (data && data.length > 0) {
-          const cleanData = data.map(({ eventos_prospeccao, ...rest }) => rest) as ContatoEvento[];
+          const cleanData = data.map(({ eventos_prospeccao, ...rest }) => {
+            const evento = Array.isArray(eventos_prospeccao) ? eventos_prospeccao[0] : eventos_prospeccao;
+            return {
+              ...rest,
+              data_disparo_ia: evento?.data_disparo_ia || null
+            };
+          }) as ContatoEvento[];
           allContatos = [...allContatos, ...cleanData];
           offset += EXPORT_BATCH_SIZE;
           hasMore = data.length === EXPORT_BATCH_SIZE;
@@ -411,13 +424,13 @@ export default function EventoBase() {
         .from('contatos')
         .select(`
           id, nome, telefone, email, status, origem, 
-          created_at, updated_at, data_disparo_ia, 
+          created_at, updated_at, 
           responsavel_email, vendedor_nome,
-          eventos_prospeccao!inner(prospeccao_id)
+          eventos_prospeccao!inner(prospeccao_id, data_disparo_ia)
         `)
         .eq('empresa_id', activeCompany.id)
         .eq('eventos_prospeccao.prospeccao_id', eventoId)
-        .is('data_disparo_ia', null)
+        .is('eventos_prospeccao.data_disparo_ia', null)
         .range(offset, offset + BATCH_SIZE - 1);
 
       if (error) {
@@ -426,7 +439,13 @@ export default function EventoBase() {
       }
 
       if (data && data.length > 0) {
-        const cleanData = data.map(({ eventos_prospeccao, ...rest }) => rest) as ContatoEvento[];
+        const cleanData = data.map(({ eventos_prospeccao, ...rest }) => {
+          const evento = Array.isArray(eventos_prospeccao) ? eventos_prospeccao[0] : eventos_prospeccao;
+          return {
+            ...rest,
+            data_disparo_ia: evento?.data_disparo_ia || null
+          };
+        }) as ContatoEvento[];
         allContatos = [...allContatos, ...cleanData];
         offset += BATCH_SIZE;
         hasMore = data.length === BATCH_SIZE;
@@ -661,6 +680,13 @@ export default function EventoBase() {
       if (error) throw error;
 
       console.log('✅ Resposta do disparo individual:', data);
+
+      // Marcar disparo na tabela eventos_prospeccao (por evento, não global)
+      await supabase
+        .from('eventos_prospeccao')
+        .update({ data_disparo_ia: new Date().toISOString() })
+        .eq('prospeccao_id', prospeccao.id)
+        .eq('contato_id', contato.id);
 
       toast({ title: "Sucesso", description: `Disparo enviado para ${contato.nome}` });
 

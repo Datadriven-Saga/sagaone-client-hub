@@ -799,6 +799,7 @@ export type Database = {
         Row: {
           contato_id: string | null
           created_at: string | null
+          data_disparo_ia: string | null
           data_evento: string | null
           descricao: string | null
           id: string
@@ -813,6 +814,7 @@ export type Database = {
         Insert: {
           contato_id?: string | null
           created_at?: string | null
+          data_disparo_ia?: string | null
           data_evento?: string | null
           descricao?: string | null
           id?: string
@@ -827,6 +829,7 @@ export type Database = {
         Update: {
           contato_id?: string | null
           created_at?: string | null
+          data_disparo_ia?: string | null
           data_evento?: string | null
           descricao?: string | null
           id?: string
