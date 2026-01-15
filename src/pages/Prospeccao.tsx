@@ -1432,18 +1432,27 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                         <tbody>
                           {filteredProspeccoes
                             .map((prospeccao) => {
-                              const hoje = new Date();
-                              const dataInicio = prospeccao.data_inicio ? new Date(prospeccao.data_inicio) : null;
-                              const dataFim = prospeccao.data_fim ? new Date(prospeccao.data_fim) : null;
+                              // Determinar status baseado no estado do disparo
+                              const contagem = contagemPendentes[prospeccao.id];
+                              const total = contagem?.total || 0;
+                              const pendentes = contagem?.pendentes || 0;
+                              const disparados = contagem?.disparados || 0;
+                              const isDisparandoEvento = disparandoIA === prospeccao.id;
                               
-                              let status = 'Ativo';
-                              let statusColor = 'bg-green-100 text-green-700';
+                              let status = 'Pendente';
+                              let statusColor = 'bg-yellow-100 text-yellow-700';
                               
-                              if (dataFim && hoje > dataFim) {
+                              if (isDisparandoEvento) {
+                                // Está disparando agora
+                                status = 'Em Progresso';
+                                statusColor = 'bg-blue-100 text-blue-700';
+                              } else if (total > 0 && pendentes === 0) {
+                                // Todos os contatos foram disparados
                                 status = 'Encerrado';
                                 statusColor = 'bg-gray-100 text-gray-700';
-                              } else if (dataInicio && hoje < dataInicio) {
-                                status = 'Agendado';
+                              } else if (disparados > 0 && pendentes > 0) {
+                                // Alguns disparados, mas ainda há pendentes - consideramos "Em Progresso"
+                                status = 'Em Progresso';
                                 statusColor = 'bg-blue-100 text-blue-700';
                               }
                             
