@@ -863,31 +863,27 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   ];
 
   // Função para importar clientes como contatos
-  const handleClientesImported = async (campanha: string, clientes: ClienteData[]) => {
+  const handleClientesImported = async (prospeccaoId: string, clientes: ClienteData[]) => {
     try {
       console.log('=== INICIANDO IMPORTAÇÃO ===');
-      console.log('Campanha:', campanha);
+      console.log('Prospeccao ID:', prospeccaoId);
       console.log('Quantidade de clientes:', clientes.length);
       console.log('Usuário logado:', user?.id);
-      
-      // Buscar o ID da prospecção pela campanha selecionada
-      const prospeccaoSelecionada = prospeccoes.find(p => p.titulo === campanha);
+
+      // Buscar a prospecção pelo ID (evita conflito quando existem títulos iguais)
+      const prospeccaoSelecionada = prospeccoes.find(p => p.id === prospeccaoId);
       console.log('Prospecção selecionada:', prospeccaoSelecionada);
-      
+
       if (!prospeccaoSelecionada) {
-        throw new Error(`Prospecção "${campanha}" não encontrada`);
+        throw new Error(`Prospecção (id: ${prospeccaoId}) não encontrada`);
       }
-      
-      // Processar cada cliente usando o hook useContatoData
-      // Pegar o base_id do primeiro cliente (todos terão o mesmo base_id)
-      const baseId = clientes[0]?.base_id;
-      
+
       const novosContatos = clientes.map(cliente => ({
         nome: cliente.nome,
         telefone: cliente.telefone,
         email: cliente.email || undefined,
         origem: 'Outros' as const,
-        observacoes: `Importado da campanha: ${campanha}`,
+        observacoes: `Importado para o evento: ${prospeccaoSelecionada.titulo}`,
         responsavel_email: cliente.responsavel && cliente.responsavel.trim() ? cliente.responsavel : undefined,
         base_id: cliente.base_id
       }));
@@ -896,18 +892,18 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       console.log('Novos contatos a serem adicionados:', novosContatos);
       console.log('Prospeccao selecionada ID:', prospeccaoSelecionada.id);
 
-      // Usar a função do hook que já trata empresa_id automaticamente e dispara webhooks
+      // Usar a função do hook que já trata empresa_id automaticamente e vincula na eventos_prospeccao
       await adicionarContatos(novosContatos, prospeccaoSelecionada.id);
 
       toast({
-        title: "Planilha importada",
-        description: `${clientes.length} contatos foram importados e adicionados ao Kanban`,
+        title: "Base importada",
+        description: `${clientes.length} contatos foram importados e vinculados ao evento`,
       });
-      
+
       // Forçar atualização dos dados
       refetch();
-      
-    } catch (error) {
+
+    } catch (error: any) {
       console.error('Erro ao importar contatos:', error);
       toast({
         title: "Erro na importação",
@@ -917,24 +913,24 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     }
   };
 
-  const handleClientesSelected = async (campanha: string, clientes: ClienteData[]) => {
+  const handleClientesSelected = async (prospeccaoId: string, clientes: ClienteData[]) => {
     try {
-      // Buscar o ID da prospecção pela campanha selecionada
-      const prospeccaoSelecionada = prospeccoes.find(p => p.titulo === campanha);
-      
+      const prospeccaoSelecionada = prospeccoes.find(p => p.id === prospeccaoId);
+      if (!prospeccaoSelecionada) return;
+
       const novosContatos = clientes.map(cliente => ({
         nome: cliente.nome,
         telefone: cliente.telefone,
         email: cliente.email,
         origem: 'Outros' as const,
-        observacoes: `Selecionado da base: ${campanha}`
+        observacoes: `Selecionado da base para o evento: ${prospeccaoSelecionada.titulo}`
       }));
 
-      await adicionarContatos(novosContatos, prospeccaoSelecionada?.id);
+      await adicionarContatos(novosContatos, prospeccaoSelecionada.id);
 
       toast({
         title: "Clientes adicionados",
-        description: `${clientes.length} clientes da base foram adicionados ao Kanban`,
+        description: `${clientes.length} clientes da base foram vinculados ao evento`,
       });
     } catch (error) {
       console.error('Erro ao adicionar contatos:', error);

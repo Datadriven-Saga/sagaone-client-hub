@@ -357,13 +357,13 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
                 <SelectValue placeholder="Escolha uma campanha para adicionar os contatos..." />
               </SelectTrigger>
               <SelectContent>
-                {prospeccoes
-                  .filter((p) => !p.data_fim || new Date(p.data_fim) >= new Date(new Date().toDateString()))
-                  .map((prospeccao) => (
-                    <SelectItem key={prospeccao.id} value={prospeccao.titulo}>
-                      {prospeccao.titulo}
-                    </SelectItem>
-                  ))}
+                  {prospeccoes
+                    .filter((p) => !p.data_fim || new Date(p.data_fim) >= new Date(new Date().toDateString()))
+                    .map((prospeccao) => (
+                      <SelectItem key={prospeccao.id} value={prospeccao.id}>
+                        {prospeccao.titulo}
+                      </SelectItem>
+                    ))}
               </SelectContent>
             </Select>
           </Card>

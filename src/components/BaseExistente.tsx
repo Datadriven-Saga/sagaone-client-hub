@@ -219,7 +219,7 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
                 {prospeccoes
                   .filter((p) => !p.data_fim || new Date(p.data_fim) >= new Date(new Date().toDateString()))
                   .map((prospeccao) => (
-                    <SelectItem key={prospeccao.id} value={prospeccao.titulo}>
+                    <SelectItem key={prospeccao.id} value={prospeccao.id}>
                       {prospeccao.titulo}
                     </SelectItem>
                   ))}
