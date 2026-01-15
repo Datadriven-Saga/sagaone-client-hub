@@ -81,18 +81,16 @@ serve(async (req) => {
     
     const telefoneFormatado = String(telefone_pri).replace(/\D/g, '');
     
-    // Fazer POST com os parâmetros no body (não na query)
-    const requestBody = {
-      telefone: telefoneFormatado,
-      id_evento: String(id_evento),
-    };
+    // Fazer GET com os parâmetros na query (webhook exige GET)
+    const url = new URL(WEBHOOK_URL);
+    url.searchParams.set('telefone', telefoneFormatado);
+    url.searchParams.set('id_evento', String(id_evento));
     
-    console.log('📤 Enviando no body:', JSON.stringify(requestBody));
+    console.log('📤 Chamando GET:', url.toString());
     
-    const webhookResponse = await fetch(WEBHOOK_URL, {
-      method: 'POST',
+    const webhookResponse = await fetch(url.toString(), {
+      method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
     });
 
     const webhookText = await webhookResponse.text();
