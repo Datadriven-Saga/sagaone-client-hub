@@ -16,7 +16,7 @@ export interface Contato {
   cliente_id?: string;
   empresa_id?: string;
   observacoes?: string;
-  origem: 'Site' | 'WhatsApp' | 'Instagram' | 'Facebook' | 'Google' | 'Indicação' | 'Telefone' | 'Email' | 'Outros';
+  origem: 'Site' | 'WhatsApp' | 'Instagram' | 'Facebook' | 'Google' | 'Indicação' | 'Telefone' | 'Email' | 'Outros' | 'ligacao' | 'grande_evento' | 'prospeccao_mensal';
   created_at: string;
   updated_at: string;
 }

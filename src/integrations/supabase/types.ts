@@ -2882,6 +2882,9 @@ export type Database = {
         | "Telefone"
         | "Email"
         | "Outros"
+        | "ligacao"
+        | "grande_evento"
+        | "prospeccao_mensal"
       status_gatilho: "Ativo" | "Inativo" | "Pausado"
       status_lead:
         | "Novo"
@@ -3080,6 +3083,9 @@ export const Constants = {
         "Telefone",
         "Email",
         "Outros",
+        "ligacao",
+        "grande_evento",
+        "prospeccao_mensal",
       ],
       status_gatilho: ["Ativo", "Inativo", "Pausado"],
       status_lead: [
