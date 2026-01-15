@@ -1214,31 +1214,42 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   };
 
   const handleDeleteProspeccao = async () => {
-    if (!deleteProspeccao) return;
-    
+    if (!deleteProspeccao || isDeleting) return;
+
+    const toDelete = deleteProspeccao;
+
     setIsDeleting(true);
     try {
-      // Toda a lógica de webhook está no hook excluirProspeccao
-      if (excluirProspeccao) {
-        await excluirProspeccao(deleteProspeccao.id);
-        setDeleteProspeccao(null);
-        toast({
-          title: "Prospecção excluída",
-          description: deleteProspeccao.canal === 'Ligação' 
-            ? "O evento e todos os leads vinculados foram removidos com sucesso."
-            : "A prospecção foi removida com sucesso."
-        });
+      if (!excluirProspeccao) {
+        throw new Error('Função de exclusão indisponível. Recarregue a página e tente novamente.');
       }
+
+      // Toda a lógica de webhook está no hook excluirProspeccao
+      await excluirProspeccao(toDelete.id);
+      setDeleteProspeccao(null);
+
+      toast({
+        title: 'Prospecção excluída',
+        description:
+          toDelete.canal === 'Ligação'
+            ? 'O evento e todos os leads vinculados foram removidos com sucesso.'
+            : 'A prospecção foi removida com sucesso.',
+      });
     } catch (error) {
       console.error('Erro ao excluir prospecção:', error);
-      const mensagemErro = error instanceof Error ? error.message : "Não foi possível excluir a prospecção.";
+      const mensagemErro =
+        error instanceof Error ? error.message : 'Não foi possível excluir a prospecção.';
+
       // Mostrar alert nativo com erro
       alert(`Erro ao excluir evento:\n\n${mensagemErro}`);
+
       toast({
-        title: "Erro ao excluir",
+        title: 'Erro ao excluir',
         description: mensagemErro,
-        variant: "destructive"
+        variant: 'destructive',
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1557,11 +1568,15 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                               Editar
                                             </DropdownMenuItem>
                                             <DropdownMenuItem 
-                                              onClick={() => setDeleteProspeccao({ 
-                                                id: prospeccao.id, 
-                                                canal: prospeccao.canal || '', 
-                                                eventIdPri: prospeccao.event_id_pri || null 
-                                              })}
+                                              onClick={() => {
+                                                // Segurança: garante que não fique preso no estado de "Excluindo..." ao tentar excluir outro evento
+                                                setIsDeleting(false);
+                                                setDeleteProspeccao({
+                                                  id: prospeccao.id,
+                                                  canal: prospeccao.canal || '',
+                                                  eventIdPri: prospeccao.event_id_pri || null,
+                                                });
+                                              }}
                                               className="text-red-600"
                                             >
                                               <Trash2 className="mr-2 h-4 w-4" />
