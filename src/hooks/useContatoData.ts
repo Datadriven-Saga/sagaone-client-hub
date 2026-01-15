@@ -1298,37 +1298,62 @@ export const useContatoData = () => {
 
       console.log(`📤 Disparando ${contatosNaoDisparados.length} contatos para IA (${jaDisparados} já foram disparados antes)`);
 
-      // Chamar edge function com todos os leads de uma vez
-      const { data: webhookResult, error: webhookError } = await supabase.functions.invoke('dispatch-leads-webhook', {
-        body: {
-          leads: contatosNaoDisparados.map(c => ({
-            id: c.id,
-            lead_id: c.lead_id,
-            nome: c.nome,
-            telefone: c.telefone,
-            email: c.email,
-            status: c.status,
-            origem: c.origem
-          })),
-          prospeccao_id: prospeccaoId,
-          empresa_id: activeCompany.id,
-          prospeccao_data: {
-            titulo: prospeccaoData.titulo,
-            canal: prospeccaoData.canal,
-            event_id_pri: prospeccaoData.event_id_pri,
-            data_inicio: prospeccaoData.data_inicio,
-            data_fim: prospeccaoData.data_fim
-          }
-        }
-      });
+      // Preparar leads para envio
+      const allLeads = contatosNaoDisparados.map(c => ({
+        id: c.id,
+        lead_id: c.lead_id,
+        nome: c.nome,
+        telefone: c.telefone,
+        email: c.email,
+        status: c.status,
+        origem: c.origem
+      }));
 
-      if (webhookError) {
-        console.error('❌ Erro ao chamar dispatch-leads-webhook:', webhookError);
-        toast({ title: "Erro", description: "Erro ao disparar para IA: " + webhookError.message, variant: "destructive" });
-        return { total: contatoIds.length, disparados: 0, jaDisparados };
+      // DIVIDIR EM BATCHES DE 500 PARA EVITAR TIMEOUT DA EDGE FUNCTION
+      const BATCH_SIZE = 500;
+      const totalBatches = Math.ceil(allLeads.length / BATCH_SIZE);
+      let totalErros = 0;
+      let totalSucessos = 0;
+
+      console.log(`📦 Dividindo em ${totalBatches} batches de até ${BATCH_SIZE} leads cada`);
+
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const batchStart = batchIndex * BATCH_SIZE;
+        const leads = allLeads.slice(batchStart, batchStart + BATCH_SIZE);
+        const batchNum = batchIndex + 1;
+
+        console.log(`📤 Enviando batch ${batchNum}/${totalBatches} (${leads.length} leads)`);
+
+        try {
+          const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
+            body: {
+              leads,
+              prospeccao_id: prospeccaoId,
+              empresa_id: activeCompany.id,
+              prospeccao_data: {
+                titulo: prospeccaoData.titulo,
+                canal: prospeccaoData.canal,
+                event_id_pri: prospeccaoData.event_id_pri,
+                data_inicio: prospeccaoData.data_inicio,
+                data_fim: prospeccaoData.data_fim
+              }
+            }
+          });
+
+          if (error) {
+            console.error(`❌ Erro no batch ${batchNum}:`, error);
+            totalErros += leads.length;
+          } else {
+            console.log(`✅ Batch ${batchNum} concluído:`, data);
+            totalSucessos += data?.leads_processados || leads.length;
+          }
+        } catch (batchError) {
+          console.error(`❌ Exceção no batch ${batchNum}:`, batchError);
+          totalErros += leads.length;
+        }
       }
 
-      console.log('✅ Edge function retornou:', webhookResult);
+      console.log(`📊 Disparo concluído: ${totalSucessos} sucessos, ${totalErros} erros`);
 
       // Marcar contatos como disparados - em lotes para evitar URL longa
       const contatoIdsDisparados = contatosNaoDisparados.map(c => c.id);
@@ -1347,10 +1372,19 @@ export const useContatoData = () => {
       }
 
       const tipoIA = isIALigacao ? 'IA Ligação' : 'IA Whatsapp';
-      toast({ 
-        title: "Sucesso", 
-        description: `${contatosNaoDisparados.length} contatos enviados para ${tipoIA}. ${jaDisparados > 0 ? `(${jaDisparados} já haviam sido enviados antes)` : ''}` 
-      });
+      
+      if (totalErros > 0) {
+        toast({ 
+          title: "Parcialmente concluído", 
+          description: `${totalSucessos} disparados, ${totalErros} erros`,
+          variant: "destructive" 
+        });
+      } else {
+        toast({ 
+          title: "Sucesso", 
+          description: `${contatosNaoDisparados.length} contatos enviados para ${tipoIA}. ${jaDisparados > 0 ? `(${jaDisparados} já haviam sido enviados antes)` : ''}` 
+        });
+      }
 
       return { total: contatoIds.length, disparados: contatosNaoDisparados.length, jaDisparados };
     } catch (error) {
