@@ -70,7 +70,8 @@ export default function EventoBase() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { activeCompany } = useCompany();
-  const { isAdminOrTI, loading: loadingAccess } = useUserAccessType();
+  const { isAdminOrTI, isAdmin, isTI, isCRM, loading: loadingAccess } = useUserAccessType();
+  const isGerenteLeads = useUserAccessType().tipoAcesso === "Gerente de Leads";
 
   // Estados
   const [prospeccao, setProspeccao] = useState<Prospeccao | null>(null);
@@ -691,12 +692,15 @@ export default function EventoBase() {
   const isIALigacao = canalLower.includes('liga');
   const isIA = isIAWhatsApp || isIALigacao;
   
-  // Permissão para disparar: WhatsApp = todos podem, Ligação = apenas ADM/TI
-  // Só avalia permissão após carregar o tipo de acesso
-  const canDispatch = loadingAccess ? false : (isIAWhatsApp || (isIALigacao && isAdminOrTI));
+  // Permissão para disparar:
+  // WhatsApp = ADM, TI, Gerente de Leads, CRM
+  // Ligação = apenas ADM/TI
+  const canDispatchWhatsApp = isAdmin || isTI || isGerenteLeads || isCRM;
+  const canDispatchLigacao = isAdminOrTI;
+  const canDispatch = loadingAccess ? false : (isIAWhatsApp ? canDispatchWhatsApp : (isIALigacao ? canDispatchLigacao : false));
 
   // Log para debug
-  console.log('🔍 Canal:', prospeccao?.canal, '| isIALigacao:', isIALigacao, '| isIAWhatsApp:', isIAWhatsApp, '| isAdminOrTI:', isAdminOrTI, '| canDispatch:', canDispatch, '| loadingAccess:', loadingAccess);
+  console.log('🔍 Canal:', prospeccao?.canal, '| isIALigacao:', isIALigacao, '| isIAWhatsApp:', isIAWhatsApp, '| canDispatch:', canDispatch, '| loadingAccess:', loadingAccess);
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
@@ -855,7 +859,7 @@ export default function EventoBase() {
                       </>
                     )}
                   </Button>
-                ) : isIALigacao ? (
+                ) : (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -866,16 +870,24 @@ export default function EventoBase() {
                           className="opacity-60"
                         >
                           <Lock className="mr-2 h-4 w-4" />
-                          <PhoneCall className="mr-2 h-4 w-4" />
-                          Disparar Ligações ({metricas.pendentes})
+                          {isIALigacao ? (
+                            <PhoneCall className="mr-2 h-4 w-4" />
+                          ) : (
+                            <MessageCircle className="mr-2 h-4 w-4" />
+                          )}
+                          Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({metricas.pendentes})
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Apenas Administradores e TI podem disparar IA de Ligação</p>
+                        <p>
+                          {isIALigacao 
+                            ? 'Apenas Administradores e TI podem disparar IA de Ligação'
+                            : 'Apenas Administradores, TI, Gerente de Leads e CRM podem disparar WhatsApp'}
+                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                ) : null
+                )
               )}
             </div>
           </CardContent>
@@ -988,7 +1000,7 @@ export default function EventoBase() {
                                       <MessageCircle className="h-4 w-4 text-primary" />
                                     )}
                                   </Button>
-                                ) : isIALigacao ? (
+                                ) : (
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
@@ -997,11 +1009,15 @@ export default function EventoBase() {
                                         </span>
                                       </TooltipTrigger>
                                       <TooltipContent>
-                                        <p>Apenas ADM/TI podem disparar</p>
+                                        <p>
+                                          {isIALigacao 
+                                            ? 'Apenas ADM/TI podem disparar' 
+                                            : 'Apenas ADM, TI, Gerente de Leads e CRM'}
+                                        </p>
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
-                                ) : null
+                                )
                               )}
                             </TableCell>
                           )}
