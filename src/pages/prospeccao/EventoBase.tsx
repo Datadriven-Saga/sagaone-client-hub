@@ -684,14 +684,14 @@ export default function EventoBase() {
   };
 
   // Sincronizar contatos de evento de Ligação com webhook externo
-  const handleSyncContatosLigacao = async () => {
+  const syncContatosLigacao = useCallback(async (showToast = true) => {
     const canalAtual = prospeccao?.canal?.toLowerCase() || '';
     const isLigacao = canalAtual.includes('liga');
     if (!prospeccao || !activeCompany?.id || !isLigacao) return;
 
     setIsSyncingContatos(true);
     try {
-      console.log('🔄 Iniciando sincronização de contatos para evento Ligação...');
+      console.log('🔄 Iniciando sincronização automática de contatos para evento Ligação...');
 
       // Buscar telefone do agente Pri (Ligação) para esta empresa
       const { data: agenteData, error: agenteError } = await supabase
@@ -727,11 +727,14 @@ export default function EventoBase() {
       }
 
       if (!telefonePri) {
-        toast({ 
-          title: "Erro", 
-          description: "Não foi possível encontrar o telefone do agente de Ligação para esta empresa",
-          variant: "destructive" 
-        });
+        if (showToast) {
+          toast({ 
+            title: "Agente não configurado", 
+            description: "Configure um agente Pri(Ligação) com telefone para sincronizar contatos",
+            variant: "destructive" 
+          });
+        }
+        console.warn('⚠️ Não foi possível encontrar o telefone do agente de Ligação para esta empresa');
         setIsSyncingContatos(false);
         return;
       }
@@ -755,11 +758,13 @@ export default function EventoBase() {
 
       console.log('✅ Resultado da sincronização:', data);
 
-      const summary = data?.summary || {};
-      toast({ 
-        title: "Sincronização concluída", 
-        description: `Criados: ${summary.criados || 0}, Removidos: ${summary.deletados || 0}, Mantidos: ${summary.mantidos || 0}` 
-      });
+      if (showToast) {
+        const summary = data?.summary || {};
+        toast({ 
+          title: "Sincronização concluída", 
+          description: `Criados: ${summary.criados || 0}, Removidos: ${summary.deletados || 0}, Mantidos: ${summary.mantidos || 0}` 
+        });
+      }
 
       // Recarregar dados
       await fetchMetricas();
@@ -767,15 +772,29 @@ export default function EventoBase() {
 
     } catch (error) {
       console.error('Erro ao sincronizar contatos:', error);
-      toast({ 
-        title: "Erro", 
-        description: "Erro ao sincronizar contatos: " + (error as Error).message, 
-        variant: "destructive" 
-      });
+      if (showToast) {
+        toast({ 
+          title: "Erro", 
+          description: "Erro ao sincronizar contatos: " + (error as Error).message, 
+          variant: "destructive" 
+        });
+      }
     } finally {
       setIsSyncingContatos(false);
     }
-  };
+  }, [prospeccao, activeCompany?.id, eventoId, fetchMetricas, fetchContatos, toast]);
+
+  // Sincronização automática de contatos para eventos de Ligação
+  useEffect(() => {
+    if (prospeccao && activeCompany?.id) {
+      const canalAtual = prospeccao.canal?.toLowerCase() || '';
+      const isLigacao = canalAtual.includes('liga');
+      if (isLigacao) {
+        // Sincronizar automaticamente sem toast
+        syncContatosLigacao(false);
+      }
+    }
+  }, [prospeccao?.id, activeCompany?.id]);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
@@ -837,23 +856,7 @@ export default function EventoBase() {
           </div>
 
           <div className="flex gap-2">
-            {isIALigacao && isAdminOrTI && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleSyncContatosLigacao} 
-                disabled={isSyncingContatos}
-                className="border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
-              >
-                {isSyncingContatos ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                {isSyncingContatos ? 'Sincronizando...' : 'Sincronizar Contatos'}
-              </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={fetchContatos} disabled={loadingPage}>
+            <Button variant="outline" size="sm" onClick={fetchContatos} disabled={loadingPage || isSyncingContatos}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loadingPage ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
