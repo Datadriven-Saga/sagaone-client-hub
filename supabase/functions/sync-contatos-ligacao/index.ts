@@ -184,48 +184,85 @@ serve(async (req) => {
       erros: [],
     };
 
-    // 3a. Contatos no webhook que NÃO existem localmente → CRIAR
+    // 3a. Contatos no webhook que NÃO estão vinculados a este evento
     for (const [telefone, webhookContato] of webhookContatosMap) {
       if (!locaisMap.has(telefone)) {
-        console.log(`➕ Criar contato: ${telefone} - ${webhookContato.nome || 'Sem nome'}`);
+        console.log(`➕ Vincular contato: ${telefone} - ${webhookContato.nome || 'Sem nome'}`);
         
         if (!dry_run) {
-          // Criar contato
-          const { data: novoContato, error: createError } = await supabase
+          // Primeiro, verificar se já existe um contato com esse telefone na empresa
+          const telefoneLimpo = telefone.replace(/\D/g, '');
+          const { data: contatoExistente, error: searchError } = await supabase
             .from('contatos')
-            .insert({
-              nome: webhookContato.nome || `Contato ${telefone}`,
-              telefone: webhookContato.telefone || telefone,
-              email: webhookContato.email || null,
-              status: webhookContato.status || 'Novo',
-              origem: webhookContato.origem || 'Ligação IA',
-              empresa_id: empresa_id,
-              data_disparo_ia: webhookContato.data_disparo_ia || null,
-              responsavel_email: webhookContato.responsavel_email || null,
-              vendedor_nome: webhookContato.vendedor_nome || null,
-              observacoes: webhookContato.observacoes || null,
-            })
             .select('id')
-            .single();
-
-          if (createError) {
-            console.error(`❌ Erro ao criar contato ${telefone}:`, createError);
-            result.erros.push(`Criar ${telefone}: ${createError.message}`);
-          } else if (novoContato) {
-            // Vincular ao evento
-            const { error: linkError } = await supabase
-              .from('eventos_prospeccao')
+            .eq('empresa_id', empresa_id)
+            .or(`telefone.ilike.%${telefoneLimpo.slice(-9)}%`)
+            .limit(1)
+            .maybeSingle();
+          
+          let contatoId: string | null = null;
+          
+          if (contatoExistente) {
+            // Contato já existe na empresa, usar ele
+            console.log(`📌 Contato já existe no sistema: ${contatoExistente.id}`);
+            contatoId = contatoExistente.id;
+          } else {
+            // Contato não existe, criar novo
+            console.log(`🆕 Criando novo contato: ${telefone}`);
+            const { data: novoContato, error: createError } = await supabase
+              .from('contatos')
               .insert({
-                contato_id: novoContato.id,
-                prospeccao_id: prospeccao_id,
-                tipo_evento: 'ligacao',
-              });
+                nome: webhookContato.nome || `Contato ${telefone}`,
+                telefone: webhookContato.telefone || telefone,
+                email: webhookContato.email || null,
+                status: webhookContato.status || 'Novo',
+                origem: 'ligacao',
+                empresa_id: empresa_id,
+                data_disparo_ia: webhookContato.data_disparo_ia || null,
+                responsavel_email: webhookContato.responsavel_email || null,
+                vendedor_nome: webhookContato.vendedor_nome || null,
+                observacoes: webhookContato.observacoes || null,
+              })
+              .select('id')
+              .single();
 
-            if (linkError) {
-              console.error(`❌ Erro ao vincular contato ${novoContato.id} ao evento:`, linkError);
-              result.erros.push(`Vincular ${telefone}: ${linkError.message}`);
+            if (createError) {
+              console.error(`❌ Erro ao criar contato ${telefone}:`, createError);
+              result.erros.push(`Criar ${telefone}: ${createError.message}`);
+              continue;
+            }
+            
+            contatoId = novoContato?.id || null;
+          }
+          
+          if (contatoId) {
+            // Verificar se já existe vínculo para evitar duplicação
+            const { data: vinculoExistente } = await supabase
+              .from('eventos_prospeccao')
+              .select('id')
+              .eq('contato_id', contatoId)
+              .eq('prospeccao_id', prospeccao_id)
+              .maybeSingle();
+            
+            if (vinculoExistente) {
+              console.log(`⏭️ Vínculo já existe para contato ${contatoId}`);
+              result.mantidos++;
             } else {
-              result.criados++;
+              // Vincular ao evento
+              const { error: linkError } = await supabase
+                .from('eventos_prospeccao')
+                .insert({
+                  contato_id: contatoId,
+                  prospeccao_id: prospeccao_id,
+                  tipo_evento: 'ligacao',
+                });
+
+              if (linkError) {
+                console.error(`❌ Erro ao vincular contato ${contatoId} ao evento:`, linkError);
+                result.erros.push(`Vincular ${telefone}: ${linkError.message}`);
+              } else {
+                result.criados++;
+              }
             }
           }
         } else {
