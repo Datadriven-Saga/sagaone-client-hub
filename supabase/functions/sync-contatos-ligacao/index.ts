@@ -254,7 +254,8 @@ serve(async (req) => {
                 .insert({
                   contato_id: contatoId,
                   prospeccao_id: prospeccao_id,
-                  tipo_evento: 'ligacao',
+                  // tipo_evento_prospeccao não possui valor "ligacao"; iniciar no primeiro estágio do funil
+                  tipo_evento: 'Contato Inicial',
                 });
 
               if (linkError) {
