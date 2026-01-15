@@ -555,7 +555,7 @@ export default function EventoBase() {
               prospeccao_data: {
                 titulo: prospeccao.titulo,
                 canal: prospeccao.canal,
-                event_id_pri: null,
+                event_id_pri: prospeccao.event_id_pri || null,
                 data_inicio: prospeccao.data_inicio || null,
                 data_fim: prospeccao.data_fim || null
               }
@@ -651,7 +651,7 @@ export default function EventoBase() {
           prospeccao_data: {
             titulo: prospeccao.titulo,
             canal: prospeccao.canal,
-            event_id_pri: null,
+            event_id_pri: prospeccao.event_id_pri || null,
             data_inicio: prospeccao.data_inicio || null,
             data_fim: prospeccao.data_fim || null
           }
