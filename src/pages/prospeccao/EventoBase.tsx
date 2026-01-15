@@ -587,6 +587,18 @@ export default function EventoBase() {
           } else {
             console.log(`✅ Batch ${batchNum} concluído:`, data);
             totalSucessos += data?.leads_processados || leads.length;
+            
+            // Marcar contatos como disparados na tabela eventos_prospeccao
+            const leadIds = leads.map(l => l.id);
+            const { error: updateError } = await supabase
+              .from('eventos_prospeccao')
+              .update({ data_disparo_ia: new Date().toISOString() })
+              .eq('prospeccao_id', prospeccao.id)
+              .in('contato_id', leadIds);
+
+            if (updateError) {
+              console.error(`Erro ao marcar batch ${batchNum} como disparados:`, updateError);
+            }
           }
 
           // Atualizar contagem após cada batch
