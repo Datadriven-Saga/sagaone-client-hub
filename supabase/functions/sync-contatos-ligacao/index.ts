@@ -247,15 +247,38 @@ serve(async (req) => {
             if (vinculoExistente) {
               console.log(`⏭️ Vínculo já existe para contato ${contatoId}`);
               result.mantidos++;
+              
+              // Verificar se precisa atualizar data_disparo_ia com base no status do webhook
+              const foiDisparado = webhookContato.enviado_whatsapp === true || 
+                                   webhookContato.ligacao_atendida === true ||
+                                   webhookContato.status_agendado === true;
+              
+              if (foiDisparado) {
+                // Atualizar data_disparo_ia se ainda não estiver definido
+                const { error: updateError } = await supabase
+                  .from('eventos_prospeccao')
+                  .update({ data_disparo_ia: webhookContato.criado_em || new Date().toISOString() })
+                  .eq('id', vinculoExistente.id)
+                  .is('data_disparo_ia', null);
+                  
+                if (!updateError) {
+                  console.log(`📤 Marcado como disparado: ${contatoId}`);
+                }
+              }
             } else {
+              // Determinar se foi disparado para definir data_disparo_ia
+              const foiDisparado = webhookContato.enviado_whatsapp === true || 
+                                   webhookContato.ligacao_atendida === true ||
+                                   webhookContato.status_agendado === true;
+              
               // Vincular ao evento
               const { error: linkError } = await supabase
                 .from('eventos_prospeccao')
                 .insert({
                   contato_id: contatoId,
                   prospeccao_id: prospeccao_id,
-                  // tipo_evento_prospeccao não possui valor "ligacao"; iniciar no primeiro estágio do funil
                   tipo_evento: 'Contato Inicial',
+                  data_disparo_ia: foiDisparado ? (webhookContato.criado_em || new Date().toISOString()) : null,
                 });
 
               if (linkError) {

@@ -1245,10 +1245,11 @@ export const useContatoData = () => {
         return { total: 0, disparados: 0, jaDisparados: 0 };
       }
 
-      // Buscar contatos vinculados à prospecção que ainda não foram disparados
+      // Buscar contatos vinculados à prospecção que ainda não foram disparados NESTE EVENTO
+      // Usamos data_disparo_ia na tabela eventos_prospeccao (por evento) ao invés de contatos (global)
       const { data: eventosContatos, error: eventosError } = await supabase
         .from('eventos_prospeccao')
-        .select('contato_id')
+        .select('id, contato_id, data_disparo_ia')
         .eq('prospeccao_id', prospeccaoId);
       
       if (eventosError) {
@@ -1257,24 +1258,36 @@ export const useContatoData = () => {
         return { total: 0, disparados: 0, jaDisparados: 0 };
       }
 
-      const contatoIds = (eventosContatos || []).map(e => e.contato_id).filter(Boolean) as string[];
+      const totalEventos = eventosContatos?.length || 0;
       
-      if (contatoIds.length === 0) {
+      if (totalEventos === 0) {
         toast({ title: "Atenção", description: "Nenhum contato encontrado nesta prospecção", variant: "destructive" });
         return { total: 0, disparados: 0, jaDisparados: 0 };
       }
 
-      // Buscar contatos que ainda não foram disparados (data_disparo_ia IS NULL) em lotes para evitar URL longa
+      // Filtrar apenas os que não foram disparados NESTE EVENTO
+      const eventosNaoDisparados = (eventosContatos || []).filter(e => !e.data_disparo_ia);
+      const contatoIdsNaoDisparados = eventosNaoDisparados.map(e => e.contato_id).filter(Boolean) as string[];
+      const jaDisparados = totalEventos - eventosNaoDisparados.length;
+      
+      if (contatoIdsNaoDisparados.length === 0) {
+        toast({ 
+          title: "Atenção", 
+          description: `Todos os ${totalEventos} contatos já foram disparados neste evento.` 
+        });
+        return { total: totalEventos, disparados: 0, jaDisparados };
+      }
+
+      // Buscar dados dos contatos não disparados
       const IN_BATCH_SIZE = 200;
       let contatosNaoDisparados: { id: string; lead_id: number | null; nome: string; telefone: string; email: string | null; status: string; origem: string | null }[] = [];
       
-      for (let i = 0; i < contatoIds.length; i += IN_BATCH_SIZE) {
-        const batchIds = contatoIds.slice(i, i + IN_BATCH_SIZE);
+      for (let i = 0; i < contatoIdsNaoDisparados.length; i += IN_BATCH_SIZE) {
+        const batchIds = contatoIdsNaoDisparados.slice(i, i + IN_BATCH_SIZE);
         const { data: batchData, error: batchError } = await supabase
           .from('contatos')
           .select('id, lead_id, nome, telefone, email, status, origem')
           .in('id', batchIds)
-          .is('data_disparo_ia', null)
           .eq('empresa_id', activeCompany.id);
         
         if (batchError) {
@@ -1285,15 +1298,13 @@ export const useContatoData = () => {
           contatosNaoDisparados = [...contatosNaoDisparados, ...batchData];
         }
       }
-
-      const jaDisparados = contatoIds.length - contatosNaoDisparados.length;
       
       if (contatosNaoDisparados.length === 0) {
         toast({ 
           title: "Atenção", 
-          description: `Todos os ${contatoIds.length} contatos já foram disparados anteriormente.` 
+          description: `Todos os ${totalEventos} contatos já foram disparados neste evento.` 
         });
-        return { total: contatoIds.length, disparados: 0, jaDisparados };
+        return { total: totalEventos, disparados: 0, jaDisparados };
       }
 
       console.log(`📤 Disparando ${contatosNaoDisparados.length} contatos para IA (${jaDisparados} já foram disparados antes)`);
@@ -1355,16 +1366,17 @@ export const useContatoData = () => {
 
       console.log(`📊 Disparo concluído: ${totalSucessos} sucessos, ${totalErros} erros`);
 
-      // Marcar contatos como disparados - em lotes para evitar URL longa
+      // Marcar contatos como disparados na tabela eventos_prospeccao (por evento, não global)
       const contatoIdsDisparados = contatosNaoDisparados.map(c => c.id);
       const UPDATE_BATCH_SIZE = 200;
       
       for (let i = 0; i < contatoIdsDisparados.length; i += UPDATE_BATCH_SIZE) {
         const batchIds = contatoIdsDisparados.slice(i, i + UPDATE_BATCH_SIZE);
         const { error: updateError } = await supabase
-          .from('contatos')
+          .from('eventos_prospeccao')
           .update({ data_disparo_ia: new Date().toISOString() })
-          .in('id', batchIds);
+          .eq('prospeccao_id', prospeccaoId)
+          .in('contato_id', batchIds);
 
         if (updateError) {
           console.error(`Erro ao marcar lote ${Math.floor(i / UPDATE_BATCH_SIZE) + 1} como disparados:`, updateError);
@@ -1382,11 +1394,11 @@ export const useContatoData = () => {
       } else {
         toast({ 
           title: "Sucesso", 
-          description: `${contatosNaoDisparados.length} contatos enviados para ${tipoIA}. ${jaDisparados > 0 ? `(${jaDisparados} já haviam sido enviados antes)` : ''}` 
+          description: `${contatosNaoDisparados.length} contatos enviados para ${tipoIA}. ${jaDisparados > 0 ? `(${jaDisparados} já haviam sido enviados neste evento)` : ''}` 
         });
       }
 
-      return { total: contatoIds.length, disparados: contatosNaoDisparados.length, jaDisparados };
+      return { total: totalEventos, disparados: contatosNaoDisparados.length, jaDisparados };
     } catch (error) {
       console.error('❌ Erro ao disparar para IA:', error);
       toast({ title: "Erro", description: "Erro ao disparar para IA: " + (error as Error).message, variant: "destructive" });
