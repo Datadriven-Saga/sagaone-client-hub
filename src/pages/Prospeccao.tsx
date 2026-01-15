@@ -1395,20 +1395,6 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button 
-                        onClick={() => sincronizarEventosLigacao(true)} 
-                        size="sm" 
-                        variant="outline"
-                        disabled={sincronizandoLigacao}
-                        title="Sincronizar eventos de Ligação com o sistema externo"
-                      >
-                        {sincronizandoLigacao ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Phone className="w-4 h-4 mr-2" />
-                        )}
-                        Sincronizar Ligação
-                      </Button>
                       {canAddClientes && (
                         <Button onClick={() => setShowAdicionarClientes(true)} size="sm" variant="outline">
                           <Users className="w-4 h-4 mr-2" />
