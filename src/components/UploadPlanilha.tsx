@@ -364,15 +364,15 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
 
           {/* Nome da Base (opcional) */}
           <Card className="p-4 bg-orange-50 border-orange-200">
-            <Label className="text-orange-800 font-medium">Nome da Base (opcional)</Label>
+            <Label className="text-orange-800 font-medium">Nome da Base (para identificar este lote)</Label>
             <Input
               className="mt-2"
-              placeholder="Ex: Base Janeiro 2026, Clientes VIP, etc."
+              placeholder="Ex: Base Janeiro 2026, Clientes VIP, Leads Feira, etc."
               value={nomeBase}
               onChange={(e) => setNomeBase(e.target.value)}
             />
             <p className="text-xs text-orange-600 mt-1">
-              Se não informado, um nome será gerado automaticamente
+              Esse nome aparece em <strong>Ver Base</strong> e ajuda a organizar/importar várias listas. Se não informar, o sistema gera automaticamente.
             </p>
           </Card>
 
