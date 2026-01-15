@@ -250,14 +250,8 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       return;
     }
 
-    if (!nomeBase.trim()) {
-      toast({
-        title: "Nome da base obrigatório",
-        description: "Por favor, informe um nome para identificar esta base de contatos",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Se não tiver nome da base, gerar automaticamente
+    const baseNomeFinal = nomeBase.trim() || `Importação ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 
     // Validar dados obrigatórios
     const invalidRecords = previewData.filter(item => !item.nome || !item.telefone);
@@ -278,7 +272,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       const { data: baseData, error: baseError } = await supabase
         .from('bases_importadas')
         .insert({
-          nome: nomeBase.trim(),
+          nome: baseNomeFinal,
           empresa_id: activeCompany?.id,
           total_contatos: previewData.length
         })
@@ -309,7 +303,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       
       toast({
         title: "Importação concluída",
-        description: `${previewData.length} contatos importados na base "${nomeBase}"`,
+        description: `${previewData.length} contatos importados na base "${baseNomeFinal}"`,
       });
     } catch (error) {
       console.error('Erro na importação:', error);
@@ -368,9 +362,9 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
             </Select>
           </Card>
 
-          {/* Nome da Base */}
+          {/* Nome da Base (opcional) */}
           <Card className="p-4 bg-orange-50 border-orange-200">
-            <Label className="text-orange-800 font-medium">Nome da Base *</Label>
+            <Label className="text-orange-800 font-medium">Nome da Base (opcional)</Label>
             <Input
               className="mt-2"
               placeholder="Ex: Base Janeiro 2026, Clientes VIP, etc."
@@ -378,7 +372,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
               onChange={(e) => setNomeBase(e.target.value)}
             />
             <p className="text-xs text-orange-600 mt-1">
-              Este nome ajuda a identificar a base para reutilização futura
+              Se não informado, um nome será gerado automaticamente
             </p>
           </Card>
 

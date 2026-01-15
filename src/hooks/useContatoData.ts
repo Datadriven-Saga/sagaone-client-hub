@@ -671,9 +671,21 @@ export const useContatoData = () => {
     }
   };
 
-  // Excluir contato - SIMPLES
+  // Excluir contato - COM CASCATA para eventos_prospeccao
   const excluirContato = async (contatoId: string): Promise<void> => {
     try {
+      // Primeiro excluir registros relacionados em eventos_prospeccao
+      const { error: eventosError } = await supabase
+        .from('eventos_prospeccao')
+        .delete()
+        .eq('contato_id', contatoId);
+
+      if (eventosError) {
+        console.warn('Aviso ao excluir eventos do contato:', eventosError);
+        // Continuar mesmo com erro em eventos
+      }
+
+      // Agora excluir o contato
       const { error } = await supabase
         .from('contatos')
         .delete()
@@ -1004,10 +1016,18 @@ export const useContatoData = () => {
     return { sucesso, falha };
   };
 
-  // Excluir um único contato
+  // Excluir um único contato - COM CASCATA para eventos_prospeccao
   const excluirContatoUnico = async (contatoId: string): Promise<boolean> => {
     try {
       console.log(`🗑️ Excluindo contato: ${contatoId}`);
+      
+      // Primeiro excluir registros relacionados em eventos_prospeccao
+      await supabase
+        .from('eventos_prospeccao')
+        .delete()
+        .eq('contato_id', contatoId);
+      
+      // Agora excluir o contato
       const { error } = await supabase
         .from('contatos')
         .delete()
@@ -1049,6 +1069,14 @@ export const useContatoData = () => {
       
       for (let i = 0; i < contatoIds.length; i += DELETE_BATCH_SIZE) {
         const batchIds = contatoIds.slice(i, i + DELETE_BATCH_SIZE);
+        
+        // Primeiro excluir registros relacionados em eventos_prospeccao
+        await supabase
+          .from('eventos_prospeccao')
+          .delete()
+          .in('contato_id', batchIds);
+        
+        // Agora excluir os contatos
         const { error } = await supabase
           .from('contatos')
           .delete()
@@ -1086,6 +1114,23 @@ export const useContatoData = () => {
     console.log(`🧨 Excluindo TODOS os ${total} contatos da empresa ${activeCompany.id}`);
 
     try {
+      // Primeiro excluir TODOS os eventos_prospeccao dos contatos desta empresa
+      // Buscar IDs dos contatos da empresa
+      const contatoIds = contatos.map(c => c.id);
+      
+      if (contatoIds.length > 0) {
+        // Excluir eventos em lotes para evitar URL longa
+        const DELETE_BATCH_SIZE = 200;
+        for (let i = 0; i < contatoIds.length; i += DELETE_BATCH_SIZE) {
+          const batchIds = contatoIds.slice(i, i + DELETE_BATCH_SIZE);
+          await supabase
+            .from('eventos_prospeccao')
+            .delete()
+            .in('contato_id', batchIds);
+        }
+      }
+
+      // Agora excluir todos os contatos
       const { error } = await supabase
         .from('contatos')
         .delete()
@@ -1308,9 +1353,10 @@ export const useContatoData = () => {
     reenviarGatilhos,
     dispararParaIA,
     contarContatosPendentesDisparo,
-    refetch: () => {
-      fetchProspeccoes();
-      fetchContatos();
+    refetch: async () => {
+      console.log('🔄 Refetch triggered...');
+      await Promise.all([fetchProspeccoes(), fetchContatos()]);
+      console.log('✅ Refetch completed');
     }
   };
 };
