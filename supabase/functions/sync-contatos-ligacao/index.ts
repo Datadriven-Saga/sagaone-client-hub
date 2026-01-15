@@ -81,28 +81,21 @@ serve(async (req) => {
     
     const telefoneFormatado = String(telefone_pri).replace(/\D/g, '');
     
-    // Fazer POST com os parâmetros
-    let webhookResponse = await fetch(WEBHOOK_URL, {
+    // Fazer POST com os parâmetros no body (não na query)
+    const requestBody = {
+      telefone: telefoneFormatado,
+      id_evento: String(id_evento),
+    };
+    
+    console.log('📤 Enviando no body:', JSON.stringify(requestBody));
+    
+    const webhookResponse = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        telefone: telefoneFormatado,
-        id_evento: String(id_evento),
-      }),
+      body: JSON.stringify(requestBody),
     });
 
-    let webhookText = await webhookResponse.text();
-
-    // Se POST falhar com 404, tentar GET
-    if (webhookResponse.status === 404 && webhookText.toLowerCase().includes('not registered for post')) {
-      console.log('⚠️ Webhook exige GET, tentando novamente...');
-      const url = new URL(WEBHOOK_URL);
-      url.searchParams.set('telefone', telefoneFormatado);
-      url.searchParams.set('id_evento', String(id_evento));
-      
-      webhookResponse = await fetch(url.toString(), { method: 'GET' });
-      webhookText = await webhookResponse.text();
-    }
+    const webhookText = await webhookResponse.text();
 
     console.log(`📥 Resposta do webhook (status ${webhookResponse.status}):`, webhookText.substring(0, 1000));
 
