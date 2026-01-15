@@ -113,7 +113,7 @@ serve(async (req) => {
     // Buscar dados da empresa (UMA VEZ para todos os leads)
     const { data: empresaData, error: empresaError } = await supabase
       .from('empresas')
-      .select('crm_id, nome_empresa, uf, cidade')
+      .select('crm_id, nome_empresa, uf, cidade, endereco, marca')
       .eq('id', empresa_id)
       .single();
 
@@ -210,18 +210,37 @@ serve(async (req) => {
 
     console.log(`\n🌐 [${requestId}] Webhook URL: ${webhookUrl}`);
 
-    // Dados comuns para todos os leads
-    const eventIdPri = prospeccao_data?.event_id_pri || '';
+    // Dados do evento para IA Ligação
+    const eventoData = isIALigacao ? {
+      id_evento: prospeccao_data?.event_id_pri || '',
+      nome: prospeccao_data?.titulo || '',
+      descricao: prospeccao_data?.titulo || '',
+      categoria: '',
+      marca: empresaData?.nome_empresa || '',
+      dealerid: empresaData?.crm_id || '',
+      telefone_pri: telefonePri,
+      uf: empresaData?.uf || '',
+      cidade: empresaData?.cidade || '',
+      endereco: empresaData?.endereco || '',
+      data_inicio: prospeccao_data?.data_inicio || null,
+      data_fim: prospeccao_data?.data_fim || null,
+      evt_status: 'ativo',
+      criado_em: new Date().toISOString(),
+      atualizado_em: new Date().toISOString(),
+      telefone_pri_whatsapp: telefonePriWhatsapp,
+    } : null;
+
+    // Dados comuns para todos os leads (WhatsApp)
     const dadosComuns = {
       prospeccao_id,
       evento_nome: prospeccao_data?.titulo || '',
-      event_id_pri: eventIdPri,
+      event_id_pri: prospeccao_data?.event_id_pri || '',
       data_inicio: prospeccao_data?.data_inicio || null,
       data_fim: prospeccao_data?.data_fim || null,
       canal: prospeccao_data?.canal || (isIALigacao ? 'Ligação' : 'Whatsapp'),
       telefone_pri: telefonePri,
       pri_telefone: telefonePri,
-      telefone_pri_whatsapp: telefonePriWhatsapp, // Novo campo para eventos de Ligação
+      telefone_pri_whatsapp: telefonePriWhatsapp,
       nome_agente: nomeAgente,
       dealer_id: empresaData?.crm_id || '',
       pri_dealer_id: empresaData?.crm_id || '',
@@ -239,6 +258,15 @@ serve(async (req) => {
     console.log(`   ├─ telefone_pri_whatsapp: ${dadosComuns.telefone_pri_whatsapp || 'N/A'}`);
     console.log(`   ├─ nome_agente: ${dadosComuns.nome_agente || 'N/A'}`);
     console.log(`   └─ event_id_pri: ${dadosComuns.event_id_pri || 'N/A'}`);
+    
+    if (isIALigacao && eventoData) {
+      console.log(`\n📋 [${requestId}] Dados do EVENTO (Ligação):`);
+      console.log(`   ├─ id_evento: ${eventoData.id_evento}`);
+      console.log(`   ├─ nome: ${eventoData.nome}`);
+      console.log(`   ├─ dealerid: ${eventoData.dealerid}`);
+      console.log(`   ├─ telefone_pri: ${eventoData.telefone_pri}`);
+      console.log(`   └─ telefone_pri_whatsapp: ${eventoData.telefone_pri_whatsapp}`);
+    }
 
     // Processar leads em batches
     const BATCH_SIZE = 50;
@@ -262,18 +290,35 @@ serve(async (req) => {
       const batchResultados: { lead_id: string; nome: string; success: boolean; status?: number; error?: string }[] = [];
       
       const promessas = batch.map(async (lead, leadIndex) => {
-        const payload = {
-          ...dadosComuns,
-          id: lead.id,
-          lead_id: lead.lead_id,
-          nome: lead.nome,
-          telefone: normalizePhone(lead.telefone),
-          email: lead.email || '',
-          status: lead.status || 'Novo',
-          origem: lead.origem || 'Importação',
-          data_importacao: new Date().toISOString(),
-          tipo_importacao: 'planilha'
-        };
+        // Payload diferente para IA Ligação e IA Whatsapp
+        let payload: any;
+        
+        if (isIALigacao) {
+          // Payload para IA Ligação - estrutura específica conforme webhook espera
+          payload = {
+            evento: eventoData,
+            telefone_lead: normalizePhone(lead.telefone),
+            id_evento: eventoData?.id_evento || '',
+            nome: lead.nome,
+            telefone_pri: telefonePri,
+            loja: empresaData?.nome_empresa || '',
+            ligacao_atendida: false,
+          };
+        } else {
+          // Payload para IA Whatsapp
+          payload = {
+            ...dadosComuns,
+            id: lead.id,
+            lead_id: lead.lead_id,
+            nome: lead.nome,
+            telefone: normalizePhone(lead.telefone),
+            email: lead.email || '',
+            status: lead.status || 'Novo',
+            origem: lead.origem || 'Importação',
+            data_importacao: new Date().toISOString(),
+            tipo_importacao: 'planilha'
+          };
+        }
 
         const leadNum = batchStart + leadIndex + 1;
         console.log(`   [${requestId}] Lead #${leadNum}: ${lead.nome} (Tel: ${normalizePhone(lead.telefone) || 'N/A'})`);
