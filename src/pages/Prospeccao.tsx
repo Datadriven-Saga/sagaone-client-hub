@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, ScanLine, Send, Loader2, Eye } from "lucide-react";
+import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, ScanLine, Send, Loader2, Eye, Phone } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProspeccaoGlobalFilter, ProspeccaoGlobalFilters } from "@/components/ProspeccaoGlobalFilter";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
@@ -630,14 +631,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   }, [contatos, globalFilters, profiles]);
 
   // Função de filtragem global para prospecções/eventos
+  // NOTA: Eventos de Ligação agora são mostrados mesmo sem estar no webhook externo
+  // O botão de disparo ficará desabilitado se o evento não tiver event_id_pri válido no webhook
   const filteredProspeccoes = useMemo(() => {
     return prospeccoes.filter(prospeccao => {
-      // Filtrar eventos de Ligação para mostrar apenas os que existem no webhook
-      const isLigacao = String(prospeccao.canal).toLowerCase().includes('liga') || prospeccao.canal === 'Ligação';
-      if (isLigacao && eventosLigacaoVerificados && !eventosLigacaoValidos.has(prospeccao.id)) {
-        return false;
-      }
-      
       if (globalFilters.prospeccaoId !== "todos" && prospeccao.id !== globalFilters.prospeccaoId) {
         return false;
       }
@@ -657,7 +654,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       }
       return true;
     });
-  }, [prospeccoes, globalFilters, eventosLigacaoValidos, eventosLigacaoVerificados]);
+  }, [prospeccoes, globalFilters]);
 
   // Função de filtragem global para visitas (recepção)
   const filteredVisitas = useMemo(() => {
@@ -1493,34 +1490,56 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                 <td className="py-3 px-3 text-right">
                                   {(() => {
                                     const canalStr = String(prospeccao.canal).toLowerCase();
-                                    const isIA = canalStr === 'whatsapp' || canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
+                                    const isIAWhatsApp = canalStr === 'whatsapp';
+                                    const isIALigacao = canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
+                                    const isIA = isIAWhatsApp || isIALigacao;
                                     const contagem = contagemPendentes[prospeccao.id];
                                     const pendentes = contagem?.pendentes || 0;
                                     const isDisparando = disparandoIA === prospeccao.id;
+                                    
+                                    // Para eventos de Ligação, verificar se está válido no webhook externo
+                                    const ligacaoValidoNoWebhook = !isIALigacao || (eventosLigacaoVerificados && eventosLigacaoValidos.has(prospeccao.id));
                                     
                                     return (
                                       <div className="flex items-center justify-end gap-2">
                                         {/* Botão Disparar para IA - apenas para eventos IA com pendentes */}
                                         {isIA && pendentes > 0 && (
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleDispararParaIA(prospeccao.id, prospeccao.canal || '')}
-                                            disabled={isDisparando}
-                                            className="h-8 text-xs"
-                                          >
-                                            {isDisparando ? (
-                                              <>
-                                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                                                Enviando...
-                                              </>
-                                            ) : (
-                                              <>
-                                                <Send className="mr-1.5 h-3.5 w-3.5" />
-                                                Disparar ({pendentes})
-                                              </>
-                                            )}
-                                          </Button>
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <span>
+                                                  <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleDispararParaIA(prospeccao.id, prospeccao.canal || '')}
+                                                    disabled={isDisparando || (isIALigacao && !ligacaoValidoNoWebhook)}
+                                                    className={`h-8 text-xs ${isIALigacao && !ligacaoValidoNoWebhook ? 'opacity-50' : ''}`}
+                                                  >
+                                                    {isDisparando ? (
+                                                      <>
+                                                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                                        Enviando...
+                                                      </>
+                                                    ) : (
+                                                      <>
+                                                        {isIALigacao ? (
+                                                          <Phone className="mr-1.5 h-3.5 w-3.5" />
+                                                        ) : (
+                                                          <Send className="mr-1.5 h-3.5 w-3.5" />
+                                                        )}
+                                                        Disparar ({pendentes})
+                                                      </>
+                                                    )}
+                                                  </Button>
+                                                </span>
+                                              </TooltipTrigger>
+                                              {isIALigacao && !ligacaoValidoNoWebhook && (
+                                                <TooltipContent>
+                                                  <p>Este evento não está configurado no sistema de Ligação IA</p>
+                                                </TooltipContent>
+                                              )}
+                                            </Tooltip>
+                                          </TooltipProvider>
                                         )}
                                         
                                         {/* Indicador de todos disparados */}
@@ -1556,14 +1575,27 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                               <Eye className="mr-2 h-4 w-4" />
                                               Ver Base Importada
                                             </DropdownMenuItem>
-                                            {isIA && pendentes > 0 && (
+                                            {isIA && pendentes > 0 && ligacaoValidoNoWebhook && (
                                               <DropdownMenuItem 
                                                 onClick={() => handleDispararParaIA(prospeccao.id, prospeccao.canal || '')}
                                                 disabled={isDisparando}
                                                 className="text-blue-600"
                                               >
-                                                <Send className="mr-2 h-4 w-4" />
-                                                Disparar para IA ({pendentes} pendentes)
+                                                {isIALigacao ? (
+                                                  <Phone className="mr-2 h-4 w-4" />
+                                                ) : (
+                                                  <Send className="mr-2 h-4 w-4" />
+                                                )}
+                                                Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({pendentes} pendentes)
+                                              </DropdownMenuItem>
+                                            )}
+                                            {isIALigacao && pendentes > 0 && !ligacaoValidoNoWebhook && (
+                                              <DropdownMenuItem 
+                                                disabled
+                                                className="text-muted-foreground opacity-50"
+                                              >
+                                                <Phone className="mr-2 h-4 w-4" />
+                                                Evento não configurado no sistema de Ligação
                                               </DropdownMenuItem>
                                             )}
                                             <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
