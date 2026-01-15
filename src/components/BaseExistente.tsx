@@ -169,7 +169,7 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
     }
   };
 
-  const handleConfirmSelection = () => {
+  const handleConfirmSelection = async () => {
     if (!selectedCampanha) {
       toast({
         title: "Selecione uma campanha",
@@ -179,18 +179,71 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
       return;
     }
 
-    const clientesSelecionados = clientesFiltrados.filter(c => selectedClientes.includes(c.id));
-    onClientesSelected(selectedCampanha, clientesSelecionados);
-    setIsOpen(false);
-    setSelectedCampanha('');
-    setSelectedBase('');
-    setClientesFiltrados([]);
-    setSelectedClientes([]);
-    
-    toast({
-      title: "Clientes selecionados",
-      description: `${clientesSelecionados.length} clientes adicionados à prospecção`,
-    });
+    if (selectedClientes.length === 0) {
+      toast({
+        title: "Selecione os contatos",
+        description: "Você deve selecionar pelo menos um contato",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Vincular contatos selecionados ao evento na tabela eventos_prospeccao
+      const vinculos = selectedClientes.map(contatoId => ({
+        contato_id: contatoId,
+        prospeccao_id: selectedCampanha
+      }));
+
+      // Inserir em lotes para evitar timeout
+      const BATCH_SIZE = 500;
+      let inseridos = 0;
+      
+      for (let i = 0; i < vinculos.length; i += BATCH_SIZE) {
+        const batch = vinculos.slice(i, i + BATCH_SIZE);
+        
+        // Usar upsert para evitar duplicatas (se já estiver vinculado, ignora)
+        const { error } = await supabase
+          .from('eventos_prospeccao')
+          .upsert(batch, { onConflict: 'contato_id,prospeccao_id', ignoreDuplicates: true });
+        
+        if (error) {
+          console.error('Erro ao vincular contatos:', error);
+          // Se o erro for de unique constraint, continua (já existe)
+          if (!error.message?.includes('duplicate') && !error.message?.includes('unique')) {
+            throw error;
+          }
+        }
+        
+        inseridos += batch.length;
+      }
+
+      console.log(`✅ ${inseridos} contatos vinculados ao evento ${selectedCampanha}`);
+
+      const clientesSelecionados = clientesFiltrados.filter(c => selectedClientes.includes(c.id));
+      onClientesSelected(selectedCampanha, clientesSelecionados);
+      setIsOpen(false);
+      setSelectedCampanha('');
+      setSelectedBase('');
+      setClientesFiltrados([]);
+      setSelectedClientes([]);
+      
+      toast({
+        title: "Clientes adicionados",
+        description: `${clientesSelecionados.length} clientes vinculados ao evento com sucesso`,
+      });
+    } catch (error) {
+      console.error('Erro ao vincular contatos:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível vincular os contatos ao evento",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -448,9 +501,16 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
                 </Button>
                 <Button 
                   onClick={handleConfirmSelection}
-                  disabled={selectedClientes.length === 0}
+                  disabled={selectedClientes.length === 0 || isLoading || !selectedCampanha}
                 >
-                  Adicionar Selecionados
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Vinculando...
+                    </>
+                  ) : (
+                    `Adicionar Selecionados (${selectedClientes.length})`
+                  )}
                 </Button>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -49,6 +49,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { Contato } from '@/hooks/useContatoData';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ClientesImportadosListProps {
   contatos: Contato[];
@@ -88,12 +89,46 @@ export const ClientesImportadosList = ({
   const [isReenviando, setIsReenviando] = useState(false);
   const [deleteAllMode, setDeleteAllMode] = useState(false);
   
+  // IDs de contatos vinculados ao evento selecionado
+  const [contatosVinculados, setContatosVinculados] = useState<Set<string>>(new Set());
+  const [loadingVinculos, setLoadingVinculos] = useState(false);
+  
   // Form state for editing
   const [editForm, setEditForm] = useState({
     nome: '',
     telefone: '',
     email: ''
   });
+
+  // Buscar vínculos quando o filtro muda
+  useEffect(() => {
+    const fetchVinculos = async () => {
+      if (filterProspeccao === 'todos') {
+        setContatosVinculados(new Set());
+        return;
+      }
+
+      setLoadingVinculos(true);
+      try {
+        const { data, error } = await supabase
+          .from('eventos_prospeccao')
+          .select('contato_id')
+          .eq('prospeccao_id', filterProspeccao);
+
+        if (error) throw error;
+
+        const ids = new Set((data || []).map(v => v.contato_id).filter(Boolean) as string[]);
+        setContatosVinculados(ids);
+      } catch (error) {
+        console.error('Erro ao buscar vínculos:', error);
+        setContatosVinculados(new Set());
+      } finally {
+        setLoadingVinculos(false);
+      }
+    };
+
+    fetchVinculos();
+  }, [filterProspeccao]);
 
   // Filter and search contacts
   const filteredContatos = useMemo(() => {
@@ -104,13 +139,12 @@ export const ClientesImportadosList = ({
         (contato.telefone && contato.telefone.includes(searchTerm)) ||
         (contato.email && contato.email.toLowerCase().includes(searchTerm.toLowerCase()));
       
-      // Prospeccao filter - we'd need prospeccao_id on contato for this to work properly
-      // For now, show all if filterProspeccao is 'todos'
-      const matchesProspeccao = filterProspeccao === 'todos';
+      // Prospeccao filter - filtrar por vínculos na tabela eventos_prospeccao
+      const matchesProspeccao = filterProspeccao === 'todos' || contatosVinculados.has(contato.id);
       
       return matchesSearch && matchesProspeccao;
     });
-  }, [contatos, searchTerm, filterProspeccao]);
+  }, [contatos, searchTerm, filterProspeccao, contatosVinculados]);
 
   // Pagination
   const totalPages = Math.ceil(filteredContatos.length / ITEMS_PER_PAGE);
@@ -120,7 +154,7 @@ export const ClientesImportadosList = ({
   }, [filteredContatos, currentPage]);
 
   // Reset to page 1 when filters change
-  useMemo(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, filterProspeccao]);
 
@@ -357,9 +391,16 @@ export const ClientesImportadosList = ({
             className="pl-9"
           />
         </div>
-        <Select value={filterProspeccao} onValueChange={setFilterProspeccao}>
+        <Select value={filterProspeccao} onValueChange={setFilterProspeccao} disabled={loadingVinculos}>
           <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="Filtrar por evento" />
+            {loadingVinculos ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Carregando...</span>
+              </div>
+            ) : (
+              <SelectValue placeholder="Filtrar por evento" />
+            )}
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos os eventos</SelectItem>
