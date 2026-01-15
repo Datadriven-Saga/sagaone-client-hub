@@ -819,7 +819,7 @@ export const useContatoData = () => {
         console.log('🔢 ID do evento:', idEventoNum);
 
         // Chamar webhook externo para apagar evento de ligação - apenas id_evento no payload
-        const deleteWebhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/apaga-evento-ligacao';
+        const deleteWebhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/deleta-eventos-saga-one';
         
         const deleteResponse = await fetch(deleteWebhookUrl, {
           method: 'POST',
