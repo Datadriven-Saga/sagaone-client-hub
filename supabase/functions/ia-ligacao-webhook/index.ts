@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 // Webhooks para diferentes operações
-const WEBHOOK_CRIAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one';
+const WEBHOOK_CRIAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-evento-ligacao';
 const WEBHOOK_ATUALIZAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-eventos-saga-one';
 const WEBHOOK_DELETAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/deleta-eventos-saga-one';
 const WEBHOOK_VERIFICA = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos';
