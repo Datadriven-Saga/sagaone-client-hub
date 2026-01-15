@@ -1588,9 +1588,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         console.log(`✅ Agente ${nomeAgenteEsperado} OK:`, { priTelefoneLimpo, dealerIdFinal, nomePri });
 
         // ============================================================
-        // ENVIAR PARA WEBHOOK CONFIGURA-EVENTOS-SAGA-ONE IMEDIATAMENTE
-        // Este é o ÚNICO ponto de envio de dados do evento e contatos
-        // para evitar duplicação de dados
+        // ENVIAR PARA WEBHOOK CRIA-EVENTO-LIGACAO
+        // Este webhook cria o evento no banco externo
         // ============================================================
         const formatarDataISO = (data: string | null) => {
           if (!data) return null;
@@ -1607,8 +1606,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         // ID do evento para usar nos contatos
         const eventIdPri = prospeccaoData.event_id_pri || null;
 
-        // PAYLOAD PADRONIZADO - FORMATO SOLICITADO
-        const webhookPayload = {
+        // PAYLOAD PARA CRIAR EVENTO - webhook cria-evento-ligacao
+        const webhookEventoPayload = {
           evento: {
             id_evento: eventIdPri,
             nome: prospeccaoData.titulo,
@@ -1625,40 +1624,23 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
             evt_status: 'ativo',
             criado_em: now,
             atualizado_em: now,
-          },
-          contatos: contatosParaEnviarPadronizado.map((c) => ({
-            telefone_lead: c.telefone || '',
-            id_evento: eventIdPri,
-            nome: c.nome || '',
-            telefone_pri: priTelefoneLimpo,
-            loja: nomeEmpresa,
-          })),
-          total_clientes: contatosParaEnviarPadronizado.length,
-          total_contatos: contatosParaEnviarPadronizado.length,
-          timestamp: now,
-          acao: acao,
-          // Campos auxiliares para referência interna (não usados no payload principal)
-          _internal: {
-            prospeccao_id: prospeccaoData.id,
-            empresa_id: activeCompany.id,
-            nome_empresa: nomeEmpresa,
-            nome_agente: nomePri,
+            telefone_pri_whatsapp: '', // Será preenchido quando necessário
           },
         };
 
-        console.log(`📤 Enviando para webhook configura-eventos-saga-one (${acao}) - ÚNICO ENVIO:`, JSON.stringify(webhookPayload, null, 2));
+        console.log(`📤 Enviando para webhook cria-evento-ligacao (${acao}):`, JSON.stringify(webhookEventoPayload, null, 2));
 
         try {
-          const configResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one', {
+          const configResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/cria-evento-ligacao', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(webhookPayload),
+            body: JSON.stringify(webhookEventoPayload),
           });
 
           if (!configResponse.ok) {
-            console.error('❌ Erro ao enviar para webhook configura-eventos-saga-one:', configResponse.status);
+            console.error('❌ Erro ao enviar para webhook cria-evento-ligacao:', configResponse.status);
             toast({
               title: `Erro na operação (${acao})`,
               description: `Falha ao enviar dados para o servidor. Status: ${configResponse.status}`,
@@ -1668,7 +1650,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           }
 
           const configResult = await configResponse.json().catch(() => ({}));
-          console.log('✅ Webhook configura-eventos-saga-one enviado com sucesso:', configResult);
+          console.log('✅ Webhook cria-evento-ligacao enviado com sucesso:', configResult);
 
           // Verificar se a resposta indica sucesso
           if (configResult?.success === false || configResult?.error) {
@@ -1696,21 +1678,15 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
             }
           }
 
-          const mensagens = {
-            criar: `${contatosParaEnviarPadronizado.length} contatos enviados para ligação.`,
-            atualizar: 'Evento atualizado com sucesso.',
-            deletar: 'Evento removido com sucesso.',
-          };
-          
           toast({
-            title: acao === 'criar' ? "Disparo configurado!" : acao === 'atualizar' ? "Evento atualizado!" : "Evento removido!",
-            description: mensagens[acao],
+            title: acao === 'criar' ? "Evento criado!" : "Evento atualizado!",
+            description: "Evento de ligação configurado com sucesso.",
           });
 
           return true;
 
         } catch (configError) {
-          console.error('❌ Erro ao chamar webhook configura-eventos-saga-one:', configError);
+          console.error('❌ Erro ao chamar webhook cria-evento-ligacao:', configError);
           toast({
             title: `Erro na operação (${acao})`,
             description: "Ocorreu um erro inesperado. Tente novamente.",
@@ -1720,32 +1696,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         }
       }
 
-      // Para ação 'deletar' sem contatos, apenas enviar para o webhook
+      // Para ação 'deletar', enviar para webhook de deleção (se houver)
       if (acao === 'deletar') {
         try {
-          const deletePayload = {
-            evento: {
-              id: prospeccaoData.id,
-              event_id_pri: prospeccaoData.event_id_pri || null,
-            },
-            acao: 'deletar',
-          };
-
-          console.log('📤 Enviando deleção para webhook:', deletePayload);
-
-          const deleteResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(deletePayload),
-          });
-
-          if (!deleteResponse.ok) {
-            console.error('❌ Erro ao deletar evento:', deleteResponse.status);
-            return false;
-          }
-
           toast({
             title: "Evento removido!",
             description: "Evento removido com sucesso.",
@@ -2875,179 +2828,44 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 <span className="text-sm font-medium">Base de Contatos para Ligação</span>
               </div>
               <p className="text-xs opacity-80">
-                Importe uma planilha ou selecione contatos de uma prospecção existente
+                A base será importada através do menu "Upload de Planilha" após criar o evento
               </p>
             </Card>
 
-            {/* Base Existente e Upload lado a lado */}
-            <div className="grid grid-cols-2 gap-4">
-              {/* Base Existente */}
-              <Card className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Users className="h-5 w-5 text-primary" />
-                  <Label className="font-medium">Base Existente</Label>
-                </div>
-                <Select 
-                  value={baseExistenteProspeccao} 
-                  onValueChange={async (value) => {
-                    setBaseExistenteProspeccao(value);
-                    setModoImportBase('existente');
-                    if (value) {
-                      setLoadingBaseExistente(true);
-                      try {
-                        const { data: contatos } = await supabase
-                          .from('contatos')
-                          .select('id, nome, telefone, email, origem')
-                          .eq('empresa_id', activeCompany?.id)
-                          .order('nome');
-                        
-                        // Filtrar contatos da prospecção selecionada (usando eventos_prospeccao)
-                        const { data: eventosContatos } = await supabase
-                          .from('eventos_prospeccao')
-                          .select('contato_id')
-                          .eq('prospeccao_id', value);
-                        
-                        const contatoIds = eventosContatos?.map(e => e.contato_id) || [];
-                        const contatosFiltrados = contatos?.filter(c => contatoIds.includes(c.id)) || [];
-                        
-                        setContatosBaseExistente(contatosFiltrados);
-                      } catch (error) {
-                        console.error('Erro ao buscar contatos:', error);
-                      }
-                      setLoadingBaseExistente(false);
-                    } else {
-                      setContatosBaseExistente([]);
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Escolha uma prospecção..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {prospeccoesList
-                      ?.filter(p => p.id !== editingProspeccao?.id)
-                      .map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.titulo}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-
-                {loadingBaseExistente && (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                  </div>
-                )}
-
-                {contatosBaseExistente.length > 0 && (
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-medium">{contatosBaseExistente.length} contatos encontrados</p>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => {
-                          const contatosConvertidos = contatosBaseExistente.map(c => ({
-                            nome: c.nome || '',
-                            telefone: c.telefone || '',
-                            email: c.email || '',
-                            origem: c.origem || '',
-                          }));
-                          setContatosLigacao(contatosConvertidos);
-                          toast({
-                            title: "Contatos adicionados",
-                            description: `${contatosConvertidos.length} contatos foram adicionados à base.`,
-                          });
-                        }}
-                      >
-                        Usar estes contatos
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </Card>
-
-              {/* Upload área */}
-              <Card className="p-4 border-dashed border-2 border-muted flex flex-col justify-center items-center">
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={(e) => {
-                    setModoImportBase('upload');
-                    handleFileLigacao(e);
-                  }}
-                  className="hidden"
-                  id="file-upload-ligacao"
-                />
-                <label htmlFor="file-upload-ligacao" className="cursor-pointer text-center w-full h-full flex flex-col items-center justify-center min-h-[100px]">
-                  <Upload className="mx-auto mb-2 text-muted-foreground" size={24} />
-                  <p className="text-sm text-muted-foreground">
-                    Clique para selecionar arquivo
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    (.csv, .xlsx ou .xls)
-                  </p>
-                  {processandoPlanilha && (
-                    <div className="mt-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto"></div>
-                      <p className="text-xs text-muted-foreground mt-1">Processando...</p>
-                    </div>
-                  )}
-                </label>
-              </Card>
-            </div>
-
-            {/* Preview dos dados - sempre visível se há contatos */}
-            {contatosLigacao.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h5 className="text-sm font-medium">Preview dos dados ({contatosLigacao.length} contatos)</h5>
-                  <Button variant="outline" size="sm" onClick={() => setContatosLigacao([])}>
-                    Limpar
-                  </Button>
-                </div>
-                
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="max-h-48 overflow-y-auto">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-background z-10">
-                        <TableRow>
-                          <TableHead className="w-[180px]">Nome*</TableHead>
-                          <TableHead className="w-[140px]">Telefone*</TableHead>
-                          <TableHead className="w-[180px]">E-mail</TableHead>
-                          <TableHead className="w-[60px]">Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {contatosLigacao.slice(0, 10).map((contato, index) => {
-                          const isValid = contato.nome && contato.telefone;
-                          return (
-                            <TableRow key={index}>
-                              <TableCell className={!contato.nome ? 'text-red-600' : ''}>{contato.nome || 'OBRIGATÓRIO'}</TableCell>
-                              <TableCell className={!contato.telefone ? 'text-red-600' : ''}>{contato.telefone || 'OBRIGATÓRIO'}</TableCell>
-                              <TableCell>{contato.email || '-'}</TableCell>
-                              <TableCell>
-                                {isValid ? (
-                                  <Check className="text-green-600" size={16} />
-                                ) : (
-                                  <X className="text-red-600" size={16} />
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  {contatosLigacao.length > 10 && (
-                    <p className="text-xs text-muted-foreground text-center py-2 border-t">
-                      Mostrando 10 de {contatosLigacao.length} contatos
-                    </p>
-                  )}
+            {/* Informação sobre importação */}
+            <Card className="p-4 bg-blue-50 border-blue-200">
+              <div className="flex items-start gap-3">
+                <Upload className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800">Como importar a base de contatos:</p>
+                  <ol className="text-xs text-blue-700 mt-2 space-y-1 list-decimal list-inside">
+                    <li>Primeiro, clique em "Criar Evento" para salvar o evento</li>
+                    <li>Depois, use o botão "Upload de Planilha" na tela principal</li>
+                    <li>Selecione este evento e faça o upload da planilha</li>
+                    <li>Os contatos serão automaticamente vinculados ao evento</li>
+                  </ol>
                 </div>
               </div>
-            )}
+            </Card>
+
+            {/* Formato esperado */}
+            <Card className="p-4 border-dashed border-2 border-muted">
+              <div className="text-center">
+                <FileText className="mx-auto mb-2 text-muted-foreground" size={24} />
+                <p className="text-sm font-medium text-muted-foreground">
+                  Formato da planilha
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Colunas obrigatórias: <strong>Nome</strong> e <strong>Telefone</strong>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Colunas opcionais: E-mail, CPF, Segmentação, Responsável
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Formatos aceitos: .csv, .xlsx ou .xls
+                </p>
+              </div>
+            </Card>
           </div>
         );
 
