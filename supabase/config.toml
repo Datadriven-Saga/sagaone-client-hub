@@ -46,3 +46,9 @@ verify_jwt = false
 
 [functions.dispatch-leads-webhook]
 verify_jwt = true
+
+[functions.eventos-ligacao-proxy]
+verify_jwt = true
+
+[functions.sync-eventos-ligacao]
+verify_jwt = true

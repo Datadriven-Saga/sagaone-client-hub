@@ -211,113 +211,134 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     }
   }, [activeCompany?.id]);
 
-  // Buscar eventos de Ligação válidos do webhook externo
-  useEffect(() => {
-    const fetchEventosLigacaoValidos = async () => {
-      if (!activeCompany?.id) return;
+  // Sincronizar eventos de Ligação com o webhook externo
+  const [sincronizandoLigacao, setSincronizandoLigacao] = useState(false);
+  
+  const sincronizarEventosLigacao = async (showToast = false) => {
+    if (!activeCompany?.id) return;
+    
+    setSincronizandoLigacao(true);
+    setLoadingEventosLigacao(true);
+    
+    try {
+      // Buscar agente Pri(Ligação) vinculado à empresa para pegar o telefone
+      const { data: agentesVinculados } = await supabase
+        .from('agente_empresas')
+        .select(`
+          agente_id,
+          agentes_ia (
+            id,
+            nome,
+            telefone,
+            ativo
+          )
+        `)
+        .eq('empresa_id', activeCompany.id);
       
-      // Verificar se existem eventos de Ligação na lista
-      const eventosLigacao = prospeccoes.filter(p => 
-        String(p.canal).toLowerCase().includes('liga') || 
-        p.canal === 'Ligação'
-      );
+      const agentes = (agentesVinculados || [])
+        .map((ae: any) => ae.agentes_ia)
+        .filter((a: any) => a && a.ativo);
       
-      if (eventosLigacao.length === 0) {
-        setEventosLigacaoValidos(new Set());
-        setEventosLigacaoVerificados(true);
-        return;
-      }
+      // Buscar agente Pri(Ligação)
+      const agenteSearchPatterns = ['ligação', 'ligacao', 'ligaçao'];
+      const agenteLigacao = agentes.find((a: any) => {
+        const nome = String(a?.nome || '').toLowerCase();
+        const temPri = nome.includes('pri');
+        const temLigacao = agenteSearchPatterns.some(pattern => nome.includes(pattern));
+        return temPri && temLigacao && a?.telefone;
+      });
       
-      setLoadingEventosLigacao(true);
-      
-      try {
-        // Buscar agente Pri(Ligação) vinculado à empresa para pegar o telefone
-        const { data: agentesVinculados } = await supabase
-          .from('agente_empresas')
-          .select(`
-            agente_id,
-            agentes_ia (
-              id,
-              nome,
-              telefone,
-              ativo
-            )
-          `)
-          .eq('empresa_id', activeCompany.id);
-        
-        const agentes = (agentesVinculados || [])
-          .map((ae: any) => ae.agentes_ia)
-          .filter((a: any) => a && a.ativo);
-        
-        // Buscar agente Pri(Ligação)
-        const agenteSearchPatterns = ['ligação', 'ligacao', 'ligaçao'];
-        const agenteLigacao = agentes.find((a: any) => {
-          const nome = String(a?.nome || '').toLowerCase();
-          const temPri = nome.includes('pri');
-          const temLigacao = agenteSearchPatterns.some(pattern => nome.includes(pattern));
-          return temPri && temLigacao && a?.telefone;
-        });
-        
-        if (!agenteLigacao?.telefone) {
-          console.log('⚠️ Agente Pri(Ligação) não encontrado para verificar eventos');
-          // Se não tem agente, mostrar todos os eventos de ligação (fallback)
-          setEventosLigacaoValidos(new Set(eventosLigacao.map(e => e.id)));
-          setEventosLigacaoVerificados(true);
-          setLoadingEventosLigacao(false);
-          return;
-        }
-        
-        const telefonePri = String(agenteLigacao.telefone).replace(/\D/g, '');
-        
-        // Chamar o edge function para buscar eventos do webhook
-        const { data: webhookData, error: webhookError } = await supabase.functions.invoke('eventos-ligacao-proxy', {
-          body: {
-            action: 'listar',
-            agente_id: telefonePri,
-            telefone: telefonePri
-          }
-        });
-        
-        if (webhookError) {
-          console.error('❌ Erro ao buscar eventos de Ligação do webhook:', webhookError);
-          // Em caso de erro, mostrar todos os eventos de ligação (fallback)
-          setEventosLigacaoValidos(new Set(eventosLigacao.map(e => e.id)));
-        } else {
-          // Extrair IDs dos eventos retornados pelo webhook
-          const eventosWebhook = Array.isArray(webhookData) ? webhookData : (webhookData?.eventos || webhookData?.data || []);
-          
-          console.log('📋 Eventos de Ligação do webhook:', eventosWebhook);
-          
-          // O webhook retorna event_id_pri, então precisamos mapear para o ID da prospecção local
-          const eventIdPris = new Set(eventosWebhook.map((e: any) => String(e.id_evento || e.event_id || e.id)));
-          
-          // Filtrar prospecções que têm event_id_pri no webhook
-          const idsValidos = new Set<string>();
-          eventosLigacao.forEach(p => {
-            if (p.event_id_pri && eventIdPris.has(String(p.event_id_pri))) {
-              idsValidos.add(p.id);
-            }
+      if (!agenteLigacao?.telefone) {
+        console.log('⚠️ Agente Pri(Ligação) não encontrado para sincronizar eventos');
+        if (showToast) {
+          toast({
+            title: "Agente não encontrado",
+            description: "Configure um agente Pri(Ligação) com telefone para sincronizar eventos",
+            variant: "destructive"
           });
-          
-          console.log('✅ Eventos de Ligação válidos:', idsValidos.size, 'de', eventosLigacao.length);
-          setEventosLigacaoValidos(idsValidos);
         }
-      } catch (error) {
-        console.error('❌ Erro ao buscar eventos de Ligação:', error);
-        // Em caso de erro, mostrar todos os eventos de ligação (fallback)
+        // Mostrar todos os eventos de ligação locais como válidos
         const eventosLigacao = prospeccoes.filter(p => 
           String(p.canal).toLowerCase().includes('liga') || 
           p.canal === 'Ligação'
         );
         setEventosLigacaoValidos(new Set(eventosLigacao.map(e => e.id)));
-      } finally {
-        setLoadingEventosLigacao(false);
         setEventosLigacaoVerificados(true);
+        return;
       }
-    };
-    
-    fetchEventosLigacaoValidos();
-  }, [activeCompany?.id, prospeccoes]);
+      
+      const telefonePri = String(agenteLigacao.telefone).replace(/\D/g, '');
+      
+      console.log('🔄 Sincronizando eventos de Ligação com webhook...');
+      
+      // Chamar edge function de sincronização
+      const { data: syncResult, error: syncError } = await supabase.functions.invoke('sync-eventos-ligacao', {
+        body: {
+          pri_telefone: telefonePri,
+          empresa_id: activeCompany.id,
+          dry_run: false
+        }
+      });
+      
+      if (syncError) {
+        console.error('❌ Erro na sincronização:', syncError);
+        if (showToast) {
+          toast({
+            title: "Erro na sincronização",
+            description: syncError.message || "Não foi possível sincronizar eventos",
+            variant: "destructive"
+          });
+        }
+      } else {
+        console.log('✅ Sincronização concluída:', syncResult);
+        
+        if (showToast) {
+          const summary = syncResult?.summary || {};
+          toast({
+            title: "Sincronização concluída",
+            description: `Criados: ${summary.criados || 0} | Removidos: ${summary.deletados || 0} | Mantidos: ${summary.mantidos || 0}`,
+          });
+        }
+        
+        // Atualizar lista de prospecções após sincronização
+        refetch();
+      }
+      
+      // Após sincronização, todos os eventos de ligação são válidos (os inválidos foram removidos)
+      const eventosLigacaoAtualizados = prospeccoes.filter(p => 
+        String(p.canal).toLowerCase().includes('liga') || 
+        p.canal === 'Ligação'
+      );
+      setEventosLigacaoValidos(new Set(eventosLigacaoAtualizados.map(e => e.id)));
+      
+    } catch (error) {
+      console.error('❌ Erro ao sincronizar eventos de Ligação:', error);
+      if (showToast) {
+        toast({
+          title: "Erro",
+          description: "Erro ao sincronizar eventos de Ligação",
+          variant: "destructive"
+        });
+      }
+      // Fallback: mostrar todos os eventos de ligação
+      const eventosLigacao = prospeccoes.filter(p => 
+        String(p.canal).toLowerCase().includes('liga') || 
+        p.canal === 'Ligação'
+      );
+      setEventosLigacaoValidos(new Set(eventosLigacao.map(e => e.id)));
+    } finally {
+      setSincronizandoLigacao(false);
+      setLoadingEventosLigacao(false);
+      setEventosLigacaoVerificados(true);
+    }
+  };
+
+  // Sincronizar automaticamente ao carregar a página
+  useEffect(() => {
+    if (activeCompany?.id && prospeccoes.length > 0) {
+      sincronizarEventosLigacao(false);
+    }
+  }, [activeCompany?.id, prospeccoes.length > 0]);
 
   // Persistir aba ativa
   useEffect(() => {
@@ -1374,6 +1395,20 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
+                      <Button 
+                        onClick={() => sincronizarEventosLigacao(true)} 
+                        size="sm" 
+                        variant="outline"
+                        disabled={sincronizandoLigacao}
+                        title="Sincronizar eventos de Ligação com o sistema externo"
+                      >
+                        {sincronizandoLigacao ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Phone className="w-4 h-4 mr-2" />
+                        )}
+                        Sincronizar Ligação
+                      </Button>
                       {canAddClientes && (
                         <Button onClick={() => setShowAdicionarClientes(true)} size="sm" variant="outline">
                           <Users className="w-4 h-4 mr-2" />
