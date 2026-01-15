@@ -28,6 +28,8 @@ interface Prospeccao {
   titulo: string;
   descricao?: string;
   data_fim?: string | null;
+  canal?: string;
+  event_id_pri?: string | null;
 }
 
 interface OrigemOption {
@@ -268,6 +270,12 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
     setIsProcessing(true);
 
     try {
+      // Verificar se é um evento de Ligação
+      const prospeccaoSelecionada = prospeccoes.find(p => p.id === selectedCampanha);
+      const isLigacao = prospeccaoSelecionada?.canal?.toLowerCase().includes('liga') || 
+                        prospeccaoSelecionada?.canal?.toLowerCase() === 'ligação' ||
+                        prospeccaoSelecionada?.canal?.toLowerCase() === 'ligacao';
+
       // Criar registro da base importada
       const { data: baseData, error: baseError } = await supabase
         .from('bases_importadas')
@@ -286,6 +294,76 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
 
       console.log('✅ Base criada:', baseData);
 
+      // Se for evento de Ligação, chamar webhook cria-base-ligacao
+      if (isLigacao && prospeccaoSelecionada?.event_id_pri) {
+        console.log('📤 Enviando base para webhook cria-base-ligacao...');
+        
+        // Buscar dados da empresa e agente
+        const { data: empresaData } = await supabase
+          .from('empresas')
+          .select('nome_empresa, crm_id')
+          .eq('id', activeCompany?.id)
+          .single();
+
+        // Buscar agente Pri(Ligação) para obter telefone_pri
+        const { data: agentesVinculados } = await supabase
+          .from('agente_empresas')
+          .select(`
+            agente_id,
+            agentes_ia (
+              id,
+              nome,
+              telefone,
+              ativo
+            )
+          `)
+          .eq('empresa_id', activeCompany?.id);
+
+        const agentes = (agentesVinculados || [])
+          .map((ae: any) => ae.agentes_ia)
+          .filter((a: any) => a && a.ativo);
+
+        const agenteEspecifico = agentes.find((a: any) => {
+          const nome = String(a?.nome || '').toLowerCase();
+          return nome.includes('pri') && (nome.includes('ligação') || nome.includes('ligacao')) && a?.telefone;
+        });
+
+        const telefonePri = agenteEspecifico?.telefone?.replace(/\D/g, '') || '';
+        const nomeEmpresa = empresaData?.nome_empresa || '';
+
+        // Preparar payload para o webhook cria-base-ligacao
+        const basePayload = previewData.map(c => ({
+          telefone_lead: c.telefone?.replace(/\D/g, '') || '',
+          id_evento: prospeccaoSelecionada.event_id_pri,
+          nome: c.nome || '',
+          telefone_pri: telefonePri,
+          loja: nomeEmpresa,
+        }));
+
+        try {
+          const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/cria-base-ligacao', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contatos: basePayload,
+              id_evento: prospeccaoSelecionada.event_id_pri,
+              total_contatos: basePayload.length,
+            }),
+          });
+
+          if (!response.ok) {
+            console.error('❌ Erro ao enviar para webhook cria-base-ligacao:', response.status);
+          } else {
+            console.log('✅ Base enviada para webhook cria-base-ligacao com sucesso');
+          }
+        } catch (webhookError) {
+          console.error('❌ Erro ao chamar webhook cria-base-ligacao:', webhookError);
+          // Não bloqueia a importação se o webhook falhar
+        }
+      }
+
       // Adicionar origem e base_id aos clientes
       const clientesComDados = previewData.map(c => ({ 
         ...c, 
@@ -303,7 +381,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       
       toast({
         title: "Importação concluída",
-        description: `${previewData.length} contatos importados na base "${baseNomeFinal}"`,
+        description: `${previewData.length} contatos importados na base "${baseNomeFinal}"${isLigacao ? ' e enviados para o sistema de ligação' : ''}`,
       });
     } catch (error) {
       console.error('Erro na importação:', error);

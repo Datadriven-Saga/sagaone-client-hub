@@ -203,38 +203,22 @@ serve(async (req) => {
       }
     }
 
-    // Determinar webhook
+    // Determinar webhook - IA Ligação usa dispara-ligacao, IA Whatsapp usa recebe-leads-pri
     const webhookUrl = isIALigacao 
-      ? 'https://automatemaiawh.sagadatadriven.com.br/webhook/configura-eventos-saga-one'
+      ? 'https://automatemaiawh.sagadatadriven.com.br/webhook/dispara-ligacao'
       : 'https://automatemaiawh.sagadatadriven.com.br/webhook/recebe-leads-pri';
 
     console.log(`\n🌐 [${requestId}] Webhook URL: ${webhookUrl}`);
 
-    // Dados do evento para IA Ligação
-    const eventoData = isIALigacao ? {
-      id_evento: prospeccao_data?.event_id_pri || '',
-      nome: prospeccao_data?.titulo || '',
-      descricao: prospeccao_data?.titulo || '',
-      categoria: '',
-      marca: empresaData?.nome_empresa || '',
-      dealerid: empresaData?.crm_id || '',
-      telefone_pri: telefonePri,
-      uf: empresaData?.uf || '',
-      cidade: empresaData?.cidade || '',
-      endereco: empresaData?.endereco || '',
-      data_inicio: prospeccao_data?.data_inicio || null,
-      data_fim: prospeccao_data?.data_fim || null,
-      evt_status: 'ativo',
-      criado_em: new Date().toISOString(),
-      atualizado_em: new Date().toISOString(),
-      telefone_pri_whatsapp: telefonePriWhatsapp,
-    } : null;
+    // Para IA Ligação, o disparo é feito em batch com id_evento e telefone_pri apenas
+    // O evento e a base já foram criados anteriormente pelos webhooks cria-evento-ligacao e cria-base-ligacao
+    const eventIdPri = prospeccao_data?.event_id_pri || '';
 
-    // Dados comuns para todos os leads (WhatsApp)
+    // Dados comuns para leads WhatsApp
     const dadosComuns = {
       prospeccao_id,
       evento_nome: prospeccao_data?.titulo || '',
-      event_id_pri: prospeccao_data?.event_id_pri || '',
+      event_id_pri: eventIdPri,
       data_inicio: prospeccao_data?.data_inicio || null,
       data_fim: prospeccao_data?.data_fim || null,
       canal: prospeccao_data?.canal || (isIALigacao ? 'Ligação' : 'Whatsapp'),
@@ -252,20 +236,17 @@ serve(async (req) => {
       acao: 'criar'
     };
 
-    console.log(`\n📦 [${requestId}] Dados comuns preparados:`);
+    console.log(`\n📦 [${requestId}] Dados preparados:`);
     console.log(`   ├─ dealer_id: ${dadosComuns.dealer_id || 'N/A'}`);
     console.log(`   ├─ telefone_pri: ${dadosComuns.telefone_pri || 'N/A'}`);
     console.log(`   ├─ telefone_pri_whatsapp: ${dadosComuns.telefone_pri_whatsapp || 'N/A'}`);
     console.log(`   ├─ nome_agente: ${dadosComuns.nome_agente || 'N/A'}`);
-    console.log(`   └─ event_id_pri: ${dadosComuns.event_id_pri || 'N/A'}`);
+    console.log(`   └─ event_id_pri: ${eventIdPri || 'N/A'}`);
     
-    if (isIALigacao && eventoData) {
-      console.log(`\n📋 [${requestId}] Dados do EVENTO (Ligação):`);
-      console.log(`   ├─ id_evento: ${eventoData.id_evento}`);
-      console.log(`   ├─ nome: ${eventoData.nome}`);
-      console.log(`   ├─ dealerid: ${eventoData.dealerid}`);
-      console.log(`   ├─ telefone_pri: ${eventoData.telefone_pri}`);
-      console.log(`   └─ telefone_pri_whatsapp: ${eventoData.telefone_pri_whatsapp}`);
+    if (isIALigacao) {
+      console.log(`\n📋 [${requestId}] Disparo Ligação - Payload simples:`);
+      console.log(`   ├─ id_evento: ${eventIdPri}`);
+      console.log(`   └─ telefone_pri: ${telefonePri}`);
     }
 
     // Processar leads em batches
@@ -294,15 +275,11 @@ serve(async (req) => {
         let payload: any;
         
         if (isIALigacao) {
-          // Payload para IA Ligação - estrutura específica conforme webhook espera
+          // Payload para IA Ligação - apenas id_evento e telefone_pri
+          // O evento e base já foram criados anteriormente
           payload = {
-            evento: eventoData,
-            telefone_lead: normalizePhone(lead.telefone),
-            id_evento: eventoData?.id_evento || '',
-            nome: lead.nome,
+            id_evento: eventIdPri,
             telefone_pri: telefonePri,
-            loja: empresaData?.nome_empresa || '',
-            ligacao_atendida: false,
           };
         } else {
           // Payload para IA Whatsapp
