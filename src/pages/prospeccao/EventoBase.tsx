@@ -43,6 +43,7 @@ interface Prospeccao {
   meta_convites?: number | null;
   meta_confirmacoes?: number | null;
   meta_checkins?: number | null;
+  event_id_pri?: string | null;
 }
 
 type StatusFilter = 'todos' | string;
@@ -88,6 +89,7 @@ export default function EventoBase() {
   const [isDisparandoIA, setIsDisparandoIA] = useState(false);
   const [disparandoContato, setDisparandoContato] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isSyncingContatos, setIsSyncingContatos] = useState(false);
   
   // Estados do modal de progresso
   const [showProgressModal, setShowProgressModal] = useState(false);
@@ -103,7 +105,7 @@ export default function EventoBase() {
 
       const { data, error } = await supabase
         .from('prospeccoes')
-        .select('id, titulo, canal, data_inicio, data_fim, meta_convites, meta_confirmacoes, meta_checkins')
+        .select('id, titulo, canal, data_inicio, data_fim, meta_convites, meta_confirmacoes, meta_checkins, event_id_pri')
         .eq('id', eventoId)
         .eq('empresa_id', activeCompany.id)
         .maybeSingle();
@@ -681,6 +683,100 @@ export default function EventoBase() {
     }
   };
 
+  // Sincronizar contatos de evento de Ligação com webhook externo
+  const handleSyncContatosLigacao = async () => {
+    const canalAtual = prospeccao?.canal?.toLowerCase() || '';
+    const isLigacao = canalAtual.includes('liga');
+    if (!prospeccao || !activeCompany?.id || !isLigacao) return;
+
+    setIsSyncingContatos(true);
+    try {
+      console.log('🔄 Iniciando sincronização de contatos para evento Ligação...');
+
+      // Buscar telefone do agente Pri (Ligação) para esta empresa
+      const { data: agenteData, error: agenteError } = await supabase
+        .from('agentes_ia')
+        .select('telefone')
+        .eq('empresa_id', activeCompany.id)
+        .or('nome.ilike.%pri%,nome.ilike.%ligação%,nome.ilike.%ligacao%')
+        .limit(1)
+        .maybeSingle();
+
+      if (agenteError) {
+        console.error('Erro ao buscar agente:', agenteError);
+      }
+
+      // Tentar também buscar por agente_empresas se não encontrou
+      let telefonePri = agenteData?.telefone;
+      if (!telefonePri) {
+        const { data: agenteEmpresa } = await supabase
+          .from('agente_empresas')
+          .select('agente_id, agentes_ia(telefone, nome)')
+          .eq('empresa_id', activeCompany.id)
+          .limit(10);
+
+        if (agenteEmpresa) {
+          const agenteLigacao = agenteEmpresa.find((ae: any) => {
+            const nome = ae.agentes_ia?.nome?.toLowerCase() || '';
+            return nome.includes('pri') || nome.includes('liga');
+          });
+          if (agenteLigacao) {
+            telefonePri = (agenteLigacao as any).agentes_ia?.telefone;
+          }
+        }
+      }
+
+      if (!telefonePri) {
+        toast({ 
+          title: "Erro", 
+          description: "Não foi possível encontrar o telefone do agente de Ligação para esta empresa",
+          variant: "destructive" 
+        });
+        setIsSyncingContatos(false);
+        return;
+      }
+
+      // Usar event_id_pri do evento ou o ID local
+      const idEvento = prospeccao.event_id_pri || eventoId;
+
+      console.log('📞 Sincronizando com telefone_pri:', telefonePri, 'id_evento:', idEvento);
+
+      const { data, error } = await supabase.functions.invoke('sync-contatos-ligacao', {
+        body: {
+          telefone_pri: telefonePri,
+          id_evento: idEvento,
+          empresa_id: activeCompany.id,
+          prospeccao_id: prospeccao.id,
+          dry_run: false
+        }
+      });
+
+      if (error) throw error;
+
+      console.log('✅ Resultado da sincronização:', data);
+
+      const summary = data?.summary || {};
+      toast({ 
+        title: "Sincronização concluída", 
+        description: `Criados: ${summary.criados || 0}, Removidos: ${summary.deletados || 0}, Mantidos: ${summary.mantidos || 0}` 
+      });
+
+      // Recarregar dados
+      await fetchMetricas();
+      await fetchContatos();
+
+    } catch (error) {
+      console.error('Erro ao sincronizar contatos:', error);
+      toast({ 
+        title: "Erro", 
+        description: "Erro ao sincronizar contatos: " + (error as Error).message, 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsSyncingContatos(false);
+    }
+  };
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
     return format(new Date(dateStr), 'dd/MM/yyyy', { locale: ptBR });
@@ -741,6 +837,22 @@ export default function EventoBase() {
           </div>
 
           <div className="flex gap-2">
+            {isIALigacao && isAdminOrTI && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleSyncContatosLigacao} 
+                disabled={isSyncingContatos}
+                className="border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
+              >
+                {isSyncingContatos ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                {isSyncingContatos ? 'Sincronizando...' : 'Sincronizar Contatos'}
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={fetchContatos} disabled={loadingPage}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loadingPage ? 'animate-spin' : ''}`} />
               Atualizar
