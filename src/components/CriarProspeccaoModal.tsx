@@ -1279,8 +1279,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           await saveConvite(data.id);
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
-          // Chamar webhooks específicos de IA Ligação com ação 'atualizar'
-          await callIALigacaoWebhooks(data, 'atualizar');
+          // NÃO chamar webhook aqui - disparo será feito pelo botão "Disparar Ligações" na página do evento
+          console.log('✅ Evento IA Ligação atualizado. Disparo manual via botão na página do evento.');
         }
 
         toast({
@@ -1344,8 +1344,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           await saveConvite(data.id);
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
-          // Chamar webhooks específicos de IA Ligação com ação 'criar'
-          await callIALigacaoWebhooks(data, 'criar');
+          // NÃO chamar webhook aqui - disparo será feito pelo botão "Disparar Ligações" na página do evento
+          console.log('✅ Evento IA Ligação criado. Disparo manual via botão na página do evento.');
         }
 
         toast({
