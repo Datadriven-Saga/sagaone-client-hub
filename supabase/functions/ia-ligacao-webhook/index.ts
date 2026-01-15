@@ -162,79 +162,81 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Telefone Pri SEMPRE vem do agente correto baseado no tipo de evento
-    // IA Ligação → "Pri(Ligação)" | IA Whatsapp → "Pri - Whatsapp"
-    let telefonePri = '';
-    let priStatus: 'Ativo' | 'Inativo' = 'Ativo';
-    let fontePri = '';
-    
-    // Determinar qual agente buscar baseado no canal do evento
-    const isIALigacao = evento?.canal === 'IA Ligação' || evento?.canal === 'Ligação';
-    const nomeAgenteEsperado = isIALigacao ? 'Pri(Ligação)' : 'Pri - Whatsapp';
-    const searchPatterns = isIALigacao 
-      ? ['pri(ligação)', 'pri(ligacao)', 'pri - ligação', 'pri - ligacao', 'pri ligação', 'pri ligacao']
-      : ['pri - whatsapp', 'pri whatsapp'];
+    // Para IA Ligação precisamos de DOIS agentes:
+    // 1. Pri(Ligação) → telefone_pri (para ligações)
+    // 2. Pri - WhatsApp → telefone_pri_whatsapp (para WhatsApp)
+    let telefonePriLigacao = '';
+    let telefonePriWhatsapp = '';
+    let fontePriLigacao = '';
+    let fontePriWhatsapp = '';
 
-    console.log('🔍 Canal do evento:', evento?.canal, '| Buscando agente:', nomeAgenteEsperado);
+    console.log('🔍 Canal do evento:', evento?.canal, '| Buscando agentes Pri(Ligação) e Pri - WhatsApp');
 
-    if (agente_template?.telefone) {
-      console.log('✅ Usando telefone Pri recebido do frontend (agente_template):', agente_template.nome);
-      telefonePri = agente_template.telefone.replace(/\D/g, '');
-      fontePri = 'frontend_agente_template';
-    } else {
-      console.log('🔍 Frontend não enviou agente_template, buscando agente na empresa via agente_empresas...');
+    // Buscar TODOS os agentes vinculados à empresa
+    const { data: agentesVinculados, error: agentesVinculadosErr } = await supabase
+      .from('agente_empresas')
+      .select(`
+        agente_id,
+        agentes_ia (
+          id,
+          nome,
+          telefone,
+          ativo
+        )
+      `)
+      .eq('empresa_id', empresa_id);
 
-      // Buscar agentes vinculados à empresa via agente_empresas (evita problemas de RLS)
-      const { data: agentesVinculados, error: agentesVinculadosErr } = await supabase
-        .from('agente_empresas')
-        .select(`
-          agente_id,
-          agentes_ia (
-            id,
-            nome,
-            telefone,
-            ativo
-          )
-        `)
-        .eq('empresa_id', empresa_id);
-
-      if (agentesVinculadosErr) {
-        console.error('⚠️ Erro ao buscar agente_empresas:', agentesVinculadosErr);
-      }
-
-      const agentes = (agentesVinculados || [])
-        .map((ae: any) => ae.agentes_ia)
-        .filter((a: any) => a && a.ativo)
-        .filter((a: any, idx: number, self: any[]) => idx === self.findIndex(t => t?.id === a?.id));
-
-      console.log('📋 Agentes vinculados encontrados:', agentes.map((a: any) => a?.nome));
-
-      // Buscar agente específico para o tipo de evento
-      const agenteEspecifico = agentes.find((a: any) => {
-        const nome = String(a?.nome || '').toLowerCase();
-        return searchPatterns.some(pattern => nome.includes(pattern)) && a?.telefone;
-      });
-
-      if (agenteEspecifico?.telefone) {
-        telefonePri = agenteEspecifico.telefone.replace(/\D/g, '');
-        priStatus = agenteEspecifico.ativo ? 'Ativo' : 'Inativo';
-        fontePri = `db_${isIALigacao ? 'pri_ligacao' : 'pri_whatsapp'}`;
-        console.log('✅ Agente encontrado:', agenteEspecifico.nome);
-      }
+    if (agentesVinculadosErr) {
+      console.error('⚠️ Erro ao buscar agente_empresas:', agentesVinculadosErr);
     }
 
-    if (!telefonePri) {
-      console.error('❌ Telefone Pri não encontrado - bloqueando operação:', empresa_id, '| Agente esperado:', nomeAgenteEsperado);
+    const agentes = (agentesVinculados || [])
+      .map((ae: any) => ae.agentes_ia)
+      .filter((a: any) => a && a.ativo)
+      .filter((a: any, idx: number, self: any[]) => idx === self.findIndex(t => t?.id === a?.id));
+
+    console.log('📋 Agentes vinculados encontrados:', agentes.map((a: any) => ({ nome: a?.nome, telefone: a?.telefone })));
+
+    // Buscar Pri(Ligação)
+    const searchPatternsLigacao = ['pri(ligação)', 'pri(ligacao)', 'pri - ligação', 'pri - ligacao', 'pri ligação', 'pri ligacao'];
+    const agentePriLigacao = agentes.find((a: any) => {
+      const nome = String(a?.nome || '').toLowerCase();
+      return searchPatternsLigacao.some(pattern => nome.includes(pattern)) && a?.telefone;
+    });
+
+    if (agentePriLigacao?.telefone) {
+      telefonePriLigacao = agentePriLigacao.telefone.replace(/\D/g, '');
+      fontePriLigacao = 'db_pri_ligacao';
+      console.log('✅ Agente Pri(Ligação) encontrado:', agentePriLigacao.nome, '| Tel:', telefonePriLigacao);
+    }
+
+    // Buscar Pri - WhatsApp
+    const searchPatternsWhatsapp = ['pri - whatsapp', 'pri whatsapp', 'pri-whatsapp'];
+    const agentePriWhatsapp = agentes.find((a: any) => {
+      const nome = String(a?.nome || '').toLowerCase();
+      return searchPatternsWhatsapp.some(pattern => nome.includes(pattern)) && a?.telefone;
+    });
+
+    if (agentePriWhatsapp?.telefone) {
+      telefonePriWhatsapp = agentePriWhatsapp.telefone.replace(/\D/g, '');
+      fontePriWhatsapp = 'db_pri_whatsapp';
+      console.log('✅ Agente Pri - WhatsApp encontrado:', agentePriWhatsapp.nome, '| Tel:', telefonePriWhatsapp);
+    }
+
+    // Validar: Pri(Ligação) é obrigatório para IA Ligação
+    if (!telefonePriLigacao) {
+      console.error('❌ Telefone Pri(Ligação) não encontrado - bloqueando operação:', empresa_id);
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Agente "${nomeAgenteEsperado}" não encontrado (ou sem telefone). Configure o agente na loja antes de criar/atualizar o evento.`,
+          error: 'Agente "Pri(Ligação)" não encontrado (ou sem telefone). Configure o agente na loja antes de criar/atualizar o evento.',
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('📱 Telefone Pri definido:', telefonePri, '| fonte:', fontePri);
+    console.log('📱 Telefone Pri(Ligação) definido:', telefonePriLigacao, '| fonte:', fontePriLigacao);
+    console.log('📱 Telefone Pri - WhatsApp definido:', telefonePriWhatsapp || '(não configurado)', '| fonte:', fontePriWhatsapp || 'N/A');
     console.log('🏪 Dealer ID (crm_id) definido:', dealerId);
 
     const formatarDataISO = (data: string | null): string => {
@@ -278,23 +280,17 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Payload do evento no formato esperado pelo agente
+    // Payload do evento no formato EXATO solicitado pelo usuário
     const eventoPayload = {
       id_evento: idEvento,
       nome: evento.titulo || '',
       descricao: evento.descricao || '',
       categoria: 'evento',
       marca: empresa?.marca || empresa?.nome_empresa || '',
-
-      // Campos usados pelo fluxo Saga One
       dealerid: dealerId,
-      telefone_pri: telefonePri,
-
-      // Compatibilidade (N8N / integrações antigas)
+      telefone_pri: telefonePriLigacao,
+      telefone_pri_whatsapp: telefonePriWhatsapp,
       pri_dealer_id: dealerId,
-      pri_telefone: telefonePri,
-      pri_status: priStatus,
-
       uf: evento.uf || empresa?.uf || '',
       cidade: evento.cidade || empresa?.cidade || '',
       endereco: evento.endereco || empresa?.endereco || '',
@@ -305,23 +301,9 @@ Deno.serve(async (req: Request) => {
       atualizado_em: now,
     };
 
-    // Payload dos contatos no formato solicitado
-    const contatosPayload = (contatos || []).map((c: ContatoInput) => ({
-      telefone_lead: c.telefone || '',
-      id_evento: idEvento,
-      nome: c.nome || '',
-      telefone_pri: telefonePri,
-      loja: empresa?.nome_empresa || '',
-    }));
-
-    // Payload completo no formato solicitado
+    // Payload completo no formato EXATO solicitado: { evento: {...} }
     const payload = {
       evento: eventoPayload,
-      contatos: contatosPayload,
-      total_clientes: contatosPayload.length,
-      total_contatos: contatosPayload.length,
-      timestamp: now,
-      acao: operacao,
     };
 
     // Selecionar webhook baseado na operação
@@ -338,19 +320,7 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log('📤 Enviando para:', webhookUrl);
-    console.log('📦 Payload:', JSON.stringify({
-      id_evento: payload.id_evento,
-      nome: payload.nome,
-      dealerid: payload.dealerid,
-      telefone_pri: payload.telefone_pri,
-      pri_dealer_id: payload.pri_dealer_id,
-      pri_telefone: payload.pri_telefone,
-      pri_status: payload.pri_status,
-      uf: payload.uf,
-      cidade: payload.cidade,
-      total_clientes: payload.total_clientes,
-      acao: payload.acao,
-    }, null, 2));
+    console.log('📦 Payload:', JSON.stringify(payload, null, 2));
 
     const response = await fetch(webhookUrl, {
       method: 'POST',
@@ -376,21 +346,8 @@ Deno.serve(async (req: Request) => {
         url: webhookUrl,
         data: responseData,
         id_evento: idEvento,
-        total_contatos: contatosPayload.length,
         acao: operacao,
-        payload_preview: {
-          id_evento: payload.id_evento,
-          nome: payload.nome,
-          dealerid: payload.dealerid,
-          telefone_pri: payload.telefone_pri,
-          pri_dealer_id: payload.pri_dealer_id,
-          pri_telefone: payload.pri_telefone,
-          pri_status: payload.pri_status,
-          uf: payload.uf,
-          cidade: payload.cidade,
-          endereco: payload.endereco,
-          total_clientes: payload.total_clientes,
-        },
+        payload_enviado: payload,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
