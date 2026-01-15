@@ -204,15 +204,16 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
       for (let i = 0; i < vinculos.length; i += BATCH_SIZE) {
         const batch = vinculos.slice(i, i + BATCH_SIZE);
         
-        // Usar upsert para evitar duplicatas (se já estiver vinculado, ignora)
-        const { error } = await supabase
+        // Inserir ignorando duplicatas (constraint unique contato_id + prospeccao_id)
+        const { error, count } = await supabase
           .from('eventos_prospeccao')
-          .upsert(batch, { onConflict: 'contato_id,prospeccao_id', ignoreDuplicates: true });
+          .insert(batch)
+          .select();
         
         if (error) {
           console.error('Erro ao vincular contatos:', error);
           // Se o erro for de unique constraint, continua (já existe)
-          if (!error.message?.includes('duplicate') && !error.message?.includes('unique')) {
+          if (!error.message?.includes('duplicate') && !error.message?.includes('unique') && !error.code?.includes('23505')) {
             throw error;
           }
         }
