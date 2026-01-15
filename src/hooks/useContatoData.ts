@@ -1100,70 +1100,107 @@ export const useContatoData = () => {
     }
   };
 
-  // Excluir TODOS os contatos da empresa (1 query, sem lista de IDs)
+  // Excluir TODOS os contatos da empresa (com cascata manual para eventos_prospeccao)
+  // Observação: o PostgREST costuma limitar selects grandes (ex: 1000 linhas), então aqui paginamos.
   const excluirTodosContatosDaEmpresa = async (): Promise<{ sucesso: number; falha: number }> => {
     if (!activeCompany?.id) {
       return { sucesso: 0, falha: 0 };
     }
 
-    const total = contatos.length;
-    if (total === 0) {
+    const totalEmTela = contatos.length;
+    if (totalEmTela === 0) {
       return { sucesso: 0, falha: 0 };
     }
 
-    console.log(`🧨 Excluindo TODOS os ${total} contatos da empresa ${activeCompany.id}`);
+    console.log(`🧨 Excluindo TODOS os contatos da empresa ${activeCompany.id}`);
 
     try {
-      // Primeiro: buscar todos os IDs de contatos da empresa diretamente do banco
-      const { data: contatosDB, error: fetchError } = await supabase
-        .from('contatos')
-        .select('id')
-        .eq('empresa_id', activeCompany.id);
+      // 1) Buscar TODOS os IDs de contatos da empresa em páginas
+      const PAGE_SIZE = 5000;
+      let from = 0;
+      const contatoIds: string[] = [];
 
-      if (fetchError) {
-        console.error('❌ Erro ao buscar contatos para exclusão:', fetchError);
-        return { sucesso: 0, falha: total };
+      while (true) {
+        const { data, error } = await supabase
+          .from('contatos')
+          .select('id')
+          .eq('empresa_id', activeCompany.id)
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (error) {
+          console.error('❌ Erro ao buscar contatos para exclusão:', error);
+          return { sucesso: 0, falha: totalEmTela };
+        }
+
+        const ids = (data || []).map((c) => c.id);
+        contatoIds.push(...ids);
+
+        if (!data || data.length < PAGE_SIZE) {
+          break;
+        }
+
+        from += PAGE_SIZE;
       }
 
-      const contatoIds = (contatosDB || []).map(c => c.id);
       console.log(`📊 Encontrados ${contatoIds.length} contatos no banco para excluir`);
 
-      if (contatoIds.length > 0) {
-        // Excluir eventos_prospeccao em lotes
-        const DELETE_BATCH_SIZE = 500;
-        console.log(`🔄 Excluindo eventos_prospeccao em lotes de ${DELETE_BATCH_SIZE}...`);
-        
-        for (let i = 0; i < contatoIds.length; i += DELETE_BATCH_SIZE) {
-          const batchIds = contatoIds.slice(i, i + DELETE_BATCH_SIZE);
-          const { error: eventosError } = await supabase
-            .from('eventos_prospeccao')
-            .delete()
-            .in('contato_id', batchIds);
-          
-          if (eventosError) {
-            console.warn(`⚠️ Erro ao excluir eventos lote ${i}-${i + DELETE_BATCH_SIZE}:`, eventosError);
-          }
+      if (contatoIds.length === 0) {
+        // Já não existe nada no banco
+        setContatos([]);
+        return { sucesso: 0, falha: 0 };
+      }
+
+      // 2) Excluir em lotes: primeiro eventos_prospeccao, depois contatos
+      const DELETE_BATCH_SIZE = 200;
+      let sucesso = 0;
+      let falha = 0;
+
+      console.log(`🔄 Excluindo em lotes de ${DELETE_BATCH_SIZE} (eventos_prospeccao → contatos)...`);
+
+      for (let i = 0; i < contatoIds.length; i += DELETE_BATCH_SIZE) {
+        const batchIds = contatoIds.slice(i, i + DELETE_BATCH_SIZE);
+
+        // 2.1) Deletar eventos vinculados aos contatos
+        const { error: eventosError } = await supabase
+          .from('eventos_prospeccao')
+          .delete()
+          .in('contato_id', batchIds);
+
+        if (eventosError) {
+          // Mesmo com erro, tentamos excluir os contatos para contabilizar falhas corretamente
+          console.warn(`⚠️ Erro ao excluir eventos_prospeccao lote ${i}-${i + DELETE_BATCH_SIZE}:`, eventosError);
         }
-        console.log('✅ Eventos_prospeccao excluídos');
+
+        // 2.2) Deletar os contatos
+        const { error: contatosError } = await supabase
+          .from('contatos')
+          .delete()
+          .in('id', batchIds);
+
+        if (contatosError) {
+          console.error(`❌ Erro ao excluir contatos lote ${i}-${i + DELETE_BATCH_SIZE}:`, contatosError);
+          falha += batchIds.length;
+        } else {
+          sucesso += batchIds.length;
+        }
       }
 
-      // Agora excluir todos os contatos
-      const { error } = await supabase
-        .from('contatos')
-        .delete()
-        .eq('empresa_id', activeCompany.id);
-
-      if (error) {
-        console.error('❌ Erro ao excluir todos os contatos:', error);
-        return { sucesso: 0, falha: total };
+      if (falha === 0) {
+        setContatos([]);
+        console.log('✅ Todos os contatos foram excluídos');
+        return { sucesso, falha: 0 };
       }
 
-      setContatos([]);
-      console.log('✅ Todos os contatos foram excluídos');
-      return { sucesso: contatoIds.length, falha: 0 };
+      // Exclusão parcial: remove apenas os que “tentamos” deletar com sucesso do estado
+      // (se a tela estiver paginada, isso mantém a UI consistente)
+      const deletedSet = new Set(contatoIds);
+      setContatos((prev) => prev.filter((c) => !deletedSet.has(c.id)));
+
+      console.warn(`⚠️ Exclusão parcial: ${sucesso} excluídos, ${falha} falharam`);
+      return { sucesso, falha };
     } catch (error) {
       console.error('❌ Exceção ao excluir todos os contatos:', error);
-      return { sucesso: 0, falha: total };
+      return { sucesso: 0, falha: totalEmTela };
     }
   };
 

@@ -165,20 +165,26 @@ export const ClientesImportadosList = ({
 
     setIsDeleting(true);
     try {
-      // Modo "Excluir Todos" deve usar uma operação dedicada (sem lista gigante de IDs)
-      if (deleteAllMode && onDeleteAllContatos) {
-        const resultado = await onDeleteAllContatos();
-        toast({
-          title: "Contatos excluídos",
-          description: `${resultado.sucesso} excluídos com sucesso${resultado.falha > 0 ? `, ${resultado.falha} falharam` : ''}.`,
-        });
-        setSelectedContatos(new Set());
-      } else if (onDeleteMultiplosContatos && deleteContatoIds.length > 1) {
-        const resultado = await onDeleteMultiplosContatos(deleteContatoIds);
-        toast({
-          title: "Contatos excluídos",
-          description: `${resultado.sucesso} excluídos com sucesso${resultado.falha > 0 ? `, ${resultado.falha} falharam` : ''}.`,
-        });
+        // Modo "Excluir Todos" deve usar uma operação dedicada (sem lista gigante de IDs)
+        if (deleteAllMode && onDeleteAllContatos) {
+          const resultado = await onDeleteAllContatos();
+          const hasFailures = resultado.falha > 0;
+
+          toast({
+            title: hasFailures ? "Exclusão parcial" : "Contatos excluídos",
+            description: `${resultado.sucesso} excluídos com sucesso${hasFailures ? `, ${resultado.falha} falharam` : ''}.`,
+            ...(hasFailures ? { variant: "destructive" as const } : {}),
+          });
+          setSelectedContatos(new Set());
+        } else if (onDeleteMultiplosContatos && deleteContatoIds.length > 1) {
+          const resultado = await onDeleteMultiplosContatos(deleteContatoIds);
+          const hasFailures = resultado.falha > 0;
+
+          toast({
+            title: hasFailures ? "Exclusão parcial" : "Contatos excluídos",
+            description: `${resultado.sucesso} excluídos com sucesso${hasFailures ? `, ${resultado.falha} falharam` : ''}.`,
+            ...(hasFailures ? { variant: "destructive" as const } : {}),
+          });
 
         // Limpar seleção após exclusão
         setSelectedContatos(prev => {
