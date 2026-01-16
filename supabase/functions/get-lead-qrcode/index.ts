@@ -48,25 +48,25 @@ Deno.serve(async (req) => {
     let leadCode: string | null = null;
 
     if (req.method === 'GET') {
-      leadCode = url.searchParams.get('codigo') || url.searchParams.get('code');
+      leadCode = url.searchParams.get('lead_id') || url.searchParams.get('codigo') || url.searchParams.get('code');
     } else if (req.method === 'POST') {
       const body = await req.json();
-      leadCode = body.codigo || body.code;
+      leadCode = body.lead_id || body.codigo || body.code;
     }
 
     if (!leadCode) {
       return new Response(
         JSON.stringify({ 
-          error: 'Código do lead é obrigatório',
-          uso: 'GET /get-lead-qrcode?codigo=ABC123 ou POST com body { "codigo": "ABC123" }'
+          error: 'lead_id é obrigatório',
+          uso: 'GET /get-lead-qrcode?lead_id=12345 ou POST com body { "lead_id": "12345" }'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`🔍 Buscando lead com código: ${leadCode}`);
+    console.log(`🔍 Buscando lead com lead_id: ${leadCode}`);
 
-    // Buscar o lead pelo código
+    // Buscar o lead pelo lead_id
     const { data: contato, error: contatoError } = await supabase
       .from('contatos')
       .select(`
@@ -75,6 +75,7 @@ Deno.serve(async (req) => {
         telefone,
         email,
         status,
+        lead_id,
         qr_token,
         qr_token_used,
         vendedor_nome,
@@ -83,7 +84,7 @@ Deno.serve(async (req) => {
           nome_empresa
         )
       `)
-      .eq('codigo', leadCode)
+      .eq('lead_id', leadCode)
       .maybeSingle();
 
     if (contatoError) {
@@ -151,7 +152,7 @@ Deno.serve(async (req) => {
         success: true,
         lead: {
           id: contato.id,
-          codigo: leadCode,
+          lead_id: contato.lead_id,
           nome: contato.nome,
           telefone: contato.telefone,
           email: contato.email,

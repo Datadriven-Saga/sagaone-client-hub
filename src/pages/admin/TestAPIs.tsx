@@ -190,7 +190,7 @@ const TestAPIs = () => {
     setLoading('qrcode');
     setQrCodeImage(null);
     try {
-      const response = await fetch(`${baseUrl}/get-lead-qrcode?codigo=${encodeURIComponent(leadCodigo)}`, {
+      const response = await fetch(`${baseUrl}/get-lead-qrcode?lead_id=${encodeURIComponent(leadCodigo)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -476,30 +476,31 @@ const TestAPIs = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => copyToClipboard(`${baseUrl}/get-lead-qrcode?codigo=${leadCodigo || '{codigo}'}`)}
+                onClick={() => copyToClipboard(`${baseUrl}/get-lead-qrcode?lead_id=${leadCodigo || '{lead_id}'}`)}
               >
                 <Copy className="h-4 w-4" />
               </Button>
             </CardTitle>
             <CardDescription>
-              Gera ou retorna o QR Code de check-in de um lead pelo código. Requer <code className="text-xs bg-muted px-1 py-0.5 rounded">SAGA_ONE_ADMIN_TOKEN</code>
+              Gera ou retorna o QR Code de check-in de um lead pelo <code className="text-xs bg-muted px-1 py-0.5 rounded">lead_id</code>. Requer <code className="text-xs bg-muted px-1 py-0.5 rounded">SAGA_ONE_ADMIN_TOKEN</code>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="bg-muted p-3 rounded-md">
               <code className="text-sm">
-                GET {baseUrl}/get-lead-qrcode?codigo={leadCodigo || '{codigo}'}
+                GET {baseUrl}/get-lead-qrcode?lead_id={leadCodigo || '{lead_id}'}
               </code>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="lead_codigo">Código do Lead</Label>
+                <Label htmlFor="lead_codigo">Lead ID</Label>
                 <Input
                   id="lead_codigo"
+                  type="number"
                   value={leadCodigo}
                   onChange={(e) => setLeadCodigo(e.target.value)}
-                  placeholder="Ex: ABC123"
+                  placeholder="Ex: 12345"
                   className="font-mono"
                 />
               </div>
