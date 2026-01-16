@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
 import { Camera, X, AlertCircle, CheckCircle2, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,127 +22,22 @@ interface QRCodeData {
 }
 
 export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps) {
-  const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [successData, setSuccessData] = useState<{ nome: string } | null>(null);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const isStartingRef = useRef(false);
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const hasProcessedRef = useRef(false);
   const { toast } = useToast();
   const { activeCompany } = useCompany();
 
-  useEffect(() => {
-    if (isOpen && !success) {
-      startScanner();
-    }
-    return () => {
-      stopScanner();
-    };
-  }, [isOpen, success]);
-
-  const startScanner = async () => {
-    // Evitar múltiplas inicializações
-    if (isStartingRef.current || scannerRef.current) {
-      return;
-    }
-    
-    isStartingRef.current = true;
-    setError(null);
-    setScanning(true);
-    setSuccess(false);
-    setSuccessData(null);
-
-    try {
-      // Aguardar elemento ser renderizado
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      const container = document.getElementById('qr-reader');
-      if (!container) {
-        throw new Error('Container não encontrado');
-      }
-
-      // Limpar container antes de iniciar
-      container.innerHTML = '';
-
-      // Listar câmeras disponíveis
-      const cameras = await Html5Qrcode.getCameras();
-      
-      if (!cameras || cameras.length === 0) {
-        throw new Error('Nenhuma câmera encontrada');
-      }
-
-      // Preferir câmera traseira (environment)
-      let cameraId = cameras[0].id;
-      for (const camera of cameras) {
-        const label = camera.label.toLowerCase();
-        if (label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('traseira')) {
-          cameraId = camera.id;
-          break;
-        }
-      }
-      // Se houver mais de uma câmera, geralmente a última é a traseira
-      if (cameras.length > 1) {
-        cameraId = cameras[cameras.length - 1].id;
-      }
-
-      const html5QrCode = new Html5Qrcode('qr-reader');
-      scannerRef.current = html5QrCode;
-
-      await html5QrCode.start(
-        cameraId,
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
-        },
-        handleScanSuccess,
-        () => {} // Ignorar erros durante scan
-      );
-      
-      isStartingRef.current = false;
-    } catch (err: any) {
-      console.error('Error starting scanner:', err);
-      isStartingRef.current = false;
-      
-      let errorMessage = 'Não foi possível acessar a câmera.';
-      if (err.message?.includes('Permission')) {
-        errorMessage = 'Permissão de câmera negada. Por favor, permita o acesso.';
-      } else if (err.message?.includes('NotReadableError')) {
-        errorMessage = 'Câmera em uso por outro aplicativo.';
-      } else if (err.message?.includes('NotFoundError') || err.message?.includes('Nenhuma câmera')) {
-        errorMessage = 'Nenhuma câmera encontrada neste dispositivo.';
-      }
-      
-      setError(errorMessage);
-      setScanning(false);
-    }
-  };
-
-  const stopScanner = async () => {
-    isStartingRef.current = false;
-    
-    if (scannerRef.current) {
-      try {
-        const state = scannerRef.current.getState();
-        if (state === 2) { // SCANNING state
-          await scannerRef.current.stop();
-        }
-        scannerRef.current.clear();
-      } catch (err) {
-        console.error('Error stopping scanner:', err);
-      } finally {
-        scannerRef.current = null;
-      }
-    }
-    setScanning(false);
-  };
-
-  const handleScanSuccess = async (decodedText: string) => {
-    if (processing) return;
+  const handleScanSuccess = useCallback(async (decodedText: string) => {
+    // Evitar processamento duplicado
+    if (hasProcessedRef.current || processing) return;
+    hasProcessedRef.current = true;
     setProcessing(true);
-    
-    await stopScanner();
+
+    console.log('QR Code scanned:', decodedText);
 
     try {
       // Tentar parsear o JSON do QR Code
@@ -151,17 +46,19 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
       try {
         qrData = JSON.parse(decodedText);
       } catch {
-        throw new Error('QR Code inválido');
+        throw new Error('QR Code inválido - formato incorreto');
       }
 
       // Validar campos obrigatórios
       if (!qrData.qr_token) {
-        throw new Error('QR Code inválido');
+        throw new Error('QR Code inválido - token ausente');
       }
 
       if (!qrData.convidado_nome || !qrData.convidado_telefone || !qrData.vendedor || !qrData.quem_convidou) {
         throw new Error('QR Code inválido - campos incompletos');
       }
+
+      console.log('QR Data parsed:', qrData);
 
       // Buscar contato pelo qr_token
       const { data: contato, error: contatoError } = await supabase
@@ -176,7 +73,7 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
       }
 
       if (!contato) {
-        throw new Error('QR Code inválido');
+        throw new Error('QR Code não encontrado no sistema');
       }
 
       // Verificar se já foi usado
@@ -186,8 +83,8 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
           description: 'Este convite já foi utilizado anteriormente.',
           variant: 'destructive',
         });
+        hasProcessedRef.current = false;
         setProcessing(false);
-        startScanner();
         return;
       }
 
@@ -251,29 +148,116 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
       console.error('Error processing QR code:', err);
       toast({
         title: 'QR Code inválido',
-        description: 'Faça o processo novamente ou registre a visita de forma manual.',
+        description: err.message || 'Faça o processo novamente ou registre a visita de forma manual.',
         variant: 'destructive',
       });
+      hasProcessedRef.current = false;
       setProcessing(false);
-      // Restart scanner for another attempt
-      setTimeout(() => startScanner(), 500);
     }
-  };
+  }, [activeCompany, toast, onSuccess, onClose, processing]);
 
-  const handleClose = () => {
-    stopScanner();
+  useEffect(() => {
+    if (isOpen && !success && !scannerRef.current) {
+      // Aguardar o elemento estar no DOM
+      const timer = setTimeout(() => {
+        const element = document.getElementById('qr-reader');
+        if (!element) {
+          console.error('QR reader element not found');
+          return;
+        }
+
+        try {
+          const scanner = new Html5QrcodeScanner(
+            'qr-reader',
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 250 },
+              rememberLastUsedCamera: true,
+              supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+            },
+            /* verbose= */ false
+          );
+
+          scanner.render(
+            handleScanSuccess,
+            (errorMessage) => {
+              // Ignorar erros de scan - são normais quando não há QR code na frente
+              console.log('Scan error (normal):', errorMessage);
+            }
+          );
+
+          scannerRef.current = scanner;
+          console.log('Scanner initialized successfully');
+        } catch (err) {
+          console.error('Error initializing scanner:', err);
+          setError('Não foi possível inicializar o scanner. Verifique as permissões da câmera.');
+        }
+      }, 300);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, success, handleScanSuccess]);
+
+  const cleanupScanner = useCallback(() => {
+    if (scannerRef.current) {
+      try {
+        scannerRef.current.clear();
+        console.log('Scanner cleared');
+      } catch (err) {
+        console.error('Error clearing scanner:', err);
+      }
+      scannerRef.current = null;
+    }
+  }, []);
+
+  const handleClose = useCallback(() => {
+    cleanupScanner();
     setError(null);
     setProcessing(false);
     setSuccess(false);
     setSuccessData(null);
+    hasProcessedRef.current = false;
     onClose();
-  };
+  }, [cleanupScanner, onClose]);
 
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
+    cleanupScanner();
     setError(null);
     setProcessing(false);
-    startScanner();
-  };
+    hasProcessedRef.current = false;
+    
+    // Re-initialize after cleanup
+    setTimeout(() => {
+      const element = document.getElementById('qr-reader');
+      if (!element) return;
+
+      try {
+        const scanner = new Html5QrcodeScanner(
+          'qr-reader',
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            rememberLastUsedCamera: true,
+            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+          },
+          false
+        );
+
+        scanner.render(handleScanSuccess, () => {});
+        scannerRef.current = scanner;
+      } catch (err) {
+        console.error('Error reinitializing scanner:', err);
+        setError('Não foi possível reiniciar o scanner.');
+      }
+    }, 300);
+  }, [cleanupScanner, handleScanSuccess]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cleanupScanner();
+    };
+  }, [cleanupScanner]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -283,6 +267,9 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
             <Camera className="w-5 h-5" />
             Ler QR Code
           </DialogTitle>
+          <DialogDescription>
+            Posicione o QR Code do convite na área de leitura
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -306,16 +293,10 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
               </Button>
             </div>
           ) : (
-            <>
-              <div 
-                id="qr-reader" 
-                className="w-full aspect-square bg-muted rounded-lg overflow-hidden"
-                style={{ minHeight: '300px' }}
-              />
-              <p className="text-sm text-muted-foreground text-center">
-                Posicione o QR Code do convite na área de leitura
-              </p>
-            </>
+            <div 
+              id="qr-reader" 
+              className="w-full min-h-[350px] bg-muted rounded-lg overflow-hidden"
+            />
           )}
 
           {processing && !success && (
