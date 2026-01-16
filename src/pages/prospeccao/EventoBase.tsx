@@ -22,6 +22,7 @@ import DispararProgressModal from '@/components/DispararProgressModal';
 
 interface ContatoEvento {
   id: string;
+  lead_id: number | null;
   nome: string;
   telefone: string | null;
   email: string | null;
@@ -195,7 +196,7 @@ export default function EventoBase() {
       let query = supabase
         .from('contatos')
         .select(`
-          id, nome, telefone, email, status, origem, 
+          id, lead_id, nome, telefone, email, status, origem, 
           created_at, updated_at, 
           responsavel_email, vendedor_nome,
           eventos_prospeccao!inner(prospeccao_id, data_disparo_ia)
@@ -423,7 +424,7 @@ export default function EventoBase() {
       const { data, error } = await supabase
         .from('contatos')
         .select(`
-          id, nome, telefone, email, status, origem, 
+          id, lead_id, nome, telefone, email, status, origem, 
           created_at, updated_at, 
           responsavel_email, vendedor_nome,
           eventos_prospeccao!inner(prospeccao_id, data_disparo_ia)
@@ -533,6 +534,7 @@ export default function EventoBase() {
       // Formatar leads no formato esperado pela edge function
       const allLeads = contatosPendentes.map(c => ({
         id: c.id,
+        lead_id: c.lead_id,
         nome: c.nome,
         telefone: c.telefone,
         email: c.email,
@@ -660,6 +662,7 @@ export default function EventoBase() {
       // Formatar lead no formato esperado
       const leads = [{
         id: contato.id,
+        lead_id: contato.lead_id,
         nome: contato.nome,
         telefone: contato.telefone,
         email: contato.email,
