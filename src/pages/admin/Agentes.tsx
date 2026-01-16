@@ -983,7 +983,7 @@ export default function AdminAgentes() {
 
       if (agenteLocal) {
         // Update existing
-        const { error } = await supabase
+        const { error: updateError } = await supabase
           .from('agentes_ia')
           .update({
             nome: formData.nome,
@@ -996,7 +996,7 @@ export default function AdminAgentes() {
           })
           .eq('id', agenteLocal.id);
 
-        if (error) throw error;
+        if (updateError) throw updateError;
 
         // Reload agent data after update
         const { data: updatedAgent } = await supabase
@@ -1010,7 +1010,7 @@ export default function AdminAgentes() {
         }
       } else {
         // Create new
-        const { data: newAgent, error } = await supabase
+        const { data: newAgent, error: insertError } = await supabase
           .from('agentes_ia')
           .insert({
             nome: formData.nome,
@@ -1025,7 +1025,7 @@ export default function AdminAgentes() {
           .select()
           .single();
 
-        if (error) throw error;
+        if (insertError) throw insertError;
 
         // Set the newly created agent as agenteLocal to enable other tabs
         if (newAgent) {
@@ -1073,8 +1073,8 @@ export default function AdminAgentes() {
         await buscarInstancia(formData.telefone);
       }
       carregarAgentes();
-    } catch (error) {
-      console.error('Erro ao salvar agente:', error);
+    } catch (saveError) {
+      console.error('Erro ao salvar agente:', saveError);
       toast({
         title: "Erro ao salvar",
         description: "Não foi possível salvar o agente",
@@ -1182,7 +1182,7 @@ export default function AdminAgentes() {
     try {
       setSavingInstancia(true);
 
-      const { error } = await supabase.functions.invoke('external-webhook-proxy', {
+      const { error: instanciaError } = await supabase.functions.invoke('external-webhook-proxy', {
         body: {
           endpoint: 'atualiza-instancias_evo',
           telefone: selectedAgente.telefone,
@@ -1190,8 +1190,8 @@ export default function AdminAgentes() {
         }
       });
 
-      if (error) {
-        throw new Error(`Erro na requisição: ${error.message}`);
+      if (instanciaError) {
+        throw new Error(`Erro na requisição: ${instanciaError.message}`);
       }
 
       toast({
@@ -1203,8 +1203,8 @@ export default function AdminAgentes() {
       setEditInstancia(false);
       setEditedInstancia(null);
       carregarAgentes();
-    } catch (error) {
-      console.error('Erro ao salvar instância:', error);
+    } catch (saveInstanciaError) {
+      console.error('Erro ao salvar instância:', saveInstanciaError);
       toast({
         title: "Erro ao salvar",
         description: "Não foi possível salvar as alterações da instância",
