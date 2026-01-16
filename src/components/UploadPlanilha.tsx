@@ -305,15 +305,45 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
         try {
           console.log('📞 Enviando base para webhook cria-base-ligacao...');
           
-          // Buscar telefone da empresa para telefone_pri
-          const { data: empresaData } = await supabase
-            .from('empresas')
-            .select('responsavel_legal_telefone, nome_empresa')
-            .eq('id', activeCompany?.id)
+          // Buscar agente de ligação (Pri) ativo da empresa para obter telefone_pri
+          const { data: agenteData, error: agenteError } = await supabase
+            .from('agente_empresas')
+            .select(`
+              agente_id,
+              agentes_ia!inner (
+                id,
+                nome,
+                telefone,
+                ativo
+              )
+            `)
+            .eq('empresa_id', activeCompany?.id)
+            .eq('agentes_ia.ativo', true)
+            .limit(1)
             .single();
 
-          const telefonePri = empresaData?.responsavel_legal_telefone?.replace(/\D/g, '') || '';
-          const lojaNome = empresaData?.nome_empresa || activeCompany?.nome_empresa || '';
+          if (agenteError || !agenteData?.agentes_ia?.telefone) {
+            toast({
+              title: "Erro na importação",
+              description: "Nenhum agente de ligação (Pri) ativo encontrado para esta empresa. Configure um agente com telefone antes de importar.",
+              variant: "destructive",
+            });
+            setIsProcessing(false);
+            return;
+          }
+
+          const telefonePri = agenteData.agentes_ia.telefone.replace(/\D/g, '');
+          const lojaNome = activeCompany?.nome_empresa || '';
+          
+          if (!telefonePri) {
+            toast({
+              title: "Erro na importação",
+              description: "O agente de ligação (Pri) não possui telefone configurado. Configure o telefone do agente antes de importar.",
+              variant: "destructive",
+            });
+            setIsProcessing(false);
+            return;
+          }
           
           const contatosPayload = clientesComDados.map(c => ({
             telefone_lead: c.telefone?.replace(/\D/g, '') || '',
@@ -340,7 +370,11 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
           }
         } catch (webhookError) {
           console.error('❌ Erro ao enviar para webhook cria-base-ligacao:', webhookError);
-          // Não bloqueia a importação, apenas loga o erro
+          toast({
+            title: "Erro ao enviar base",
+            description: "Falha ao enviar base para o sistema de ligação. Verifique se há um agente ativo configurado.",
+            variant: "destructive",
+          });
         }
       }
       
