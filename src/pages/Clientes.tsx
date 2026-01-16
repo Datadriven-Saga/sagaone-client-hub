@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { Users, Phone, Mail, UserCheck } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { DateRange } from "react-day-picker";
 import { useClientesData } from "@/hooks/useClientesData";
 
@@ -17,7 +17,42 @@ const Clientes = () => {
   const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [tipoCliente, setTipoCliente] = useState("todos");
+  const [sexoFiltro, setSexoFiltro] = useState("todos");
   const { clientes: clientesList, kpis: kpisData, distribuicaoGenero, distribuicaoDocumento, loading } = useClientesData();
+
+  const clientesFiltrados = useMemo(() => {
+    return clientesList.filter(cliente => {
+      // Filtro de busca (nome, telefone, email)
+      const matchSearch = searchTerm === "" || 
+        cliente.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        cliente.phone?.includes(searchTerm) ||
+        cliente.email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Filtro de tipo de documento (CPF/CNPJ)
+      const docDigits = cliente.document?.replace(/\D/g, '') || '';
+      const matchTipo = tipoCliente === "todos" || 
+        (tipoCliente === "cpf" && docDigits.length === 11) ||
+        (tipoCliente === "cnpj" && docDigits.length === 14);
+
+      // Filtro de sexo
+      const matchSexo = sexoFiltro === "todos" ||
+        cliente.gender?.toLowerCase() === sexoFiltro.toLowerCase();
+
+      // Filtro de período (data de cadastro)
+      let matchDate = true;
+      if (dateRange?.from && cliente.createdAt) {
+        const clienteDate = new Date(cliente.createdAt);
+        matchDate = clienteDate >= dateRange.from;
+        if (dateRange.to) {
+          matchDate = matchDate && clienteDate <= dateRange.to;
+        }
+      }
+
+      return matchSearch && matchTipo && matchSexo && matchDate;
+    });
+  }, [clientesList, searchTerm, tipoCliente, sexoFiltro, dateRange]);
 
   const kpis = [
     { title: "Clientes", value: loading ? "..." : kpisData.total.toString(), icon: Users },
@@ -58,28 +93,32 @@ const Clientes = () => {
         {/* Filtros */}
         <Card className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Input placeholder="Buscar cliente por nome, telefone ou email..." />
+            <Input 
+              placeholder="Buscar cliente por nome, telefone ou email..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
 
-            <Select>
+            <Select value={tipoCliente} onValueChange={setTipoCliente}>
               <SelectTrigger>
                 <SelectValue placeholder="Tipo do Cliente" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
                 <SelectItem value="cpf">CPF</SelectItem>
                 <SelectItem value="cnpj">CNPJ</SelectItem>
-                <SelectItem value="todos">Todos</SelectItem>
               </SelectContent>
             </Select>
 
-            <Select>
+            <Select value={sexoFiltro} onValueChange={setSexoFiltro}>
               <SelectTrigger>
                 <SelectValue placeholder="Sexo" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
                 <SelectItem value="masculino">Masculino</SelectItem>
                 <SelectItem value="feminino">Feminino</SelectItem>
                 <SelectItem value="outro">Outro</SelectItem>
-                <SelectItem value="todos">Todos</SelectItem>
               </SelectContent>
             </Select>
 
@@ -184,10 +223,14 @@ const Clientes = () => {
             <div className="text-center py-8">
               <p>Carregando clientes...</p>
             </div>
-          ) : clientesList.length === 0 ? (
+          ) : clientesFiltrados.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="mx-auto mb-2" size={32} />
-              <p>Nenhum cliente encontrado</p>
+              <p>
+                {clientesList.length === 0 
+                  ? "Nenhum cliente encontrado" 
+                  : "Nenhum cliente corresponde aos filtros aplicados"}
+              </p>
             </div>
           ) : (
             <Table>
@@ -199,7 +242,7 @@ const Clientes = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {clientesList.map((client) => (
+                {clientesFiltrados.map((client) => (
                   <TableRow 
                     key={client.id}
                     className="cursor-pointer hover:bg-muted/50"
