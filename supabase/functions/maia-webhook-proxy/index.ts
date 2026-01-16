@@ -31,7 +31,7 @@ serve(async (req) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'api-token': SAGA_ONE,
+          'saga_one_supabase': SAGA_ONE,
         },
         body: JSON.stringify(payload),
       }

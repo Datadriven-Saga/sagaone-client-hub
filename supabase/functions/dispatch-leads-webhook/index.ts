@@ -283,7 +283,7 @@ serve(async (req) => {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            ...(SAGA_ONE ? { 'api-token': SAGA_ONE } : {}),
+            ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
           },
           body: JSON.stringify(payloadLigacao)
         });
@@ -422,7 +422,7 @@ serve(async (req) => {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
-              ...(SAGA_ONE ? { 'api-token': SAGA_ONE } : {}),
+              ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
             },
             body: JSON.stringify(payload)
           });
