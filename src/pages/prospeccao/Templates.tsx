@@ -84,6 +84,7 @@ interface TemplateFormData {
   nome: string;
   categoria: TemplateCategory | "";
   departamento_id: string;
+  agente_id: string;
   formato: TemplateFormat | "";
   conteudo: string;
   variaveis: string[];
@@ -204,6 +205,7 @@ export default function Templates() {
     nome: "",
     categoria: "",
     departamento_id: "",
+    agente_id: "",
     formato: "",
     conteudo: "",
     variaveis: [],
@@ -396,6 +398,7 @@ export default function Templates() {
       nome: "",
       categoria: "",
       departamento_id: "",
+      agente_id: selectedAgenteId || "",
       formato: "",
       conteudo: "",
       variaveis: [],
@@ -421,6 +424,7 @@ export default function Templates() {
       nome: template.nome,
       categoria: template.categoria as TemplateCategory,
       departamento_id: template.departamento_id || "",
+      agente_id: selectedAgenteId || "",
       formato: template.formato as TemplateFormat,
       conteudo: template.formato === "texto" ? template.conteudo : "",
       variaveis: [],
@@ -1304,7 +1308,25 @@ export default function Templates() {
           </SelectContent>
         </Select>
       </div>
-      {/* Seletor de agente oculto - apenas Pri-Whatsapp são permitidos */}
+      <div className="flex items-center gap-4">
+        <Label htmlFor="agente" className="w-40 shrink-0 text-right">Agente IA WhatsApp *</Label>
+        <Select
+          value={formData.agente_id}
+          onValueChange={(value) => setFormData(prev => ({ ...prev, agente_id: value }))}
+          disabled={agentesIAWhatsapp.length === 0}
+        >
+          <SelectTrigger className="flex-1 bg-white">
+            <SelectValue placeholder={agentesIAWhatsapp.length === 0 ? "Nenhum agente Pri-WhatsApp encontrado" : "Selecione o agente"} />
+          </SelectTrigger>
+          <SelectContent>
+            {agentesIAWhatsapp.map((agente) => (
+              <SelectItem key={agente.id} value={agente.id}>
+                {agente.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       {agentesIAWhatsapp.length === 0 && (
         <div className="flex items-center gap-4">
           <div className="w-40 shrink-0" />
@@ -2048,8 +2070,24 @@ export default function Templates() {
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            {/* Linha com botão atualizar - seletor removido pois só há agentes Pri-Whatsapp */}
+            {/* Linha com seletor de agente e botão atualizar */}
             <div className="flex items-center gap-2">
+              <Select
+                value={selectedAgenteId}
+                onValueChange={setSelectedAgenteId}
+                disabled={agentesIAWhatsapp.length === 0}
+              >
+                <SelectTrigger className="w-[200px] bg-white">
+                  <SelectValue placeholder="Selecione o agente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {agentesIAWhatsapp.map((agente) => (
+                    <SelectItem key={agente.id} value={agente.id}>
+                      {agente.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button 
                 variant="outline" 
                 onClick={() => handleUpdateStatusMeta({ showToasts: true })} 
