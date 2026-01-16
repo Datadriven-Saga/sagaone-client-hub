@@ -150,6 +150,29 @@ serve(async (req) => {
       );
     }
 
+    // Mapeamento de snake_case para valores do enum status_lead
+    const statusMap: Record<string, string> = {
+      'novo': 'Novo',
+      'atribuido': 'Atribuído',
+      'em_espera': 'Em Espera',
+      'convidado': 'Convidado',
+      'agendado': 'Agendado',
+      'confirmado': 'Confirmado',
+      'checkin': 'Check-in',
+      'check-in': 'Check-in',
+      'venda': 'Venda',
+      'descartado': 'Descartado',
+      'opt_out': 'Opt Out',
+      'optout': 'Opt Out',
+      'desperdicio': 'Desperdício',
+      'negociacao': 'Negociação',
+      'em_contato': 'Em Contato',
+      'qualificado': 'Qualificado',
+      'fechado': 'Fechado',
+      'perdido': 'Perdido',
+      'proposta': 'Proposta',
+    };
+
     if (req.method === 'PUT' || req.method === 'PATCH') {
       // Alterar status do contato
       const { novo_status } = await req.json();
@@ -164,13 +187,16 @@ serve(async (req) => {
         );
       }
 
+      // Converter snake_case para valor do enum (ou usar diretamente se já for válido)
+      const statusNormalizado = statusMap[novo_status.toLowerCase()] || novo_status;
+
       const statusAnterior = contato.status;
 
-      // Atualizar status
+      // Atualizar status com valor normalizado
       const { error: updateError } = await supabaseClient
         .from('contatos')
         .update({ 
-          status: novo_status,
+          status: statusNormalizado,
           updated_at: new Date().toISOString()
         })
         .eq('id', contato.id);
@@ -178,7 +204,12 @@ serve(async (req) => {
       if (updateError) {
         console.error('Erro ao atualizar contato:', updateError);
         return new Response(
-          JSON.stringify({ error: 'Erro ao atualizar status' }),
+          JSON.stringify({ 
+            error: 'Erro ao atualizar status',
+            detalhes: updateError.message,
+            status_recebido: novo_status,
+            status_normalizado: statusNormalizado
+          }),
           {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -187,7 +218,8 @@ serve(async (req) => {
       }
 
       console.log(`   ├─ Status anterior: ${statusAnterior}`);
-      console.log(`   └─ Novo status: ${novo_status}`);
+      console.log(`   ├─ Status recebido: ${novo_status}`);
+      console.log(`   └─ Status normalizado: ${statusNormalizado}`);
 
       // Registrar log de movimentação (se tiver prospeccao_id)
       if (prospeccaoId) {
@@ -197,7 +229,7 @@ serve(async (req) => {
             contato_id: contato.id,
             prospeccao_id: prospeccaoId,
             status_anterior: statusAnterior,
-            status_novo: novo_status,
+            status_novo: statusNormalizado,
             usuario_id: userId || null,
             observacoes: 'Alteração via API (lead_id)'
           });
@@ -211,7 +243,7 @@ serve(async (req) => {
               prospeccao_id: prospeccaoId,
               contato_id: contato.id,
               status_anterior: statusAnterior,
-              status_novo: novo_status
+              status_novo: statusNormalizado
             }
           }
         });
@@ -224,7 +256,8 @@ serve(async (req) => {
           contato_id: contato.id,
           prospeccao_id: prospeccaoId,
           status_anterior: statusAnterior,
-          status_novo: novo_status
+          status_novo: statusNormalizado,
+          status_recebido: novo_status
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
