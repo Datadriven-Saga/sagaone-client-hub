@@ -531,6 +531,7 @@ export type Database = {
           nome: string
           observacoes: string | null
           origem: Database["public"]["Enums"]["origem_lead"] | null
+          qr_code_image: string | null
           qr_token: string | null
           qr_token_used: boolean | null
           qr_token_used_at: string | null
@@ -553,6 +554,7 @@ export type Database = {
           nome: string
           observacoes?: string | null
           origem?: Database["public"]["Enums"]["origem_lead"] | null
+          qr_code_image?: string | null
           qr_token?: string | null
           qr_token_used?: boolean | null
           qr_token_used_at?: string | null
@@ -575,6 +577,7 @@ export type Database = {
           nome?: string
           observacoes?: string | null
           origem?: Database["public"]["Enums"]["origem_lead"] | null
+          qr_code_image?: string | null
           qr_token?: string | null
           qr_token_used?: boolean | null
           qr_token_used_at?: string | null
