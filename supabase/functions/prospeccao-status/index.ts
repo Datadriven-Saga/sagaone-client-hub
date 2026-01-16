@@ -33,52 +33,27 @@ serve(async (req) => {
   }
 
   try {
-    // Check for external API token (saga_one_supabase header)
-    const sagaOneToken = req.headers.get('saga_one_supabase');
-    const expectedToken = Deno.env.get('SAGA_ONE');
-    const isExternalCall = sagaOneToken && expectedToken && sagaOneToken === expectedToken;
-
-    // Get user info from JWT (for internal calls)
+    // Get user info from JWT
     const authHeader = req.headers.get('authorization');
     const jwt = authHeader?.replace('Bearer ', '');
     
-    let supabaseClient;
-    let userId: string | null = null;
-    let userEmail: string | null = null;
-
-    if (isExternalCall) {
-      // Use service role for external API calls (bypasses RLS)
-      console.log('External API call with SAGA_ONE token - using service role');
-      supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-        {
-          auth: {
-            persistSession: false
-          }
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        auth: {
+          persistSession: false
+        },
+        global: {
+          headers: authHeader ? { authorization: authHeader } : {}
         }
-      );
-      userEmail = 'api-externa';
-    } else {
-      // Use user JWT for internal calls
-      supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        {
-          auth: {
-            persistSession: false
-          },
-          global: {
-            headers: authHeader ? { authorization: authHeader } : {}
-          }
-        }
-      );
+      }
+    );
 
-      // Get user info for audit logs
-      const { data: { user } } = await supabaseClient.auth.getUser(jwt);
-      userId = user?.id || null;
-      userEmail = user?.email || null;
-    }
+    // Get user info for audit logs
+    const { data: { user } } = await supabaseClient.auth.getUser(jwt);
+    const userId = user?.id;
+    const userEmail = user?.email;
     
     console.log(`API prospeccao-status accessed by user: ${userEmail} (${userId})`);
     console.log(`Request method: ${req.method}, URL: ${req.url}`);
