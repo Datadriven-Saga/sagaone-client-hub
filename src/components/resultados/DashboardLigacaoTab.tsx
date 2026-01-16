@@ -73,6 +73,10 @@ export const DashboardLigacaoTab = ({
     search: '',
     loja: '',
     status: '',
+    showOnlyAtendidos: false,
+    showOnlyAgendados: false,
+    showOnlyEmFila: false,
+    showOnlyWhatsapp: false,
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [leads, setLeads] = useState<LeadData[]>([]);
@@ -98,6 +102,7 @@ export const DashboardLigacaoTab = ({
     if (!selectedAgentPhone) return;
     
     try {
+      // Use verifica-eventos to get events for this specific agent
       const response = await fetch(
         `https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos?telefone_pri=${encodeURIComponent(selectedAgentPhone)}`
       );
@@ -107,7 +112,9 @@ export const DashboardLigacaoTab = ({
       }
       
       const data = await response.json();
-      const events = (data.eventos || data || []).map((e: any) => ({
+      const eventsArray = data.eventos || data || [];
+      
+      const events = eventsArray.map((e: any) => ({
         id: String(e.id_evento || e.id),
         nome: e.nome || e.name,
         telefone_pri: e.telefone_pri,
@@ -138,6 +145,7 @@ export const DashboardLigacaoTab = ({
     try {
       setLoading(true);
       
+      // Use verifica-contatos to get leads for this event and agent
       const response = await fetch(
         `https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-contatos?telefone_pri=${encodeURIComponent(selectedAgentPhone)}&id_evento=${encodeURIComponent(selectedEventId)}`
       );
@@ -147,7 +155,7 @@ export const DashboardLigacaoTab = ({
       }
       
       const data = await response.json();
-      const leadsData = data.contatos || data.leads || data || [];
+      const leadsData = Array.isArray(data) ? data : (data.contatos || data.leads || []);
       
       // Process leads
       const processedLeads = leadsData.map((lead: any) => ({
@@ -231,6 +239,9 @@ export const DashboardLigacaoTab = ({
     return [...new Set(leads.map((l) => l.loja).filter(Boolean))] as string[];
   }, [leads]);
 
+  // Status options
+  const statusOptions = ['pendente', 'atendido', 'agendado', 'em fila', 'não agendado'];
+
   // Filter leads
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
@@ -243,8 +254,13 @@ export const DashboardLigacaoTab = ({
 
       const matchesLoja = !filters.loja || filters.loja === '__all__' || lead.loja === filters.loja;
       const matchesStatus = !filters.status || filters.status === '__all__' || lead.status === filters.status;
+      
+      const matchesAtendidos = !filters.showOnlyAtendidos || lead.ligacao_atendida;
+      const matchesAgendados = !filters.showOnlyAgendados || lead.status_agendado;
+      const matchesEmFila = !filters.showOnlyEmFila || (lead.ligacao_erro && !lead.status_agendado);
+      const matchesWhatsapp = !filters.showOnlyWhatsapp || lead.enviado_whatsapp;
 
-      return matchesSearch && matchesLoja && matchesStatus;
+      return matchesSearch && matchesLoja && matchesStatus && matchesAtendidos && matchesAgendados && matchesEmFila && matchesWhatsapp;
     });
   }, [leads, filters]);
 
@@ -283,6 +299,28 @@ export const DashboardLigacaoTab = ({
       return dateString;
     }
   };
+
+  const clearFilters = () => {
+    setFilters({
+      search: '',
+      loja: '',
+      status: '',
+      showOnlyAtendidos: false,
+      showOnlyAgendados: false,
+      showOnlyEmFila: false,
+      showOnlyWhatsapp: false,
+    });
+  };
+
+  const activeFiltersCount = [
+    filters.search,
+    filters.loja && filters.loja !== '__all__' ? filters.loja : '',
+    filters.status && filters.status !== '__all__' ? filters.status : '',
+    filters.showOnlyAtendidos ? 'atendidos' : '',
+    filters.showOnlyAgendados ? 'agendados' : '',
+    filters.showOnlyEmFila ? 'emfila' : '',
+    filters.showOnlyWhatsapp ? 'whatsapp' : '',
+  ].filter(Boolean).length;
 
   if (!selectedAgentPhone) {
     return (
@@ -361,43 +399,106 @@ export const DashboardLigacaoTab = ({
       </div>
 
       {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={filters.search}
-            onChange={(e) => {
-              setFilters(prev => ({ ...prev, search: e.target.value }));
-              setCurrentPage(1);
-            }}
-            placeholder="Filtrar por telefone, nome ou status..."
-            className="pl-10"
-          />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={filters.search}
+              onChange={(e) => {
+                setFilters(prev => ({ ...prev, search: e.target.value }));
+                setCurrentPage(1);
+              }}
+              placeholder="Filtrar por telefone, nome ou status..."
+              className="pl-10"
+            />
+          </div>
+          
+          <Select 
+            value={filters.loja || '__all__'} 
+            onValueChange={(value) => setFilters(prev => ({ ...prev, loja: value === '__all__' ? '' : value }))}
+          >
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Todas as lojas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todas as lojas</SelectItem>
+              {lojas.map(loja => (
+                <SelectItem key={loja} value={loja}>{loja}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Select 
+            value={filters.status || '__all__'} 
+            onValueChange={(value) => setFilters(prev => ({ ...prev, status: value === '__all__' ? '' : value }))}
+          >
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Todos status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todos status</SelectItem>
+              {statusOptions.map(status => (
+                <SelectItem key={status} value={status}>{status}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        
-        <Select 
-          value={filters.loja || '__all__'} 
-          onValueChange={(value) => setFilters(prev => ({ ...prev, loja: value === '__all__' ? '' : value }))}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Todas as lojas" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">Todas as lojas</SelectItem>
-            {lojas.map(loja => (
-              <SelectItem key={loja} value={loja}>{loja}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-        <Button 
-          variant="outline" 
-          onClick={() => setFilters({ search: '', loja: '', status: '' })}
-          className="gap-2"
-        >
-          <Filter className="h-4 w-4" />
-          Filtros
-        </Button>
+
+        {/* Quick Filters */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant={filters.showOnlyAtendidos ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilters(prev => ({ ...prev, showOnlyAtendidos: !prev.showOnlyAtendidos }))}
+            className="gap-1"
+          >
+            <PhoneCall className="h-3 w-3" />
+            Atendidas
+          </Button>
+          
+          <Button
+            variant={filters.showOnlyAgendados ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilters(prev => ({ ...prev, showOnlyAgendados: !prev.showOnlyAgendados }))}
+            className="gap-1"
+          >
+            <CalendarCheck className="h-3 w-3" />
+            Agendados
+          </Button>
+          
+          <Button
+            variant={filters.showOnlyEmFila ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilters(prev => ({ ...prev, showOnlyEmFila: !prev.showOnlyEmFila }))}
+            className="gap-1"
+          >
+            <PhoneOff className="h-3 w-3" />
+            Em Fila
+          </Button>
+          
+          <Button
+            variant={filters.showOnlyWhatsapp ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilters(prev => ({ ...prev, showOnlyWhatsapp: !prev.showOnlyWhatsapp }))}
+            className="gap-1"
+          >
+            <MessageSquare className="h-3 w-3" />
+            WhatsApp Enviado
+          </Button>
+          
+          {activeFiltersCount > 0 && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={clearFilters}
+              className="gap-1 text-muted-foreground"
+            >
+              <X className="h-3 w-3" />
+              Limpar ({activeFiltersCount})
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Metrics Grid */}

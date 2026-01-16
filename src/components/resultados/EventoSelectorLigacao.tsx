@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, MapPin, Search, Filter, Radio } from 'lucide-react';
+import { Loader2, MapPin, Search, Filter, Radio, RefreshCw, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -26,6 +27,7 @@ interface AgentIA {
   nome: string;
   telefone: string | null;
   dealer_id: string | null;
+  cerebro: string | null;
 }
 
 interface EventData {
@@ -37,6 +39,7 @@ interface EventData {
   estado?: string;
   marca?: string;
   dealer_id?: string;
+  evt_status?: string;
 }
 
 interface Filters {
@@ -44,6 +47,8 @@ interface Filters {
   cidade: string;
   estado: string;
   marca: string;
+  showAtivos: boolean;
+  showInativos: boolean;
 }
 
 export const EventoSelectorLigacao = ({ 
@@ -62,9 +67,11 @@ export const EventoSelectorLigacao = ({
     cidade: '',
     estado: '',
     marca: '',
+    showAtivos: true,
+    showInativos: true,
   });
 
-  // Fetch agents (Pri - Ligação type)
+  // Fetch agents (Pri - Ligação type only)
   useEffect(() => {
     const fetchAgents = async () => {
       if (!activeCompany?.id) return;
@@ -72,11 +79,12 @@ export const EventoSelectorLigacao = ({
       try {
         setLoading(true);
         
-        // Get agents from agentes_ia with tipo Pri - Ligação (checking dealer_id or cerebro field)
+        // Get agents from agentes_ia - filter by cerebro = 'Pri - Ligação'
         const { data: agentesData, error } = await supabase
           .from('agentes_ia')
-          .select('id, nome, telefone, dealer_id')
+          .select('id, nome, telefone, dealer_id, cerebro')
           .eq('ativo', true)
+          .eq('cerebro', 'Pri - Ligação')
           .not('telefone', 'is', null);
         
         if (error) {
@@ -85,8 +93,7 @@ export const EventoSelectorLigacao = ({
           return;
         }
         
-        // Filter to only include agents that have a telefone (indicating Pri - Ligação)
-        const priAgents = (agentesData || []).filter(a => a.telefone);
+        const priAgents = agentesData || [];
         setAgents(priAgents);
         
         // If we have agentPhone from props, try to find and select that agent
@@ -95,9 +102,6 @@ export const EventoSelectorLigacao = ({
           if (matchingAgent) {
             setSelectedAgent(matchingAgent);
           }
-        } else if (priAgents.length > 0) {
-          // Auto-select first agent if none selected
-          setSelectedAgent(priAgents[0]);
         }
       } catch (error) {
         console.error('Error:', error);
@@ -121,8 +125,9 @@ export const EventoSelectorLigacao = ({
       try {
         setLoadingEvents(true);
         
+        // Use eventos-pri endpoint to get all events for this agent
         const response = await fetch(
-          `https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos?telefone_pri=${encodeURIComponent(selectedAgent.telefone)}`
+          `https://automatemaiawh.sagadatadriven.com.br/webhook/eventos-pri?telefone_pri=${encodeURIComponent(selectedAgent.telefone)}`
         );
         
         if (!response.ok) {
@@ -130,7 +135,9 @@ export const EventoSelectorLigacao = ({
         }
         
         const data = await response.json();
-        const eventsData = (data.eventos || data || []).map((e: any) => ({
+        const eventsArray = data.eventos || data || [];
+        
+        const eventsData = eventsArray.map((e: any) => ({
           id: String(e.id_evento || e.id),
           nome: e.nome || e.name,
           telefone_pri: e.telefone_pri,
@@ -139,6 +146,7 @@ export const EventoSelectorLigacao = ({
           estado: e.uf || e.estado,
           marca: e.marca,
           dealer_id: e.dealer_id,
+          evt_status: e.evt_status || 'ativo',
         }));
         
         setEvents(eventsData);
@@ -172,7 +180,11 @@ export const EventoSelectorLigacao = ({
       const matchesEstado = !filters.estado || filters.estado === '__all__' || (event.estado || event.uf) === filters.estado;
       const matchesMarca = !filters.marca || filters.marca === '__all__' || event.marca === filters.marca;
       
-      return matchesSearch && matchesCidade && matchesEstado && matchesMarca;
+      // Status filter
+      const isAtivo = !event.evt_status || event.evt_status === 'ativo';
+      const matchesStatus = (filters.showAtivos && isAtivo) || (filters.showInativos && !isAtivo);
+      
+      return matchesSearch && matchesCidade && matchesEstado && matchesMarca && matchesStatus;
     });
   }, [events, filters]);
 
@@ -188,6 +200,26 @@ export const EventoSelectorLigacao = ({
       onEventSelect(event.id, selectedAgent.telefone);
     }
   };
+
+  const clearFilters = () => {
+    setFilters({
+      search: '',
+      cidade: '',
+      estado: '',
+      marca: '',
+      showAtivos: true,
+      showInativos: true,
+    });
+  };
+
+  const activeFiltersCount = [
+    filters.search,
+    filters.cidade && filters.cidade !== '__all__' ? filters.cidade : '',
+    filters.estado && filters.estado !== '__all__' ? filters.estado : '',
+    filters.marca && filters.marca !== '__all__' ? filters.marca : '',
+    !filters.showAtivos ? 'hideAtivos' : '',
+    !filters.showInativos ? 'hideInativos' : '',
+  ].filter(Boolean).length;
 
   if (loading) {
     return (
@@ -215,15 +247,15 @@ export const EventoSelectorLigacao = ({
       <div>
         <h2 className="text-xl font-bold">Selecionar Evento</h2>
         <p className="text-sm text-muted-foreground">
-          Escolha um evento para visualizar o dashboard de ligações
+          Escolha um agente e um evento para visualizar o dashboard de ligações
         </p>
       </div>
 
       {/* Agent Selector */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium">Agente:</span>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <span className="text-sm font-medium">Agente Pri - Ligação:</span>
         <Select value={selectedAgent?.id || ''} onValueChange={handleAgentChange}>
-          <SelectTrigger className="w-[250px]">
+          <SelectTrigger className="w-full sm:w-[300px]">
             <SelectValue placeholder="Selecionar agente..." />
           </SelectTrigger>
           <SelectContent>
@@ -236,98 +268,175 @@ export const EventoSelectorLigacao = ({
         </Select>
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={filters.search}
-            onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-            placeholder="Buscar evento..."
-            className="pl-10"
-          />
-        </div>
-        
-        {filterOptions.estados.length > 0 && (
-          <Select 
-            value={filters.estado || '__all__'} 
-            onValueChange={(value) => setFilters(prev => ({ ...prev, estado: value === '__all__' ? '' : value }))}
-          >
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Todos</SelectItem>
-              {filterOptions.estados.map(estado => (
-                <SelectItem key={estado} value={estado}>{estado}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        
-        <Button 
-          variant="outline" 
-          onClick={() => setFilters({ search: '', cidade: '', estado: '', marca: '' })}
-          className="gap-2"
-        >
-          <Filter className="h-4 w-4" />
-          Filtros
-        </Button>
-      </div>
+      {/* Show filters only when agent is selected */}
+      {selectedAgent && (
+        <>
+          {/* Search and Filters */}
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={filters.search}
+                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                  placeholder="Buscar evento..."
+                  className="pl-10"
+                />
+              </div>
+              
+              {filterOptions.estados.length > 0 && (
+                <Select 
+                  value={filters.estado || '__all__'} 
+                  onValueChange={(value) => setFilters(prev => ({ ...prev, estado: value === '__all__' ? '' : value }))}
+                >
+                  <SelectTrigger className="w-full sm:w-[150px]">
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Todos Estados</SelectItem>
+                    {filterOptions.estados.map(estado => (
+                      <SelectItem key={estado} value={estado}>{estado}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              
+              {filterOptions.cidades.length > 0 && (
+                <Select 
+                  value={filters.cidade || '__all__'} 
+                  onValueChange={(value) => setFilters(prev => ({ ...prev, cidade: value === '__all__' ? '' : value }))}
+                >
+                  <SelectTrigger className="w-full sm:w-[150px]">
+                    <SelectValue placeholder="Cidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Todas Cidades</SelectItem>
+                    {filterOptions.cidades.map(cidade => (
+                      <SelectItem key={cidade} value={cidade}>{cidade}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              
+              {filterOptions.marcas.length > 0 && (
+                <Select 
+                  value={filters.marca || '__all__'} 
+                  onValueChange={(value) => setFilters(prev => ({ ...prev, marca: value === '__all__' ? '' : value }))}
+                >
+                  <SelectTrigger className="w-full sm:w-[150px]">
+                    <SelectValue placeholder="Marca" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Todas Marcas</SelectItem>
+                    {filterOptions.marcas.map(marca => (
+                      <SelectItem key={marca} value={marca}>{marca}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
 
-      {/* Events Grid */}
-      {loadingEvents ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-      ) : filteredEvents.length === 0 ? (
-        <Card className="p-8 text-center">
-          <p className="text-muted-foreground">
-            {events.length === 0 
-              ? 'Nenhum evento encontrado para este agente'
-              : 'Nenhum evento corresponde aos filtros'}
-          </p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredEvents.map((event) => (
-            <Card 
-              key={event.id}
-              className={`cursor-pointer transition-all hover:border-primary/50 hover:shadow-md ${
-                selectedEventId === event.id ? 'border-primary ring-1 ring-primary' : ''
-              }`}
-              onClick={() => handleEventSelect(event)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Radio className={`h-4 w-4 ${selectedEventId === event.id ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <h3 className="font-semibold">{event.nome}</h3>
-                  </div>
-                  {event.marca && (
-                    <Badge variant="secondary" className="text-xs">
-                      {event.marca}
-                    </Badge>
-                  )}
-                </div>
-                
-                {(event.cidade || event.estado || event.uf) && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5" />
-                    <span>
-                      {event.cidade}{(event.estado || event.uf) ? `, ${event.estado || event.uf}` : ''}
-                    </span>
-                  </div>
-                )}
-              </CardContent>
+            {/* Status Checkboxes and Clear Filter */}
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="showAtivos"
+                  checked={filters.showAtivos}
+                  onCheckedChange={(checked) => setFilters(prev => ({ ...prev, showAtivos: !!checked }))}
+                />
+                <label htmlFor="showAtivos" className="text-sm cursor-pointer">
+                  Eventos Ativos
+                </label>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="showInativos"
+                  checked={filters.showInativos}
+                  onCheckedChange={(checked) => setFilters(prev => ({ ...prev, showInativos: !!checked }))}
+                />
+                <label htmlFor="showInativos" className="text-sm cursor-pointer">
+                  Eventos Inativos
+                </label>
+              </div>
+
+              {activeFiltersCount > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={clearFilters}
+                  className="gap-1 text-muted-foreground"
+                >
+                  <X className="h-3 w-3" />
+                  Limpar filtros
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Events Grid */}
+          {loadingEvents ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : filteredEvents.length === 0 ? (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">
+                {events.length === 0 
+                  ? 'Nenhum evento encontrado para este agente'
+                  : 'Nenhum evento corresponde aos filtros'}
+              </p>
             </Card>
-          ))}
-        </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredEvents.map((event) => {
+                const isAtivo = !event.evt_status || event.evt_status === 'ativo';
+                return (
+                  <Card 
+                    key={event.id}
+                    className={`cursor-pointer transition-all hover:border-primary/50 hover:shadow-md ${
+                      selectedEventId === event.id ? 'border-primary ring-1 ring-primary' : ''
+                    } ${!isAtivo ? 'opacity-70' : ''}`}
+                    onClick={() => handleEventSelect(event)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Radio className={`h-4 w-4 ${selectedEventId === event.id ? 'text-primary' : 'text-muted-foreground'}`} />
+                          <h3 className="font-semibold">{event.nome}</h3>
+                        </div>
+                        <div className="flex gap-1">
+                          <Badge variant={isAtivo ? 'default' : 'secondary'} className="text-xs">
+                            {isAtivo ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                          {event.marca && (
+                            <Badge variant="outline" className="text-xs">
+                              {event.marca}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {(event.cidade || event.estado || event.uf) && (
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5" />
+                          <span>
+                            {event.cidade}{(event.estado || event.uf) ? `, ${event.estado || event.uf}` : ''}
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+          
+          <p className="text-sm text-muted-foreground text-center">
+            {filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''} encontrado{filteredEvents.length !== 1 ? 's' : ''}
+          </p>
+        </>
       )}
-      
-      <p className="text-sm text-muted-foreground text-center">
-        {filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''} encontrado{filteredEvents.length !== 1 ? 's' : ''}
-      </p>
     </div>
   );
 };
