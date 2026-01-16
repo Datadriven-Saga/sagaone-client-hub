@@ -67,7 +67,7 @@ async function buscarProximoIdEvento(): Promise<number> {
       method: 'GET',
       headers: { 
         'Content-Type': 'application/json',
-        ...(SAGA_ONE ? { 'api-token': SAGA_ONE } : {}),
+        ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
       },
     });
 
@@ -333,7 +333,7 @@ Deno.serve(async (req: Request) => {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        ...(SAGA_ONE ? { 'api-token': SAGA_ONE } : {}),
+        ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
       },
       body: JSON.stringify(payload),
     });

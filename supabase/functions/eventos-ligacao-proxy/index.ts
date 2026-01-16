@@ -85,7 +85,7 @@ serve(async (req) => {
 
     const webhookHeaders = {
       'Content-Type': 'application/json',
-      ...(SAGA_ONE ? { 'api-token': SAGA_ONE } : {}),
+      ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
     };
 
     const doPost = async () => {
@@ -99,7 +99,7 @@ serve(async (req) => {
     const doGet = async () => {
       return await fetch(buildGetUrl(webhookUrl, body), {
         method: 'GET',
-        headers: SAGA_ONE ? { 'api-token': SAGA_ONE } : {},
+        headers: SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {},
       });
     };
 
