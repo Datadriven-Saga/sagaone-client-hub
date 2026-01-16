@@ -353,20 +353,20 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
             loja: lojaNome,
           }));
 
-          const webhookResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/cria-base-ligacao', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          // Usar edge function para enviar base com token SAGA_ONE
+          const { data: webhookData, error: webhookError } = await supabase.functions.invoke('external-webhook-proxy', {
+            body: {
+              endpoint: 'cria-base-ligacao',
               contatos: contatosPayload,
               id_evento: selectedProspeccao.event_id_pri,
               total_contatos: contatosPayload.length,
-            }),
+            },
           });
 
-          if (webhookResponse.ok) {
+          if (!webhookError) {
             console.log('✅ Base enviada para sistema de ligação');
           } else {
-            console.warn('⚠️ Falha ao enviar base para sistema de ligação:', webhookResponse.status);
+            console.warn('⚠️ Falha ao enviar base para sistema de ligação:', webhookError);
           }
         } catch (webhookError) {
           console.error('❌ Erro ao enviar para webhook cria-base-ligacao:', webhookError);

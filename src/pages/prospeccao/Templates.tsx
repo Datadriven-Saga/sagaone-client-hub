@@ -487,15 +487,15 @@ export default function Templates() {
 
           console.log("Chamando webhook para apagar template na Meta:", deletePayload);
 
-          const response = await fetch("https://automatemaiawh.sagadatadriven.com.br/webhook/apaga-template-meta", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
+          // Usar edge function para apagar template com token SAGA_ONE
+          const { error: webhookError } = await supabase.functions.invoke('external-webhook-proxy', {
+            body: {
+              endpoint: 'apaga-template-meta',
+              ...deletePayload,
             },
-            body: JSON.stringify(deletePayload),
           });
 
-          if (!response.ok) {
+          if (webhookError) {
             console.warn("Aviso: Falha ao apagar template na Meta, mas continuando com exclusão local");
           } else {
             console.log("Template apagado na Meta com sucesso");

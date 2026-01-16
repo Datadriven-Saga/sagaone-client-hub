@@ -125,17 +125,16 @@ export const EventoSelectorLigacao = ({
       try {
         setLoadingEvents(true);
         
-        // Use eventos-pri endpoint to get all events for this agent
-        const response = await fetch(
-          `https://automatemaiawh.sagadatadriven.com.br/webhook/eventos-pri?telefone_pri=${encodeURIComponent(selectedAgent.telefone)}`
-        );
+        // Use edge function para consultar eventos-pri com token SAGA_ONE
+        const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+          body: { endpoint: 'eventos-pri', telefone_pri: selectedAgent.telefone },
+        });
         
-        if (!response.ok) {
+        if (error) {
           throw new Error('Erro ao buscar eventos');
         }
         
-        const data = await response.json();
-        const eventsArray = data.eventos || data || [];
+        const eventsArray = data?.eventos || data || [];
         
         const eventsData = eventsArray.map((e: any) => ({
           id: String(e.id_evento || e.id),

@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Search, Filter, Loader2, Phone, MessageSquare, X, RefreshCw, Calendar, PhoneCall, PhoneOff, CalendarCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -102,17 +103,16 @@ export const DashboardLigacaoTab = ({
     if (!selectedAgentPhone) return;
     
     try {
-      // Use verifica-eventos to get events for this specific agent
-      const response = await fetch(
-        `https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos?telefone_pri=${encodeURIComponent(selectedAgentPhone)}`
-      );
+      // Use edge function para consultar com token SAGA_ONE
+      const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: { endpoint: 'verifica-eventos', telefone_pri: selectedAgentPhone },
+      });
       
-      if (!response.ok) {
+      if (error) {
         throw new Error('Erro ao buscar eventos');
       }
       
-      const data = await response.json();
-      const eventsArray = data.eventos || data || [];
+      const eventsArray = data?.eventos || data || [];
       
       const events = eventsArray.map((e: any) => ({
         id: String(e.id_evento || e.id),
@@ -145,17 +145,20 @@ export const DashboardLigacaoTab = ({
     try {
       setLoading(true);
       
-      // Use verifica-contatos to get leads for this event and agent
-      const response = await fetch(
-        `https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-contatos?telefone_pri=${encodeURIComponent(selectedAgentPhone)}&id_evento=${encodeURIComponent(selectedEventId)}`
-      );
+      // Use edge function para consultar com token SAGA_ONE
+      const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: { 
+          endpoint: 'verifica-contatos', 
+          telefone_pri: selectedAgentPhone, 
+          id_evento: selectedEventId 
+        },
+      });
       
-      if (!response.ok) {
+      if (error) {
         throw new Error('Erro ao buscar dados');
       }
       
-      const data = await response.json();
-      const leadsData = Array.isArray(data) ? data : (data.contatos || data.leads || []);
+      const leadsData = Array.isArray(data) ? data : (data?.contatos || data?.leads || []);
       
       // Process leads
       const processedLeads = leadsData.map((lead: any) => ({
