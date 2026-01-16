@@ -286,16 +286,16 @@ export function AgenteDetalhes({ agente, onClose }: AgenteDetalhesProps) {
 
           console.log('Enviando para webhook atualiza-agente:', webhookPayload);
 
-          const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-agente', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
+          // Usar edge function para atualizar com token SAGA_ONE
+          const { error: webhookError } = await supabase.functions.invoke('external-webhook-proxy', {
+            body: {
+              endpoint: 'atualiza-agente',
+              ...webhookPayload,
             },
-            body: JSON.stringify(webhookPayload)
           });
 
-          if (!response.ok) {
-            console.error('Erro ao chamar webhook de atualização:', response.status);
+          if (webhookError) {
+            console.error('Erro ao chamar webhook de atualização:', webhookError);
           } else {
             console.log('Webhook de atualização chamado com sucesso');
           }

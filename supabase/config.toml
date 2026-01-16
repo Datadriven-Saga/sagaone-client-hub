@@ -58,3 +58,6 @@ verify_jwt = true
 
 [functions.get-lead-qrcode]
 verify_jwt = false
+
+[functions.external-webhook-proxy]
+verify_jwt = true

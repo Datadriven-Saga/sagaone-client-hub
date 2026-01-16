@@ -1108,10 +1108,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         };
 
         try {
-          const [verificaResponse, existentesRes] = await Promise.all([
-            fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', {
-              method: 'GET',
-              headers: { 'Content-Type': 'application/json' },
+          // Usar edge function para consultar webhook externo com token SAGA_ONE
+          const [verificaResult, existentesRes] = await Promise.all([
+            supabase.functions.invoke('external-webhook-proxy', {
+              body: { endpoint: 'verifica-eventos' },
             }),
             supabase
               .from('prospeccoes')
@@ -1120,8 +1120,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
               .not('event_id_pri', 'is', null),
           ]);
 
-          if (!verificaResponse.ok) {
-            console.error('❌ Erro ao consultar verifica-eventos:', verificaResponse.status);
+          if (verificaResult.error) {
+            console.error('❌ Erro ao consultar verifica-eventos:', verificaResult.error);
             throw new Error('Não foi possível verificar eventos ativos');
           }
 
@@ -1130,7 +1130,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
             throw new Error('Não foi possível validar IDs já usados no banco');
           }
 
-          const verificaData = await verificaResponse.json();
+          const verificaData = verificaResult.data;
           console.log('📊 Resposta verifica-eventos:', verificaData);
 
           const usedIds = new Set<number>();
@@ -1458,16 +1458,16 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
       console.log('📤 Enviando webhook:', webhookPayload);
 
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/pri-config', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // Usar edge function para enviar com token SAGA_ONE
+      const { data: response, error } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: {
+          endpoint: 'pri-config',
+          ...webhookPayload,
         },
-        body: JSON.stringify(webhookPayload)
       });
 
-      if (!response.ok) {
-        console.error('Erro na resposta do webhook pri-config:', response.status);
+      if (error) {
+        console.error('Erro na resposta do webhook pri-config:', error);
       } else {
         console.log('✅ Webhook pri-config enviado com sucesso');
       }

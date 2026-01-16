@@ -4,6 +4,7 @@ import {
   Filter, X, RefreshCw 
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -99,17 +100,16 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
     try {
       setLoading(true);
       
-      // First get all events for this agent
-      const eventsResponse = await fetch(
-        `https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos?telefone_pri=${encodeURIComponent(selectedAgentPhone)}`
-      );
+      // First get all events for this agent via edge function
+      const { data: eventsData, error: eventsError } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: { endpoint: 'verifica-eventos', telefone_pri: selectedAgentPhone },
+      });
       
-      if (!eventsResponse.ok) {
+      if (eventsError) {
         throw new Error('Erro ao buscar eventos');
       }
       
-      const eventsData = await eventsResponse.json();
-      const events = eventsData.eventos || eventsData || [];
+      const events = eventsData?.eventos || eventsData || [];
       
       if (events.length === 0) {
         setAllEventsData([]);
@@ -124,14 +124,18 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
         try {
           const eventId = String(event.id_evento || event.id);
           
-          const response = await fetch(
-            `https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-contatos?telefone_pri=${encodeURIComponent(selectedAgentPhone)}&id_evento=${encodeURIComponent(eventId)}`
-          );
+          // Use edge function para consultar com token SAGA_ONE
+          const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+            body: { 
+              endpoint: 'verifica-contatos', 
+              telefone_pri: selectedAgentPhone, 
+              id_evento: eventId 
+            },
+          });
           
-          if (!response.ok) continue;
+          if (error) continue;
           
-          const data = await response.json();
-          const leadsData = data.contatos || data.leads || data || [];
+          const leadsData = data?.contatos || data?.leads || data || [];
           
           const eventLeads = leadsData.map((lead: any) => ({
             ...lead,

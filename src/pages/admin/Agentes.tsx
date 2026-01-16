@@ -255,18 +255,15 @@ export default function AdminAgentes() {
     try {
       setLoading(true);
       
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/busca-dados-agentes', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
+      // Usar edge function para buscar agentes com token SAGA_ONE
+      const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: { endpoint: 'busca-dados-agentes' },
       });
 
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
+      if (error) {
+        throw new Error(`Erro na requisição: ${error.message}`);
       }
 
-      const data = await response.json();
       console.log('Agentes do webhook:', data);
       
       const agentesArray = (Array.isArray(data) ? data : [data]).filter(
