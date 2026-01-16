@@ -437,104 +437,60 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
   }
 
   return (
-    <div className="space-y-6">
-      {/* Grid com as 4 imagens - ref para capturar todos os cards */}
-      <div ref={allCardsRef} className="grid grid-cols-2 gap-4 bg-background p-4 rounded-lg">
-        {/* 1. KV do Evento */}
-        <Card className="p-4" ref={kvRef}>
-          <div className="flex items-center gap-2 mb-3">
-            <Image className="w-4 h-4 text-primary" />
-            <h4 className="font-semibold text-sm">KV do Evento</h4>
-          </div>
-          <div className="aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center">
-            {conviteImagem ? (
-              <img 
-                src={conviteImagem} 
-                alt="KV do Evento" 
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="text-center text-muted-foreground p-4">
-                <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Imagem não configurada</p>
-                <p className="text-xs">Configure na criação do evento</p>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* 2. Informações */}
-        <Card className="p-4" ref={infoRef}>
-          <div className="flex items-center gap-2 mb-3">
-            <Building className="w-4 h-4 text-primary" />
-            <h4 className="font-semibold text-sm">Informações</h4>
-          </div>
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs text-muted-foreground">Nome do Evento</Label>
-              <p className="font-medium text-sm">{prospeccao?.titulo || 'Não definido'}</p>
-            </div>
-            <Separator />
-            <div>
-              <Label className="text-xs text-muted-foreground">Nome da Empresa</Label>
-              <p className="font-medium text-sm">{empresa?.nome_empresa || activeCompany?.nome_empresa || 'Não definida'}</p>
-            </div>
-            <Separator />
-            <div>
-              <Label className="text-xs text-muted-foreground">Data do Evento</Label>
-              <div className="flex items-center gap-1 text-sm">
-                <CalendarDays className="w-3 h-3 text-muted-foreground" />
-                <span>{formatDate(prospeccao?.data_inicio)}</span>
-                {prospeccao?.data_fim && prospeccao.data_fim !== prospeccao.data_inicio && (
-                  <>
-                    <span className="text-muted-foreground">até</span>
-                    <span>{formatDate(prospeccao?.data_fim)}</span>
-                  </>
-                )}
-              </div>
-            </div>
-            <Separator />
-            <div>
-              <Label className="text-xs text-muted-foreground">Localização</Label>
-              <div className="flex items-center gap-1 text-sm">
-                <MapPin className="w-3 h-3 text-muted-foreground" />
-                <span>{empresa?.uf ? `${empresa.uf}` : 'Não definida'}</span>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* 3. QR Code */}
-        <Card className="p-4" ref={qrRef}>
-          <div className="flex items-center gap-2 mb-3">
-            <QrCode className="w-4 h-4 text-primary" />
-            <h4 className="font-semibold text-sm">QR Code Check-in</h4>
+    <div className="flex flex-col items-center justify-center py-6">
+      {/* Card único com apenas o QR Code */}
+      <Card className="p-6 max-w-sm w-full" ref={allCardsRef}>
+        <div className="flex flex-col items-center space-y-4">
+          {/* Header */}
+          <div className="flex items-center gap-2">
+            <QrCode className="w-5 h-5 text-primary" />
+            <h4 className="font-semibold">QR Code Check-in</h4>
             {qrTokenUsed && (
               <Badge variant="destructive" className="text-xs">Usado</Badge>
             )}
           </div>
-          <div className="flex items-center justify-center py-2">
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-border/50">
-              {qrCodeUrl && qrToken ? (
-                <img 
-                  src={qrCodeUrl} 
-                  alt="QR Code para Check-in" 
-                  className="w-40 h-40 object-contain"
-                />
-              ) : (
-                <div className="w-40 h-40 flex flex-col items-center justify-center text-muted-foreground">
-                  <QrCode className="w-12 h-12 mb-2 opacity-50" />
-                  <p className="text-xs">Clique para gerar</p>
-                </div>
-              )}
-            </div>
+
+          {/* QR Code */}
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-border/50">
+            {qrCodeUrl && qrToken ? (
+              <img 
+                src={qrCodeUrl} 
+                alt="QR Code para Check-in" 
+                className="w-48 h-48 object-contain"
+              />
+            ) : (
+              <div className="w-48 h-48 flex flex-col items-center justify-center text-muted-foreground">
+                <QrCode className="w-16 h-16 mb-2 opacity-50" />
+                <p className="text-sm">Gerando QR Code...</p>
+              </div>
+            )}
           </div>
-          
-          {qrToken && qrCodeUrl ? (
-            <div className="space-y-2 mt-2">
-              <p className="text-xs text-muted-foreground text-center">
-                {qrTokenUsed ? 'Este QR Code já foi utilizado' : 'Envie o QR Code para o cliente'}
-              </p>
+
+          {/* Info do convidado */}
+          <div className="text-center">
+            <p className="font-semibold text-lg">{contato.nome || 'Sem nome'}</p>
+            {contato.telefone && (
+              <p className="text-sm text-muted-foreground">{contato.telefone}</p>
+            )}
+          </div>
+
+          {/* Status */}
+          <p className="text-xs text-muted-foreground text-center">
+            {qrTokenUsed ? 'Este QR Code já foi utilizado' : 'Envie o QR Code para o cliente'}
+          </p>
+
+          {/* Botões */}
+          {qrToken && qrCodeUrl && (
+            <div className="flex flex-col gap-2 w-full">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={handleExportQRCode}
+              >
+                <Download className="w-4 h-4 mr-1" />
+                Baixar QR Code
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -543,11 +499,11 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
                 disabled={generatingQR}
               >
                 {generatingQR ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
                 ) : (
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className="w-4 h-4 mr-1" />
                 )}
-                <span className="ml-1">Regenerar</span>
+                Regenerar
               </Button>
               <Button
                 variant="outline"
@@ -555,74 +511,11 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
                 className="w-full"
                 onClick={handleCheckin}
               >
-                <QrCode className="w-4 h-4" />
-                <span className="ml-1">Check-in Manual</span>
+                <QrCode className="w-4 h-4 mr-1" />
+                Check-in Manual
               </Button>
             </div>
-          ) : (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            </div>
           )}
-        </Card>
-
-        {/* 4. Convite */}
-        <Card className="p-4" ref={conviteRef}>
-          <div className="flex items-center gap-2 mb-3">
-            <UserCheck className="w-4 h-4 text-primary" />
-            <h4 className="font-semibold text-sm">Convite</h4>
-          </div>
-          <div className="space-y-3">
-            <div className="p-3 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <User className="w-3 h-3" />
-                Convidado
-              </Label>
-              <p className="font-semibold text-lg mt-1">{contato.nome || 'Sem nome'}</p>
-              {contato.telefone && (
-                <p className="text-sm text-muted-foreground">{contato.telefone}</p>
-              )}
-              <Badge variant="outline" className="mt-1">
-                {contato.status}
-              </Badge>
-            </div>
-            <Separator />
-            <div className="p-3 bg-muted/50 rounded-lg">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <UserCheck className="w-3 h-3" />
-                Quem Convidou
-              </Label>
-              <p className="font-medium mt-1">{userName || 'Usuário não identificado'}</p>
-            </div>
-            <Separator />
-            <div className="p-3 bg-muted/50 rounded-lg">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <User className="w-3 h-3" />
-                Vendedor
-              </Label>
-              <p className="font-medium mt-1">{vendedorNome || userName || 'Não definido'}</p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Botão de Salvar */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-semibold">Salvar Convite</h4>
-            <p className="text-sm text-muted-foreground">
-              Baixe o convite completo como imagem
-            </p>
-          </div>
-          <Button onClick={handleSaveConvite} disabled={saving}>
-            {saving ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4 mr-2" />
-            )}
-            Salvar Convite
-          </Button>
         </div>
       </Card>
     </div>
