@@ -5,6 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // Allowed origins for CORS
 const allowedOrigins = [
   'https://automatemaia.sagadatadriven.com.br',
+  'https://automatemaiawh.sagadatadriven.com.br',
   'https://one.sagadatadriven.com.br',
   'https://sagaone-client-hub.lovable.app',
   'https://lovable.dev',
@@ -17,12 +18,15 @@ function getCorsHeaders(req: Request) {
   const isAllowed = allowedOrigins.some(allowed => origin.includes(allowed.replace('https://', '')) || origin === allowed);
   
   return {
-    'Access-Control-Allow-Origin': isAllowed && origin ? origin : allowedOrigins[0],
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Origin': isAllowed && origin ? origin : '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-admin-token',
     'Access-Control-Allow-Methods': 'GET, PUT, PATCH, OPTIONS',
     'Access-Control-Max-Age': '86400',
   };
 }
+
+// Token de admin para chamadas externas (ex: n8n)
+const ADMIN_TOKEN = Deno.env.get('SAGA_ONE_ADMIN_TOKEN') ?? '';
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -33,29 +37,71 @@ serve(async (req) => {
   }
 
   try {
-    // Get user info from JWT
+    // Verificar autenticação - JWT do usuário OU token de admin
     const authHeader = req.headers.get('authorization');
+    const adminToken = req.headers.get('x-admin-token');
     const jwt = authHeader?.replace('Bearer ', '');
     
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        auth: {
-          persistSession: false
-        },
-        global: {
-          headers: authHeader ? { authorization: authHeader } : {}
-        }
-      }
-    );
-
-    // Get user info for audit logs
-    const { data: { user } } = await supabaseClient.auth.getUser(jwt);
-    const userId = user?.id;
-    const userEmail = user?.email;
+    // Validar token de admin para chamadas externas
+    const isAdminToken = adminToken && ADMIN_TOKEN && adminToken === ADMIN_TOKEN;
     
-    console.log(`API prospeccao-status accessed by user: ${userEmail} (${userId})`);
+    let supabaseClient;
+    let userId: string | undefined;
+    let userEmail: string | undefined;
+    
+    if (isAdminToken) {
+      // Usar service role para acesso admin (bypassa RLS)
+      console.log('🔐 Autenticação via x-admin-token (acesso admin)');
+      supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        { auth: { persistSession: false } }
+      );
+      userId = 'admin-api';
+      userEmail = 'admin-api@sagaone.system';
+    } else if (jwt) {
+      // Usar JWT do usuário (respeita RLS)
+      console.log('🔐 Autenticação via JWT de usuário');
+      supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        {
+          auth: { persistSession: false },
+          global: {
+            headers: authHeader ? { authorization: authHeader } : {}
+          }
+        }
+      );
+      
+      const { data: { user } } = await supabaseClient.auth.getUser(jwt);
+      userId = user?.id;
+      userEmail = user?.email;
+      
+      if (!user) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Token JWT inválido ou expirado',
+            dica: 'Use o header Authorization com Bearer token ou x-admin-token para acesso admin'
+          }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else {
+      // Sem autenticação válida
+      console.log('❌ Sem autenticação válida');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Autenticação necessária',
+          opcoes: [
+            'Header Authorization: Bearer <jwt_token> (para usuários logados)',
+            'Header x-admin-token: <admin_token> (para integrações externas)'
+          ]
+        }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log(`API prospeccao-status accessed by: ${userEmail} (${userId})`);
     console.log(`Request method: ${req.method}, URL: ${req.url}`);
 
     const url = new URL(req.url);
@@ -230,8 +276,8 @@ serve(async (req) => {
             prospeccao_id: prospeccaoId,
             status_anterior: statusAnterior,
             status_novo: statusNormalizado,
-            usuario_id: userId || null,
-            observacoes: 'Alteração via API (lead_id)'
+            usuario_id: userId === 'admin-api' ? null : userId,
+            observacoes: isAdminToken ? 'Alteração via API externa (admin-token)' : 'Alteração via API (lead_id)'
           });
 
         // Disparar gatilho de alteração de status
