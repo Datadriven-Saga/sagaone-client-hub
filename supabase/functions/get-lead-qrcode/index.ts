@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import QRCode from 'https://esm.sh/qrcode@1.5.4';
+import QRCode from 'https://esm.sh/qrcode-generator@1.4.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -161,13 +161,12 @@ Deno.serve(async (req) => {
 
     console.log(`📦 QR Data: ${qrData}`);
 
-    // Gerar QR Code usando a mesma biblioteca e parâmetros do frontend
-    // Frontend usa: QRCodeLib.toDataURL(qrData, { width: 300, margin: 2 })
-    const qrCodeDataUrl = await QRCode.toDataURL(qrData, { 
-      width: 300, 
-      margin: 2,
-      errorCorrectionLevel: 'M'
-    });
+    // Gerar QR Code usando qrcode-generator (compatível com Deno)
+    // Usar cellSize=10 e margin=4 para gerar imagem similar ao frontend
+    const qr = QRCode(0, 'M');
+    qr.addData(qrData);
+    qr.make();
+    const qrCodeDataUrl = qr.createDataURL(10, 4);
 
     console.log(`✅ QR Code gerado para lead: ${contato.nome}`);
 
