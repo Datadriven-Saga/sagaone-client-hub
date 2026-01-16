@@ -261,8 +261,14 @@ export const useContatoData = () => {
   }, [activeCompany?.id, user?.id]); // FIXED: usar user?.id em vez de user objeto
 
   // Normalizar telefone para comparação (remove caracteres especiais)
+  // Usa os últimos 11 dígitos para evitar conflitos (DDD + número completo)
   const normalizeTelefoneForComparison = (telefone: string): string => {
-    return telefone.replace(/\D/g, '').slice(-9); // Últimos 9 dígitos
+    const digitos = telefone.replace(/\D/g, '');
+    // Se tiver código do país (55), remove. Mantém DDD + número (11 dígitos)
+    if (digitos.startsWith('55') && digitos.length >= 12) {
+      return digitos.slice(2); // Remove 55 do início
+    }
+    return digitos;
   };
 
   // Adicionar novos contatos - REGRA: 1 contato por pessoa, múltiplos eventos
