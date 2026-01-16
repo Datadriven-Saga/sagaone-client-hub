@@ -293,7 +293,41 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
         </DialogHeader>
 
         <div className="flex flex-col items-center justify-center min-h-[280px] sm:min-h-[320px]">
-          {status === 'success' && successData ? (
+          {/* Container do scanner SEMPRE presente para evitar erro de DOM */}
+          <div 
+            className={`w-full flex flex-col items-center ${status === 'success' || status === 'error' || status === 'processing' ? 'hidden' : ''}`}
+          >
+            <div className="relative w-full max-w-[280px] aspect-square rounded-xl overflow-hidden bg-black">
+              <div 
+                id="qr-reader-container" 
+                className="w-full h-full"
+              />
+              {/* Overlay com cantos destacados */}
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-[200px] h-[200px] relative">
+                    {/* Cantos */}
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg" />
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg" />
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg" />
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-lg" />
+                  </div>
+                </div>
+              </div>
+              {/* Loading overlay */}
+              {status === 'starting' && (
+                <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center">
+                  <Loader2 className="w-10 h-10 text-white animate-spin mb-2" />
+                  <p className="text-xs text-white/80">Iniciando câmera...</p>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground text-center mt-3 px-4">
+              Mantenha o QR Code centralizado na área de leitura
+            </p>
+          </div>
+
+          {status === 'success' && successData && (
             <div className="flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-300">
               <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
                 <CheckCircle2 className="w-12 h-12 text-green-600 dark:text-green-400" />
@@ -305,7 +339,9 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
                 {successData.nome}
               </p>
             </div>
-          ) : status === 'error' ? (
+          )}
+
+          {status === 'error' && (
             <div className="flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
               <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mb-4">
                 <AlertCircle className="w-10 h-10 text-destructive" />
@@ -318,39 +354,12 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
                 Tentar novamente
               </Button>
             </div>
-          ) : status === 'starting' ? (
-            <div className="flex flex-col items-center justify-center p-8">
-              <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
-              <p className="text-sm text-muted-foreground">Iniciando câmera...</p>
-            </div>
-          ) : status === 'processing' ? (
+          )}
+
+          {status === 'processing' && (
             <div className="flex flex-col items-center justify-center p-8">
               <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
               <p className="text-sm text-muted-foreground">Processando...</p>
-            </div>
-          ) : (
-            <div className="w-full flex flex-col items-center">
-              <div className="relative w-full max-w-[280px] aspect-square rounded-xl overflow-hidden bg-black">
-                <div 
-                  id="qr-reader-container" 
-                  className="w-full h-full"
-                />
-                {/* Overlay com cantos destacados */}
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-[200px] h-[200px] relative">
-                      {/* Cantos */}
-                      <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg" />
-                      <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg" />
-                      <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg" />
-                      <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-lg" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground text-center mt-3 px-4">
-                Mantenha o QR Code centralizado na área de leitura
-              </p>
             </div>
           )}
         </div>
