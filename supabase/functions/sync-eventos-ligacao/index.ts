@@ -9,6 +9,11 @@ const corsHeaders = {
 
 const WEBHOOK_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos';
 
+const SAGA_ONE = Deno.env.get('SAGA_ONE') ?? '';
+const webhookAuthHeaders: Record<string, string> = SAGA_ONE
+  ? { 'saga_one_supabase': SAGA_ONE }
+  : {};
+
 interface WebhookEvento {
   id_evento?: string;
   event_id?: string;
@@ -53,6 +58,7 @@ serve(async (req) => {
     }
 
     console.log(`🔄 Iniciando sincronização para pri_telefone: ${pri_telefone}, empresa: ${empresa_id}`);
+    console.log(`🔐 SAGA_ONE configurado: ${Boolean(SAGA_ONE)} (len: ${SAGA_ONE.length})`);
 
     // Inicializar cliente Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -61,13 +67,13 @@ serve(async (req) => {
 
     // 1. Buscar eventos do webhook externo
     console.log(`📡 Buscando eventos do webhook: ${WEBHOOK_URL}`);
-    
+
     const telefoneFormatado = String(pri_telefone).replace(/\D/g, '');
-    
+
     // Tentar POST primeiro, depois GET se necessário
     let webhookResponse = await fetch(WEBHOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...webhookAuthHeaders },
       body: JSON.stringify({
         agente_id: telefoneFormatado,
         telefone: telefoneFormatado,
@@ -82,12 +88,26 @@ serve(async (req) => {
       const url = new URL(WEBHOOK_URL);
       url.searchParams.set('agente_id', telefoneFormatado);
       url.searchParams.set('telefone', telefoneFormatado);
-      
-      webhookResponse = await fetch(url.toString(), { method: 'GET' });
+
+      webhookResponse = await fetch(url.toString(), {
+        method: 'GET',
+        headers: webhookAuthHeaders,
+      });
       webhookText = await webhookResponse.text();
     }
 
     console.log(`📥 Resposta do webhook (status ${webhookResponse.status}):`, webhookText.substring(0, 500));
+
+    if (!webhookResponse.ok) {
+      return new Response(
+        JSON.stringify({
+          error: 'Webhook retornou erro',
+          status: webhookResponse.status,
+          raw: webhookText,
+        }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     let eventosWebhook: WebhookEvento[] = [];
     try {

@@ -9,6 +9,11 @@ const corsHeaders = {
 
 const WEBHOOK_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-contatos';
 
+const SAGA_ONE = Deno.env.get('SAGA_ONE') ?? '';
+const webhookAuthHeaders: Record<string, string> = SAGA_ONE
+  ? { 'saga_one_supabase': SAGA_ONE }
+  : {};
+
 interface WebhookContato {
   id?: string;
   nome?: string;
@@ -73,6 +78,7 @@ serve(async (req) => {
     }
 
     console.log(`🔄 Sincronizando contatos para evento ${id_evento}, telefone_pri: ${telefone_pri}, empresa: ${empresa_id}`);
+    console.log(`🔐 SAGA_ONE configurado: ${Boolean(SAGA_ONE)} (len: ${SAGA_ONE.length})`);
 
     // Inicializar cliente Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -81,24 +87,35 @@ serve(async (req) => {
 
     // 1. Buscar contatos do webhook externo
     console.log(`📡 Buscando contatos do webhook: ${WEBHOOK_URL}`);
-    
+
     const telefoneFormatado = String(telefone_pri).replace(/\D/g, '');
-    
+
     // Fazer GET com os parâmetros na query (webhook exige GET)
     const url = new URL(WEBHOOK_URL);
     url.searchParams.set('telefone', telefoneFormatado);
     url.searchParams.set('id_evento', String(id_evento));
-    
+
     console.log('📤 Chamando GET:', url.toString());
-    
+
     const webhookResponse = await fetch(url.toString(), {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...webhookAuthHeaders },
     });
 
     const webhookText = await webhookResponse.text();
 
     console.log(`📥 Resposta do webhook (status ${webhookResponse.status}):`, webhookText.substring(0, 1000));
+
+    if (!webhookResponse.ok) {
+      return new Response(
+        JSON.stringify({
+          error: 'Webhook retornou erro',
+          status: webhookResponse.status,
+          raw: webhookText,
+        }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     let contatosWebhook: WebhookContato[] = [];
     try {
