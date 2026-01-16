@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Copy, Play, ArrowLeft, Info } from 'lucide-react';
+import { Copy, Play, ArrowLeft, Info, QrCode } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -17,10 +17,13 @@ const TestAPIs = () => {
   const { toast } = useToast();
   
   const [leadId, setLeadId] = useState('');
+  const [leadCodigo, setLeadCodigo] = useState('');
+  const [adminToken, setAdminToken] = useState('');
   const [mensagem, setMensagem] = useState('');
   const [novoStatus, setNovoStatus] = useState('');
   const [loading, setLoading] = useState<string | null>(null);
   const [responses, setResponses] = useState<Record<string, any>>({});
+  const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
 
   const baseUrl = 'https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1';
 
@@ -160,6 +163,63 @@ const TestAPIs = () => {
         variant: "destructive"
       });
       setResponses(prev => ({ ...prev, post: { error: error.message } }));
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const testGetQRCode = async () => {
+    if (!leadCodigo) {
+      toast({
+        title: "Erro",
+        description: "Preencha o código do lead",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!adminToken) {
+      toast({
+        title: "Erro",
+        description: "Preencha o Admin Token (SAGA_ONE_ADMIN_TOKEN)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading('qrcode');
+    setQrCodeImage(null);
+    try {
+      const response = await fetch(`${baseUrl}/get-lead-qrcode?codigo=${encodeURIComponent(leadCodigo)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || 'Erro na requisição');
+
+      setResponses(prev => ({ ...prev, qrcode: data }));
+      
+      // Se tem QR Code, mostrar a imagem
+      if (data.qrcode?.data_url) {
+        setQrCodeImage(data.qrcode.data_url);
+      }
+      
+      toast({
+        title: "Sucesso",
+        description: "QR Code gerado com sucesso"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao gerar QR Code",
+        variant: "destructive"
+      });
+      setResponses(prev => ({ ...prev, qrcode: { error: error.message } }));
     } finally {
       setLoading(null);
     }
@@ -398,6 +458,99 @@ const TestAPIs = () => {
                 <Label className="text-sm font-medium">Resposta:</Label>
                 <pre className="text-xs mt-2 overflow-auto max-h-48">
                   {JSON.stringify(responses.post, null, 2)}
+                </pre>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* GET QR Code */}
+        <Card className="border-2 border-primary/20">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">GET</Badge>
+                <QrCode className="h-5 w-5" />
+                Gerar QR Code do Lead
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyToClipboard(`${baseUrl}/get-lead-qrcode?codigo=${leadCodigo || '{codigo}'}`)}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </CardTitle>
+            <CardDescription>
+              Gera ou retorna o QR Code de check-in de um lead pelo código. Requer <code className="text-xs bg-muted px-1 py-0.5 rounded">SAGA_ONE_ADMIN_TOKEN</code>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-muted p-3 rounded-md">
+              <code className="text-sm">
+                GET {baseUrl}/get-lead-qrcode?codigo={leadCodigo || '{codigo}'}
+              </code>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="lead_codigo">Código do Lead</Label>
+                <Input
+                  id="lead_codigo"
+                  value={leadCodigo}
+                  onChange={(e) => setLeadCodigo(e.target.value)}
+                  placeholder="Ex: ABC123"
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="admin_token">Admin Token</Label>
+                <Input
+                  id="admin_token"
+                  type="password"
+                  value={adminToken}
+                  onChange={(e) => setAdminToken(e.target.value)}
+                  placeholder="SAGA_ONE_ADMIN_TOKEN"
+                  className="font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="bg-muted p-3 rounded-md">
+              <Label className="text-sm font-medium">Headers:</Label>
+              <pre className="text-xs mt-2">
+                {JSON.stringify({
+                  'Authorization': 'Bearer {SAGA_ONE_ADMIN_TOKEN}',
+                  'Content-Type': 'application/json'
+                }, null, 2)}
+              </pre>
+            </div>
+
+            <Button 
+              onClick={testGetQRCode} 
+              disabled={loading === 'qrcode'}
+              className="w-full"
+            >
+              <Play className="h-4 w-4 mr-2" />
+              {loading === 'qrcode' ? 'Gerando...' : 'Testar GET QR Code'}
+            </Button>
+
+            {qrCodeImage && (
+              <div className="flex flex-col items-center gap-4 p-4 bg-white rounded-lg">
+                <Label className="text-sm font-medium text-foreground">QR Code Gerado:</Label>
+                <img 
+                  src={qrCodeImage} 
+                  alt="QR Code do Lead" 
+                  className="w-48 h-48 border rounded-lg"
+                />
+              </div>
+            )}
+
+            {responses.qrcode && (
+              <div className="bg-muted p-3 rounded-md">
+                <Label className="text-sm font-medium">Resposta:</Label>
+                <pre className="text-xs mt-2 overflow-auto max-h-48">
+                  {JSON.stringify(responses.qrcode, null, 2)}
                 </pre>
               </div>
             )}
