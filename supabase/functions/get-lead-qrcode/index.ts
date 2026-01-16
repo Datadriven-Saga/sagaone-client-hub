@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import QRCode from 'https://esm.sh/qrcode-generator@1.4.4';
+import QRCode from 'https://esm.sh/qrcode@1.5.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -147,7 +147,8 @@ Deno.serve(async (req) => {
       console.log(`✅ QR Token gerado: ${qrToken}`);
     }
 
-    // Gerar dados do QR Code com evento_id e evento_nome
+    // Gerar dados do QR Code EXATAMENTE como no frontend (ConviteTab.tsx)
+    // Usar vendedor_nome tanto para quem_convidou quanto para vendedor
     const qrData = JSON.stringify({
       qr_token: qrToken,
       convidado_nome: contato.nome,
@@ -158,14 +159,15 @@ Deno.serve(async (req) => {
       evento_nome: prospeccaoData?.titulo || ''
     });
 
-    // Gerar QR Code como PNG base64 usando qrcode-generator
-    // Usar cellSize maior e margem adequada para compatibilidade com leitores
-    const qr = QRCode(0, 'M');
-    qr.addData(qrData);
-    qr.make();
-    
-    // Gerar como Data URL PNG com cellSize=10 e margin=4 (equivalente ao frontend com margin: 2)
-    const qrCodeDataUrl = qr.createDataURL(10, 4);
+    console.log(`📦 QR Data: ${qrData}`);
+
+    // Gerar QR Code usando a mesma biblioteca e parâmetros do frontend
+    // Frontend usa: QRCodeLib.toDataURL(qrData, { width: 300, margin: 2 })
+    const qrCodeDataUrl = await QRCode.toDataURL(qrData, { 
+      width: 300, 
+      margin: 2,
+      errorCorrectionLevel: 'M'
+    });
 
     console.log(`✅ QR Code gerado para lead: ${contato.nome}`);
 
