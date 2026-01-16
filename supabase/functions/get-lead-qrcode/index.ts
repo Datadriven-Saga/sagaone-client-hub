@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import QRCode from 'https://esm.sh/qrcode-generator@1.4.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -65,7 +66,7 @@ Deno.serve(async (req) => {
 
     console.log(`🔍 Buscando lead com lead_id: ${leadCode}`);
 
-    // Buscar o lead pelo lead_id - agora inclui qr_code_image
+    // Buscar o lead pelo lead_id com dados da prospecção vinculada
     const { data: contato, error: contatoError } = await supabase
       .from('contatos')
       .select(`
@@ -77,7 +78,6 @@ Deno.serve(async (req) => {
         lead_id,
         qr_token,
         qr_token_used,
-        qr_code_image,
         vendedor_nome,
         empresa_id,
         empresas:empresa_id (
@@ -86,6 +86,9 @@ Deno.serve(async (req) => {
       `)
       .eq('lead_id', leadCode)
       .maybeSingle();
+    
+    // Buscar prospecção mais recente da empresa do contato (para evento_id e evento_nome)
+    let prospeccaoData: { id: string; titulo: string } | null = null;
 
     if (contatoError) {
       console.error('❌ Erro ao buscar contato:', contatoError);
@@ -102,20 +105,72 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verificar se tem QR Code salvo
-    if (!contato.qr_code_image) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'QR Code ainda não foi gerado para este lead',
-          message: 'Acesse o lead no Kanban para gerar o QR Code primeiro'
-        }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Buscar prospecção vinculada à empresa do contato
+    if (contato.empresa_id) {
+      const { data: prospeccao } = await supabase
+        .from('prospeccoes')
+        .select('id, titulo')
+        .eq('empresa_id', contato.empresa_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (prospeccao) {
+        prospeccaoData = prospeccao;
+        console.log(`📋 Prospecção encontrada: ${prospeccao.titulo} (${prospeccao.id})`);
+      }
     }
 
-    console.log(`✅ QR Code encontrado para lead: ${contato.nome}`);
+    // Se não tem qr_token, gerar um novo
+    let qrToken = contato.qr_token;
+    if (!qrToken) {
+      qrToken = crypto.randomUUID();
+      
+      const { error: updateError } = await supabase
+        .from('contatos')
+        .update({
+          qr_token: qrToken,
+          qr_token_used: false,
+          qr_token_used_at: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', contato.id);
 
-    // Retornar o QR Code salvo no banco
+      if (updateError) {
+        console.error('❌ Erro ao gerar qr_token:', updateError);
+        return new Response(
+          JSON.stringify({ error: 'Erro ao gerar QR Token', details: updateError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log(`✅ QR Token gerado: ${qrToken}`);
+    }
+
+    // Gerar dados do QR Code EXATAMENTE como no frontend (ConviteTab.tsx)
+    // Usar vendedor_nome tanto para quem_convidou quanto para vendedor
+    const qrData = JSON.stringify({
+      qr_token: qrToken,
+      convidado_nome: contato.nome,
+      convidado_telefone: contato.telefone || '',
+      quem_convidou: contato.vendedor_nome || '',
+      vendedor: contato.vendedor_nome || '',
+      evento_id: prospeccaoData?.id || '',
+      evento_nome: prospeccaoData?.titulo || ''
+    });
+
+    console.log(`📦 QR Data: ${qrData}`);
+
+    // Gerar QR Code usando qrcode-generator (compatível com Deno)
+    // Usar cellSize=10 e margin=4 para gerar imagem similar ao frontend
+    const qr = QRCode(0, 'M');
+    qr.addData(qrData);
+    qr.make();
+    const qrCodeDataUrl = qr.createDataURL(10, 4);
+
+    console.log(`✅ QR Code gerado para lead: ${contato.nome}`);
+
+    // Retornar resposta com dados do evento
     return new Response(
       JSON.stringify({
         success: true,
@@ -129,9 +184,13 @@ Deno.serve(async (req) => {
           empresa: (contato.empresas as any)?.nome_empresa || null,
           qr_token_used: contato.qr_token_used
         },
+        evento: prospeccaoData ? {
+          id: prospeccaoData.id,
+          nome: prospeccaoData.titulo
+        } : null,
         qrcode: {
-          data_url: contato.qr_code_image,
-          token: contato.qr_token,
+          data_url: qrCodeDataUrl,
+          token: qrToken,
           already_used: contato.qr_token_used || false
         }
       }),
