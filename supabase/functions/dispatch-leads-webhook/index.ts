@@ -275,11 +275,13 @@ serve(async (req) => {
         let payload: any;
         
         if (isIALigacao) {
-          // Payload para IA Ligação - apenas id_evento e telefone_pri
-          // O evento e base já foram criados anteriormente
+          // Payload para IA Ligação - envia dados de cada lead individualmente
           payload = {
             id_evento: eventIdPri,
             telefone_pri: telefonePri,
+            telefone_lead: normalizePhone(lead.telefone),
+            nome: lead.nome,
+            loja: empresaData?.nome_empresa || '',
           };
         } else {
           // Payload para IA Whatsapp

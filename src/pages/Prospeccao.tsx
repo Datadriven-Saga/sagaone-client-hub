@@ -1527,8 +1527,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                     const pendentes = contagem?.pendentes || 0;
                                     const isDisparando = disparandoIA === prospeccao.id;
                                     
-                                    // Para eventos de Ligação, verificar se está válido no webhook externo
-                                    const ligacaoValidoNoWebhook = !isIALigacao || (eventosLigacaoVerificados && eventosLigacaoValidos.has(prospeccao.id));
+                                    // Para eventos de Ligação, verificar se tem event_id_pri configurado
+                                    const ligacaoValidoNoWebhook = !isIALigacao || !!prospeccao.event_id_pri;
                                     
                                     return (
                                       <div className="flex items-center justify-end gap-2">
