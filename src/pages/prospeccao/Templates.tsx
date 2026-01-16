@@ -296,10 +296,15 @@ export default function Templates() {
     enabled: !!activeCompany?.id,
   });
 
-  // Selecionar primeiro agente disponível por padrão
+  // Selecionar "Pri - Whatsapp" como padrão, senão primeiro agente disponível
   useEffect(() => {
     if (agentesIAWhatsapp.length > 0 && !agentesIAWhatsapp.some((a: any) => a.id === selectedAgenteId)) {
-      setSelectedAgenteId(agentesIAWhatsapp[0].id);
+      // Tentar encontrar o agente "Pri - Whatsapp" (case insensitive)
+      const priWhatsapp = agentesIAWhatsapp.find((a: any) => 
+        a.nome?.toLowerCase().includes('whatsapp') || 
+        a.nome?.toLowerCase() === 'pri - whatsapp'
+      );
+      setSelectedAgenteId(priWhatsapp?.id || agentesIAWhatsapp[0].id);
     }
   }, [agentesIAWhatsapp, selectedAgenteId]);
 
@@ -394,8 +399,12 @@ export default function Templates() {
       variaveis: [],
       cardData: initialCardData,
     });
-    // Selecionar primeiro agente disponível por padrão
-    setSelectedAgenteId(agentesIAWhatsapp.length > 0 ? agentesIAWhatsapp[0].id : null);
+    // Selecionar "Pri - Whatsapp" como padrão ao abrir modal
+    const priWhatsapp = agentesIAWhatsapp.find((a: any) => 
+      a.nome?.toLowerCase().includes('whatsapp') || 
+      a.nome?.toLowerCase() === 'pri - whatsapp'
+    );
+    setSelectedAgenteId(priWhatsapp?.id || (agentesIAWhatsapp.length > 0 ? agentesIAWhatsapp[0].id : null));
     setCurrentStep(1);
     setIsModalOpen(true);
   };
