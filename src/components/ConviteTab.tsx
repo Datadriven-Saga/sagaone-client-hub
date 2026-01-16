@@ -199,7 +199,9 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
               convidado_nome: contato.nome,
               convidado_telefone: contato.telefone || '',
               quem_convidou: currentUserName,
-              vendedor: currentVendedorNome || currentUserName
+              vendedor: currentVendedorNome || currentUserName,
+              evento_id: currentProspeccaoId || '',
+              evento_nome: prospeccao?.titulo || ''
             });
             try {
               const dataUrl = await QRCodeLib.toDataURL(qrData, { width: 300, margin: 2 });
@@ -227,7 +229,9 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
                 convidado_nome: contato.nome,
                 convidado_telefone: contato.telefone || '',
                 quem_convidou: currentUserName,
-                vendedor: currentVendedorNome || currentUserName
+                vendedor: currentVendedorNome || currentUserName,
+                evento_id: currentProspeccaoId || '',
+                evento_nome: prospeccao?.titulo || ''
               });
               try {
                 const dataUrl = await QRCodeLib.toDataURL(qrData, { width: 300, margin: 2 });
@@ -261,7 +265,9 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
       convidado_nome: contato.nome,
       convidado_telefone: contato.telefone || '',
       quem_convidou: userName,
-      vendedor: vendedorNome || userName
+      vendedor: vendedorNome || userName,
+      evento_id: prospeccao?.id || '',
+      evento_nome: prospeccao?.titulo || ''
     });
     
     try {
@@ -302,7 +308,9 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
         convidado_nome: contato.nome,
         convidado_telefone: contato.telefone || '',
         quem_convidou: userName,
-        vendedor: vendedorNome || userName
+        vendedor: vendedorNome || userName,
+        evento_id: prospeccao?.id || '',
+        evento_nome: prospeccao?.titulo || ''
       });
       
       try {

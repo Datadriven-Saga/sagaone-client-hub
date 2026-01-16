@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
 
     console.log(`🔍 Buscando lead com lead_id: ${leadCode}`);
 
-    // Buscar o lead pelo lead_id
+    // Buscar o lead pelo lead_id com dados da prospecção vinculada
     const { data: contato, error: contatoError } = await supabase
       .from('contatos')
       .select(`
@@ -86,6 +86,9 @@ Deno.serve(async (req) => {
       `)
       .eq('lead_id', leadCode)
       .maybeSingle();
+    
+    // Buscar prospecção mais recente da empresa do contato (para evento_id e evento_nome)
+    let prospeccaoData: { id: string; titulo: string } | null = null;
 
     if (contatoError) {
       console.error('❌ Erro ao buscar contato:', contatoError);
@@ -100,6 +103,22 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Lead não encontrado com o código informado' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Buscar prospecção vinculada à empresa do contato
+    if (contato.empresa_id) {
+      const { data: prospeccao } = await supabase
+        .from('prospeccoes')
+        .select('id, titulo')
+        .eq('empresa_id', contato.empresa_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (prospeccao) {
+        prospeccaoData = prospeccao;
+        console.log(`📋 Prospecção encontrada: ${prospeccao.titulo} (${prospeccao.id})`);
+      }
     }
 
     // Se não tem qr_token, gerar um novo
@@ -128,13 +147,15 @@ Deno.serve(async (req) => {
       console.log(`✅ QR Token gerado: ${qrToken}`);
     }
 
-    // Gerar dados do QR Code
+    // Gerar dados do QR Code com evento_id e evento_nome
     const qrData = JSON.stringify({
       qr_token: qrToken,
       convidado_nome: contato.nome,
       convidado_telefone: contato.telefone || '',
       quem_convidou: contato.vendedor_nome || '',
-      vendedor: contato.vendedor_nome || ''
+      vendedor: contato.vendedor_nome || '',
+      evento_id: prospeccaoData?.id || '',
+      evento_nome: prospeccaoData?.titulo || ''
     });
 
     // Gerar QR Code como PNG base64 usando qrcode-generator
@@ -147,7 +168,7 @@ Deno.serve(async (req) => {
 
     console.log(`✅ QR Code gerado para lead: ${contato.nome}`);
 
-    // Retornar resposta
+    // Retornar resposta com dados do evento
     return new Response(
       JSON.stringify({
         success: true,
@@ -161,6 +182,10 @@ Deno.serve(async (req) => {
           empresa: (contato.empresas as any)?.nome_empresa || null,
           qr_token_used: contato.qr_token_used
         },
+        evento: prospeccaoData ? {
+          id: prospeccaoData.id,
+          nome: prospeccaoData.titulo
+        } : null,
         qrcode: {
           data_url: qrCodeDataUrl,
           token: qrToken,

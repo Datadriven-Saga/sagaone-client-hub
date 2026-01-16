@@ -19,6 +19,8 @@ interface QRCodeData {
   convidado_telefone: string;
   quem_convidou: string;
   vendedor: string;
+  evento_id?: string;
+  evento_nome?: string;
 }
 
 export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps) {
@@ -155,38 +157,66 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
     setErrorMessage(null);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Aguardar mais tempo para garantir que o container esteja no DOM
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       const container = document.getElementById('qr-reader-container');
-      if (!container) throw new Error('Container não encontrado');
+      if (!container) {
+        console.error('Container qr-reader-container não encontrado no DOM');
+        throw new Error('Aguarde e tente novamente');
+      }
 
+      // Limpar qualquer conteúdo anterior do container
+      container.innerHTML = '';
+
+      const html5QrCode = new Html5Qrcode('qr-reader-container');
+      scannerRef.current = html5QrCode;
+
+      // Tentar iniciar com facingMode environment (câmera traseira) primeiro
+      try {
+        await html5QrCode.start(
+          { facingMode: 'environment' },
+          {
+            fps: 10,
+            qrbox: { width: 200, height: 200 },
+            aspectRatio: 1.0,
+          },
+          handleScanSuccess,
+          () => {} // Ignorar erros normais de scan
+        );
+        setStatus('scanning');
+        isInitializingRef.current = false;
+        return;
+      } catch (envErr) {
+        console.log('Câmera traseira não disponível, tentando listar câmeras...', envErr);
+      }
+
+      // Fallback: listar câmeras disponíveis
       const cameras = await Html5Qrcode.getCameras();
       
       if (!cameras || cameras.length === 0) {
         throw new Error('Nenhuma câmera disponível');
       }
 
-      // Preferir câmera traseira
+      // Preferir câmera traseira pelo label
       let cameraId = cameras[0].id;
       for (const camera of cameras) {
         const label = camera.label.toLowerCase();
-        if (label.includes('back') || label.includes('rear') || label.includes('traseira')) {
+        if (label.includes('back') || label.includes('rear') || label.includes('traseira') || label.includes('environment')) {
           cameraId = camera.id;
           break;
         }
       }
-      if (cameras.length > 1) {
+      // Se tem mais de uma câmera, a última geralmente é a traseira em mobile
+      if (cameras.length > 1 && cameraId === cameras[0].id) {
         cameraId = cameras[cameras.length - 1].id;
       }
-
-      const html5QrCode = new Html5Qrcode('qr-reader-container');
-      scannerRef.current = html5QrCode;
 
       await html5QrCode.start(
         cameraId,
         {
           fps: 10,
-          qrbox: { width: 220, height: 220 },
+          qrbox: { width: 200, height: 200 },
           aspectRatio: 1.0,
         },
         handleScanSuccess,
@@ -200,12 +230,14 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
       isInitializingRef.current = false;
       
       let msg = 'Não foi possível acessar a câmera.';
-      if (err.name === 'NotAllowedError' || err.message?.includes('Permission')) {
-        msg = 'Permissão da câmera negada. Permita o acesso nas configurações.';
-      } else if (err.name === 'NotFoundError') {
-        msg = 'Nenhuma câmera encontrada.';
-      } else if (err.name === 'NotReadableError') {
-        msg = 'Câmera em uso por outro app.';
+      if (err.name === 'NotAllowedError' || err.message?.includes('Permission') || err.message?.includes('denied')) {
+        msg = 'Permissão da câmera negada. Permita o acesso nas configurações do navegador.';
+      } else if (err.name === 'NotFoundError' || err.message?.includes('Nenhuma')) {
+        msg = 'Nenhuma câmera encontrada no dispositivo.';
+      } else if (err.name === 'NotReadableError' || err.message?.includes('Could not start')) {
+        msg = 'Câmera em uso por outro aplicativo. Feche outros apps e tente novamente.';
+      } else if (err.name === 'OverconstrainedError') {
+        msg = 'Câmera não suporta as configurações solicitadas.';
       }
       
       setErrorMessage(msg);
@@ -215,7 +247,11 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
 
   useEffect(() => {
     if (isOpen && status === 'idle') {
-      startScanner();
+      // Aguardar o próximo frame para garantir que o Dialog montou o container
+      const timeoutId = setTimeout(() => {
+        startScanner();
+      }, 150);
+      return () => clearTimeout(timeoutId);
     }
   }, [isOpen, status, startScanner]);
 
