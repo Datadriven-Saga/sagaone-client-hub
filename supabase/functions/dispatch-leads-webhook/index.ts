@@ -242,14 +242,149 @@ serve(async (req) => {
     console.log(`   ├─ telefone_pri_whatsapp: ${dadosComuns.telefone_pri_whatsapp || 'N/A'}`);
     console.log(`   ├─ nome_agente: ${dadosComuns.nome_agente || 'N/A'}`);
     console.log(`   └─ event_id_pri: ${eventIdPri || 'N/A'}`);
-    
+
+    // PARA IA LIGAÇÃO: Enviar todos os leads em UMA ÚNICA chamada ao webhook
     if (isIALigacao) {
-      console.log(`\n📋 [${requestId}] Disparo Ligação - Payload simples:`);
+      console.log(`\n📞 [${requestId}] Disparo Ligação - Enviando ${leads.length} lead(s) em uma única chamada`);
+      
+      // Preparar array de contatos para o webhook
+      const contatosArray = leads.map(lead => ({
+        telefone_lead: normalizePhone(lead.telefone),
+        nome: lead.nome,
+      }));
+
+      // Payload único contendo todos os contatos
+      const payloadLigacao = {
+        id_evento: eventIdPri,
+        telefone_pri: telefonePri,
+        loja: empresaData?.nome_empresa || '',
+        // Se for apenas 1 lead, envia telefone_lead e nome diretamente (formato antigo)
+        // Se forem múltiplos, envia array de contatos
+        ...(leads.length === 1 
+          ? { 
+              telefone_lead: normalizePhone(leads[0].telefone),
+              nome: leads[0].nome 
+            }
+          : { 
+              contatos: contatosArray 
+            }
+        )
+      };
+
       console.log(`   ├─ id_evento: ${eventIdPri}`);
-      console.log(`   └─ telefone_pri: ${telefonePri}`);
+      console.log(`   ├─ telefone_pri: ${telefonePri}`);
+      console.log(`   ├─ loja: ${empresaData?.nome_empresa || ''}`);
+      if (leads.length === 1) {
+        console.log(`   ├─ telefone_lead: ${normalizePhone(leads[0].telefone)}`);
+        console.log(`   └─ nome: ${leads[0].nome}`);
+      } else {
+        console.log(`   └─ contatos: ${leads.length} leads`);
+        contatosArray.slice(0, 5).forEach((c, i) => {
+          console.log(`      ${i === Math.min(4, contatosArray.length - 1) ? '└' : '├'}─ ${c.nome} (${c.telefone_lead})`);
+        });
+        if (contatosArray.length > 5) {
+          console.log(`      ... e mais ${contatosArray.length - 5} contatos`);
+        }
+      }
+
+      try {
+        const fetchStartTime = Date.now();
+        
+        const response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payloadLigacao)
+        });
+        
+        const fetchDuration = Date.now() - fetchStartTime;
+        
+        let responseBody = '';
+        try {
+          responseBody = await response.text();
+        } catch (e) {
+          responseBody = '[Não foi possível ler resposta]';
+        }
+        
+        const dataDisparoIA = new Date().toISOString();
+        
+        if (response.ok) {
+          console.log(`\n✅ [${requestId}] Webhook Ligação ENVIADO com sucesso - Status: ${response.status} - Tempo: ${fetchDuration}ms`);
+          console.log(`   └─ Resposta: ${responseBody.substring(0, 200)}${responseBody.length > 200 ? '...' : ''}`);
+          
+          // Atualizar todos os leads como disparados
+          const leadIds = leads.map(l => l.id);
+          const { error: updateError } = await supabase
+            .from('contatos')
+            .update({ data_disparo_ia: dataDisparoIA })
+            .in('id', leadIds);
+          
+          if (updateError) {
+            console.error(`❌ [${requestId}] Erro ao atualizar banco:`, updateError);
+          } else {
+            console.log(`💾 [${requestId}] ${leadIds.length} leads atualizados no banco`);
+          }
+
+          const totalDuration = Date.now() - startTime;
+          
+          return new Response(
+            JSON.stringify({ 
+              success: true,
+              request_id: requestId,
+              tipo_ia: tipoIA,
+              webhook_url: webhookUrl,
+              estatisticas: {
+                total: leads.length,
+                sucessos: leads.length,
+                falhas: 0,
+                tempo_ms: totalDuration
+              },
+              resultados: leads.map(l => ({ lead_id: l.id, nome: l.nome, success: true })),
+              mensagem: `${leads.length} leads enviados com sucesso para ${tipoIA}`
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } else {
+          console.error(`\n❌ [${requestId}] Webhook Ligação FALHOU - Status: ${response.status} - Tempo: ${fetchDuration}ms`);
+          console.error(`   └─ Resposta: ${responseBody.substring(0, 300)}${responseBody.length > 300 ? '...' : ''}`);
+          
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              request_id: requestId,
+              tipo_ia: tipoIA,
+              error: `HTTP ${response.status}: ${responseBody.substring(0, 200)}`,
+              estatisticas: {
+                total: leads.length,
+                sucessos: 0,
+                falhas: leads.length,
+                tempo_ms: Date.now() - startTime
+              }
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (err: any) {
+        console.error(`\n❌ [${requestId}] Erro de rede ao chamar webhook Ligação:`, err.message);
+        
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            request_id: requestId,
+            tipo_ia: tipoIA,
+            error: err.message,
+            estatisticas: {
+              total: leads.length,
+              sucessos: 0,
+              falhas: leads.length,
+              tempo_ms: Date.now() - startTime
+            }
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
-    // Processar leads em batches
+    // PARA IA WHATSAPP: Processar leads em batches (mantém comportamento anterior)
     const BATCH_SIZE = 50;
     const totalBatches = Math.ceil(leads.length / BATCH_SIZE);
     const resultados: { lead_id: string; nome: string; success: boolean; status?: number; error?: string }[] = [];
@@ -271,33 +406,19 @@ serve(async (req) => {
       const batchResultados: { lead_id: string; nome: string; success: boolean; status?: number; error?: string }[] = [];
       
       const promessas = batch.map(async (lead, leadIndex) => {
-        // Payload diferente para IA Ligação e IA Whatsapp
-        let payload: any;
-        
-        if (isIALigacao) {
-          // Payload para IA Ligação - envia dados de cada lead individualmente
-          payload = {
-            id_evento: eventIdPri,
-            telefone_pri: telefonePri,
-            telefone_lead: normalizePhone(lead.telefone),
-            nome: lead.nome,
-            loja: empresaData?.nome_empresa || '',
-          };
-        } else {
-          // Payload para IA Whatsapp
-          payload = {
-            ...dadosComuns,
-            id: lead.id,
-            lead_id: lead.lead_id,
-            nome: lead.nome,
-            telefone: normalizePhone(lead.telefone),
-            email: lead.email || '',
-            status: lead.status || 'Novo',
-            origem: lead.origem || 'Importação',
-            data_importacao: new Date().toISOString(),
-            tipo_importacao: 'planilha'
-          };
-        }
+        // Payload para IA Whatsapp
+        const payload = {
+          ...dadosComuns,
+          id: lead.id,
+          lead_id: lead.lead_id,
+          nome: lead.nome,
+          telefone: normalizePhone(lead.telefone),
+          email: lead.email || '',
+          status: lead.status || 'Novo',
+          origem: lead.origem || 'Importação',
+          data_importacao: new Date().toISOString(),
+          tipo_importacao: 'planilha'
+        };
 
         const leadNum = batchStart + leadIndex + 1;
         console.log(`   [${requestId}] Lead #${leadNum}: ${lead.nome} (Tel: ${normalizePhone(lead.telefone) || 'N/A'})`);
