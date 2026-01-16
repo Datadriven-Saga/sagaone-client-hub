@@ -10,7 +10,9 @@ import {
   BarChart3, 
   User, 
   Trophy, 
-  FileText
+  FileText,
+  Phone,
+  TrendingUp
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -18,6 +20,9 @@ import { ResumoTab } from "@/components/resultados/ResumoTab";
 import { DesempenhoTab } from "@/components/resultados/DesempenhoTab";
 import { RankingTab } from "@/components/resultados/RankingTab";
 import { ResultadosGlobalFilter } from "@/components/resultados/ResultadosGlobalFilter";
+import { DashboardLigacaoTab } from "@/components/resultados/DashboardLigacaoTab";
+import { MetricasLigacaoTab } from "@/components/resultados/MetricasLigacaoTab";
+import { EventoSelectorLigacao } from "@/components/resultados/EventoSelectorLigacao";
 
 interface Prospeccao {
   id: string;
@@ -31,6 +36,10 @@ const Resultados = () => {
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
   const [selectedProspeccoes, setSelectedProspeccoes] = useState<string[]>([]);
   const { activeCompany } = useCompany();
+  
+  // State for Ligação tabs
+  const [selectedLigacaoEventId, setSelectedLigacaoEventId] = useState<string | null>(null);
+  const [selectedAgentPhone, setSelectedAgentPhone] = useState<string | null>(null);
 
   // Buscar prospecções da empresa
   useEffect(() => {
@@ -54,13 +63,34 @@ const Resultados = () => {
     fetchProspeccoes();
   }, [activeCompany?.id]);
 
+  const handleLigacaoEventSelect = (eventId: string, agentPhone: string) => {
+    setSelectedLigacaoEventId(eventId);
+    setSelectedAgentPhone(agentPhone);
+    setActiveTab("dashboard-ligacao");
+  };
+
+  const handleDashboardEventChange = (eventId: string) => {
+    setSelectedLigacaoEventId(eventId);
+  };
+
+  // Check if current tab needs global filter (not ligação tabs)
+  const showGlobalFilter = !["dashboard-ligacao", "metricas-ligacao", "eventos-ligacao"].includes(activeTab);
+
   return (
     <DashboardLayout title="Resultados">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full w-full">
-        <TabsList className="inline-flex h-auto p-1 w-auto self-start">
+        <TabsList className="inline-flex h-auto p-1 w-auto self-start flex-wrap">
           <TabsTrigger value="resumo" className="flex items-center gap-1.5 text-xs py-2">
             <LayoutDashboard className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Resumo</span>
+          </TabsTrigger>
+          <TabsTrigger value="dashboard-ligacao" className="flex items-center gap-1.5 text-xs py-2">
+            <Phone className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Dashboard</span>
+          </TabsTrigger>
+          <TabsTrigger value="metricas-ligacao" className="flex items-center gap-1.5 text-xs py-2">
+            <TrendingUp className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Métricas</span>
           </TabsTrigger>
           <TabsTrigger value="ranking" className="flex items-center gap-1.5 text-xs py-2">
             <Medal className="h-3.5 w-3.5" />
@@ -88,13 +118,15 @@ const Resultados = () => {
           </TabsTrigger>
         </TabsList>
 
-        {/* Filtro Global */}
-        <ResultadosGlobalFilter
-          prospeccoes={prospeccoes}
-          selectedProspeccoes={selectedProspeccoes}
-          onSelectedProspeccoesChange={setSelectedProspeccoes}
-          className="mt-2"
-        />
+        {/* Filtro Global - only show for non-ligação tabs */}
+        {showGlobalFilter && (
+          <ResultadosGlobalFilter
+            prospeccoes={prospeccoes}
+            selectedProspeccoes={selectedProspeccoes}
+            onSelectedProspeccoesChange={setSelectedProspeccoes}
+            className="mt-2"
+          />
+        )}
 
         {/* Tab Resumo */}
         <TabsContent value="resumo" className="flex-1 min-h-0 overflow-hidden mt-2">
@@ -104,6 +136,49 @@ const Resultados = () => {
                 prospeccaoIds={selectedProspeccoes} 
                 empresaId={activeCompany?.id || null}
               />
+            </div>
+          </ScrollIndicator>
+        </TabsContent>
+
+        {/* Tab Dashboard Ligação */}
+        <TabsContent value="dashboard-ligacao" className="flex-1 min-h-0 overflow-hidden mt-4">
+          <ScrollIndicator className="flex-1 h-full">
+            <div className="pb-6">
+              {selectedLigacaoEventId && selectedAgentPhone ? (
+                <DashboardLigacaoTab 
+                  selectedEventId={selectedLigacaoEventId}
+                  selectedAgentPhone={selectedAgentPhone}
+                  onEventChange={handleDashboardEventChange}
+                />
+              ) : (
+                <EventoSelectorLigacao
+                  onEventSelect={handleLigacaoEventSelect}
+                  selectedEventId={selectedLigacaoEventId}
+                  agentPhone={selectedAgentPhone}
+                />
+              )}
+            </div>
+          </ScrollIndicator>
+        </TabsContent>
+
+        {/* Tab Métricas Ligação */}
+        <TabsContent value="metricas-ligacao" className="flex-1 min-h-0 overflow-hidden mt-4">
+          <ScrollIndicator className="flex-1 h-full">
+            <div className="pb-6">
+              {selectedAgentPhone ? (
+                <MetricasLigacaoTab 
+                  selectedAgentPhone={selectedAgentPhone}
+                />
+              ) : (
+                <EventoSelectorLigacao
+                  onEventSelect={(eventId, phone) => {
+                    setSelectedAgentPhone(phone);
+                    setActiveTab("metricas-ligacao");
+                  }}
+                  selectedEventId={null}
+                  agentPhone={null}
+                />
+              )}
             </div>
           </ScrollIndicator>
         </TabsContent>
