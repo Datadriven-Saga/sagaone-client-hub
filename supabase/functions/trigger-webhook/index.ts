@@ -445,10 +445,14 @@ serve(async (req) => {
 
         console.log('Webhook body:', JSON.stringify(webhookBody, null, 2));
         
+        // Obter token de autorização para chamadas externas
+        const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+        
         const webhookResponse = await fetch(webhookUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
           },
           body: JSON.stringify(webhookBody)
         });
@@ -548,10 +552,14 @@ serve(async (req) => {
 
         console.log('Body:', JSON.stringify(webhookBody, null, 2));
 
+        // Obter token de autorização para chamadas externas
+        const SAGA_ONE_FOLLOWUP = Deno.env.get('SAGA_ONE') || '';
+
         const response = await fetch(webhookUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...(SAGA_ONE_FOLLOWUP ? { 'saga_one_supabase': SAGA_ONE_FOLLOWUP } : {}),
           },
           body: JSON.stringify(webhookBody)
         });
