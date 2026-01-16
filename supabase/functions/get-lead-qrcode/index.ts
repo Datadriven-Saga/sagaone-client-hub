@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { qrcode } from 'https://deno.land/x/qrcode@v2.0.0/mod.ts';
+import QRCode from 'https://esm.sh/qrcode-generator@1.4.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -137,13 +137,13 @@ Deno.serve(async (req) => {
       vendedor: contato.vendedor_nome || ''
     });
 
-    // Gerar QR Code como base64
-    const qrCodeBase64 = await qrcode(qrData, { size: 300 });
+    // Gerar QR Code como PNG base64 usando qrcode-generator
+    const qr = QRCode(0, 'M');
+    qr.addData(qrData);
+    qr.make();
     
-    // O qrcode retorna base64 puro, precisamos adicionar o prefixo data URL
-    const qrCodeDataUrl = qrCodeBase64.startsWith('data:') 
-      ? qrCodeBase64 
-      : `data:image/gif;base64,${qrCodeBase64}`;
+    // Gerar como Data URL PNG
+    const qrCodeDataUrl = qr.createDataURL(4, 0);
 
     console.log(`✅ QR Code gerado para lead: ${contato.nome}`);
 
