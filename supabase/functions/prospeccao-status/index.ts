@@ -39,11 +39,10 @@ serve(async (req) => {
   try {
     // Verificar autenticação - JWT do usuário OU token de admin
     const authHeader = req.headers.get('authorization');
-    const adminToken = req.headers.get('x-admin-token');
-    const jwt = authHeader?.replace('Bearer ', '');
+    const token = authHeader?.replace('Bearer ', '');
     
-    // Validar token de admin para chamadas externas
-    const isAdminToken = adminToken && ADMIN_TOKEN && adminToken === ADMIN_TOKEN;
+    // Verificar se é o token de admin (antes de tentar validar como JWT)
+    const isAdminToken = token && ADMIN_TOKEN && token === ADMIN_TOKEN;
     
     let supabaseClient;
     let userId: string | undefined;
@@ -51,7 +50,7 @@ serve(async (req) => {
     
     if (isAdminToken) {
       // Usar service role para acesso admin (bypassa RLS)
-      console.log('🔐 Autenticação via x-admin-token (acesso admin)');
+      console.log('🔐 Autenticação via Admin Token (acesso admin)');
       supabaseClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -59,8 +58,8 @@ serve(async (req) => {
       );
       userId = 'admin-api';
       userEmail = 'admin-api@sagaone.system';
-    } else if (jwt) {
-      // Usar JWT do usuário (respeita RLS)
+    } else if (token) {
+      // Tentar validar como JWT do usuário (respeita RLS)
       console.log('🔐 Autenticação via JWT de usuário');
       supabaseClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -73,15 +72,15 @@ serve(async (req) => {
         }
       );
       
-      const { data: { user } } = await supabaseClient.auth.getUser(jwt);
+      const { data: { user } } = await supabaseClient.auth.getUser(token);
       userId = user?.id;
       userEmail = user?.email;
       
       if (!user) {
         return new Response(
           JSON.stringify({ 
-            error: 'Token JWT inválido ou expirado',
-            dica: 'Use o header Authorization com Bearer token ou x-admin-token para acesso admin'
+            error: 'Token inválido ou expirado',
+            dica: 'Use Authorization: Bearer <jwt_token> ou Bearer <admin_token>'
           }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -92,10 +91,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: 'Autenticação necessária',
-          opcoes: [
-            'Header Authorization: Bearer <jwt_token> (para usuários logados)',
-            'Header x-admin-token: <admin_token> (para integrações externas)'
-          ]
+          uso: 'Header Authorization: Bearer <token>'
         }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
