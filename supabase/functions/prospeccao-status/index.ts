@@ -67,24 +67,25 @@ serve(async (req) => {
         {
           auth: { persistSession: false },
           global: {
-            headers: authHeader ? { authorization: authHeader } : {}
-          }
+            headers: authHeader ? { authorization: authHeader } : {},
+          },
         }
       );
-      
-      const { data: { user } } = await supabaseClient.auth.getUser(token);
-      userId = user?.id;
-      userEmail = user?.email;
-      
-      if (!user) {
+
+      // Validar JWT em código (verify_jwt=false no config)
+      const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+      if (claimsError || !claimsData?.claims) {
         return new Response(
-          JSON.stringify({ 
+          JSON.stringify({
             error: 'Token inválido ou expirado',
-            dica: 'Use Authorization: Bearer <jwt_token> ou Bearer <admin_token>'
+            dica: 'Use Authorization: Bearer <jwt_token> ou Bearer <admin_token>',
           }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      userId = claimsData.claims.sub;
+      userEmail = (claimsData.claims as any).email;
     } else {
       // Sem autenticação válida
       console.log('❌ Sem autenticação válida');
