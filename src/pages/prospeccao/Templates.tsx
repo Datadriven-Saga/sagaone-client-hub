@@ -256,7 +256,7 @@ export default function Templates() {
     enabled: !!activeCompany?.id,
   });
 
-  // Buscar todos os agentes ativos vinculados à empresa (via agente_empresas)
+  // Buscar apenas agentes "Pri - Whatsapp" (tipo IA Whatsapp) vinculados à empresa
   const { data: agentesIAWhatsapp = [] } = useQuery({
     queryKey: ["agentes_ia_whatsapp", activeCompany?.id],
     queryFn: async () => {
@@ -282,10 +282,12 @@ export default function Templates() {
         return [];
       }
 
-      // Extrair agentes únicos e ativos
+      // Extrair apenas agentes do tipo "Pri - Whatsapp" (IA Whatsapp) ativos
       const agentes = (data || [])
         .map((ae: any) => ae.agentes_ia)
         .filter((a: any) => a && a.ativo)
+        // Filtrar apenas agentes do tipo WhatsApp (nome contém "whatsapp" case insensitive)
+        .filter((a: any) => a.nome?.toLowerCase().includes('whatsapp'))
         .filter(
           (a: any, index: number, self: any[]) =>
             index === self.findIndex((t) => t.id === a.id)
