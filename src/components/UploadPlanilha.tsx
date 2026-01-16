@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
 import * as XLSX from 'xlsx';
@@ -305,21 +305,31 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
         try {
           console.log('📞 Enviando base para webhook cria-base-ligacao...');
           
+          // Buscar telefone da empresa para telefone_pri
+          const { data: empresaData } = await supabase
+            .from('empresas')
+            .select('responsavel_legal_telefone, nome_empresa')
+            .eq('id', activeCompany?.id)
+            .single();
+
+          const telefonePri = empresaData?.responsavel_legal_telefone?.replace(/\D/g, '') || '';
+          const lojaNome = empresaData?.nome_empresa || activeCompany?.nome_empresa || '';
+          
           const contatosPayload = clientesComDados.map(c => ({
+            telefone_lead: c.telefone?.replace(/\D/g, '') || '',
+            id_evento: selectedProspeccao.event_id_pri,
             nome: c.nome,
-            telefone: c.telefone?.replace(/\D/g, '') || '',
-            email: c.email || '',
-            responsavel_email: c.responsavel || '',
+            telefone_pri: telefonePri,
+            loja: lojaNome,
           }));
 
           const webhookResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/cria-base-ligacao', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              event_id_pri: selectedProspeccao.event_id_pri,
-              base_id: baseData.id,
-              empresa_id: activeCompany?.id,
               contatos: contatosPayload,
+              id_evento: selectedProspeccao.event_id_pri,
+              total_contatos: contatosPayload.length,
             }),
           });
 
