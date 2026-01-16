@@ -34,25 +34,30 @@ const APIs = () => {
 
   const apisProspeccao = [
     {
-      nome: "Consultar Status do Contato",
+      nome: "Consultar Status do Lead",
       metodo: "GET",
       endpoint: "https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/prospeccao-status",
-      parametros: "?prospeccao_id={ID}&lead_id={ID}",
-      descricao: "Retorna o status atual do contato na prospecção"
+      parametros: "?lead_id={NÚMERO}",
+      descricao: "Retorna o status atual do lead. Use o lead_id numérico recebido no disparo.",
+      exemplo: "GET /prospeccao-status?lead_id=42"
     },
     {
-      nome: "Alterar Status do Contato",
+      nome: "Alterar Status do Lead",
       metodo: "PUT",
       endpoint: "https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/prospeccao-status", 
-      parametros: "?prospeccao_id={ID}&lead_id={ID}",
-      descricao: "Altera o status do contato na prospecção"
+      parametros: "?lead_id={NÚMERO}",
+      body: '{ "novo_status": "Em Conversa" }',
+      descricao: "Altera o status do lead. Status válidos: Novo, Tentativa de Contato, Em Conversa, Interessado, Não Interessado, Reagendado, Convertido",
+      exemplo: "PUT /prospeccao-status?lead_id=42"
     },
     {
       nome: "Adicionar Anotação",
       metodo: "POST",
       endpoint: "https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/prospeccao-anotacao",
-      parametros: "{ prospeccao_id, lead_id, mensagem }",
-      descricao: "Insere uma anotação no contato dentro da prospeção"
+      parametros: "",
+      body: '{ "lead_id": 42, "mensagem": "Texto da anotação" }',
+      descricao: "Insere uma anotação no lead. Apenas lead_id e mensagem são obrigatórios.",
+      exemplo: 'POST /prospeccao-anotacao { "lead_id": 42, "mensagem": "..." }'
     }
   ];
 
@@ -167,7 +172,9 @@ const APIs = () => {
               </div>
               <div>
                 <CardTitle className="text-lg">APIs de Prospecção</CardTitle>
-                <CardDescription>APIs para gerenciar contatos e status nas prospecções</CardDescription>
+                <CardDescription>
+                  APIs para gerenciar leads via <code className="text-xs bg-muted px-1 py-0.5 rounded">lead_id</code> numérico (recebido no disparo)
+                </CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -186,9 +193,29 @@ const APIs = () => {
                       <h3 className="font-medium text-foreground">{api.nome}</h3>
                     </div>
                     <p className="text-sm text-muted-foreground mb-3">{api.descricao}</p>
-                    <div className="bg-background/80 border rounded-md p-3">
-                      <code className="text-xs text-muted-foreground break-all">
-                        {api.endpoint}{api.parametros && api.parametros}
+                    
+                    {/* Endpoint */}
+                    <div className="bg-background/80 border rounded-md p-3 mb-2">
+                      <p className="text-xs text-muted-foreground mb-1">Endpoint:</p>
+                      <code className="text-xs text-foreground break-all">
+                        {api.endpoint}{api.parametros}
+                      </code>
+                    </div>
+
+                    {/* Body se existir */}
+                    {api.body && (
+                      <div className="bg-background/80 border rounded-md p-3 mb-2">
+                        <p className="text-xs text-muted-foreground mb-1">Body:</p>
+                        <code className="text-xs text-foreground break-all">
+                          {api.body}
+                        </code>
+                      </div>
+                    )}
+
+                    {/* Exemplo */}
+                    <div className="bg-primary/5 border border-primary/20 rounded-md p-2">
+                      <code className="text-xs text-primary">
+                        {api.exemplo}
                       </code>
                     </div>
                   </div>

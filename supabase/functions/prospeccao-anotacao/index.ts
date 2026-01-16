@@ -17,7 +17,7 @@ function getCorsHeaders(req: Request) {
   return {
     'Access-Control-Allow-Origin': isAllowed && origin ? origin : allowedOrigins[0],
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Max-Age': '86400',
   };
 }
@@ -54,7 +54,6 @@ serve(async (req) => {
     const userEmail = user?.email;
     
     console.log(`API prospeccao-anotacao accessed by user: ${userEmail} (${userId})`);
-    console.log(`Request data:`, { prospeccao_id: req.url.includes('prospeccao_id') });
 
     if (req.method !== 'POST') {
       return new Response(
@@ -66,12 +65,16 @@ serve(async (req) => {
       );
     }
 
-    const { prospeccao_id, contato_id, mensagem } = await req.json();
+    const body = await req.json();
+    const { lead_id, mensagem } = body;
 
-    if (!prospeccao_id || !contato_id || !mensagem) {
+    console.log(`Request body:`, { lead_id, mensagem: mensagem?.substring(0, 50) });
+
+    if (!lead_id || !mensagem) {
       return new Response(
         JSON.stringify({ 
-          error: 'prospeccao_id, contato_id e mensagem são obrigatórios' 
+          error: 'lead_id e mensagem são obrigatórios',
+          exemplo: '{ "lead_id": 42, "mensagem": "Texto da anotação" }'
         }),
         {
           status: 400,
@@ -80,16 +83,44 @@ serve(async (req) => {
       );
     }
 
-    // Verificar se o contato existe
-    const { data: contato, error: contatoError } = await supabaseClient
-      .from('contatos')
-      .select('id, nome')
-      .eq('id', contato_id)
-      .single();
+    // Determinar se é lead_id numérico ou contato_id UUID (retrocompatibilidade)
+    const isNumericLeadId = /^\d+$/.test(String(lead_id));
+    
+    console.log(`   ├─ lead_id: ${lead_id}`);
+    console.log(`   └─ tipo: ${isNumericLeadId ? 'numérico (lead_id)' : 'UUID (contato_id)'}`);
+
+    // Buscar contato pelo identificador apropriado
+    let contato;
+    let contatoError;
+
+    if (isNumericLeadId) {
+      // Buscar por lead_id (INTEGER)
+      const result = await supabaseClient
+        .from('contatos')
+        .select('id, lead_id, nome')
+        .eq('lead_id', parseInt(String(lead_id)))
+        .single();
+      contato = result.data;
+      contatoError = result.error;
+    } else {
+      // Buscar por id (UUID) - retrocompatibilidade
+      const result = await supabaseClient
+        .from('contatos')
+        .select('id, lead_id, nome')
+        .eq('id', lead_id)
+        .single();
+      contato = result.data;
+      contatoError = result.error;
+    }
 
     if (contatoError || !contato) {
+      console.error('Contato não encontrado:', contatoError);
       return new Response(
-        JSON.stringify({ error: 'Contato não encontrado' }),
+        JSON.stringify({ 
+          error: 'Contato não encontrado',
+          lead_id: lead_id,
+          tipo_busca: isNumericLeadId ? 'lead_id numérico' : 'contato_id UUID'
+        }),
         {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -97,12 +128,24 @@ serve(async (req) => {
       );
     }
 
-    // Inserir evento de prospecção (anotação) - salvar userId em observacoes para referência
+    console.log(`   └─ Contato encontrado: ${contato.nome} (id: ${contato.id})`);
+
+    // Buscar prospeccao_id associada ao contato (via eventos_prospeccao)
+    const { data: eventoProspeccao } = await supabaseClient
+      .from('eventos_prospeccao')
+      .select('prospeccao_id')
+      .eq('contato_id', contato.id)
+      .limit(1)
+      .single();
+    
+    const prospeccaoId = eventoProspeccao?.prospeccao_id || null;
+
+    // Inserir evento de prospecção (anotação)
     const { data: evento, error: eventoError } = await supabaseClient
       .from('eventos_prospeccao')
       .insert({
-        prospeccao_id: prospeccao_id,
-        contato_id: contato_id,
+        prospeccao_id: prospeccaoId,
+        contato_id: contato.id,
         tipo_evento: 'Anotação',
         descricao: mensagem,
         observacoes: userId || null,
@@ -122,25 +165,31 @@ serve(async (req) => {
       );
     }
 
-    // Disparar gatilho de adição de anotação
-    await supabaseClient.functions.invoke('trigger-webhook', {
-      body: {
-        gatilho: 'adicao_anotacao_prospeccao',
-        dados: {
-          prospeccao_id: prospeccao_id,
-          contato_id: contato_id,
-          mensagem: mensagem,
-          evento_id: evento.id
+    console.log(`   └─ Anotação criada com sucesso (evento_id: ${evento.id})`);
+
+    // Disparar gatilho de adição de anotação (se tiver prospeccao_id)
+    if (prospeccaoId) {
+      await supabaseClient.functions.invoke('trigger-webhook', {
+        body: {
+          gatilho: 'adicao_anotacao_prospeccao',
+          dados: {
+            lead_id: contato.lead_id,
+            prospeccao_id: prospeccaoId,
+            contato_id: contato.id,
+            mensagem: mensagem,
+            evento_id: evento.id
+          }
         }
-      }
-    });
+      });
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
         evento_id: evento.id,
-        prospeccao_id: prospeccao_id,
-        contato_id: contato_id,
+        lead_id: contato.lead_id,
+        contato_id: contato.id,
+        prospeccao_id: prospeccaoId,
         mensagem: mensagem,
         data_criacao: evento.created_at
       }),
