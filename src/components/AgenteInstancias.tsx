@@ -241,21 +241,17 @@ export function AgenteInstancias({ agenteId, isNewAgent = false }: AgenteInstanc
   };
 
   const buscarInstancias = async (): Promise<InstanciaData | null> => {
-    const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-instancias_evo', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
+    const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+      body: { 
+        endpoint: 'verifica-instancias_evo',
         telefone: savedTelefoneMaia
-      })
+      }
     });
 
-    if (!response.ok) {
-      throw new Error(`Erro na requisição: ${response.status}`);
+    if (error) {
+      throw new Error(`Erro na requisição: ${error.message}`);
     }
 
-    const data = await response.json();
     console.log('Resposta do webhook verifica-instancias_evo:', data);
     
     if (data && Object.keys(data).length > 0 && data.num_maia) {
@@ -360,20 +356,17 @@ export function AgenteInstancias({ agenteId, isNewAgent = false }: AgenteInstanc
     try {
       setSavingEdit(true);
 
-      // Primeiro, atualizar instância via webhook atualiza-instancias_evo
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-instancias_evo', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Primeiro, atualizar instância via edge function
+      const { error: updateError } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: {
+          endpoint: 'atualiza-instancias_evo',
           telefone: savedTelefoneMaia,
           ...editedData
-        })
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
+      if (updateError) {
+        throw new Error(`Erro na requisição: ${updateError.message}`);
       }
 
       // Também chamar o webhook de atualização de agente
@@ -396,12 +389,11 @@ export function AgenteInstancias({ agenteId, isNewAgent = false }: AgenteInstanc
 
         console.log('Enviando para webhook atualiza-agente:', agentePayload);
 
-        await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-agente', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(agentePayload)
+        await supabase.functions.invoke('external-webhook-proxy', {
+          body: {
+            endpoint: 'atualiza-agente',
+            ...agentePayload
+          }
         });
       } catch (webhookError) {
         console.error('Erro ao chamar webhook atualiza-agente:', webhookError);
@@ -566,19 +558,17 @@ export function AgenteInstancias({ agenteId, isNewAgent = false }: AgenteInstanc
 
       console.log('Enviando para webhook cria-agente:', payload);
 
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/cria-agente', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
+      const { data: result, error } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: {
+          endpoint: 'cria-agente',
+          ...payload
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
+      if (error) {
+        throw new Error(`Erro na requisição: ${error.message}`);
       }
 
-      const result = await response.json();
       console.log('Resposta do webhook cria-agente:', result);
 
       toast({

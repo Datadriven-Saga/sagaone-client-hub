@@ -670,19 +670,16 @@ export default function AdminAgentes() {
     try {
       setLoadingInstancia(true);
       
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-instancias_evo', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ telefone })
+      const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: { 
+          endpoint: 'verifica-instancias_evo',
+          telefone 
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
+      if (error) {
+        throw new Error(`Erro na requisição: ${error.message}`);
       }
-
-      const data = await response.json();
       
       if (data && Object.keys(data).length > 0 && data.num_maia) {
         setInstanciaData(data);
@@ -1042,16 +1039,15 @@ export default function AdminAgentes() {
       console.log('Enviando para webhook atualiza-agente:', webhookPayload);
 
       try {
-        const webhookResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-agente', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(webhookPayload)
+        const { error: webhookError } = await supabase.functions.invoke('external-webhook-proxy', {
+          body: {
+            endpoint: 'atualiza-agente',
+            ...webhookPayload
+          }
         });
 
-        if (!webhookResponse.ok) {
-          console.error('Webhook atualiza-agente retornou erro:', webhookResponse.status);
+        if (webhookError) {
+          console.error('Webhook atualiza-agente retornou erro:', webhookError);
           toast({
             title: "Atenção",
             description: "Salvo no sistema, mas falhou ao atualizar no webhook (atualiza-agente).",
@@ -1186,19 +1182,16 @@ export default function AdminAgentes() {
     try {
       setSavingInstancia(true);
 
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-instancias_evo', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { error } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: {
+          endpoint: 'atualiza-instancias_evo',
           telefone: selectedAgente.telefone,
           ...editedInstancia
-        })
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
+      if (error) {
+        throw new Error(`Erro na requisição: ${error.message}`);
       }
 
       toast({
@@ -1336,27 +1329,25 @@ export default function AdminAgentes() {
 
       console.log('Enviando para webhook cria-agente:', payload);
 
-      // Enviar para o webhook
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/cria-agente', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
+      // Enviar para o webhook via edge function
+      const { data: result, error: webhookError } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: {
+          endpoint: 'cria-agente',
+          ...payload
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Erro na requisição do webhook: ${response.status}`);
+      if (webhookError) {
+        throw new Error(`Erro na requisição do webhook: ${webhookError.message}`);
       }
 
-      const result = await response.json();
       console.log('Resposta do webhook cria-agente:', result);
 
       // Determinar o nome do agente para salvar no banco
       const nomeAgente = formData.nome.trim() || novaInstancia.agente.trim() || `${novaInstancia.agente.trim() || 'Maia'} ${novaInstancia.marca.trim()} ${novaInstancia.uf.trim()}`;
 
       // Salvar no banco Supabase
-      const { data: newAgent, error } = await supabase
+      const { data: newAgent, error: insertError } = await supabase
         .from('agentes_ia')
         .insert({
           nome: nomeAgente,
@@ -1369,9 +1360,9 @@ export default function AdminAgentes() {
         .select()
         .single();
 
-      if (error) {
-        console.error('Erro ao salvar no Supabase:', error);
-        throw error;
+      if (insertError) {
+        console.error('Erro ao salvar no Supabase:', insertError);
+        throw insertError;
       }
 
       // Atualizar estado local
