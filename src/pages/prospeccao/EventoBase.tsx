@@ -12,7 +12,7 @@ import {
   Download, Users, Search, Filter, Send, Loader2, CheckCircle, Phone, Mail, 
   Calendar, Clock, ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, MessageCircle, PhoneCall, Lock
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useUserAccessType } from '@/hooks/useUserAccessType';
