@@ -166,21 +166,17 @@ export default function Instancias() {
   };
 
   const buscarInstancias = async (): Promise<InstanciaData | null> => {
-    const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-instancias_evo', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
+    const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+      body: { 
+        endpoint: 'verifica-instancias_evo',
         telefone: telefoneMaia
-      })
+      }
     });
 
-    if (!response.ok) {
-      throw new Error(`Erro na requisição: ${response.status}`);
+    if (error) {
+      throw new Error(`Erro na requisição: ${error.message}`);
     }
 
-    const data = await response.json();
     console.log('Resposta do webhook verifica-instancias_evo:', data);
     
     if (data && Object.keys(data).length > 0 && data.num_maia) {
@@ -246,19 +242,16 @@ export default function Instancias() {
     try {
       setSavingEdit(true);
 
-      const response = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-instancias_evo', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { error } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: {
+          endpoint: 'atualiza-instancias_evo',
           telefone: telefoneMaia,
           ...editedData
-        })
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
+      if (error) {
+        throw new Error(`Erro na requisição: ${error.message}`);
       }
 
       toast({
