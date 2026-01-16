@@ -1947,42 +1947,49 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
 
         <TabsContent value="recepcao" className="flex-1 min-h-0 overflow-hidden w-full">
           <ScrollIndicator className="flex-1 h-full">
-            <div className="space-y-1.5 pb-6">
-              <Card className="p-3">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <UserCheck className="text-primary" size={18} />
-                    <div>
-                      <h3 className="text-base font-semibold text-foreground">Recepção de Visitas</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {filteredVisitas.length} {filteredVisitas.length === 1 ? 'visita registrada' : 'visitas registradas'}
-                      </p>
-                    </div>
+            <div className="space-y-3 pb-6 px-1 sm:px-0">
+              {/* Header com ações - Mobile First */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <UserCheck className="text-primary" size={20} />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setIsQRCodeScannerOpen(true)}
-                    >
-                      <ScanLine className="w-4 h-4 mr-2" />
-                      Ler QR Code
-                    </Button>
-                    <Button 
-                      size="sm"
-                      onClick={() => {
-                        setRecepcaoInitialData(null);
-                        setIsRecepcaoModalOpen(true);
-                      }}
-                    >
-                      Registrar Visita
-                    </Button>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Recepção</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {filteredVisitas.length} {filteredVisitas.length === 1 ? 'visita' : 'visitas'}
+                    </p>
                   </div>
                 </div>
+                
+                {/* Botões de ação - empilhados no mobile */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button 
+                    variant="outline"
+                    onClick={() => setIsQRCodeScannerOpen(true)}
+                    className="w-full sm:w-auto justify-center gap-2"
+                  >
+                    <ScanLine className="w-4 h-4" />
+                    <span>Ler QR Code</span>
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      setRecepcaoInitialData(null);
+                      setIsRecepcaoModalOpen(true);
+                    }}
+                    className="w-full sm:w-auto justify-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Registrar Visita</span>
+                  </Button>
+                </div>
+              </div>
 
+              {/* Conteúdo */}
+              <Card className="p-3 sm:p-4">
                 {loadingVisitas ? (
-                  <div className="flex items-center justify-center h-24">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  <div className="flex items-center justify-center h-32">
+                    <Loader2 className="w-6 h-6 text-primary animate-spin" />
                   </div>
                 ) : (
                   <RecepcaoTable 

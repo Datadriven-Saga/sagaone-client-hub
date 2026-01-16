@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
-import { Camera, X, AlertCircle, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
+import { Camera, X, AlertCircle, CheckCircle2, RotateCcw, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -22,78 +22,75 @@ interface QRCodeData {
 }
 
 export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [processing, setProcessing] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'starting' | 'scanning' | 'processing' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<{ nome: string } | null>(null);
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
-  const hasProcessedRef = useRef(false);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isInitializingRef = useRef(false);
   const { toast } = useToast();
   const { activeCompany } = useCompany();
 
+  const stopScanner = useCallback(async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+      } catch (err) {
+        // Ignorar erros ao parar
+      }
+      try {
+        scannerRef.current.clear();
+      } catch (err) {
+        // Ignorar erros ao limpar
+      }
+      scannerRef.current = null;
+    }
+  }, []);
+
   const handleScanSuccess = useCallback(async (decodedText: string) => {
-    // Evitar processamento duplicado
-    if (hasProcessedRef.current || processing) return;
-    hasProcessedRef.current = true;
-    setProcessing(true);
+    if (status === 'processing' || status === 'success') return;
+    
+    setStatus('processing');
+    await stopScanner();
 
     console.log('QR Code scanned:', decodedText);
 
     try {
-      // Tentar parsear o JSON do QR Code
       let qrData: QRCodeData;
       
       try {
         qrData = JSON.parse(decodedText);
       } catch {
-        throw new Error('QR Code inválido - formato incorreto');
+        throw new Error('QR Code inválido');
       }
 
-      // Validar campos obrigatórios
-      if (!qrData.qr_token) {
-        throw new Error('QR Code inválido - token ausente');
+      if (!qrData.qr_token || !qrData.convidado_nome || !qrData.convidado_telefone || !qrData.vendedor || !qrData.quem_convidou) {
+        throw new Error('QR Code inválido - dados incompletos');
       }
 
-      if (!qrData.convidado_nome || !qrData.convidado_telefone || !qrData.vendedor || !qrData.quem_convidou) {
-        throw new Error('QR Code inválido - campos incompletos');
-      }
-
-      console.log('QR Data parsed:', qrData);
-
-      // Buscar contato pelo qr_token
       const { data: contato, error: contatoError } = await supabase
         .from('contatos')
         .select('id, status, empresa_id, nome, qr_token_used')
         .eq('qr_token', qrData.qr_token)
         .maybeSingle();
 
-      if (contatoError) {
-        console.error('Erro ao buscar contato:', contatoError);
-        throw new Error('Erro ao validar QR Code');
+      if (contatoError || !contato) {
+        throw new Error('QR Code não encontrado');
       }
 
-      if (!contato) {
-        throw new Error('QR Code não encontrado no sistema');
-      }
-
-      // Verificar se já foi usado
       if (contato.qr_token_used) {
         toast({
           title: 'Convite já utilizado',
-          description: 'Este convite já foi utilizado anteriormente.',
+          description: 'Este convite já foi usado anteriormente.',
           variant: 'destructive',
         });
-        hasProcessedRef.current = false;
-        setProcessing(false);
+        setStatus('idle');
         return;
       }
 
-      // Verificar se pertence à empresa ativa
       if (activeCompany && contato.empresa_id !== activeCompany.id) {
         throw new Error('Contato não pertence a esta empresa');
       }
 
-      // Atualizar status para Check-in e marcar token como usado
       const { error: updateError } = await supabase
         .from('contatos')
         .update({ 
@@ -104,11 +101,8 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
         })
         .eq('id', contato.id);
 
-      if (updateError) {
-        throw updateError;
-      }
+      if (updateError) throw updateError;
 
-      // Registrar log de movimentação
       const { data: prospeccaoData } = await supabase
         .from('prospeccoes')
         .select('id')
@@ -129,16 +123,14 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
           });
       }
 
-      // Mostrar sucesso
-      setSuccess(true);
       setSuccessData({ nome: qrData.convidado_nome });
+      setStatus('success');
 
       toast({
-        title: 'Check-in realizado com sucesso!',
+        title: 'Check-in realizado!',
         description: `${qrData.convidado_nome} fez check-in.`,
       });
 
-      // Aguardar 2 segundos e fechar
       setTimeout(() => {
         onSuccess();
         onClose();
@@ -148,167 +140,191 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
       console.error('Error processing QR code:', err);
       toast({
         title: 'QR Code inválido',
-        description: err.message || 'Faça o processo novamente ou registre a visita de forma manual.',
+        description: err.message || 'Tente novamente ou registre manualmente.',
         variant: 'destructive',
       });
-      hasProcessedRef.current = false;
-      setProcessing(false);
+      setStatus('idle');
     }
-  }, [activeCompany, toast, onSuccess, onClose, processing]);
+  }, [status, stopScanner, activeCompany, toast, onSuccess, onClose]);
+
+  const startScanner = useCallback(async () => {
+    if (isInitializingRef.current || scannerRef.current) return;
+    
+    isInitializingRef.current = true;
+    setStatus('starting');
+    setErrorMessage(null);
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const container = document.getElementById('qr-reader-container');
+      if (!container) throw new Error('Container não encontrado');
+
+      const cameras = await Html5Qrcode.getCameras();
+      
+      if (!cameras || cameras.length === 0) {
+        throw new Error('Nenhuma câmera disponível');
+      }
+
+      // Preferir câmera traseira
+      let cameraId = cameras[0].id;
+      for (const camera of cameras) {
+        const label = camera.label.toLowerCase();
+        if (label.includes('back') || label.includes('rear') || label.includes('traseira')) {
+          cameraId = camera.id;
+          break;
+        }
+      }
+      if (cameras.length > 1) {
+        cameraId = cameras[cameras.length - 1].id;
+      }
+
+      const html5QrCode = new Html5Qrcode('qr-reader-container');
+      scannerRef.current = html5QrCode;
+
+      await html5QrCode.start(
+        cameraId,
+        {
+          fps: 10,
+          qrbox: { width: 220, height: 220 },
+          aspectRatio: 1.0,
+        },
+        handleScanSuccess,
+        () => {} // Ignorar erros normais de scan
+      );
+      
+      setStatus('scanning');
+      isInitializingRef.current = false;
+    } catch (err: any) {
+      console.error('Error starting scanner:', err);
+      isInitializingRef.current = false;
+      
+      let msg = 'Não foi possível acessar a câmera.';
+      if (err.name === 'NotAllowedError' || err.message?.includes('Permission')) {
+        msg = 'Permissão da câmera negada. Permita o acesso nas configurações.';
+      } else if (err.name === 'NotFoundError') {
+        msg = 'Nenhuma câmera encontrada.';
+      } else if (err.name === 'NotReadableError') {
+        msg = 'Câmera em uso por outro app.';
+      }
+      
+      setErrorMessage(msg);
+      setStatus('error');
+    }
+  }, [handleScanSuccess]);
 
   useEffect(() => {
-    if (isOpen && !success && !scannerRef.current) {
-      // Aguardar o elemento estar no DOM
-      const timer = setTimeout(() => {
-        const element = document.getElementById('qr-reader');
-        if (!element) {
-          console.error('QR reader element not found');
-          return;
-        }
-
-        try {
-          const scanner = new Html5QrcodeScanner(
-            'qr-reader',
-            {
-              fps: 10,
-              qrbox: { width: 250, height: 250 },
-              rememberLastUsedCamera: true,
-              supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-            },
-            /* verbose= */ false
-          );
-
-          scanner.render(
-            handleScanSuccess,
-            (errorMessage) => {
-              // Ignorar erros de scan - são normais quando não há QR code na frente
-              console.log('Scan error (normal):', errorMessage);
-            }
-          );
-
-          scannerRef.current = scanner;
-          console.log('Scanner initialized successfully');
-        } catch (err) {
-          console.error('Error initializing scanner:', err);
-          setError('Não foi possível inicializar o scanner. Verifique as permissões da câmera.');
-        }
-      }, 300);
-
-      return () => clearTimeout(timer);
+    if (isOpen && status === 'idle') {
+      startScanner();
     }
-  }, [isOpen, success, handleScanSuccess]);
+  }, [isOpen, status, startScanner]);
 
-  const cleanupScanner = useCallback(() => {
-    if (scannerRef.current) {
-      try {
-        scannerRef.current.clear();
-        console.log('Scanner cleared');
-      } catch (err) {
-        console.error('Error clearing scanner:', err);
-      }
-      scannerRef.current = null;
-    }
-  }, []);
-
-  const handleClose = useCallback(() => {
-    cleanupScanner();
-    setError(null);
-    setProcessing(false);
-    setSuccess(false);
-    setSuccessData(null);
-    hasProcessedRef.current = false;
-    onClose();
-  }, [cleanupScanner, onClose]);
-
-  const handleRetry = useCallback(() => {
-    cleanupScanner();
-    setError(null);
-    setProcessing(false);
-    hasProcessedRef.current = false;
-    
-    // Re-initialize after cleanup
-    setTimeout(() => {
-      const element = document.getElementById('qr-reader');
-      if (!element) return;
-
-      try {
-        const scanner = new Html5QrcodeScanner(
-          'qr-reader',
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            rememberLastUsedCamera: true,
-            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-          },
-          false
-        );
-
-        scanner.render(handleScanSuccess, () => {});
-        scannerRef.current = scanner;
-      } catch (err) {
-        console.error('Error reinitializing scanner:', err);
-        setError('Não foi possível reiniciar o scanner.');
-      }
-    }, 300);
-  }, [cleanupScanner, handleScanSuccess]);
-
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      cleanupScanner();
+      stopScanner();
+      isInitializingRef.current = false;
     };
-  }, [cleanupScanner]);
+  }, [stopScanner]);
+
+  const handleClose = useCallback(() => {
+    stopScanner();
+    setStatus('idle');
+    setErrorMessage(null);
+    setSuccessData(null);
+    isInitializingRef.current = false;
+    onClose();
+  }, [stopScanner, onClose]);
+
+  const handleRetry = useCallback(() => {
+    stopScanner();
+    setStatus('idle');
+    setErrorMessage(null);
+    isInitializingRef.current = false;
+    setTimeout(() => startScanner(), 200);
+  }, [stopScanner, startScanner]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Camera className="w-5 h-5" />
-            Ler QR Code
+      <DialogContent className="max-w-[95vw] sm:max-w-md p-4 sm:p-6 rounded-2xl">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <Camera className="w-5 h-5 text-primary" />
+            Check-in via QR Code
           </DialogTitle>
-          <DialogDescription>
-            Posicione o QR Code do convite na área de leitura
+          <DialogDescription className="text-sm">
+            Aponte a câmera para o QR Code do convite
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {success && successData ? (
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                <CheckCircle2 className="w-10 h-10 text-green-600" />
+        <div className="flex flex-col items-center justify-center min-h-[280px] sm:min-h-[320px]">
+          {status === 'success' && successData ? (
+            <div className="flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-300">
+              <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-12 h-12 text-green-600 dark:text-green-400" />
               </div>
-              <h3 className="text-lg font-semibold text-green-600">Check-in realizado!</h3>
-              <p className="text-muted-foreground mt-2">
-                {successData.nome} fez check-in com sucesso.
+              <h3 className="text-xl font-semibold text-green-600 dark:text-green-400">
+                Check-in realizado!
+              </h3>
+              <p className="text-muted-foreground mt-2 text-sm">
+                {successData.nome}
               </p>
             </div>
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-              <p className="text-sm text-muted-foreground mb-4">{error}</p>
-              <Button onClick={handleRetry} variant="outline" className="gap-2">
+          ) : status === 'error' ? (
+            <div className="flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
+              <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mb-4">
+                <AlertCircle className="w-10 h-10 text-destructive" />
+              </div>
+              <p className="text-sm text-muted-foreground mb-4 max-w-[250px]">
+                {errorMessage}
+              </p>
+              <Button onClick={handleRetry} variant="outline" size="sm" className="gap-2">
                 <RotateCcw className="w-4 h-4" />
                 Tentar novamente
               </Button>
             </div>
+          ) : status === 'starting' ? (
+            <div className="flex flex-col items-center justify-center p-8">
+              <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+              <p className="text-sm text-muted-foreground">Iniciando câmera...</p>
+            </div>
+          ) : status === 'processing' ? (
+            <div className="flex flex-col items-center justify-center p-8">
+              <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+              <p className="text-sm text-muted-foreground">Processando...</p>
+            </div>
           ) : (
-            <div 
-              id="qr-reader" 
-              className="w-full min-h-[350px] bg-muted rounded-lg overflow-hidden"
-            />
-          )}
-
-          {processing && !success && (
-            <div className="flex items-center justify-center p-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-              <span className="ml-2 text-sm">Processando...</span>
+            <div className="w-full flex flex-col items-center">
+              <div className="relative w-full max-w-[280px] aspect-square rounded-xl overflow-hidden bg-black">
+                <div 
+                  id="qr-reader-container" 
+                  className="w-full h-full"
+                />
+                {/* Overlay com cantos destacados */}
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-[200px] h-[200px] relative">
+                      {/* Cantos */}
+                      <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg" />
+                      <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg" />
+                      <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg" />
+                      <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-lg" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground text-center mt-3 px-4">
+                Mantenha o QR Code centralizado na área de leitura
+              </p>
             </div>
           )}
         </div>
 
-        <div className="flex justify-end">
-          <Button variant="outline" onClick={handleClose}>
+        <div className="flex justify-center pt-2">
+          <Button 
+            variant="ghost" 
+            onClick={handleClose}
+            className="text-muted-foreground hover:text-foreground"
+          >
             <X className="w-4 h-4 mr-2" />
             Fechar
           </Button>
