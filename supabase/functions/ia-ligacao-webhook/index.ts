@@ -61,9 +61,14 @@ async function buscarProximoIdEvento(): Promise<number> {
   try {
     console.log('🔍 Consultando webhook verifica-eventos...');
     
+    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+    
     const response = await fetch(WEBHOOK_VERIFICA, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(SAGA_ONE ? { 'api-token': SAGA_ONE } : {}),
+      },
     });
 
     if (!response.ok) {
@@ -322,9 +327,14 @@ Deno.serve(async (req: Request) => {
     console.log('📤 Enviando para:', webhookUrl);
     console.log('📦 Payload:', JSON.stringify(payload, null, 2));
 
+    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+
     const response = await fetch(webhookUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(SAGA_ONE ? { 'api-token': SAGA_ONE } : {}),
+      },
       body: JSON.stringify(payload),
     });
 

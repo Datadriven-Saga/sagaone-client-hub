@@ -13,6 +13,8 @@ serve(async (req) => {
   }
 
   try {
+    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+    
     const { action, ...params } = await req.json();
 
     let webhookUrl: string;
@@ -42,6 +44,21 @@ serve(async (req) => {
         };
         break;
 
+      case 'listar_geral':
+        webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/eventos-pri';
+        body = {
+          telefone_pri: params.telefone_pri,
+        };
+        break;
+
+      case 'buscar_contatos':
+        webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-contatos';
+        body = {
+          telefone_pri: params.telefone_pri,
+          id_evento: params.id_evento,
+        };
+        break;
+
       default:
         return new Response(
           JSON.stringify({ error: 'Ação inválida' }),
@@ -54,7 +71,7 @@ serve(async (req) => {
     // N8N pode estar configurado para aceitar GET no "verifica-eventos".
     // Fazemos POST primeiro, e se o endpoint retornar o erro clássico de method mismatch,
     // tentamos novamente via GET usando querystring.
-    const tryPostFirst = action === 'listar';
+    const tryPostFirst = action === 'listar' || action === 'listar_geral' || action === 'buscar_contatos';
 
     const buildGetUrl = (baseUrl: string, payload: Record<string, any>) => {
       const url = new URL(baseUrl);
@@ -66,12 +83,15 @@ serve(async (req) => {
       return url.toString();
     };
 
+    const webhookHeaders = {
+      'Content-Type': 'application/json',
+      ...(SAGA_ONE ? { 'api-token': SAGA_ONE } : {}),
+    };
+
     const doPost = async () => {
       return await fetch(webhookUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: webhookHeaders,
         body: JSON.stringify(body),
       });
     };
@@ -79,6 +99,7 @@ serve(async (req) => {
     const doGet = async () => {
       return await fetch(buildGetUrl(webhookUrl, body), {
         method: 'GET',
+        headers: SAGA_ONE ? { 'api-token': SAGA_ONE } : {},
       });
     };
 
