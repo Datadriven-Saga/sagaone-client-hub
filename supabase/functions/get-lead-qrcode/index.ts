@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
         vendedor_nome,
         empresa_id,
         empresas:empresa_id (
-          nome
+          nome_empresa
         )
       `)
       .eq('codigo', leadCode)
@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
           telefone: contato.telefone,
           email: contato.email,
           status: contato.status,
-          empresa: (contato.empresas as any)?.nome || null,
+          empresa: (contato.empresas as any)?.nome_empresa || null,
           qr_token_used: contato.qr_token_used
         },
         qrcode: {
