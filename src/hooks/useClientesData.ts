@@ -49,13 +49,16 @@ export function useClientesData() {
           name: cliente.nome,
           phone: cliente.telefone || '',
           email: cliente.email || '',
-          gender: cliente.data_nascimento ? 'Informado' : 'Não informado',
+          gender: cliente.observacoes?.includes('Masculino') ? 'Masculino' : 
+                  cliente.observacoes?.includes('Feminino') ? 'Feminino' : 
+                  cliente.observacoes?.includes('Outro') ? 'Outro' : 'Não informado',
           birthDate: cliente.data_nascimento || '-',
           document: cliente.cpf_cnpj || '-',
           hasPurchased: clientesComCompra.has(cliente.id) ? "Sim" : "Não",
-          responsible: "Sistema", // Pode ser melhorado com dados de responsável
-          products: "-", // Pode ser melhorado com dados de produtos
-          lastPurchase: "-" // Pode ser melhorado com última compra
+          responsible: "Sistema",
+          products: "-",
+          lastPurchase: "-",
+          createdAt: cliente.created_at
         }));
 
         setClientes(clientesFormatted);
