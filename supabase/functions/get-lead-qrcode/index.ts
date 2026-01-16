@@ -159,12 +159,13 @@ Deno.serve(async (req) => {
     });
 
     // Gerar QR Code como PNG base64 usando qrcode-generator
+    // Usar cellSize maior e margem adequada para compatibilidade com leitores
     const qr = QRCode(0, 'M');
     qr.addData(qrData);
     qr.make();
     
-    // Gerar como Data URL PNG
-    const qrCodeDataUrl = qr.createDataURL(4, 0);
+    // Gerar como Data URL PNG com cellSize=10 e margin=4 (equivalente ao frontend com margin: 2)
+    const qrCodeDataUrl = qr.createDataURL(10, 4);
 
     console.log(`✅ QR Code gerado para lead: ${contato.nome}`);
 
