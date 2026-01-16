@@ -1,6 +1,6 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Trash2, Calendar, Phone, User, Tag, Building2 } from "lucide-react";
 import { RecepcaoVisita } from "@/hooks/useRecepcaoData";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -12,7 +12,6 @@ interface RecepcaoTableProps {
 }
 
 export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: RecepcaoTableProps) => {
-  // Filtrar visitas baseado no searchFilter
   const visitasFiltradas = visitas.filter(visita => {
     if (!searchFilter) return true;
     
@@ -28,61 +27,127 @@ export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: Recepcao
 
   if (visitasFiltradas.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+          <User className="w-8 h-8 text-muted-foreground" />
+        </div>
         {searchFilter ? (
           <>
-            <p>Nenhuma visita encontrada</p>
-            <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>
+            <p className="text-muted-foreground font-medium">Nenhuma visita encontrada</p>
+            <p className="text-sm text-muted-foreground mt-1">Tente ajustar os filtros</p>
           </>
         ) : (
           <>
-            <p>Nenhuma visita registrada ainda</p>
-            <p className="text-sm mt-2">Clique em "Registrar Visita" para começar</p>
+            <p className="text-muted-foreground font-medium">Nenhuma visita registrada</p>
+            <p className="text-sm text-muted-foreground mt-1">Registre uma visita ou leia um QR Code</p>
           </>
         )}
       </div>
     );
   }
 
-  return (
-    <div className="border rounded-lg">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nome do Cliente</TableHead>
-            <TableHead>Telefone</TableHead>
-            <TableHead>Campanha</TableHead>
-            <TableHead>ID da Empresa</TableHead>
-            <TableHead>ID da Maia</TableHead>
-            <TableHead>Data/Hora da Visita</TableHead>
-            <TableHead className="w-[100px]">Ações</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {visitasFiltradas.map((visita) => (
-            <TableRow key={visita.id}>
-              <TableCell className="font-medium">{visita.nome_cliente}</TableCell>
-              <TableCell>{visita.telefone_cliente}</TableCell>
-              <TableCell>{visita.nome_campanha}</TableCell>
-              <TableCell className="font-mono text-sm">{visita.empresa_id}</TableCell>
-              <TableCell className="font-mono text-sm">{visita.id_maia || "-"}</TableCell>
-              <TableCell>
-                {format(new Date(visita.data_hora_visita), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-              </TableCell>
-              <TableCell>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onDelete(visita.id)}
-                  className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
-                >
-                  <Trash2 size={16} />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+  // Mobile card view
+  const MobileCard = ({ visita }: { visita: RecepcaoVisita }) => (
+    <div className="bg-card border rounded-xl p-4 space-y-3">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <User className="w-5 h-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-medium text-foreground truncate">{visita.nome_cliente}</p>
+            <p className="text-sm text-muted-foreground">{visita.telefone_cliente}</p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onDelete(visita.id)}
+          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+        >
+          <Trash2 size={16} />
+        </Button>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Tag className="w-3.5 h-3.5" />
+          <span className="truncate">{visita.nome_campanha}</span>
+        </div>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Calendar className="w-3.5 h-3.5" />
+          <span>{format(new Date(visita.data_hora_visita), "dd/MM HH:mm", { locale: ptBR })}</span>
+        </div>
+      </div>
+      
+      {visita.id_maia && (
+        <div className="text-xs text-muted-foreground pt-1 border-t">
+          ID Maia: {visita.id_maia}
+        </div>
+      )}
     </div>
+  );
+
+  return (
+    <>
+      {/* Mobile view - cards */}
+      <div className="block sm:hidden space-y-3">
+        {visitasFiltradas.map((visita) => (
+          <MobileCard key={visita.id} visita={visita} />
+        ))}
+      </div>
+
+      {/* Desktop view - table */}
+      <div className="hidden sm:block border rounded-lg overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="font-semibold">Cliente</TableHead>
+              <TableHead className="font-semibold">Telefone</TableHead>
+              <TableHead className="font-semibold">Campanha</TableHead>
+              <TableHead className="font-semibold hidden lg:table-cell">ID Maia</TableHead>
+              <TableHead className="font-semibold">Data/Hora</TableHead>
+              <TableHead className="w-[80px]"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visitasFiltradas.map((visita) => (
+              <TableRow key={visita.id} className="hover:bg-muted/30">
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <User className="w-4 h-4 text-primary" />
+                    </div>
+                    <span className="font-medium">{visita.nome_cliente}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-muted-foreground">{visita.telefone_cliente}</TableCell>
+                <TableCell>
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
+                    {visita.nome_campanha}
+                  </span>
+                </TableCell>
+                <TableCell className="font-mono text-sm text-muted-foreground hidden lg:table-cell">
+                  {visita.id_maia || "-"}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {format(new Date(visita.data_hora_visita), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDelete(visita.id)}
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 };
