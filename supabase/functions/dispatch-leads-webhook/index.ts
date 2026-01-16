@@ -210,6 +210,9 @@ serve(async (req) => {
 
     console.log(`\n🌐 [${requestId}] Webhook URL: ${webhookUrl}`);
 
+    // Obter token de autenticação
+    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+
     // Para IA Ligação, o disparo é feito em batch com id_evento e telefone_pri apenas
     // O evento e a base já foram criados anteriormente pelos webhooks cria-evento-ligacao e cria-base-ligacao
     const eventIdPri = prospeccao_data?.event_id_pri || '';
@@ -278,7 +281,10 @@ serve(async (req) => {
         
         const response = await fetch(webhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(SAGA_ONE ? { 'api-token': SAGA_ONE } : {}),
+          },
           body: JSON.stringify(payloadLigacao)
         });
         
@@ -414,7 +420,10 @@ serve(async (req) => {
           
           const response = await fetch(webhookUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              ...(SAGA_ONE ? { 'api-token': SAGA_ONE } : {}),
+            },
             body: JSON.stringify(payload)
           });
           

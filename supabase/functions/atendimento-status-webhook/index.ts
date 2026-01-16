@@ -108,11 +108,14 @@ serve(async (req) => {
 
     console.log('📤 Enviando payload para webhook:', webhookPayload);
 
+    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+
     // Disparar webhook
     const webhookResponse = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(SAGA_ONE ? { 'api-token': SAGA_ONE } : {}),
       },
       body: JSON.stringify(webhookPayload)
     });

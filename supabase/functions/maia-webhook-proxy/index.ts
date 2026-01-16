@@ -12,10 +12,10 @@ serve(async (req) => {
   }
 
   try {
-    const MAIA_WEBHOOK_TOKEN = Deno.env.get('MAIA_WEBHOOK_TOKEN');
+    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
     
-    if (!MAIA_WEBHOOK_TOKEN) {
-      console.error('MAIA_WEBHOOK_TOKEN not configured');
+    if (!SAGA_ONE) {
+      console.error('SAGA_ONE not configured');
       return new Response(
         JSON.stringify({ error: 'Webhook token not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -31,7 +31,7 @@ serve(async (req) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'api-token': MAIA_WEBHOOK_TOKEN,
+          'api-token': SAGA_ONE,
         },
         body: JSON.stringify(payload),
       }
