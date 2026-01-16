@@ -198,7 +198,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
               qr_token: contatoData.qr_token,
               convidado_nome: contato.nome,
               convidado_telefone: contato.telefone || '',
-              quem_convidou: currentUserName,
+              quem_convidou: currentVendedorNome || currentUserName,
               vendedor: currentVendedorNome || currentUserName,
               evento_id: currentProspeccaoId || '',
               evento_nome: prospeccao?.titulo || ''
@@ -228,7 +228,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
                 qr_token: newToken,
                 convidado_nome: contato.nome,
                 convidado_telefone: contato.telefone || '',
-                quem_convidou: currentUserName,
+                quem_convidou: currentVendedorNome || currentUserName,
                 vendedor: currentVendedorNome || currentUserName,
                 evento_id: currentProspeccaoId || '',
                 evento_nome: prospeccao?.titulo || ''
@@ -264,7 +264,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
       qr_token: token,
       convidado_nome: contato.nome,
       convidado_telefone: contato.telefone || '',
-      quem_convidou: userName,
+      quem_convidou: vendedorNome || userName,
       vendedor: vendedorNome || userName,
       evento_id: prospeccao?.id || '',
       evento_nome: prospeccao?.titulo || ''
@@ -307,7 +307,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
         qr_token: newToken,
         convidado_nome: contato.nome,
         convidado_telefone: contato.telefone || '',
-        quem_convidou: userName,
+        quem_convidou: vendedorNome || userName,
         vendedor: vendedorNome || userName,
         evento_id: prospeccao?.id || '',
         evento_nome: prospeccao?.titulo || ''
