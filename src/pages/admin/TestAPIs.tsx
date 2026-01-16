@@ -24,24 +24,17 @@ const TestAPIs = () => {
 
   const baseUrl = 'https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1';
 
-  // Status alinhados com /prospeccao/atendimento - valores em snake_case para API
+  // Status válidos do sistema de prospecção - valores em snake_case para API
   const statusOptions = [
-    { label: 'Novo', value: 'novo' },
-    { label: 'Atribuído', value: 'atribuido' },
+    { label: 'Novos', value: 'novo' },
+    { label: 'Atribuídos', value: 'atribuido' },
     { label: 'Em Espera', value: 'em_espera' },
-    { label: 'Convidado', value: 'convidado' },
-    { label: 'Agendado', value: 'agendado' },
-    { label: 'Confirmado', value: 'confirmado' },
-    { label: 'Check-in', value: 'checkin' },
-    { label: 'Venda', value: 'venda' },
-    { label: 'Descartado', value: 'descartado' },
-    { label: 'Opt Out', value: 'opt_out' },
-    { label: 'Desperdício', value: 'desperdicio' },
-    { label: 'Negociação', value: 'negociacao' },
-    { label: 'Em Contato', value: 'em_contato' },
-    { label: 'Qualificado', value: 'qualificado' },
-    { label: 'Fechado', value: 'fechado' },
-    { label: 'Perdido', value: 'perdido' }
+    { label: 'Convidados', value: 'convidado' },
+    { label: 'Confirmados', value: 'confirmado' },
+    { label: 'Check-ins', value: 'checkin' },
+    { label: 'Vendas', value: 'venda' },
+    { label: 'Descartados', value: 'descartado' },
+    { label: 'Opt Out', value: 'opt_out' }
   ];
 
   const testGetStatus = async () => {
