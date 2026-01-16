@@ -6,6 +6,64 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Função para gerar SVG do convite (igual ao card do frontend)
+function generateConviteSVG(qrCodeDataUrl: string, nome: string, telefone: string): string {
+  // Dimensões baseadas no card do frontend (max-w-sm = 384px, p-6 = 24px padding)
+  const cardWidth = 384;
+  const cardPadding = 24;
+  const qrSize = 192; // w-48 h-48
+  const qrPadding = 16; // p-4
+  
+  // Calcular altura baseada no conteúdo
+  const nameHeight = 28; // text-lg font-semibold
+  const phoneHeight = telefone ? 20 : 0; // text-sm
+  const spacing = 16; // space-y-4
+  const totalHeight = cardPadding * 2 + qrPadding * 2 + qrSize + spacing + nameHeight + phoneHeight + 8;
+  
+  // Centralizar elementos
+  const centerX = cardWidth / 2;
+  const qrX = centerX - (qrSize / 2);
+  const qrY = cardPadding + qrPadding;
+  const nameY = qrY + qrSize + qrPadding + spacing + nameHeight;
+  const phoneY = nameY + phoneHeight + 4;
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${cardWidth}" height="${totalHeight}" viewBox="0 0 ${cardWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fundo branco com borda arredondada (igual ao Card) -->
+  <rect x="0" y="0" width="${cardWidth}" height="${totalHeight}" rx="12" ry="12" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+  
+  <!-- Container do QR Code com fundo branco e borda arredondada -->
+  <rect x="${qrX - qrPadding}" y="${qrY - qrPadding}" width="${qrSize + qrPadding * 2}" height="${qrSize + qrPadding * 2}" rx="12" ry="12" fill="white"/>
+  
+  <!-- QR Code -->
+  <image x="${qrX}" y="${qrY}" width="${qrSize}" height="${qrSize}" href="${qrCodeDataUrl}"/>
+  
+  <!-- Nome do convidado (font-semibold text-lg = 18px, font-weight 600) -->
+  <text x="${centerX}" y="${nameY}" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="600" fill="#0f172a" text-anchor="middle">${escapeXml(nome || 'Sem nome')}</text>
+  
+  ${telefone ? `<!-- Telefone (text-sm text-muted-foreground = 14px, cor cinza) -->
+  <text x="${centerX}" y="${phoneY}" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#64748b" text-anchor="middle">${escapeXml(telefone)}</text>` : ''}
+</svg>`;
+}
+
+// Função para escapar caracteres especiais em XML
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// Converter SVG para PNG usando canvas
+async function svgToPng(svgString: string): Promise<string> {
+  // Para Edge Functions, retornamos o SVG como base64
+  // O SVG é compatível com a maioria dos casos de uso
+  const base64Svg = btoa(unescape(encodeURIComponent(svgString)));
+  return `data:image/svg+xml;base64,${base64Svg}`;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -46,19 +104,22 @@ Deno.serve(async (req) => {
     // Obter parâmetros
     const url = new URL(req.url);
     let leadCode: string | null = null;
+    let format: string = 'json'; // json, svg, ou image
 
     if (req.method === 'GET') {
       leadCode = url.searchParams.get('lead_id') || url.searchParams.get('codigo') || url.searchParams.get('code');
+      format = url.searchParams.get('format') || 'json';
     } else if (req.method === 'POST') {
       const body = await req.json();
       leadCode = body.lead_id || body.codigo || body.code;
+      format = body.format || 'json';
     }
 
     if (!leadCode) {
       return new Response(
         JSON.stringify({ 
           error: 'lead_id é obrigatório',
-          uso: 'GET /get-lead-qrcode?lead_id=12345 ou POST com body { "lead_id": "12345" }'
+          uso: 'GET /get-lead-qrcode?lead_id=12345&format=json|svg|image'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -148,7 +209,6 @@ Deno.serve(async (req) => {
     }
 
     // Gerar dados do QR Code EXATAMENTE como no frontend (ConviteTab.tsx)
-    // Usar vendedor_nome tanto para quem_convidou quanto para vendedor
     const qrData = JSON.stringify({
       qr_token: qrToken,
       convidado_nome: contato.nome,
@@ -170,7 +230,42 @@ Deno.serve(async (req) => {
 
     console.log(`✅ QR Code gerado para lead: ${contato.nome}`);
 
-    // Retornar resposta com dados do evento
+    // Gerar imagem do convite (igual ao "Salvar Convite" do frontend)
+    const conviteSvg = generateConviteSVG(
+      qrCodeDataUrl,
+      contato.nome || 'Sem nome',
+      contato.telefone || ''
+    );
+    const conviteImageUrl = await svgToPng(conviteSvg);
+
+    // Se formato é svg ou image, retornar diretamente a imagem
+    if (format === 'svg') {
+      return new Response(conviteSvg, {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'image/svg+xml' }
+      });
+    }
+
+    if (format === 'image') {
+      // Decodificar base64 e retornar como imagem
+      const base64Data = conviteImageUrl.split(',')[1];
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      return new Response(bytes, {
+        status: 200,
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'image/svg+xml',
+          'Content-Disposition': `attachment; filename="convite-${contato.nome?.replace(/\s+/g, '-') || 'cliente'}.svg"`
+        }
+      });
+    }
+
+    // Retornar resposta JSON com dados completos
     return new Response(
       JSON.stringify({
         success: true,
@@ -192,6 +287,11 @@ Deno.serve(async (req) => {
           data_url: qrCodeDataUrl,
           token: qrToken,
           already_used: contato.qr_token_used || false
+        },
+        convite: {
+          data_url: conviteImageUrl,
+          format: 'svg+xml',
+          description: 'Imagem do convite igual ao botão "Salvar Convite" do frontend'
         }
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
