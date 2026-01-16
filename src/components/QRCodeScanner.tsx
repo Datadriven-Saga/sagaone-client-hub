@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Camera, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Camera, X, AlertCircle, CheckCircle2, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -28,6 +28,7 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
   const [success, setSuccess] = useState(false);
   const [successData, setSuccessData] = useState<{ nome: string } | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isStartingRef = useRef(false);
   const { toast } = useToast();
   const { activeCompany } = useCompany();
 
@@ -41,41 +42,97 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
   }, [isOpen, success]);
 
   const startScanner = async () => {
+    // Evitar múltiplas inicializações
+    if (isStartingRef.current || scannerRef.current) {
+      return;
+    }
+    
+    isStartingRef.current = true;
     setError(null);
     setScanning(true);
     setSuccess(false);
     setSuccessData(null);
 
     try {
-      // Aguardar um pouco para o elemento ser renderizado
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Aguardar elemento ser renderizado
+      await new Promise(resolve => setTimeout(resolve, 200));
       
+      const container = document.getElementById('qr-reader');
+      if (!container) {
+        throw new Error('Container não encontrado');
+      }
+
+      // Limpar container antes de iniciar
+      container.innerHTML = '';
+
+      // Listar câmeras disponíveis
+      const cameras = await Html5Qrcode.getCameras();
+      
+      if (!cameras || cameras.length === 0) {
+        throw new Error('Nenhuma câmera encontrada');
+      }
+
+      // Preferir câmera traseira (environment)
+      let cameraId = cameras[0].id;
+      for (const camera of cameras) {
+        const label = camera.label.toLowerCase();
+        if (label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('traseira')) {
+          cameraId = camera.id;
+          break;
+        }
+      }
+      // Se houver mais de uma câmera, geralmente a última é a traseira
+      if (cameras.length > 1) {
+        cameraId = cameras[cameras.length - 1].id;
+      }
+
       const html5QrCode = new Html5Qrcode('qr-reader');
       scannerRef.current = html5QrCode;
 
       await html5QrCode.start(
-        { facingMode: 'environment' },
+        cameraId,
         {
           fps: 10,
           qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0,
         },
         handleScanSuccess,
-        () => {} // Ignore errors during scanning
+        () => {} // Ignorar erros durante scan
       );
-    } catch (err) {
+      
+      isStartingRef.current = false;
+    } catch (err: any) {
       console.error('Error starting scanner:', err);
-      setError('Não foi possível acessar a câmera. Verifique as permissões.');
+      isStartingRef.current = false;
+      
+      let errorMessage = 'Não foi possível acessar a câmera.';
+      if (err.message?.includes('Permission')) {
+        errorMessage = 'Permissão de câmera negada. Por favor, permita o acesso.';
+      } else if (err.message?.includes('NotReadableError')) {
+        errorMessage = 'Câmera em uso por outro aplicativo.';
+      } else if (err.message?.includes('NotFoundError') || err.message?.includes('Nenhuma câmera')) {
+        errorMessage = 'Nenhuma câmera encontrada neste dispositivo.';
+      }
+      
+      setError(errorMessage);
       setScanning(false);
     }
   };
 
   const stopScanner = async () => {
+    isStartingRef.current = false;
+    
     if (scannerRef.current) {
       try {
-        await scannerRef.current.stop();
-        scannerRef.current = null;
+        const state = scannerRef.current.getState();
+        if (state === 2) { // SCANNING state
+          await scannerRef.current.stop();
+        }
+        scannerRef.current.clear();
       } catch (err) {
         console.error('Error stopping scanner:', err);
+      } finally {
+        scannerRef.current = null;
       }
     }
     setScanning(false);
@@ -155,7 +212,6 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
       }
 
       // Registrar log de movimentação
-      // Primeiro buscar prospeccao_id
       const { data: prospeccaoData } = await supabase
         .from('prospeccoes')
         .select('id')
@@ -200,7 +256,7 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
       });
       setProcessing(false);
       // Restart scanner for another attempt
-      startScanner();
+      setTimeout(() => startScanner(), 500);
     }
   };
 
@@ -211,6 +267,12 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
     setSuccess(false);
     setSuccessData(null);
     onClose();
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setProcessing(false);
+    startScanner();
   };
 
   return (
@@ -237,8 +299,9 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
           ) : error ? (
             <div className="flex flex-col items-center justify-center p-8 text-center">
               <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-              <p className="text-sm text-muted-foreground">{error}</p>
-              <Button onClick={startScanner} className="mt-4">
+              <p className="text-sm text-muted-foreground mb-4">{error}</p>
+              <Button onClick={handleRetry} variant="outline" className="gap-2">
+                <RotateCcw className="w-4 h-4" />
                 Tentar novamente
               </Button>
             </div>
@@ -247,6 +310,7 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
               <div 
                 id="qr-reader" 
                 className="w-full aspect-square bg-muted rounded-lg overflow-hidden"
+                style={{ minHeight: '300px' }}
               />
               <p className="text-sm text-muted-foreground text-center">
                 Posicione o QR Code do convite na área de leitura
