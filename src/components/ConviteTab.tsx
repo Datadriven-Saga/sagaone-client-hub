@@ -164,10 +164,10 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
           }
         }
 
-        // Buscar dados do contato com qr_token
+        // Buscar dados do contato com qr_token e qr_code_image
         const { data: contatoData } = await supabase
           .from('contatos')
-          .select('qr_token, qr_token_used, vendedor_nome, responsavel_email')
+          .select('qr_token, qr_token_used, vendedor_nome, responsavel_email, qr_code_image')
           .eq('id', contato.id)
           .single();
 
@@ -192,8 +192,11 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
             }
           }
 
-          // Se já tem qr_token, gerar URL do QR Code
-          if (contatoData.qr_token) {
+          // Se já tem qr_code_image salvo, usar diretamente
+          if (contatoData.qr_code_image) {
+            setQrCodeUrl(contatoData.qr_code_image);
+          } else if (contatoData.qr_token) {
+            // Se tem qr_token mas não tem imagem, gerar e salvar
             const qrData = JSON.stringify({
               qr_token: contatoData.qr_token,
               convidado_nome: contato.nome,
@@ -206,39 +209,43 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
             try {
               const dataUrl = await QRCodeLib.toDataURL(qrData, { width: 300, margin: 2 });
               setQrCodeUrl(dataUrl);
+              // Salvar no banco
+              await supabase
+                .from('contatos')
+                .update({ qr_code_image: dataUrl })
+                .eq('id', contato.id);
             } catch (err) {
               console.error('Erro ao gerar QR Code:', err);
             }
           } else {
             // Se não tem qr_token, gerar automaticamente
             const newToken = crypto.randomUUID();
-            const { error: updateError } = await supabase
-              .from('contatos')
-              .update({
-                qr_token: newToken,
-                qr_token_used: false,
-                vendedor_nome: currentVendedorNome || currentUserName,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', contato.id);
-
-            if (!updateError) {
+            const qrData = JSON.stringify({
+              qr_token: newToken,
+              convidado_nome: contato.nome,
+              convidado_telefone: contato.telefone || '',
+              quem_convidou: currentVendedorNome || currentUserName,
+              vendedor: currentVendedorNome || currentUserName,
+              evento_id: currentProspeccaoId || '',
+              evento_nome: prospeccao?.titulo || ''
+            });
+            try {
+              const dataUrl = await QRCodeLib.toDataURL(qrData, { width: 300, margin: 2 });
+              setQrCodeUrl(dataUrl);
               setQrToken(newToken);
-              const qrData = JSON.stringify({
-                qr_token: newToken,
-                convidado_nome: contato.nome,
-                convidado_telefone: contato.telefone || '',
-                quem_convidou: currentVendedorNome || currentUserName,
-                vendedor: currentVendedorNome || currentUserName,
-                evento_id: currentProspeccaoId || '',
-                evento_nome: prospeccao?.titulo || ''
-              });
-              try {
-                const dataUrl = await QRCodeLib.toDataURL(qrData, { width: 300, margin: 2 });
-                setQrCodeUrl(dataUrl);
-              } catch (err) {
-                console.error('Erro ao gerar QR Code:', err);
-              }
+              // Salvar token e imagem no banco
+              await supabase
+                .from('contatos')
+                .update({
+                  qr_token: newToken,
+                  qr_token_used: false,
+                  vendedor_nome: currentVendedorNome || currentUserName,
+                  qr_code_image: dataUrl,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', contato.id);
+            } catch (err) {
+              console.error('Erro ao gerar QR Code:', err);
             }
           }
         }
@@ -285,23 +292,6 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
       // Gerar UUID único
       const newToken = crypto.randomUUID();
       
-      // Salvar no banco
-      const { error } = await supabase
-        .from('contatos')
-        .update({
-          qr_token: newToken,
-          qr_token_used: false,
-          qr_token_used_at: null,
-          vendedor_nome: vendedorNome || userName,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', contato.id);
-
-      if (error) throw error;
-
-      setQrToken(newToken);
-      setQrTokenUsed(false);
-      
       // Gerar URL do QR Code
       const qrData = JSON.stringify({
         qr_token: newToken,
@@ -313,12 +303,26 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
         evento_nome: prospeccao?.titulo || ''
       });
       
-      try {
-        const dataUrl = await QRCodeLib.toDataURL(qrData, { width: 300, margin: 2 });
-        setQrCodeUrl(dataUrl);
-      } catch (err) {
-        console.error('Erro ao gerar QR Code:', err);
-      }
+      const dataUrl = await QRCodeLib.toDataURL(qrData, { width: 300, margin: 2 });
+      
+      // Salvar token e imagem no banco
+      const { error } = await supabase
+        .from('contatos')
+        .update({
+          qr_token: newToken,
+          qr_token_used: false,
+          qr_token_used_at: null,
+          vendedor_nome: vendedorNome || userName,
+          qr_code_image: dataUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', contato.id);
+
+      if (error) throw error;
+
+      setQrToken(newToken);
+      setQrTokenUsed(false);
+      setQrCodeUrl(dataUrl);
 
       toast({
         title: 'QR Code gerado!',
