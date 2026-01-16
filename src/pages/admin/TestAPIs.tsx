@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Copy, Play, ArrowLeft } from 'lucide-react';
+import { Copy, Play, ArrowLeft, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +16,6 @@ const TestAPIs = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [prospeccaoId, setProspeccaoId] = useState('');
   const [leadId, setLeadId] = useState('');
   const [mensagem, setMensagem] = useState('');
   const [novoStatus, setNovoStatus] = useState('');
@@ -31,10 +30,10 @@ const TestAPIs = () => {
   ];
 
   const testGetStatus = async () => {
-    if (!prospeccaoId || !leadId) {
+    if (!leadId) {
       toast({
         title: "Erro",
-        description: "Preencha prospeccao_id e lead_id",
+        description: "Preencha o lead_id",
         variant: "destructive"
       });
       return;
@@ -42,18 +41,17 @@ const TestAPIs = () => {
 
     setLoading('get');
     try {
-      const { data, error } = await supabase.functions.invoke('prospeccao-status', {
+      const response = await fetch(`${baseUrl}/prospeccao-status?lead_id=${leadId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prospeccao_id: prospeccaoId,
-          contato_id: leadId
-        })
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        }
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || 'Erro na requisição');
 
       setResponses(prev => ({ ...prev, get: data }));
       toast({
@@ -73,10 +71,10 @@ const TestAPIs = () => {
   };
 
   const testPutStatus = async () => {
-    if (!prospeccaoId || !leadId || !novoStatus) {
+    if (!leadId || !novoStatus) {
       toast({
         title: "Erro", 
-        description: "Preencha todos os campos para PUT",
+        description: "Preencha lead_id e novo status",
         variant: "destructive"
       });
       return;
@@ -84,19 +82,18 @@ const TestAPIs = () => {
 
     setLoading('put');
     try {
-      const { data, error } = await supabase.functions.invoke('prospeccao-status', {
+      const response = await fetch(`${baseUrl}/prospeccao-status?lead_id=${leadId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
         },
-        body: JSON.stringify({
-          prospeccao_id: prospeccaoId,
-          contato_id: leadId,
-          status: novoStatus
-        })
+        body: JSON.stringify({ novo_status: novoStatus })
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || 'Erro na requisição');
 
       setResponses(prev => ({ ...prev, put: data }));
       toast({
@@ -116,10 +113,10 @@ const TestAPIs = () => {
   };
 
   const testPostAnotacao = async () => {
-    if (!prospeccaoId || !leadId || !mensagem) {
+    if (!leadId || !mensagem) {
       toast({
         title: "Erro",
-        description: "Preencha todos os campos para POST",
+        description: "Preencha lead_id e mensagem",
         variant: "destructive"
       });
       return;
@@ -127,15 +124,21 @@ const TestAPIs = () => {
 
     setLoading('post');
     try {
-      const { data, error } = await supabase.functions.invoke('prospeccao-anotacao', {
-        body: {
-          prospeccao_id: prospeccaoId,
-          contato_id: leadId,
+      const response = await fetch(`${baseUrl}/prospeccao-anotacao`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({
+          lead_id: parseInt(leadId),
           mensagem: mensagem
-        }
+        })
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || 'Erro na requisição');
 
       setResponses(prev => ({ ...prev, post: data }));
       toast({
@@ -179,92 +182,41 @@ const TestAPIs = () => {
               Teste de APIs de Prospecção
             </h1>
             <p className="text-muted-foreground">
-              Interface para testar as APIs de status e anotação de leads
+              Interface para testar as APIs usando <code className="text-xs bg-muted px-1 py-0.5 rounded">lead_id</code> numérico
             </p>
           </div>
         </div>
 
-        {/* Parâmetros Globais */}
+        {/* Parâmetro Global - lead_id */}
         <Card>
           <CardHeader>
-            <CardTitle>Parâmetros Globais</CardTitle>
-            <CardDescription>
-              IDs que serão utilizados em todas as requisições. Clique nas variáveis para inserir no campo.
+            <CardTitle className="flex items-center gap-2">
+              Parâmetro Global
+              <Badge variant="outline" className="font-mono">lead_id</Badge>
+            </CardTitle>
+            <CardDescription className="flex items-start gap-2">
+              <Info className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                O <code className="text-xs bg-muted px-1 py-0.5 rounded">lead_id</code> é o identificador numérico único do lead, 
+                recebido no payload de disparo para IA WhatsApp. Use este ID para consultar, 
+                atualizar status e adicionar anotações.
+              </span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="prospeccao_id">Prospecção ID</Label>
-                <Input
-                  id="prospeccao_id"
-                  value={prospeccaoId}
-                  onChange={(e) => setProspeccaoId(e.target.value)}
-                  placeholder="UUID da prospecção"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lead_id">Lead/Contato ID</Label>
-                <Input
-                  id="lead_id"
-                  value={leadId}
-                  onChange={(e) => setLeadId(e.target.value)}
-                  placeholder="UUID do contato"
-                />
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 pt-2">
-              <span className="text-xs text-muted-foreground mr-2">Variáveis disponíveis (clique para inserir):</span>
-              <Badge 
-                variant="outline" 
-                className="cursor-pointer hover:bg-primary/10 transition-colors"
-                onClick={() => {
-                  navigator.clipboard.writeText('prospeccao_id');
-                  toast({ title: "Copiado", description: "prospeccao_id copiado" });
-                }}
-              >
-                prospeccao_id
-              </Badge>
-              <Badge 
-                variant="outline" 
-                className="cursor-pointer hover:bg-primary/10 transition-colors"
-                onClick={() => {
-                  navigator.clipboard.writeText('lead_id');
-                  toast({ title: "Copiado", description: "lead_id copiado" });
-                }}
-              >
-                lead_id
-              </Badge>
-              <Badge 
-                variant="outline" 
-                className="cursor-pointer hover:bg-primary/10 transition-colors"
-                onClick={() => {
-                  navigator.clipboard.writeText('contato_id');
-                  toast({ title: "Copiado", description: "contato_id copiado" });
-                }}
-              >
-                contato_id
-              </Badge>
-              <Badge 
-                variant="outline" 
-                className="cursor-pointer hover:bg-primary/10 transition-colors"
-                onClick={() => {
-                  navigator.clipboard.writeText('mensagem');
-                  toast({ title: "Copiado", description: "mensagem copiado" });
-                }}
-              >
-                mensagem
-              </Badge>
-              <Badge 
-                variant="outline" 
-                className="cursor-pointer hover:bg-primary/10 transition-colors"
-                onClick={() => {
-                  navigator.clipboard.writeText('status');
-                  toast({ title: "Copiado", description: "status copiado" });
-                }}
-              >
-                status
-              </Badge>
+            <div className="space-y-2">
+              <Label htmlFor="lead_id">Lead ID (numérico)</Label>
+              <Input
+                id="lead_id"
+                type="number"
+                value={leadId}
+                onChange={(e) => setLeadId(e.target.value)}
+                placeholder="Ex: 42"
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Exemplo de payload recebido no disparo: <code>{`{ "lead_id": 42, "nome": "João", "telefone": "..." }`}</code>
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -280,19 +232,19 @@ const TestAPIs = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => copyToClipboard(`${baseUrl}/prospeccao-status?prospeccao_id=${prospeccaoId}&lead_id=${leadId}`)}
+                onClick={() => copyToClipboard(`${baseUrl}/prospeccao-status?lead_id=${leadId || '{lead_id}'}`)}
               >
                 <Copy className="h-4 w-4" />
               </Button>
             </CardTitle>
             <CardDescription>
-              Consulta o status atual de um lead em uma prospecção
+              Consulta o status atual de um lead pelo seu ID numérico
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="bg-muted p-3 rounded-md">
               <code className="text-sm">
-                GET {baseUrl}/prospeccao-status?prospeccao_id={prospeccaoId || '{ID}'}&lead_id={leadId || '{ID}'}
+                GET {baseUrl}/prospeccao-status?lead_id={leadId || '{lead_id}'}
               </code>
             </div>
             <Button 
@@ -306,7 +258,7 @@ const TestAPIs = () => {
             {responses.get && (
               <div className="bg-muted p-3 rounded-md">
                 <Label className="text-sm font-medium">Resposta:</Label>
-                <pre className="text-xs mt-2 overflow-auto">
+                <pre className="text-xs mt-2 overflow-auto max-h-48">
                   {JSON.stringify(responses.get, null, 2)}
                 </pre>
               </div>
@@ -325,19 +277,19 @@ const TestAPIs = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => copyToClipboard(`${baseUrl}/prospeccao-status?prospeccao_id=${prospeccaoId}&lead_id=${leadId}`)}
+                onClick={() => copyToClipboard(`${baseUrl}/prospeccao-status?lead_id=${leadId || '{lead_id}'}`)}
               >
                 <Copy className="h-4 w-4" />
               </Button>
             </CardTitle>
             <CardDescription>
-              Atualiza o status de um lead em uma prospecção
+              Atualiza o status de um lead pelo seu ID numérico
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="bg-muted p-3 rounded-md">
               <code className="text-sm">
-                PUT {baseUrl}/prospeccao-status?prospeccao_id={prospeccaoId || '{ID}'}&lead_id={leadId || '{ID}'}
+                PUT {baseUrl}/prospeccao-status?lead_id={leadId || '{lead_id}'}
               </code>
             </div>
             <div className="space-y-2">
@@ -355,6 +307,12 @@ const TestAPIs = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div className="bg-muted p-3 rounded-md">
+              <Label className="text-sm font-medium">Body:</Label>
+              <pre className="text-xs mt-2">
+                {JSON.stringify({ novo_status: novoStatus || '{status}' }, null, 2)}
+              </pre>
+            </div>
             <Button 
               onClick={testPutStatus} 
               disabled={loading === 'put'}
@@ -366,7 +324,7 @@ const TestAPIs = () => {
             {responses.put && (
               <div className="bg-muted p-3 rounded-md">
                 <Label className="text-sm font-medium">Resposta:</Label>
-                <pre className="text-xs mt-2 overflow-auto">
+                <pre className="text-xs mt-2 overflow-auto max-h-48">
                   {JSON.stringify(responses.put, null, 2)}
                 </pre>
               </div>
@@ -391,7 +349,7 @@ const TestAPIs = () => {
               </Button>
             </CardTitle>
             <CardDescription>
-              Adiciona uma anotação a um lead em uma prospecção
+              Adiciona uma anotação a um lead pelo seu ID numérico
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -414,8 +372,7 @@ const TestAPIs = () => {
               <Label className="text-sm font-medium">Body da Requisição:</Label>
               <pre className="text-xs mt-2">
                 {JSON.stringify({
-                  prospeccao_id: prospeccaoId || '{prospeccao_id}',
-                  contato_id: leadId || '{contato_id}',
+                  lead_id: leadId ? parseInt(leadId) : '{lead_id}',
                   mensagem: mensagem || '{mensagem}'
                 }, null, 2)}
               </pre>
@@ -431,7 +388,7 @@ const TestAPIs = () => {
             {responses.post && (
               <div className="bg-muted p-3 rounded-md">
                 <Label className="text-sm font-medium">Resposta:</Label>
-                <pre className="text-xs mt-2 overflow-auto">
+                <pre className="text-xs mt-2 overflow-auto max-h-48">
                   {JSON.stringify(responses.post, null, 2)}
                 </pre>
               </div>
