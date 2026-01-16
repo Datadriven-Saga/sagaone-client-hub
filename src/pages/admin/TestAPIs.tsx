@@ -24,9 +24,24 @@ const TestAPIs = () => {
 
   const baseUrl = 'https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1';
 
+  // Status alinhados com /prospeccao/atendimento - valores em snake_case para API
   const statusOptions = [
-    'Novo', 'Tentativa de Contato', 'Em Conversa', 'Interessado', 
-    'Não Interessado', 'Reagendado', 'Convertido'
+    { label: 'Novo', value: 'novo' },
+    { label: 'Atribuído', value: 'atribuido' },
+    { label: 'Em Espera', value: 'em_espera' },
+    { label: 'Convidado', value: 'convidado' },
+    { label: 'Agendado', value: 'agendado' },
+    { label: 'Confirmado', value: 'confirmado' },
+    { label: 'Check-in', value: 'checkin' },
+    { label: 'Venda', value: 'venda' },
+    { label: 'Descartado', value: 'descartado' },
+    { label: 'Opt Out', value: 'opt_out' },
+    { label: 'Desperdício', value: 'desperdicio' },
+    { label: 'Negociação', value: 'negociacao' },
+    { label: 'Em Contato', value: 'em_contato' },
+    { label: 'Qualificado', value: 'qualificado' },
+    { label: 'Fechado', value: 'fechado' },
+    { label: 'Perdido', value: 'perdido' }
   ];
 
   const testGetStatus = async () => {
@@ -300,8 +315,8 @@ const TestAPIs = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {statusOptions.map(status => (
-                    <SelectItem key={status} value={status}>
-                      {status}
+                    <SelectItem key={status.value} value={status.value}>
+                      {status.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
