@@ -244,47 +244,33 @@ serve(async (req) => {
     console.log(`   └─ event_id_pri: ${eventIdPri || 'N/A'}`);
 
     // PARA IA LIGAÇÃO: Enviar todos os leads em UMA ÚNICA chamada ao webhook
+    // Formato SEMPRE usa array contatos, seja 1 ou múltiplos leads
     if (isIALigacao) {
       console.log(`\n📞 [${requestId}] Disparo Ligação - Enviando ${leads.length} lead(s) em uma única chamada`);
       
-      // Preparar array de contatos para o webhook
+      // Preparar array de contatos para o webhook - SEMPRE como array
       const contatosArray = leads.map(lead => ({
         telefone_lead: normalizePhone(lead.telefone),
         nome: lead.nome,
       }));
 
-      // Payload único contendo todos os contatos
+      // Payload único contendo todos os contatos - SEMPRE usa formato array
       const payloadLigacao = {
         id_evento: eventIdPri,
         telefone_pri: telefonePri,
         loja: empresaData?.nome_empresa || '',
-        // Se for apenas 1 lead, envia telefone_lead e nome diretamente (formato antigo)
-        // Se forem múltiplos, envia array de contatos
-        ...(leads.length === 1 
-          ? { 
-              telefone_lead: normalizePhone(leads[0].telefone),
-              nome: leads[0].nome 
-            }
-          : { 
-              contatos: contatosArray 
-            }
-        )
+        contatos: contatosArray
       };
 
       console.log(`   ├─ id_evento: ${eventIdPri}`);
       console.log(`   ├─ telefone_pri: ${telefonePri}`);
       console.log(`   ├─ loja: ${empresaData?.nome_empresa || ''}`);
-      if (leads.length === 1) {
-        console.log(`   ├─ telefone_lead: ${normalizePhone(leads[0].telefone)}`);
-        console.log(`   └─ nome: ${leads[0].nome}`);
-      } else {
-        console.log(`   └─ contatos: ${leads.length} leads`);
-        contatosArray.slice(0, 5).forEach((c, i) => {
-          console.log(`      ${i === Math.min(4, contatosArray.length - 1) ? '└' : '├'}─ ${c.nome} (${c.telefone_lead})`);
-        });
-        if (contatosArray.length > 5) {
-          console.log(`      ... e mais ${contatosArray.length - 5} contatos`);
-        }
+      console.log(`   └─ contatos: ${leads.length} lead(s)`);
+      contatosArray.slice(0, 5).forEach((c, i) => {
+        console.log(`      ${i === Math.min(4, contatosArray.length - 1) ? '└' : '├'}─ ${c.nome} (${c.telefone_lead})`);
+      });
+      if (contatosArray.length > 5) {
+        console.log(`      ... e mais ${contatosArray.length - 5} contatos`);
       }
 
       try {
