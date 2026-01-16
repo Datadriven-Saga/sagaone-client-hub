@@ -1304,29 +1304,12 @@ export default function Templates() {
           </SelectContent>
         </Select>
       </div>
-      <div className="flex items-center gap-4">
-        <Label htmlFor="agente" className="w-40 shrink-0 text-right">Agente IA WhatsApp *</Label>
-        <Select
-          value={selectedAgenteId || ""}
-          onValueChange={(value) => setSelectedAgenteId(value)}
-        >
-          <SelectTrigger className="flex-1 bg-white">
-            <SelectValue placeholder="Selecione o agente" />
-          </SelectTrigger>
-          <SelectContent>
-            {agentesIAWhatsapp.map((agente) => (
-              <SelectItem key={agente.id} value={agente.id}>
-                {agente.nome} {agente.telefone ? `(${agente.telefone})` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Seletor de agente oculto - apenas Pri-Whatsapp são permitidos */}
       {agentesIAWhatsapp.length === 0 && (
         <div className="flex items-center gap-4">
           <div className="w-40 shrink-0" />
           <p className="text-sm text-amber-600">
-            Nenhum agente encontrado. Vincule um agente à empresa primeiro.
+            Nenhum agente Pri - WhatsApp encontrado. Vincule um agente do tipo IA WhatsApp à empresa primeiro.
           </p>
         </div>
       )}
@@ -2065,25 +2048,8 @@ export default function Templates() {
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            {/* Linha com seletor e botão atualizar */}
+            {/* Linha com botão atualizar - seletor removido pois só há agentes Pri-Whatsapp */}
             <div className="flex items-center gap-2">
-              {agentesIAWhatsapp.length > 0 && (
-                <Select
-                  value={selectedAgenteId || agentesIAWhatsapp[0]?.id || ""}
-                  onValueChange={(value) => setSelectedAgenteId(value)}
-                >
-                  <SelectTrigger className="w-[180px] bg-background">
-                    <SelectValue placeholder="Selecione o agente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {agentesIAWhatsapp.map((agente: any) => (
-                      <SelectItem key={agente.id} value={agente.id}>
-                        {agente.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
               <Button 
                 variant="outline" 
                 onClick={() => handleUpdateStatusMeta({ showToasts: true })} 
