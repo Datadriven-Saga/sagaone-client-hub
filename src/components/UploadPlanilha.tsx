@@ -269,6 +269,10 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
 
     setIsProcessing(true);
 
+    // Buscar dados da prospecção selecionada
+    const selectedProspeccao = prospeccoes.find(p => p.id === selectedCampanha);
+    const isLigacaoEvent = selectedProspeccao?.canal === 'Ligação';
+
     try {
       // Criar registro da base importada
       const { data: baseData, error: baseError } = await supabase
@@ -288,15 +292,47 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
 
       console.log('✅ Base criada:', baseData);
 
-      // IMPORTANTE: Ao importar, apenas salvamos os contatos no banco.
-      // O disparo para o sistema de ligação só ocorre ao clicar no botão "Disparar".
-
       // Adicionar origem e base_id aos clientes
       const clientesComDados = previewData.map(c => ({ 
         ...c, 
         origem: selectedOrigem || undefined,
         base_id: baseData.id
       }));
+      
+      // Para eventos de Ligação, enviar ao webhook para criar a base no banco externo
+      // (isso NÃO dispara as ligações, apenas registra a base)
+      if (isLigacaoEvent && selectedProspeccao?.event_id_pri) {
+        try {
+          console.log('📞 Enviando base para webhook cria-base-ligacao...');
+          
+          const contatosPayload = clientesComDados.map(c => ({
+            nome: c.nome,
+            telefone: c.telefone?.replace(/\D/g, '') || '',
+            email: c.email || '',
+            responsavel_email: c.responsavel || '',
+          }));
+
+          const webhookResponse = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/cria-base-ligacao', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event_id_pri: selectedProspeccao.event_id_pri,
+              base_id: baseData.id,
+              empresa_id: activeCompany?.id,
+              contatos: contatosPayload,
+            }),
+          });
+
+          if (webhookResponse.ok) {
+            console.log('✅ Base enviada para sistema de ligação');
+          } else {
+            console.warn('⚠️ Falha ao enviar base para sistema de ligação:', webhookResponse.status);
+          }
+        } catch (webhookError) {
+          console.error('❌ Erro ao enviar para webhook cria-base-ligacao:', webhookError);
+          // Não bloqueia a importação, apenas loga o erro
+        }
+      }
       
       onClientesImported(selectedCampanha, clientesComDados);
       setIsOpen(false);
@@ -308,7 +344,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       
       toast({
         title: "Importação concluída",
-        description: `${previewData.length} contatos importados na base "${baseNomeFinal}". Use o botão "Disparar" para iniciar as ligações.`,
+        description: `${previewData.length} contatos importados na base "${baseNomeFinal}".${isLigacaoEvent ? ' Use o botão "Disparar" para iniciar as ligações.' : ''}`,
       });
     } catch (error) {
       console.error('Erro na importação:', error);
