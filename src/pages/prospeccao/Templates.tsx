@@ -47,6 +47,7 @@ import {
   Loader2
 } from "lucide-react";
 import { TemplatePreview } from "@/components/TemplatePreview";
+import { TemplateVariablesEditor, buildBodyExamplePayload } from "@/components/TemplateVariablesEditor";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -54,6 +55,11 @@ import { toast } from "sonner";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { normalizePhone } from "@/lib/utils";
 import { useVideoCompression, MAX_VIDEO_SIZE_BYTES } from "@/hooks/useVideoCompression";
+
+interface VariableExample {
+  position: number;
+  example: string;
+}
 
 
 type TemplateFormat = "texto" | "botao" | "imagem" | "video" | "card" | "lista";
@@ -211,6 +217,9 @@ export default function Templates() {
     variaveis: [],
     cardData: initialCardData,
   });
+
+  // Estado para exemplos de variáveis dinâmicas {{1}}, {{2}}, etc.
+  const [variableExamples, setVariableExamples] = useState<VariableExample[]>([]);
 
   const getStatusBadgeClasses = (status: string) => {
     switch (status) {
@@ -394,6 +403,7 @@ export default function Templates() {
 
   const handleOpenModal = () => {
     setEditingTemplateId(null);
+    setVariableExamples([]); // Resetar variáveis dinâmicas
     setFormData({
       nome: "",
       categoria: "",
@@ -619,11 +629,19 @@ export default function Templates() {
   }) => {
     const components: any[] = [];
 
-    // BODY é obrigatório
-    components.push({
+    // BODY é obrigatório - incluir exemplos se houver variáveis
+    const bodyComponent: any = {
       type: "BODY",
       text: savedData.conteudo || "",
-    });
+    };
+
+    // Adicionar exemplos de variáveis se existirem
+    const examplePayload = buildBodyExamplePayload(variableExamples);
+    if (examplePayload) {
+      bodyComponent.example = examplePayload;
+    }
+
+    components.push(bodyComponent);
 
     // HEADER (opcional) - para formatos com cabeçalho
     if (savedData.formato === "card") {
@@ -1416,6 +1434,22 @@ export default function Templates() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Editor de variáveis dinâmicas {{1}}, {{2}}, etc. */}
+          <TemplateVariablesEditor
+            text={formData.conteudo}
+            examples={variableExamples}
+            onExamplesChange={setVariableExamples}
+            onInsertVariable={() => {
+              const nextNum = variableExamples.length > 0 
+                ? Math.max(...variableExamples.map(e => e.position)) + 1 
+                : 1;
+              setFormData(prev => ({
+                ...prev,
+                conteudo: prev.conteudo + `{{${nextNum}}}`
+              }));
+            }}
+          />
         </div>
       );
     }
