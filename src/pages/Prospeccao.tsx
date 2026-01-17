@@ -1136,7 +1136,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   };
 
   const handleModalDelete = async (contatoId: string) => {
-    await excluirContato(contatoId);
+    // Admin e TI podem forçar exclusão de contatos com vínculos
+    await excluirContato(contatoId, isAdminOrTI);
   };
 
   const handleModalAssignResponsible = async (contatoId: string, userId: string) => {
@@ -1720,11 +1721,12 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                           columnId: undefined
                         });
                       }}
-                      onDeleteContato={excluirContato}
-                      onDeleteMultiplosContatos={excluirContatosEmMassa}
-                      onDeleteAllContatos={excluirTodosContatosDaEmpresa}
+                      onDeleteContato={(id) => excluirContato(id, isAdminOrTI)}
+                      onDeleteMultiplosContatos={(ids) => excluirContatosEmMassa(ids, undefined, isAdminOrTI)}
+                      onDeleteAllContatos={() => excluirTodosContatosDaEmpresa(isAdminOrTI)}
                       onReenviarGatilhos={reenviarGatilhos}
                       onUpdateContato={atualizarContato}
+                      canDelete={isAdminOrTI}
                     />
                   </div>
                 </Card>
