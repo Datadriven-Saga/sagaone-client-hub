@@ -1277,11 +1277,19 @@ export default function Templates() {
             id="nome"
             value={formData.nome}
             onChange={(e) => {
-              if (e.target.value.length <= 100) {
-                setFormData(prev => ({ ...prev, nome: e.target.value }));
+              // Normaliza para snake_case: minúsculas, sem acentos, espaços viram _
+              const normalized = e.target.value
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+                .toLowerCase()
+                .replace(/\s+/g, '_') // Espaços viram _
+                .replace(/[^a-z0-9_]/g, ''); // Remove caracteres especiais
+              
+              if (normalized.length <= 100) {
+                setFormData(prev => ({ ...prev, nome: normalized }));
               }
             }}
-            placeholder="Ex: Convite Evento VIP"
+            placeholder="ex_convite_evento_vip"
             maxLength={100}
             className={`bg-white ${nomeDuplicado ? "border-destructive focus-visible:ring-destructive" : ""}`}
           />
