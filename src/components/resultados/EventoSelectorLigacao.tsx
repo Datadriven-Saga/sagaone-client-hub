@@ -71,7 +71,7 @@ export const EventoSelectorLigacao = ({
     showInativos: true,
   });
 
-  // Fetch agents (Pri - Ligação type only)
+  // Fetch agents (Pri - Ligação type only - filter by nome containing "Ligação" or "ligacao")
   useEffect(() => {
     const fetchAgents = async () => {
       if (!activeCompany?.id) return;
@@ -79,26 +79,40 @@ export const EventoSelectorLigacao = ({
       try {
         setLoading(true);
         
-        // Get agents from agentes_ia - filter by cerebro = 'Pri - Ligação'
-        const { data: agentesData, error } = await supabase
-          .from('agentes_ia')
-          .select('id, nome, telefone, dealer_id, cerebro')
-          .eq('ativo', true)
-          .eq('cerebro', 'Pri - Ligação')
-          .not('telefone', 'is', null);
+        // Get agents linked to this company via agente_empresas, filtering by nome containing "Ligação"
+        const { data: agenteEmpresasData, error: aeError } = await supabase
+          .from('agente_empresas')
+          .select('agente_id, agentes_ia!inner(id, nome, telefone, dealer_id, cerebro, ativo)')
+          .eq('empresa_id', activeCompany.id);
         
-        if (error) {
-          console.error('Error fetching agents:', error);
+        if (aeError) {
+          console.error('Error fetching agente_empresas:', aeError);
           toast.error('Erro ao carregar agentes');
           return;
         }
         
-        const priAgents = agentesData || [];
+        // Filter agents that are active, have telefone, and nome contains "Ligação" or "ligacao"
+        const priAgents = (agenteEmpresasData || [])
+          .map((ae: any) => ae.agentes_ia)
+          .filter((agent: any) => {
+            if (!agent || !agent.ativo || !agent.telefone) return false;
+            const nome = (agent.nome || '').toLowerCase();
+            return nome.includes('ligação') || nome.includes('ligacao');
+          })
+          .map((agent: any) => ({
+            id: agent.id,
+            nome: agent.nome,
+            telefone: agent.telefone,
+            dealer_id: agent.dealer_id,
+            cerebro: agent.cerebro,
+          }));
+        
+        console.log('📞 Agentes Pri(Ligação) encontrados:', priAgents);
         setAgents(priAgents);
         
         // If we have agentPhone from props, try to find and select that agent
         if (agentPhone) {
-          const matchingAgent = priAgents.find(a => a.telefone === agentPhone);
+          const matchingAgent = priAgents.find((a: AgentIA) => a.telefone === agentPhone);
           if (matchingAgent) {
             setSelectedAgent(matchingAgent);
           }
