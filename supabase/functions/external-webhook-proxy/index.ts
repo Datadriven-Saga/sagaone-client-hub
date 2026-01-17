@@ -9,7 +9,8 @@ const corsHeaders = {
 const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }> = {
   // Consultas (GET)
   'verifica-eventos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', method: 'GET' },
-  'verifica-contatos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-contatos', method: 'GET' },
+  // OBS: este endpoint precisa receber os parâmetros no BODY (não na query)
+  'verifica-contatos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-contatos', method: 'POST' },
   'eventos-pri': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/eventos-pri', method: 'GET' },
   'busca-dados-agentes': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-dados-agentes', method: 'GET' },
   
@@ -78,7 +79,12 @@ Deno.serve(async (req: Request) => {
           }
           externalUrl.searchParams.set(paramKey, String(value));
         } else if (endpointConfig.method === 'POST') {
-          postBody[key] = value;
+          // Map telefone_pri -> telefone when the destination webhook expects "telefone" in JSON body
+          let bodyKey = key;
+          if (key === 'telefone_pri' && (endpoint === 'verifica-contatos' || endpoint === 'verifica-eventos')) {
+            bodyKey = 'telefone';
+          }
+          postBody[bodyKey] = value;
         }
       }
     }
