@@ -217,6 +217,35 @@ serve(async (req) => {
     // O evento e a base já foram criados anteriormente pelos webhooks cria-evento-ligacao e cria-base-ligacao
     const eventIdPri = prospeccao_data?.event_id_pri || '';
 
+    // Buscar template WhatsApp associado à empresa para obter variable_mapping
+    let variableMapping: Record<string, any> | null = null;
+    let temVariavel = 'Não';
+    
+    if (!isIALigacao) {
+      console.log(`\n📝 [${requestId}] Buscando template WhatsApp...`);
+      const { data: templateData, error: templateError } = await supabase
+        .from('whatsapp_templates')
+        .select('variable_mapping, conteudo')
+        .eq('empresa_id', empresa_id)
+        .eq('ativo', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (templateError) {
+        console.warn(`⚠️ [${requestId}] Erro ao buscar template:`, templateError);
+      } else if (templateData) {
+        variableMapping = templateData.variable_mapping as Record<string, any> | null;
+        // Verificar se tem variáveis no conteúdo
+        const hasVars = /\{\{\d+\}\}/.test(templateData.conteudo || '');
+        temVariavel = hasVars ? 'Sim' : 'Não';
+        console.log(`   ├─ Variable mapping encontrado:`, variableMapping ? 'Sim' : 'Não');
+        console.log(`   └─ tem_variavel: ${temVariavel}`);
+      } else {
+        console.log(`   └─ Nenhum template ativo encontrado`);
+      }
+    }
+
     // Dados comuns para leads WhatsApp
     const dadosComuns = {
       prospeccao_id,
@@ -236,7 +265,9 @@ serve(async (req) => {
       uf: empresaData?.uf || '',
       cidade: empresaData?.cidade || '',
       tipo_ia: tipoIA,
-      acao: 'criar'
+      acao: 'criar',
+      tem_variavel: temVariavel,
+      variable_mapping: variableMapping,
     };
 
     console.log(`\n📦 [${requestId}] Dados preparados:`);
