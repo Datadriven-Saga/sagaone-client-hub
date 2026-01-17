@@ -99,14 +99,23 @@ export function useUserAccessType() {
   // Permissão específica para área de TI (Agentes IA / Instâncias)
   const canAccessAgentesIA = isDepartamentoTI && isAdminOrTI;
 
+  // Permissão para criar eventos (incluindo ligação): Administrador, TI, Gerente de Leads, CRM
+  const canCreateEventos = isAdmin || isTI || isGerenteLeads || isCRM;
+
   // Permissão para criar eventos de IA Ligação: apenas TI e Administrador
   const canCreateIALigacao = isAdminOrTI;
 
-  // Permissão para criar eventos (Prospecção Mensal, Grande Evento, IA Whatsapp): Administrador, TI, Gerente de Leads, CRM
-  const canCreateEventos = isAdmin || isTI || isGerenteLeads || isCRM;
-
-  // Permissão para subir base de todos os eventos: apenas Administrador, TI, CRM
+  // Permissão para subir base de leads: Administrador, TI, CRM
   const canUploadBase = isAdmin || isTI || isCRM;
+
+  // Permissão para disparar eventos de IA Ligação: Administrador, TI
+  const canDispararIALigacao = isAdminOrTI;
+
+  // Permissão para disparar outros eventos (Prospecção, Grande Evento, IA Whatsapp): Administrador, TI, Gerente de Leads, CRM
+  const canDispararEventos = isAdmin || isTI || isGerenteLeads || isCRM;
+
+  // Permissão para gerenciar eventos (editar/excluir): Administrador, TI
+  const canManageEventos = isAdminOrTI;
 
   // Permissão para gerenciar equipes de prospecção (ver vendedores/SDR, definir integrantes): Admin, TI, Gerente de Leads, CRM
   const canManageProspeccaoEquipes = isAdmin || isTI || isGerenteLeads || isCRM;
@@ -130,6 +139,9 @@ export function useUserAccessType() {
     canCreateIALigacao,
     canCreateEventos,
     canUploadBase,
+    canDispararIALigacao,
+    canDispararEventos,
+    canManageEventos,
     canManageProspeccaoEquipes,
     // Permissões específicas
     canAddClientes,
