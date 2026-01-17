@@ -71,7 +71,12 @@ Deno.serve(async (req: Request) => {
     for (const [key, value] of Object.entries(bodyData)) {
       if (key !== 'endpoint') {
         if (endpointConfig.method === 'GET' && value !== undefined && value !== null) {
-          externalUrl.searchParams.set(key, String(value));
+          // Map telefone_pri to telefone for verifica-contatos and verifica-eventos endpoints
+          let paramKey = key;
+          if (key === 'telefone_pri' && (endpoint === 'verifica-contatos' || endpoint === 'verifica-eventos')) {
+            paramKey = 'telefone';
+          }
+          externalUrl.searchParams.set(paramKey, String(value));
         } else if (endpointConfig.method === 'POST') {
           postBody[key] = value;
         }
