@@ -632,27 +632,44 @@ export const useContatoData = () => {
     }
   };
 
-  // Excluir contato PERMANENTEMENTE (apenas se não tiver vínculos)
-  // REGRA: Contatos com vínculos ativos não podem ser excluídos
-  const excluirContato = async (contatoId: string): Promise<void> => {
+  // Excluir contato PERMANENTEMENTE
+  // REGRA: Admin e TI podem excluir sempre; outros usuários só podem excluir contatos sem vínculos
+  const excluirContato = async (contatoId: string, forcarExclusao: boolean = false): Promise<void> => {
     try {
       // Verificar se o contato tem vínculos com eventos
       const { data: vinculos, error: vinculosError } = await supabase
         .from('eventos_prospeccao')
         .select('id')
-        .eq('contato_id', contatoId)
-        .limit(1);
+        .eq('contato_id', contatoId);
 
       if (vinculosError) {
         console.error('Erro ao verificar vínculos:', vinculosError);
         throw vinculosError;
       }
 
-      if (vinculos && vinculos.length > 0) {
-        throw new Error('Contato possui vínculos com eventos. Use "Desvincular" em vez de "Excluir".');
+      const temVinculos = vinculos && vinculos.length > 0;
+
+      // Se tem vínculos e não pode forçar exclusão, bloqueia
+      if (temVinculos && !forcarExclusao) {
+        throw new Error('Você não tem permissão para excluir contatos com vínculos. Apenas Administradores e TI podem fazer isso.');
       }
 
-      // Contato sem vínculos pode ser excluído
+      // Se tem vínculos e pode forçar, primeiro exclui os vínculos
+      if (temVinculos && forcarExclusao) {
+        console.log('🔧 Admin/TI: Excluindo vínculos antes de excluir contato...');
+        const { error: deleteVinculosError } = await supabase
+          .from('eventos_prospeccao')
+          .delete()
+          .eq('contato_id', contatoId);
+
+        if (deleteVinculosError) {
+          console.error('Erro ao excluir vínculos:', deleteVinculosError);
+          throw deleteVinculosError;
+        }
+        console.log('✅ Vínculos excluídos com sucesso');
+      }
+
+      // Agora pode excluir o contato
       const { error } = await supabase
         .from('contatos')
         .delete()
@@ -1059,7 +1076,7 @@ export const useContatoData = () => {
   };
 
   // LEGACY: Manter para compatibilidade - agora desvincula do evento
-  const excluirContatosEmMassa = async (contatoIds: string[], prospeccaoId?: string): Promise<{ sucesso: number; falha: number }> => {
+  const excluirContatosEmMassa = async (contatoIds: string[], prospeccaoId?: string, forcarExclusao: boolean = false): Promise<{ sucesso: number; falha: number }> => {
     if (contatoIds.length === 0) {
       return { sucesso: 0, falha: 0 };
     }
@@ -1070,10 +1087,9 @@ export const useContatoData = () => {
     }
 
     // Sem prospeccaoId, buscar contatos sem vínculos para excluir permanentemente
-    console.log(`🗑️ Verificando ${contatoIds.length} contatos para exclusão permanente`);
+    console.log(`🗑️ Verificando ${contatoIds.length} contatos para exclusão permanente (forçar: ${forcarExclusao})`);
 
     try {
-      // Buscar contatos que não têm vínculos com eventos
       const DELETE_BATCH_SIZE = 200;
       let deletedCount = 0;
       let skippedCount = 0;
@@ -1089,8 +1105,39 @@ export const useContatoData = () => {
         
         const contatosComVinculos = new Set((vinculos || []).map(v => v.contato_id));
         const contatosSemVinculos = batchIds.filter(id => !contatosComVinculos.has(id));
-        skippedCount += contatosComVinculos.size;
+        const contatosComVinculosArray = batchIds.filter(id => contatosComVinculos.has(id));
         
+        // Se pode forçar exclusão, primeiro excluir os vínculos dos contatos com vínculos
+        if (forcarExclusao && contatosComVinculosArray.length > 0) {
+          console.log(`🔧 Admin/TI: Excluindo vínculos de ${contatosComVinculosArray.length} contatos...`);
+          const { error: deleteVinculosError } = await supabase
+            .from('eventos_prospeccao')
+            .delete()
+            .in('contato_id', contatosComVinculosArray);
+
+          if (deleteVinculosError) {
+            console.error('Erro ao excluir vínculos:', deleteVinculosError);
+            skippedCount += contatosComVinculosArray.length;
+          } else {
+            // Agora pode excluir os contatos que tinham vínculos
+            const { error: deleteContatosVinculosError } = await supabase
+              .from('contatos')
+              .delete()
+              .in('id', contatosComVinculosArray);
+
+            if (deleteContatosVinculosError) {
+              console.error('Erro ao excluir contatos com vínculos:', deleteContatosVinculosError);
+              skippedCount += contatosComVinculosArray.length;
+            } else {
+              deletedCount += contatosComVinculosArray.length;
+            }
+          }
+        } else {
+          // Sem permissão para forçar, conta como falha
+          skippedCount += contatosComVinculos.size;
+        }
+        
+        // Excluir contatos sem vínculos normalmente
         if (contatosSemVinculos.length > 0) {
           const { error } = await supabase
             .from('contatos')
@@ -1105,9 +1152,9 @@ export const useContatoData = () => {
         }
       }
 
-      setContatos(prev => prev.filter(c => !contatoIds.includes(c.id) || contatoIds.some(id => id === c.id)));
+      setContatos(prev => prev.filter(c => !contatoIds.includes(c.id)));
 
-      console.log(`✅ ${deletedCount} contatos excluídos, ${skippedCount} mantidos (têm vínculos)`);
+      console.log(`✅ ${deletedCount} contatos excluídos, ${skippedCount} mantidos (têm vínculos ou erro)`);
       return { sucesso: deletedCount, falha: skippedCount };
     } catch (error) {
       console.error('❌ Exceção ao excluir contatos:', error);
@@ -1116,8 +1163,14 @@ export const useContatoData = () => {
   };
 
   // Excluir TODOS os contatos da empresa (com cascata manual para eventos_prospeccao)
+  // REGRA: Apenas Admin e TI podem usar esta função
   // Observação: o PostgREST costuma limitar selects grandes (ex: 1000 linhas), então aqui paginamos.
-  const excluirTodosContatosDaEmpresa = async (): Promise<{ sucesso: number; falha: number }> => {
+  const excluirTodosContatosDaEmpresa = async (forcarExclusao: boolean = false): Promise<{ sucesso: number; falha: number }> => {
+    if (!forcarExclusao) {
+      console.error('❌ Apenas Admin/TI podem excluir todos os contatos');
+      return { sucesso: 0, falha: 0 };
+    }
+    
     if (!activeCompany?.id) {
       return { sucesso: 0, falha: 0 };
     }

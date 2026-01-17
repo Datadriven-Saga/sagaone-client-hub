@@ -61,6 +61,7 @@ interface ClientesImportadosListProps {
   onDeleteAllContatos?: () => Promise<{ sucesso: number; falha: number }>;
   onReenviarGatilhos?: (contatoIds: string[], prospeccaoId: string) => Promise<{ sucesso: number; falha: number }>;
   onUpdateContato: (contatoId: string, data: Partial<Contato>) => Promise<boolean>;
+  canDelete?: boolean; // Apenas Admin/TI podem excluir
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -74,7 +75,8 @@ export const ClientesImportadosList = ({
   onDeleteMultiplosContatos,
   onDeleteAllContatos,
   onReenviarGatilhos,
-  onUpdateContato
+  onUpdateContato,
+  canDelete = false
 }: ClientesImportadosListProps) => {
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
@@ -355,19 +357,21 @@ export const ClientesImportadosList = ({
             </Button>
           )}
           
-          {/* Botão Excluir Todos */}
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleDeleteAll}
-            className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Excluir Todos ({contatos.length})
-          </Button>
+          {/* Botão Excluir Todos - Apenas Admin/TI */}
+          {canDelete && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleDeleteAll}
+              className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Excluir Todos ({contatos.length})
+            </Button>
+          )}
 
           {/* Botão Excluir Selecionados */}
-          {selectedContatos.size > 0 && (
+          {canDelete && selectedContatos.size > 0 && (
             <Button 
               variant="destructive" 
               size="sm"
@@ -473,14 +477,16 @@ export const ClientesImportadosList = ({
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => setDeleteContatoIds([contato.id])}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => setDeleteContatoIds([contato.id])}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
