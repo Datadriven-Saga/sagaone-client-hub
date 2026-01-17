@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   Download, Users, Search, Filter, Send, Loader2, CheckCircle, Phone, Mail, 
-  Calendar, Clock, ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, MessageCircle, PhoneCall, Lock
+  Calendar, Clock, ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, MessageCircle, PhoneCall, Lock, RotateCcw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -724,7 +724,70 @@ export default function EventoBase() {
     }
   };
 
-  // Sincronizar contatos de evento de Ligação com webhook externo
+  // Redisparar contato individual (apenas Admin)
+  const handleRedispararContato = async (contato: ContatoEvento) => {
+    if (!prospeccao || !activeCompany?.id) return;
+
+    setDisparandoContato(contato.id);
+    try {
+      // Formatar lead no formato esperado
+      const leads = [{
+        id: contato.id,
+        lead_id: contato.lead_id,
+        nome: contato.nome,
+        telefone: contato.telefone,
+        email: contato.email,
+        status: contato.status,
+        origem: contato.origem
+      }];
+
+      console.log('🔄 Redisparando contato:', { 
+        contato: contato.nome,
+        empresa_id: activeCompany.id, 
+        prospeccao_id: prospeccao.id,
+        canal: prospeccao.canal 
+      });
+
+      const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
+        body: {
+          leads,
+          empresa_id: activeCompany.id,
+          prospeccao_id: prospeccao.id,
+          prospeccao_data: {
+            titulo: prospeccao.titulo,
+            canal: prospeccao.canal,
+            event_id_pri: prospeccao.event_id_pri || null,
+            data_inicio: prospeccao.data_inicio || null,
+            data_fim: prospeccao.data_fim || null
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      console.log('✅ Resposta do redisparo:', data);
+
+      // Atualizar data_disparo_ia na tabela eventos_prospeccao
+      await supabase
+        .from('eventos_prospeccao')
+        .update({ data_disparo_ia: new Date().toISOString() })
+        .eq('prospeccao_id', prospeccao.id)
+        .eq('contato_id', contato.id);
+
+      toast({ title: "Sucesso", description: `Redisparo enviado para ${contato.nome}` });
+
+      // Atualizar contato na lista
+      setContatos(prev => prev.map(c => 
+        c.id === contato.id ? { ...c, data_disparo_ia: new Date().toISOString() } : c
+      ));
+    } catch (error) {
+      console.error('Erro ao redisparar:', error);
+      toast({ title: "Erro", description: "Erro ao enviar redisparo", variant: "destructive" });
+    } finally {
+      setDisparandoContato(null);
+    }
+  };
+
   const syncContatosLigacao = useCallback(async (showToast = true) => {
     const canalAtual = prospeccao?.canal?.toLowerCase() || '';
     const isLigacao = canalAtual.includes('liga');
@@ -1128,7 +1191,26 @@ export default function EventoBase() {
                           </TableCell>
                           {isIA && (
                             <TableCell>
-                              {!contato.data_disparo_ia && (
+                              {/* Contato já disparado - mostrar botão de redisparo apenas para Admin */}
+                              {contato.data_disparo_ia ? (
+                                isAdmin ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRedispararContato(contato)}
+                                    disabled={disparandoContato === contato.id}
+                                    className="h-8 px-2"
+                                    title="Disparar novamente (Admin)"
+                                  >
+                                    {disparandoContato === contato.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <RotateCcw className="h-4 w-4 text-amber-600" />
+                                    )}
+                                  </Button>
+                                ) : null
+                              ) : (
+                                /* Contato pendente - mostrar botão de disparo normal */
                                 loadingAccess ? (
                                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                                 ) : canDispatch ? (

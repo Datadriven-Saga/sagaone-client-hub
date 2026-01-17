@@ -944,6 +944,11 @@ export default function Templates() {
         ? normalizePhone(agenteSelecionado.telefone) 
         : priTelefone;
 
+      // Construir mapeamento de variáveis para salvar no banco
+      const varMappingForDB = variableMappings.length > 0 
+        ? buildVariableMappingPayload(variableMappings) 
+        : null;
+
       const templateData = {
         empresa_id: activeCompany.id,
         departamento_id: formData.departamento_id || null,
@@ -954,6 +959,7 @@ export default function Templates() {
         card_data: cardData,
         agente_id: selectedAgenteId, // Vincula ao agente selecionado
         pri_telefone: telefoneAgente, // Chave principal de compartilhamento (telefone do agente)
+        variable_mapping: varMappingForDB, // Mapeamento de variáveis para disparo
       };
 
       let error;

@@ -2577,6 +2577,7 @@ export type Database = {
           status_meta: string | null
           template_id_pri: string | null
           updated_at: string
+          variable_mapping: Json | null
         }
         Insert: {
           agente_id?: string | null
@@ -2597,6 +2598,7 @@ export type Database = {
           status_meta?: string | null
           template_id_pri?: string | null
           updated_at?: string
+          variable_mapping?: Json | null
         }
         Update: {
           agente_id?: string | null
@@ -2617,6 +2619,7 @@ export type Database = {
           status_meta?: string | null
           template_id_pri?: string | null
           updated_at?: string
+          variable_mapping?: Json | null
         }
         Relationships: [
           {
