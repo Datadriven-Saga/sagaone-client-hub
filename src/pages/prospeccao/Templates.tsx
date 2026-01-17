@@ -398,7 +398,7 @@ export default function Templates() {
     setVariableMappings([]); // Resetar mapeamento de variáveis
     setFormData({
       nome: "",
-      categoria: "",
+      categoria: "marketing", // Categoria padrão: Marketing
       departamento_id: "",
       agente_id: selectedAgenteId || "",
       formato: "",
@@ -988,6 +988,7 @@ export default function Templates() {
         conteudo: conteudo,
         cardData: cardData,
         agenteId: selectedAgenteId,
+        variableMappings: variableMappings,
       });
 
       // Se o webhook retornou dados do Meta, atualizar o template
@@ -2187,46 +2188,50 @@ export default function Templates() {
             {currentStep === 3 && renderStep3()}
           </ScrollIndicator>
 
-          <div className="flex-shrink-0 flex justify-end gap-2 pt-2 border-t mt-2">
-            {currentStep > 1 && (
-              <Button variant="outline" onClick={handleBack}>
-                Voltar
-              </Button>
-            )}
-            {currentStep < 3 ? (
-              <Button onClick={handleNext}>
-                Avançar
-              </Button>
-            ) : (
-              <Button onClick={handleSave} disabled={isSaving}>
-                {isSaving ? "Salvando..." : "Salvar Template"}
-              </Button>
-            )}
-            {currentStep === 3 && (
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  const cardData = formData.formato === "texto" ? {} : {
-                    imagemUrl: formData.cardData.imagemPreviewUrl,
-                    audioUrl: formData.cardData.audioPreviewUrl,
-                    videoUrl: formData.cardData.videoPreviewUrl,
-                    textoCabecalho: formData.cardData.textoCabecalho,
-                    rodape: formData.cardData.rodape,
-                    botoes: formData.cardData.botoes,
-                  };
-                  setPreviewTemplate({
-                    nome: formData.nome,
-                    formato: formData.formato,
-                    conteudo: formData.formato === "texto" ? formData.conteudo : formData.cardData.corpoTexto,
-                    card_data: cardData,
-                  });
-                  setIsPreviewOpen(true);
-                }}
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                Preview
-              </Button>
-            )}
+          <div className="flex-shrink-0 flex justify-between gap-2 pt-2 border-t mt-2">
+            <div>
+              {currentStep > 1 && (
+                <Button variant="outline" onClick={handleBack}>
+                  Voltar
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              {currentStep === 3 && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    const cardData = formData.formato === "texto" ? {} : {
+                      imagemUrl: formData.cardData.imagemPreviewUrl,
+                      audioUrl: formData.cardData.audioPreviewUrl,
+                      videoUrl: formData.cardData.videoPreviewUrl,
+                      textoCabecalho: formData.cardData.textoCabecalho,
+                      rodape: formData.cardData.rodape,
+                      botoes: formData.cardData.botoes,
+                    };
+                    setPreviewTemplate({
+                      nome: formData.nome,
+                      formato: formData.formato,
+                      conteudo: formData.formato === "texto" ? formData.conteudo : formData.cardData.corpoTexto,
+                      card_data: cardData,
+                    });
+                    setIsPreviewOpen(true);
+                  }}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Preview
+                </Button>
+              )}
+              {currentStep < 3 ? (
+                <Button onClick={handleNext}>
+                  Avançar
+                </Button>
+              ) : (
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? "Salvando..." : "Salvar Template"}
+                </Button>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
