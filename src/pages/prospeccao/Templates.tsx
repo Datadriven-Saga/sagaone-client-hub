@@ -47,7 +47,12 @@ import {
   Loader2
 } from "lucide-react";
 import { TemplatePreview } from "@/components/TemplatePreview";
-import { TemplateVariablesEditor, buildBodyExamplePayload } from "@/components/TemplateVariablesEditor";
+import { 
+  TemplateVariablesEditor, 
+  buildBodyExamplePayload, 
+  buildVariableMappingPayload,
+  VariableMapping 
+} from "@/components/TemplateVariablesEditor";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -55,11 +60,6 @@ import { toast } from "sonner";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { normalizePhone } from "@/lib/utils";
 import { useVideoCompression, MAX_VIDEO_SIZE_BYTES } from "@/hooks/useVideoCompression";
-
-interface VariableExample {
-  position: number;
-  example: string;
-}
 
 
 type TemplateFormat = "texto" | "botao" | "imagem" | "video" | "card" | "lista";
@@ -130,15 +130,7 @@ const formatOptions = [
   },
 ];
 
-const systemVariables = [
-  { value: "{{nome_cliente}}", label: "Nome do Cliente" },
-  { value: "{{empresa}}", label: "Empresa" },
-  { value: "{{marca}}", label: "Marca" },
-  { value: "{{data_atual}}", label: "Data Atual" },
-  { value: "{{nome_prospeccao}}", label: "Nome Prospecção" },
-  { value: "{{data_inicio}}", label: "Data Início" },
-  { value: "{{data_fim}}", label: "Data Fim" },
-];
+// Campos de variáveis agora gerenciados em TemplateVariablesEditor
 
 export default function Templates() {
   const { activeCompany } = useCompany();
@@ -218,8 +210,8 @@ export default function Templates() {
     cardData: initialCardData,
   });
 
-  // Estado para exemplos de variáveis dinâmicas {{1}}, {{2}}, etc.
-  const [variableExamples, setVariableExamples] = useState<VariableExample[]>([]);
+  // Estado para mapeamento de variáveis dinâmicas {{1}}, {{2}}, etc.
+  const [variableMappings, setVariableMappings] = useState<VariableMapping[]>([]);
 
   const getStatusBadgeClasses = (status: string) => {
     switch (status) {
@@ -403,7 +395,7 @@ export default function Templates() {
 
   const handleOpenModal = () => {
     setEditingTemplateId(null);
-    setVariableExamples([]); // Resetar variáveis dinâmicas
+    setVariableMappings([]); // Resetar mapeamento de variáveis
     setFormData({
       nome: "",
       categoria: "",
@@ -636,7 +628,7 @@ export default function Templates() {
     };
 
     // Adicionar exemplos de variáveis se existirem
-    const examplePayload = buildBodyExamplePayload(variableExamples);
+    const examplePayload = buildBodyExamplePayload(variableMappings);
     if (examplePayload) {
       bodyComponent.example = examplePayload;
     }
@@ -762,6 +754,7 @@ export default function Templates() {
     conteudo: string;
     cardData: Record<string, any>;
     agenteId: string | null;
+    variableMappings?: VariableMapping[];
   }): Promise<{ template_id_pri?: string; id_meta?: string; status_meta?: string; category_meta?: string } | null> => {
     if (!activeCompany?.id) return null;
 
@@ -786,6 +779,11 @@ export default function Templates() {
       // Construir payload Meta-compatível (async para buscar binários de mídia)
       const metaPayload = await buildMetaPayload(templateData);
 
+      // Construir mapeamento de variáveis para resolução no disparo
+      const varMapping = templateData.variableMappings 
+        ? buildVariableMappingPayload(templateData.variableMappings)
+        : {};
+
       // Adicionar dados do agente selecionado ao payload
       const payloadWithAgente = {
         ...metaPayload,
@@ -795,6 +793,7 @@ export default function Templates() {
         pri_telefone: normalizePhone(agenteData.telefone),
         pri_dealer_id: agenteData.dealer_id || null,
         pri_status: agenteData.ativo ? "Ativo" : "Inativo",
+        variable_mapping: varMapping, // Mapeamento para resolução de variáveis no disparo
       };
 
       console.log("Chamando Edge Function trigger-webhook com payload:", JSON.stringify(payloadWithAgente, null, 2));
@@ -1232,26 +1231,7 @@ export default function Templates() {
     }));
   };
 
-  const renderVariableDropdown = (onInsert: (variable: string) => void) => (
-    <div className="flex items-center gap-2">
-      <Label className="shrink-0">Inserir variável:</Label>
-      <Select
-        value=""
-        onValueChange={(value) => onInsert(value)}
-      >
-        <SelectTrigger className="w-48 h-8 bg-white text-sm">
-          <SelectValue placeholder="Selecione..." />
-        </SelectTrigger>
-        <SelectContent>
-          {systemVariables.map((variable) => (
-            <SelectItem key={variable.value} value={variable.value}>
-              {variable.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
+  // Função removida - variáveis agora gerenciadas apenas via TemplateVariablesEditor
 
   const renderStepIndicator = () => (
     <div className="flex items-center justify-center gap-2 mb-6">
@@ -1416,33 +1396,15 @@ export default function Templates() {
               {formData.conteudo.length}/1024
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Label className="shrink-0">Inserir variável:</Label>
-            <Select
-              value=""
-              onValueChange={(value) => insertVariable(value)}
-            >
-              <SelectTrigger className="w-48 h-8 bg-white text-sm">
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-              <SelectContent>
-                {systemVariables.map((variable) => (
-                  <SelectItem key={variable.value} value={variable.value}>
-                    {variable.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
 
           {/* Editor de variáveis dinâmicas {{1}}, {{2}}, etc. */}
           <TemplateVariablesEditor
             text={formData.conteudo}
-            examples={variableExamples}
-            onExamplesChange={setVariableExamples}
+            variables={variableMappings}
+            onVariablesChange={setVariableMappings}
             onInsertVariable={() => {
-              const nextNum = variableExamples.length > 0 
-                ? Math.max(...variableExamples.map(e => e.position)) + 1 
+              const nextNum = variableMappings.length > 0 
+                ? Math.max(...variableMappings.map(v => v.position)) + 1 
                 : 1;
               setFormData(prev => ({
                 ...prev,
@@ -1584,8 +1546,7 @@ export default function Templates() {
               className="min-h-[80px] bg-white"
               maxLength={1024}
             />
-            <div className="flex items-center justify-between mt-1">
-              {renderVariableDropdown(insertVariableToCorpoTexto)}
+            <div className="flex items-center justify-end mt-1">
               <p className="text-xs text-muted-foreground">
                 {formData.cardData.corpoTexto.length}/1024
               </p>
@@ -1727,8 +1688,7 @@ export default function Templates() {
               className="min-h-[120px] bg-white"
               maxLength={1024}
             />
-            <div className="flex items-center justify-between mt-1">
-              {renderVariableDropdown(insertVariableToCorpoTexto)}
+            <div className="flex items-center justify-end mt-1">
               <p className="text-xs text-muted-foreground">
                 {formData.cardData.corpoTexto.length}/1024
               </p>
@@ -1882,8 +1842,7 @@ export default function Templates() {
               className="min-h-[120px] bg-white"
               maxLength={1024}
             />
-            <div className="flex items-center justify-between mt-1">
-              {renderVariableDropdown(insertVariableToCorpoTexto)}
+            <div className="flex items-center justify-end mt-1">
               <p className="text-xs text-muted-foreground">
                 {formData.cardData.corpoTexto.length}/1024
               </p>
@@ -2049,8 +2008,7 @@ export default function Templates() {
               className="min-h-[120px] bg-white"
               maxLength={1024}
             />
-            <div className="flex items-center justify-between mt-1">
-              {renderVariableDropdown(insertVariableToCorpoTexto)}
+            <div className="flex items-center justify-end mt-1">
               <p className="text-xs text-muted-foreground">
                 {formData.cardData.corpoTexto.length}/1024
               </p>
