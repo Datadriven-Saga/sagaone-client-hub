@@ -851,8 +851,8 @@ export default function Templates() {
       toast.error("Faça upload de um vídeo");
       return;
     }
-    if (formData.formato === "card" && (!formData.cardData.textoCabecalho || !formData.cardData.corpoTexto)) {
-      toast.error("Preencha o cabeçalho e o corpo do texto do card");
+    if (formData.formato === "card" && !formData.cardData.corpoTexto) {
+      toast.error("Preencha o corpo do texto do card");
       return;
     }
     
@@ -1532,29 +1532,6 @@ export default function Templates() {
             </div>
           </div>
 
-          {/* Texto do Cabeçalho */}
-          <div>
-            <Label htmlFor="textoCabecalho">Texto do Cabeçalho</Label>
-            <Input
-              id="textoCabecalho"
-              value={formData.cardData.textoCabecalho}
-              onChange={(e) => {
-                if (e.target.value.length <= 40) {
-                  setFormData(prev => ({
-                    ...prev,
-                    cardData: { ...prev.cardData, textoCabecalho: e.target.value }
-                  }));
-                }
-              }}
-              placeholder="Título do card"
-              className="bg-white"
-              maxLength={40}
-            />
-            <p className="text-xs text-muted-foreground mt-1 text-right">
-              {formData.cardData.textoCabecalho.length}/40
-            </p>
-          </div>
-
           {/* Corpo do Texto */}
           <div>
             <Label htmlFor="corpoTexto">Corpo do Texto</Label>
@@ -2164,6 +2141,7 @@ export default function Templates() {
                           <Button 
                             variant="ghost" 
                             size="icon"
+                            className="cursor-pointer"
                             onClick={() => {
                               setPreviewTemplate(template);
                               setIsPreviewOpen(true);
@@ -2175,6 +2153,7 @@ export default function Templates() {
                           <Button 
                             variant="ghost" 
                             size="icon"
+                            className="cursor-pointer"
                             onClick={() => handleEditTemplate(template)}
                             title="Editar"
                           >
@@ -2183,7 +2162,7 @@ export default function Templates() {
                           <Button 
                             variant="ghost" 
                             size="icon"
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            className="cursor-pointer text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => handleDeleteTemplate(template)}
                             title="Excluir"
                           >

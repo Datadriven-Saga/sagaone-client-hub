@@ -100,6 +100,21 @@
     @apply bg-background text-foreground font-roboto;
   }
 
+  /* Cursor pointer for all clickable elements */
+  button,
+  [role="button"],
+  [type="button"],
+  [type="submit"],
+  [type="reset"],
+  a,
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"],
+  select,
+  [data-clickable="true"] {
+    cursor: pointer;
+  }
+
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
