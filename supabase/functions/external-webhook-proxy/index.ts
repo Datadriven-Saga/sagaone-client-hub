@@ -11,6 +11,7 @@ const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }>
   'verifica-eventos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', method: 'GET' },
   'verifica-contatos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-contatos', method: 'GET' },
   'eventos-pri': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/eventos-pri', method: 'GET' },
+  'dash-pri': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/dash-pri', method: 'GET' },
   'busca-dados-agentes': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-dados-agentes', method: 'GET' },
   
   // Ações (POST)
