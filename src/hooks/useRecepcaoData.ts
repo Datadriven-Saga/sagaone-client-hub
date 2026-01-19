@@ -238,11 +238,58 @@ export const useRecepcaoData = () => {
     }
   };
 
+  // Verificar se já existe check-in para este telefone neste evento
+  const verificarCheckinExistente = async (
+    telefone: string,
+    eventoId: string
+  ): Promise<boolean> => {
+    if (!activeCompany) return false;
+
+    try {
+      // Gerar variações do telefone
+      const variations = generatePhoneVariations(telefone);
+
+      // Buscar visitas existentes para o mesmo evento
+      const { data: visitasExistentes, error } = await supabase
+        .from("recepcao_visitas")
+        .select("id, telefone_cliente")
+        .eq("prospeccao_id", eventoId)
+        .eq("empresa_id", activeCompany.id);
+
+      if (error || !visitasExistentes) return false;
+
+      // Verificar se algum telefone existente bate com as variações
+      return visitasExistentes.some(visita => {
+        const visitaPhone = normalizePhone(visita.telefone_cliente || '');
+        let cleanVisitaPhone = visitaPhone;
+        if (cleanVisitaPhone.startsWith('55') && cleanVisitaPhone.length > 11) {
+          cleanVisitaPhone = cleanVisitaPhone.substring(2);
+        }
+        return variations.includes(cleanVisitaPhone);
+      });
+    } catch (error) {
+      console.error("Erro ao verificar check-in existente:", error);
+      return false;
+    }
+  };
+
   // Registrar check-in (atualiza contato existente ou cria novo)
   const registrarCheckin = async (data: CheckinData): Promise<boolean> => {
     if (!activeCompany) return false;
 
     try {
+      // Verificar se já existe check-in para este telefone neste evento
+      const jaExisteCheckin = await verificarCheckinExistente(data.telefone, data.evento_id);
+
+      if (jaExisteCheckin) {
+        toast({
+          title: "Check-in já realizado",
+          description: "Este telefone já fez check-in neste evento.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
       const phoneNormalized = normalizePhone(data.telefone);
       let contatoId: string;
       let nomeContato = data.contato?.nome || "Visitante";
@@ -301,14 +348,15 @@ export const useRecepcaoData = () => {
           observacoes: `Check-in via Recepção - Evento: ${data.evento_nome || 'N/A'}`
         }]);
 
-      // Registrar na tabela recepcao_visitas
+      // Registrar na tabela recepcao_visitas com prospeccao_id
       await supabase
         .from("recepcao_visitas")
         .insert([{
           nome_cliente: nomeContato,
           telefone_cliente: data.telefone,
           nome_campanha: data.evento_nome || "Evento",
-          empresa_id: activeCompany.id
+          empresa_id: activeCompany.id,
+          prospeccao_id: data.evento_id
         }]);
 
       toast({

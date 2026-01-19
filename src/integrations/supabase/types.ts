@@ -2187,6 +2187,7 @@ export type Database = {
           id_maia: string | null
           nome_campanha: string
           nome_cliente: string
+          prospeccao_id: string | null
           telefone_cliente: string
           updated_at: string
         }
@@ -2198,6 +2199,7 @@ export type Database = {
           id_maia?: string | null
           nome_campanha: string
           nome_cliente: string
+          prospeccao_id?: string | null
           telefone_cliente: string
           updated_at?: string
         }
@@ -2209,6 +2211,7 @@ export type Database = {
           id_maia?: string | null
           nome_campanha?: string
           nome_cliente?: string
+          prospeccao_id?: string | null
           telefone_cliente?: string
           updated_at?: string
         }
@@ -2218,6 +2221,13 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recepcao_visitas_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
             referencedColumns: ["id"]
           },
         ]
