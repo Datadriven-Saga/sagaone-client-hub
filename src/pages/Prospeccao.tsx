@@ -962,18 +962,31 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           if (!agenteError && agenteData?.agentes_ia?.telefone) {
             const telefonePri = agenteData.agentes_ia.telefone.replace(/\D/g, '');
             const lojaNome = activeCompany?.nome_empresa || '';
-            
+
             const idEvento = Number(prospeccaoSelecionada.event_id_pri);
+
+            const normalizeTelefoneForPri = (digits: string) => {
+              // Alguns contatos vêm com DDI (55). O workflow PRI normalmente espera apenas DDD+Número.
+              if (digits.length > 11 && digits.startsWith('55')) return digits.slice(2);
+              return digits;
+            };
 
             const contatosPayload = resultado.todosContatosProcessados
               .filter((c) => c.lead_id !== null && c.lead_id !== undefined)
               .map((c) => {
-                const telefoneDigits = c.telefone?.replace(/\D/g, '') || '';
+                const telefoneDigitsRaw = c.telefone?.replace(/\D/g, '') || '';
+                const telefoneDigits = normalizeTelefoneForPri(telefoneDigitsRaw);
+
                 return {
                   lead_id: c.lead_id, // ID serial do contato (mesmo formato do webhook recebe-leads-pri)
                   nome: c.nome,
                   telefone: telefoneDigits,
                   telefone_lead: telefoneDigits,
+
+                  // Campos redundantes (mantidos para compatibilidade com o workflow n8n)
+                  id_evento: idEvento,
+                  telefone_pri: telefonePri,
+                  loja: lojaNome,
                 };
               });
 
@@ -985,6 +998,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                 telefone_pri: telefonePri,
                 loja: lojaNome,
                 contatos: contatosPayload,
+                total_contatos: contatosPayload.length,
               },
             });
 
