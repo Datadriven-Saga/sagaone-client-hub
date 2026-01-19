@@ -299,84 +299,8 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
         base_id: baseData.id
       }));
       
-      // Para eventos de Ligação, enviar ao webhook para criar a base no banco externo
-      // (isso NÃO dispara as ligações, apenas registra a base)
-      if (isLigacaoEvent && selectedProspeccao?.event_id_pri) {
-        try {
-          console.log('📞 Enviando base para webhook cria-base-ligacao...');
-          
-          // Buscar agente de ligação (Pri) ativo da empresa para obter telefone_pri
-          const { data: agenteData, error: agenteError } = await supabase
-            .from('agente_empresas')
-            .select(`
-              agente_id,
-              agentes_ia!inner (
-                id,
-                nome,
-                telefone,
-                ativo
-              )
-            `)
-            .eq('empresa_id', activeCompany?.id)
-            .eq('agentes_ia.ativo', true)
-            .limit(1)
-            .single();
-
-          if (agenteError || !agenteData?.agentes_ia?.telefone) {
-            toast({
-              title: "Erro na importação",
-              description: "Nenhum agente de ligação (Pri) ativo encontrado para esta empresa. Configure um agente com telefone antes de importar.",
-              variant: "destructive",
-            });
-            setIsProcessing(false);
-            return;
-          }
-
-          const telefonePri = agenteData.agentes_ia.telefone.replace(/\D/g, '');
-          const lojaNome = activeCompany?.nome_empresa || '';
-          
-          if (!telefonePri) {
-            toast({
-              title: "Erro na importação",
-              description: "O agente de ligação (Pri) não possui telefone configurado. Configure o telefone do agente antes de importar.",
-              variant: "destructive",
-            });
-            setIsProcessing(false);
-            return;
-          }
-          
-          const contatosPayload = clientesComDados.map(c => ({
-            telefone_lead: c.telefone?.replace(/\D/g, '') || '',
-            id_evento: selectedProspeccao.event_id_pri,
-            nome: c.nome,
-            telefone_pri: telefonePri,
-            loja: lojaNome,
-          }));
-
-          // Usar edge function para enviar base com token SAGA_ONE
-          const { data: webhookData, error: webhookError } = await supabase.functions.invoke('external-webhook-proxy', {
-            body: {
-              endpoint: 'cria-base-ligacao',
-              contatos: contatosPayload,
-              id_evento: selectedProspeccao.event_id_pri,
-              total_contatos: contatosPayload.length,
-            },
-          });
-
-          if (!webhookError) {
-            console.log('✅ Base enviada para sistema de ligação');
-          } else {
-            console.warn('⚠️ Falha ao enviar base para sistema de ligação:', webhookError);
-          }
-        } catch (webhookError) {
-          console.error('❌ Erro ao enviar para webhook cria-base-ligacao:', webhookError);
-          toast({
-            title: "Erro ao enviar base",
-            description: "Falha ao enviar base para o sistema de ligação. Verifique se há um agente ativo configurado.",
-            variant: "destructive",
-          });
-        }
-      }
+      // O webhook cria-base-ligacao agora é chamado em Prospeccao.tsx após a criação dos contatos
+      // para incluir o lead_id (id do contato no SagaOne) no payload
       
       onClientesImported(selectedCampanha, clientesComDados);
       setIsOpen(false);
