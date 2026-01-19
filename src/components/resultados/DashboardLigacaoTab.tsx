@@ -1,11 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Filter, Loader2, Phone, MessageSquare, X, RefreshCw, Calendar, PhoneCall, PhoneOff, CalendarCheck } from 'lucide-react';
+import { Search, Loader2, Phone, MessageSquare, X, RefreshCw, Calendar, PhoneCall, PhoneOff, CalendarCheck, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -21,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 interface DashboardLigacaoTabProps {
   selectedEventId: string | null;
@@ -64,16 +64,55 @@ interface Metricas {
 
 const PAGE_SIZE = 10;
 
+// Configuração das métricas com cores e ícones
+const metricsConfig = [
+  { 
+    key: 'totalLeads' as const, 
+    label: 'Total Leads', 
+    icon: Users,
+    borderColor: 'border-l-primary',
+    iconColor: 'text-primary'
+  },
+  { 
+    key: 'leadsAtendidos' as const, 
+    label: 'Atendidos', 
+    icon: PhoneCall,
+    borderColor: 'border-l-green-500',
+    iconColor: 'text-green-600'
+  },
+  { 
+    key: 'leadsEmFila' as const, 
+    label: 'Em Fila', 
+    icon: PhoneOff,
+    borderColor: 'border-l-orange-500',
+    iconColor: 'text-orange-600'
+  },
+  { 
+    key: 'leadsAgendados' as const, 
+    label: 'Agendados', 
+    icon: CalendarCheck,
+    borderColor: 'border-l-[#04bbda]',
+    iconColor: 'text-[#04bbda]'
+  },
+  { 
+    key: 'mensagensEnviadas' as const, 
+    label: 'WhatsApp', 
+    icon: MessageSquare,
+    borderColor: 'border-l-emerald-500',
+    iconColor: 'text-emerald-600'
+  },
+];
+
 export const DashboardLigacaoTab = ({ 
   selectedEventId, 
   selectedAgentPhone,
   onEventChange 
 }: DashboardLigacaoTabProps) => {
-  const [showFilterModal, setShowFilterModal] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     loja: '',
     status: '',
+    tentativas: '',
     showOnlyAtendidos: false,
     showOnlyAgendados: false,
     showOnlyEmFila: false,
@@ -103,9 +142,9 @@ export const DashboardLigacaoTab = ({
     if (!selectedAgentPhone) return;
     
     try {
-      // Use edge function para consultar com token SAGA_ONE
+      // Use edge function para consultar com token SAGA_ONE - usando eventos-pri
       const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
-        body: { endpoint: 'verifica-eventos', telefone_pri: selectedAgentPhone },
+        body: { endpoint: 'eventos-pri', telefone_pri: selectedAgentPhone },
       });
       
       if (error) {
@@ -149,10 +188,10 @@ export const DashboardLigacaoTab = ({
     try {
       setLoading(true);
       
-      // Use edge function para consultar com token SAGA_ONE
+      // Use edge function para consultar com token SAGA_ONE - usando dash-pri
       const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
         body: { 
-          endpoint: 'verifica-contatos', 
+          endpoint: 'dash-pri', 
           telefone_pri: selectedAgentPhone, 
           id_evento: selectedEventId 
         },
@@ -173,8 +212,8 @@ export const DashboardLigacaoTab = ({
         loja: lead.loja,
         status: calculateLeadStatus(lead),
         proposal_id: lead.proposal_id,
-        num_tentativas: lead.num_tentativas || 0,
-        ultima_atualizacao: lead.updated_at || lead.ultima_atualizacao,
+        num_tentativas: lead.num_tentativas ?? lead.tentativas ?? 0,
+        ultima_atualizacao: lead.atualizado_em || lead.updated_at || lead.ultima_atualizacao,
         ligacao_atendida: lead.ligacao_atendida,
         status_agendado: lead.status_agendado,
         ligacao_erro: lead.ligacao_erro,
@@ -212,33 +251,65 @@ export const DashboardLigacaoTab = ({
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-      'pendente': { label: 'pendente', variant: 'secondary' },
-      'atendido': { label: 'atendido', variant: 'default' },
-      'agendado': { label: 'agendado', variant: 'default' },
-      'em fila': { label: 'em fila', variant: 'destructive' },
-      'não agendado': { label: 'não agendado', variant: 'outline' },
+    const statusConfig: Record<string, { label: string; className: string }> = {
+      'pendente': { 
+        label: 'Pendente', 
+        className: 'bg-muted text-muted-foreground border-border' 
+      },
+      'atendido': { 
+        label: 'Atendido', 
+        className: 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700' 
+      },
+      'agendado': { 
+        label: 'Agendado', 
+        className: 'bg-[#04bbda]/10 text-[#04bbda] border-[#04bbda]/30' 
+      },
+      'em fila': { 
+        label: 'Em Fila', 
+        className: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700' 
+      },
+      'não agendado': { 
+        label: 'Não Agendado', 
+        className: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700' 
+      },
     };
     
-    const config = statusConfig[status] || { label: status, variant: 'secondary' as const };
+    const config = statusConfig[status] || statusConfig['pendente'];
     return (
-      <Badge variant={config.variant} className="text-xs">
+      <span className={cn(
+        "inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border whitespace-nowrap",
+        config.className
+      )}>
         {config.label}
-      </Badge>
+      </span>
     );
   };
 
   const getActionIcon = (lead: LeadData) => {
     if (lead.status_agendado) {
-      return <CalendarCheck className="h-4 w-4 text-primary" />;
+      return <CalendarCheck className="h-4 w-4 text-[#04bbda]" />;
     }
     if (lead.ligacao_erro) {
       return <X className="h-4 w-4 text-destructive" />;
     }
     if (lead.enviado_whatsapp) {
-      return <MessageSquare className="h-4 w-4 text-muted-foreground" />;
+      return <MessageSquare className="h-4 w-4 text-emerald-600" />;
     }
     return <Phone className="h-4 w-4 text-muted-foreground" />;
+  };
+
+  const getTentativasBadge = (tentativas: number) => {
+    return (
+      <span className={cn(
+        "inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold",
+        tentativas === 0 && "bg-muted text-muted-foreground",
+        tentativas === 1 && "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+        tentativas === 2 && "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+        tentativas >= 3 && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+      )}>
+        {tentativas}
+      </span>
+    );
   };
 
   // Get unique lojas for filter dropdown
@@ -262,12 +333,22 @@ export const DashboardLigacaoTab = ({
       const matchesLoja = !filters.loja || filters.loja === '__all__' || lead.loja === filters.loja;
       const matchesStatus = !filters.status || filters.status === '__all__' || lead.status === filters.status;
       
+      // Filtro de tentativas
+      const matchesTentativas = !filters.tentativas || filters.tentativas === '__all__' || (() => {
+        const t = lead.num_tentativas || 0;
+        if (filters.tentativas === '0') return t === 0;
+        if (filters.tentativas === '1') return t === 1;
+        if (filters.tentativas === '2') return t === 2;
+        if (filters.tentativas === '3+') return t >= 3;
+        return true;
+      })();
+      
       const matchesAtendidos = !filters.showOnlyAtendidos || lead.ligacao_atendida;
       const matchesAgendados = !filters.showOnlyAgendados || lead.status_agendado;
       const matchesEmFila = !filters.showOnlyEmFila || (lead.ligacao_erro && !lead.status_agendado);
       const matchesWhatsapp = !filters.showOnlyWhatsapp || lead.enviado_whatsapp;
 
-      return matchesSearch && matchesLoja && matchesStatus && matchesAtendidos && matchesAgendados && matchesEmFila && matchesWhatsapp;
+      return matchesSearch && matchesLoja && matchesStatus && matchesTentativas && matchesAtendidos && matchesAgendados && matchesEmFila && matchesWhatsapp;
     });
   }, [leads, filters]);
 
@@ -312,6 +393,7 @@ export const DashboardLigacaoTab = ({
       search: '',
       loja: '',
       status: '',
+      tentativas: '',
       showOnlyAtendidos: false,
       showOnlyAgendados: false,
       showOnlyEmFila: false,
@@ -323,6 +405,7 @@ export const DashboardLigacaoTab = ({
     filters.search,
     filters.loja && filters.loja !== '__all__' ? filters.loja : '',
     filters.status && filters.status !== '__all__' ? filters.status : '',
+    filters.tentativas && filters.tentativas !== '__all__' ? filters.tentativas : '',
     filters.showOnlyAtendidos ? 'atendidos' : '',
     filters.showOnlyAgendados ? 'agendados' : '',
     filters.showOnlyEmFila ? 'emfila' : '',
@@ -352,15 +435,15 @@ export const DashboardLigacaoTab = ({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold">Dashboard de Ligação</h2>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <h2 className="text-xl sm:text-2xl font-bold">Dashboard de Ligação</h2>
             
             {/* Event Switcher */}
             {availableEvents.length > 0 && (
               <Select value={selectedEventId || ''} onValueChange={handleEventChange}>
-                <SelectTrigger className="w-[250px]">
+                <SelectTrigger className="w-full sm:w-[250px]">
                   <SelectValue placeholder="Selecionar evento..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -374,14 +457,14 @@ export const DashboardLigacaoTab = ({
             )}
           </div>
           
-          <Button variant="outline" size="sm" onClick={fetchDashboardData}>
+          <Button variant="outline" size="sm" onClick={fetchDashboardData} className="w-full sm:w-auto">
             <RefreshCw className="h-4 w-4 mr-2" />
             Atualizar
           </Button>
         </div>
         
         {selectedEvent && (
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
               {selectedEvent.nome}
@@ -407,8 +490,8 @@ export const DashboardLigacaoTab = ({
 
       {/* Search and Filter */}
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="relative sm:col-span-2 lg:col-span-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={filters.search}
@@ -416,7 +499,7 @@ export const DashboardLigacaoTab = ({
                 setFilters(prev => ({ ...prev, search: e.target.value }));
                 setCurrentPage(1);
               }}
-              placeholder="Filtrar por telefone, nome ou status..."
+              placeholder="Filtrar por telefone, nome..."
               className="pl-10"
             />
           </div>
@@ -425,7 +508,7 @@ export const DashboardLigacaoTab = ({
             value={filters.loja || '__all__'} 
             onValueChange={(value) => setFilters(prev => ({ ...prev, loja: value === '__all__' ? '' : value }))}
           >
-            <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Todas as lojas" />
             </SelectTrigger>
             <SelectContent>
@@ -440,7 +523,7 @@ export const DashboardLigacaoTab = ({
             value={filters.status || '__all__'} 
             onValueChange={(value) => setFilters(prev => ({ ...prev, status: value === '__all__' ? '' : value }))}
           >
-            <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Todos status" />
             </SelectTrigger>
             <SelectContent>
@@ -450,10 +533,26 @@ export const DashboardLigacaoTab = ({
               ))}
             </SelectContent>
           </Select>
+
+          <Select 
+            value={filters.tentativas || '__all__'} 
+            onValueChange={(value) => setFilters(prev => ({ ...prev, tentativas: value === '__all__' ? '' : value }))}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Tentativas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todas tentativas</SelectItem>
+              <SelectItem value="0">0 tentativas</SelectItem>
+              <SelectItem value="1">1 tentativa</SelectItem>
+              <SelectItem value="2">2 tentativas</SelectItem>
+              <SelectItem value="3+">3+ tentativas</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Quick Filters */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant={filters.showOnlyAtendidos ? 'default' : 'outline'}
             size="sm"
@@ -491,7 +590,7 @@ export const DashboardLigacaoTab = ({
             className="gap-1"
           >
             <MessageSquare className="h-3 w-3" />
-            WhatsApp Enviado
+            WhatsApp
           </Button>
           
           {activeFiltersCount > 0 && (
@@ -509,79 +608,47 @@ export const DashboardLigacaoTab = ({
       </div>
 
       {/* Metrics Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Total Leads
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{dynamicMetrics.totalLeads.toLocaleString('pt-BR')}</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Atendidos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{dynamicMetrics.leadsAtendidos.toLocaleString('pt-BR')}</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Em Fila
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{dynamicMetrics.leadsEmFila.toLocaleString('pt-BR')}</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Agendados
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{dynamicMetrics.leadsAgendados.toLocaleString('pt-BR')}</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              WhatsApp Enviados
-            </CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{dynamicMetrics.mensagensEnviadas.toLocaleString('pt-BR')}</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {metricsConfig.map((metric) => {
+          const value = dynamicMetrics[metric.key];
+          const Icon = metric.icon;
+          return (
+            <Card key={metric.key} className={cn("border-l-4 shadow-sm", metric.borderColor)}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                      {metric.label}
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                      {value.toLocaleString('pt-BR')}
+                    </p>
+                  </div>
+                  <div className="p-2 sm:p-3 rounded-xl bg-muted">
+                    <Icon className={cn("h-5 w-5 sm:h-6 sm:w-6", metric.iconColor)} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Leads Table */}
       <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
+        <CardContent className="p-0 overflow-x-auto">
+          <Table className="min-w-[900px]">
+            <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead className="w-12">#</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Nome</TableHead>
-                <TableHead>Proposal ID</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Loja</TableHead>
-                <TableHead className="text-center">Tentativas</TableHead>
-                <TableHead>Última Atualização</TableHead>
-                <TableHead className="text-center">Ações</TableHead>
+                <TableHead className="w-12 font-semibold">#</TableHead>
+                <TableHead className="font-semibold">Telefone</TableHead>
+                <TableHead className="font-semibold">Nome</TableHead>
+                <TableHead className="font-semibold">Proposal ID</TableHead>
+                <TableHead className="font-semibold">Status</TableHead>
+                <TableHead className="font-semibold">Loja</TableHead>
+                <TableHead className="text-center font-semibold">Tentativas</TableHead>
+                <TableHead className="font-semibold">Última Atualização</TableHead>
+                <TableHead className="text-center font-semibold">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -593,7 +660,7 @@ export const DashboardLigacaoTab = ({
                 </TableRow>
               ) : (
                 paginatedLeads.map((lead, index) => (
-                  <TableRow key={lead.id || index}>
+                  <TableRow key={lead.id || index} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="font-medium">
                       {(currentPage - 1) * PAGE_SIZE + index + 1}
                     </TableCell>
@@ -608,7 +675,9 @@ export const DashboardLigacaoTab = ({
                     <TableCell className="max-w-[150px] truncate" title={lead.loja}>
                       {lead.loja || '—'}
                     </TableCell>
-                    <TableCell className="text-center">{lead.num_tentativas || 0}</TableCell>
+                    <TableCell className="text-center">
+                      {getTentativasBadge(lead.num_tentativas || 0)}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatDate(lead.ultima_atualizacao)}
                     </TableCell>
@@ -623,7 +692,7 @@ export const DashboardLigacaoTab = ({
           
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t">
               <p className="text-sm text-muted-foreground">
                 Mostrando {((currentPage - 1) * PAGE_SIZE) + 1} a {Math.min(currentPage * PAGE_SIZE, filteredLeads.length)} de {filteredLeads.length}
               </p>
