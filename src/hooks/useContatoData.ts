@@ -304,16 +304,16 @@ export const useContatoData = () => {
     console.log('🚀 adicionarContatos chamada com:', { novosContatos: novosContatos.length, prospeccaoId });
 
     try {
-      // 1) Buscar TODOS os contatos da empresa para identificar existentes
+      // 1) Buscar TODOS os contatos da empresa para identificar existentes (incluindo lead_id)
       const PAGE_SIZE = 1000;
-      let allExistingContatos: { id: string; telefone: string | null }[] = [];
+      let allExistingContatos: { id: string; telefone: string | null; lead_id: number | null }[] = [];
       let page = 0;
       let hasMore = true;
 
       while (hasMore) {
         const { data, error } = await supabase
           .from('contatos')
-          .select('id, telefone')
+          .select('id, telefone, lead_id')
           .eq('empresa_id', activeCompany.id)
           .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
         
@@ -333,10 +333,13 @@ export const useContatoData = () => {
 
       // Criar mapa de telefone normalizado -> contato_id
       const telefoneToContatoId = new Map<string, string>();
+      // Criar mapa de telefone normalizado -> lead_id (serial)
+      const telefoneToLeadId = new Map<string, number | null>();
       for (const c of allExistingContatos) {
         if (c.telefone) {
           const telNorm = normalizeTelefoneForComparison(c.telefone);
           telefoneToContatoId.set(telNorm, c.id);
+          telefoneToLeadId.set(telNorm, c.lead_id);
         }
       }
 
@@ -373,7 +376,7 @@ export const useContatoData = () => {
       // 3) Separar contatos em: 
       //    - existentes que precisam ser vinculados
       //    - novos que precisam ser criados e vinculados
-      const contatosParaVincular: { id: string; telefone: string; nome: string }[] = []; // Contatos existentes com dados
+      const contatosParaVincular: { id: string; telefone: string; nome: string; lead_id: number | null }[] = []; // Contatos existentes com dados
       const contatosParaCriar: typeof novosContatos = [];
       const jaVinculados: string[] = [];
       const telefonesProcessados = new Set<string>();
@@ -395,11 +398,13 @@ export const useContatoData = () => {
             // Já está vinculado a este evento
             jaVinculados.push(contato.nome);
           } else {
-            // Precisa vincular ao evento - guardar dados completos
+            // Precisa vincular ao evento - guardar dados completos incluindo lead_id
+            const leadIdExistente = telefoneToLeadId.get(telNorm) || null;
             contatosParaVincular.push({
               id: contatoIdExistente,
               telefone: contato.telefone,
-              nome: contato.nome
+              nome: contato.nome,
+              lead_id: leadIdExistente
             });
           }
         } else {
@@ -495,8 +500,14 @@ export const useContatoData = () => {
       });
       
       // Retornar todos os contatos processados (novos + existentes vinculados) com dados para webhook
+      // Incluir lead_id (serial) para todos os contatos
       const todosContatosProcessados = [
-        ...novosContatosCriados.map((c: any) => ({ id: c.id, telefone: c.telefone, nome: c.nome })),
+        ...novosContatosCriados.map((c: any) => ({ 
+          id: c.id, 
+          telefone: c.telefone, 
+          nome: c.nome, 
+          lead_id: c.lead_id as number | null 
+        })),
         ...contatosParaVincular
       ];
       

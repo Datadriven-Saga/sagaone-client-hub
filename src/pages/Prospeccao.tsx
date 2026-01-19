@@ -964,8 +964,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
             const lojaNome = activeCompany?.nome_empresa || '';
             
             const contatosPayload = resultado.todosContatosProcessados.map(c => ({
-              lead_id: c.id, // ID do contato no SagaOne
-              telefone: c.telefone?.replace(/\D/g, '') || '', // Webhook espera 'telefone'
+              lead_id: c.lead_id, // ID serial do contato (mesmo formato do webhook recebe-leads-pri)
+              telefone: c.telefone?.replace(/\D/g, '') || '',
               id_evento: prospeccaoSelecionada.event_id_pri,
               nome: c.nome,
               telefone_pri: telefonePri,
