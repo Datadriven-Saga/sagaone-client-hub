@@ -277,11 +277,11 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-hidden">
       {/* Filtros */}
       <Card className="p-4">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div className="flex-1 min-w-[200px]">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex-1 min-w-[150px] max-w-[250px]">
             <label className="text-sm font-medium mb-1.5 block">Buscar Vendedor</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -293,7 +293,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
               />
             </div>
           </div>
-          <div className="w-[180px]">
+          <div className="w-[150px]">
             <label className="text-sm font-medium mb-1.5 block">Data Início</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -305,7 +305,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
               />
             </div>
           </div>
-          <div className="w-[180px]">
+          <div className="w-[150px]">
             <label className="text-sm font-medium mb-1.5 block">Data Fim</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -330,7 +330,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
       </Card>
 
       {/* Tabela de Desempenho */}
-      <Card>
+      <Card className="overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-muted-foreground">
             Carregando desempenho...
@@ -343,11 +343,12 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
             </p>
           </div>
         ) : (
-          <Table className="text-sm">
+          <div className="overflow-x-auto">
+            <Table className="text-sm w-full">
             <TableHeader>
               <TableRow>
                 <TableHead 
-                  className="cursor-pointer hover:bg-muted/50 transition-colors min-w-[210px]"
+                  className="cursor-pointer hover:bg-muted/50 transition-colors whitespace-nowrap"
                   onClick={() => handleSort('nomeCompleto')}
                 >
                   <div className="flex items-center">
@@ -356,7 +357,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[90px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 whitespace-nowrap"
                   onClick={() => handleSort('atribuidos')}
                 >
                   <div className="flex items-center justify-center text-xs">
@@ -365,7 +366,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[90px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 whitespace-nowrap"
                   onClick={() => handleSort('convidados')}
                 >
                   <div className="flex items-center justify-center text-xs">
@@ -374,7 +375,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[90px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 whitespace-nowrap"
                   onClick={() => handleSort('agendados')}
                 >
                   <div className="flex items-center justify-center text-xs">
@@ -383,7 +384,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[98px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 whitespace-nowrap"
                   onClick={() => handleSort('confirmados')}
                 >
                   <div className="flex items-center justify-center text-xs">
@@ -392,7 +393,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[105px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 whitespace-nowrap"
                   onClick={() => handleSort('checkins')}
                 >
                   <div className="flex items-center justify-center text-xs">
@@ -401,7 +402,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[98px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 whitespace-nowrap"
                   onClick={() => handleSort('vendas')}
                 >
                   <div className="flex items-center justify-center text-xs font-semibold text-primary">
@@ -410,7 +411,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[90px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 whitespace-nowrap"
                   onClick={() => handleSort('descartes')}
                 >
                   <div className="flex items-center justify-center text-xs">
@@ -419,7 +420,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 w-[120px]"
+                  className="text-center cursor-pointer hover:bg-muted/50 transition-colors px-2 whitespace-nowrap"
                   onClick={() => handleSort('pontuacao')}
                 >
                   <div className="flex items-center justify-center text-xs font-semibold text-amber-600">
@@ -498,6 +499,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
               </TableRow>
             </TableBody>
           </Table>
+          </div>
         )}
       </Card>
 
