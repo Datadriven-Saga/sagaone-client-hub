@@ -7,6 +7,7 @@ import { normalizePhone } from '@/lib/utils';
 
 export interface Contato {
   id: string;
+  lead_id?: number;
   nome: string;
   telefone: string;
   email?: string;
