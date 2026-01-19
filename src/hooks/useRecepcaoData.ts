@@ -54,6 +54,46 @@ const normalizePhone = (phone: string): string => {
   return phone.replace(/\D/g, '');
 };
 
+// Gera variações de telefone para lidar com o 9º dígito
+const generatePhoneVariations = (phone: string): string[] => {
+  let normalized = phone.replace(/\D/g, '');
+  
+  // Remove código do país se presente (55)
+  if (normalized.startsWith('55') && normalized.length > 11) {
+    normalized = normalized.substring(2);
+  }
+  
+  const variations: string[] = [normalized];
+  
+  // Se tem 11 dígitos e o 3º é 9 (celular com 9), criar variação sem o 9
+  if (normalized.length === 11 && normalized[2] === '9') {
+    const withoutNine = normalized.slice(0, 2) + normalized.slice(3);
+    variations.push(withoutNine);
+  }
+  
+  // Se tem 10 dígitos, criar variação com o 9 após o DDD
+  if (normalized.length === 10) {
+    const withNine = normalized.slice(0, 2) + '9' + normalized.slice(2);
+    variations.push(withNine);
+  }
+  
+  return variations;
+};
+
+// Verifica se dois telefones são equivalentes (considerando variações do 9º dígito)
+const phonesMatch = (phone1: string, phone2: string): boolean => {
+  const variations1 = generatePhoneVariations(phone1);
+  const normalized2 = normalizePhone(phone2);
+  
+  // Remove código do país do phone2 se presente
+  let cleanPhone2 = normalized2;
+  if (cleanPhone2.startsWith('55') && cleanPhone2.length > 11) {
+    cleanPhone2 = cleanPhone2.substring(2);
+  }
+  
+  return variations1.includes(cleanPhone2);
+};
+
 export const useRecepcaoData = () => {
   const [visitas, setVisitas] = useState<RecepcaoVisita[]>([]);
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
@@ -143,11 +183,11 @@ export const useRecepcaoData = () => {
 
       if (eventosError) throw eventosError;
 
-      // Procurar contato com telefone correspondente
+      // Procurar contato com telefone correspondente (usando variações do 9º dígito)
       if (eventosData) {
         for (const evento of eventosData) {
           const contato = evento.contatos as any;
-          if (contato && normalizePhone(contato.telefone || '') === phoneNormalized) {
+          if (contato && contato.telefone && phonesMatch(telefone, contato.telefone)) {
             return {
               id: contato.id,
               nome: contato.nome,
@@ -169,10 +209,10 @@ export const useRecepcaoData = () => {
 
       if (contatosError) throw contatosError;
 
-      // Procurar por telefone normalizado
+      // Procurar por telefone (usando variações do 9º dígito)
       if (contatosData) {
         const contatoEncontrado = contatosData.find(c => 
-          normalizePhone(c.telefone || '') === phoneNormalized
+          c.telefone && phonesMatch(telefone, c.telefone)
         );
         
         if (contatoEncontrado) {
