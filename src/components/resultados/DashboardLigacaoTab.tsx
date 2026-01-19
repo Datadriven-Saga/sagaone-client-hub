@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Loader2, Phone, MessageSquare, X, RefreshCw, Calendar, PhoneCall, PhoneOff, CalendarCheck, Users } from 'lucide-react';
+import { Search, Loader2, Phone, MessageSquare, X, RefreshCw, Calendar, PhoneCall, PhoneOff, CalendarCheck, Users, Plus, Minus, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -534,64 +534,97 @@ export const DashboardLigacaoTab = ({
             </SelectContent>
           </Select>
 
+          {/* Tentativas com botões +/- */}
+          <div className="flex items-center gap-1 bg-background border rounded-md px-2 py-1.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => {
+                const current = filters.tentativas ? parseInt(filters.tentativas) : -1;
+                if (current > 0) {
+                  setFilters(prev => ({ ...prev, tentativas: String(current - 1) }));
+                } else if (current === 0) {
+                  setFilters(prev => ({ ...prev, tentativas: '' }));
+                }
+              }}
+              disabled={!filters.tentativas}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <span className="min-w-[80px] text-center text-sm font-medium">
+              {filters.tentativas ? `${filters.tentativas} tent.` : 'Tentativas'}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => {
+                const current = filters.tentativas ? parseInt(filters.tentativas) : -1;
+                if (current < 3) {
+                  setFilters(prev => ({ ...prev, tentativas: String(current + 1) }));
+                }
+              }}
+              disabled={filters.tentativas === '3'}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {/* Status dropdown com ícones */}
           <Select 
-            value={filters.tentativas || '__all__'} 
-            onValueChange={(value) => setFilters(prev => ({ ...prev, tentativas: value === '__all__' ? '' : value }))}
+            value={
+              filters.showOnlyAtendidos ? 'atendidos' :
+              filters.showOnlyAgendados ? 'agendados' :
+              filters.showOnlyEmFila ? 'emfila' :
+              filters.showOnlyWhatsapp ? 'whatsapp' : '__all__'
+            } 
+            onValueChange={(value) => {
+              setFilters(prev => ({
+                ...prev,
+                showOnlyAtendidos: value === 'atendidos',
+                showOnlyAgendados: value === 'agendados',
+                showOnlyEmFila: value === 'emfila',
+                showOnlyWhatsapp: value === 'whatsapp',
+              }));
+            }}
           >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Tentativas" />
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Filtrar status..." />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Todas tentativas</SelectItem>
-              <SelectItem value="0">0 tentativas</SelectItem>
-              <SelectItem value="1">1 tentativa</SelectItem>
-              <SelectItem value="2">2 tentativas</SelectItem>
-              <SelectItem value="3+">3+ tentativas</SelectItem>
+            <SelectContent className="bg-background border shadow-lg z-50">
+              <SelectItem value="__all__">
+                <span className="flex items-center gap-2">
+                  <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                  Todos
+                </span>
+              </SelectItem>
+              <SelectItem value="atendidos">
+                <span className="flex items-center gap-2">
+                  <PhoneCall className="h-3.5 w-3.5 text-green-600" />
+                  Atendidas
+                </span>
+              </SelectItem>
+              <SelectItem value="agendados">
+                <span className="flex items-center gap-2">
+                  <CalendarCheck className="h-3.5 w-3.5 text-[#04bbda]" />
+                  Agendados
+                </span>
+              </SelectItem>
+              <SelectItem value="emfila">
+                <span className="flex items-center gap-2">
+                  <PhoneOff className="h-3.5 w-3.5 text-orange-600" />
+                  Em Fila
+                </span>
+              </SelectItem>
+              <SelectItem value="whatsapp">
+                <span className="flex items-center gap-2">
+                  <MessageSquare className="h-3.5 w-3.5 text-emerald-600" />
+                  WhatsApp
+                </span>
+              </SelectItem>
             </SelectContent>
           </Select>
-        </div>
-
-        {/* Quick Filters */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant={filters.showOnlyAtendidos ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilters(prev => ({ ...prev, showOnlyAtendidos: !prev.showOnlyAtendidos }))}
-            className="gap-1"
-          >
-            <PhoneCall className="h-3 w-3" />
-            Atendidas
-          </Button>
-          
-          <Button
-            variant={filters.showOnlyAgendados ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilters(prev => ({ ...prev, showOnlyAgendados: !prev.showOnlyAgendados }))}
-            className="gap-1"
-          >
-            <CalendarCheck className="h-3 w-3" />
-            Agendados
-          </Button>
-          
-          <Button
-            variant={filters.showOnlyEmFila ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilters(prev => ({ ...prev, showOnlyEmFila: !prev.showOnlyEmFila }))}
-            className="gap-1"
-          >
-            <PhoneOff className="h-3 w-3" />
-            Em Fila
-          </Button>
-          
-          <Button
-            variant={filters.showOnlyWhatsapp ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilters(prev => ({ ...prev, showOnlyWhatsapp: !prev.showOnlyWhatsapp }))}
-            className="gap-1"
-          >
-            <MessageSquare className="h-3 w-3" />
-            WhatsApp
-          </Button>
           
           {activeFiltersCount > 0 && (
             <Button 

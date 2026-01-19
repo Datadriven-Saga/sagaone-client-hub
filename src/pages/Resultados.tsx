@@ -79,44 +79,73 @@ const Resultados = () => {
   return (
     <DashboardLayout title="Resultados">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full w-full">
-        <TabsList className="inline-flex h-auto p-1 w-auto self-start flex-wrap">
-          <TabsTrigger value="resumo" className="flex items-center gap-1.5 text-xs py-2">
-            <LayoutDashboard className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Resumo</span>
-          </TabsTrigger>
-          <TabsTrigger value="dashboard-ligacao" className="flex items-center gap-1.5 text-xs py-2">
-            <Phone className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </TabsTrigger>
-          <TabsTrigger value="metricas-ligacao" className="flex items-center gap-1.5 text-xs py-2">
-            <TrendingUp className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Métricas</span>
-          </TabsTrigger>
-          <TabsTrigger value="ranking" className="flex items-center gap-1.5 text-xs py-2">
-            <Medal className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Ranking</span>
-          </TabsTrigger>
-          <TabsTrigger value="produtos" className="flex items-center gap-1.5 text-xs py-2">
-            <Package className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Produtos</span>
-          </TabsTrigger>
-          <TabsTrigger value="desempenho" className="flex items-center gap-1.5 text-xs py-2">
-            <BarChart3 className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Desempenho</span>
-          </TabsTrigger>
-          <TabsTrigger value="individual" className="flex items-center gap-1.5 text-xs py-2">
-            <User className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Individual</span>
-          </TabsTrigger>
-          <TabsTrigger value="premiacoes" className="flex items-center gap-1.5 text-xs py-2">
-            <Trophy className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Premiações</span>
-          </TabsTrigger>
-          <TabsTrigger value="relatorios" className="flex items-center gap-1.5 text-xs py-2">
-            <FileText className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Relatórios</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="bg-card border-b">
+          <TabsList className="h-12 w-full justify-start rounded-none bg-transparent p-0 gap-0">
+            <TabsTrigger 
+              value="resumo" 
+              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">Resumo</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="dashboard-ligacao" 
+              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+            >
+              <Phone className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="metricas-ligacao" 
+              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+            >
+              <TrendingUp className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">Métricas</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="ranking" 
+              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+            >
+              <Medal className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">Ranking</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="produtos" 
+              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+            >
+              <Package className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">Produtos</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="desempenho" 
+              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">Desempenho</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="individual" 
+              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+            >
+              <User className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">Individual</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="premiacoes" 
+              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+            >
+              <Trophy className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">Premiações</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="relatorios" 
+              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">Relatórios</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Filtro Global - only show for non-ligação tabs */}
         {showGlobalFilter && (
