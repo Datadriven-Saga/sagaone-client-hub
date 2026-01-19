@@ -112,11 +112,13 @@ export const DashboardLigacaoTab = ({
         throw new Error('Erro ao buscar eventos');
       }
       
+      console.log('📊 DashboardLigacao - Resposta eventos:', data);
+      
       const eventsArray = data?.eventos || data || [];
       
       const events = eventsArray.map((e: any) => ({
         id: String(e.id_evento || e.id),
-        nome: e.nome || e.name,
+        nome: e.evt_nome || e.nome || e.name || e.evento_nome || 'Evento sem nome',
         telefone_pri: e.telefone_pri,
         cidade: e.cidade,
         uf: e.uf || e.estado,
