@@ -965,7 +965,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
             
             const contatosPayload = resultado.todosContatosProcessados.map(c => ({
               lead_id: c.id, // ID do contato no SagaOne
-              telefone_lead: c.telefone?.replace(/\D/g, '') || '',
+              telefone: c.telefone?.replace(/\D/g, '') || '', // Webhook espera 'telefone'
               id_evento: prospeccaoSelecionada.event_id_pri,
               nome: c.nome,
               telefone_pri: telefonePri,
