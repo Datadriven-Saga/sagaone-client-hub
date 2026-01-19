@@ -9,7 +9,12 @@ const corsHeaders = {
 // Normaliza telefone para apenas dígitos
 const normalizePhone = (phone: string | null): string => {
   if (!phone) return '';
-  return phone.replace(/\D/g, '');
+  let digits = phone.replace(/\D/g, '');
+  // Remover prefixo 55 se o número tiver mais de 11 dígitos
+  if (digits.length > 11 && digits.startsWith('55')) {
+    digits = digits.substring(2);
+  }
+  return digits;
 };
 
 interface Lead {
@@ -20,6 +25,7 @@ interface Lead {
   email: string | null;
   status: string | null;
   origem: string | null;
+  vendedor_nome?: string | null;
 }
 
 interface RequestBody {
@@ -34,6 +40,69 @@ interface RequestBody {
     data_fim: string | null;
     template_prospeccao: string | null;
   };
+}
+
+// Função para resolver variáveis do template com valores reais do lead
+function resolveVariableMapping(
+  mapping: Record<string, string> | null,
+  lead: Lead,
+  empresa: { nome_empresa: string; marca?: string; uf?: string; cidade?: string } | null,
+  prospeccaoData: { titulo?: string; data_inicio?: string | null; data_fim?: string | null } | null
+): Record<string, string> | null {
+  if (!mapping || Object.keys(mapping).length === 0) return null;
+  
+  const resolved: Record<string, string> = {};
+  
+  for (const [position, fieldName] of Object.entries(mapping)) {
+    let value = '';
+    
+    switch (fieldName) {
+      case 'nome_cliente':
+        value = lead.nome || '';
+        break;
+      case 'empresa':
+        value = empresa?.nome_empresa || '';
+        break;
+      case 'marca':
+        value = empresa?.marca || empresa?.nome_empresa || '';
+        break;
+      case 'telefone':
+        value = lead.telefone || '';
+        break;
+      case 'data_atual':
+        value = new Date().toLocaleDateString('pt-BR');
+        break;
+      case 'nome_prospeccao':
+        value = prospeccaoData?.titulo || '';
+        break;
+      case 'data_inicio':
+        value = prospeccaoData?.data_inicio 
+          ? new Date(prospeccaoData.data_inicio).toLocaleDateString('pt-BR') 
+          : '';
+        break;
+      case 'data_fim':
+        value = prospeccaoData?.data_fim 
+          ? new Date(prospeccaoData.data_fim).toLocaleDateString('pt-BR') 
+          : '';
+        break;
+      case 'vendedor_nome':
+        value = lead.vendedor_nome || '';
+        break;
+      case 'uf':
+        value = empresa?.uf || '';
+        break;
+      case 'cidade':
+        value = empresa?.cidade || '';
+        break;
+      default:
+        // Se não reconhecer o campo, mantém o nome do campo como fallback
+        value = fieldName;
+    }
+    
+    resolved[position] = value;
+  }
+  
+  return Object.keys(resolved).length > 0 ? resolved : null;
 }
 
 serve(async (req) => {
@@ -442,7 +511,22 @@ serve(async (req) => {
       const batchResultados: { lead_id: string; nome: string; success: boolean; status?: number; error?: string }[] = [];
       
       const promessas = batch.map(async (lead, leadIndex) => {
-        // Payload para IA Whatsapp
+        // Resolver variable_mapping para este lead específico com valores reais
+        const resolvedVariableMapping = resolveVariableMapping(
+          variableMapping as Record<string, string> | null,
+          lead,
+          empresaData,
+          prospeccao_data
+        );
+
+        // Log do primeiro lead para debug do variable_mapping
+        if (batchIndex === 0 && leadIndex === 0) {
+          console.log(`\n📝 [${requestId}] Variable mapping resolvido (amostra 1º lead):`);
+          console.log(`   ├─ Original:`, variableMapping ? JSON.stringify(variableMapping) : 'null');
+          console.log(`   └─ Resolvido:`, resolvedVariableMapping ? JSON.stringify(resolvedVariableMapping) : 'null');
+        }
+
+        // Payload para IA Whatsapp - com variable_mapping resolvido
         const payload = {
           ...dadosComuns,
           id: lead.id,
@@ -453,7 +537,9 @@ serve(async (req) => {
           status: lead.status || 'Novo',
           origem: lead.origem || 'Importação',
           data_importacao: new Date().toISOString(),
-          tipo_importacao: 'planilha'
+          tipo_importacao: 'planilha',
+          // Substituir o mapping original pelo resolvido com valores reais
+          variable_mapping: resolvedVariableMapping,
         };
 
         const leadNum = batchStart + leadIndex + 1;
