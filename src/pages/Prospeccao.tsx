@@ -933,7 +933,67 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       console.log('Prospeccao selecionada ID:', prospeccaoSelecionada.id);
 
       // Usar a função do hook que já trata empresa_id automaticamente e vincula na eventos_prospeccao
-      await adicionarContatos(novosContatos, prospeccaoSelecionada.id);
+      const resultado = await adicionarContatos(novosContatos, prospeccaoSelecionada.id);
+
+      // Para eventos de Ligação, enviar ao webhook para criar a base no banco externo
+      // (isso NÃO dispara as ligações, apenas registra a base com os IDs do SagaOne)
+      const isLigacaoEvent = prospeccaoSelecionada.canal === 'Ligação';
+      if (isLigacaoEvent && prospeccaoSelecionada.event_id_pri && resultado?.todosContatosProcessados) {
+        try {
+          console.log('📞 Enviando base para webhook cria-base-ligacao COM lead_id...');
+          
+          // Buscar agente de ligação (Pri) ativo da empresa para obter telefone_pri
+          const { data: agenteData, error: agenteError } = await supabase
+            .from('agente_empresas')
+            .select(`
+              agente_id,
+              agentes_ia!inner (
+                id,
+                nome,
+                telefone,
+                ativo
+              )
+            `)
+            .eq('empresa_id', activeCompany?.id)
+            .eq('agentes_ia.ativo', true)
+            .limit(1)
+            .single();
+
+          if (!agenteError && agenteData?.agentes_ia?.telefone) {
+            const telefonePri = agenteData.agentes_ia.telefone.replace(/\D/g, '');
+            const lojaNome = activeCompany?.nome_empresa || '';
+            
+            const contatosPayload = resultado.todosContatosProcessados.map(c => ({
+              lead_id: c.id, // ID do contato no SagaOne
+              telefone_lead: c.telefone?.replace(/\D/g, '') || '',
+              id_evento: prospeccaoSelecionada.event_id_pri,
+              nome: c.nome,
+              telefone_pri: telefonePri,
+              loja: lojaNome,
+            }));
+
+            // Usar edge function para enviar base com token SAGA_ONE
+            const { data: webhookData, error: webhookError } = await supabase.functions.invoke('external-webhook-proxy', {
+              body: {
+                endpoint: 'cria-base-ligacao',
+                contatos: contatosPayload,
+                id_evento: prospeccaoSelecionada.event_id_pri,
+                total_contatos: contatosPayload.length,
+              },
+            });
+
+            if (!webhookError) {
+              console.log('✅ Base enviada para sistema de ligação com lead_id');
+            } else {
+              console.warn('⚠️ Falha ao enviar base para sistema de ligação:', webhookError);
+            }
+          } else {
+            console.warn('⚠️ Nenhum agente Pri encontrado para enviar ao webhook');
+          }
+        } catch (webhookError) {
+          console.error('❌ Erro ao enviar para webhook cria-base-ligacao:', webhookError);
+        }
+      }
 
       toast({
         title: "Base importada",

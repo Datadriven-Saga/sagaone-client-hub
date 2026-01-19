@@ -373,7 +373,7 @@ export const useContatoData = () => {
       // 3) Separar contatos em: 
       //    - existentes que precisam ser vinculados
       //    - novos que precisam ser criados e vinculados
-      const contatosParaVincular: string[] = []; // IDs de contatos existentes
+      const contatosParaVincular: { id: string; telefone: string; nome: string }[] = []; // Contatos existentes com dados
       const contatosParaCriar: typeof novosContatos = [];
       const jaVinculados: string[] = [];
       const telefonesProcessados = new Set<string>();
@@ -395,8 +395,12 @@ export const useContatoData = () => {
             // Já está vinculado a este evento
             jaVinculados.push(contato.nome);
           } else {
-            // Precisa vincular ao evento
-            contatosParaVincular.push(contatoIdExistente);
+            // Precisa vincular ao evento - guardar dados completos
+            contatosParaVincular.push({
+              id: contatoIdExistente,
+              telefone: contato.telefone,
+              nome: contato.nome
+            });
           }
         } else {
           // Contato novo, precisa criar
@@ -407,6 +411,9 @@ export const useContatoData = () => {
       }
 
       console.log(`📊 Resumo: ${contatosParaCriar.length} novos, ${contatosParaVincular.length} existentes para vincular, ${jaVinculados.length} já vinculados`);
+
+      // Manter IDs separados para retornar ao final
+      const existentesVinculadosIds = contatosParaVincular.map(c => c.id);
 
       // 4) Criar novos contatos
       let novosContatosCriados: any[] = [];
@@ -436,7 +443,7 @@ export const useContatoData = () => {
 
       // 5) Vincular TODOS ao evento (novos + existentes que ainda não estavam)
       const todosIdsParaVincular = [
-        ...contatosParaVincular,
+        ...existentesVinculadosIds,
         ...novosContatosCriados.map((c: any) => c.id)
       ];
 
@@ -487,7 +494,17 @@ export const useContatoData = () => {
         description: partes.join(', ') || 'Nenhum contato processado'
       });
       
-      return novosContatosCriados;
+      // Retornar todos os contatos processados (novos + existentes vinculados) com dados para webhook
+      const todosContatosProcessados = [
+        ...novosContatosCriados.map((c: any) => ({ id: c.id, telefone: c.telefone, nome: c.nome })),
+        ...contatosParaVincular
+      ];
+      
+      return {
+        novosContatosCriados,
+        contatosVinculados: contatosParaVincular,
+        todosContatosProcessados
+      };
     } catch (error) {
       console.error('Erro ao adicionar contatos:', error);
       toast({ 
