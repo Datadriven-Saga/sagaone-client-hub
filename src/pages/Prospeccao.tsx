@@ -963,22 +963,28 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
             const telefonePri = agenteData.agentes_ia.telefone.replace(/\D/g, '');
             const lojaNome = activeCompany?.nome_empresa || '';
             
-            const contatosPayload = resultado.todosContatosProcessados.map(c => ({
-              lead_id: c.lead_id, // ID serial do contato (mesmo formato do webhook recebe-leads-pri)
-              telefone: c.telefone?.replace(/\D/g, '') || '',
-              id_evento: prospeccaoSelecionada.event_id_pri,
-              nome: c.nome,
-              telefone_pri: telefonePri,
-              loja: lojaNome,
-            }));
+            const idEvento = Number(prospeccaoSelecionada.event_id_pri);
+
+            const contatosPayload = resultado.todosContatosProcessados
+              .filter((c) => c.lead_id !== null && c.lead_id !== undefined)
+              .map((c) => {
+                const telefoneDigits = c.telefone?.replace(/\D/g, '') || '';
+                return {
+                  lead_id: c.lead_id, // ID serial do contato (mesmo formato do webhook recebe-leads-pri)
+                  nome: c.nome,
+                  telefone: telefoneDigits,
+                  telefone_lead: telefoneDigits,
+                };
+              });
 
             // Usar edge function para enviar base com token SAGA_ONE
             const { data: webhookData, error: webhookError } = await supabase.functions.invoke('external-webhook-proxy', {
               body: {
                 endpoint: 'cria-base-ligacao',
+                id_evento: idEvento,
+                telefone_pri: telefonePri,
+                loja: lojaNome,
                 contatos: contatosPayload,
-                id_evento: prospeccaoSelecionada.event_id_pri,
-                total_contatos: contatosPayload.length,
               },
             });
 

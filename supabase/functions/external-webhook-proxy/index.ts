@@ -109,6 +109,10 @@ Deno.serve(async (req: Request) => {
 
     const responseText = await response.text();
     console.log('✅ Response status:', response.status);
+    console.log(
+      '📥 Response body:',
+      responseText.substring(0, 500) + (responseText.length > 500 ? '...' : '')
+    );
 
     let responseData: unknown;
     try {
@@ -119,16 +123,17 @@ Deno.serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify(responseData),
-      { 
-        status: response.status, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
 
   } catch (error) {
     console.error('❌ Erro no external-webhook-proxy:', error);
+    const message = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
