@@ -33,6 +33,7 @@ interface ProspeccaoGlobalFilterProps {
   filters: ProspeccaoGlobalFilters;
   onFiltersChange: (filters: ProspeccaoGlobalFilters) => void;
   className?: string;
+  showSearchBar?: boolean;
 }
 
 const statusOptions = [
@@ -54,7 +55,8 @@ export function ProspeccaoGlobalFilter({
   responsaveis,
   filters,
   onFiltersChange,
-  className
+  className,
+  showSearchBar = true
 }: ProspeccaoGlobalFilterProps) {
   const [open, setOpen] = useState(false);
 
@@ -112,12 +114,36 @@ export function ProspeccaoGlobalFilter({
   };
 
   const activeFilters = getActiveFilters();
+  // Count only "advanced" filters (not dadosLead since it has its own search bar)
+  const advancedFilters = activeFilters.filter(f => f.key !== 'dadosLead');
+  const hasAdvancedFilters = advancedFilters.length > 0;
   const hasActiveFilters = activeFilters.length > 0;
 
   return (
     <div className={cn("flex flex-col gap-1 w-full", className)}>
-      {/* Linha de filtros aplicados */}
-      <div className="flex items-center gap-2 min-h-[28px] flex-wrap">
+      {/* Linha de filtros e busca */}
+      <div className="flex items-center gap-2 min-h-[36px] flex-wrap">
+        {/* Barra de busca direta */}
+        {showSearchBar && (
+          <div className="relative flex-1 min-w-[200px] max-w-[320px]">
+            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Buscar por ID, nome, telefone..."
+              value={filters.dadosLead}
+              onChange={(e) => updateFilter('dadosLead', e.target.value)}
+              className="h-8 text-sm pl-8 pr-8"
+            />
+            {filters.dadosLead && (
+              <button
+                onClick={() => clearFilter('dadosLead')}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 p-0.5 hover:bg-muted rounded"
+              >
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+        )}
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button 
@@ -127,9 +153,9 @@ export function ProspeccaoGlobalFilter({
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
               Filtros
-              {hasActiveFilters && (
+              {hasAdvancedFilters && (
                 <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
-                  {activeFilters.length}
+                  {advancedFilters.length}
                 </Badge>
               )}
             </Button>
@@ -139,7 +165,7 @@ export function ProspeccaoGlobalFilter({
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-medium">Filtros</h4>
                 <div className="flex items-center gap-2">
-                  {hasActiveFilters && (
+                  {hasAdvancedFilters && (
                     <Button 
                       variant="ghost" 
                       size="sm" 
@@ -260,9 +286,9 @@ export function ProspeccaoGlobalFilter({
         </Popover>
 
         {/* Badges dos filtros aplicados */}
-        {hasActiveFilters && (
+        {hasAdvancedFilters && (
           <div className="flex items-center gap-1.5 flex-wrap">
-            {activeFilters.map((filter) => (
+            {advancedFilters.map((filter) => (
               <Badge 
                 key={filter.key} 
                 variant="secondary" 

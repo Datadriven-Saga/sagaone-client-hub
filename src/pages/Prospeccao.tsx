@@ -701,15 +701,18 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       if (globalFilters.status !== "todos" && contato.status !== globalFilters.status) {
         return false;
       }
-      // Filtro unificado: Dados do Lead (nome, telefone, email, id, produto)
+      // Filtro unificado: Dados do Lead (nome, telefone, email, id, lead_id, produto)
       if (globalFilters.dadosLead) {
         const search = globalFilters.dadosLead.toLowerCase().trim();
         if (search) {
+          const searchNumeric = search.replace(/\D/g, '');
           const matchNome = contato.nome?.toLowerCase().includes(search);
-          const matchTelefone = contato.telefone?.replace(/\D/g, '').includes(search.replace(/\D/g, ''));
+          const matchTelefone = contato.telefone?.replace(/\D/g, '').includes(searchNumeric);
           const matchEmail = contato.email?.toLowerCase().includes(search);
           const matchId = contato.id?.toLowerCase().includes(search);
-          if (!matchNome && !matchTelefone && !matchEmail && !matchId) return false;
+          // Busca por lead_id (serial numérico)
+          const matchLeadId = contato.lead_id ? String(contato.lead_id).includes(searchNumeric) : false;
+          if (!matchNome && !matchTelefone && !matchEmail && !matchId && !matchLeadId) return false;
         }
       }
       return true;
