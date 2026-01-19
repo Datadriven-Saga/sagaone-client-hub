@@ -573,12 +573,13 @@ export default function EventoBase() {
               leads,
               empresa_id: activeCompany.id,
               prospeccao_id: prospeccao.id,
-              prospeccao_data: {
+          prospeccao_data: {
                 titulo: prospeccao.titulo,
                 canal: prospeccao.canal,
                 event_id_pri: prospeccao.event_id_pri || null,
                 data_inicio: prospeccao.data_inicio || null,
-                data_fim: prospeccao.data_fim || null
+                data_fim: prospeccao.data_fim || null,
+                template_prospeccao: (prospeccao as any).template_prospeccao || null
               }
             }
           });
@@ -687,7 +688,8 @@ export default function EventoBase() {
             canal: prospeccao.canal,
             event_id_pri: prospeccao.event_id_pri || null,
             data_inicio: prospeccao.data_inicio || null,
-            data_fim: prospeccao.data_fim || null
+            data_fim: prospeccao.data_fim || null,
+            template_prospeccao: (prospeccao as any).template_prospeccao || null
           }
         }
       });
@@ -758,7 +760,8 @@ export default function EventoBase() {
             canal: prospeccao.canal,
             event_id_pri: prospeccao.event_id_pri || null,
             data_inicio: prospeccao.data_inicio || null,
-            data_fim: prospeccao.data_fim || null
+            data_fim: prospeccao.data_fim || null,
+            template_prospeccao: (prospeccao as any).template_prospeccao || null
           }
         }
       });
