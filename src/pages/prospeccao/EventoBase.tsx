@@ -410,51 +410,82 @@ export default function EventoBase() {
     return 0;
   }, [activeCompany?.id, eventoId]);
 
-  // Buscar contatos pendentes para disparo
+  // Buscar contatos pendentes para disparo - usando abordagem em 2 etapas para evitar limite de 1000
   const fetchContatosPendentes = async (): Promise<ContatoEvento[]> => {
     if (!activeCompany?.id || !eventoId) return [];
     
-    // Buscar todos os contatos pendentes com paginação
-    const BATCH_SIZE = 500;
-    let allContatos: ContatoEvento[] = [];
+    console.log('🔍 Buscando contatos pendentes para disparo...');
+    console.log('   ├─ empresa_id:', activeCompany.id);
+    console.log('   └─ prospeccao_id:', eventoId);
+    
+    // ETAPA 1: Buscar TODOS os contato_ids pendentes da tabela eventos_prospeccao
+    // Essa abordagem evita o problema de limit com joins
+    const BATCH_SIZE = 1000;
+    let allContatoIds: string[] = [];
     let offset = 0;
     let hasMore = true;
 
     while (hasMore) {
-      const { data, error } = await supabase
-        .from('contatos')
-        .select(`
-          id, lead_id, nome, telefone, email, status, origem, 
-          created_at, updated_at, 
-          responsavel_email, vendedor_nome,
-          eventos_prospeccao!inner(prospeccao_id, data_disparo_ia)
-        `)
-        .eq('empresa_id', activeCompany.id)
-        .eq('eventos_prospeccao.prospeccao_id', eventoId)
-        .is('eventos_prospeccao.data_disparo_ia', null)
+      const { data: eventosData, error: eventosError } = await supabase
+        .from('eventos_prospeccao')
+        .select('contato_id')
+        .eq('prospeccao_id', eventoId)
+        .is('data_disparo_ia', null)
+        .not('contato_id', 'is', null)
         .range(offset, offset + BATCH_SIZE - 1);
 
-      if (error) {
-        console.error('Erro ao buscar contatos pendentes:', error);
+      if (eventosError) {
+        console.error('❌ Erro ao buscar eventos pendentes:', eventosError);
         break;
       }
 
-      if (data && data.length > 0) {
-        const cleanData = data.map(({ eventos_prospeccao, ...rest }) => {
-          const evento = Array.isArray(eventos_prospeccao) ? eventos_prospeccao[0] : eventos_prospeccao;
-          return {
-            ...rest,
-            data_disparo_ia: evento?.data_disparo_ia || null
-          };
-        }) as ContatoEvento[];
-        allContatos = [...allContatos, ...cleanData];
+      if (eventosData && eventosData.length > 0) {
+        const ids = eventosData.map(e => e.contato_id).filter(Boolean) as string[];
+        allContatoIds = [...allContatoIds, ...ids];
         offset += BATCH_SIZE;
-        hasMore = data.length === BATCH_SIZE;
+        hasMore = eventosData.length === BATCH_SIZE;
+        console.log(`   📊 Batch ${Math.ceil(offset / BATCH_SIZE)}: ${ids.length} IDs encontrados (total: ${allContatoIds.length})`);
       } else {
         hasMore = false;
       }
     }
 
+    console.log(`📋 Total de contato_ids pendentes: ${allContatoIds.length}`);
+
+    if (allContatoIds.length === 0) {
+      console.log('⚠️ Nenhum contato pendente encontrado');
+      return [];
+    }
+
+    // ETAPA 2: Buscar dados completos dos contatos em batches de 500
+    const CONTATO_BATCH_SIZE = 500;
+    let allContatos: ContatoEvento[] = [];
+
+    for (let i = 0; i < allContatoIds.length; i += CONTATO_BATCH_SIZE) {
+      const batchIds = allContatoIds.slice(i, i + CONTATO_BATCH_SIZE);
+      
+      const { data: contatosData, error: contatosError } = await supabase
+        .from('contatos')
+        .select('id, lead_id, nome, telefone, email, status, origem, created_at, updated_at, responsavel_email, vendedor_nome')
+        .eq('empresa_id', activeCompany.id)
+        .in('id', batchIds);
+
+      if (contatosError) {
+        console.error(`❌ Erro ao buscar contatos batch ${Math.ceil(i / CONTATO_BATCH_SIZE) + 1}:`, contatosError);
+        continue;
+      }
+
+      if (contatosData && contatosData.length > 0) {
+        const cleanData = contatosData.map(c => ({
+          ...c,
+          data_disparo_ia: null
+        })) as ContatoEvento[];
+        allContatos = [...allContatos, ...cleanData];
+        console.log(`   ✅ Batch ${Math.ceil(i / CONTATO_BATCH_SIZE) + 1}: ${contatosData.length} contatos carregados (total: ${allContatos.length})`);
+      }
+    }
+
+    console.log(`🎯 Total de contatos pendentes carregados: ${allContatos.length}`);
     return allContatos;
   };
 
