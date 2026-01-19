@@ -23,8 +23,40 @@ export interface NovaVisita {
   id_maia?: string;
 }
 
+export interface Prospeccao {
+  id: string;
+  titulo: string;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  empresa_id: string;
+}
+
+export interface ContatoEncontrado {
+  id: string;
+  nome: string;
+  telefone: string | null;
+  status: string | null;
+  empresa_id: string;
+  evento_id?: string;
+  evento_nome?: string;
+}
+
+export interface CheckinData {
+  telefone: string;
+  evento_id: string;
+  evento_nome?: string;
+  contato?: ContatoEncontrado | null;
+  isNewContact: boolean;
+}
+
+// Normaliza telefone para apenas dígitos (remove formatação)
+const normalizePhone = (phone: string): string => {
+  return phone.replace(/\D/g, '');
+};
+
 export const useRecepcaoData = () => {
   const [visitas, setVisitas] = useState<RecepcaoVisita[]>([]);
+  const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { activeCompany } = useCompany();
@@ -56,9 +88,208 @@ export const useRecepcaoData = () => {
     }
   };
 
+  const fetchProspeccoes = async () => {
+    if (!activeCompany) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("prospeccoes")
+        .select("id, titulo, data_inicio, data_fim, empresa_id")
+        .eq("empresa_id", activeCompany.id)
+        .order("data_inicio", { ascending: false });
+
+      if (error) throw error;
+
+      setProspeccoes(data || []);
+    } catch (error) {
+      console.error("Erro ao buscar prospecções:", error);
+    }
+  };
+
   useEffect(() => {
     fetchVisitas();
+    fetchProspeccoes();
   }, [activeCompany, user]);
+
+  // Buscar contato por telefone dentro de um evento específico
+  const buscarContatoPorTelefoneEvento = async (
+    telefone: string, 
+    eventoId: string
+  ): Promise<ContatoEncontrado | null> => {
+    if (!activeCompany) return null;
+
+    const phoneNormalized = normalizePhone(telefone);
+    
+    try {
+      // Buscar contatos vinculados ao evento via eventos_prospeccao
+      const { data: eventosData, error: eventosError } = await supabase
+        .from("eventos_prospeccao")
+        .select(`
+          contato_id,
+          prospeccao_id,
+          contatos!inner (
+            id,
+            nome,
+            telefone,
+            status,
+            empresa_id
+          ),
+          prospeccoes!inner (
+            id,
+            titulo
+          )
+        `)
+        .eq("prospeccao_id", eventoId);
+
+      if (eventosError) throw eventosError;
+
+      // Procurar contato com telefone correspondente
+      if (eventosData) {
+        for (const evento of eventosData) {
+          const contato = evento.contatos as any;
+          if (contato && normalizePhone(contato.telefone || '') === phoneNormalized) {
+            return {
+              id: contato.id,
+              nome: contato.nome,
+              telefone: contato.telefone,
+              status: contato.status,
+              empresa_id: contato.empresa_id,
+              evento_id: eventoId,
+              evento_nome: (evento.prospeccoes as any)?.titulo
+            };
+          }
+        }
+      }
+
+      // Se não encontrou no evento, buscar na tabela contatos da empresa
+      const { data: contatosData, error: contatosError } = await supabase
+        .from("contatos")
+        .select("id, nome, telefone, status, empresa_id")
+        .eq("empresa_id", activeCompany.id);
+
+      if (contatosError) throw contatosError;
+
+      // Procurar por telefone normalizado
+      if (contatosData) {
+        const contatoEncontrado = contatosData.find(c => 
+          normalizePhone(c.telefone || '') === phoneNormalized
+        );
+        
+        if (contatoEncontrado) {
+          // Buscar nome do evento
+          const { data: prospeccaoData } = await supabase
+            .from("prospeccoes")
+            .select("titulo")
+            .eq("id", eventoId)
+            .single();
+
+          return {
+            ...contatoEncontrado,
+            evento_id: eventoId,
+            evento_nome: prospeccaoData?.titulo
+          };
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Erro ao buscar contato:", error);
+      return null;
+    }
+  };
+
+  // Registrar check-in (atualiza contato existente ou cria novo)
+  const registrarCheckin = async (data: CheckinData): Promise<boolean> => {
+    if (!activeCompany) return false;
+
+    try {
+      const phoneNormalized = normalizePhone(data.telefone);
+      let contatoId: string;
+      let nomeContato = data.contato?.nome || "Visitante";
+
+      if (data.contato && !data.isNewContact) {
+        // Atualizar contato existente para Check-in
+        contatoId = data.contato.id;
+        const { error: updateError } = await supabase
+          .from("contatos")
+          .update({
+            status: "Check-in" as any,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", contatoId);
+
+        if (updateError) throw updateError;
+      } else {
+        // Criar novo contato com status Check-in
+        const { data: newContato, error: insertError } = await supabase
+          .from("contatos")
+          .insert([{
+            nome: "Visitante",
+            telefone: data.telefone,
+            empresa_id: activeCompany.id,
+            status: "Check-in" as any,
+            origem: "Outros" as any,
+            observacoes: `Check-in via Recepção - Evento: ${data.evento_nome || 'N/A'}`
+          }])
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        
+        contatoId = newContato.id;
+        nomeContato = "Visitante";
+
+        // Vincular ao evento via eventos_prospeccao
+        await supabase
+          .from("eventos_prospeccao")
+          .insert([{
+            contato_id: contatoId,
+            prospeccao_id: data.evento_id,
+            tipo_evento: "Outro" as any,
+            descricao: "Check-in via Recepção"
+          }]);
+      }
+
+      // Registrar log de movimentação
+      await supabase
+        .from("logs_movimentacao_contatos")
+        .insert([{
+          contato_id: contatoId,
+          prospeccao_id: data.evento_id,
+          status_anterior: data.contato?.status || null,
+          status_novo: "Check-in",
+          observacoes: `Check-in via Recepção - Evento: ${data.evento_nome || 'N/A'}`
+        }]);
+
+      // Registrar na tabela recepcao_visitas
+      await supabase
+        .from("recepcao_visitas")
+        .insert([{
+          nome_cliente: nomeContato,
+          telefone_cliente: data.telefone,
+          nome_campanha: data.evento_nome || "Evento",
+          empresa_id: activeCompany.id
+        }]);
+
+      toast({
+        title: "Check-in realizado!",
+        description: data.isNewContact 
+          ? "Novo visitante registrado com sucesso."
+          : `${nomeContato} fez check-in.`,
+      });
+
+      await fetchVisitas();
+      return true;
+    } catch (error) {
+      console.error("Erro ao registrar check-in:", error);
+      toast({
+        title: "Erro ao registrar check-in",
+        description: "Não foi possível registrar o check-in.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
 
   const adicionarVisita = async (novaVisita: NovaVisita): Promise<void> => {
     try {
@@ -155,11 +386,36 @@ export const useRecepcaoData = () => {
     }
   };
 
+  // Validar se um evento existe e pertence à empresa
+  const validarEvento = async (eventoId: string): Promise<Prospeccao | null> => {
+    if (!activeCompany) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from("prospeccoes")
+        .select("id, titulo, data_inicio, data_fim, empresa_id")
+        .eq("id", eventoId)
+        .eq("empresa_id", activeCompany.id)
+        .single();
+
+      if (error || !data) return null;
+
+      return data;
+    } catch (error) {
+      console.error("Erro ao validar evento:", error);
+      return null;
+    }
+  };
+
   return {
     visitas,
+    prospeccoes,
     loading,
     adicionarVisita,
     excluirVisita,
+    buscarContatoPorTelefoneEvento,
+    registrarCheckin,
+    validarEvento,
     refetch: fetchVisitas,
   };
 };

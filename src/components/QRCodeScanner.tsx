@@ -4,16 +4,25 @@ import { Button } from '@/components/ui/button';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Camera, X, AlertCircle, CheckCircle2, RotateCcw, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
+import { CheckinData } from '@/hooks/useRecepcaoData';
 
 interface QRCodeScannerProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onScanComplete: (data: CheckinData) => void;
+  validarEvento: (eventoId: string) => Promise<{ id: string; titulo: string } | null>;
+  buscarContato: (telefone: string, eventoId: string) => Promise<any>;
 }
 
-interface QRCodeData {
+// Formato simplificado do QR Code
+interface SimplifiedQRData {
+  telefone: string;
+  evento_id: string;
+}
+
+// Formato antigo do QR Code (para compatibilidade)
+interface LegacyQRData {
   qr_token: string;
   convidado_nome: string;
   convidado_telefone: string;
@@ -23,7 +32,13 @@ interface QRCodeData {
   evento_nome?: string;
 }
 
-export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps) {
+export function QRCodeScanner({ 
+  isOpen, 
+  onClose, 
+  onScanComplete,
+  validarEvento,
+  buscarContato 
+}: QRCodeScannerProps) {
   const [status, setStatus] = useState<'idle' | 'starting' | 'scanning' | 'processing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<{ nome: string } | null>(null);
@@ -48,6 +63,43 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
     }
   }, []);
 
+  const parseQRData = (decodedText: string): { telefone: string; evento_id: string; evento_nome?: string } | null => {
+    try {
+      const data = JSON.parse(decodedText);
+      
+      // Formato simplificado: { telefone, evento_id }
+      if (data.telefone && data.evento_id) {
+        return {
+          telefone: data.telefone,
+          evento_id: data.evento_id,
+          evento_nome: data.evento_nome
+        };
+      }
+      
+      // Formato legado: { qr_token, convidado_telefone, evento_id, ... }
+      if (data.convidado_telefone && data.evento_id) {
+        return {
+          telefone: data.convidado_telefone,
+          evento_id: data.evento_id,
+          evento_nome: data.evento_nome
+        };
+      }
+      
+      // Formato legado sem evento_id explícito
+      if (data.convidado_telefone) {
+        return {
+          telefone: data.convidado_telefone,
+          evento_id: '', // Será tratado posteriormente
+          evento_nome: data.evento_nome
+        };
+      }
+      
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleScanSuccess = useCallback(async (decodedText: string) => {
     if (status === 'processing' || status === 'success') return;
     
@@ -57,97 +109,57 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
     console.log('QR Code scanned:', decodedText);
 
     try {
-      let qrData: QRCodeData;
+      const qrData = parseQRData(decodedText);
       
-      try {
-        qrData = JSON.parse(decodedText);
-      } catch {
-        throw new Error('QR Code inválido');
+      if (!qrData || !qrData.telefone) {
+        throw new Error('QR Code inválido - formato não reconhecido');
       }
 
-      if (!qrData.qr_token || !qrData.convidado_nome || !qrData.convidado_telefone || !qrData.vendedor || !qrData.quem_convidou) {
-        throw new Error('QR Code inválido - dados incompletos');
+      // Validar evento se tiver evento_id
+      let eventoValidado: { id: string; titulo: string } | null = null;
+      if (qrData.evento_id) {
+        eventoValidado = await validarEvento(qrData.evento_id);
+        if (!eventoValidado) {
+          throw new Error('Evento não encontrado ou não pertence a esta empresa');
+        }
       }
 
-      const { data: contato, error: contatoError } = await supabase
-        .from('contatos')
-        .select('id, status, empresa_id, nome, qr_token_used')
-        .eq('qr_token', qrData.qr_token)
-        .maybeSingle();
+      // Buscar contato pelo telefone no evento
+      const contato = qrData.evento_id 
+        ? await buscarContato(qrData.telefone, qrData.evento_id)
+        : null;
 
-      if (contatoError || !contato) {
-        throw new Error('QR Code não encontrado');
-      }
+      const checkinData: CheckinData = {
+        telefone: qrData.telefone,
+        evento_id: qrData.evento_id || '',
+        evento_nome: eventoValidado?.titulo || qrData.evento_nome || 'Evento',
+        contato: contato,
+        isNewContact: !contato
+      };
 
-      if (contato.qr_token_used) {
-        toast({
-          title: 'Convite já utilizado',
-          description: 'Este convite já foi usado anteriormente.',
-          variant: 'destructive',
-        });
-        setStatus('idle');
-        return;
-      }
-
-      if (activeCompany && contato.empresa_id !== activeCompany.id) {
-        throw new Error('Contato não pertence a esta empresa');
-      }
-
-      const { error: updateError } = await supabase
-        .from('contatos')
-        .update({ 
-          status: 'Check-in',
-          qr_token_used: true,
-          qr_token_used_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', contato.id);
-
-      if (updateError) throw updateError;
-
-      const { data: prospeccaoData } = await supabase
-        .from('prospeccoes')
-        .select('id')
-        .eq('empresa_id', contato.empresa_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (prospeccaoData) {
-        await supabase
-          .from('logs_movimentacao_contatos')
-          .insert({
-            contato_id: contato.id,
-            prospeccao_id: prospeccaoData.id,
-            status_anterior: contato.status,
-            status_novo: 'Check-in',
-            observacoes: `Check-in via QR Code - Vendedor: ${qrData.vendedor}, Convidou: ${qrData.quem_convidou}`
-          });
-      }
-
-      setSuccessData({ nome: qrData.convidado_nome });
+      setSuccessData({ 
+        nome: contato?.nome || 'Novo Visitante' 
+      });
       setStatus('success');
 
-      toast({
-        title: 'Check-in realizado!',
-        description: `${qrData.convidado_nome} fez check-in.`,
-      });
-
+      // Notificar componente pai para abrir modal de confirmação
       setTimeout(() => {
-        onSuccess();
+        onScanComplete(checkinData);
         onClose();
-      }, 2000);
+      }, 1500);
 
     } catch (err: any) {
       console.error('Error processing QR code:', err);
+      setErrorMessage(err.message || 'QR Code inválido');
+      setStatus('error');
+      
       toast({
-        title: 'QR Code inválido',
+        title: 'Erro ao ler QR Code',
         description: err.message || 'Tente novamente ou registre manualmente.',
         variant: 'destructive',
       });
-      setStatus('idle');
     }
-  }, [status, stopScanner, activeCompany, toast, onSuccess, onClose]);
+  }, [status, stopScanner, activeCompany, toast, onScanComplete, onClose, validarEvento, buscarContato]);
 
   const startScanner = useCallback(async () => {
     if (isInitializingRef.current || scannerRef.current) return;
@@ -333,7 +345,7 @@ export function QRCodeScanner({ isOpen, onClose, onSuccess }: QRCodeScannerProps
                 <CheckCircle2 className="w-12 h-12 text-green-600 dark:text-green-400" />
               </div>
               <h3 className="text-xl font-semibold text-green-600 dark:text-green-400">
-                Check-in realizado!
+                QR Code lido!
               </h3>
               <p className="text-muted-foreground mt-2 text-sm">
                 {successData.nome}
