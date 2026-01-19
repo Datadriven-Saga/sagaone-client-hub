@@ -114,7 +114,9 @@ export const DashboardLigacaoTab = ({
       
       console.log('📊 DashboardLigacao - Resposta eventos:', data);
       
-      const eventsArray = data?.eventos || data || [];
+      // A API retorna: [{ total_eventos: N, dados_eventos: [...] }]
+      const rawData = Array.isArray(data) ? data[0] : data;
+      const eventsArray = rawData?.dados_eventos || rawData?.eventos || data || [];
       
       const events = eventsArray.map((e: any) => ({
         id: String(e.id_evento || e.id),

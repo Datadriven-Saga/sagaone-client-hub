@@ -150,7 +150,9 @@ export const EventoSelectorLigacao = ({
         
         console.log('📊 Resposta da API eventos-pri:', data);
         
-        const eventsArray = data?.eventos || data || [];
+        // A API retorna: [{ total_eventos: N, dados_eventos: [...] }]
+        const rawData = Array.isArray(data) ? data[0] : data;
+        const eventsArray = rawData?.dados_eventos || rawData?.eventos || data || [];
         
         const eventsData = eventsArray.map((e: any) => {
           console.log('📌 Evento raw:', e);
