@@ -28,7 +28,7 @@ export interface Prospeccao {
   titulo: string;
   data_inicio?: string | null;
   data_fim?: string | null;
-  empresa_id: string;
+  empresa_id?: string;
 }
 
 export interface ContatoEncontrado {
