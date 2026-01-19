@@ -102,8 +102,8 @@ export function useUserAccessType() {
   // Permissão para criar eventos (incluindo ligação): Administrador, TI, Gerente de Leads, CRM
   const canCreateEventos = isAdmin || isTI || isGerenteLeads || isCRM;
 
-  // Permissão para criar eventos de IA Ligação: apenas TI e Administrador
-  const canCreateIALigacao = isAdminOrTI;
+  // Permissão para criar eventos de IA Ligação: Administrador, TI, Gerente de Leads
+  const canCreateIALigacao = isAdmin || isTI || isGerenteLeads;
 
   // Permissão para subir base de leads: Administrador, TI, CRM
   const canUploadBase = isAdmin || isTI || isCRM;
