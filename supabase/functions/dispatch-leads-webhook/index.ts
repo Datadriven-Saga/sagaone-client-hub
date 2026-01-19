@@ -32,6 +32,7 @@ interface RequestBody {
     event_id_pri: string | null;
     data_inicio: string | null;
     data_fim: string | null;
+    template_prospeccao: string | null;
   };
 }
 
@@ -222,15 +223,26 @@ serve(async (req) => {
     let temVariavel = 'Não';
     
     if (!isIALigacao) {
+      const templateName = prospeccao_data?.template_prospeccao;
       console.log(`\n📝 [${requestId}] Buscando template WhatsApp...`);
-      const { data: templateData, error: templateError } = await supabase
+      console.log(`   ├─ Template do evento: ${templateName || 'N/A'}`);
+      
+      // Buscar template pelo nome específico do evento, ou fallback para qualquer ativo
+      let templateQuery = supabase
         .from('whatsapp_templates')
-        .select('variable_mapping, conteudo')
+        .select('variable_mapping, conteudo, nome')
         .eq('empresa_id', empresa_id)
-        .eq('ativo', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .eq('ativo', true);
+      
+      if (templateName) {
+        // Se temos o nome do template, buscar especificamente por ele
+        templateQuery = templateQuery.eq('nome', templateName);
+      } else {
+        // Fallback: buscar o mais recente ativo
+        templateQuery = templateQuery.order('created_at', { ascending: false }).limit(1);
+      }
+      
+      const { data: templateData, error: templateError } = await templateQuery.maybeSingle();
 
       if (templateError) {
         console.warn(`⚠️ [${requestId}] Erro ao buscar template:`, templateError);
@@ -239,10 +251,11 @@ serve(async (req) => {
         // Verificar se tem variáveis no conteúdo
         const hasVars = /\{\{\d+\}\}/.test(templateData.conteudo || '');
         temVariavel = hasVars ? 'Sim' : 'Não';
-        console.log(`   ├─ Variable mapping encontrado:`, variableMapping ? 'Sim' : 'Não');
+        console.log(`   ├─ Template encontrado: ${templateData.nome}`);
+        console.log(`   ├─ Variable mapping:`, variableMapping ? JSON.stringify(variableMapping) : 'Não definido');
         console.log(`   └─ tem_variavel: ${temVariavel}`);
       } else {
-        console.log(`   └─ Nenhum template ativo encontrado`);
+        console.log(`   └─ Nenhum template encontrado${templateName ? ` com nome "${templateName}"` : ''}`);
       }
     }
 
