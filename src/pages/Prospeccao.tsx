@@ -17,6 +17,7 @@ import { CriarProspeccaoModal } from "@/components/CriarProspeccaoModal";
 import { ContatoModal } from "@/components/ContatoModal";
 import { RecepcaoModal } from "@/components/RecepcaoModal";
 import { QRCodeScanner } from "@/components/QRCodeScanner";
+import { CheckinConfirmModal } from "@/components/CheckinConfirmModal";
 import { RecepcaoTable } from "@/components/RecepcaoTable";
 import { ProspeccaoVisaoGeral } from "@/components/ProspeccaoVisaoGeral";
 import { HistoricoImportacaoModal } from "@/components/HistoricoImportacaoModal";
