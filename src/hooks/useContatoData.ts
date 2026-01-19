@@ -435,15 +435,42 @@ export const useContatoData = () => {
           const { data: batchData, error: batchError } = await supabase
             .from('contatos')
             .insert(batch)
-            .select();
+            .select('id, telefone, nome, lead_id, email, status, origem, empresa_id, created_at');
 
           if (batchError) {
             console.error(`❌ Erro ao inserir lote ${i + 1}:`, batchError);
           } else if (batchData) {
+            console.log('📊 Contatos criados com lead_id:', 
+              batchData.slice(0, 3).map(c => ({ id: c.id, lead_id: c.lead_id }))
+            );
             novosContatosCriados = [...novosContatosCriados, ...batchData];
           }
         }
         console.log(`✅ ${novosContatosCriados.length} novos contatos criados`);
+
+        // Fallback: buscar lead_id para contatos que não retornaram (edge case)
+        const idsComLeadIdNull = novosContatosCriados
+          .filter(c => c.lead_id === null || c.lead_id === undefined)
+          .map(c => c.id);
+
+        if (idsComLeadIdNull.length > 0) {
+          console.log(`⚠️ ${idsComLeadIdNull.length} contatos sem lead_id, buscando...`);
+          const { data: leadIds } = await supabase
+            .from('contatos')
+            .select('id, lead_id')
+            .in('id', idsComLeadIdNull);
+          
+          if (leadIds) {
+            const leadIdMap = new Map(leadIds.map(l => [l.id, l.lead_id]));
+            novosContatosCriados = novosContatosCriados.map(c => ({
+              ...c,
+              lead_id: c.lead_id ?? leadIdMap.get(c.id) ?? null
+            }));
+            console.log('✅ lead_ids atualizados:', 
+              novosContatosCriados.slice(0, 3).map(c => ({ id: c.id, lead_id: c.lead_id }))
+            );
+          }
+        }
       }
 
       // 5) Vincular TODOS ao evento (novos + existentes que ainda não estavam)
@@ -500,16 +527,25 @@ export const useContatoData = () => {
       });
       
       // Retornar todos os contatos processados (novos + existentes vinculados) com dados para webhook
-      // Incluir lead_id (serial) para todos os contatos
+      // Incluir lead_id (serial numérico) para todos os contatos
       const todosContatosProcessados = [
         ...novosContatosCriados.map((c: any) => ({ 
           id: c.id, 
           telefone: c.telefone, 
           nome: c.nome, 
-          lead_id: c.lead_id as number | null 
+          lead_id: typeof c.lead_id === 'number' ? c.lead_id : null 
         })),
-        ...contatosParaVincular
+        ...contatosParaVincular.map((c: any) => ({
+          id: c.id,
+          telefone: c.telefone,
+          nome: c.nome,
+          lead_id: typeof c.lead_id === 'number' ? c.lead_id : null
+        }))
       ];
+
+      console.log('📤 todosContatosProcessados para webhook:', 
+        todosContatosProcessados.slice(0, 3).map(c => ({ id: c.id, lead_id: c.lead_id }))
+      );
       
       return {
         novosContatosCriados,
