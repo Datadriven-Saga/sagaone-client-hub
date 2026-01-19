@@ -3,71 +3,79 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCompany } from "@/contexts/CompanyContext";
-import { NovaVisita } from "@/hooks/useRecepcaoData";
-import { UserPlus, Loader2 } from "lucide-react";
+import { Prospeccao, CheckinData } from "@/hooks/useRecepcaoData";
+import { UserPlus, Loader2, Search, Calendar } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface RecepcaoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (visita: NovaVisita) => Promise<void>;
-  initialData?: {
-    nome_cliente?: string;
-    telefone_cliente?: string;
-    nome_campanha?: string;
-    empresa_id?: string;
-    id_maia?: string;
-  } | null;
+  onSearch: (telefone: string, eventoId: string) => Promise<CheckinData | null>;
+  prospeccoes: Prospeccao[];
 }
 
-export const RecepcaoModal = ({ isOpen, onClose, onSave, initialData }: RecepcaoModalProps) => {
+// Máscara de telefone
+const formatPhone = (value: string): string => {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+};
+
+export const RecepcaoModal = ({ isOpen, onClose, onSearch, prospeccoes }: RecepcaoModalProps) => {
   const { activeCompany } = useCompany();
-  const [formData, setFormData] = useState({
-    nome_cliente: "",
-    telefone_cliente: "",
-    nome_campanha: "",
-    empresa_id: activeCompany?.id || "",
-    id_maia: "",
-  });
+  const [telefone, setTelefone] = useState("");
+  const [eventoId, setEventoId] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Reset form when modal opens
   useEffect(() => {
-    if (initialData) {
-      setFormData({
-        nome_cliente: initialData.nome_cliente || "",
-        telefone_cliente: initialData.telefone_cliente || "",
-        nome_campanha: initialData.nome_campanha || "",
-        empresa_id: initialData.empresa_id || activeCompany?.id || "",
-        id_maia: initialData.id_maia || "",
-      });
-    } else if (activeCompany) {
-      setFormData(prev => ({ ...prev, empresa_id: activeCompany.id }));
+    if (isOpen) {
+      setTelefone("");
+      setEventoId("");
     }
-  }, [initialData, activeCompany]);
+  }, [isOpen]);
+
+  const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    setTelefone(formatted);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.nome_cliente || !formData.telefone_cliente || !formData.nome_campanha || !formData.empresa_id) {
+    const digitsOnly = telefone.replace(/\D/g, '');
+    if (digitsOnly.length < 10 || !eventoId) {
       return;
     }
 
     setLoading(true);
     try {
-      await onSave(formData);
-      setFormData({
-        nome_cliente: "",
-        telefone_cliente: "",
-        nome_campanha: "",
-        empresa_id: activeCompany?.id || "",
-        id_maia: "",
-      });
-      
-      // Recarregar a página para atualizar o Kanban
-      window.location.reload();
+      await onSearch(digitsOnly, eventoId);
+      onClose();
     } catch (error) {
-      console.error("Erro ao salvar visita:", error);
+      console.error("Erro ao buscar contato:", error);
+    } finally {
       setLoading(false);
+    }
+  };
+
+  // Formatar data do evento para exibição
+  const formatEventDate = (dataInicio: string | null, dataFim: string | null): string => {
+    if (!dataInicio) return "";
+    try {
+      const inicio = format(new Date(dataInicio), "dd/MM", { locale: ptBR });
+      if (dataFim) {
+        const fim = format(new Date(dataFim), "dd/MM", { locale: ptBR });
+        return `${inicio} - ${fim}`;
+      }
+      return inicio;
+    } catch {
+      return "";
     }
   };
 
@@ -80,65 +88,62 @@ export const RecepcaoModal = ({ isOpen, onClose, onSave, initialData }: Recepcao
             Registrar Visita
           </DialogTitle>
           <DialogDescription>
-            Preencha os dados do cliente para registrar a visita
+            Selecione o evento e informe o telefone do visitante
           </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-2">
+            {/* Seleção de Evento */}
             <div className="space-y-2">
-              <Label htmlFor="nome_cliente" className="text-sm font-medium">
-                Nome do Cliente <span className="text-destructive">*</span>
+              <Label htmlFor="evento" className="text-sm font-medium flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Evento / Prospecção <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="nome_cliente"
-                value={formData.nome_cliente}
-                onChange={(e) => setFormData({ ...formData, nome_cliente: e.target.value })}
-                placeholder="Digite o nome completo"
-                className="h-11"
-                required
-              />
+              <Select value={eventoId} onValueChange={setEventoId}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Selecione o evento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {prospeccoes.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      Nenhum evento encontrado
+                    </div>
+                  ) : (
+                    prospeccoes.map((prospeccao) => (
+                      <SelectItem key={prospeccao.id} value={prospeccao.id}>
+                        <div className="flex flex-col">
+                          <span>{prospeccao.titulo}</span>
+                          {prospeccao.data_inicio && (
+                            <span className="text-xs text-muted-foreground">
+                              {formatEventDate(prospeccao.data_inicio, prospeccao.data_fim)}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
+            {/* Telefone */}
             <div className="space-y-2">
-              <Label htmlFor="telefone_cliente" className="text-sm font-medium">
+              <Label htmlFor="telefone" className="text-sm font-medium">
                 Telefone <span className="text-destructive">*</span>
               </Label>
               <Input
-                id="telefone_cliente"
-                value={formData.telefone_cliente}
-                onChange={(e) => setFormData({ ...formData, telefone_cliente: e.target.value })}
+                id="telefone"
+                value={telefone}
+                onChange={handleTelefoneChange}
                 placeholder="(00) 00000-0000"
                 className="h-11"
                 required
+                maxLength={16}
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="nome_campanha" className="text-sm font-medium">
-                Campanha <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="nome_campanha"
-                value={formData.nome_campanha}
-                onChange={(e) => setFormData({ ...formData, nome_campanha: e.target.value })}
-                placeholder="Nome do evento ou campanha"
-                className="h-11"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="id_maia" className="text-sm font-medium">
-                ID Maia <span className="text-muted-foreground text-xs">(opcional)</span>
-              </Label>
-              <Input
-                id="id_maia"
-                value={formData.id_maia}
-                onChange={(e) => setFormData({ ...formData, id_maia: e.target.value })}
-                placeholder="Identificador no sistema Maia"
-                className="h-11"
-              />
+              <p className="text-xs text-muted-foreground">
+                O sistema buscará o contato pelo telefone no evento selecionado
+              </p>
             </div>
           </div>
 
@@ -154,16 +159,19 @@ export const RecepcaoModal = ({ isOpen, onClose, onSave, initialData }: Recepcao
             </Button>
             <Button 
               type="submit" 
-              disabled={loading}
+              disabled={loading || telefone.replace(/\D/g, '').length < 10 || !eventoId}
               className="w-full sm:w-auto order-1 sm:order-2 gap-2"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Salvando...
+                  Buscando...
                 </>
               ) : (
-                "Registrar Visita"
+                <>
+                  <Search className="w-4 h-4" />
+                  Buscar e Registrar
+                </>
               )}
             </Button>
           </DialogFooter>

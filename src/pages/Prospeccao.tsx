@@ -159,10 +159,74 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   const { vendas, criarVenda, refetch: refetchVendas } = useVendasProspeccao();
   const { 
     visitas, 
+    prospeccoes: recepcaoProspeccoes,
     loading: loadingVisitas,
     adicionarVisita, 
-    excluirVisita 
+    excluirVisita,
+    buscarContatoPorTelefoneEvento,
+    registrarCheckin,
+    validarEvento
   } = useRecepcaoData();
+
+  // State for check-in confirmation modal
+  const [checkinConfirmData, setCheckinConfirmData] = useState<{
+    nome: string;
+    telefone: string;
+    evento: string;
+    isNewContact: boolean;
+  } | null>(null);
+  const [pendingCheckin, setPendingCheckin] = useState<any>(null);
+  const [isConfirmingCheckin, setIsConfirmingCheckin] = useState(false);
+
+  // Handle search from RecepcaoModal
+  const handleRecepcaoSearch = async (telefone: string, eventoId: string) => {
+    const contato = await buscarContatoPorTelefoneEvento(telefone, eventoId);
+    const evento = recepcaoProspeccoes.find(p => p.id === eventoId);
+    
+    const checkinData = {
+      telefone,
+      evento_id: eventoId,
+      evento_nome: evento?.titulo || 'Evento',
+      contato: contato,
+      isNewContact: !contato
+    };
+    
+    setCheckinConfirmData({
+      nome: contato?.nome || 'Novo Visitante',
+      telefone,
+      evento: evento?.titulo || 'Evento',
+      isNewContact: !contato
+    });
+    setPendingCheckin(checkinData);
+    
+    return checkinData;
+  };
+
+  // Handle check-in confirmation
+  const handleConfirmCheckin = async () => {
+    if (!pendingCheckin) return;
+    
+    setIsConfirmingCheckin(true);
+    try {
+      await registrarCheckin(pendingCheckin);
+      refetch();
+    } finally {
+      setIsConfirmingCheckin(false);
+      setCheckinConfirmData(null);
+      setPendingCheckin(null);
+    }
+  };
+
+  // Handle QR scan complete
+  const handleQRScanComplete = (data: any) => {
+    setCheckinConfirmData({
+      nome: data.contato?.nome || 'Novo Visitante',
+      telefone: data.telefone,
+      evento: data.evento_nome || 'Evento',
+      isNewContact: data.isNewContact
+    });
+    setPendingCheckin(data);
+  };
 
   // === useEffect hooks ===
   // Atualizar activeTab quando defaultTab mudar (navegação entre sub-módulos)
@@ -2180,8 +2244,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           setIsRecepcaoModalOpen(false);
           setRecepcaoInitialData(null);
         }}
-        onSave={adicionarVisita}
-        initialData={recepcaoInitialData}
+        onSearch={handleRecepcaoSearch}
+        prospeccoes={prospeccoes}
       />
 
       <HistoricoImportacaoModal
@@ -2253,9 +2317,20 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       <QRCodeScanner
         isOpen={isQRCodeScannerOpen}
         onClose={() => setIsQRCodeScannerOpen(false)}
-        onSuccess={() => {
-          refetch();
+        onScanComplete={handleQRScanComplete}
+        validarEvento={validarEvento}
+        buscarContato={buscarContatoPorTelefoneEvento}
+      />
+
+      <CheckinConfirmModal
+        isOpen={!!checkinConfirmData}
+        onClose={() => {
+          setCheckinConfirmData(null);
+          setPendingCheckin(null);
         }}
+        onConfirm={handleConfirmCheckin}
+        data={checkinConfirmData}
+        loading={isConfirmingCheckin}
       />
 
       <FloatingActionButton

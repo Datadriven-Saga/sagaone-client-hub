@@ -5,12 +5,14 @@ import { UserMenu } from "./UserMenu";
 import { FloatingActionButton } from "./FloatingActionButton";
 import { NovoLeadModal } from "./NovoLeadModal";
 import { ContatoModal } from "./ContatoModal";
+import { CheckinConfirmModal } from "./CheckinConfirmModal";
 import { RecepcaoModal } from "./RecepcaoModal";
 import { PanelLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Contato } from "@/hooks/useContatoData";
+import { useRecepcaoData, CheckinData } from "@/hooks/useRecepcaoData";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -20,6 +22,14 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   const [isNovoLeadModalOpen, setIsNovoLeadModalOpen] = useState(false);
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
+  const [checkinConfirmData, setCheckinConfirmData] = useState<{
+    nome: string;
+    telefone: string;
+    evento: string;
+    isNewContact: boolean;
+  } | null>(null);
+  const [pendingCheckin, setPendingCheckin] = useState<CheckinData | null>(null);
+  const [isConfirmingCheckin, setIsConfirmingCheckin] = useState(false);
   const [contatoModalState, setContatoModalState] = useState<{
     isOpen: boolean;
     contato: Contato | null;
@@ -28,6 +38,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   
   const { activeCompany } = useCompany();
   const { user } = useAuth();
+  const { prospeccoes, buscarContatoPorTelefoneEvento, registrarCheckin } = useRecepcaoData();
 
   // Fetch profiles for NovoLeadModal
   useEffect(() => {
@@ -97,49 +108,45 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
     window.dispatchEvent(new CustomEvent('lead-created'));
   };
 
-  const handleRecepcaoSave = async (data: { nome_cliente: string; telefone_cliente: string; nome_campanha: string; id_maia?: string }) => {
-    if (!activeCompany?.id) return;
+  // Handle search from RecepcaoModal
+  const handleRecepcaoSearch = async (telefone: string, eventoId: string): Promise<CheckinData | null> => {
+    const contato = await buscarContatoPorTelefoneEvento(telefone, eventoId);
+    const evento = prospeccoes.find(p => p.id === eventoId);
     
+    const checkinData: CheckinData = {
+      telefone,
+      evento_id: eventoId,
+      evento_nome: evento?.titulo || 'Evento',
+      contato: contato,
+      isNewContact: !contato
+    };
+    
+    // Show confirmation modal
+    setCheckinConfirmData({
+      nome: contato?.nome || 'Novo Visitante',
+      telefone,
+      evento: evento?.titulo || 'Evento',
+      isNewContact: !contato
+    });
+    setPendingCheckin(checkinData);
+    
+    return checkinData;
+  };
+
+  // Handle check-in confirmation
+  const handleConfirmCheckin = async () => {
+    if (!pendingCheckin) return;
+    
+    setIsConfirmingCheckin(true);
     try {
-      await supabase.from('recepcao_visitas').insert({
-        ...data,
-        empresa_id: activeCompany.id
-      });
-      
-      // Also check for existing contact and update status to Check-in
-      const normalizedPhone = data.telefone_cliente.replace(/\D/g, '');
-      const { data: existingContatos } = await supabase
-        .from('contatos')
-        .select('*')
-        .eq('empresa_id', activeCompany.id);
-      
-      const existingContato = existingContatos?.find(c => {
-        const contatoPhone = (c.telefone || '').replace(/\D/g, '');
-        return contatoPhone === normalizedPhone || 
-               contatoPhone.endsWith(normalizedPhone) || 
-               normalizedPhone.endsWith(contatoPhone);
-      });
-
-      if (existingContato) {
-        await supabase
-          .from('contatos')
-          .update({ status: 'Check-in' })
-          .eq('id', existingContato.id);
-      } else {
-        await supabase.from('contatos').insert({
-          nome: data.nome_cliente,
-          telefone: data.telefone_cliente,
-          origem: 'Outros',
-          status: 'Check-in',
-          empresa_id: activeCompany.id,
-          responsavel_email: user?.id,
-          observacoes: 'Check-in registrado via Recepção'
-        });
+      const success = await registrarCheckin(pendingCheckin);
+      if (success) {
+        window.dispatchEvent(new CustomEvent('lead-created'));
       }
-
-      window.dispatchEvent(new CustomEvent('lead-created'));
-    } catch (error) {
-      console.error('Error saving recepcao:', error);
+    } finally {
+      setIsConfirmingCheckin(false);
+      setCheckinConfirmData(null);
+      setPendingCheckin(null);
     }
   };
 
@@ -189,8 +196,19 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
         <RecepcaoModal
           isOpen={isRecepcaoModalOpen}
           onClose={() => setIsRecepcaoModalOpen(false)}
-          onSave={handleRecepcaoSave}
-          initialData={null}
+          onSearch={handleRecepcaoSearch}
+          prospeccoes={prospeccoes}
+        />
+
+        <CheckinConfirmModal
+          isOpen={!!checkinConfirmData}
+          onClose={() => {
+            setCheckinConfirmData(null);
+            setPendingCheckin(null);
+          }}
+          onConfirm={handleConfirmCheckin}
+          data={checkinConfirmData}
+          loading={isConfirmingCheckin}
         />
 
         {contatoModalState.contato && (
