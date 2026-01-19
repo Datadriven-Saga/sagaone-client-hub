@@ -148,20 +148,24 @@ export const EventoSelectorLigacao = ({
           throw new Error('Erro ao buscar eventos');
         }
         
+        console.log('📊 Resposta da API eventos-pri:', data);
+        
         const eventsArray = data?.eventos || data || [];
         
-        const eventsData = eventsArray.map((e: any) => ({
-          id: String(e.id_evento || e.id),
-          nome: e.nome || e.name,
-          telefone_pri: e.telefone_pri,
-          cidade: e.cidade,
-          uf: e.uf || e.estado,
-          estado: e.uf || e.estado,
-          marca: e.marca,
-          dealer_id: e.dealer_id,
-          evt_status: e.evt_status || 'ativo',
-        }));
-        
+        const eventsData = eventsArray.map((e: any) => {
+          console.log('📌 Evento raw:', e);
+          return {
+            id: String(e.id_evento || e.id),
+            nome: e.evt_nome || e.nome || e.name || e.evento_nome || 'Evento sem nome',
+            telefone_pri: e.telefone_pri,
+            cidade: e.cidade,
+            uf: e.uf || e.estado,
+            estado: e.uf || e.estado,
+            marca: e.marca,
+            dealer_id: e.dealer_id,
+            evt_status: e.evt_status || 'ativo',
+          };
+        });
         setEvents(eventsData);
       } catch (error) {
         console.error('Error fetching events:', error);
