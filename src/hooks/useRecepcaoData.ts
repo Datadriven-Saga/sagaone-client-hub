@@ -3,6 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  extractPhoneDigits, 
+  generatePhoneVariations as generateVariations,
+  phonesAreEqual,
+  formatPhoneForDisplay
+} from "@/lib/phoneUtils";
 
 export interface RecepcaoVisita {
   id: string;
@@ -49,49 +55,31 @@ export interface CheckinData {
   isNewContact: boolean;
 }
 
-// Normaliza telefone para apenas dígitos (remove formatação)
+// Usa a função centralizada de phoneUtils
 const normalizePhone = (phone: string): string => {
-  return phone.replace(/\D/g, '');
+  return extractPhoneDigits(phone);
 };
 
-// Gera variações de telefone para lidar com o 9º dígito
+// Usa a função centralizada de phoneUtils
 const generatePhoneVariations = (phone: string): string[] => {
-  let normalized = phone.replace(/\D/g, '');
-  
-  // Remove código do país se presente (55)
-  if (normalized.startsWith('55') && normalized.length > 11) {
-    normalized = normalized.substring(2);
-  }
-  
-  const variations: string[] = [normalized];
-  
-  // Se tem 11 dígitos e o 3º é 9 (celular com 9), criar variação sem o 9
-  if (normalized.length === 11 && normalized[2] === '9') {
-    const withoutNine = normalized.slice(0, 2) + normalized.slice(3);
-    variations.push(withoutNine);
-  }
-  
-  // Se tem 10 dígitos, criar variação com o 9 após o DDD
-  if (normalized.length === 10) {
-    const withNine = normalized.slice(0, 2) + '9' + normalized.slice(2);
-    variations.push(withNine);
-  }
-  
-  return variations;
+  return generateVariations(phone);
 };
 
-// Verifica se dois telefones são equivalentes (considerando variações do 9º dígito)
+// Usa a função centralizada de phoneUtils
 const phonesMatch = (phone1: string, phone2: string): boolean => {
+  // Primeiro tenta match exato via phoneUtils
+  if (phonesAreEqual(phone1, phone2)) return true;
+  
+  // Fallback: gera variações para compatibilidade com números antigos (10 dígitos)
   const variations1 = generatePhoneVariations(phone1);
-  const normalized2 = normalizePhone(phone2);
+  let normalized2 = extractPhoneDigits(phone2);
   
   // Remove código do país do phone2 se presente
-  let cleanPhone2 = normalized2;
-  if (cleanPhone2.startsWith('55') && cleanPhone2.length > 11) {
-    cleanPhone2 = cleanPhone2.substring(2);
+  if (normalized2.startsWith('55') && normalized2.length > 11) {
+    normalized2 = normalized2.substring(2);
   }
   
-  return variations1.includes(cleanPhone2);
+  return variations1.includes(normalized2);
 };
 
 export const useRecepcaoData = () => {
