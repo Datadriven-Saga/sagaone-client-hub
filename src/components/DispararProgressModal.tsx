@@ -16,6 +16,8 @@ interface DispararProgressModalProps {
   disparadosCount: number;
   isCompleted: boolean;
   isProcessing: boolean;
+  currentBatch?: number;
+  totalBatches?: number;
 }
 
 const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
@@ -24,7 +26,9 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
   totalContatos,
   disparadosCount,
   isCompleted,
-  isProcessing
+  isProcessing,
+  currentBatch = 0,
+  totalBatches = 0
 }) => {
   const [displayedCount, setDisplayedCount] = useState(0);
   const [dots, setDots] = useState('');
@@ -142,10 +146,15 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
                 <p className="text-muted-foreground">
                   Enviando mensagens{dots}
                 </p>
+                {totalBatches > 0 && (
+                  <p className="text-sm font-medium text-primary">
+                    Lote {currentBatch} de {totalBatches}
+                  </p>
+                )}
                 <div className="flex items-center justify-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-primary" />
                   <span className="text-sm text-muted-foreground">
-                    Atualizando a cada 5 segundos
+                    Processando em lotes de 1.000 contatos
                   </span>
                 </div>
               </>

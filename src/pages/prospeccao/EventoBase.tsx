@@ -75,6 +75,10 @@ export default function EventoBase() {
   const { isAdminOrTI, isAdmin, isTI, isCRM, loading: loadingAccess } = useUserAccessType();
   const isGerenteLeads = useUserAccessType().tipoAcesso === "Gerente de Leads";
 
+  // Constantes de configuração de disparo
+  const BATCH_SIZE = 1000; // Tamanho do lote por chamada ao webhook
+  const MAX_DISPATCH_LIMIT = 5000; // Limite máximo por disparo
+
   // Estados
   const [prospeccao, setProspeccao] = useState<Prospeccao | null>(null);
   const [contatos, setContatos] = useState<ContatoEvento[]>([]);
@@ -97,7 +101,12 @@ export default function EventoBase() {
   const [progressTotal, setProgressTotal] = useState(0);
   const [progressCount, setProgressCount] = useState(0);
   const [progressCompleted, setProgressCompleted] = useState(false);
+  const [currentBatch, setCurrentBatch] = useState(0);
+  const [totalBatches, setTotalBatches] = useState(0);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Estado para disparo personalizado
+  const [customDispatchCount, setCustomDispatchCount] = useState<string>('');
 
   // Buscar dados do evento
   useEffect(() => {
@@ -537,8 +546,8 @@ export default function EventoBase() {
     fetchContatos();
   };
 
-  // Disparar IA para todos os pendentes - em batches para evitar timeout
-  const handleDispararTodos = async () => {
+  // Disparar IA com quantidade customizada ou todos - em batches de 1000 para evitar timeout
+  const handleDispararIA = async (quantidade?: number) => {
     if (!prospeccao || !activeCompany?.id) return;
 
     setIsDisparandoIA(true);
@@ -554,16 +563,34 @@ export default function EventoBase() {
         return;
       }
 
-      console.log(`📊 Total de contatos pendentes: ${contatosPendentes.length}`);
+      // Aplicar limite de quantidade se especificado
+      let leadsParaDisparar = contatosPendentes;
+      if (quantidade && quantidade > 0) {
+        // Respeitar limite máximo de 5000
+        const limitedQuantidade = Math.min(quantidade, MAX_DISPATCH_LIMIT, contatosPendentes.length);
+        leadsParaDisparar = contatosPendentes.slice(0, limitedQuantidade);
+        console.log(`📊 Quantidade customizada: ${limitedQuantidade} de ${contatosPendentes.length} pendentes`);
+      } else {
+        // Sem quantidade especificada, mas respeitando limite de 5000
+        leadsParaDisparar = contatosPendentes.slice(0, MAX_DISPATCH_LIMIT);
+        if (contatosPendentes.length > MAX_DISPATCH_LIMIT) {
+          console.log(`⚠️ Limitando disparo a ${MAX_DISPATCH_LIMIT} (total pendente: ${contatosPendentes.length})`);
+        }
+      }
+
+      console.log(`📊 Total para disparar: ${leadsParaDisparar.length}`);
 
       // Configurar modal de progresso
-      setProgressTotal(metricas.total);
-      setProgressCount(metricas.disparados);
+      const batchCount = Math.ceil(leadsParaDisparar.length / BATCH_SIZE);
+      setProgressTotal(leadsParaDisparar.length);
+      setProgressCount(0);
       setProgressCompleted(false);
+      setCurrentBatch(0);
+      setTotalBatches(batchCount);
       setShowProgressModal(true);
 
       // Formatar leads no formato esperado pela edge function
-      const allLeads = contatosPendentes.map(c => ({
+      const allLeads = leadsParaDisparar.map(c => ({
         id: c.id,
         lead_id: c.lead_id,
         nome: c.nome,
@@ -580,23 +607,19 @@ export default function EventoBase() {
         canal: prospeccao.canal 
       });
 
-      // Iniciar polling para acompanhar progresso
-      startProgressPolling(allLeads.length);
-
-      // DIVIDIR EM BATCHES DE 500 PARA EVITAR TIMEOUT DA EDGE FUNCTION
-      const BATCH_SIZE = 500;
-      const totalBatches = Math.ceil(allLeads.length / BATCH_SIZE);
+      // DIVIDIR EM BATCHES DE 1000 PARA EVITAR TIMEOUT DA EDGE FUNCTION
       let totalErros = 0;
       let totalSucessos = 0;
 
-      console.log(`📦 Dividindo em ${totalBatches} batches de até ${BATCH_SIZE} leads cada`);
+      console.log(`📦 Dividindo em ${batchCount} batches de até ${BATCH_SIZE} leads cada`);
 
-      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      for (let batchIndex = 0; batchIndex < batchCount; batchIndex++) {
         const batchStart = batchIndex * BATCH_SIZE;
         const leads = allLeads.slice(batchStart, batchStart + BATCH_SIZE);
         const batchNum = batchIndex + 1;
 
-        console.log(`📤 Enviando batch ${batchNum}/${totalBatches} (${leads.length} leads)`);
+        setCurrentBatch(batchNum);
+        console.log(`📤 Enviando batch ${batchNum}/${batchCount} (${leads.length} leads)`);
 
         try {
           const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
@@ -604,7 +627,7 @@ export default function EventoBase() {
               leads,
               empresa_id: activeCompany.id,
               prospeccao_id: prospeccao.id,
-          prospeccao_data: {
+              prospeccao_data: {
                 titulo: prospeccao.titulo,
                 canal: prospeccao.canal,
                 event_id_pri: prospeccao.event_id_pri || null,
@@ -620,7 +643,7 @@ export default function EventoBase() {
             totalErros += leads.length;
           } else {
             console.log(`✅ Batch ${batchNum} concluído:`, data);
-            totalSucessos += data?.leads_processados || leads.length;
+            totalSucessos += data?.estatisticas?.sucessos || leads.length;
             
             // Marcar contatos como disparados na tabela eventos_prospeccao
             const leadIds = leads.map(l => l.id);
@@ -636,8 +659,7 @@ export default function EventoBase() {
           }
 
           // Atualizar contagem após cada batch
-          const currentCount = await fetchDisparadosCount();
-          setProgressCount(currentCount);
+          setProgressCount(batchStart + leads.length);
 
         } catch (batchError) {
           console.error(`❌ Exceção no batch ${batchNum}:`, batchError);
@@ -648,15 +670,12 @@ export default function EventoBase() {
       console.log(`📊 Disparo concluído: ${totalSucessos} sucessos, ${totalErros} erros`);
 
       // Marcar como completo após todos os batches
-      const finalCount = await fetchDisparadosCount();
-      setProgressCount(finalCount);
+      setProgressCount(leadsParaDisparar.length);
+      setProgressCompleted(true);
       
-      if (finalCount >= metricas.total || totalErros === 0) {
-        setProgressCompleted(true);
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
       }
 
       // Atualizar métricas do banco
@@ -665,11 +684,19 @@ export default function EventoBase() {
       // Recarregar dados
       fetchContatos();
 
+      // Limpar campo de quantidade personalizada
+      setCustomDispatchCount('');
+
       if (totalErros > 0) {
         toast({ 
           title: "Parcialmente concluído", 
           description: `${totalSucessos} disparados, ${totalErros} erros`,
           variant: "destructive" 
+        });
+      } else {
+        toast({ 
+          title: "Sucesso", 
+          description: `${totalSucessos} contatos disparados com sucesso!`
         });
       }
     } catch (error) {
@@ -683,6 +710,23 @@ export default function EventoBase() {
     } finally {
       setIsDisparandoIA(false);
     }
+  };
+
+  // Função wrapper para disparar todos (até o limite de 5000)
+  const handleDispararTodos = () => handleDispararIA();
+
+  // Função para disparar quantidade personalizada
+  const handleDispararPersonalizado = () => {
+    const quantidade = parseInt(customDispatchCount, 10);
+    if (isNaN(quantidade) || quantidade <= 0) {
+      toast({ title: "Atenção", description: "Digite uma quantidade válida maior que zero" });
+      return;
+    }
+    if (quantidade > MAX_DISPATCH_LIMIT) {
+      toast({ title: "Atenção", description: `Quantidade máxima permitida: ${MAX_DISPATCH_LIMIT}` });
+      return;
+    }
+    handleDispararIA(quantidade);
   };
 
   // Disparar IA para contato individual
@@ -1033,9 +1077,10 @@ export default function EventoBase() {
           </Card>
         </div>
 
-        {/* Filtros */}
+        {/* Filtros e Disparo */}
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-4 space-y-4">
+            {/* Linha de filtros */}
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1073,68 +1118,137 @@ export default function EventoBase() {
                   </SelectContent>
                 </Select>
               )}
+            </div>
 
-              {isIA && metricas.pendentes > 0 && (
-                loadingAccess ? (
-                  <Button variant="outline" size="sm" disabled>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Verificando...
-                  </Button>
-                ) : canDispatch ? (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleDispararTodos}
-                    disabled={isDisparandoIA}
-                    className={isIALigacao ? 'bg-orange-600 hover:bg-orange-700' : ''}
-                  >
-                    {isDisparandoIA ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Enviando...
-                      </>
-                    ) : (
-                      <>
-                        {isIALigacao ? (
-                          <PhoneCall className="mr-2 h-4 w-4" />
-                        ) : (
-                          <MessageCircle className="mr-2 h-4 w-4" />
-                        )}
-                        Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({metricas.pendentes})
-                      </>
+            {/* Seção de Disparo IA */}
+            {isIA && metricas.pendentes > 0 && (
+              <div className="border-t pt-4 space-y-3">
+                {/* Observação sobre lotes */}
+                <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg text-sm">
+                  <Send className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-muted-foreground">
+                      <strong>Como funciona:</strong> Os disparos são enviados em lotes de <strong>{BATCH_SIZE.toLocaleString()}</strong> contatos por vez.
+                      {metricas.pendentes > MAX_DISPATCH_LIMIT && (
+                        <> O limite máximo por disparo é <strong>{MAX_DISPATCH_LIMIT.toLocaleString()}</strong> contatos.</>
+                      )}
+                    </p>
+                    {metricas.pendentes > BATCH_SIZE && (
+                      <p className="text-muted-foreground mt-1">
+                        Para {Math.min(metricas.pendentes, MAX_DISPATCH_LIMIT).toLocaleString()} contatos, serão <strong>{Math.ceil(Math.min(metricas.pendentes, MAX_DISPATCH_LIMIT) / BATCH_SIZE)} lotes</strong> enviados automaticamente em sequência.
+                      </p>
                     )}
-                  </Button>
-                ) : (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                  </div>
+                </div>
+
+                {/* Botões de disparo */}
+                <div className="flex flex-wrap items-center gap-3">
+                  {loadingAccess ? (
+                    <Button variant="outline" size="sm" disabled>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Verificando...
+                    </Button>
+                  ) : canDispatch ? (
+                    <>
+                      {/* Botão principal - Disparar Todos (até o limite) */}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={handleDispararTodos}
+                              disabled={isDisparandoIA}
+                              className={isIALigacao ? 'bg-orange-600 hover:bg-orange-700' : ''}
+                            >
+                              {isDisparandoIA ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Enviando lote {currentBatch}/{totalBatches}...
+                                </>
+                              ) : (
+                                <>
+                                  {isIALigacao ? (
+                                    <PhoneCall className="mr-2 h-4 w-4" />
+                                  ) : (
+                                    <MessageCircle className="mr-2 h-4 w-4" />
+                                  )}
+                                  Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({Math.min(metricas.pendentes, MAX_DISPATCH_LIMIT).toLocaleString()})
+                                </>
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              Dispara até {MAX_DISPATCH_LIMIT.toLocaleString()} contatos em lotes de {BATCH_SIZE.toLocaleString()}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
+                      {/* Separador */}
+                      <div className="h-8 w-px bg-border" />
+
+                      {/* Input + Botão personalizado */}
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          placeholder="Qtd"
+                          value={customDispatchCount}
+                          onChange={(e) => setCustomDispatchCount(e.target.value)}
+                          className="w-24 h-9"
+                          min={1}
+                          max={MAX_DISPATCH_LIMIT}
+                          disabled={isDisparandoIA}
+                        />
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled
-                          className="opacity-60"
+                          onClick={handleDispararPersonalizado}
+                          disabled={isDisparandoIA || !customDispatchCount}
+                          className={isIALigacao ? 'border-orange-600 text-orange-600 hover:bg-orange-50' : ''}
                         >
-                          <Lock className="mr-2 h-4 w-4" />
                           {isIALigacao ? (
                             <PhoneCall className="mr-2 h-4 w-4" />
                           ) : (
                             <MessageCircle className="mr-2 h-4 w-4" />
                           )}
-                          Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({metricas.pendentes})
+                          Disparar {customDispatchCount ? parseInt(customDispatchCount, 10).toLocaleString() : 'X'}
                         </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>
-                          {isIALigacao 
-                            ? 'Apenas Administradores e TI podem disparar IA de Ligação'
-                            : 'Apenas Administradores, TI, Gerente de Leads e CRM podem disparar WhatsApp'}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )
-              )}
-            </div>
+                      </div>
+                    </>
+                  ) : (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled
+                            className="opacity-60"
+                          >
+                            <Lock className="mr-2 h-4 w-4" />
+                            {isIALigacao ? (
+                              <PhoneCall className="mr-2 h-4 w-4" />
+                            ) : (
+                              <MessageCircle className="mr-2 h-4 w-4" />
+                            )}
+                            Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({metricas.pendentes.toLocaleString()})
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            {isIALigacao 
+                              ? 'Apenas Administradores e TI podem disparar IA de Ligação'
+                              : 'Apenas Administradores, TI, Gerente de Leads e CRM podem disparar WhatsApp'}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1332,6 +1446,8 @@ export default function EventoBase() {
         disparadosCount={progressCount}
         isCompleted={progressCompleted}
         isProcessing={isDisparandoIA}
+        currentBatch={currentBatch}
+        totalBatches={totalBatches}
       />
     </DashboardLayout>
   );
