@@ -1203,9 +1203,16 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
       setLoadingMessage("");
       // Determinar canal baseado no tipo de evento
-      let canalFinal: 'Whatsapp' | 'Ligação' = 'Whatsapp';
+      // Grande Evento = "Grande Evento", Prospecção Mensal = "Mensal", IA Whatsapp = "Whatsapp", IA Ligação = "Ligação"
+      let canalFinal: string = 'Whatsapp';
       if (tipoEvento === 'IA Ligação') {
         canalFinal = 'Ligação';
+      } else if (tipoEvento === 'Grande Evento') {
+        canalFinal = 'Grande Evento';
+      } else if (tipoEvento === 'Prospecção Mensal') {
+        canalFinal = 'Mensal';
+      } else if (tipoEvento === 'IA Whatsapp') {
+        canalFinal = 'Whatsapp';
       }
       
       const dadosProspeccao: any = {
