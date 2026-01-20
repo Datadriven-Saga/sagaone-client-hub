@@ -67,7 +67,9 @@ interface Prospeccao {
 }
 
 type StatusFilter = 'todos' | string;
-type DisparoFilter = 'todos' | 'pendente' | 'disparado';
+type DisparoFilter = 'todos' | 'pendente' | 'disparado' | 'encerrado';
+type StatusLigacaoFilter = 'todos' | 'agendado' | 'whatsapp' | 'atendido' | 'em_fila' | 'elegivel';
+type TentativasFilter = 'todos' | '0' | '1' | '2' | '3+';
 
 const statusColors: Record<string, string> = {
   'Novo': 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100',
@@ -107,6 +109,10 @@ export default function EventoBase() {
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(searchParams.get('status') || 'todos');
   const [disparoFilter, setDisparoFilter] = useState<DisparoFilter>((searchParams.get('disparo') as DisparoFilter) || 'todos');
+  const [statusLigacaoFilter, setStatusLigacaoFilter] = useState<StatusLigacaoFilter>((searchParams.get('statusLigacao') as StatusLigacaoFilter) || 'todos');
+  const [tentativasFilter, setTentativasFilter] = useState<TentativasFilter>((searchParams.get('tentativas') as TentativasFilter) || 'todos');
+  const [dataInicioFilter, setDataInicioFilter] = useState(searchParams.get('dataInicio') || '');
+  const [dataFimFilter, setDataFimFilter] = useState(searchParams.get('dataFim') || '');
   const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1', 10));
   const [statusOptions, setStatusOptions] = useState<string[]>([]);
   const [metricas, setMetricas] = useState({ total: 0, pendentes: 0, disparados: 0, vendas: 0 });
@@ -283,10 +289,13 @@ export default function EventoBase() {
           if (statusAgendado) metricsResult.agendados++;
           if (enviadoWhatsapp) metricsResult.whatsappEnviado++;
           if (ligacaoAtendida) metricsResult.atendidos++;
-          if (ligacaoErro) metricsResult.emFila++;
-
+          
           // Um lead está "encerrado" se não deve mais receber ligação
           const isEncerrado = statusAgendado || enviadoWhatsapp || ligacaoAtendida;
+          
+          // CORRIGIDO: Em fila = ligacao_erro=true E NÃO está encerrado
+          // Se já agendou ou recebeu whatsapp, não está mais em fila (objetivo cumprido)
+          if (ligacaoErro && !isEncerrado) metricsResult.emFila++;
           if (isEncerrado) {
             metricsResult.encerrados++;
           }
@@ -489,17 +498,87 @@ export default function EventoBase() {
     if (searchTerm) params.set('search', searchTerm);
     if (statusFilter !== 'todos') params.set('status', statusFilter);
     if (disparoFilter !== 'todos') params.set('disparo', disparoFilter);
+    if (statusLigacaoFilter !== 'todos') params.set('statusLigacao', statusLigacaoFilter);
+    if (tentativasFilter !== 'todos') params.set('tentativas', tentativasFilter);
+    if (dataInicioFilter) params.set('dataInicio', dataInicioFilter);
+    if (dataFimFilter) params.set('dataFim', dataFimFilter);
     if (currentPage > 1) params.set('page', currentPage.toString());
     setSearchParams(params, { replace: true });
-  }, [searchTerm, statusFilter, disparoFilter, currentPage, setSearchParams]);
+  }, [searchTerm, statusFilter, disparoFilter, statusLigacaoFilter, tentativasFilter, dataInicioFilter, dataFimFilter, currentPage, setSearchParams]);
 
   // Reset page quando filtros mudarem
-  const handleFilterChange = (type: 'search' | 'status' | 'disparo', value: string) => {
+  const handleFilterChange = (type: 'search' | 'status' | 'disparo' | 'statusLigacao' | 'tentativas' | 'dataInicio' | 'dataFim', value: string) => {
     setCurrentPage(1);
     if (type === 'search') setSearchTerm(value);
     if (type === 'status') setStatusFilter(value as StatusFilter);
     if (type === 'disparo') setDisparoFilter(value as DisparoFilter);
+    if (type === 'statusLigacao') setStatusLigacaoFilter(value as StatusLigacaoFilter);
+    if (type === 'tentativas') setTentativasFilter(value as TentativasFilter);
+    if (type === 'dataInicio') setDataInicioFilter(value);
+    if (type === 'dataFim') setDataFimFilter(value);
   };
+  
+  // Limpar todos os filtros
+  const handleClearFilters = () => {
+    setCurrentPage(1);
+    setSearchTerm('');
+    setStatusFilter('todos');
+    setDisparoFilter('todos');
+    setStatusLigacaoFilter('todos');
+    setTentativasFilter('todos');
+    setDataInicioFilter('');
+    setDataFimFilter('');
+  };
+  
+  // Verificar se tem filtros ativos
+  const hasActiveFilters = searchTerm || statusFilter !== 'todos' || disparoFilter !== 'todos' || 
+    statusLigacaoFilter !== 'todos' || tentativasFilter !== 'todos' || dataInicioFilter || dataFimFilter;
+  
+  // Verifica se é evento de IA (WhatsApp ou Ligação) - declarado cedo para uso nos filtros
+  const canalLower = prospeccao?.canal?.toLowerCase() || '';
+  const isIAWhatsAppLocal = canalLower.includes('whatsapp');
+  const isIALigacaoLocal = canalLower.includes('liga');
+  const isIALocal = isIAWhatsAppLocal || isIALigacaoLocal;
+    
+  // Filtrar contatos localmente com base nos filtros de IA Ligação
+  const filteredContatos = useMemo(() => {
+    if (!isIALigacaoLocal) return contatos;
+    
+    return contatos.filter(contato => {
+      // Normalizar telefone
+      let telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+      if (telefoneNormalizado.length > 11 && telefoneNormalizado.startsWith('55')) {
+        telefoneNormalizado = telefoneNormalizado.substring(2);
+      }
+      const dadosExternos = contatosExternos.get(telefoneNormalizado);
+      
+      // Filtro por status da ligação
+      if (statusLigacaoFilter !== 'todos' && dadosExternos) {
+        const isEncerrado = dadosExternos.status_agendado || dadosExternos.enviado_whatsapp || dadosExternos.ligacao_atendida;
+        
+        if (statusLigacaoFilter === 'agendado' && !dadosExternos.status_agendado) return false;
+        if (statusLigacaoFilter === 'whatsapp' && !dadosExternos.enviado_whatsapp) return false;
+        if (statusLigacaoFilter === 'atendido' && !dadosExternos.ligacao_atendida) return false;
+        // Em fila = erro E não encerrado
+        if (statusLigacaoFilter === 'em_fila' && !(dadosExternos.ligacao_erro && !isEncerrado)) return false;
+        if (statusLigacaoFilter === 'elegivel' && (isEncerrado || dadosExternos.ligacao_erro)) return false;
+      } else if (statusLigacaoFilter !== 'todos' && !dadosExternos) {
+        // Sem dados externos, só mostrar se filtro for "elegivel" ou "todos"
+        if (statusLigacaoFilter !== 'elegivel') return false;
+      }
+      
+      // Filtro por tentativas
+      if (tentativasFilter !== 'todos') {
+        const tentativas = dadosExternos?.num_tentativas || 0;
+        if (tentativasFilter === '0' && tentativas !== 0) return false;
+        if (tentativasFilter === '1' && tentativas !== 1) return false;
+        if (tentativasFilter === '2' && tentativas !== 2) return false;
+        if (tentativasFilter === '3+' && tentativas < 3) return false;
+      }
+      
+      return true;
+    });
+  }, [contatos, contatosExternos, statusLigacaoFilter, tentativasFilter, isIALigacaoLocal]);
 
   // Exportar dados - carrega sob demanda
   const handleExport = async () => {
@@ -1237,11 +1316,10 @@ export default function EventoBase() {
     return format(new Date(dateStr), 'dd/MM/yyyy', { locale: ptBR });
   };
 
-  // Verifica se é evento de IA (WhatsApp ou Ligação)
-  const canalLower = prospeccao?.canal?.toLowerCase() || '';
-  const isIAWhatsApp = canalLower.includes('whatsapp');
-  const isIALigacao = canalLower.includes('liga');
-  const isIA = isIAWhatsApp || isIALigacao;
+  // Verifica se é evento de IA (WhatsApp ou Ligação) - usar variáveis já definidas acima
+  const isIAWhatsApp = isIAWhatsAppLocal;
+  const isIALigacao = isIALigacaoLocal;
+  const isIA = isIALocal;
   
   // Permissão para disparar:
   // WhatsApp = ADM, TI, Gerente de Leads, CRM
@@ -1438,12 +1516,12 @@ export default function EventoBase() {
               </div>
 
               <Select value={statusFilter} onValueChange={(v) => handleFilterChange('status', v)}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[150px]">
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Status" />
+                  <SelectValue placeholder="Status Lead" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos os Status</SelectItem>
+                  <SelectItem value="todos">Todos Status</SelectItem>
                   {statusOptions.map(status => (
                     <SelectItem key={status} value={status}>{status}</SelectItem>
                   ))}
@@ -1452,16 +1530,75 @@ export default function EventoBase() {
 
               {isIA && (
                 <Select value={disparoFilter} onValueChange={(v) => handleFilterChange('disparo', v)}>
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger className="w-[140px]">
                     <Send className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Disparo IA" />
+                    <SelectValue placeholder="Disparo" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todos</SelectItem>
-                    <SelectItem value="pendente">Pendentes ({metricas.pendentes})</SelectItem>
-                    <SelectItem value="disparado">Disparados ({metricas.disparados})</SelectItem>
+                    <SelectItem value="pendente">Pendentes</SelectItem>
+                    <SelectItem value="disparado">Disparados</SelectItem>
+                    <SelectItem value="encerrado">Encerrados</SelectItem>
                   </SelectContent>
                 </Select>
+              )}
+              
+              {/* Filtros específicos IA Ligação */}
+              {isIALigacao && (
+                <>
+                  <Select value={statusLigacaoFilter} onValueChange={(v) => handleFilterChange('statusLigacao', v)}>
+                    <SelectTrigger className="w-[150px]">
+                      <PhoneCall className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Ligação" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos</SelectItem>
+                      <SelectItem value="agendado">Agendado</SelectItem>
+                      <SelectItem value="whatsapp">WhatsApp Enviado</SelectItem>
+                      <SelectItem value="atendido">Atendido</SelectItem>
+                      <SelectItem value="em_fila">Em Fila</SelectItem>
+                      <SelectItem value="elegivel">Elegível</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select value={tentativasFilter} onValueChange={(v) => handleFilterChange('tentativas', v)}>
+                    <SelectTrigger className="w-[130px]">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Tentativas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todas</SelectItem>
+                      <SelectItem value="0">0 tentativas</SelectItem>
+                      <SelectItem value="1">1 tentativa</SelectItem>
+                      <SelectItem value="2">2 tentativas</SelectItem>
+                      <SelectItem value="3+">3+ tentativas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
+              )}
+              
+              {/* Filtro por data de criação */}
+              <Input
+                type="date"
+                placeholder="Data início"
+                value={dataInicioFilter}
+                onChange={(e) => handleFilterChange('dataInicio', e.target.value)}
+                className="w-[140px]"
+              />
+              <Input
+                type="date"
+                placeholder="Data fim"
+                value={dataFimFilter}
+                onChange={(e) => handleFilterChange('dataFim', e.target.value)}
+                className="w-[140px]"
+              />
+              
+              {/* Botão limpar filtros */}
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={handleClearFilters} className="h-9">
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Limpar
+                </Button>
               )}
             </div>
 
@@ -1624,17 +1761,17 @@ export default function EventoBase() {
                       <TableRow>
                         <TableHead className="w-[200px]">Nome</TableHead>
                         <TableHead className="w-[140px]">Telefone</TableHead>
-                        <TableHead className="w-[110px]">Status</TableHead>
+                        <TableHead className="w-[110px]">Status Lead</TableHead>
                         <TableHead className="w-[100px]">Origem</TableHead>
                         {isIA && <TableHead className="w-[130px]">Disparo IA</TableHead>}
-                        {isIALigacao && <TableHead className="w-[80px] text-center">Status</TableHead>}
+                        {isIALigacao && <TableHead className="w-[80px] text-center">Ligação</TableHead>}
                         {isIALigacao && <TableHead className="w-[80px] text-center">Tent.</TableHead>}
                         <TableHead className="w-[100px]">Criação</TableHead>
                         {isIA && <TableHead className="w-[100px]">Ações</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {contatos.map((contato) => (
+                      {filteredContatos.map((contato) => (
                         <TableRow key={contato.id} className="hover:bg-muted/50">
                           <TableCell className="font-medium">{contato.nome || '-'}</TableCell>
                           <TableCell>
@@ -1710,7 +1847,7 @@ export default function EventoBase() {
                               })()}
                             </TableCell>
                           )}
-                          {/* Coluna Status - ícones para IA Ligação */}
+                          {/* Coluna Ligação - ícones para IA Ligação */}
                           {isIALigacao && (
                             <TableCell className="text-center">
                               {(() => {
@@ -1725,7 +1862,10 @@ export default function EventoBase() {
                                   return <span className="text-muted-foreground">-</span>;
                                 }
                                 
-                                // Ícones para cada status
+                                // Verificar se está encerrado (objetivo cumprido)
+                                const isEncerrado = dadosExternos.status_agendado || dadosExternos.enviado_whatsapp || dadosExternos.ligacao_atendida;
+                                
+                                // Prioridade de ícones: Agendado > WhatsApp > Atendido > Em Fila > Elegível
                                 if (dadosExternos.status_agendado) {
                                   return (
                                     <TooltipProvider>
@@ -1762,14 +1902,17 @@ export default function EventoBase() {
                                     </TooltipProvider>
                                   );
                                 }
-                                if (dadosExternos.ligacao_erro) {
+                                
+                                // CORRIGIDO: Em fila = ligacao_erro E NÃO está encerrado
+                                // Se já agendou ou recebeu whatsapp, não está mais em fila
+                                if (dadosExternos.ligacao_erro && !isEncerrado) {
                                   return (
                                     <TooltipProvider>
                                       <Tooltip>
                                         <TooltipTrigger>
                                           <PhoneMissed className="h-5 w-5 text-blue-600 mx-auto" />
                                         </TooltipTrigger>
-                                        <TooltipContent>Em Fila (Retry)</TooltipContent>
+                                        <TooltipContent>Em Fila (Aguardando Retry)</TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
                                   );
