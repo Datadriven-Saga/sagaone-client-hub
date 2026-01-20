@@ -284,13 +284,12 @@ export default function EventoBase() {
             metricsResult.encerrados++;
           }
 
-          // Classificar como pendente ou disparado (apenas os não encerrados)
-          if (!isEncerrado) {
-            if (numTentativas === 0) {
-              metricsResult.pendentes++;
-            } else {
-              metricsResult.disparados++;
-            }
+          // Classificar como pendente ou disparado
+          // Disparados = TODOS que tiveram pelo menos 1 tentativa (inclui encerrados)
+          if (numTentativas === 0) {
+            metricsResult.pendentes++;
+          } else {
+            metricsResult.disparados++;
           }
         }
 
