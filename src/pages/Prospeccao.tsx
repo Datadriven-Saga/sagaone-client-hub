@@ -37,6 +37,7 @@ import { useContatoData, kanbanStatusMap, Contato } from "@/hooks/useContatoData
 import { useRecepcaoData } from "@/hooks/useRecepcaoData";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useMetricasLigacao, MetricasLigacaoExternas } from "@/hooks/useMetricasLigacao";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -168,6 +169,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     registrarCheckin,
     validarEvento
   } = useRecepcaoData();
+  const { fetchMetricasLigacao } = useMetricasLigacao();
+  
+  // State para métricas externas de IA Ligação
+  const [metricasLigacaoExternas, setMetricasLigacaoExternas] = useState<Record<string, MetricasLigacaoExternas>>({});
 
   // State for check-in confirmation modal
   const [checkinConfirmData, setCheckinConfirmData] = useState<{
@@ -633,6 +638,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   };
 
   // Carregar contagens de pendentes para eventos IA (otimizado - uma única query)
+  // Para IA Ligação, usa webhook externo para obter contagem real de elegíveis
   useEffect(() => {
     const carregarContagens = async () => {
       const eventosIA = prospeccoes.filter(p => {
@@ -642,31 +648,97 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
 
       if (eventosIA.length === 0) return;
 
-      // Carregar contagens em paralelo (máximo 5 por vez para não sobrecarregar)
-      const batchSize = 5;
-      for (let i = 0; i < eventosIA.length; i += batchSize) {
-        const batch = eventosIA.slice(i, i + batchSize);
-        const results = await Promise.all(
-          batch.map(async (evento) => {
-            const contagem = await contarContatosPendentesDisparo(evento.id);
-            return { id: evento.id, contagem };
-          })
-        );
-        
-        setContagemPendentes(prev => {
-          const newState = { ...prev };
-          results.forEach(r => {
-            newState[r.id] = r.contagem;
+      // Separar eventos WhatsApp e Ligação
+      const eventosWhatsApp = eventosIA.filter(e => String(e.canal).toLowerCase() === 'whatsapp');
+      const eventosLigacao = eventosIA.filter(e => {
+        const canalStr = String(e.canal).toLowerCase();
+        return canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
+      });
+
+      // Carregar contagens de WhatsApp usando método local (RPC)
+      if (eventosWhatsApp.length > 0) {
+        const batchSize = 5;
+        for (let i = 0; i < eventosWhatsApp.length; i += batchSize) {
+          const batch = eventosWhatsApp.slice(i, i + batchSize);
+          const results = await Promise.all(
+            batch.map(async (evento) => {
+              const contagem = await contarContatosPendentesDisparo(evento.id);
+              return { id: evento.id, contagem };
+            })
+          );
+          
+          setContagemPendentes(prev => {
+            const newState = { ...prev };
+            results.forEach(r => {
+              newState[r.id] = r.contagem;
+            });
+            return newState;
           });
-          return newState;
-        });
+        }
+      }
+
+      // Carregar contagens de Ligação usando webhook externo (verifica-contatos)
+      // Isso retorna as métricas reais considerando encerrados, pendentes e em fila
+      if (eventosLigacao.length > 0) {
+        const batchSize = 3; // Menor batch para webhooks externos
+        for (let i = 0; i < eventosLigacao.length; i += batchSize) {
+          const batch = eventosLigacao.slice(i, i + batchSize);
+          const results = await Promise.all(
+            batch.map(async (evento) => {
+              try {
+                // Primeiro tenta métricas externas
+                const metricasExternas = await fetchMetricasLigacao(evento.id, evento.event_id_pri);
+                
+                if (metricasExternas) {
+                  // Usar métricas externas - elegíveisDisparo = pendentes + emFila
+                  return { 
+                    id: evento.id, 
+                    contagem: {
+                      total: metricasExternas.total,
+                      pendentes: metricasExternas.elegiveisDisparo, // O que realmente pode disparar
+                      disparados: metricasExternas.disparados
+                    },
+                    metricasExternas
+                  };
+                }
+                
+                // Fallback para método local se webhook falhar
+                const contagem = await contarContatosPendentesDisparo(evento.id);
+                return { id: evento.id, contagem, metricasExternas: null };
+              } catch (error) {
+                console.error(`Erro ao buscar métricas para evento ${evento.id}:`, error);
+                const contagem = await contarContatosPendentesDisparo(evento.id);
+                return { id: evento.id, contagem, metricasExternas: null };
+              }
+            })
+          );
+          
+          setContagemPendentes(prev => {
+            const newState = { ...prev };
+            results.forEach(r => {
+              newState[r.id] = r.contagem;
+            });
+            return newState;
+          });
+
+          // Salvar métricas externas para uso na UI
+          setMetricasLigacaoExternas(prev => {
+            const newState = { ...prev };
+            results.forEach(r => {
+              if (r.metricasExternas) {
+                newState[r.id] = r.metricasExternas;
+              }
+            });
+            return newState;
+          });
+        }
       }
     };
 
     if (prospeccoes.length > 0) {
       carregarContagens();
     }
-  }, [prospeccoes]);
+  }, [prospeccoes, fetchMetricasLigacao, contarContatosPendentesDisparo]);
 
   // Calcular métricas dos contatos (antes do early return para uso nos useMemo)
   const metricas = getMetricas();

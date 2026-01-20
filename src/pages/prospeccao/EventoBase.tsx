@@ -20,6 +20,7 @@ import { useUserAccessType } from '@/hooks/useUserAccessType';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DispararProgressModal from '@/components/DispararProgressModal';
+import { EventoBaseSkeleton } from '@/components/EventoBaseSkeleton';
 
 interface ContatoEvento {
   id: string;
@@ -45,13 +46,14 @@ interface ContatoEvento {
 // Estado do lead para IA Ligação (baseado no webhook externo)
 interface MetricasLigacaoExternas {
   total: number;
-  pendentes: number;     // num_tentativas = 0 e não bloqueado
+  pendentes: number;     // num_tentativas = 0 e não encerrado
   disparados: number;    // num_tentativas >= 1
-  emFila: number;        // ligacao_erro = true (aguardando retry)
+  emFila: number;        // ligacao_erro = true E não encerrado (aguardando retry)
   encerrados: number;    // status_agendado || enviado_whatsapp || ligacao_atendida
   agendados: number;     // status_agendado = true
   whatsappEnviado: number; // enviado_whatsapp = true
   atendidos: number;     // ligacao_atendida = true
+  elegiveisDisparo: number; // pendentes + emFila (o que realmente pode disparar)
 }
 
 interface Prospeccao {
@@ -254,7 +256,8 @@ export default function EventoBase() {
           encerrados: 0,
           agendados: 0,
           whatsappEnviado: 0,
-          atendidos: 0
+          atendidos: 0,
+          elegiveisDisparo: 0
         };
 
         // Mapear contatos externos por telefone para uso posterior
@@ -293,21 +296,22 @@ export default function EventoBase() {
           // Um lead está "encerrado" se não deve mais receber ligação
           const isEncerrado = statusAgendado || enviadoWhatsapp || ligacaoAtendida;
           
-          // CORRIGIDO: Em fila = ligacao_erro=true E NÃO está encerrado
-          // Se já agendou ou recebeu whatsapp, não está mais em fila (objetivo cumprido)
+          // Em fila = ligacao_erro=true E NÃO está encerrado
           if (ligacaoErro && !isEncerrado) metricsResult.emFila++;
           if (isEncerrado) {
             metricsResult.encerrados++;
           }
 
           // Classificar como pendente ou disparado
-          // Disparados = TODOS que tiveram pelo menos 1 tentativa (inclui encerrados)
           if (numTentativas === 0) {
             metricsResult.pendentes++;
           } else {
             metricsResult.disparados++;
           }
         }
+
+        // Elegíveis = Pendentes (nunca tentados e não encerrados) + Em Fila (retry, não encerrados)
+        metricsResult.elegiveisDisparo = metricsResult.pendentes + metricsResult.emFila;
 
         // Salvar mapa de contatos externos
         setContatosExternos(externalMap);
@@ -1402,12 +1406,11 @@ export default function EventoBase() {
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  if (loading && !prospeccao) {
+  // Mostrar skeleton enquanto carrega os dados iniciais (prospeccao e métricas)
+  if (loading || !prospeccao || (isIALigacaoLocal && !metricasLigacao && isLoadingExternalMetrics)) {
     return (
-      <DashboardLayout title="Base do Evento">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+      <DashboardLayout title="Carregando evento...">
+        <EventoBaseSkeleton />
       </DashboardLayout>
     );
   }
