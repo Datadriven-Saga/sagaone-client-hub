@@ -1462,6 +1462,7 @@ export default function EventoBase() {
                   <p className="text-3xl font-bold text-foreground">{metricas.total}</p>
                 )}
                 <p className="text-sm text-muted-foreground">Total de Contatos</p>
+                <p className="text-xs text-muted-foreground mt-1">(base completa)</p>
               </CardContent>
             </Card>
             
@@ -1474,7 +1475,7 @@ export default function EventoBase() {
                   <p className="text-3xl font-bold text-green-600">{metricas.disparados}</p>
                 )}
                 <p className="text-sm text-green-600/80">Disparados</p>
-                <p className="text-xs text-muted-foreground mt-1">(≥1 tentativa)</p>
+                <p className="text-xs text-muted-foreground mt-1">(≥1 tentativa de ligação)</p>
               </CardContent>
             </Card>
             
@@ -1496,10 +1497,10 @@ export default function EventoBase() {
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <div className="space-y-1 text-xs">
-                    <p><strong>Motivos:</strong></p>
+                    <p><strong>Motivos do encerramento:</strong></p>
                     <p>• Agendados: {metricasLigacao.agendados}</p>
-                    <p>• WhatsApp: {metricasLigacao.whatsappEnviado}</p>
-                    <p>• Atendidos: {metricasLigacao.atendidos}</p>
+                    <p>• WhatsApp enviado: {metricasLigacao.whatsappEnviado}</p>
+                    <p>• Ligação atendida: {metricasLigacao.atendidos}</p>
                   </div>
                 </TooltipContent>
               </Tooltip>
@@ -1514,7 +1515,7 @@ export default function EventoBase() {
                   <p className="text-3xl font-bold text-amber-600">{metricas.pendentes}</p>
                 )}
                 <p className="text-sm text-amber-600/80">Pendentes</p>
-                <p className="text-xs text-muted-foreground mt-1">(elegíveis)</p>
+                <p className="text-xs text-muted-foreground mt-1">(nunca tentados)</p>
               </CardContent>
             </Card>
             
@@ -1527,7 +1528,7 @@ export default function EventoBase() {
                   <p className="text-3xl font-bold text-blue-600">{metricasLigacao.emFila}</p>
                 )}
                 <p className="text-sm text-blue-600/80">Em Fila</p>
-                <p className="text-xs text-muted-foreground mt-1">(retry)</p>
+                <p className="text-xs text-muted-foreground mt-1">(aguardando nova tentativa)</p>
               </CardContent>
             </Card>
           </div>
