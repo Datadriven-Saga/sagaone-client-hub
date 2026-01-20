@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   Download, Users, Search, Filter, Send, Loader2, CheckCircle, Phone, Mail, 
-  Calendar, Clock, ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, MessageCircle, PhoneCall, Lock, RotateCcw
+  Calendar, Clock, ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, MessageCircle, 
+  PhoneCall, Lock, RotateCcw, CalendarCheck, PhoneMissed, PhoneOutgoing
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -1300,96 +1301,120 @@ export default function EventoBase() {
           </div>
         </div>
 
-        {/* Cards de métricas */}
-        <div className={`grid gap-4 ${isIALigacao && metricasLigacao ? 'grid-cols-2 md:grid-cols-6' : 'grid-cols-2 md:grid-cols-4'}`}>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-3xl font-bold text-foreground">{metricas.total}</p>
-              <p className="text-sm text-muted-foreground">Total de Contatos</p>
-            </CardContent>
-          </Card>
-          {isIA && (
-            <>
-              <Card className="border-amber-200 dark:border-amber-900">
-                <CardContent className="p-4 text-center relative">
-                  {isLoadingExternalMetrics && isIALigacao ? (
-                    <Loader2 className="h-8 w-8 animate-spin text-amber-600 mx-auto" />
-                  ) : (
-                    <p className="text-3xl font-bold text-amber-600">{metricas.pendentes}</p>
-                  )}
-                  <p className="text-sm text-amber-600/80">Pendentes IA</p>
-                  {isIALigacao && (
-                    <p className="text-xs text-muted-foreground mt-1">(elegíveis)</p>
-                  )}
-                </CardContent>
-              </Card>
-              
-              {/* Card Em Fila - apenas para Ligação */}
-              {isIALigacao && metricasLigacao && (
-                <Card className="border-blue-200 dark:border-blue-900">
-                  <CardContent className="p-4 text-center relative">
-                    {isLoadingExternalMetrics ? (
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
-                    ) : (
-                      <p className="text-3xl font-bold text-blue-600">{metricasLigacao.emFila}</p>
-                    )}
-                    <p className="text-sm text-blue-600/80">Em Fila</p>
-                    <p className="text-xs text-muted-foreground mt-1">(erro retry)</p>
+        {/* Cards de métricas - IA Ligação */}
+        {isIALigacao && metricasLigacao ? (
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
+            {/* 1. Total */}
+            <Card>
+              <CardContent className="p-4 text-center">
+                {isLoadingExternalMetrics ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-foreground mx-auto" />
+                ) : (
+                  <p className="text-3xl font-bold text-foreground">{metricas.total}</p>
+                )}
+                <p className="text-sm text-muted-foreground">Total de Contatos</p>
+              </CardContent>
+            </Card>
+            
+            {/* 2. Disparados */}
+            <Card className="border-green-200 dark:border-green-900">
+              <CardContent className="p-4 text-center">
+                {isLoadingExternalMetrics ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto" />
+                ) : (
+                  <p className="text-3xl font-bold text-green-600">{metricas.disparados}</p>
+                )}
+                <p className="text-sm text-green-600/80">Disparados</p>
+                <p className="text-xs text-muted-foreground mt-1">(≥1 tentativa)</p>
+              </CardContent>
+            </Card>
+            
+            {/* 3. Encerrados */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card className="border-orange-200 dark:border-orange-900 cursor-help">
+                    <CardContent className="p-4 text-center">
+                      {isLoadingExternalMetrics ? (
+                        <Loader2 className="h-8 w-8 animate-spin text-orange-600 mx-auto" />
+                      ) : (
+                        <p className="text-3xl font-bold text-orange-600">{metricasLigacao.encerrados}</p>
+                      )}
+                      <p className="text-sm text-orange-600/80">Encerrados</p>
+                      <p className="text-xs text-muted-foreground mt-1">(não disparam)</p>
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <div className="space-y-1 text-xs">
+                    <p><strong>Motivos:</strong></p>
+                    <p>• Agendados: {metricasLigacao.agendados}</p>
+                    <p>• WhatsApp: {metricasLigacao.whatsappEnviado}</p>
+                    <p>• Atendidos: {metricasLigacao.atendidos}</p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            {/* 4. Pendentes */}
+            <Card className="border-amber-200 dark:border-amber-900">
+              <CardContent className="p-4 text-center">
+                {isLoadingExternalMetrics ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-amber-600 mx-auto" />
+                ) : (
+                  <p className="text-3xl font-bold text-amber-600">{metricas.pendentes}</p>
+                )}
+                <p className="text-sm text-amber-600/80">Pendentes</p>
+                <p className="text-xs text-muted-foreground mt-1">(elegíveis)</p>
+              </CardContent>
+            </Card>
+            
+            {/* 5. Em Fila */}
+            <Card className="border-blue-200 dark:border-blue-900">
+              <CardContent className="p-4 text-center">
+                {isLoadingExternalMetrics ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
+                ) : (
+                  <p className="text-3xl font-bold text-blue-600">{metricasLigacao.emFila}</p>
+                )}
+                <p className="text-sm text-blue-600/80">Em Fila</p>
+                <p className="text-xs text-muted-foreground mt-1">(retry)</p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          /* Cards de métricas - IA WhatsApp ou Não-IA */
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+            <Card>
+              <CardContent className="p-4 text-center">
+                <p className="text-3xl font-bold text-foreground">{metricas.total}</p>
+                <p className="text-sm text-muted-foreground">Total de Contatos</p>
+              </CardContent>
+            </Card>
+            {isIA && (
+              <>
+                <Card className="border-green-200 dark:border-green-900">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-3xl font-bold text-green-600">{metricas.disparados}</p>
+                    <p className="text-sm text-green-600/80">Disparados</p>
                   </CardContent>
                 </Card>
-              )}
-              
-              <Card className="border-green-200 dark:border-green-900">
-                <CardContent className="p-4 text-center relative">
-                  {isLoadingExternalMetrics && isIALigacao ? (
-                    <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto" />
-                  ) : (
-                    <p className="text-3xl font-bold text-green-600">{metricas.disparados}</p>
-                  )}
-                  <p className="text-sm text-green-600/80">Disparados</p>
-                  {isIALigacao && (
-                    <p className="text-xs text-muted-foreground mt-1">(tentativas ≥ 1)</p>
-                  )}
-                </CardContent>
-              </Card>
-              
-              {/* Card Encerrados - apenas para Ligação */}
-              {isIALigacao && metricasLigacao && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Card className="border-orange-200 dark:border-orange-900 cursor-help">
-                        <CardContent className="p-4 text-center relative">
-                          {isLoadingExternalMetrics ? (
-                            <Loader2 className="h-8 w-8 animate-spin text-orange-600 mx-auto" />
-                          ) : (
-                            <p className="text-3xl font-bold text-orange-600">{metricasLigacao.encerrados}</p>
-                          )}
-                          <p className="text-sm text-orange-600/80">Encerrados</p>
-                          <p className="text-xs text-muted-foreground mt-1">(não disparam)</p>
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <div className="space-y-1 text-xs">
-                        <p><strong>Motivos de encerramento:</strong></p>
-                        <p>• Agendados: {metricasLigacao.agendados}</p>
-                        <p>• WhatsApp enviado: {metricasLigacao.whatsappEnviado}</p>
-                        <p>• Ligação atendida: {metricasLigacao.atendidos}</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </>
-          )}
-          <Card className="border-primary/30">
-            <CardContent className="p-4 text-center">
-              <p className="text-3xl font-bold text-primary">{metricas.vendas}</p>
-              <p className="text-sm text-primary/80">Vendas</p>
-            </CardContent>
-          </Card>
-        </div>
+                <Card className="border-amber-200 dark:border-amber-900">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-3xl font-bold text-amber-600">{metricas.pendentes}</p>
+                    <p className="text-sm text-amber-600/80">Pendentes IA</p>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+            <Card className="border-primary/30">
+              <CardContent className="p-4 text-center">
+                <p className="text-3xl font-bold text-primary">{metricas.vendas}</p>
+                <p className="text-sm text-primary/80">Vendas</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Filtros e Disparo */}
         <Card>
@@ -1596,7 +1621,8 @@ export default function EventoBase() {
                         <TableHead className="w-[110px]">Status</TableHead>
                         <TableHead className="w-[100px]">Origem</TableHead>
                         {isIA && <TableHead className="w-[130px]">Disparo IA</TableHead>}
-                        {isIALigacao && <TableHead className="w-[130px]">Status Ligação</TableHead>}
+                        {isIALigacao && <TableHead className="w-[80px] text-center">Status</TableHead>}
+                        {isIALigacao && <TableHead className="w-[80px] text-center">Tent.</TableHead>}
                         <TableHead className="w-[100px]">Criação</TableHead>
                         {isIA && <TableHead className="w-[100px]">Ações</TableHead>}
                       </TableRow>
@@ -1636,58 +1662,105 @@ export default function EventoBase() {
                               )}
                             </TableCell>
                           )}
-                          {/* Coluna Status Ligação - apenas para IA Ligação */}
+                          {/* Coluna Status - ícones para IA Ligação */}
                           {isIALigacao && (
-                            <TableCell>
+                            <TableCell className="text-center">
                               {(() => {
                                 const telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
                                 const dadosExternos = contatosExternos.get(telefoneNormalizado);
                                 
                                 if (!dadosExternos) {
-                                  return <span className="text-xs text-muted-foreground">-</span>;
+                                  return <span className="text-muted-foreground">-</span>;
                                 }
                                 
-                                // Verificar status de bloqueio
+                                // Ícones para cada status
                                 if (dadosExternos.status_agendado) {
                                   return (
-                                    <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100 text-xs">
-                                      Agendado
-                                    </Badge>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger>
+                                          <CalendarCheck className="h-5 w-5 text-purple-600 mx-auto" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>Agendado</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
                                   );
                                 }
                                 if (dadosExternos.enviado_whatsapp) {
                                   return (
-                                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 text-xs">
-                                      WhatsApp
-                                    </Badge>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger>
+                                          <MessageCircle className="h-5 w-5 text-green-600 mx-auto" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>WhatsApp Enviado</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
                                   );
                                 }
                                 if (dadosExternos.ligacao_atendida) {
                                   return (
-                                    <Badge className="bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-100 text-xs">
-                                      Atendida
-                                    </Badge>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger>
+                                          <PhoneCall className="h-5 w-5 text-teal-600 mx-auto" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>Ligação Atendida</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
                                   );
                                 }
                                 if (dadosExternos.ligacao_erro) {
                                   return (
-                                    <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 text-xs">
-                                      Em Fila
-                                    </Badge>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger>
+                                          <PhoneMissed className="h-5 w-5 text-blue-600 mx-auto" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>Em Fila (Retry)</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
                                   );
                                 }
                                 
-                                // Mostrar tentativas
-                                const tentativas = dadosExternos.num_tentativas || 0;
-                                if (tentativas > 0) {
-                                  return (
-                                    <span className="text-xs text-muted-foreground">
-                                      {tentativas} tent.
-                                    </span>
-                                  );
+                                // Elegível (sem status especial)
+                                return (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger>
+                                        <PhoneOutgoing className="h-5 w-5 text-amber-500 mx-auto" />
+                                      </TooltipTrigger>
+                                      <TooltipContent>Elegível para ligação</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                );
+                              })()}
+                            </TableCell>
+                          )}
+                          {/* Coluna Tentativas - apenas para IA Ligação */}
+                          {isIALigacao && (
+                            <TableCell className="text-center">
+                              {(() => {
+                                const telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+                                const dadosExternos = contatosExternos.get(telefoneNormalizado);
+                                const tentativas = dadosExternos?.num_tentativas || 0;
+                                
+                                if (tentativas === 0) {
+                                  return <span className="text-muted-foreground text-sm">0</span>;
                                 }
                                 
-                                return <span className="text-xs text-amber-600">Elegível</span>;
+                                // Cor baseada no número de tentativas
+                                const bgColor = tentativas >= 3 
+                                  ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100' 
+                                  : tentativas === 2 
+                                    ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-100'
+                                    : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-100';
+                                
+                                return (
+                                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${bgColor}`}>
+                                    {tentativas}
+                                  </span>
+                                );
                               })()}
                             </TableCell>
                           )}
