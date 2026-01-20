@@ -33,6 +33,24 @@ interface ContatoEvento {
   data_disparo_ia: string | null;
   responsavel_email: string | null;
   vendedor_nome: string | null;
+  // Campos do webhook externo (IA Ligação)
+  status_agendado?: boolean;
+  enviado_whatsapp?: boolean;
+  ligacao_atendida?: boolean;
+  ligacao_erro?: boolean;
+  num_tentativas?: number;
+}
+
+// Estado do lead para IA Ligação (baseado no webhook externo)
+interface MetricasLigacaoExternas {
+  total: number;
+  pendentes: number;     // num_tentativas = 0 e não bloqueado
+  disparados: number;    // num_tentativas >= 1
+  emFila: number;        // ligacao_erro = true (aguardando retry)
+  bloqueados: number;    // status_agendado || enviado_whatsapp || ligacao_atendida
+  agendados: number;     // status_agendado = true
+  whatsappEnviado: number; // enviado_whatsapp = true
+  atendidos: number;     // ligacao_atendida = true
 }
 
 interface Prospeccao {
@@ -91,6 +109,8 @@ export default function EventoBase() {
   const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1', 10));
   const [statusOptions, setStatusOptions] = useState<string[]>([]);
   const [metricas, setMetricas] = useState({ total: 0, pendentes: 0, disparados: 0, vendas: 0 });
+  const [metricasLigacao, setMetricasLigacao] = useState<MetricasLigacaoExternas | null>(null);
+  const [contatosExternos, setContatosExternos] = useState<Map<string, any>>(new Map()); // telefone -> dados externos
   const [isDisparandoIA, setIsDisparandoIA] = useState(false);
   const [disparandoContato, setDisparandoContato] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -179,8 +199,8 @@ export default function EventoBase() {
   }, [activeCompany?.id, telefonePriLigacao]);
 
   // Buscar métricas de IA Ligação do webhook externo (verifica-contatos)
-  // Usa num_tentativas: 0 = pendente, >=1 = disparado
-  const fetchMetricasLigacao = useCallback(async (): Promise<{ pendentes: number; disparados: number } | null> => {
+  // Classifica leads por: num_tentativas, status_agendado, enviado_whatsapp, ligacao_atendida, ligacao_erro
+  const fetchMetricasLigacao = useCallback(async (): Promise<MetricasLigacaoExternas | null> => {
     if (!eventoId || !activeCompany?.id || !prospeccao) return null;
     
     const canalAtual = prospeccao.canal?.toLowerCase() || '';
@@ -217,22 +237,68 @@ export default function EventoBase() {
 
       console.log('📥 Resposta do webhook verifica-contatos:', data);
 
-      // O webhook retorna um array de contatos com num_tentativas
+      // O webhook retorna um array de contatos com campos de controle
       if (Array.isArray(data)) {
-        let pendentes = 0;
-        let disparados = 0;
+        const metricsResult: MetricasLigacaoExternas = {
+          total: data.length,
+          pendentes: 0,
+          disparados: 0,
+          emFila: 0,
+          bloqueados: 0,
+          agendados: 0,
+          whatsappEnviado: 0,
+          atendidos: 0
+        };
+
+        // Mapear contatos externos por telefone para uso posterior
+        const externalMap = new Map<string, any>();
 
         for (const contato of data) {
           const numTentativas = Number(contato.num_tentativas) || 0;
-          if (numTentativas === 0) {
-            pendentes++;
-          } else {
-            disparados++;
+          const statusAgendado = contato.status_agendado === true;
+          const enviadoWhatsapp = contato.enviado_whatsapp === true;
+          const ligacaoAtendida = contato.ligacao_atendida === true;
+          const ligacaoErro = contato.ligacao_erro === true;
+
+          // Normalizar telefone para usar como chave
+          const telefone = String(contato.telefone || contato.telefone_pri || '').replace(/\D/g, '');
+          if (telefone) {
+            externalMap.set(telefone, {
+              status_agendado: statusAgendado,
+              enviado_whatsapp: enviadoWhatsapp,
+              ligacao_atendida: ligacaoAtendida,
+              ligacao_erro: ligacaoErro,
+              num_tentativas: numTentativas
+            });
+          }
+
+          // Contabilizar métricas específicas
+          if (statusAgendado) metricsResult.agendados++;
+          if (enviadoWhatsapp) metricsResult.whatsappEnviado++;
+          if (ligacaoAtendida) metricsResult.atendidos++;
+          if (ligacaoErro) metricsResult.emFila++;
+
+          // Um lead está "bloqueado" se não deve mais receber ligação
+          const isBloqueado = statusAgendado || enviadoWhatsapp || ligacaoAtendida;
+          if (isBloqueado) {
+            metricsResult.bloqueados++;
+          }
+
+          // Classificar como pendente ou disparado (apenas os não bloqueados)
+          if (!isBloqueado) {
+            if (numTentativas === 0) {
+              metricsResult.pendentes++;
+            } else {
+              metricsResult.disparados++;
+            }
           }
         }
 
-        console.log(`📊 Métricas externas calculadas: pendentes=${pendentes}, disparados=${disparados}`);
-        return { pendentes, disparados };
+        // Salvar mapa de contatos externos
+        setContatosExternos(externalMap);
+
+        console.log(`📊 Métricas externas calculadas:`, metricsResult);
+        return metricsResult;
       }
 
       return null;
@@ -280,10 +346,11 @@ export default function EventoBase() {
       if (isLigacao) {
         const metricasExternas = await fetchMetricasLigacao();
         if (metricasExternas) {
-          console.log('✅ Usando métricas externas (baseadas em num_tentativas)');
+          console.log('✅ Usando métricas externas (classificação completa)');
+          setMetricasLigacao(metricasExternas);
           baseMetricas.pendentes = metricasExternas.pendentes;
           baseMetricas.disparados = metricasExternas.disparados;
-          baseMetricas.total = metricasExternas.pendentes + metricasExternas.disparados;
+          baseMetricas.total = metricasExternas.total;
         }
       }
 
@@ -680,10 +747,50 @@ export default function EventoBase() {
       console.log('🚀 Iniciando disparo em massa...');
       
       // Buscar todos os contatos pendentes
-      const contatosPendentes = await fetchContatosPendentes();
+      let contatosPendentes = await fetchContatosPendentes();
       
       if (contatosPendentes.length === 0) {
         toast({ title: "Atenção", description: "Nenhum contato pendente para disparar" });
+        setIsDisparandoIA(false);
+        return;
+      }
+
+      // Para IA Ligação: filtrar leads bloqueados baseado nos dados externos
+      const canalAtual = prospeccao.canal?.toLowerCase() || '';
+      const isLigacao = canalAtual.includes('liga');
+      
+      if (isLigacao && contatosExternos.size > 0) {
+        const totalAntes = contatosPendentes.length;
+        contatosPendentes = contatosPendentes.filter(contato => {
+          const telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+          const dadosExternos = contatosExternos.get(telefoneNormalizado);
+          
+          if (!dadosExternos) return true; // Sem dados externos, permitir disparo
+          
+          // Bloquear se: status_agendado || enviado_whatsapp || ligacao_atendida
+          const isBloqueado = dadosExternos.status_agendado || 
+                              dadosExternos.enviado_whatsapp || 
+                              dadosExternos.ligacao_atendida;
+          
+          if (isBloqueado) {
+            console.log(`🚫 Lead bloqueado: ${contato.nome} (${telefoneNormalizado}) - agendado:${dadosExternos.status_agendado}, whatsapp:${dadosExternos.enviado_whatsapp}, atendida:${dadosExternos.ligacao_atendida}`);
+          }
+          
+          return !isBloqueado;
+        });
+        
+        const bloqueados = totalAntes - contatosPendentes.length;
+        if (bloqueados > 0) {
+          console.log(`🚫 ${bloqueados} leads bloqueados removidos do disparo (agendados/whatsapp/atendidos)`);
+          toast({ 
+            title: "Leads filtrados", 
+            description: `${bloqueados} leads bloqueados foram removidos (já agendados, com whatsapp ou atendidos)` 
+          });
+        }
+      }
+
+      if (contatosPendentes.length === 0) {
+        toast({ title: "Atenção", description: "Todos os contatos pendentes estão bloqueados" });
         setIsDisparandoIA(false);
         return;
       }
@@ -857,6 +964,30 @@ export default function EventoBase() {
   // Disparar IA para contato individual
   const handleDispararContato = async (contato: ContatoEvento) => {
     if (!prospeccao || !activeCompany?.id) return;
+
+    // Para IA Ligação: verificar se o contato está bloqueado
+    const canalAtual = prospeccao.canal?.toLowerCase() || '';
+    const isLigacao = canalAtual.includes('liga');
+    
+    if (isLigacao && contatosExternos.size > 0) {
+      const telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+      const dadosExternos = contatosExternos.get(telefoneNormalizado);
+      
+      if (dadosExternos) {
+        if (dadosExternos.status_agendado) {
+          toast({ title: "Bloqueado", description: "Este lead já está agendado e não pode receber ligação", variant: "destructive" });
+          return;
+        }
+        if (dadosExternos.enviado_whatsapp) {
+          toast({ title: "Bloqueado", description: "Este lead já recebeu WhatsApp e não pode receber ligação", variant: "destructive" });
+          return;
+        }
+        if (dadosExternos.ligacao_atendida) {
+          toast({ title: "Bloqueado", description: "Este lead já teve ligação atendida", variant: "destructive" });
+          return;
+        }
+      }
+    }
 
     setDisparandoContato(contato.id);
     try {
@@ -1171,7 +1302,7 @@ export default function EventoBase() {
         </div>
 
         {/* Cards de métricas */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className={`grid gap-4 ${isIALigacao && metricasLigacao ? 'grid-cols-2 md:grid-cols-6' : 'grid-cols-2 md:grid-cols-4'}`}>
           <Card>
             <CardContent className="p-4 text-center">
               <p className="text-3xl font-bold text-foreground">{metricas.total}</p>
@@ -1189,10 +1320,26 @@ export default function EventoBase() {
                   )}
                   <p className="text-sm text-amber-600/80">Pendentes IA</p>
                   {isIALigacao && (
-                    <p className="text-xs text-muted-foreground mt-1">(tentativas = 0)</p>
+                    <p className="text-xs text-muted-foreground mt-1">(elegíveis)</p>
                   )}
                 </CardContent>
               </Card>
+              
+              {/* Card Em Fila - apenas para Ligação */}
+              {isIALigacao && metricasLigacao && (
+                <Card className="border-blue-200 dark:border-blue-900">
+                  <CardContent className="p-4 text-center relative">
+                    {isLoadingExternalMetrics ? (
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
+                    ) : (
+                      <p className="text-3xl font-bold text-blue-600">{metricasLigacao.emFila}</p>
+                    )}
+                    <p className="text-sm text-blue-600/80">Em Fila</p>
+                    <p className="text-xs text-muted-foreground mt-1">(erro retry)</p>
+                  </CardContent>
+                </Card>
+              )}
+              
               <Card className="border-green-200 dark:border-green-900">
                 <CardContent className="p-4 text-center relative">
                   {isLoadingExternalMetrics && isIALigacao ? (
@@ -1206,6 +1353,35 @@ export default function EventoBase() {
                   )}
                 </CardContent>
               </Card>
+              
+              {/* Card Bloqueados - apenas para Ligação */}
+              {isIALigacao && metricasLigacao && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Card className="border-red-200 dark:border-red-900 cursor-help">
+                        <CardContent className="p-4 text-center relative">
+                          {isLoadingExternalMetrics ? (
+                            <Loader2 className="h-8 w-8 animate-spin text-red-600 mx-auto" />
+                          ) : (
+                            <p className="text-3xl font-bold text-red-600">{metricasLigacao.bloqueados}</p>
+                          )}
+                          <p className="text-sm text-red-600/80">Bloqueados</p>
+                          <p className="text-xs text-muted-foreground mt-1">(não disparam)</p>
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <div className="space-y-1 text-xs">
+                        <p><strong>Motivos de bloqueio:</strong></p>
+                        <p>• Agendados: {metricasLigacao.agendados}</p>
+                        <p>• WhatsApp enviado: {metricasLigacao.whatsappEnviado}</p>
+                        <p>• Ligação atendida: {metricasLigacao.atendidos}</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </>
           )}
           <Card className="border-primary/30">
@@ -1423,6 +1599,7 @@ export default function EventoBase() {
                         <TableHead className="w-[100px]">Origem</TableHead>
                         <TableHead className="w-[130px]">Vendedor</TableHead>
                         {isIA && <TableHead className="w-[130px]">Disparo IA</TableHead>}
+                        {isIALigacao && <TableHead className="w-[130px]">Status Ligação</TableHead>}
                         <TableHead className="w-[100px]">Criação</TableHead>
                         {isIA && <TableHead className="w-[100px]">Ações</TableHead>}
                       </TableRow>
@@ -1473,51 +1650,145 @@ export default function EventoBase() {
                               )}
                             </TableCell>
                           )}
+                          {/* Coluna Status Ligação - apenas para IA Ligação */}
+                          {isIALigacao && (
+                            <TableCell>
+                              {(() => {
+                                const telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+                                const dadosExternos = contatosExternos.get(telefoneNormalizado);
+                                
+                                if (!dadosExternos) {
+                                  return <span className="text-xs text-muted-foreground">-</span>;
+                                }
+                                
+                                // Verificar status de bloqueio
+                                if (dadosExternos.status_agendado) {
+                                  return (
+                                    <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100 text-xs">
+                                      Agendado
+                                    </Badge>
+                                  );
+                                }
+                                if (dadosExternos.enviado_whatsapp) {
+                                  return (
+                                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 text-xs">
+                                      WhatsApp
+                                    </Badge>
+                                  );
+                                }
+                                if (dadosExternos.ligacao_atendida) {
+                                  return (
+                                    <Badge className="bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-100 text-xs">
+                                      Atendida
+                                    </Badge>
+                                  );
+                                }
+                                if (dadosExternos.ligacao_erro) {
+                                  return (
+                                    <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 text-xs">
+                                      Em Fila
+                                    </Badge>
+                                  );
+                                }
+                                
+                                // Mostrar tentativas
+                                const tentativas = dadosExternos.num_tentativas || 0;
+                                if (tentativas > 0) {
+                                  return (
+                                    <span className="text-xs text-muted-foreground">
+                                      {tentativas} tent.
+                                    </span>
+                                  );
+                                }
+                                
+                                return <span className="text-xs text-amber-600">Elegível</span>;
+                              })()}
+                            </TableCell>
+                          )}
                           <TableCell className="text-xs text-muted-foreground">
                             {contato.created_at ? format(new Date(contato.created_at), 'dd/MM/yy') : '-'}
                           </TableCell>
                           {isIA && (
                             <TableCell>
-                              {/* Contato já disparado - mostrar botão de redisparo apenas para Admin */}
-                              {contato.data_disparo_ia ? (
-                                isAdmin ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleRedispararContato(contato)}
-                                    disabled={disparandoContato === contato.id}
-                                    className="h-8 px-2"
-                                    title="Disparar novamente (Admin)"
-                                  >
-                                    {disparandoContato === contato.id ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <RotateCcw className="h-4 w-4 text-amber-600" />
-                                    )}
-                                  </Button>
-                                ) : null
-                              ) : (
-                                /* Contato pendente - mostrar botão de disparo normal */
-                                loadingAccess ? (
-                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                ) : canDispatch ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDispararContato(contato)}
-                                    disabled={disparandoContato === contato.id}
-                                    className="h-8 px-2"
-                                    title={isIALigacao ? 'Disparar Ligação' : 'Disparar WhatsApp'}
-                                  >
-                                    {disparandoContato === contato.id ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : isIALigacao ? (
-                                      <PhoneCall className="h-4 w-4 text-orange-600" />
-                                    ) : (
-                                      <MessageCircle className="h-4 w-4 text-primary" />
-                                    )}
-                                  </Button>
-                                ) : (
+                              {(() => {
+                                // Para IA Ligação: verificar se o contato está bloqueado
+                                const telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+                                const dadosExternos = isIALigacao ? contatosExternos.get(telefoneNormalizado) : null;
+                                const isBloqueado = dadosExternos && (
+                                  dadosExternos.status_agendado || 
+                                  dadosExternos.enviado_whatsapp || 
+                                  dadosExternos.ligacao_atendida
+                                );
+
+                                // Contato já disparado - mostrar botão de redisparo apenas para Admin
+                                if (contato.data_disparo_ia) {
+                                  return isAdmin ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleRedispararContato(contato)}
+                                      disabled={disparandoContato === contato.id}
+                                      className="h-8 px-2"
+                                      title="Disparar novamente (Admin)"
+                                    >
+                                      {disparandoContato === contato.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <RotateCcw className="h-4 w-4 text-amber-600" />
+                                      )}
+                                    </Button>
+                                  ) : null;
+                                }
+
+                                // Contato bloqueado - mostrar ícone de bloqueio
+                                if (isBloqueado) {
+                                  return (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="inline-flex items-center gap-1 text-red-500 text-xs">
+                                            <Lock className="h-3.5 w-3.5" />
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>
+                                            {dadosExternos?.status_agendado && 'Lead já agendado'}
+                                            {dadosExternos?.enviado_whatsapp && 'Lead recebeu WhatsApp'}
+                                            {dadosExternos?.ligacao_atendida && 'Ligação já atendida'}
+                                          </p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  );
+                                }
+
+                                // Contato pendente - verificar permissão
+                                if (loadingAccess) {
+                                  return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
+                                }
+
+                                if (canDispatch) {
+                                  return (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDispararContato(contato)}
+                                      disabled={disparandoContato === contato.id}
+                                      className="h-8 px-2"
+                                      title={isIALigacao ? 'Disparar Ligação' : 'Disparar WhatsApp'}
+                                    >
+                                      {disparandoContato === contato.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : isIALigacao ? (
+                                        <PhoneCall className="h-4 w-4 text-orange-600" />
+                                      ) : (
+                                        <MessageCircle className="h-4 w-4 text-primary" />
+                                      )}
+                                    </Button>
+                                  );
+                                }
+
+                                return (
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
@@ -1534,8 +1805,8 @@ export default function EventoBase() {
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
-                                )
-                              )}
+                                );
+                              })()}
                             </TableCell>
                           )}
                         </TableRow>
