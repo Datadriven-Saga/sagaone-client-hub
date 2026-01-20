@@ -95,6 +95,7 @@ export default function EventoBase() {
   const [disparandoContato, setDisparandoContato] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isSyncingContatos, setIsSyncingContatos] = useState(false);
+  const [isLoadingExternalMetrics, setIsLoadingExternalMetrics] = useState(false);
   
   // Estados do modal de progresso
   const [showProgressModal, setShowProgressModal] = useState(false);
@@ -107,6 +108,9 @@ export default function EventoBase() {
   
   // Estado para disparo personalizado
   const [customDispatchCount, setCustomDispatchCount] = useState<string>('');
+  
+  // Cache do telefone do agente Pri(Ligação) 
+  const [telefonePriLigacao, setTelefonePriLigacao] = useState<string | null>(null);
 
   // Buscar dados do evento
   useEffect(() => {
@@ -139,12 +143,113 @@ export default function EventoBase() {
     fetchProspeccao();
   }, [eventoId, activeCompany?.id, navigate, toast]);
 
+  // Buscar telefone do agente Pri(Ligação) para esta empresa
+  const fetchTelefonePriLigacao = useCallback(async (): Promise<string | null> => {
+    if (!activeCompany?.id) return null;
+    
+    if (telefonePriLigacao) return telefonePriLigacao;
+    
+    try {
+      const { data: agenteEmpresa, error } = await supabase
+        .from('agente_empresas')
+        .select('agente_id, agentes_ia(id, telefone, nome)')
+        .eq('empresa_id', activeCompany.id);
+
+      if (error) {
+        console.error('Erro ao buscar agentes:', error);
+        return null;
+      }
+
+      if (agenteEmpresa) {
+        const agenteLigacao = agenteEmpresa.find((ae: any) => {
+          const nome = ae.agentes_ia?.nome?.toLowerCase() || '';
+          return nome.includes('pri') && nome.includes('liga');
+        });
+        
+        if (agenteLigacao) {
+          const tel = (agenteLigacao as any).agentes_ia?.telefone;
+          setTelefonePriLigacao(tel);
+          return tel;
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar telefone Pri(Ligação):', error);
+    }
+    return null;
+  }, [activeCompany?.id, telefonePriLigacao]);
+
+  // Buscar métricas de IA Ligação do webhook externo (verifica-contatos)
+  // Usa num_tentativas: 0 = pendente, >=1 = disparado
+  const fetchMetricasLigacao = useCallback(async (): Promise<{ pendentes: number; disparados: number } | null> => {
+    if (!eventoId || !activeCompany?.id || !prospeccao) return null;
+    
+    const canalAtual = prospeccao.canal?.toLowerCase() || '';
+    const isLigacao = canalAtual.includes('liga');
+    if (!isLigacao) return null;
+
+    try {
+      setIsLoadingExternalMetrics(true);
+      
+      const telefonePri = await fetchTelefonePriLigacao();
+      if (!telefonePri) {
+        console.warn('⚠️ Telefone Pri(Ligação) não encontrado para buscar métricas externas');
+        return null;
+      }
+
+      const idEvento = prospeccao.event_id_pri || eventoId;
+      
+      console.log('📊 Buscando métricas externas do webhook verifica-contatos...');
+      console.log('   ├─ id_evento:', idEvento);
+      console.log('   └─ telefone_pri:', telefonePri);
+
+      const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: {
+          endpoint: 'verifica-contatos',
+          id_evento: idEvento,
+          telefone_pri: telefonePri
+        }
+      });
+
+      if (error) {
+        console.error('❌ Erro ao buscar métricas externas:', error);
+        return null;
+      }
+
+      console.log('📥 Resposta do webhook verifica-contatos:', data);
+
+      // O webhook retorna um array de contatos com num_tentativas
+      if (Array.isArray(data)) {
+        let pendentes = 0;
+        let disparados = 0;
+
+        for (const contato of data) {
+          const numTentativas = Number(contato.num_tentativas) || 0;
+          if (numTentativas === 0) {
+            pendentes++;
+          } else {
+            disparados++;
+          }
+        }
+
+        console.log(`📊 Métricas externas calculadas: pendentes=${pendentes}, disparados=${disparados}`);
+        return { pendentes, disparados };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('❌ Erro ao buscar métricas de ligação:', error);
+      return null;
+    } finally {
+      setIsLoadingExternalMetrics(false);
+    }
+  }, [eventoId, activeCompany?.id, prospeccao, fetchTelefonePriLigacao]);
+
   // Buscar métricas usando função SQL otimizada (sem carregar todos os IDs)
   const fetchMetricas = useCallback(async () => {
     if (!eventoId || !activeCompany?.id) return;
 
     try {
-      // Usar função SQL otimizada para contagens
+      // Usar função SQL otimizada para contagens base
       const { data: metricasData, error: metricasError } = await supabase
         .rpc('get_prospeccao_metricas' as any, {
           p_prospeccao_id: eventoId,
@@ -156,16 +261,34 @@ export default function EventoBase() {
         return;
       }
 
+      let baseMetricas = { total: 0, pendentes: 0, disparados: 0, vendas: 0 };
+
       if (metricasData && Array.isArray(metricasData) && metricasData.length > 0) {
         const m = metricasData[0] as { total: number; pendentes: number; disparados: number; vendas: number };
-        setMetricas({
+        baseMetricas = {
           total: Number(m.total) || 0,
           pendentes: Number(m.pendentes) || 0,
           disparados: Number(m.disparados) || 0,
           vendas: Number(m.vendas) || 0
-        });
-        setTotalCount(Number(m.total) || 0);
+        };
       }
+
+      // Para IA Ligação, sobrescrever pendentes/disparados com dados do webhook externo
+      const canalAtual = prospeccao?.canal?.toLowerCase() || '';
+      const isLigacao = canalAtual.includes('liga');
+      
+      if (isLigacao) {
+        const metricasExternas = await fetchMetricasLigacao();
+        if (metricasExternas) {
+          console.log('✅ Usando métricas externas (baseadas em num_tentativas)');
+          baseMetricas.pendentes = metricasExternas.pendentes;
+          baseMetricas.disparados = metricasExternas.disparados;
+          baseMetricas.total = metricasExternas.pendentes + metricasExternas.disparados;
+        }
+      }
+
+      setMetricas(baseMetricas);
+      setTotalCount(baseMetricas.total);
 
       // Buscar opções de status
       const { data: statusData } = await supabase
@@ -180,12 +303,14 @@ export default function EventoBase() {
     } catch (error) {
       console.error('Erro ao buscar métricas:', error);
     }
-  }, [eventoId, activeCompany?.id]);
+  }, [eventoId, activeCompany?.id, prospeccao, fetchMetricasLigacao]);
 
-  // Carregar métricas iniciais
+  // Carregar métricas iniciais (após prospeccao ser carregada)
   useEffect(() => {
-    fetchMetricas().finally(() => setLoading(false));
-  }, [fetchMetricas]);
+    if (prospeccao) {
+      fetchMetricas().finally(() => setLoading(false));
+    }
+  }, [prospeccao, fetchMetricas]);
 
   // Buscar contatos paginados diretamente (sem carregar todos os IDs primeiro)
   const fetchContatos = useCallback(async () => {
@@ -1056,15 +1181,29 @@ export default function EventoBase() {
           {isIA && (
             <>
               <Card className="border-amber-200 dark:border-amber-900">
-                <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-bold text-amber-600">{metricas.pendentes}</p>
+                <CardContent className="p-4 text-center relative">
+                  {isLoadingExternalMetrics && isIALigacao ? (
+                    <Loader2 className="h-8 w-8 animate-spin text-amber-600 mx-auto" />
+                  ) : (
+                    <p className="text-3xl font-bold text-amber-600">{metricas.pendentes}</p>
+                  )}
                   <p className="text-sm text-amber-600/80">Pendentes IA</p>
+                  {isIALigacao && (
+                    <p className="text-xs text-muted-foreground mt-1">(tentativas = 0)</p>
+                  )}
                 </CardContent>
               </Card>
               <Card className="border-green-200 dark:border-green-900">
-                <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-bold text-green-600">{metricas.disparados}</p>
+                <CardContent className="p-4 text-center relative">
+                  {isLoadingExternalMetrics && isIALigacao ? (
+                    <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto" />
+                  ) : (
+                    <p className="text-3xl font-bold text-green-600">{metricas.disparados}</p>
+                  )}
                   <p className="text-sm text-green-600/80">Disparados</p>
+                  {isIALigacao && (
+                    <p className="text-xs text-muted-foreground mt-1">(tentativas ≥ 1)</p>
+                  )}
                 </CardContent>
               </Card>
             </>
