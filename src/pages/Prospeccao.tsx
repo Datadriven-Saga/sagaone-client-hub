@@ -701,17 +701,31 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       if (globalFilters.status !== "todos" && contato.status !== globalFilters.status) {
         return false;
       }
-      // Filtro unificado: Dados do Lead (nome, telefone, email, id, lead_id, produto)
+      // Filtro unificado: Dados do Lead (nome, telefone, email, id, lead_id)
       if (globalFilters.dadosLead) {
-        const search = globalFilters.dadosLead.toLowerCase().trim();
+        const rawSearch = globalFilters.dadosLead.trim();
+        const search = rawSearch.toLowerCase();
+
         if (search) {
-          const searchNumeric = search.replace(/\D/g, '');
+          const searchNumeric = rawSearch.replace(/\D/g, '');
+
           const matchNome = contato.nome?.toLowerCase().includes(search);
-          const matchTelefone = contato.telefone?.replace(/\D/g, '').includes(searchNumeric);
           const matchEmail = contato.email?.toLowerCase().includes(search);
           const matchId = contato.id?.toLowerCase().includes(search);
-          // Busca por lead_id (serial numérico)
-          const matchLeadId = contato.lead_id ? String(contato.lead_id).includes(searchNumeric) : false;
+
+          // Heurística:
+          // - lead_id é um serial numérico e costuma ter menos de 10 dígitos → match EXATO
+          // - telefone tem 10+ dígitos → match por inclusão
+          const looksLikeLeadId = /^\d{1,9}$/.test(searchNumeric);
+          const looksLikePhone = searchNumeric.length >= 10;
+
+          const telefoneDigits = contato.telefone?.replace(/\D/g, '') || '';
+          const matchTelefone = looksLikePhone ? telefoneDigits.includes(searchNumeric) : false;
+
+          const matchLeadId = looksLikeLeadId
+            ? contato.lead_id != null && String(contato.lead_id) === searchNumeric
+            : false;
+
           if (!matchNome && !matchTelefone && !matchEmail && !matchId && !matchLeadId) return false;
         }
       }
@@ -1471,8 +1485,9 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         )}
 
         {/* Filtro Global Unificado com Toggle para Atendimentos */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between min-w-0 w-full">
           <ProspeccaoGlobalFilter
+            className="min-w-0 flex-1"
             prospeccoes={prospeccoes.map(p => ({ id: p.id, titulo: p.titulo }))}
             responsaveis={profiles.map(p => ({ id: p.id, nome_completo: p.nome_completo, tipo_acesso: p.tipo_acesso }))}
             filters={globalFilters}
@@ -1481,34 +1496,36 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           
           {/* Toggle Kanban/Lista para sub-módulo Atendimentos */}
           {defaultTab === 'atendimento' && (
-            <ToggleGroup 
-              type="single" 
-              value={viewMode} 
-              onValueChange={(value) => {
-                if (value) {
-                  setViewMode(value as 'kanban' | 'lista');
-                  setActiveTab(value);
-                }
-              }}
-              className="bg-muted rounded-lg p-0.5"
-            >
-              <ToggleGroupItem 
-                value="kanban" 
-                aria-label="Visualização Kanban"
-                className="px-3 py-1.5 rounded-md data-[state=on]:font-bold data-[state=on]:border-b-2 data-[state=on]:border-primary"
+            <div className="flex justify-end lg:justify-start">
+              <ToggleGroup 
+                type="single" 
+                value={viewMode} 
+                onValueChange={(value) => {
+                  if (value) {
+                    setViewMode(value as 'kanban' | 'lista');
+                    setActiveTab(value);
+                  }
+                }}
+                className="bg-muted rounded-lg p-0.5 shrink-0"
               >
-                <LayoutGrid className="h-4 w-4 mr-1.5" />
-                Kanban
-              </ToggleGroupItem>
-              <ToggleGroupItem 
-                value="lista" 
-                aria-label="Visualização Lista"
-                className="px-3 py-1.5 rounded-md data-[state=on]:font-bold data-[state=on]:border-b-2 data-[state=on]:border-primary"
-              >
-                <List className="h-4 w-4 mr-1.5" />
-                Lista
-              </ToggleGroupItem>
-            </ToggleGroup>
+                <ToggleGroupItem 
+                  value="kanban" 
+                  aria-label="Visualização Kanban"
+                  className="px-3 py-1.5 rounded-md data-[state=on]:font-bold data-[state=on]:border-b-2 data-[state=on]:border-primary"
+                >
+                  <LayoutGrid className="h-4 w-4 mr-1.5" />
+                  Kanban
+                </ToggleGroupItem>
+                <ToggleGroupItem 
+                  value="lista" 
+                  aria-label="Visualização Lista"
+                  className="px-3 py-1.5 rounded-md data-[state=on]:font-bold data-[state=on]:border-b-2 data-[state=on]:border-primary"
+                >
+                  <List className="h-4 w-4 mr-1.5" />
+                  Lista
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
           )}
         </div>
 
@@ -1883,8 +1900,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           </ScrollIndicator>
         </TabsContent>
 
-        <TabsContent value="kanban" className="mt-0 w-full">
-          <div className="h-[calc(100vh-220px)] w-full overflow-hidden">
+        <TabsContent value="kanban" className="mt-0 w-full min-w-0 overflow-hidden">
+          <div className="h-[calc(100vh-220px)] w-full min-w-0 overflow-hidden">
             <KanbanBoard
               columns={kanbanColumns}
               onUpdateColumns={() => {}}

@@ -172,7 +172,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
           </header>
 
           {/* Main Content - Scrollable area */}
-          <main className="flex-1 p-6 min-h-0 overflow-y-auto">
+          <main className="flex-1 p-6 min-h-0 overflow-y-auto overflow-x-hidden">
             {children}
           </main>
         </div>
