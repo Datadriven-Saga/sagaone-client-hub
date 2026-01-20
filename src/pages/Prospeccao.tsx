@@ -701,36 +701,43 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       if (globalFilters.status !== "todos" && contato.status !== globalFilters.status) {
         return false;
       }
-      // Filtro unificado: Dados do Lead (nome, telefone, email, id, lead_id)
+      // Filtro unificado inteligente: Dados do Lead (nome, telefone, email, id, lead_id)
+      // Detecção automática do tipo de busca baseado no conteúdo digitado
       if (globalFilters.dadosLead) {
         const rawSearch = globalFilters.dadosLead.trim();
         if (rawSearch) {
           const searchLower = rawSearch.toLowerCase();
           const searchDigits = rawSearch.replace(/\D/g, "");
-          const isDigitsOnly = /^\d+$/.test(rawSearch);
-
-          // Se o usuário digitou apenas números (até 9 dígitos), interpretar como lead_id e exigir match EXATO
-          if (isDigitsOnly && searchDigits.length <= 9) {
-            return contato.lead_id != null && String(contato.lead_id) === searchDigits;
-          }
-
+          const hasOnlyDigits = /^\d+$/.test(rawSearch);
+          const hasOnlyLetters = /^[a-zA-ZÀ-ÿ\s]+$/.test(rawSearch);
           const telefoneDigits = contato.telefone?.replace(/\D/g, "") || "";
 
-          const matchNome = contato.nome?.toLowerCase().includes(searchLower);
-          const matchEmail = contato.email?.toLowerCase().includes(searchLower);
-          const matchId = contato.id?.toLowerCase().includes(searchLower);
+          // === MODO NUMÉRICO: Usuário digitou apenas números ===
+          if (hasOnlyDigits) {
+            // Buscar em TODOS os campos numéricos simultaneamente
+            const matchLeadId = contato.lead_id != null && String(contato.lead_id).includes(searchDigits);
+            const matchTelefone = telefoneDigits.includes(searchDigits);
+            
+            // Se não encontrou em nenhum campo numérico, excluir
+            if (!matchLeadId && !matchTelefone) return false;
+          }
+          // === MODO TEXTO: Usuário digitou apenas letras ===
+          else if (hasOnlyLetters) {
+            // Buscar apenas no nome
+            const matchNome = contato.nome?.toLowerCase().includes(searchLower);
+            if (!matchNome) return false;
+          }
+          // === MODO MISTO: Usuário digitou combinação de letras e números ===
+          else {
+            // Buscar em todos os campos (nome, email, telefone, lead_id)
+            const matchNome = contato.nome?.toLowerCase().includes(searchLower);
+            const matchEmail = contato.email?.toLowerCase().includes(searchLower);
+            const matchId = contato.id?.toLowerCase().includes(searchLower);
+            const matchTelefone = searchDigits.length > 0 && telefoneDigits.includes(searchDigits);
+            const matchLeadId = searchDigits.length > 0 && contato.lead_id != null && String(contato.lead_id).includes(searchDigits);
 
-          // Telefone costuma ter 10+ dígitos → match por inclusão
-          const matchTelefone =
-            searchDigits.length >= 10 ? telefoneDigits.includes(searchDigits) : false;
-
-          // Caso tenha números na busca (mesmo com letras), permitir match exato de lead_id
-          const matchLeadId =
-            searchDigits.length > 0 && searchDigits.length <= 9
-              ? contato.lead_id != null && String(contato.lead_id) === searchDigits
-              : false;
-
-          if (!matchNome && !matchTelefone && !matchEmail && !matchId && !matchLeadId) return false;
+            if (!matchNome && !matchTelefone && !matchEmail && !matchId && !matchLeadId) return false;
+          }
         }
       }
       return true;

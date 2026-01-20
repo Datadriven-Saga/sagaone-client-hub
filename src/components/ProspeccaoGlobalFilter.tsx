@@ -129,7 +129,13 @@ export function ProspeccaoGlobalFilter({
             <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Buscar por ID, nome, telefone..."
+              placeholder={
+                /^\d+$/.test(filters.dadosLead) 
+                  ? "Buscando por telefone/ID..." 
+                  : /^[a-zA-ZÀ-ÿ\s]+$/.test(filters.dadosLead) && filters.dadosLead.length > 0
+                    ? "Buscando por nome..."
+                    : "Buscar (digite números ou nome)"
+              }
               value={filters.dadosLead}
               onChange={(e) => updateFilter('dadosLead', e.target.value)}
               className="h-8 text-sm pl-8 pr-8"
