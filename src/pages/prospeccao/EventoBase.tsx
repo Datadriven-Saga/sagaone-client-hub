@@ -1490,7 +1490,7 @@ export default function EventoBase() {
                         <p className="text-3xl font-bold text-orange-600">{metricasLigacao.encerrados}</p>
                       )}
                       <p className="text-sm text-orange-600/80">Encerrados</p>
-                      <p className="text-xs text-muted-foreground mt-1">(não disparam)</p>
+                      <p className="text-xs text-muted-foreground mt-1">(não recebem mais ligação)</p>
                     </CardContent>
                   </Card>
                 </TooltipTrigger>
