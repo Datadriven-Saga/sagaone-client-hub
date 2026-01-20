@@ -67,7 +67,7 @@ interface Prospeccao {
 }
 
 type StatusFilter = 'todos' | string;
-type DisparoFilter = 'todos' | 'pendente' | 'disparado' | 'encerrado';
+type DisparoFilter = 'todos' | 'pendente' | 'em_fila' | 'disparado' | 'encerrado';
 type StatusLigacaoFilter = 'todos' | 'agendado' | 'whatsapp' | 'atendido' | 'em_fila' | 'elegivel';
 type TentativasFilter = 'todos' | '0' | '1' | '2' | '3+';
 
@@ -552,16 +552,29 @@ export default function EventoBase() {
       }
       const dadosExternos = contatosExternos.get(telefoneNormalizado);
       
+      // Calcular status do contato para filtros
+      const isEncerrado = dadosExternos ? (dadosExternos.status_agendado || dadosExternos.enviado_whatsapp || dadosExternos.ligacao_atendida) : false;
+      const isEmFila = dadosExternos ? (dadosExternos.ligacao_erro === true && !isEncerrado) : false;
+      const numTentativas = dadosExternos?.num_tentativas || 0;
+      const isDisparado = numTentativas > 0 && !isEmFila && !isEncerrado;
+      const isPendente = !dadosExternos || (numTentativas === 0 && !isEmFila && !isEncerrado);
+      
+      // Filtro por disparo (pendente, em_fila, disparado, encerrado)
+      if (disparoFilter !== 'todos') {
+        if (disparoFilter === 'pendente' && !isPendente) return false;
+        if (disparoFilter === 'em_fila' && !isEmFila) return false;
+        if (disparoFilter === 'disparado' && !isDisparado) return false;
+        if (disparoFilter === 'encerrado' && !isEncerrado) return false;
+      }
+      
       // Filtro por status da ligação
       if (statusLigacaoFilter !== 'todos' && dadosExternos) {
-        const isEncerrado = dadosExternos.status_agendado || dadosExternos.enviado_whatsapp || dadosExternos.ligacao_atendida;
-        
         if (statusLigacaoFilter === 'agendado' && !dadosExternos.status_agendado) return false;
         if (statusLigacaoFilter === 'whatsapp' && !dadosExternos.enviado_whatsapp) return false;
         if (statusLigacaoFilter === 'atendido' && !dadosExternos.ligacao_atendida) return false;
         // Em fila = erro E não encerrado
-        if (statusLigacaoFilter === 'em_fila' && !(dadosExternos.ligacao_erro && !isEncerrado)) return false;
-        if (statusLigacaoFilter === 'elegivel' && (isEncerrado || dadosExternos.ligacao_erro)) return false;
+        if (statusLigacaoFilter === 'em_fila' && !isEmFila) return false;
+        if (statusLigacaoFilter === 'elegivel' && (isEncerrado || isEmFila)) return false;
       } else if (statusLigacaoFilter !== 'todos' && !dadosExternos) {
         // Sem dados externos, só mostrar se filtro for "elegivel" ou "todos"
         if (statusLigacaoFilter !== 'elegivel') return false;
@@ -578,7 +591,7 @@ export default function EventoBase() {
       
       return true;
     });
-  }, [contatos, contatosExternos, statusLigacaoFilter, tentativasFilter, isIALigacaoLocal]);
+  }, [contatos, contatosExternos, disparoFilter, statusLigacaoFilter, tentativasFilter, isIALigacaoLocal]);
 
   // Exportar dados - carrega sob demanda
   const handleExport = async () => {
@@ -696,13 +709,19 @@ export default function EventoBase() {
     return 0;
   }, [activeCompany?.id, eventoId]);
 
-  // Buscar contatos pendentes para disparo - usando abordagem em 2 etapas para evitar limite de 1000
+  // Buscar contatos elegíveis para disparo (Pendentes + Em Fila)
+  // Pendentes: data_disparo_ia IS NULL e não encerrados
+  // Em Fila: ligacao_erro = true e não encerrados (aguardando retry)
   const fetchContatosPendentes = async (): Promise<ContatoEvento[]> => {
     if (!activeCompany?.id || !eventoId) return [];
     
-    console.log('🔍 Buscando contatos pendentes para disparo...');
+    const canalAtual = prospeccao?.canal?.toLowerCase() || '';
+    const isLigacao = canalAtual.includes('liga');
+    
+    console.log('🔍 Buscando contatos elegíveis para disparo (Pendentes + Em Fila)...');
     console.log('   ├─ empresa_id:', activeCompany.id);
-    console.log('   └─ prospeccao_id:', eventoId);
+    console.log('   ├─ prospeccao_id:', eventoId);
+    console.log('   └─ canal:', prospeccao?.canal, '(isLigação:', isLigacao, ')');
     
     // ETAPA 1: Buscar TODOS os contato_ids pendentes da tabela eventos_prospeccao
     // Essa abordagem evita o problema de limit com joins
@@ -736,12 +755,7 @@ export default function EventoBase() {
       }
     }
 
-    console.log(`📋 Total de contato_ids pendentes: ${allContatoIds.length}`);
-
-    if (allContatoIds.length === 0) {
-      console.log('⚠️ Nenhum contato pendente encontrado');
-      return [];
-    }
+    console.log(`📋 Total de contato_ids pendentes (local): ${allContatoIds.length}`);
 
     // ETAPA 2: Buscar dados completos dos contatos em batches de 500
     const CONTATO_BATCH_SIZE = 500;
@@ -771,7 +785,49 @@ export default function EventoBase() {
       }
     }
 
-    console.log(`🎯 Total de contatos pendentes carregados: ${allContatos.length}`);
+    // ETAPA 3: Para IA Ligação, incluir contatos "Em Fila" (ligacao_erro = true, mas não encerrados)
+    // Esses contatos já foram disparados mas falharam e precisam de retry
+    if (isLigacao && contatosExternos.size > 0) {
+      const contatosEmFila: ContatoEvento[] = [];
+      
+      // Buscar contatos que estão em fila no sistema externo mas não nos pendentes locais
+      const telefonesJaIncluidos = new Set(
+        allContatos.map(c => c.telefone?.replace(/\D/g, '') || '')
+      );
+      
+      // Verificar todos os contatos externos que estão em fila
+      for (const [telefoneNormalizado, dadosExternos] of contatosExternos) {
+        // Em Fila = ligacao_erro = true E NÃO encerrado
+        const isEncerrado = dadosExternos.status_agendado || 
+                            dadosExternos.enviado_whatsapp || 
+                            dadosExternos.ligacao_atendida;
+        const isEmFila = dadosExternos.ligacao_erro === true && !isEncerrado;
+        
+        if (isEmFila && !telefonesJaIncluidos.has(telefoneNormalizado)) {
+          // Buscar contato original pelo telefone
+          const contatoOriginal = contatos.find(c => {
+            const telNorm = c.telefone?.replace(/\D/g, '') || '';
+            let telSem55 = telNorm;
+            if (telNorm.length > 11 && telNorm.startsWith('55')) {
+              telSem55 = telNorm.slice(2);
+            }
+            return telNorm === telefoneNormalizado || telSem55 === telefoneNormalizado;
+          });
+          
+          if (contatoOriginal) {
+            contatosEmFila.push(contatoOriginal);
+            telefonesJaIncluidos.add(telefoneNormalizado);
+          }
+        }
+      }
+      
+      if (contatosEmFila.length > 0) {
+        console.log(`🔄 ${contatosEmFila.length} contatos "Em Fila" adicionados para retry`);
+        allContatos = [...allContatos, ...contatosEmFila];
+      }
+    }
+
+    console.log(`🎯 Total de contatos elegíveis para disparo: ${allContatos.length}`);
     return allContatos;
   };
 
@@ -835,7 +891,7 @@ export default function EventoBase() {
       let contatosPendentes = await fetchContatosPendentes();
       
       if (contatosPendentes.length === 0) {
-        toast({ title: "Atenção", description: "Nenhum contato pendente para disparar" });
+        toast({ title: "Atenção", description: "Nenhum contato elegível para disparar (pendentes + em fila)" });
         setIsDisparandoIA(false);
         return;
       }
@@ -875,7 +931,7 @@ export default function EventoBase() {
       }
 
       if (contatosPendentes.length === 0) {
-        toast({ title: "Atenção", description: "Todos os contatos pendentes estão encerrados" });
+        toast({ title: "Atenção", description: "Todos os contatos elegíveis estão encerrados" });
         setIsDisparandoIA(false);
         return;
       }
@@ -1537,6 +1593,7 @@ export default function EventoBase() {
                   <SelectContent>
                     <SelectItem value="todos">Todos</SelectItem>
                     <SelectItem value="pendente">Pendentes</SelectItem>
+                    {isIALigacao && <SelectItem value="em_fila">Em Fila</SelectItem>}
                     <SelectItem value="disparado">Disparados</SelectItem>
                     <SelectItem value="encerrado">Encerrados</SelectItem>
                   </SelectContent>
@@ -1655,14 +1712,21 @@ export default function EventoBase() {
                                   ) : (
                                     <MessageCircle className="mr-2 h-4 w-4" />
                                   )}
-                                  Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({Math.min(metricas.pendentes, MAX_DISPATCH_LIMIT).toLocaleString()})
+                                  Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({Math.min(
+                                    isIALigacao && metricasLigacao 
+                                      ? (metricasLigacao.pendentes + metricasLigacao.emFila) 
+                                      : metricas.pendentes, 
+                                    MAX_DISPATCH_LIMIT
+                                  ).toLocaleString()})
                                 </>
                               )}
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
                             <p>
-                              Dispara até {MAX_DISPATCH_LIMIT.toLocaleString()} contatos em lotes de {BATCH_SIZE.toLocaleString()}
+                              {isIALigacao 
+                                ? `Dispara Pendentes + Em Fila (até ${MAX_DISPATCH_LIMIT.toLocaleString()} contatos em lotes de ${BATCH_SIZE.toLocaleString()})`
+                                : `Dispara até ${MAX_DISPATCH_LIMIT.toLocaleString()} contatos em lotes de ${BATCH_SIZE.toLocaleString()}`}
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -1715,7 +1779,11 @@ export default function EventoBase() {
                             ) : (
                               <MessageCircle className="mr-2 h-4 w-4" />
                             )}
-                            Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({metricas.pendentes.toLocaleString()})
+                            Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({(
+                              isIALigacao && metricasLigacao 
+                                ? (metricasLigacao.pendentes + metricasLigacao.emFila) 
+                                : metricas.pendentes
+                            ).toLocaleString()})
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>
@@ -1804,12 +1872,21 @@ export default function EventoBase() {
                                 if (isIALigacao && dadosExternos) {
                                   const isEncerrado = dadosExternos.status_agendado || dadosExternos.enviado_whatsapp || dadosExternos.ligacao_atendida;
                                   const numTentativas = dadosExternos.num_tentativas || 0;
+                                  const isEmFila = dadosExternos.ligacao_erro === true && !isEncerrado;
                                   
                                   if (isEncerrado) {
                                     return (
                                       <span className="flex items-center gap-1 text-orange-600 text-xs">
                                         <CheckCircle className="h-3.5 w-3.5" />
                                         Encerrado
+                                      </span>
+                                    );
+                                  }
+                                  if (isEmFila) {
+                                    return (
+                                      <span className="flex items-center gap-1 text-blue-600 text-xs">
+                                        <RotateCcw className="h-3.5 w-3.5" />
+                                        Em Fila
                                       </span>
                                     );
                                   }
