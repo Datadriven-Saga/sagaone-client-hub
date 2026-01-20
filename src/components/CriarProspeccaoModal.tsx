@@ -715,15 +715,41 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   }, [activeCompany?.id, isOpen]);
   
   // Handler para atualizar meta individual
+  // Quando o usuário digitar vendas, calcula automaticamente check-ins, confirmações e convites
   const handleMetaIndividualChange = (userId: string, field: string, value: string) => {
     const numValue = value === "" ? 0 : Number(value);
-    setMetasIndividuais(prev => ({
-      ...prev,
-      [userId]: {
-        ...prev[userId] || { meta_vendas: 0, meta_checkins: 0, meta_confirmacoes: 0, meta_convites: 0 },
-        [field]: numValue
-      }
-    }));
+    
+    // Calcular meta total de vendas para proporção
+    const totalVendas = (Number(metaNovos) || 0) + (Number(metaSeminovos) || 0) + (Number(metaDiretas) || 0);
+    
+    // Se o campo alterado for vendas e temos metas gerais definidas, calcular os outros automaticamente
+    if (field === 'meta_vendas' && totalVendas > 0) {
+      // Proporção baseada nas metas gerais
+      const proporcao = numValue / totalVendas;
+      
+      const calculatedCheckins = Math.round(proporcao * (Number(metaCheckins) || 0));
+      const calculatedConfirmacoes = Math.round(proporcao * (Number(metaConfirmacoes) || 0));
+      const calculatedConvites = Math.round(proporcao * (Number(metaConvites) || 0));
+      
+      setMetasIndividuais(prev => ({
+        ...prev,
+        [userId]: {
+          meta_vendas: numValue,
+          meta_checkins: calculatedCheckins,
+          meta_confirmacoes: calculatedConfirmacoes,
+          meta_convites: calculatedConvites
+        }
+      }));
+    } else {
+      // Para outros campos, apenas atualizar o valor específico
+      setMetasIndividuais(prev => ({
+        ...prev,
+        [userId]: {
+          ...prev[userId] || { meta_vendas: 0, meta_checkins: 0, meta_confirmacoes: 0, meta_convites: 0 },
+          [field]: numValue
+        }
+      }));
+    }
   };
   
   // Salvar metas individuais
