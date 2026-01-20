@@ -47,7 +47,7 @@ interface MetricasLigacaoExternas {
   pendentes: number;     // num_tentativas = 0 e não bloqueado
   disparados: number;    // num_tentativas >= 1
   emFila: number;        // ligacao_erro = true (aguardando retry)
-  bloqueados: number;    // status_agendado || enviado_whatsapp || ligacao_atendida
+  encerrados: number;    // status_agendado || enviado_whatsapp || ligacao_atendida
   agendados: number;     // status_agendado = true
   whatsappEnviado: number; // enviado_whatsapp = true
   atendidos: number;     // ligacao_atendida = true
@@ -244,7 +244,7 @@ export default function EventoBase() {
           pendentes: 0,
           disparados: 0,
           emFila: 0,
-          bloqueados: 0,
+          encerrados: 0,
           agendados: 0,
           whatsappEnviado: 0,
           atendidos: 0
@@ -278,14 +278,14 @@ export default function EventoBase() {
           if (ligacaoAtendida) metricsResult.atendidos++;
           if (ligacaoErro) metricsResult.emFila++;
 
-          // Um lead está "bloqueado" se não deve mais receber ligação
-          const isBloqueado = statusAgendado || enviadoWhatsapp || ligacaoAtendida;
-          if (isBloqueado) {
-            metricsResult.bloqueados++;
+          // Um lead está "encerrado" se não deve mais receber ligação
+          const isEncerrado = statusAgendado || enviadoWhatsapp || ligacaoAtendida;
+          if (isEncerrado) {
+            metricsResult.encerrados++;
           }
 
-          // Classificar como pendente ou disparado (apenas os não bloqueados)
-          if (!isBloqueado) {
+          // Classificar como pendente ou disparado (apenas os não encerrados)
+          if (!isEncerrado) {
             if (numTentativas === 0) {
               metricsResult.pendentes++;
             } else {
@@ -755,7 +755,7 @@ export default function EventoBase() {
         return;
       }
 
-      // Para IA Ligação: filtrar leads bloqueados baseado nos dados externos
+      // Para IA Ligação: filtrar leads encerrados baseado nos dados externos
       const canalAtual = prospeccao.canal?.toLowerCase() || '';
       const isLigacao = canalAtual.includes('liga');
       
@@ -767,30 +767,30 @@ export default function EventoBase() {
           
           if (!dadosExternos) return true; // Sem dados externos, permitir disparo
           
-          // Bloquear se: status_agendado || enviado_whatsapp || ligacao_atendida
-          const isBloqueado = dadosExternos.status_agendado || 
+          // Encerrado se: status_agendado || enviado_whatsapp || ligacao_atendida
+          const isEncerrado = dadosExternos.status_agendado || 
                               dadosExternos.enviado_whatsapp || 
                               dadosExternos.ligacao_atendida;
           
-          if (isBloqueado) {
-            console.log(`🚫 Lead bloqueado: ${contato.nome} (${telefoneNormalizado}) - agendado:${dadosExternos.status_agendado}, whatsapp:${dadosExternos.enviado_whatsapp}, atendida:${dadosExternos.ligacao_atendida}`);
+          if (isEncerrado) {
+            console.log(`🚫 Lead encerrado: ${contato.nome} (${telefoneNormalizado}) - agendado:${dadosExternos.status_agendado}, whatsapp:${dadosExternos.enviado_whatsapp}, atendida:${dadosExternos.ligacao_atendida}`);
           }
           
-          return !isBloqueado;
+          return !isEncerrado;
         });
         
-        const bloqueados = totalAntes - contatosPendentes.length;
-        if (bloqueados > 0) {
-          console.log(`🚫 ${bloqueados} leads bloqueados removidos do disparo (agendados/whatsapp/atendidos)`);
+        const encerrados = totalAntes - contatosPendentes.length;
+        if (encerrados > 0) {
+          console.log(`🚫 ${encerrados} leads encerrados removidos do disparo (agendados/whatsapp/atendidos)`);
           toast({ 
             title: "Leads filtrados", 
-            description: `${bloqueados} leads bloqueados foram removidos (já agendados, com whatsapp ou atendidos)` 
+            description: `${encerrados} leads encerrados foram removidos (já agendados, com whatsapp ou atendidos)` 
           });
         }
       }
 
       if (contatosPendentes.length === 0) {
-        toast({ title: "Atenção", description: "Todos os contatos pendentes estão bloqueados" });
+        toast({ title: "Atenção", description: "Todos os contatos pendentes estão encerrados" });
         setIsDisparandoIA(false);
         return;
       }
@@ -1354,26 +1354,26 @@ export default function EventoBase() {
                 </CardContent>
               </Card>
               
-              {/* Card Bloqueados - apenas para Ligação */}
+              {/* Card Encerrados - apenas para Ligação */}
               {isIALigacao && metricasLigacao && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Card className="border-red-200 dark:border-red-900 cursor-help">
+                      <Card className="border-orange-200 dark:border-orange-900 cursor-help">
                         <CardContent className="p-4 text-center relative">
                           {isLoadingExternalMetrics ? (
-                            <Loader2 className="h-8 w-8 animate-spin text-red-600 mx-auto" />
+                            <Loader2 className="h-8 w-8 animate-spin text-orange-600 mx-auto" />
                           ) : (
-                            <p className="text-3xl font-bold text-red-600">{metricasLigacao.bloqueados}</p>
+                            <p className="text-3xl font-bold text-orange-600">{metricasLigacao.encerrados}</p>
                           )}
-                          <p className="text-sm text-red-600/80">Bloqueados</p>
+                          <p className="text-sm text-orange-600/80">Encerrados</p>
                           <p className="text-xs text-muted-foreground mt-1">(não disparam)</p>
                         </CardContent>
                       </Card>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
                       <div className="space-y-1 text-xs">
-                        <p><strong>Motivos de bloqueio:</strong></p>
+                        <p><strong>Motivos de encerramento:</strong></p>
                         <p>• Agendados: {metricasLigacao.agendados}</p>
                         <p>• WhatsApp enviado: {metricasLigacao.whatsappEnviado}</p>
                         <p>• Ligação atendida: {metricasLigacao.atendidos}</p>
