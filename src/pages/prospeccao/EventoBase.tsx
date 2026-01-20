@@ -726,16 +726,15 @@ export default function EventoBase() {
     return 0;
   }, [activeCompany?.id, eventoId]);
 
-  // Buscar contatos elegíveis para disparo (Pendentes + Em Fila)
-  // Pendentes: data_disparo_ia IS NULL e não encerrados
-  // Em Fila: ligacao_erro = true e não encerrados (aguardando retry)
+  // Buscar contatos PENDENTES para disparo (apenas pendentes, não Em Fila)
+  // Pendentes: data_disparo_ia IS NULL e não encerrados (nunca disparados)
   const fetchContatosPendentes = async (): Promise<ContatoEvento[]> => {
     if (!activeCompany?.id || !eventoId) return [];
     
     const canalAtual = prospeccao?.canal?.toLowerCase() || '';
     const isLigacao = canalAtual.includes('liga');
     
-    console.log('🔍 Buscando contatos elegíveis para disparo (Pendentes + Em Fila)...');
+    console.log('🔍 Buscando contatos PENDENTES para disparo...');
     console.log('   ├─ empresa_id:', activeCompany.id);
     console.log('   ├─ prospeccao_id:', eventoId);
     console.log('   └─ canal:', prospeccao?.canal, '(isLigação:', isLigacao, ')');
@@ -802,49 +801,43 @@ export default function EventoBase() {
       }
     }
 
-    // ETAPA 3: Para IA Ligação, incluir contatos "Em Fila" (ligacao_erro = true, mas não encerrados)
-    // Esses contatos já foram disparados mas falharam e precisam de retry
+    // ETAPA 3: Para IA Ligação, filtrar contatos que já estão encerrados ou em fila
+    // Apenas pendentes reais (nunca disparados e não encerrados)
     if (isLigacao && contatosExternos.size > 0) {
-      const contatosEmFila: ContatoEvento[] = [];
-      
-      // Buscar contatos que estão em fila no sistema externo mas não nos pendentes locais
-      const telefonesJaIncluidos = new Set(
-        allContatos.map(c => c.telefone?.replace(/\D/g, '') || '')
-      );
-      
-      // Verificar todos os contatos externos que estão em fila
-      for (const [telefoneNormalizado, dadosExternos] of contatosExternos) {
-        // Em Fila = ligacao_erro = true E NÃO encerrado
+      const totalAntes = allContatos.length;
+      allContatos = allContatos.filter(contato => {
+        const telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+        let telSem55 = telefoneNormalizado;
+        if (telefoneNormalizado.length > 11 && telefoneNormalizado.startsWith('55')) {
+          telSem55 = telefoneNormalizado.slice(2);
+        }
+        
+        const dadosExternos = contatosExternos.get(telefoneNormalizado) || contatosExternos.get(telSem55);
+        
+        if (!dadosExternos) return true; // Sem dados externos = nunca disparado = pendente
+        
+        // Encerrado se: status_agendado || enviado_whatsapp || ligacao_atendida
         const isEncerrado = dadosExternos.status_agendado || 
                             dadosExternos.enviado_whatsapp || 
                             dadosExternos.ligacao_atendida;
+        
+        // Em Fila se: ligacao_erro = true E não encerrado (já foi tentado, aguardando retry)
         const isEmFila = dadosExternos.ligacao_erro === true && !isEncerrado;
         
-        if (isEmFila && !telefonesJaIncluidos.has(telefoneNormalizado)) {
-          // Buscar contato original pelo telefone
-          const contatoOriginal = contatos.find(c => {
-            const telNorm = c.telefone?.replace(/\D/g, '') || '';
-            let telSem55 = telNorm;
-            if (telNorm.length > 11 && telNorm.startsWith('55')) {
-              telSem55 = telNorm.slice(2);
-            }
-            return telNorm === telefoneNormalizado || telSem55 === telefoneNormalizado;
-          });
-          
-          if (contatoOriginal) {
-            contatosEmFila.push(contatoOriginal);
-            telefonesJaIncluidos.add(telefoneNormalizado);
-          }
-        }
-      }
+        // Só é pendente se: num_tentativas = 0 E não encerrado E não em fila
+        const numTentativas = dadosExternos.num_tentativas || 0;
+        const isPendente = numTentativas === 0 && !isEncerrado && !isEmFila;
+        
+        return isPendente;
+      });
       
-      if (contatosEmFila.length > 0) {
-        console.log(`🔄 ${contatosEmFila.length} contatos "Em Fila" adicionados para retry`);
-        allContatos = [...allContatos, ...contatosEmFila];
+      const filtrados = totalAntes - allContatos.length;
+      if (filtrados > 0) {
+        console.log(`🚫 ${filtrados} contatos removidos (encerrados ou já tentados/em fila)`);
       }
     }
 
-    console.log(`🎯 Total de contatos elegíveis para disparo: ${allContatos.length}`);
+    console.log(`🎯 Total de contatos PENDENTES para disparo: ${allContatos.length}`);
     return allContatos;
   };
 
@@ -908,7 +901,7 @@ export default function EventoBase() {
       let contatosPendentes = await fetchContatosPendentes();
       
       if (contatosPendentes.length === 0) {
-        toast({ title: "Atenção", description: "Nenhum contato elegível para disparar (pendentes + em fila)" });
+        toast({ title: "Atenção", description: "Nenhum contato pendente para disparar" });
         setIsDisparandoIA(false);
         return;
       }
@@ -1730,7 +1723,7 @@ export default function EventoBase() {
                                   )}
                                   Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({Math.min(
                                     isIALigacao && metricasLigacao 
-                                      ? (metricasLigacao.pendentes + metricasLigacao.emFila) 
+                                      ? metricasLigacao.pendentes 
                                       : metricas.pendentes, 
                                     MAX_DISPATCH_LIMIT
                                   ).toLocaleString()})
@@ -1797,7 +1790,7 @@ export default function EventoBase() {
                             )}
                             Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({(
                               isIALigacao && metricasLigacao 
-                                ? (metricasLigacao.pendentes + metricasLigacao.emFila) 
+                                ? metricasLigacao.pendentes 
                                 : metricas.pendentes
                             ).toLocaleString()})
                           </Button>

@@ -690,12 +690,12 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                 const metricasExternas = await fetchMetricasLigacao(evento.id, evento.event_id_pri);
                 
                 if (metricasExternas) {
-                  // Usar métricas externas - elegíveisDisparo = pendentes + emFila
+                  // Usar apenas pendentes para disparo (não inclui em fila)
                   return { 
                     id: evento.id, 
                     contagem: {
                       total: metricasExternas.total,
-                      pendentes: metricasExternas.elegiveisDisparo, // O que realmente pode disparar
+                      pendentes: metricasExternas.pendentes, // Apenas pendentes, não elegiveisDisparo
                       disparados: metricasExternas.disparados
                     },
                     metricasExternas
