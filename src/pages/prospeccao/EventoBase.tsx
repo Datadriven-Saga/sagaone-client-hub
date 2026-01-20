@@ -530,6 +530,19 @@ export default function EventoBase() {
     setDataFimFilter('');
   };
   
+  // Atualizar tudo: métricas (incluindo webhook externo para IA Ligação) + contatos
+  const handleRefresh = useCallback(async () => {
+    setLoadingPage(true);
+    try {
+      // Primeiro buscar métricas (que também popula contatosExternos via webhook)
+      await fetchMetricas();
+      // Depois buscar contatos
+      await fetchContatos();
+    } finally {
+      setLoadingPage(false);
+    }
+  }, [fetchMetricas, fetchContatos]);
+  
   // Verificar se tem filtros ativos
   const hasActiveFilters = searchTerm || statusFilter !== 'todos' || disparoFilter !== 'todos' || 
     statusLigacaoFilter !== 'todos' || tentativasFilter !== 'todos' || dataInicioFilter || dataFimFilter;
@@ -1426,8 +1439,8 @@ export default function EventoBase() {
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={fetchContatos} disabled={loadingPage || isSyncingContatos}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loadingPage ? 'animate-spin' : ''}`} />
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loadingPage || isSyncingContatos || isLoadingExternalMetrics}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loadingPage || isLoadingExternalMetrics ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
             <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
