@@ -1594,10 +1594,8 @@ export default function EventoBase() {
                       <TableRow>
                         <TableHead className="w-[200px]">Nome</TableHead>
                         <TableHead className="w-[140px]">Telefone</TableHead>
-                        <TableHead className="w-[200px]">Email</TableHead>
                         <TableHead className="w-[110px]">Status</TableHead>
                         <TableHead className="w-[100px]">Origem</TableHead>
-                        <TableHead className="w-[130px]">Vendedor</TableHead>
                         {isIA && <TableHead className="w-[130px]">Disparo IA</TableHead>}
                         {isIALigacao && <TableHead className="w-[130px]">Status Ligação</TableHead>}
                         <TableHead className="w-[100px]">Criação</TableHead>
@@ -1617,23 +1615,12 @@ export default function EventoBase() {
                             ) : '-'}
                           </TableCell>
                           <TableCell>
-                            {contato.email ? (
-                              <span className="flex items-center gap-1 text-sm">
-                                <Mail className="h-3 w-3 text-muted-foreground" />
-                                <span className="truncate max-w-[180px]">{contato.email}</span>
-                              </span>
-                            ) : '-'}
-                          </TableCell>
-                          <TableCell>
                             <Badge className={statusColors[contato.status || ''] || 'bg-gray-100 text-gray-800'}>
                               {contato.status || 'Sem Status'}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {contato.origem || '-'}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {contato.vendedor_nome || '-'}
                           </TableCell>
                           {isIA && (
                             <TableCell>
