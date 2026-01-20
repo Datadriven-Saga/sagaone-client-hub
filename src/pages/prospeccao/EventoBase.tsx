@@ -261,8 +261,14 @@ export default function EventoBase() {
           const ligacaoAtendida = contato.ligacao_atendida === true;
           const ligacaoErro = contato.ligacao_erro === true;
 
-          // Normalizar telefone para usar como chave
-          const telefone = String(contato.telefone || contato.telefone_pri || '').replace(/\D/g, '');
+          // Normalizar telefone para usar como chave (usar telefone_lead que é o do contato)
+          // Remover +55 e qualquer caractere não numérico
+          let telefone = String(contato.telefone_lead || contato.telefone || '').replace(/\D/g, '');
+          // Remover prefixo 55 se tiver mais de 11 dígitos
+          if (telefone.length > 11 && telefone.startsWith('55')) {
+            telefone = telefone.substring(2);
+          }
+          
           if (telefone) {
             externalMap.set(telefone, {
               status_agendado: statusAgendado,
@@ -1649,24 +1655,70 @@ export default function EventoBase() {
                           </TableCell>
                           {isIA && (
                             <TableCell>
-                              {contato.data_disparo_ia ? (
-                                <span className="flex items-center gap-1 text-green-600 text-xs">
-                                  <CheckCircle className="h-3.5 w-3.5" />
-                                  {format(new Date(contato.data_disparo_ia), 'dd/MM HH:mm')}
-                                </span>
-                              ) : (
-                                <span className="flex items-center gap-1 text-amber-600 text-xs">
-                                  <Clock className="h-3.5 w-3.5" />
-                                  Pendente
-                                </span>
-                              )}
+                              {(() => {
+                                // Normalizar telefone removendo +55
+                                let telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+                                if (telefoneNormalizado.length > 11 && telefoneNormalizado.startsWith('55')) {
+                                  telefoneNormalizado = telefoneNormalizado.substring(2);
+                                }
+                                const dadosExternos = isIALigacao ? contatosExternos.get(telefoneNormalizado) : null;
+                                
+                                // Para IA Ligação: usar dados externos
+                                if (isIALigacao && dadosExternos) {
+                                  const isEncerrado = dadosExternos.status_agendado || dadosExternos.enviado_whatsapp || dadosExternos.ligacao_atendida;
+                                  const numTentativas = dadosExternos.num_tentativas || 0;
+                                  
+                                  if (isEncerrado) {
+                                    return (
+                                      <span className="flex items-center gap-1 text-orange-600 text-xs">
+                                        <CheckCircle className="h-3.5 w-3.5" />
+                                        Encerrado
+                                      </span>
+                                    );
+                                  }
+                                  if (numTentativas > 0) {
+                                    return (
+                                      <span className="flex items-center gap-1 text-green-600 text-xs">
+                                        <CheckCircle className="h-3.5 w-3.5" />
+                                        Disparado
+                                      </span>
+                                    );
+                                  }
+                                  return (
+                                    <span className="flex items-center gap-1 text-amber-600 text-xs">
+                                      <Clock className="h-3.5 w-3.5" />
+                                      Pendente
+                                    </span>
+                                  );
+                                }
+                                
+                                // Para IA WhatsApp: usar data_disparo_ia local
+                                if (contato.data_disparo_ia) {
+                                  return (
+                                    <span className="flex items-center gap-1 text-green-600 text-xs">
+                                      <CheckCircle className="h-3.5 w-3.5" />
+                                      {format(new Date(contato.data_disparo_ia), 'dd/MM HH:mm')}
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="flex items-center gap-1 text-amber-600 text-xs">
+                                    <Clock className="h-3.5 w-3.5" />
+                                    Pendente
+                                  </span>
+                                );
+                              })()}
                             </TableCell>
                           )}
                           {/* Coluna Status - ícones para IA Ligação */}
                           {isIALigacao && (
                             <TableCell className="text-center">
                               {(() => {
-                                const telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+                                // Normalizar telefone removendo +55 e caracteres não numéricos
+                                let telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+                                if (telefoneNormalizado.length > 11 && telefoneNormalizado.startsWith('55')) {
+                                  telefoneNormalizado = telefoneNormalizado.substring(2);
+                                }
                                 const dadosExternos = contatosExternos.get(telefoneNormalizado);
                                 
                                 if (!dadosExternos) {
@@ -1741,7 +1793,11 @@ export default function EventoBase() {
                           {isIALigacao && (
                             <TableCell className="text-center">
                               {(() => {
-                                const telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+                                // Normalizar telefone removendo +55
+                                let telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+                                if (telefoneNormalizado.length > 11 && telefoneNormalizado.startsWith('55')) {
+                                  telefoneNormalizado = telefoneNormalizado.substring(2);
+                                }
                                 const dadosExternos = contatosExternos.get(telefoneNormalizado);
                                 const tentativas = dadosExternos?.num_tentativas || 0;
                                 
@@ -1771,7 +1827,11 @@ export default function EventoBase() {
                             <TableCell>
                               {(() => {
                                 // Para IA Ligação: verificar se o contato está bloqueado
-                                const telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+                                // Normalizar telefone removendo +55
+                                let telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+                                if (telefoneNormalizado.length > 11 && telefoneNormalizado.startsWith('55')) {
+                                  telefoneNormalizado = telefoneNormalizado.substring(2);
+                                }
                                 const dadosExternos = isIALigacao ? contatosExternos.get(telefoneNormalizado) : null;
                                 const isBloqueado = dadosExternos && (
                                   dadosExternos.status_agendado || 
