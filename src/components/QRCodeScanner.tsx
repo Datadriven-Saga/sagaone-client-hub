@@ -64,6 +64,7 @@ export function QRCodeScanner({
   }, []);
 
   const parseQRData = (decodedText: string): { telefone: string; evento_id: string; evento_nome?: string } | null => {
+    // Primeiro tenta parsear como JSON
     try {
       const data = JSON.parse(decodedText);
       
@@ -89,15 +90,62 @@ export function QRCodeScanner({
       if (data.convidado_telefone) {
         return {
           telefone: data.convidado_telefone,
-          evento_id: '', // Será tratado posteriormente
+          evento_id: '',
           evento_nome: data.evento_nome
         };
       }
-      
-      return null;
     } catch {
-      return null;
+      // Não é JSON, tentar formato texto
     }
+
+    // Formato texto: "telefone: XXXXX\nevento-id: UUID" ou variações
+    try {
+      const text = decodedText.trim();
+      
+      // Regex para capturar telefone (aceita "telefone:", "Telefone:", espaços, etc.)
+      const telefoneMatch = text.match(/telefone\s*:\s*(\+?\d[\d\s\-().]*\d)/i);
+      
+      // Regex para capturar evento_id (aceita "evento-id:", "evento_id:", "eventoid:", etc.)
+      const eventoIdMatch = text.match(/evento[-_]?id\s*:\s*([a-f0-9-]{36})/i);
+      
+      if (telefoneMatch && eventoIdMatch) {
+        // Limpa o telefone removendo caracteres não numéricos (exceto + no início)
+        let telefone = telefoneMatch[1].replace(/[\s\-().]/g, '');
+        if (telefone.startsWith('+')) {
+          telefone = telefone.substring(1);
+        }
+        
+        return {
+          telefone: telefone,
+          evento_id: eventoIdMatch[1],
+          evento_nome: undefined
+        };
+      }
+      
+      // Formato alternativo: apenas telefone e UUID separados por linha
+      const lines = text.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
+      if (lines.length >= 2) {
+        const phoneLine = lines.find(l => /telefone/i.test(l));
+        const eventLine = lines.find(l => /evento/i.test(l));
+        
+        if (phoneLine && eventLine) {
+          const phoneValue = phoneLine.split(':')[1]?.trim().replace(/[\s\-().]/g, '');
+          const eventValue = eventLine.split(':')[1]?.trim();
+          
+          if (phoneValue && eventValue && /^[a-f0-9-]{36}$/i.test(eventValue)) {
+            return {
+              telefone: phoneValue,
+              evento_id: eventValue,
+              evento_nome: undefined
+            };
+          }
+        }
+      }
+    } catch {
+      // Falha no parse de texto
+    }
+
+    return null;
   };
 
   const handleScanSuccess = useCallback(async (decodedText: string) => {
