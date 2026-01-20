@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// External Webhook Proxy - Routes requests to external n8n/PRI endpoints
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
