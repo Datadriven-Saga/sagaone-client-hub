@@ -18,6 +18,7 @@ import { KanbanCard } from './KanbanCard';
 
 export interface KanbanItem {
   id: string;
+  lead_id?: number;
   title: string;
   description?: string;
   assignee?: string;
