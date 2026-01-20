@@ -60,6 +60,7 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
   };
 
   const shortId = `#${item.id.slice(0, 8).toUpperCase()}`;
+  const displayId = item.lead_id != null ? `#${item.lead_id}` : shortId;
   const origin = item.tags?.[0];
   const timeAgo = formatTime(item.dueDate);
 
@@ -93,7 +94,7 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
           {item.title}
         </h4>
         <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
-          {shortId}
+          {displayId}
         </span>
       </div>
 

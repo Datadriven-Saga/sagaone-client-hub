@@ -704,27 +704,31 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       // Filtro unificado: Dados do Lead (nome, telefone, email, id, lead_id)
       if (globalFilters.dadosLead) {
         const rawSearch = globalFilters.dadosLead.trim();
-        const search = rawSearch.toLowerCase();
+        if (rawSearch) {
+          const searchLower = rawSearch.toLowerCase();
+          const searchDigits = rawSearch.replace(/\D/g, "");
+          const isDigitsOnly = /^\d+$/.test(rawSearch);
 
-        if (search) {
-          const searchNumeric = rawSearch.replace(/\D/g, '');
+          // Se o usuário digitou apenas números (até 9 dígitos), interpretar como lead_id e exigir match EXATO
+          if (isDigitsOnly && searchDigits.length <= 9) {
+            return contato.lead_id != null && String(contato.lead_id) === searchDigits;
+          }
 
-          const matchNome = contato.nome?.toLowerCase().includes(search);
-          const matchEmail = contato.email?.toLowerCase().includes(search);
-          const matchId = contato.id?.toLowerCase().includes(search);
+          const telefoneDigits = contato.telefone?.replace(/\D/g, "") || "";
 
-          // Heurística:
-          // - lead_id é um serial numérico e costuma ter menos de 10 dígitos → match EXATO
-          // - telefone tem 10+ dígitos → match por inclusão
-          const looksLikeLeadId = /^\d{1,9}$/.test(searchNumeric);
-          const looksLikePhone = searchNumeric.length >= 10;
+          const matchNome = contato.nome?.toLowerCase().includes(searchLower);
+          const matchEmail = contato.email?.toLowerCase().includes(searchLower);
+          const matchId = contato.id?.toLowerCase().includes(searchLower);
 
-          const telefoneDigits = contato.telefone?.replace(/\D/g, '') || '';
-          const matchTelefone = looksLikePhone ? telefoneDigits.includes(searchNumeric) : false;
+          // Telefone costuma ter 10+ dígitos → match por inclusão
+          const matchTelefone =
+            searchDigits.length >= 10 ? telefoneDigits.includes(searchDigits) : false;
 
-          const matchLeadId = looksLikeLeadId
-            ? contato.lead_id != null && String(contato.lead_id) === searchNumeric
-            : false;
+          // Caso tenha números na busca (mesmo com letras), permitir match exato de lead_id
+          const matchLeadId =
+            searchDigits.length > 0 && searchDigits.length <= 9
+              ? contato.lead_id != null && String(contato.lead_id) === searchDigits
+              : false;
 
           if (!matchNome && !matchTelefone && !matchEmail && !matchId && !matchLeadId) return false;
         }
@@ -891,6 +895,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         
         return {
           id: contato.id || '',
+          lead_id: contato.lead_id,
           title: contato.nome || 'Sem nome',
           description: contato.observacoes || undefined,
           channel: contato.telefone || '',
