@@ -281,14 +281,24 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       setDataEnvioInicial(formatToDatetimeLocal(editingProspeccao.data_envio_template_inicial));
       setDataEnvioCadencia(formatToDatetimeLocal(editingProspeccao.data_envio_cadencia));
       
-      // Determinar tipo de evento baseado nos dados
-      if (editingProspeccao.canal === 'Whatsapp' && editingProspeccao.template_prospeccao) {
-        setTipoEvento('IA Whatsapp');
-      } else if (editingProspeccao.canal === 'Ligação') {
-        setTipoEvento('IA Ligação');
-      } else if (editingProspeccao.premio_equipe_campea || editingProspeccao.meta_novos) {
+      // Determinar tipo de evento baseado no canal salvo
+      const canalSalvo = editingProspeccao.canal;
+      if (canalSalvo === 'Grande Evento') {
         setTipoEvento('Grande Evento');
+      } else if (canalSalvo === 'Mensal') {
+        setTipoEvento('Prospecção Mensal');
+      } else if (canalSalvo === 'Ligação') {
+        setTipoEvento('IA Ligação');
+      } else if (canalSalvo === 'Whatsapp') {
+        // Whatsapp pode ser IA Whatsapp (com template) ou Mensal antigo
+        if (editingProspeccao.template_prospeccao) {
+          setTipoEvento('IA Whatsapp');
+        } else {
+          // Eventos antigos criados antes da mudança de schema
+          setTipoEvento('Prospecção Mensal');
+        }
       } else {
+        // Fallback para eventos sem canal definido
         setTipoEvento('Prospecção Mensal');
       }
     } else if (!editingProspeccao && isOpen) {
