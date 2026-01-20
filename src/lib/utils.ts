@@ -1,5 +1,10 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { 
+  validateAndNormalizePhone, 
+  formatPhoneForDisplay, 
+  extractPhoneDigits 
+} from "./phoneUtils"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -10,6 +15,8 @@ export function cn(...inputs: ClassValue[]) {
  * Mantém apenas dígitos e opcionalmente o símbolo +.
  * @param phone - Número de telefone a ser normalizado
  * @returns Telefone normalizado ou null se vazio
+ * @deprecated Use extractPhoneDigits from phoneUtils para normalização simples
+ *             ou validateAndNormalizePhone para validação completa
  */
 export function normalizePhone(phone: string | null | undefined): string | null {
   if (!phone) return null;
@@ -18,15 +25,23 @@ export function normalizePhone(phone: string | null | undefined): string | null 
 }
 
 /**
- * Formata um número de telefone brasileiro no padrão (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+ * Formata um número de telefone brasileiro no padrão (XX) 9 XXXX-XXXX
+ * Usa a biblioteca centralizada de validação de telefones
  * @param phone - Número de telefone (pode estar com ou sem formatação)
  * @returns Telefone formatado ou o valor original se não for possível formatar
  */
 export function formatPhone(phone: string | null | undefined): string | null {
   if (!phone) return null;
   
-  // Remove tudo exceto dígitos
-  const digits = phone.replace(/\D/g, '');
+  // Usa a função centralizada que valida e formata
+  const result = validateAndNormalizePhone(phone);
+  
+  if (result.isValid && result.formatted) {
+    return result.formatted;
+  }
+  
+  // Fallback: tenta formatação básica para números legados/fixos
+  const digits = extractPhoneDigits(phone);
   
   if (digits.length === 0) return null;
   
@@ -35,20 +50,9 @@ export function formatPhone(phone: string | null | undefined): string | null {
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
   }
   
-  // Se tiver 11 dígitos (celular): (XX) XXXXX-XXXX
+  // Se tiver 11 dígitos (celular): (XX) 9 XXXX-XXXX
   if (digits.length === 11) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-  }
-  
-  // Se tiver 12 ou 13 dígitos (com código do país)
-  if (digits.length === 12) {
-    // +XX XX XXXX-XXXX (fixo com DDI)
-    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 8)}-${digits.slice(8)}`;
-  }
-  
-  if (digits.length === 13) {
-    // +XX XX XXXXX-XXXX (celular com DDI)
-    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 3)} ${digits.slice(3, 7)}-${digits.slice(7)}`;
   }
   
   // Retorna o número original se não se encaixar em nenhum padrão
