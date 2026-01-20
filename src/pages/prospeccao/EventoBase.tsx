@@ -100,7 +100,6 @@ export default function EventoBase() {
 
   // Constantes de configuração de disparo
   const BATCH_SIZE = 1000; // Tamanho do lote por chamada ao webhook
-  const MAX_DISPATCH_LIMIT = 5000; // Limite máximo por disparo
 
   // Estados
   const [prospeccao, setProspeccao] = useState<Prospeccao | null>(null);
@@ -949,17 +948,11 @@ export default function EventoBase() {
       // Aplicar limite de quantidade se especificado
       let leadsParaDisparar = contatosPendentes;
       if (quantidade && quantidade > 0) {
-        // Respeitar limite máximo de 5000
-        const limitedQuantidade = Math.min(quantidade, MAX_DISPATCH_LIMIT, contatosPendentes.length);
+        const limitedQuantidade = Math.min(quantidade, contatosPendentes.length);
         leadsParaDisparar = contatosPendentes.slice(0, limitedQuantidade);
         console.log(`📊 Quantidade customizada: ${limitedQuantidade} de ${contatosPendentes.length} pendentes`);
-      } else {
-        // Sem quantidade especificada, mas respeitando limite de 5000
-        leadsParaDisparar = contatosPendentes.slice(0, MAX_DISPATCH_LIMIT);
-        if (contatosPendentes.length > MAX_DISPATCH_LIMIT) {
-          console.log(`⚠️ Limitando disparo a ${MAX_DISPATCH_LIMIT} (total pendente: ${contatosPendentes.length})`);
-        }
       }
+      // Sem limite máximo - dispara todos os pendentes
 
       console.log(`📊 Total para disparar: ${leadsParaDisparar.length}`);
 
@@ -1103,10 +1096,6 @@ export default function EventoBase() {
     const quantidade = parseInt(customDispatchCount, 10);
     if (isNaN(quantidade) || quantidade <= 0) {
       toast({ title: "Atenção", description: "Digite uma quantidade válida maior que zero" });
-      return;
-    }
-    if (quantidade > MAX_DISPATCH_LIMIT) {
-      toast({ title: "Atenção", description: `Quantidade máxima permitida: ${MAX_DISPATCH_LIMIT}` });
       return;
     }
     handleDispararIA(quantidade);
@@ -1528,7 +1517,7 @@ export default function EventoBase() {
                   <p className="text-3xl font-bold text-blue-600">{metricasLigacao.emFila}</p>
                 )}
                 <p className="text-sm text-blue-600/80">Em Fila</p>
-                <p className="text-xs text-muted-foreground mt-1">(aguardando nova tentativa)</p>
+                <p className="text-xs text-muted-foreground mt-1">(limite de concorrência)</p>
               </CardContent>
             </Card>
           </div>
@@ -1678,13 +1667,10 @@ export default function EventoBase() {
                   <div>
                     <p className="text-muted-foreground">
                       <strong>Como funciona:</strong> Os disparos são enviados em lotes de <strong>{BATCH_SIZE.toLocaleString()}</strong> contatos por vez.
-                      {metricas.pendentes > MAX_DISPATCH_LIMIT && (
-                        <> O limite máximo por disparo é <strong>{MAX_DISPATCH_LIMIT.toLocaleString()}</strong> contatos.</>
-                      )}
                     </p>
                     {metricas.pendentes > BATCH_SIZE && (
                       <p className="text-muted-foreground mt-1">
-                        Para {Math.min(metricas.pendentes, MAX_DISPATCH_LIMIT).toLocaleString()} contatos, serão <strong>{Math.ceil(Math.min(metricas.pendentes, MAX_DISPATCH_LIMIT) / BATCH_SIZE)} lotes</strong> enviados automaticamente em sequência.
+                        Para {metricas.pendentes.toLocaleString()} contatos, serão <strong>{Math.ceil(metricas.pendentes / BATCH_SIZE)} lotes</strong> enviados automaticamente em sequência.
                       </p>
                     )}
                   </div>
@@ -1722,11 +1708,10 @@ export default function EventoBase() {
                                   ) : (
                                     <MessageCircle className="mr-2 h-4 w-4" />
                                   )}
-                                  Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({Math.min(
+                                  Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({(
                                     isIALigacao && metricasLigacao 
                                       ? metricasLigacao.pendentes 
-                                      : metricas.pendentes, 
-                                    MAX_DISPATCH_LIMIT
+                                      : metricas.pendentes
                                   ).toLocaleString()})
                                 </>
                               )}
@@ -1735,8 +1720,8 @@ export default function EventoBase() {
                           <TooltipContent>
                             <p>
                               {isIALigacao 
-                                ? `Dispara Pendentes + Em Fila (até ${MAX_DISPATCH_LIMIT.toLocaleString()} contatos em lotes de ${BATCH_SIZE.toLocaleString()})`
-                                : `Dispara até ${MAX_DISPATCH_LIMIT.toLocaleString()} contatos em lotes de ${BATCH_SIZE.toLocaleString()}`}
+                                ? `Dispara pendentes em lotes de ${BATCH_SIZE.toLocaleString()}`
+                                : `Dispara em lotes de ${BATCH_SIZE.toLocaleString()}`}
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -1754,7 +1739,6 @@ export default function EventoBase() {
                           onChange={(e) => setCustomDispatchCount(e.target.value)}
                           className="w-24 h-9"
                           min={1}
-                          max={MAX_DISPATCH_LIMIT}
                           disabled={isDisparandoIA}
                         />
                         <Button
