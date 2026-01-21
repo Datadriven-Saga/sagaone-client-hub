@@ -195,7 +195,11 @@ const Resultados = () => {
               {selectedWhatsAppEventId && selectedWhatsAppEventIdPri ? (
                 <DashboardWhatsAppTab 
                   selectedEventId={selectedWhatsAppEventId}
-                  onEventChange={(eventId) => setSelectedWhatsAppEventId(eventId)}
+                  selectedEventIdPri={selectedWhatsAppEventIdPri}
+                  onEventChange={(eventId, eventIdPri) => {
+                    setSelectedWhatsAppEventId(eventId);
+                    setSelectedWhatsAppEventIdPri(eventIdPri);
+                  }}
                 />
               ) : (
                 <EventoSelectorWhatsApp
