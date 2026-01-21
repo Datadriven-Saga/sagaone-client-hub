@@ -5,8 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, Calendar } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 interface DesempenhoTabProps {
   prospeccaoId: string | null;
@@ -56,6 +54,7 @@ const calcularPontuacao = (vendedor: VendedorDesempenho): number => {
   
   return Math.round(taxaConfirmacoes + taxaCheckin + taxaVendas + pontosConfirmados + pontosCheckins + pontosVendas);
 };
+
 type SortDirection = 'asc' | 'desc';
 
 export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
@@ -119,11 +118,41 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
           return;
         }
 
-        // 4. Buscar contatos da prospecção com filtro de data
+        // 4. Buscar contatos vinculados ao evento via eventos_prospeccao
+        let eventosQuery = supabase
+          .from('eventos_prospeccao')
+          .select('contato_id')
+          .eq('prospeccao_id', prospeccaoId);
+
+        const { data: eventosData } = await eventosQuery;
+
+        if (!eventosData || eventosData.length === 0) {
+          // Inicializar vendedores com zeros
+          const vendedoresZerados = profiles.map(profile => ({
+            userId: profile.id,
+            nomeCompleto: profile.nome_completo,
+            tipoAcesso: profile.tipo_acesso || 'Vendedor',
+            atribuidos: 0,
+            convidados: 0,
+            agendados: 0,
+            confirmados: 0,
+            checkins: 0,
+            vendas: 0,
+            descartes: 0
+          }));
+          setVendedores(vendedoresZerados);
+          setLoading(false);
+          return;
+        }
+
+        const contatoIds = [...new Set(eventosData.map(e => e.contato_id).filter(Boolean))];
+
+        // 5. Buscar contatos da prospecção com filtro de data
         let contatosQuery = supabase
           .from('contatos')
           .select('id, responsavel_email, status, created_at')
-          .eq('empresa_id', empresaId);
+          .eq('empresa_id', empresaId)
+          .in('id', contatoIds);
 
         if (dateStart) {
           contatosQuery = contatosQuery.gte('created_at', dateStart);
@@ -134,7 +163,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
 
         const { data: contatos } = await contatosQuery;
 
-        // 5. Mapear contatos por vendedor
+        // 6. Mapear contatos por vendedor
         const desempenhoMap = new Map<string, VendedorDesempenho>();
 
         profiles.forEach(profile => {
@@ -181,7 +210,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
               // Contar atribuídos (qualquer contato com responsável)
               vendedor.atribuidos++;
               
-              // Contar por status
+              // Contar por status (alinhado com o Kanban)
               switch (contato.status) {
                 case 'Convidado':
                   vendedor.convidados++;
@@ -196,6 +225,7 @@ export function DesempenhoTab({ prospeccaoId, empresaId }: DesempenhoTabProps) {
                   vendedor.checkins++;
                   break;
                 case 'Fechado':
+                case 'Venda':
                   vendedor.vendas++;
                   break;
                 case 'Descartado':

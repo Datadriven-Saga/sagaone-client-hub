@@ -2,13 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
-import { Target, Users, UserCheck, TrendingUp, UserPlus, Info, Filter, MessageSquare, CalendarCheck, Store, ShoppingCart } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Target, Users, UserCheck, TrendingUp, UserPlus, Filter, MessageSquare, CalendarCheck, Store, ShoppingCart } from "lucide-react";
+
 interface ResumoTabProps {
   prospeccaoIds?: string[];
   prospeccaoId?: string | null; // backward compatibility
@@ -25,14 +20,15 @@ interface ProspeccaoMetas {
 }
 
 interface StatusCounts {
-  totalBase: number;
-  distribuidos: number;
+  novos: number;
   atribuidos: number;
+  emEspera: number;
   convidados: number;
-  agendados: number;
   confirmados: number;
   checkins: number;
   vendas: number;
+  descartados: number;
+  optOut: number;
 }
 
 interface MetaCardProps {
@@ -103,11 +99,6 @@ interface SalesFunnelProps {
 }
 
 const SalesFunnel = ({ stages }: SalesFunnelProps) => {
-  const getConversionRate = (currentValue: number, previousValue: number) => {
-    if (previousValue === 0) return 0;
-    return Math.round((currentValue / previousValue) * 100);
-  };
-
   return (
     <Card className="p-4">
       <div className="flex items-center mb-4">
@@ -143,7 +134,6 @@ const SalesFunnel = ({ stages }: SalesFunnelProps) => {
           );
         })}
       </div>
-
     </Card>
   );
 };
@@ -152,14 +142,15 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
   const activeIds = prospeccaoIds || (prospeccaoId ? [prospeccaoId] : []);
   const [metas, setMetas] = useState<ProspeccaoMetas | null>(null);
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({
-    totalBase: 0,
-    distribuidos: 0,
+    novos: 0,
     atribuidos: 0,
+    emEspera: 0,
     convidados: 0,
-    agendados: 0,
     confirmados: 0,
     checkins: 0,
-    vendas: 0
+    vendas: 0,
+    descartados: 0,
+    optOut: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -191,143 +182,87 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
           setMetas(aggregatedMetas);
         }
 
-        // Buscar contatos e contar por status
-        const { data: contatosData } = await supabase
-          .from('contatos')
-          .select('id, status, responsavel_email')
-          .eq('empresa_id', empresaId);
+        // Buscar contatos vinculados aos eventos selecionados via eventos_prospeccao
+        const { data: eventosData } = await supabase
+          .from('eventos_prospeccao')
+          .select('contato_id')
+          .in('prospeccao_id', activeIds);
 
-        // Buscar logs de movimentação para Descartados e Opt Out
-        const { data: logsData } = await supabase
-          .from('logs_movimentacao_contatos')
-          .select('contato_id, status_anterior, status_novo')
-          .in('status_novo', ['Descartado', 'Opt Out']);
-
-        if (contatosData) {
-          // Criar mapa de status anterior para leads descartados/opt-out
-          const statusAnteriorMap = new Map<string, string>();
-          if (logsData) {
-            logsData.forEach(log => {
-              // Guardar o último status anterior registrado
-              if (log.status_anterior) {
-                statusAnteriorMap.set(log.contato_id, log.status_anterior);
-              }
-            });
-          }
-
-          // Contagem direta por status atual
-          const directCounts = {
-            vendas: 0,
-            checkins: 0,
-            confirmados: 0,
-            convidados: 0,
+        if (!eventosData || eventosData.length === 0) {
+          setStatusCounts({
+            novos: 0,
             atribuidos: 0,
             emEspera: 0,
+            convidados: 0,
+            confirmados: 0,
+            checkins: 0,
+            vendas: 0,
+            descartados: 0,
+            optOut: 0
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Obter IDs únicos dos contatos do evento
+        const contatoIds = [...new Set(eventosData.map(e => e.contato_id).filter(Boolean))];
+
+        // Buscar os contatos correspondentes
+        const { data: contatosData } = await supabase
+          .from('contatos')
+          .select('id, status')
+          .eq('empresa_id', empresaId)
+          .in('id', contatoIds);
+
+        if (contatosData) {
+          // Contagem por status (alinhado com o Kanban)
+          const counts: StatusCounts = {
             novos: 0,
+            atribuidos: 0,
+            emEspera: 0,
+            convidados: 0,
+            confirmados: 0,
+            checkins: 0,
+            vendas: 0,
             descartados: 0,
             optOut: 0
           };
 
           contatosData.forEach(contato => {
             switch (contato.status) {
-              case 'Fechado':
-                directCounts.vendas++;
-                break;
-              case 'Check-in':
-                directCounts.checkins++;
-                break;
-              case 'Confirmado':
-                directCounts.confirmados++;
-                break;
-              case 'Convidado':
-                directCounts.convidados++;
+              case 'Novo':
+                counts.novos++;
                 break;
               case 'Atribuído':
-                directCounts.atribuidos++;
+                counts.atribuidos++;
                 break;
               case 'Em Espera':
-                directCounts.emEspera++;
+                counts.emEspera++;
                 break;
-              case 'Novo':
-                directCounts.novos++;
+              case 'Convidado':
+                counts.convidados++;
+                break;
+              case 'Confirmado':
+                counts.confirmados++;
+                break;
+              case 'Check-in':
+                counts.checkins++;
+                break;
+              case 'Fechado':
+              case 'Venda':
+                counts.vendas++;
                 break;
               case 'Descartado':
-                directCounts.descartados++;
+              case 'Desperdício':
+                counts.descartados++;
                 break;
               case 'Opt Out':
-                directCounts.optOut++;
+                counts.optOut++;
                 break;
             }
           });
 
-          // Para leads descartados/opt-out, contar em qual estágio do funil eles estavam
-          const descartadosOptOutPorEstagio = {
-            vendas: 0,
-            checkins: 0,
-            confirmados: 0,
-            convidados: 0,
-            distribuidos: 0
-          };
-
-          contatosData.forEach(contato => {
-            if (contato.status === 'Descartado' || contato.status === 'Opt Out') {
-              const statusAnterior = statusAnteriorMap.get(contato.id);
-              if (statusAnterior) {
-                // Acumular baseado no status anterior
-                switch (statusAnterior) {
-                  case 'Fechado':
-                    descartadosOptOutPorEstagio.vendas++;
-                    break;
-                  case 'Check-in':
-                    descartadosOptOutPorEstagio.checkins++;
-                    break;
-                  case 'Confirmado':
-                    descartadosOptOutPorEstagio.confirmados++;
-                    break;
-                  case 'Convidado':
-                    descartadosOptOutPorEstagio.convidados++;
-                    break;
-                  case 'Atribuído':
-                  case 'Em Espera':
-                    descartadosOptOutPorEstagio.distribuidos++;
-                    break;
-                }
-              }
-            }
-          });
-
-          // Calcular valores acumulativos do funil
-          // Vendas = só vendas (fechados)
-          const vendas = directCounts.vendas;
-          
-          // Check-ins = vendas + check-ins atuais + descartados/opt-out que estavam em check-in
-          const checkins = vendas + directCounts.checkins + descartadosOptOutPorEstagio.checkins;
-          
-          // Confirmados = check-ins + confirmados atuais + descartados/opt-out que estavam em confirmado
-          const confirmados = checkins + directCounts.confirmados + descartadosOptOutPorEstagio.confirmados;
-          
-          // Convidados = confirmados + convidados atuais + descartados/opt-out que estavam em convidado
-          const convidados = confirmados + directCounts.convidados + descartadosOptOutPorEstagio.convidados;
-          
-          // Distribuídos = convidados + atribuídos + em espera + descartados/opt-out que estavam distribuídos
-          const distribuidos = convidados + directCounts.atribuidos + directCounts.emEspera + descartadosOptOutPorEstagio.distribuidos;
-          
-          // Total da base = todos os contatos
-          const totalBase = contatosData.length;
-
-          // Contar distribuídos reais (com responsável) para métricas
-          const distribuidosReais = contatosData.filter(c => c.responsavel_email).length;
-
-          setStatusCounts({
-            totalBase,
-            distribuidos: distribuidos,
-            atribuidos: distribuidosReais, // Para o card de distribuição aos vendedores
-            convidados,
-            agendados: directCounts.convidados, // Agendados = convidados diretos para meta
-            confirmados,
-            checkins,
-            vendas
-          });
+          setStatusCounts(counts);
         }
       } catch (error) {
         console.error('Erro ao buscar dados:', error);
@@ -345,15 +280,45 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
     return (metas.meta_novos || 0) + (metas.meta_seminovos || 0) + (metas.meta_diretas || 0);
   }, [metas]);
 
-  // Dados do funil - Nova paleta de cores
+  // Calcular totais para o funil (acumulativo)
+  const funnelData = useMemo(() => {
+    const totalBase = statusCounts.novos + statusCounts.atribuidos + statusCounts.emEspera + 
+                      statusCounts.convidados + statusCounts.confirmados + statusCounts.checkins + 
+                      statusCounts.vendas + statusCounts.descartados + statusCounts.optOut;
+    
+    // Distribuídos = Atribuídos + Em Espera + Convidados + Confirmados + Check-ins + Vendas
+    const distribuidos = statusCounts.atribuidos + statusCounts.emEspera + statusCounts.convidados + 
+                         statusCounts.confirmados + statusCounts.checkins + statusCounts.vendas;
+    
+    // Convidados acumulado = Convidados + Confirmados + Check-ins + Vendas
+    const convidadosAcum = statusCounts.convidados + statusCounts.confirmados + 
+                           statusCounts.checkins + statusCounts.vendas;
+    
+    // Confirmados acumulado = Confirmados + Check-ins + Vendas
+    const confirmadosAcum = statusCounts.confirmados + statusCounts.checkins + statusCounts.vendas;
+    
+    // Check-ins acumulado = Check-ins + Vendas
+    const checkinsAcum = statusCounts.checkins + statusCounts.vendas;
+    
+    return {
+      totalBase,
+      distribuidos,
+      convidadosAcum,
+      confirmadosAcum,
+      checkinsAcum,
+      vendas: statusCounts.vendas
+    };
+  }, [statusCounts]);
+
+  // Dados do funil - Cores alinhadas com o Kanban
   const funnelStages: FunnelStage[] = useMemo(() => [
-    { id: 'totalBase', title: 'Total da Base', value: statusCounts.totalBase, color: '#FF8F6B' },
-    { id: 'distribuidos', title: 'Distribuídos', value: statusCounts.atribuidos, color: '#FFC327' },
-    { id: 'convidados', title: 'Convidados', value: statusCounts.convidados, color: '#2EC65C' },
-    { id: 'confirmados', title: 'Confirmados', value: statusCounts.confirmados, color: '#5B93FF' },
-    { id: 'checkins', title: 'Check-Ins', value: statusCounts.checkins, color: '#605BFF' },
-    { id: 'vendas', title: 'Vendas', value: statusCounts.vendas, color: '#4830E4' },
-  ], [statusCounts]);
+    { id: 'totalBase', title: 'Total da Base', value: funnelData.totalBase, color: '#FF8F6B' },
+    { id: 'distribuidos', title: 'Distribuídos', value: funnelData.distribuidos, color: '#FFC327' },
+    { id: 'convidados', title: 'Convidados', value: funnelData.convidadosAcum, color: '#2EC65C' },
+    { id: 'confirmados', title: 'Confirmados', value: funnelData.confirmadosAcum, color: '#5B93FF' },
+    { id: 'checkins', title: 'Check-ins', value: funnelData.checkinsAcum, color: '#605BFF' },
+    { id: 'vendas', title: 'Vendas', value: funnelData.vendas, color: '#4830E4' },
+  ], [funnelData]);
 
   if (loading) {
     return (
@@ -383,50 +348,49 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
           <SalesFunnel stages={funnelStages} />
         </div>
 
-        {/* Lado Direito - Demais Indicadores */}
+        {/* Lado Direito - Indicadores de Conversão */}
         <div>
-          
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <MetaCard
               title="Distribuição aos Vendedores"
               icon={<UserPlus className="h-4 w-4 text-cyan-600" />}
-              realizado={statusCounts.distribuidos}
-              meta={statusCounts.totalBase}
+              realizado={funnelData.distribuidos}
+              meta={funnelData.totalBase}
               color="bg-cyan-100"
             />
             <MetaCard
               title="% Clientes Convidados"
               icon={<MessageSquare className="h-4 w-4 text-orange-600" />}
-              realizado={statusCounts.convidados}
-              meta={statusCounts.atribuidos}
+              realizado={funnelData.convidadosAcum}
+              meta={funnelData.distribuidos}
               color="bg-orange-100"
             />
             <MetaCard
               title="% Clientes Confirmados"
               icon={<CalendarCheck className="h-4 w-4 text-lime-600" />}
-              realizado={statusCounts.confirmados}
-              meta={statusCounts.convidados}
+              realizado={funnelData.confirmadosAcum}
+              meta={funnelData.convidadosAcum}
               color="bg-lime-100"
             />
             <MetaCard
               title="% Clientes Presentes na Loja"
               icon={<Store className="h-4 w-4 text-green-600" />}
-              realizado={statusCounts.checkins}
-              meta={statusCounts.confirmados}
+              realizado={funnelData.checkinsAcum}
+              meta={funnelData.confirmadosAcum}
               color="bg-green-100"
             />
             <MetaCard
               title="% Vendas / Check-in"
               icon={<ShoppingCart className="h-4 w-4 text-blue-600" />}
-              realizado={statusCounts.vendas}
-              meta={statusCounts.checkins}
+              realizado={funnelData.vendas}
+              meta={funnelData.checkinsAcum}
               color="bg-blue-100"
             />
             <MetaCard
               title="% Vendas / Total da Base"
               icon={<TrendingUp className="h-4 w-4 text-indigo-600" />}
-              realizado={statusCounts.vendas}
-              meta={statusCounts.totalBase}
+              realizado={funnelData.vendas}
+              meta={funnelData.totalBase}
               color="bg-indigo-100"
             />
           </div>
@@ -441,7 +405,7 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
           <MetaCard
             title="Meta de Agendamentos"
             icon={<Target className="h-4 w-4 text-blue-600" />}
-            realizado={statusCounts.agendados}
+            realizado={funnelData.convidadosAcum}
             meta={metas?.meta_convites || 0}
             color="bg-blue-100"
           />
@@ -449,7 +413,7 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
           <MetaCard
             title="Meta de Confirmações"
             icon={<Users className="h-4 w-4 text-purple-600" />}
-            realizado={statusCounts.confirmados}
+            realizado={funnelData.confirmadosAcum}
             meta={metas?.meta_confirmacoes || 0}
             color="bg-purple-100"
           />
@@ -457,7 +421,7 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
           <MetaCard
             title="Meta de Check-Ins"
             icon={<UserCheck className="h-4 w-4 text-amber-600" />}
-            realizado={statusCounts.checkins}
+            realizado={funnelData.checkinsAcum}
             meta={metas?.meta_checkins || 0}
             color="bg-amber-100"
           />
@@ -465,7 +429,7 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
           <MetaCard
             title="Meta de Vendas"
             icon={<TrendingUp className="h-4 w-4 text-green-600" />}
-            realizado={statusCounts.vendas}
+            realizado={funnelData.vendas}
             meta={metaVendas}
             color="bg-green-100"
           />

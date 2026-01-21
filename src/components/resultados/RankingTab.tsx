@@ -65,11 +65,34 @@ export const RankingTab = ({ prospeccaoId, empresaId }: RankingTabProps) => {
           .select('id, nome_completo, celular')
           .in('id', userIds);
 
-        // Buscar contatos da prospecção
+        // Buscar contatos vinculados ao evento via eventos_prospeccao
+        const { data: eventosData } = await supabase
+          .from('eventos_prospeccao')
+          .select('contato_id')
+          .eq('prospeccao_id', prospeccaoId);
+
+        if (!eventosData || eventosData.length === 0) {
+          // Inicializar vendedores com zeros
+          const vendedoresZerados = profiles?.map(profile => ({
+            userId: profile.id,
+            nomeCompleto: profile.nome_completo || 'Sem nome',
+            convidados: 0,
+            checkins: 0,
+            vendas: 0
+          })) || [];
+          setVendedores(vendedoresZerados);
+          setLoading(false);
+          return;
+        }
+
+        const contatoIds = [...new Set(eventosData.map(e => e.contato_id).filter(Boolean))];
+
+        // Buscar contatos da prospecção (apenas os vinculados ao evento)
         const { data: contatos } = await supabase
           .from('contatos')
           .select('id, responsavel_email, status')
-          .eq('empresa_id', empresaId);
+          .eq('empresa_id', empresaId)
+          .in('id', contatoIds);
 
         // Mapear dados dos vendedores
         const vendedoresMap = new Map<string, VendedorRanking>();
@@ -89,7 +112,7 @@ export const RankingTab = ({ prospeccaoId, empresaId }: RankingTabProps) => {
           if (!contato.responsavel_email) return;
 
           // Encontrar o profile correspondente (por ID, email ou celular)
-          let matchedProfile: typeof profiles[0] | undefined;
+          let matchedProfile: typeof profiles extends (infer T)[] ? T : never | undefined;
           
           profiles?.forEach(profile => {
             if (
@@ -103,15 +126,16 @@ export const RankingTab = ({ prospeccaoId, empresaId }: RankingTabProps) => {
           if (matchedProfile) {
             const vendedor = vendedoresMap.get(matchedProfile.id);
             if (vendedor) {
-              if (contato.status === 'Convidado' || contato.status === 'Agendado' || 
-                  contato.status === 'Confirmado' || contato.status === 'Check-in' || 
-                  contato.status === 'Fechado') {
+              // Status que indicam convite: Convidado, Confirmado, Check-in, Fechado/Venda
+              if (['Convidado', 'Confirmado', 'Check-in', 'Fechado', 'Venda'].includes(contato.status || '')) {
                 vendedor.convidados++;
               }
-              if (contato.status === 'Check-in' || contato.status === 'Fechado') {
+              // Status que indicam check-in: Check-in, Fechado/Venda
+              if (['Check-in', 'Fechado', 'Venda'].includes(contato.status || '')) {
                 vendedor.checkins++;
               }
-              if (contato.status === 'Fechado') {
+              // Status que indicam venda: Fechado/Venda
+              if (['Fechado', 'Venda'].includes(contato.status || '')) {
                 vendedor.vendas++;
               }
             }
