@@ -41,7 +41,7 @@ export const EventoSelectorWhatsApp = ({
           .from('prospeccoes')
           .select('id, titulo, event_id_pri, data_inicio, data_fim')
           .eq('empresa_id', activeCompany.id)
-          .eq('canal', 'IA Whatsapp')
+          .eq('canal', 'Whatsapp')
           .not('event_id_pri', 'is', null)
           .order('data_inicio', { ascending: false });
 
@@ -99,11 +99,11 @@ export const EventoSelectorWhatsApp = ({
       <Card className="p-8 text-center">
         <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
         <h3 className="text-lg font-semibold mb-2">Nenhum Evento Disponível</h3>
-        <p className="text-sm text-muted-foreground">
-          Não há eventos IA WhatsApp configurados para esta empresa.
+        <p className="text-sm text-muted-foreground max-w-md">
+          Não há eventos WhatsApp configurados para esta empresa.
         </p>
-        <p className="text-xs text-muted-foreground mt-2">
-          Crie um evento do tipo "IA Whatsapp" na seção de Prospecção.
+        <p className="text-xs text-muted-foreground mt-2 max-w-md">
+          Crie um evento do tipo "Whatsapp" com event_id_pri configurado.
         </p>
       </Card>
     );
