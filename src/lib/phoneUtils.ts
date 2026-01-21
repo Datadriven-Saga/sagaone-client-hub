@@ -288,6 +288,150 @@ export function generatePhoneVariations(phone: string | null | undefined): strin
 }
 
 /**
+ * Validação PERMISSIVA para importação de planilhas
+ * Aceita qualquer número com 10-11 dígitos, fixo ou celular
+ * Não exige 9º dígito, não valida se é celular
+ */
+export interface PermissivePhoneResult {
+  isValid: boolean;
+  normalized: string | null;      // Apenas dígitos (10-11 dígitos)
+  formatted: string | null;       // Formato com máscara
+  original: string;
+  errorCode: PhoneErrorCode | null;
+  errorMessage: string | null;
+}
+
+export function validatePhonePermissive(phone: string | null | undefined): PermissivePhoneResult {
+  const original = phone || '';
+  
+  // Validação: vazio
+  if (!phone || phone.trim() === '') {
+    return {
+      isValid: false,
+      normalized: null,
+      formatted: null,
+      original,
+      errorCode: 'EMPTY',
+      errorMessage: ERROR_MESSAGES.EMPTY
+    };
+  }
+  
+  // Extrair apenas dígitos
+  let digits = extractDigits(phone);
+  
+  // Aceitar números de 10 a 11 dígitos
+  if (digits.length < 10 || digits.length > 11) {
+    return {
+      isValid: false,
+      normalized: null,
+      formatted: null,
+      original,
+      errorCode: 'WRONG_LENGTH',
+      errorMessage: `Quantidade incorreta de dígitos (esperado: 10-11, encontrado: ${digits.length})`
+    };
+  }
+  
+  const ddd = digits.substring(0, 2);
+  
+  // Validação: DDD válido
+  if (!isValidDDD(ddd)) {
+    return {
+      isValid: false,
+      normalized: null,
+      formatted: null,
+      original,
+      errorCode: 'INVALID_DDD',
+      errorMessage: `${ERROR_MESSAGES.INVALID_DDD}: ${ddd}`
+    };
+  }
+  
+  // Validação: padrões inválidos (repetições)
+  if (hasInvalidPattern(digits)) {
+    return {
+      isValid: false,
+      normalized: null,
+      formatted: null,
+      original,
+      errorCode: 'REPEATED_DIGITS',
+      errorMessage: ERROR_MESSAGES.REPEATED_DIGITS
+    };
+  }
+  
+  // Formatar de acordo com o tamanho
+  let formatted: string;
+  if (digits.length === 11) {
+    // Celular: (XX) 9 XXXX-XXXX
+    formatted = `(${ddd}) ${digits[2]} ${digits.substring(3, 7)}-${digits.substring(7, 11)}`;
+  } else {
+    // Fixo: (XX) XXXX-XXXX
+    formatted = `(${ddd}) ${digits.substring(2, 6)}-${digits.substring(6, 10)}`;
+  }
+  
+  // Número válido!
+  return {
+    isValid: true,
+    normalized: digits,
+    formatted,
+    original,
+    errorCode: null,
+    errorMessage: null
+  };
+}
+
+/**
+ * Validação em lote PERMISSIVA para importação
+ */
+export function validatePhoneBatchPermissive(phones: string[]): PhoneBatchValidationResult {
+  const result: PhoneBatchValidationResult = {
+    valid: [],
+    invalid: [],
+    duplicates: [],
+    summary: { total: phones.length, valid: 0, invalid: 0, duplicates: 0 }
+  };
+  
+  const seenPhones = new Map<string, number>(); // normalized -> first index
+  
+  phones.forEach((phone, index) => {
+    const validation = validatePhonePermissive(phone);
+    
+    if (!validation.isValid) {
+      result.invalid.push({
+        original: phone,
+        errorCode: validation.errorCode!,
+        errorMessage: validation.errorMessage!,
+        index
+      });
+      result.summary.invalid++;
+      return;
+    }
+    
+    // Checar duplicatas
+    const normalized = validation.normalized!;
+    if (seenPhones.has(normalized)) {
+      result.duplicates.push({
+        original: phone,
+        normalized,
+        index,
+        duplicateOf: seenPhones.get(normalized)!
+      });
+      result.summary.duplicates++;
+      return;
+    }
+    
+    seenPhones.set(normalized, index);
+    result.valid.push({
+      original: phone,
+      normalized,
+      formatted: validation.formatted!,
+      index
+    });
+    result.summary.valid++;
+  });
+  
+  return result;
+}
+
+/**
  * Interface para relatório de importação em lote
  */
 export interface PhoneBatchValidationResult {

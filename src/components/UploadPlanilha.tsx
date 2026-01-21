@@ -12,8 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
 import * as XLSX from 'xlsx';
 import { 
-  validateAndNormalizePhone, 
-  PhoneValidationResult,
+  validatePhonePermissive, 
   PhoneErrorCode 
 } from '@/lib/phoneUtils';
 import { Badge } from '@/components/ui/badge';
@@ -244,8 +243,8 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
           const nome = columnIndices.nome >= 0 ? row[columnIndices.nome]?.toString().trim() || '' : '';
           const telefoneOriginal = columnIndices.telefone >= 0 ? row[columnIndices.telefone]?.toString().trim() || '' : '';
           
-          // Validar telefone usando a biblioteca centralizada
-          const phoneValidation = validateAndNormalizePhone(telefoneOriginal);
+          // Validar telefone usando validação PERMISSIVA (aceita fixo e celular)
+          const phoneValidation = validatePhonePermissive(telefoneOriginal);
           
           const clienteBase: ClienteData = {
             nome,
