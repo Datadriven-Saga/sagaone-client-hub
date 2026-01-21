@@ -13,6 +13,7 @@ import { useCompany } from '@/contexts/CompanyContext';
 import * as XLSX from 'xlsx';
 import { 
   validatePhonePermissive, 
+  normalizeToLocalPhone,
   PhoneErrorCode 
 } from '@/lib/phoneUtils';
 import { Badge } from '@/components/ui/badge';
@@ -289,10 +290,17 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
           
           seenPhones.set(normalized, index);
           
-          // Usar o telefone formatado para armazenamento
+          // Normalizar para formato localPhone (DDD + 8 dígitos) antes de salvar
+          const localPhoneResult = normalizeToLocalPhone(phoneValidation.normalized);
+          const telefoneNormalizado = localPhoneResult.valido 
+            ? localPhoneResult.localPhone! 
+            : phoneValidation.normalized!;
+          
+          // Usar o telefone normalizado para armazenamento
           validClientes.push({
             ...clienteBase,
-            telefone: phoneValidation.formatted! // Formato padrão (XX) 9 XXXX-XXXX
+            telefone: telefoneNormalizado, // Formato padrão DDD + 8 dígitos (ex: "1199887766")
+            telefoneFormatado: phoneValidation.formatted! // Manter o formato visual para exibição
           });
         });
       

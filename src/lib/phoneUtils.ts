@@ -288,6 +288,121 @@ export function generatePhoneVariations(phone: string | null | undefined): strin
 }
 
 /**
+ * Normaliza telefone para formato de armazenamento (localPhone)
+ * Formato: DDD + 8 dígitos (sem o nono dígito)
+ * Exemplo: "1199887766"
+ * 
+ * Baseado na lógica n8n para padronização:
+ * - Remove DDI 55 se presente
+ * - Remove o 9º dígito de celulares
+ * - Retorna DDD + 8 dígitos
+ */
+export interface LocalPhoneResult {
+  valido: boolean;
+  razao?: string;
+  telefoneEntrada: string;
+  ddd?: string;
+  numero8?: string;
+  localPhone?: string;      // DDD + 8 dígitos (ex: "1199887766")
+  intlPhone?: string;       // 55 + DDD + 8 dígitos (ex: "551199887766")
+  tinhaDDI55?: boolean;
+  removeuNonoDigito?: boolean;
+}
+
+export function normalizeToLocalPhone(phone: string | null | undefined): LocalPhoneResult {
+  const raw = phone ?? '';
+  const digits = String(raw).replace(/\D/g, '');
+  
+  // Nada para processar
+  if (!digits) {
+    return {
+      valido: false,
+      razao: 'Telefone vazio ou inválido',
+      telefoneEntrada: digits
+    };
+  }
+  
+  // Se veio com mais de 11 dígitos, precisa iniciar com 55 (Brasil)
+  if (digits.length > 11 && !digits.startsWith('55')) {
+    return {
+      valido: false,
+      razao: 'Para números com mais de 11 dígitos, o prefixo deve iniciar com 55',
+      telefoneEntrada: digits
+    };
+  }
+  
+  // Remove DDI 55 se existir
+  let hasCountry = false;
+  let local = digits;
+  if (local.startsWith('55') && local.length > 11) {
+    hasCountry = true;
+    local = local.slice(2);
+  }
+  
+  // Agora esperamos 10 (fixo/celular sem nono) ou 11 (celular com nono) dígitos locais
+  if (local.length !== 10 && local.length !== 11) {
+    return {
+      valido: false,
+      razao: 'Quantidade de dígitos locais inválida (esperado 10 ou 11 após DDI)',
+      telefoneEntrada: digits
+    };
+  }
+  
+  // DDD (2) + número (8 ou 9)
+  const ddd = local.slice(0, 2);
+  let numeroRestante = local.slice(2);
+  
+  // Valida DDD minimamente (não inicia com 0 e dois dígitos)
+  if (!/^[1-9]\d$/.test(ddd)) {
+    return {
+      valido: false,
+      razao: 'DDD inválido',
+      telefoneEntrada: digits
+    };
+  }
+  
+  let removedNinth = false;
+  // Se tem 11 dígitos locais, precisa começar com 9 (nono dígito dos celulares)
+  if (local.length === 11) {
+    if (numeroRestante[0] !== '9') {
+      return {
+        valido: false,
+        razao: 'Para 11 dígitos locais, o nono dígito deve ser 9 (celular)',
+        telefoneEntrada: digits
+      };
+    }
+    // Removemos o 9 para padronizar em 8 dígitos
+    numeroRestante = numeroRestante.slice(1);
+    removedNinth = true;
+  }
+  
+  // Neste ponto, numeroRestante **deve** ter 8 dígitos
+  if (!/^\d{8}$/.test(numeroRestante)) {
+    return {
+      valido: false,
+      razao: 'Número local inválido; esperado exatamente 8 dígitos após o DDD',
+      telefoneEntrada: digits
+    };
+  }
+  
+  // Monta saídas
+  const numero8 = numeroRestante;
+  const localPhone = `${ddd}${numero8}`;
+  const intlPhone = `55${localPhone}`;
+  
+  return {
+    valido: true,
+    ddd,
+    numero8,
+    localPhone,       // ex.: "1199887766"
+    intlPhone,        // ex.: "551199887766"
+    tinhaDDI55: hasCountry,
+    removeuNonoDigito: removedNinth,
+    telefoneEntrada: digits
+  };
+}
+
+/**
  * Validação PERMISSIVA para importação de planilhas
  * Aceita qualquer número com 10-11 dígitos, fixo ou celular
  * Não exige 9º dígito, não valida se é celular
