@@ -40,7 +40,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface DashboardWhatsAppTabProps {
   selectedEventId: string;
-  onEventChange?: (eventId: string) => void;
+  selectedEventIdPri: string;
+  onEventChange?: (eventId: string, eventIdPri: string) => void;
 }
 
 interface FunnelStatus {
@@ -67,13 +68,13 @@ const safeDiv = (a: number, b: number) => (b === 0 ? 0 : a / b);
 
 export const DashboardWhatsAppTab = ({ 
   selectedEventId,
+  selectedEventIdPri,
   onEventChange 
 }: DashboardWhatsAppTabProps) => {
   const [loading, setLoading] = useState(true);
   const [funnelData, setFunnelData] = useState<FunnelStatus[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [events, setEvents] = useState<EventOption[]>([]);
-  const [currentEventIdPri, setCurrentEventIdPri] = useState<string | null>(null);
   
   // Manual inputs (to be implemented with Meta API later)
   const [manualInputs, setManualInputs] = useState<ManualInputs>({
@@ -82,47 +83,43 @@ export const DashboardWhatsAppTab = ({
     valor_usado: 0,
   });
 
-  // Fetch events with event_id_pri from prospeccoes
+  // Fetch events with event_id_pri from prospeccoes (for dropdown)
   useEffect(() => {
     const fetchEvents = async () => {
       const { data, error } = await supabase
         .from('prospeccoes')
         .select('id, titulo, event_id_pri')
-        .eq('canal', 'IA Whatsapp')
+        .eq('canal', 'Whatsapp')
         .not('event_id_pri', 'is', null)
         .order('data_inicio', { ascending: false });
 
       if (!error && data) {
         setEvents(data as EventOption[]);
-        
-        // Set current event's event_id_pri
-        const currentEvent = data.find(e => e.id === selectedEventId);
-        if (currentEvent?.event_id_pri) {
-          setCurrentEventIdPri(currentEvent.event_id_pri);
-        }
       }
     };
 
     fetchEvents();
-  }, [selectedEventId]);
+  }, []);
 
-  // Fetch dashboard data when event_id_pri changes
+  // Fetch dashboard data when selectedEventIdPri changes
   useEffect(() => {
-    if (currentEventIdPri) {
+    if (selectedEventIdPri) {
       fetchDashboardData();
     }
-  }, [currentEventIdPri]);
+  }, [selectedEventIdPri]);
 
   const fetchDashboardData = async () => {
-    if (!currentEventIdPri) return;
+    if (!selectedEventIdPri) return;
 
     try {
       setLoading(true);
       
+      console.log('📊 Fetching WhatsApp dashboard for event_id_pri:', selectedEventIdPri);
+      
       const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
         body: { 
           endpoint: 'dashboard-evento-pri-whats', 
-          id_evento: currentEventIdPri 
+          id_evento: selectedEventIdPri 
         },
       });
 
@@ -148,8 +145,7 @@ export const DashboardWhatsAppTab = ({
   const handleEventChange = (eventId: string) => {
     const event = events.find(e => e.id === eventId);
     if (event?.event_id_pri) {
-      setCurrentEventIdPri(event.event_id_pri);
-      onEventChange?.(eventId);
+      onEventChange?.(eventId, event.event_id_pri);
     }
   };
 
