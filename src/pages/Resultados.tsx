@@ -12,7 +12,8 @@ import {
   Trophy, 
   FileText,
   Phone,
-  TrendingUp
+  TrendingUp,
+  MessageSquare
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -23,6 +24,8 @@ import { ResultadosGlobalFilter } from "@/components/resultados/ResultadosGlobal
 import { DashboardLigacaoTab } from "@/components/resultados/DashboardLigacaoTab";
 import { MetricasLigacaoTab } from "@/components/resultados/MetricasLigacaoTab";
 import { EventoSelectorLigacao } from "@/components/resultados/EventoSelectorLigacao";
+import { DashboardWhatsAppTab } from "@/components/resultados/DashboardWhatsAppTab";
+import { EventoSelectorWhatsApp } from "@/components/resultados/EventoSelectorWhatsApp";
 
 interface Prospeccao {
   id: string;
@@ -40,6 +43,10 @@ const Resultados = () => {
   // State for Ligação tabs
   const [selectedLigacaoEventId, setSelectedLigacaoEventId] = useState<string | null>(null);
   const [selectedAgentPhone, setSelectedAgentPhone] = useState<string | null>(null);
+  
+  // State for WhatsApp tab
+  const [selectedWhatsAppEventId, setSelectedWhatsAppEventId] = useState<string | null>(null);
+  const [selectedWhatsAppEventIdPri, setSelectedWhatsAppEventIdPri] = useState<string | null>(null);
 
   // Buscar prospecções da empresa
   useEffect(() => {
@@ -73,8 +80,13 @@ const Resultados = () => {
     setSelectedLigacaoEventId(eventId);
   };
 
-  // Check if current tab needs global filter (not ligação tabs)
-  const showGlobalFilter = !["dashboard-ligacao", "metricas-ligacao", "eventos-ligacao"].includes(activeTab);
+  const handleWhatsAppEventSelect = (eventId: string, eventIdPri: string) => {
+    setSelectedWhatsAppEventId(eventId);
+    setSelectedWhatsAppEventIdPri(eventIdPri);
+  };
+
+  // Check if current tab needs global filter (not ligação/whatsapp tabs)
+  const showGlobalFilter = !["dashboard-ligacao", "metricas-ligacao", "eventos-ligacao", "dashboard-whatsapp"].includes(activeTab);
 
   return (
     <DashboardLayout title="Resultados">
@@ -89,11 +101,18 @@ const Resultados = () => {
               <span className="hidden sm:inline font-medium">Resumo</span>
             </TabsTrigger>
             <TabsTrigger 
+              value="dashboard-whatsapp" 
+              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">WhatsApp</span>
+            </TabsTrigger>
+            <TabsTrigger 
               value="dashboard-ligacao" 
               className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
             >
               <Phone className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">Dashboard</span>
+              <span className="hidden sm:inline font-medium">Ligação</span>
             </TabsTrigger>
             <TabsTrigger 
               value="metricas-ligacao" 
@@ -165,6 +184,25 @@ const Resultados = () => {
                 prospeccaoIds={selectedProspeccoes} 
                 empresaId={activeCompany?.id || null}
               />
+            </div>
+          </ScrollIndicator>
+        </TabsContent>
+
+        {/* Tab Dashboard WhatsApp */}
+        <TabsContent value="dashboard-whatsapp" className="flex-1 min-h-0 overflow-hidden mt-4">
+          <ScrollIndicator className="flex-1 h-full">
+            <div className="pb-6">
+              {selectedWhatsAppEventId && selectedWhatsAppEventIdPri ? (
+                <DashboardWhatsAppTab 
+                  selectedEventId={selectedWhatsAppEventId}
+                  onEventChange={(eventId) => setSelectedWhatsAppEventId(eventId)}
+                />
+              ) : (
+                <EventoSelectorWhatsApp
+                  onEventSelect={handleWhatsAppEventSelect}
+                  selectedEventId={selectedWhatsAppEventId}
+                />
+              )}
             </div>
           </ScrollIndicator>
         </TabsContent>
