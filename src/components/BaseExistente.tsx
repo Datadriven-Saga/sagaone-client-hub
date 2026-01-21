@@ -191,21 +191,46 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
     setIsLoading(true);
 
     try {
-      // Vincular contatos selecionados ao evento na tabela eventos_prospeccao
-      const vinculos = selectedClientes.map(contatoId => ({
+      // 1) Verificar quais contatos já estão vinculados a este evento
+      const { data: vinculosExistentes, error: checkError } = await supabase
+        .from('eventos_prospeccao')
+        .select('contato_id')
+        .eq('prospeccao_id', selectedCampanha)
+        .in('contato_id', selectedClientes);
+
+      if (checkError) {
+        console.error('Erro ao verificar vínculos existentes:', checkError);
+      }
+
+      const jaVinculadosSet = new Set((vinculosExistentes || []).map(v => v.contato_id));
+      const contatosParaVincular = selectedClientes.filter(id => !jaVinculadosSet.has(id));
+      const jaVinculadosCount = jaVinculadosSet.size;
+
+      console.log(`📊 ${contatosParaVincular.length} novos, ${jaVinculadosCount} já vinculados`);
+
+      // 2) Se não há novos para vincular, apenas informar
+      if (contatosParaVincular.length === 0) {
+        toast({
+          title: "Nenhum novo contato",
+          description: `Todos os ${jaVinculadosCount} contatos selecionados já estão vinculados a este evento`,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // 3) Vincular apenas os novos
+      const vinculos = contatosParaVincular.map(contatoId => ({
         contato_id: contatoId,
         prospeccao_id: selectedCampanha
       }));
 
-      // Inserir em lotes para evitar timeout
       const BATCH_SIZE = 500;
       let inseridos = 0;
       
       for (let i = 0; i < vinculos.length; i += BATCH_SIZE) {
         const batch = vinculos.slice(i, i + BATCH_SIZE);
         
-        // Inserir ignorando duplicatas (constraint unique contato_id + prospeccao_id)
-        const { error, count } = await supabase
+        const { error, data } = await supabase
           .from('eventos_prospeccao')
           .insert(batch)
           .select();
@@ -218,7 +243,7 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
           }
         }
         
-        inseridos += batch.length;
+        inseridos += data?.length || 0;
       }
 
       console.log(`✅ ${inseridos} contatos vinculados ao evento ${selectedCampanha}`);
@@ -231,9 +256,13 @@ export const BaseExistente = ({ onClientesSelected, prospeccoes }: BaseExistente
       setClientesFiltrados([]);
       setSelectedClientes([]);
       
+      const descricao = jaVinculadosCount > 0
+        ? `${inseridos} novos vinculados. ${jaVinculadosCount} já estavam no evento.`
+        : `${inseridos} clientes vinculados ao evento com sucesso`;
+
       toast({
         title: "Clientes adicionados",
-        description: `${clientesSelecionados.length} clientes vinculados ao evento com sucesso`,
+        description: descricao,
       });
     } catch (error) {
       console.error('Erro ao vincular contatos:', error);
