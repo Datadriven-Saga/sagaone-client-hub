@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Target, CheckCircle, Edit, Trash2, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, ScanLine, Send, Loader2, Eye, Phone } from "lucide-react";
+import { Target, CheckCircle, Edit, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, ScanLine, Send, Loader2, Eye, Phone } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProspeccaoGlobalFilter, ProspeccaoGlobalFilters } from "@/components/ProspeccaoGlobalFilter";
@@ -65,8 +65,6 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   const [selectedProspections, setSelectedProspections] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProspeccao, setEditingProspeccao] = useState<any>(null);
-  const [deleteProspeccao, setDeleteProspeccao] = useState<{ id: string; canal: string; eventIdPri: string | null } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [modalContato, setModalContato] = useState<{ 
     isOpen: boolean; 
     contato: Contato | null; 
@@ -152,7 +150,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     getMetricas, 
     criarProspeccao,
     editarProspeccao,
-    excluirProspeccao,
+    
     reenviarGatilhos,
     dispararParaIA,
     contarContatosPendentesDisparo,
@@ -1478,48 +1476,6 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteProspeccao = async () => {
-    if (!deleteProspeccao || isDeleting) return;
-
-    const toDelete = deleteProspeccao;
-
-    setIsDeleting(true);
-    try {
-      if (!excluirProspeccao) {
-        throw new Error('Função de exclusão indisponível. Recarregue a página e tente novamente.');
-      }
-
-      // Toda a lógica de webhook está no hook excluirProspeccao
-      await excluirProspeccao(toDelete.id);
-      setDeleteProspeccao(null);
-
-      // Atualiza a lista de prospecções após exclusão
-      await refetch();
-
-      toast({
-        title: 'Prospecção excluída',
-        description:
-          toDelete.canal === 'Ligação'
-            ? 'O evento e todos os leads vinculados foram removidos com sucesso.'
-            : 'A prospecção foi removida com sucesso.',
-      });
-    } catch (error) {
-      console.error('Erro ao excluir prospecção:', error);
-      const mensagemErro =
-        error instanceof Error ? error.message : 'Não foi possível excluir a prospecção.';
-
-      // Mostrar alert nativo com erro
-      alert(`Erro ao excluir evento:\n\n${mensagemErro}`);
-
-      toast({
-        title: 'Erro ao excluir',
-        description: mensagemErro,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   // Handler para disparar leads para IA
   const handleDispararParaIA = async (prospeccaoId: string, canal: string) => {
@@ -1876,21 +1832,6 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                             <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
                                               <Edit className="mr-2 h-4 w-4" />
                                               Editar
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem 
-                                              onClick={() => {
-                                                // Segurança: garante que não fique preso no estado de "Excluindo..." ao tentar excluir outro evento
-                                                setIsDeleting(false);
-                                                setDeleteProspeccao({
-                                                  id: prospeccao.id,
-                                                  canal: prospeccao.canal || '',
-                                                  eventIdPri: prospeccao.event_id_pri || null,
-                                                });
-                                              }}
-                                              className="text-red-600"
-                                            >
-                                              <Trash2 className="mr-2 h-4 w-4" />
-                                              Excluir
                                             </DropdownMenuItem>
                                           </DropdownMenuContent>
                                         </DropdownMenu>
@@ -2269,54 +2210,6 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         onProspeccaoCriada={refetch}
       />
 
-      {/* Modal de confirmação de exclusão */}
-      <AlertDialog open={deleteProspeccao !== null} onOpenChange={() => !isDeleting && setDeleteProspeccao(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {isDeleting 
-                ? 'Excluindo evento...' 
-                : deleteProspeccao?.canal === 'Ligação' 
-                  ? 'Excluir Evento e Leads' 
-                  : 'Excluir Prospecção'}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              {isDeleting ? (
-                <div className="flex flex-col items-center justify-center py-6 gap-3">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                  <span className="text-sm text-muted-foreground">Excluindo evento e removendo do sistema...</span>
-                </div>
-              ) : deleteProspeccao?.canal === 'Ligação' ? (
-                <>
-                  <span className="block font-semibold text-destructive">
-                    ⚠️ Atenção: Esta ação é irreversível!
-                  </span>
-                  <span className="block">
-                    Ao excluir este evento de Ligação, <strong>todos os leads vinculados a este evento também serão apagados permanentemente</strong> do sistema.
-                  </span>
-                  <span className="block mt-2">
-                    Você tem certeza de que deseja apagar o evento e os leads referentes a este evento?
-                  </span>
-                </>
-              ) : (
-                "Tem certeza que deseja excluir esta prospecção? Esta ação não pode ser desfeita."
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {!isDeleting && (
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-              <Button
-                variant="destructive"
-                onClick={() => void handleDeleteProspeccao()}
-                disabled={isDeleting}
-              >
-                Excluir
-              </Button>
-            </AlertDialogFooter>
-          )}
-        </AlertDialogContent>
-      </AlertDialog>
 
       <ContatoModal
         isOpen={modalContato.isOpen}
