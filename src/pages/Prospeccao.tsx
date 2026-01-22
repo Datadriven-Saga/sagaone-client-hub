@@ -1651,10 +1651,6 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                           Adicionar Clientes
                         </Button>
                       )}
-                      <Button onClick={() => setIsModalOpen(true)} size="sm">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Novo Evento
-                      </Button>
                     </div>
                   </div>
                   
@@ -1662,7 +1658,6 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                     <div className="text-center py-8 text-muted-foreground">
                       <Target className="mx-auto h-12 w-12 mb-3 opacity-50" />
                       <p>Nenhum evento cadastrado</p>
-                      <p className="text-sm">Clique em "Novo Evento" para criar um evento</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
