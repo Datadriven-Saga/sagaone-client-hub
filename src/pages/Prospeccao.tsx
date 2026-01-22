@@ -134,7 +134,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeCompany, loading: companyLoading, switchCompany } = useCompany();
-  const { canAddClientes, isAdminOrTI, canUploadBase } = useUserAccessType();
+  const { canAddClientes, isAdminOrTI, canUploadBase, canCreateEventos, canManageEventos } = useUserAccessType();
   const { registrarMovimentacao } = useProspeccaoLogs();
   const { 
     contatos, 
@@ -1601,6 +1601,12 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
+                      {canCreateEventos && (
+                        <Button onClick={() => setIsModalOpen(true)} size="sm">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Criar Evento
+                        </Button>
+                      )}
                       {canAddClientes && (
                         <Button onClick={() => setShowAdicionarClientes(true)} size="sm" variant="outline">
                           <Users className="w-4 h-4 mr-2" />
