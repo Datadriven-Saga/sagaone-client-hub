@@ -62,6 +62,7 @@ export const EventoSelectorLigacao = ({
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [companyDealerId, setCompanyDealerId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({
     search: '',
     cidade: '',
@@ -70,6 +71,39 @@ export const EventoSelectorLigacao = ({
     showAtivos: true,
     showInativos: true,
   });
+
+  // Fetch company dealer_id (crm_id) for filtering events
+  useEffect(() => {
+    const fetchCompanyDealerId = async () => {
+      if (!activeCompany?.id) {
+        setCompanyDealerId(null);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('empresas')
+          .select('crm_id')
+          .eq('id', activeCompany.id)
+          .single();
+
+        if (error) {
+          console.error('Erro ao buscar crm_id da empresa:', error);
+          setCompanyDealerId(null);
+          return;
+        }
+
+        const dealerId = data?.crm_id?.trim() || null;
+        console.log('🏪 Dealer ID (crm_id) da empresa ativa:', dealerId);
+        setCompanyDealerId(dealerId);
+      } catch (error) {
+        console.error('Erro ao buscar dealer_id:', error);
+        setCompanyDealerId(null);
+      }
+    };
+
+    fetchCompanyDealerId();
+  }, [activeCompany?.id]);
 
   // Fetch agents (Pri - Ligação type only - filter by nome containing "Ligação" or "ligacao")
   useEffect(() => {
@@ -128,10 +162,18 @@ export const EventoSelectorLigacao = ({
     fetchAgents();
   }, [activeCompany?.id, agentPhone]);
 
-  // Fetch events when agent is selected
+  // Fetch events when agent is selected - filter by company dealer_id
   useEffect(() => {
     const fetchEvents = async () => {
       if (!selectedAgent?.telefone) {
+        setEvents([]);
+        return;
+      }
+
+      // Validar que temos o dealer_id da empresa para filtrar
+      if (!companyDealerId) {
+        console.warn('⚠️ Empresa sem crm_id/dealer_id configurado - não é possível filtrar eventos');
+        toast.error('Empresa sem crm_id configurado. Configure o crm_id da loja.');
         setEvents([]);
         return;
       }
@@ -149,25 +191,41 @@ export const EventoSelectorLigacao = ({
         }
         
         console.log('📊 Resposta da API eventos-pri:', data);
+        console.log('🔍 Filtrando eventos pelo dealer_id:', companyDealerId);
         
         // A API retorna: [{ total_eventos: N, dados_eventos: [...] }]
         const rawData = Array.isArray(data) ? data[0] : data;
         const eventsArray = rawData?.dados_eventos || rawData?.eventos || data || [];
         
-        const eventsData = eventsArray.map((e: any) => {
-          console.log('📌 Evento raw:', e);
-          return {
-            id: String(e.id_evento || e.id),
-            nome: e.evt_nome || e.nome || e.name || e.evento_nome || 'Evento sem nome',
-            telefone_pri: e.telefone_pri,
-            cidade: e.cidade,
-            uf: e.uf || e.estado,
-            estado: e.uf || e.estado,
-            marca: e.marca,
-            dealer_id: e.dealer_id,
-            evt_status: e.evt_status || 'ativo',
-          };
-        });
+        // Mapear e FILTRAR apenas eventos que pertencem à esta loja (dealer_id)
+        const eventsData = eventsArray
+          .map((e: any) => {
+            return {
+              id: String(e.id_evento || e.id),
+              nome: e.evt_nome || e.nome || e.name || e.evento_nome || 'Evento sem nome',
+              telefone_pri: e.telefone_pri,
+              cidade: e.cidade,
+              uf: e.uf || e.estado,
+              estado: e.uf || e.estado,
+              marca: e.marca,
+              dealer_id: String(e.dealer_id || e.dealerid || '').trim(),
+              evt_status: e.evt_status || 'ativo',
+            };
+          })
+          .filter((event: EventData) => {
+            // Regra: cada evento pertence a UM dealer_id apenas
+            // Comparar o dealer_id do evento com o crm_id da empresa ativa
+            const eventDealerId = String(event.dealer_id || '').trim();
+            const matches = eventDealerId === companyDealerId;
+            
+            if (!matches && eventDealerId) {
+              console.log(`🚫 Evento "${event.nome}" (dealer_id: ${eventDealerId}) não pertence a esta loja (${companyDealerId})`);
+            }
+            
+            return matches;
+          });
+        
+        console.log(`✅ ${eventsData.length} eventos filtrados para dealer_id ${companyDealerId}`);
         setEvents(eventsData);
       } catch (error) {
         console.error('Error fetching events:', error);
@@ -179,7 +237,7 @@ export const EventoSelectorLigacao = ({
     };
 
     fetchEvents();
-  }, [selectedAgent]);
+  }, [selectedAgent, companyDealerId]);
 
   // Filter options
   const filterOptions = useMemo(() => {
@@ -402,7 +460,7 @@ export const EventoSelectorLigacao = ({
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">
                 {events.length === 0 
-                  ? 'Nenhum evento encontrado para este agente'
+                  ? `Nenhum evento encontrado para esta loja (dealer_id: ${companyDealerId || 'não configurado'})`
                   : 'Nenhum evento corresponde aos filtros'}
               </p>
             </Card>
