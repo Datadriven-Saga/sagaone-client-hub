@@ -2173,6 +2173,7 @@ export type Database = {
       }
       prospeccoes: {
         Row: {
+          ativo: boolean
           canal: string
           convite: string | null
           created_at: string | null
@@ -2218,6 +2219,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          ativo?: boolean
           canal?: string
           convite?: string | null
           created_at?: string | null
@@ -2263,6 +2265,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          ativo?: boolean
           canal?: string
           convite?: string | null
           created_at?: string | null
