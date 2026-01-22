@@ -150,7 +150,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     getMetricas, 
     criarProspeccao,
     editarProspeccao,
-    
+    toggleEventoLigacaoAtivo,
     reenviarGatilhos,
     dispararParaIA,
     contarContatosPendentesDisparo,
@@ -1640,10 +1640,19 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                               const disparados = contagem?.disparados || 0;
                               const isDisparandoEvento = disparandoIA === prospeccao.id;
                               
+                              // Verificar se evento está desativado (apenas para IA Ligação)
+                              const canalStrCheck = String(prospeccao.canal).toLowerCase();
+                              const isIALigacaoCheck = canalStrCheck.includes('liga') || canalStrCheck === 'ligação' || canalStrCheck === 'ligacao';
+                              const eventoDesativado = isIALigacaoCheck && (prospeccao as any).ativo === false;
+                              
                               let status = 'Pendente';
                               let statusColor = 'bg-yellow-100 text-yellow-700';
                               
-                              if (isDisparandoEvento) {
+                              if (eventoDesativado) {
+                                // Evento desativado
+                                status = 'Desativado';
+                                statusColor = 'bg-red-100 text-red-700';
+                              } else if (isDisparandoEvento) {
                                 // Está disparando agora
                                 status = 'Em Progresso';
                                 statusColor = 'bg-blue-100 text-blue-700';
@@ -1827,6 +1836,41 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                                               >
                                                 <Phone className="mr-2 h-4 w-4" />
                                                 Evento não configurado no sistema de Ligação
+                                              </DropdownMenuItem>
+                                            )}
+                                            {/* Toggle Ativar/Desativar para IA Ligação - APENAS Admin/TI */}
+                                            {isIALigacao && ligacaoValidoNoWebhook && isAdminOrTI && (
+                                              <DropdownMenuItem 
+                                                onClick={async () => {
+                                                  const eventoAtivo = (prospeccao as any).ativo !== false;
+                                                  try {
+                                                    await toggleEventoLigacaoAtivo(prospeccao.id, !eventoAtivo);
+                                                    toast({
+                                                      title: eventoAtivo ? "Evento desativado" : "Evento ativado",
+                                                      description: `O evento "${prospeccao.titulo}" foi ${eventoAtivo ? 'desativado' : 'ativado'} com sucesso.`,
+                                                    });
+                                                    refetch();
+                                                  } catch (error: any) {
+                                                    toast({
+                                                      title: "Erro",
+                                                      description: error.message || "Não foi possível alterar o status do evento",
+                                                      variant: "destructive"
+                                                    });
+                                                  }
+                                                }}
+                                                className={(prospeccao as any).ativo === false ? "text-green-600" : "text-amber-600"}
+                                              >
+                                                {(prospeccao as any).ativo === false ? (
+                                                  <>
+                                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                                    Ativar Evento
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <Target className="mr-2 h-4 w-4" />
+                                                    Desativar Evento
+                                                  </>
+                                                )}
                                               </DropdownMenuItem>
                                             )}
                                             <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>

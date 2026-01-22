@@ -80,6 +80,7 @@ export interface Prospeccao {
   canal: 'Whatsapp' | 'Ligação';
   persona_id?: string;
   event_id_pri?: string;
+  ativo?: boolean; // Para eventos de IA Ligação - indica se está ativo ou desativado
   created_at: string;
   updated_at: string;
   // Premiações
@@ -956,11 +957,12 @@ export const useContatoData = () => {
 
   // Ativar/Desativar evento de IA Ligação (envia status para webhook externo)
   // APENAS para Admin e TI
-  const toggleEventoLigacaoAtivo = async (prospeccaoId: string, ativo: boolean) => {
+  const toggleEventoLigacaoAtivo = async (prospeccaoId: string, novoAtivo: boolean) => {
     try {
+      // Buscar sem coluna 'ativo' para evitar erro de tipos até regenerar
       const { data: prospeccaoData, error: fetchError } = await supabase
         .from('prospeccoes')
-        .select('id, titulo, descricao, data_inicio, data_fim, canal, event_id_pri, empresa_id, ativo')
+        .select('id, titulo, descricao, data_inicio, data_fim, canal, event_id_pri, empresa_id')
         .eq('id', prospeccaoId)
         .single();
 
@@ -985,9 +987,9 @@ export const useContatoData = () => {
         throw new Error(`event_id_pri inválido: ${prospeccaoData.event_id_pri}`);
       }
 
-      console.log(`📞 ${ativo ? 'Ativando' : 'Desativando'} evento no webhook (IA Ligação):`, prospeccaoData.titulo);
+      console.log(`📞 ${novoAtivo ? 'Ativando' : 'Desativando'} evento no webhook (IA Ligação):`, prospeccaoData.titulo);
 
-      // Chamar edge function ia-ligacao-webhook com acao 'atualizar' para mudar status
+      // Chamar edge function ia-ligacao-webhook com acao 'ativar' ou 'desativar' para mudar status
       const { data: webhookData, error: webhookError } = await supabase.functions.invoke('ia-ligacao-webhook', {
         body: {
           evento: {
@@ -1006,25 +1008,25 @@ export const useContatoData = () => {
             endereco: null,
           },
           empresa_id: prospeccaoData.empresa_id,
-          acao: ativo ? 'ativar' : 'desativar',
+          acao: novoAtivo ? 'ativar' : 'desativar',
         },
       });
 
       if (webhookError) {
-        console.error(`❌ Erro ao ${ativo ? 'ativar' : 'desativar'} evento:`, webhookError);
-        throw new Error(`Falha ao ${ativo ? 'ativar' : 'desativar'} o evento no webhook.`);
+        console.error(`❌ Erro ao ${novoAtivo ? 'ativar' : 'desativar'} evento:`, webhookError);
+        throw new Error(`Falha ao ${novoAtivo ? 'ativar' : 'desativar'} o evento no webhook.`);
       }
 
       const result: any = webhookData;
       if (result?.success === false || result?.error) {
         console.error('❌ Webhook retornou erro:', result);
-        throw new Error(result?.error || `Falha ao ${ativo ? 'ativar' : 'desativar'} o evento.`);
+        throw new Error(result?.error || `Falha ao ${novoAtivo ? 'ativar' : 'desativar'} o evento.`);
       }
 
-      // Atualizar no Supabase local
+      // Atualizar no Supabase local (usando cast para bypass de tipos até regenerar)
       const { error: updateError } = await supabase
         .from('prospeccoes')
-        .update({ ativo })
+        .update({ ativo: novoAtivo } as any)
         .eq('id', prospeccaoId);
 
       if (updateError) {
@@ -1032,8 +1034,8 @@ export const useContatoData = () => {
         throw updateError;
       }
 
-      console.log(`✅ Evento ${ativo ? 'ativado' : 'desativado'} com sucesso`);
-      setProspeccoes(prev => prev.map(p => p.id === prospeccaoId ? { ...p, ativo } : p));
+      console.log(`✅ Evento ${novoAtivo ? 'ativado' : 'desativado'} com sucesso`);
+      setProspeccoes(prev => prev.map(p => p.id === prospeccaoId ? { ...p, ativo: novoAtivo } : p));
       
       return true;
     } catch (error) {
@@ -1725,6 +1727,7 @@ export const useContatoData = () => {
     criarProspeccao,
     editarProspeccao,
     excluirProspeccao,
+    toggleEventoLigacaoAtivo,
     reenviarGatilhos,
     dispararParaIA,
     contarContatosPendentesDisparo,

@@ -129,12 +129,14 @@ Deno.serve(async (req: Request) => {
       evento: EventoInput;
       contatos?: ContatoInput[];
       empresa_id: string;
-      acao?: 'criar' | 'atualizar' | 'deletar';
+      acao?: 'criar' | 'atualizar' | 'deletar' | 'ativar' | 'desativar';
       agente_template?: { telefone: string; dealer_id: string; nome: string } | null;
     };
 
     // Determinar qual ação executar (padrão: criar)
-    const operacao = acao || 'criar';
+    // 'ativar' e 'desativar' são mapeados para 'atualizar' com status diferente
+    const operacao = acao === 'ativar' || acao === 'desativar' ? 'atualizar' : (acao || 'criar');
+    const statusEvento = acao === 'desativar' ? 'inativo' : 'ativo';
 
     console.log('📞 IA Ligação Webhook - Operação:', operacao);
     console.log('📞 Evento:', evento?.titulo);
@@ -301,7 +303,7 @@ Deno.serve(async (req: Request) => {
       endereco: evento.endereco || empresa?.endereco || '',
       data_inicio: formatarDataISO(evento.data_inicio),
       data_fim: formatarDataISO(evento.data_fim),
-      evt_status: operacao === 'deletar' ? 'inativo' : 'ativo',
+      evt_status: statusEvento,
       criado_em: now,
       atualizado_em: now,
     };
@@ -369,7 +371,7 @@ Deno.serve(async (req: Request) => {
           endereco: evento.endereco || empresa?.endereco || null,
           data_inicio: evento.data_inicio ? new Date(evento.data_inicio).toISOString() : null,
           data_fim: evento.data_fim ? new Date(evento.data_fim).toISOString() : null,
-          evt_status: operacao === 'deletar' ? 'inativo' : 'ativo',
+          evt_status: statusEvento,
           empresa_id: empresa_id,
           atualizado_em: new Date().toISOString(),
         };
