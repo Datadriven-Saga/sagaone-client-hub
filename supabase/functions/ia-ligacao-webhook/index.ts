@@ -5,10 +5,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Webhooks para diferentes operações
+// Webhooks para diferentes operações (exclusão removida intencionalmente)
 const WEBHOOK_CRIAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-evento-ligacao';
-const WEBHOOK_ATUALIZAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-eventos-saga-one';
-const WEBHOOK_DELETAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/deleta-eventos-saga-one';
+const WEBHOOK_ATUALIZAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-evento-ligacao';
 const WEBHOOK_VERIFICA = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos';
 
 // Telefone padrão da Pri (fallback caso não encontre no banco)
