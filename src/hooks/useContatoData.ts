@@ -764,6 +764,50 @@ export const useContatoData = () => {
     }
   };
 
+  // Função auxiliar para registrar auditoria de prospecções
+  const registrarAuditoriaProspeccao = async (
+    prospeccaoId: string,
+    acao: 'criacao' | 'edicao' | 'disparo_ia' | 'adicao_contatos' | 'remocao_contatos',
+    dadosAnteriores?: any,
+    dadosNovos?: any,
+    detalhes?: string
+  ) => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userEmail = userData?.user?.email || '';
+      
+      // Buscar nome do usuário do profile
+      let userName = userEmail;
+      if (userData?.user?.id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('nome_completo')
+          .eq('id', userData.user.id)
+          .single();
+        if (profile?.nome_completo) {
+          userName = profile.nome_completo;
+        }
+      }
+
+      // Usar any para contornar tipos ainda não atualizados
+      await (supabase.from('logs_prospeccoes' as any) as any).insert({
+        prospeccao_id: prospeccaoId,
+        empresa_id: activeCompany?.id,
+        usuario_id: userData?.user?.id,
+        usuario_nome: userName,
+        usuario_email: userEmail,
+        acao,
+        dados_anteriores: dadosAnteriores ? JSON.stringify(dadosAnteriores) : null,
+        dados_novos: dadosNovos ? JSON.stringify(dadosNovos) : null,
+        detalhes
+      });
+      console.log(`📝 Auditoria registrada: ${acao} para prospecção ${prospeccaoId}`);
+    } catch (error) {
+      console.error('Erro ao registrar auditoria:', error);
+      // Não propagar erro para não afetar a operação principal
+    }
+  };
+
   // Criar prospecção com empresa_id automático
   const criarProspeccao = async (dadosProspeccao: Omit<Prospeccao, 'id' | 'created_at' | 'updated_at' | 'leads_gerados'>) => {
     if (!activeCompany?.id) {
@@ -798,6 +842,16 @@ export const useContatoData = () => {
           canal: (data.canal as 'Whatsapp' | 'Ligação') || 'Whatsapp'
         };
         console.log('✅ Prospeccao created successfully:', prospeccaoFormatada);
+        
+        // Registrar auditoria de criação
+        await registrarAuditoriaProspeccao(
+          data.id,
+          'criacao',
+          null,
+          { titulo: data.titulo, canal: data.canal, data_inicio: data.data_inicio, data_fim: data.data_fim },
+          `Evento "${data.titulo}" criado`
+        );
+        
         setProspeccoes(prev => [prospeccaoFormatada, ...prev]);
         toast({ 
           title: "Sucesso", 
@@ -816,9 +870,16 @@ export const useContatoData = () => {
     }
   };
 
-  // Editar prospecção - SIMPLES
+  // Editar prospecção - Com auditoria
   const editarProspeccao = async (prospeccaoId: string, dadosAtualizados: Partial<Prospeccao>) => {
     try {
+      // Buscar dados anteriores para auditoria
+      const { data: dadosAnteriores } = await supabase
+        .from('prospeccoes')
+        .select('titulo, canal, data_inicio, data_fim, descricao')
+        .eq('id', prospeccaoId)
+        .single();
+
       const { data, error } = await supabase
         .from('prospeccoes')
         .update(dadosAtualizados)
@@ -832,6 +893,16 @@ export const useContatoData = () => {
           ...data,
           canal: (data.canal as 'Whatsapp' | 'Ligação') || 'Whatsapp'
         };
+        
+        // Registrar auditoria de edição
+        await registrarAuditoriaProspeccao(
+          prospeccaoId,
+          'edicao',
+          dadosAnteriores,
+          { titulo: data.titulo, canal: data.canal, data_inicio: data.data_inicio, data_fim: data.data_fim },
+          `Evento "${data.titulo}" editado`
+        );
+        
         setProspeccoes(prev => prev.map(p => p.id === prospeccaoId ? prospeccaoFormatada : p));
       }
     } catch (error) {

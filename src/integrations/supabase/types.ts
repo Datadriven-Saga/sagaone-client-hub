@@ -1012,6 +1012,48 @@ export type Database = {
         }
         Relationships: []
       }
+      logs_prospeccoes: {
+        Row: {
+          acao: string
+          created_at: string
+          dados_anteriores: Json | null
+          dados_novos: Json | null
+          detalhes: string | null
+          empresa_id: string
+          id: string
+          prospeccao_id: string
+          usuario_email: string | null
+          usuario_id: string | null
+          usuario_nome: string | null
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          dados_anteriores?: Json | null
+          dados_novos?: Json | null
+          detalhes?: string | null
+          empresa_id: string
+          id?: string
+          prospeccao_id: string
+          usuario_email?: string | null
+          usuario_id?: string | null
+          usuario_nome?: string | null
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          dados_anteriores?: Json | null
+          dados_novos?: Json | null
+          detalhes?: string | null
+          empresa_id?: string
+          id?: string
+          prospeccao_id?: string
+          usuario_email?: string | null
+          usuario_id?: string | null
+          usuario_nome?: string | null
+        }
+        Relationships: []
+      }
       mensagens_padrao: {
         Row: {
           ativo: boolean
