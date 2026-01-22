@@ -912,6 +912,7 @@ export const useContatoData = () => {
   };
 
   // Excluir prospecção - Com webhook para IA Ligação
+  // IMPORTANTE: Eventos de IA Ligação NÃO podem ser excluídos, apenas desativados
   const excluirProspeccao = async (prospeccaoId: string) => {
     try {
       // Primeiro, buscar dados da prospecção para verificar se é IA Ligação
@@ -926,61 +927,15 @@ export const useContatoData = () => {
         throw fetchError;
       }
 
-      // Se for IA Ligação, chamar edge function (server-to-server) para evitar CORS
+      // Se for IA Ligação, NÃO permitir exclusão - apenas desativação via toggleEventoAtivo
       const canalStr = String(prospeccaoData?.canal || '');
       const isLigacao = canalStr.toLowerCase().includes('liga');
 
-      if (isLigacao && prospeccaoData?.event_id_pri) {
-        const idEventoNum = parseInt(prospeccaoData.event_id_pri, 10);
-        if (!Number.isFinite(idEventoNum)) {
-          throw new Error(`event_id_pri inválido: ${prospeccaoData.event_id_pri}`);
-        }
-
-        console.log('📞 Excluindo evento no webhook (IA Ligação) via edge function:', prospeccaoData.titulo);
-        console.log('🔢 ID do evento:', idEventoNum);
-
-        // Chamar edge function ia-ligacao-webhook com acao 'deletar' - ela tem o token SAGA_ONE
-        const { data: webhookData, error: webhookError } = await supabase.functions.invoke('ia-ligacao-webhook', {
-          body: {
-            evento: {
-              id: prospeccaoId,
-              titulo: prospeccaoData.titulo,
-              descricao: null,
-              data_inicio: null,
-              data_fim: null,
-              canal: prospeccaoData.canal,
-              evento_principal: false,
-              qualificar_lead: false,
-              imagem_divulgacao_url: null,
-              id_evento: idEventoNum,
-            },
-            empresa_id: prospeccaoData.empresa_id,
-            acao: 'deletar',
-          },
-        });
-
-        if (webhookError) {
-          console.error('❌ Erro ao chamar edge function ia-ligacao-webhook (deletar):', webhookError);
-          throw new Error('Falha ao excluir o evento no webhook (IA Ligação).');
-        }
-
-        const result: any = webhookData;
-        if (result?.success === false || result?.error) {
-          console.error('❌ Webhook retornou erro (deletar):', result);
-          const detalhe =
-            result?.data?.message ||
-            result?.data?.hint ||
-            result?.data?.raw ||
-            result?.error ||
-            result?.message ||
-            'Falha ao excluir o evento.';
-          throw new Error(`Webhook IA Ligação: ${detalhe}`);
-        }
-
-        console.log('✅ Evento removido no webhook (IA Ligação) com sucesso');
+      if (isLigacao) {
+        throw new Error('Eventos de IA Ligação não podem ser excluídos. Use a opção de desativar.');
       }
 
-      // Excluir no Supabase
+      // Excluir no Supabase (apenas para eventos não-Ligação)
       const { error } = await supabase
         .from('prospeccoes')
         .delete()
@@ -995,6 +950,94 @@ export const useContatoData = () => {
       setProspeccoes(prev => prev.filter(p => p.id !== prospeccaoId));
     } catch (error) {
       console.error('Erro ao excluir prospecção:', error);
+      throw error;
+    }
+  };
+
+  // Ativar/Desativar evento de IA Ligação (envia status para webhook externo)
+  // APENAS para Admin e TI
+  const toggleEventoLigacaoAtivo = async (prospeccaoId: string, ativo: boolean) => {
+    try {
+      const { data: prospeccaoData, error: fetchError } = await supabase
+        .from('prospeccoes')
+        .select('id, titulo, descricao, data_inicio, data_fim, canal, event_id_pri, empresa_id, ativo')
+        .eq('id', prospeccaoId)
+        .single();
+
+      if (fetchError) {
+        console.error('Erro ao buscar prospecção:', fetchError);
+        throw fetchError;
+      }
+
+      const canalStr = String(prospeccaoData?.canal || '');
+      const isLigacao = canalStr.toLowerCase().includes('liga');
+
+      if (!isLigacao) {
+        throw new Error('Esta função é apenas para eventos de IA Ligação.');
+      }
+
+      if (!prospeccaoData?.event_id_pri) {
+        throw new Error('Evento não possui ID externo (event_id_pri).');
+      }
+
+      const idEventoNum = parseInt(prospeccaoData.event_id_pri, 10);
+      if (!Number.isFinite(idEventoNum)) {
+        throw new Error(`event_id_pri inválido: ${prospeccaoData.event_id_pri}`);
+      }
+
+      console.log(`📞 ${ativo ? 'Ativando' : 'Desativando'} evento no webhook (IA Ligação):`, prospeccaoData.titulo);
+
+      // Chamar edge function ia-ligacao-webhook com acao 'atualizar' para mudar status
+      const { data: webhookData, error: webhookError } = await supabase.functions.invoke('ia-ligacao-webhook', {
+        body: {
+          evento: {
+            id: prospeccaoId,
+            titulo: prospeccaoData.titulo,
+            descricao: prospeccaoData.descricao,
+            data_inicio: prospeccaoData.data_inicio,
+            data_fim: prospeccaoData.data_fim,
+            canal: prospeccaoData.canal,
+            evento_principal: false,
+            qualificar_lead: false,
+            imagem_divulgacao_url: null,
+            id_evento: idEventoNum,
+            uf: null,
+            cidade: null,
+            endereco: null,
+          },
+          empresa_id: prospeccaoData.empresa_id,
+          acao: ativo ? 'ativar' : 'desativar',
+        },
+      });
+
+      if (webhookError) {
+        console.error(`❌ Erro ao ${ativo ? 'ativar' : 'desativar'} evento:`, webhookError);
+        throw new Error(`Falha ao ${ativo ? 'ativar' : 'desativar'} o evento no webhook.`);
+      }
+
+      const result: any = webhookData;
+      if (result?.success === false || result?.error) {
+        console.error('❌ Webhook retornou erro:', result);
+        throw new Error(result?.error || `Falha ao ${ativo ? 'ativar' : 'desativar'} o evento.`);
+      }
+
+      // Atualizar no Supabase local
+      const { error: updateError } = await supabase
+        .from('prospeccoes')
+        .update({ ativo })
+        .eq('id', prospeccaoId);
+
+      if (updateError) {
+        console.error('Erro ao atualizar status no banco:', updateError);
+        throw updateError;
+      }
+
+      console.log(`✅ Evento ${ativo ? 'ativado' : 'desativado'} com sucesso`);
+      setProspeccoes(prev => prev.map(p => p.id === prospeccaoId ? { ...p, ativo } : p));
+      
+      return true;
+    } catch (error) {
+      console.error('Erro ao alterar status do evento:', error);
       throw error;
     }
   };
