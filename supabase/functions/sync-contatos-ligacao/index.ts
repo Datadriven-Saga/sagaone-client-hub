@@ -341,6 +341,58 @@ serve(async (req) => {
 
     console.log(`✅ Sincronização de contatos concluída:`, result);
 
+    // =====================================================
+    // BACKUP: Salvar/atualizar na tabela prospect_pri_voz
+    // =====================================================
+    try {
+      console.log('💾 Salvando backup em prospect_pri_voz...');
+      
+      // Buscar nome da loja
+      const { data: empresaData } = await supabase
+        .from('empresas')
+        .select('nome_empresa')
+        .eq('id', empresa_id)
+        .single();
+      
+      const nomeLoja = empresaData?.nome_empresa || '';
+      
+      // Preparar dados para upsert em batch
+      const prospectsBackup = Array.from(webhookContatosMap.entries()).map(([telefone, webhookContato]) => ({
+        telefone_lead: telefone,
+        id_evento: parseInt(id_evento, 10),
+        nome: webhookContato.nome || null,
+        telefone_pri: String(telefone_pri).replace(/\D/g, ''),
+        proposal_id: (webhookContato as any).proposal_id || null,
+        loja: nomeLoja,
+        ligacao_atendida: (webhookContato as any).ligacao_atendida === true,
+        status_agendado: (webhookContato as any).status_agendado === true,
+        enviado_whatsapp: (webhookContato as any).enviado_whatsapp === true,
+        ligacao_erro: (webhookContato as any).ligacao_erro === true,
+        lead_id: (webhookContato as any).lead_id || null,
+        empresa_id: empresa_id,
+        atualizado_em: new Date().toISOString(),
+      }));
+
+      if (prospectsBackup.length > 0) {
+        // Fazer upsert em lotes de 100
+        const batchSize = 100;
+        for (let i = 0; i < prospectsBackup.length; i += batchSize) {
+          const batch = prospectsBackup.slice(i, i + batchSize);
+          const { error: upsertError } = await supabase
+            .from('prospect_pri_voz')
+            .upsert(batch, { onConflict: 'telefone_lead,id_evento' });
+
+          if (upsertError) {
+            console.error(`⚠️ Erro no batch ${i / batchSize + 1} de prospect_pri_voz:`, upsertError);
+          }
+        }
+        console.log(`✅ Backup de ${prospectsBackup.length} prospects salvo em prospect_pri_voz`);
+      }
+    } catch (backupError) {
+      console.error('⚠️ Erro no backup prospect_pri_voz (não crítico):', backupError);
+      // Não falhar a operação principal por erro de backup
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

@@ -348,6 +348,64 @@ Deno.serve(async (req: Request) => {
       responseData = { raw: responseText };
     }
 
+    // =====================================================
+    // BACKUP: Salvar/atualizar na tabela eventos_pri_voz
+    // =====================================================
+    if (response.ok && idEvento) {
+      try {
+        console.log('💾 Salvando backup em eventos_pri_voz...');
+        
+        const backupData = {
+          id_evento: idEvento,
+          nome: evento.titulo || '',
+          descricao: evento.descricao || null,
+          categoria: 'evento',
+          marca: empresa?.marca || empresa?.nome_empresa || '',
+          dealerid: dealerId,
+          telefone_pri: telefonePriLigacao,
+          telefone_pri_whatsapp: telefonePriWhatsapp || null,
+          uf: evento.uf || empresa?.uf || null,
+          cidade: evento.cidade || empresa?.cidade || null,
+          endereco: evento.endereco || empresa?.endereco || null,
+          data_inicio: evento.data_inicio ? new Date(evento.data_inicio).toISOString() : null,
+          data_fim: evento.data_fim ? new Date(evento.data_fim).toISOString() : null,
+          evt_status: operacao === 'deletar' ? 'inativo' : 'ativo',
+          empresa_id: empresa_id,
+          atualizado_em: new Date().toISOString(),
+        };
+
+        if (operacao === 'criar') {
+          // Inserir novo registro
+          const { error: insertError } = await supabase
+            .from('eventos_pri_voz')
+            .insert({
+              ...backupData,
+              criado_em: new Date().toISOString(),
+            });
+
+          if (insertError) {
+            console.error('⚠️ Erro ao inserir backup eventos_pri_voz:', insertError);
+          } else {
+            console.log('✅ Backup criado em eventos_pri_voz');
+          }
+        } else if (operacao === 'atualizar' || operacao === 'deletar') {
+          // Atualizar registro existente (upsert por id_evento)
+          const { error: upsertError } = await supabase
+            .from('eventos_pri_voz')
+            .upsert(backupData, { onConflict: 'id_evento' });
+
+          if (upsertError) {
+            console.error('⚠️ Erro ao atualizar backup eventos_pri_voz:', upsertError);
+          } else {
+            console.log('✅ Backup atualizado em eventos_pri_voz');
+          }
+        }
+      } catch (backupError) {
+        console.error('⚠️ Erro no backup eventos_pri_voz (não crítico):', backupError);
+        // Não falhar a operação principal por erro de backup
+      }
+    }
+
     // Se a criação foi bem-sucedida, retornar o id_evento para ser salvo
     return new Response(
       JSON.stringify({

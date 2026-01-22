@@ -429,6 +429,43 @@ serve(async (req) => {
             console.log(`💾 [${requestId}] ${leadIds.length} leads atualizados no banco`);
           }
 
+          // =====================================================
+          // BACKUP: Salvar na tabela cadencia_pri_voz
+          // =====================================================
+          try {
+            console.log(`💾 [${requestId}] Salvando backup em cadencia_pri_voz...`);
+            
+            const cadenciasBackup = leads.map(lead => ({
+              telefone_lead: normalizePhone(lead.telefone),
+              telefone_pri: telefonePri,
+              id_evento: parseInt(eventIdPri, 10),
+              num_tentativas: 1,
+              hora_primeira_tentativa: dataDisparoIA,
+              hora_ultima_tentativa: dataDisparoIA,
+              empresa_id: empresa_id,
+              criado_em: dataDisparoIA,
+              atualizado_em: dataDisparoIA,
+            }));
+
+            if (cadenciasBackup.length > 0) {
+              // Fazer upsert em lotes de 100
+              const batchSize = 100;
+              for (let i = 0; i < cadenciasBackup.length; i += batchSize) {
+                const batch = cadenciasBackup.slice(i, i + batchSize);
+                const { error: upsertError } = await supabase
+                  .from('cadencia_pri_voz')
+                  .upsert(batch, { onConflict: 'telefone_lead,id_evento' });
+
+                if (upsertError) {
+                  console.error(`⚠️ [${requestId}] Erro no batch ${i / batchSize + 1} de cadencia_pri_voz:`, upsertError);
+                }
+              }
+              console.log(`✅ [${requestId}] Backup de ${cadenciasBackup.length} cadências salvo`);
+            }
+          } catch (backupError: any) {
+            console.error(`⚠️ [${requestId}] Erro no backup cadencia_pri_voz (não crítico):`, backupError);
+          }
+
           const totalDuration = Date.now() - startTime;
           
           return new Response(

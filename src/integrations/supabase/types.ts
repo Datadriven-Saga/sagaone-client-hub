@@ -442,6 +442,53 @@ export type Database = {
           },
         ]
       }
+      cadencia_pri_voz: {
+        Row: {
+          atualizado_em: string | null
+          criado_em: string | null
+          empresa_id: string | null
+          hora_primeira_tentativa: string | null
+          hora_ultima_tentativa: string | null
+          id: string
+          id_evento: number
+          num_tentativas: number | null
+          telefone_lead: string
+          telefone_pri: string | null
+        }
+        Insert: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          empresa_id?: string | null
+          hora_primeira_tentativa?: string | null
+          hora_ultima_tentativa?: string | null
+          id?: string
+          id_evento: number
+          num_tentativas?: number | null
+          telefone_lead: string
+          telefone_pri?: string | null
+        }
+        Update: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          empresa_id?: string | null
+          hora_primeira_tentativa?: string | null
+          hora_ultima_tentativa?: string | null
+          id?: string
+          id_evento?: number
+          num_tentativas?: number | null
+          telefone_lead?: string
+          telefone_pri?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cadencia_pri_voz_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           cep: string | null
@@ -797,6 +844,77 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      eventos_pri_voz: {
+        Row: {
+          atualizado_em: string | null
+          categoria: string | null
+          cidade: string | null
+          criado_em: string | null
+          data_fim: string | null
+          data_inicio: string | null
+          dealerid: string | null
+          descricao: string | null
+          empresa_id: string | null
+          endereco: string | null
+          evt_status: string | null
+          id: string
+          id_evento: number
+          marca: string | null
+          nome: string
+          telefone_pri: string | null
+          telefone_pri_whatsapp: string | null
+          uf: string | null
+        }
+        Insert: {
+          atualizado_em?: string | null
+          categoria?: string | null
+          cidade?: string | null
+          criado_em?: string | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          dealerid?: string | null
+          descricao?: string | null
+          empresa_id?: string | null
+          endereco?: string | null
+          evt_status?: string | null
+          id?: string
+          id_evento: number
+          marca?: string | null
+          nome: string
+          telefone_pri?: string | null
+          telefone_pri_whatsapp?: string | null
+          uf?: string | null
+        }
+        Update: {
+          atualizado_em?: string | null
+          categoria?: string | null
+          cidade?: string | null
+          criado_em?: string | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          dealerid?: string | null
+          descricao?: string | null
+          empresa_id?: string | null
+          endereco?: string | null
+          evt_status?: string | null
+          id?: string
+          id_evento?: number
+          marca?: string | null
+          nome?: string
+          telefone_pri?: string | null
+          telefone_pri_whatsapp?: string | null
+          uf?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eventos_pri_voz_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       eventos_prospeccao: {
         Row: {
@@ -2216,6 +2334,68 @@ export type Database = {
             columns: ["responsavel_id"]
             isOneToOne: false
             referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_pri_voz: {
+        Row: {
+          atualizado_em: string | null
+          criado_em: string | null
+          empresa_id: string | null
+          enviado_whatsapp: boolean | null
+          id: string
+          id_evento: number
+          lead_id: string | null
+          ligacao_atendida: boolean | null
+          ligacao_erro: boolean | null
+          loja: string | null
+          nome: string | null
+          proposal_id: string | null
+          status_agendado: boolean | null
+          telefone_lead: string
+          telefone_pri: string | null
+        }
+        Insert: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          empresa_id?: string | null
+          enviado_whatsapp?: boolean | null
+          id?: string
+          id_evento: number
+          lead_id?: string | null
+          ligacao_atendida?: boolean | null
+          ligacao_erro?: boolean | null
+          loja?: string | null
+          nome?: string | null
+          proposal_id?: string | null
+          status_agendado?: boolean | null
+          telefone_lead: string
+          telefone_pri?: string | null
+        }
+        Update: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          empresa_id?: string | null
+          enviado_whatsapp?: boolean | null
+          id?: string
+          id_evento?: number
+          lead_id?: string | null
+          ligacao_atendida?: boolean | null
+          ligacao_erro?: boolean | null
+          loja?: string | null
+          nome?: string | null
+          proposal_id?: string | null
+          status_agendado?: boolean | null
+          telefone_lead?: string
+          telefone_pri?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_pri_voz_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
             referencedColumns: ["id"]
           },
         ]
