@@ -1750,6 +1750,36 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
               console.log(`✅ event_id_pri "${returnedIdEventoStr}" salvo na prospecção ${prospeccaoData.id}`);
             }
           }
+
+          // ============================================================
+          // SALVAR BASE NO SUPABASE (FONTE PRIMÁRIA) + SYNC EXTERNO
+          // ============================================================
+          if (contatosParaEdge.length > 0 && (acao === 'criar' || acao === 'atualizar')) {
+            console.log(`📦 Salvando ${contatosParaEdge.length} contatos no Supabase (fonte primária)...`);
+            
+            const { data: baseData, error: baseError } = await supabase.functions.invoke('create-base-ligacao', {
+              body: {
+                contatos: contatosParaEdge.map(c => ({
+                  nome: c.nome,
+                  telefone: c.telefone,
+                  email: c.email || null,
+                })),
+                id_evento: parseInt(returnedIdEventoStr, 10),
+                telefone_pri: priTelefoneLimpo,
+                empresa_id: activeCompany.id,
+                prospeccao_id: prospeccaoData.id,
+                loja: empresaCrmData?.nome_empresa || '',
+                sync_external: true, // Sincronizar com sistema externo
+              }
+            });
+
+            if (baseError) {
+              console.error('❌ Erro ao salvar base no Supabase:', baseError);
+              // Não falhar a operação principal, apenas logar
+            } else {
+              console.log('✅ Base salva no Supabase:', baseData?.summary);
+            }
+          }
         }
 
         return true;

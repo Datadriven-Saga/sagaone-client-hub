@@ -206,7 +206,7 @@ export default function EventoBase() {
     return null;
   }, [activeCompany?.id, telefonePriLigacao]);
 
-  // Buscar métricas de IA Ligação do webhook externo (verifica-contatos)
+  // Buscar métricas de IA Ligação DO SUPABASE (fonte primária)
   // Classifica leads por: num_tentativas, status_agendado, enviado_whatsapp, ligacao_atendida, ligacao_erro
   const fetchMetricasLigacao = useCallback(async (): Promise<MetricasLigacaoExternas | null> => {
     if (!eventoId || !activeCompany?.id || !prospeccao) return null;
@@ -218,104 +218,43 @@ export default function EventoBase() {
     try {
       setIsLoadingExternalMetrics(true);
       
-      const telefonePri = await fetchTelefonePriLigacao();
-      if (!telefonePri) {
-        console.warn('⚠️ Telefone Pri(Ligação) não encontrado para buscar métricas externas');
-        return null;
-      }
-
       const idEvento = prospeccao.event_id_pri || eventoId;
       
-      console.log('📊 Buscando métricas externas do webhook verifica-contatos...');
-      console.log('   ├─ id_evento:', idEvento);
-      console.log('   └─ telefone_pri:', telefonePri);
+      console.log('📊 Buscando métricas do Supabase (fonte primária)...');
+      console.log('   └─ id_evento:', idEvento);
 
-      const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+      // Usar edge function que busca do Supabase
+      const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
         body: {
-          endpoint: 'verifica-contatos',
-          id_evento: idEvento,
-          telefone_pri: telefonePri
+          id_evento: parseInt(String(idEvento), 10),
+          empresa_id: activeCompany.id,
+          prospeccao_id: eventoId,
+          page: 1,
+          page_size: 1, // Só precisamos das métricas
         }
       });
 
       if (error) {
-        console.error('❌ Erro ao buscar métricas externas:', error);
+        console.error('❌ Erro ao buscar métricas do Supabase:', error);
         return null;
       }
 
-      console.log('📥 Resposta do webhook verifica-contatos:', data);
+      console.log('📥 Resposta do get-base-ligacao:', data);
 
-      // O webhook retorna um array de contatos com campos de controle
-      if (Array.isArray(data)) {
+      if (data?.success && data?.metricas) {
         const metricsResult: MetricasLigacaoExternas = {
-          total: data.length,
-          pendentes: 0,
-          disparados: 0,
-          emFila: 0,
-          encerrados: 0,
-          agendados: 0,
-          whatsappEnviado: 0,
-          atendidos: 0,
-          elegiveisDisparo: 0
+          total: data.metricas.total || 0,
+          pendentes: data.metricas.pendentes || 0,
+          disparados: data.metricas.disparados || 0,
+          emFila: data.metricas.emFila || 0,
+          encerrados: data.metricas.encerrados || 0,
+          agendados: data.metricas.agendados || 0,
+          whatsappEnviado: data.metricas.whatsappEnviado || 0,
+          atendidos: data.metricas.atendidos || 0,
+          elegiveisDisparo: data.metricas.elegiveisDisparo || 0
         };
 
-        // Mapear contatos externos por telefone para uso posterior
-        const externalMap = new Map<string, any>();
-
-        for (const contato of data) {
-          const numTentativas = Number(contato.num_tentativas) || 0;
-          const statusAgendado = contato.status_agendado === true;
-          const enviadoWhatsapp = contato.enviado_whatsapp === true;
-          const ligacaoAtendida = contato.ligacao_atendida === true;
-          const ligacaoErro = contato.ligacao_erro === true;
-
-          // Normalizar telefone para usar como chave (usar telefone_lead que é o do contato)
-          // Remover +55 e qualquer caractere não numérico
-          let telefone = String(contato.telefone_lead || contato.telefone || '').replace(/\D/g, '');
-          // Remover prefixo 55 se tiver mais de 11 dígitos
-          if (telefone.length > 11 && telefone.startsWith('55')) {
-            telefone = telefone.substring(2);
-          }
-          
-          if (telefone) {
-            externalMap.set(telefone, {
-              status_agendado: statusAgendado,
-              enviado_whatsapp: enviadoWhatsapp,
-              ligacao_atendida: ligacaoAtendida,
-              ligacao_erro: ligacaoErro,
-              num_tentativas: numTentativas
-            });
-          }
-
-          // Contabilizar métricas específicas
-          if (statusAgendado) metricsResult.agendados++;
-          if (enviadoWhatsapp) metricsResult.whatsappEnviado++;
-          if (ligacaoAtendida) metricsResult.atendidos++;
-          
-          // Um lead está "encerrado" se não deve mais receber ligação
-          const isEncerrado = statusAgendado || enviadoWhatsapp || ligacaoAtendida;
-          
-          // Em fila = ligacao_erro=true E NÃO está encerrado
-          if (ligacaoErro && !isEncerrado) metricsResult.emFila++;
-          if (isEncerrado) {
-            metricsResult.encerrados++;
-          }
-
-          // Classificar como pendente ou disparado
-          if (numTentativas === 0) {
-            metricsResult.pendentes++;
-          } else {
-            metricsResult.disparados++;
-          }
-        }
-
-        // Elegíveis = Pendentes (nunca tentados e não encerrados) + Em Fila (retry, não encerrados)
-        metricsResult.elegiveisDisparo = metricsResult.pendentes + metricsResult.emFila;
-
-        // Salvar mapa de contatos externos
-        setContatosExternos(externalMap);
-
-        console.log(`📊 Métricas externas calculadas:`, metricsResult);
+        console.log(`📊 Métricas do Supabase:`, metricsResult);
         return metricsResult;
       }
 
@@ -326,7 +265,7 @@ export default function EventoBase() {
     } finally {
       setIsLoadingExternalMetrics(false);
     }
-  }, [eventoId, activeCompany?.id, prospeccao, fetchTelefonePriLigacao]);
+  }, [eventoId, activeCompany?.id, prospeccao]);
 
   // Buscar métricas usando função SQL otimizada (sem carregar todos os IDs)
   const fetchMetricas = useCallback(async () => {
@@ -397,7 +336,7 @@ export default function EventoBase() {
     }
   }, [prospeccao, fetchMetricas]);
 
-  // Buscar contatos paginados diretamente (sem carregar todos os IDs primeiro)
+  // Buscar contatos paginados - para IA Ligação usa prospect_pri_voz (Supabase)
   const fetchContatos = useCallback(async () => {
     if (!eventoId || !activeCompany?.id) {
       setContatos([]);
@@ -408,10 +347,83 @@ export default function EventoBase() {
     setLoadingPage(true);
 
     try {
+      const canalAtual = prospeccao?.canal?.toLowerCase() || '';
+      const isLigacao = canalAtual.includes('liga');
+
+      // Para IA Ligação, buscar de prospect_pri_voz via edge function
+      if (isLigacao && prospeccao?.event_id_pri) {
+        console.log('📞 Buscando contatos de IA Ligação do Supabase (prospect_pri_voz)...');
+        
+        const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
+          body: {
+            id_evento: parseInt(String(prospeccao.event_id_pri), 10),
+            empresa_id: activeCompany.id,
+            prospeccao_id: eventoId,
+            page: currentPage,
+            page_size: PAGE_SIZE,
+            filters: {
+              search: searchTerm || undefined,
+              status: disparoFilter !== 'todos' ? disparoFilter : undefined,
+              status_ligacao: statusLigacaoFilter !== 'todos' ? statusLigacaoFilter : undefined,
+              tentativas: tentativasFilter !== 'todos' ? tentativasFilter : undefined,
+            }
+          }
+        });
+
+        if (error) throw error;
+
+        if (data?.success && data?.contatos) {
+          // Mapear dados do prospect_pri_voz para o formato ContatoEvento
+          const mappedContatos: ContatoEvento[] = (data.contatos || []).map((p: any) => ({
+            id: p.id,
+            lead_id: p.lead_id ? parseInt(p.lead_id, 10) : null,
+            nome: p.nome || '',
+            telefone: p.telefone_lead || '',
+            email: null,
+            status: p.status_calculado === 'encerrado' 
+              ? (p.status_agendado ? 'Agendado' : p.ligacao_atendida ? 'Atendido' : 'Encerrado')
+              : 'Novo',
+            origem: 'Ligação',
+            created_at: p.criado_em,
+            updated_at: p.atualizado_em,
+            data_disparo_ia: p.num_tentativas > 0 ? p.atualizado_em : null,
+            responsavel_email: null,
+            vendedor_nome: null,
+            // Campos específicos de IA Ligação
+            status_agendado: p.status_agendado,
+            enviado_whatsapp: p.enviado_whatsapp,
+            ligacao_atendida: p.ligacao_atendida,
+            ligacao_erro: p.ligacao_erro,
+            num_tentativas: p.num_tentativas,
+          }));
+
+          setContatos(mappedContatos);
+          setTotalCount(data.pagination?.total || mappedContatos.length);
+          
+          // Também criar mapa de contatos externos para compatibilidade
+          const externalMap = new Map<string, any>();
+          mappedContatos.forEach(c => {
+            const telefone = (c.telefone || '').replace(/\D/g, '');
+            if (telefone) {
+              externalMap.set(telefone, {
+                status_agendado: c.status_agendado,
+                enviado_whatsapp: c.enviado_whatsapp,
+                ligacao_atendida: c.ligacao_atendida,
+                ligacao_erro: c.ligacao_erro,
+                num_tentativas: c.num_tentativas || 0
+              });
+            }
+          });
+          setContatosExternos(externalMap);
+        }
+
+        setLoadingPage(false);
+        return;
+      }
+
+      // Para outros tipos de evento, usar query tradicional (contatos + eventos_prospeccao)
       const offset = (currentPage - 1) * PAGE_SIZE;
 
-      // Query base: join entre eventos_prospeccao e contatos
-      // Aplicar filtros diretamente na query
       let query = supabase
         .from('contatos')
         .select(`
@@ -447,7 +459,6 @@ export default function EventoBase() {
 
       // Mapear dados extraindo data_disparo_ia de eventos_prospeccao
       const cleanData = (data || []).map(({ eventos_prospeccao, ...rest }) => {
-        // eventos_prospeccao é um array (inner join), pegamos o primeiro que corresponde ao evento
         const evento = Array.isArray(eventos_prospeccao) ? eventos_prospeccao[0] : eventos_prospeccao;
         return {
           ...rest,
@@ -488,7 +499,7 @@ export default function EventoBase() {
     } finally {
       setLoadingPage(false);
     }
-  }, [eventoId, activeCompany?.id, searchTerm, statusFilter, disparoFilter, currentPage, metricas.total, toast]);
+  }, [eventoId, activeCompany?.id, searchTerm, statusFilter, disparoFilter, statusLigacaoFilter, tentativasFilter, currentPage, metricas.total, prospeccao, toast]);
 
   // Executar busca quando filtros mudarem
   useEffect(() => {
@@ -1262,6 +1273,8 @@ export default function EventoBase() {
     }
   };
 
+  // Sincronização de contatos IA Ligação - agora apenas recarrega do Supabase (fonte primária)
+  // A sincronização com o sistema externo é feita no momento do upload/disparo
   const syncContatosLigacao = useCallback(async (showToast = true) => {
     const canalAtual = prospeccao?.canal?.toLowerCase() || '';
     const isLigacao = canalAtual.includes('liga');
@@ -1269,102 +1282,35 @@ export default function EventoBase() {
 
     setIsSyncingContatos(true);
     try {
-      console.log('🔄 Iniciando sincronização automática de contatos para evento Ligação...');
+      console.log('🔄 Recarregando contatos do Supabase (fonte primária)...');
 
-      // Buscar telefone do agente Pri(Ligação) para esta empresa via agente_empresas
-      let telefonePri: string | null = null;
-      
-      const { data: agenteEmpresa, error: aeError } = await supabase
-        .from('agente_empresas')
-        .select('agente_id, agentes_ia(id, telefone, nome)')
-        .eq('empresa_id', activeCompany.id);
-
-      if (aeError) {
-        console.error('Erro ao buscar agentes:', aeError);
-      }
-
-      if (agenteEmpresa) {
-        // Buscar especificamente Pri(Ligação)
-        const agenteLigacao = agenteEmpresa.find((ae: any) => {
-          const nome = ae.agentes_ia?.nome?.toLowerCase() || '';
-          return nome.includes('pri') && nome.includes('liga');
-        });
-        
-        if (agenteLigacao) {
-          telefonePri = (agenteLigacao as any).agentes_ia?.telefone;
-          console.log(`📞 Encontrado agente Pri(Ligação): ${(agenteLigacao as any).agentes_ia?.nome} - Tel: ${telefonePri}`);
-        }
-      }
-
-      if (!telefonePri) {
-        if (showToast) {
-          toast({ 
-            title: "Agente não configurado", 
-            description: "Configure um agente Pri(Ligação) com telefone para sincronizar contatos",
-            variant: "destructive" 
-          });
-        }
-        console.warn('⚠️ Não foi possível encontrar o telefone do agente de Ligação para esta empresa');
-        setIsSyncingContatos(false);
-        return;
-      }
-
-      // Usar event_id_pri do evento ou o ID local
-      const idEvento = prospeccao.event_id_pri || eventoId;
-
-      console.log('📞 Sincronizando com telefone_pri:', telefonePri, 'id_evento:', idEvento);
-
-      const { data, error } = await supabase.functions.invoke('sync-contatos-ligacao', {
-        body: {
-          telefone_pri: telefonePri,
-          id_evento: idEvento,
-          empresa_id: activeCompany.id,
-          prospeccao_id: prospeccao.id,
-          dry_run: false
-        }
-      });
-
-      if (error) throw error;
-
-      console.log('✅ Resultado da sincronização:', data);
-
-      if (showToast) {
-        const summary = data?.summary || {};
-        toast({ 
-          title: "Sincronização concluída", 
-          description: `Criados: ${summary.criados || 0}, Removidos: ${summary.deletados || 0}, Mantidos: ${summary.mantidos || 0}` 
-        });
-      }
-
-      // Recarregar dados
+      // Recarregar dados do Supabase
       await fetchMetricas();
       await fetchContatos();
 
+      if (showToast) {
+        toast({ 
+          title: "Dados atualizados", 
+          description: "Contatos recarregados do banco de dados" 
+        });
+      }
+
     } catch (error) {
-      console.error('Erro ao sincronizar contatos:', error);
+      console.error('Erro ao recarregar contatos:', error);
       if (showToast) {
         toast({ 
           title: "Erro", 
-          description: "Erro ao sincronizar contatos: " + (error as Error).message, 
+          description: "Erro ao recarregar contatos: " + (error as Error).message, 
           variant: "destructive" 
         });
       }
     } finally {
       setIsSyncingContatos(false);
     }
-  }, [prospeccao, activeCompany?.id, eventoId, fetchMetricas, fetchContatos, toast]);
+  }, [prospeccao, activeCompany?.id, fetchMetricas, fetchContatos, toast]);
 
-  // Sincronização automática de contatos para eventos de Ligação
-  useEffect(() => {
-    if (prospeccao && activeCompany?.id) {
-      const canalAtual = prospeccao.canal?.toLowerCase() || '';
-      const isLigacao = canalAtual.includes('liga');
-      if (isLigacao) {
-        // Sincronizar automaticamente sem toast
-        syncContatosLigacao(false);
-      }
-    }
-  }, [prospeccao?.id, activeCompany?.id]);
+  // Não precisa mais de sincronização automática - dados já estão no Supabase
+  // useEffect removido para evitar chamadas desnecessárias
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
