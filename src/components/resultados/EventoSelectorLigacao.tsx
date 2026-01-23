@@ -150,6 +150,10 @@ export const EventoSelectorLigacao = ({
           if (matchingAgent) {
             setSelectedAgent(matchingAgent);
           }
+        } else if (priAgents.length > 0 && !selectedAgent) {
+          // Auto-selecionar o primeiro agente por padrão se não houver seleção prévia
+          console.log('🎯 Auto-selecionando primeiro agente:', priAgents[0].nome);
+          setSelectedAgent(priAgents[0]);
         }
       } catch (error) {
         console.error('Error:', error);
@@ -162,7 +166,7 @@ export const EventoSelectorLigacao = ({
     fetchAgents();
   }, [activeCompany?.id, agentPhone]);
 
-  // Fetch events when agent is selected - filter by company dealer_id
+  // Fetch events when agent is selected - use verifica-eventos with telefone_pri + dealerid
   useEffect(() => {
     const fetchEvents = async () => {
       if (!selectedAgent?.telefone) {
@@ -181,51 +185,40 @@ export const EventoSelectorLigacao = ({
       try {
         setLoadingEvents(true);
         
-        // Use edge function para consultar eventos-pri com token SAGA_ONE
+        // Use edge function para consultar verifica-eventos com telefone_pri + dealerid
+        console.log('📊 Buscando eventos com telefone_pri:', selectedAgent.telefone, 'e dealerid:', companyDealerId);
+        
         const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
-          body: { endpoint: 'eventos-pri', telefone_pri: selectedAgent.telefone },
+          body: { 
+            endpoint: 'verifica-eventos', 
+            telefone_pri: selectedAgent.telefone,
+            dealerid: companyDealerId
+          },
         });
         
         if (error) {
           throw new Error('Erro ao buscar eventos');
         }
         
-        console.log('📊 Resposta da API eventos-pri:', data);
-        console.log('🔍 Filtrando eventos pelo dealer_id:', companyDealerId);
+        console.log('📊 Resposta da API verifica-eventos:', data);
         
-        // A API retorna: [{ total_eventos: N, dados_eventos: [...] }]
-        const rawData = Array.isArray(data) ? data[0] : data;
-        const eventsArray = rawData?.dados_eventos || rawData?.eventos || data || [];
+        // A API retorna array de eventos filtrados pelo telefone_pri + dealerid
+        const eventsArray = Array.isArray(data) ? data : (data?.dados_eventos || data?.eventos || []);
         
-        // Mapear e FILTRAR apenas eventos que pertencem à esta loja (dealer_id)
-        const eventsData = eventsArray
-          .map((e: any) => {
-            return {
-              id: String(e.id_evento || e.id),
-              nome: e.evt_nome || e.nome || e.name || e.evento_nome || 'Evento sem nome',
-              telefone_pri: e.telefone_pri,
-              cidade: e.cidade,
-              uf: e.uf || e.estado,
-              estado: e.uf || e.estado,
-              marca: e.marca,
-              dealer_id: String(e.dealer_id || e.dealerid || '').trim(),
-              evt_status: e.evt_status || 'ativo',
-            };
-          })
-          .filter((event: EventData) => {
-            // Regra: cada evento pertence a UM dealer_id apenas
-            // Comparar o dealer_id do evento com o crm_id da empresa ativa
-            const eventDealerId = String(event.dealer_id || '').trim();
-            const matches = eventDealerId === companyDealerId;
-            
-            if (!matches && eventDealerId) {
-              console.log(`🚫 Evento "${event.nome}" (dealer_id: ${eventDealerId}) não pertence a esta loja (${companyDealerId})`);
-            }
-            
-            return matches;
-          });
+        // Mapear eventos retornados (já vem filtrado pelo backend)
+        const eventsData = eventsArray.map((e: any) => ({
+          id: String(e.id_evento || e.id),
+          nome: e.evt_nome || e.nome || e.name || e.evento_nome || 'Evento sem nome',
+          telefone_pri: e.telefone_pri,
+          cidade: e.cidade,
+          uf: e.uf || e.estado,
+          estado: e.uf || e.estado,
+          marca: e.marca,
+          dealer_id: String(e.dealer_id || e.dealerid || '').trim(),
+          evt_status: e.evt_status || 'ativo',
+        }));
         
-        console.log(`✅ ${eventsData.length} eventos filtrados para dealer_id ${companyDealerId}`);
+        console.log(`✅ ${eventsData.length} eventos encontrados para telefone_pri ${selectedAgent.telefone} + dealerid ${companyDealerId}`);
         setEvents(eventsData);
       } catch (error) {
         console.error('Error fetching events:', error);

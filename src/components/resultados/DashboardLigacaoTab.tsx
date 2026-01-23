@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useCompany } from '@/contexts/CompanyContext';
 
 interface DashboardLigacaoTabProps {
   selectedEventId: string | null;
@@ -108,6 +109,7 @@ export const DashboardLigacaoTab = ({
   selectedAgentPhone,
   onEventChange 
 }: DashboardLigacaoTabProps) => {
+  const { activeCompany } = useCompany();
   const [filters, setFilters] = useState({
     search: '',
     loja: '',
@@ -125,12 +127,46 @@ export const DashboardLigacaoTab = ({
   const [lastAppUpdate, setLastAppUpdate] = useState('');
   const [availableEvents, setAvailableEvents] = useState<EventData[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
+  const [companyDealerId, setCompanyDealerId] = useState<string | null>(null);
+
+  // Fetch company dealer_id (crm_id) for filtering events
+  useEffect(() => {
+    const fetchCompanyDealerId = async () => {
+      if (!activeCompany?.id) {
+        setCompanyDealerId(null);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('empresas')
+          .select('crm_id')
+          .eq('id', activeCompany.id)
+          .single();
+
+        if (error) {
+          console.error('Erro ao buscar crm_id da empresa:', error);
+          setCompanyDealerId(null);
+          return;
+        }
+
+        const dealerId = data?.crm_id?.trim() || null;
+        console.log('🏪 Dashboard Ligação - Dealer ID (crm_id):', dealerId);
+        setCompanyDealerId(dealerId);
+      } catch (error) {
+        console.error('Erro ao buscar dealer_id:', error);
+        setCompanyDealerId(null);
+      }
+    };
+
+    fetchCompanyDealerId();
+  }, [activeCompany?.id]);
 
   useEffect(() => {
-    if (selectedAgentPhone) {
+    if (selectedAgentPhone && companyDealerId) {
       loadAvailableEvents();
     }
-  }, [selectedAgentPhone]);
+  }, [selectedAgentPhone, companyDealerId]);
 
   useEffect(() => {
     if (selectedEventId && selectedAgentPhone) {
@@ -139,12 +175,18 @@ export const DashboardLigacaoTab = ({
   }, [selectedEventId, selectedAgentPhone]);
 
   const loadAvailableEvents = async () => {
-    if (!selectedAgentPhone) return;
+    if (!selectedAgentPhone || !companyDealerId) return;
     
     try {
-      // Use edge function para consultar com token SAGA_ONE - usando eventos-pri
+      // Use edge function para consultar verifica-eventos com telefone_pri + dealerid
+      console.log('📊 DashboardLigacao - Buscando eventos com telefone_pri:', selectedAgentPhone, 'e dealerid:', companyDealerId);
+      
       const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
-        body: { endpoint: 'eventos-pri', telefone_pri: selectedAgentPhone },
+        body: { 
+          endpoint: 'verifica-eventos', 
+          telefone_pri: selectedAgentPhone,
+          dealerid: companyDealerId
+        },
       });
       
       if (error) {
@@ -153,9 +195,8 @@ export const DashboardLigacaoTab = ({
       
       console.log('📊 DashboardLigacao - Resposta eventos:', data);
       
-      // A API retorna: [{ total_eventos: N, dados_eventos: [...] }]
-      const rawData = Array.isArray(data) ? data[0] : data;
-      const eventsArray = rawData?.dados_eventos || rawData?.eventos || data || [];
+      // A API retorna array de eventos filtrados pelo telefone_pri + dealerid
+      const eventsArray = Array.isArray(data) ? data : (data?.dados_eventos || data?.eventos || []);
       
       const events = eventsArray.map((e: any) => ({
         id: String(e.id_evento || e.id),
@@ -167,6 +208,7 @@ export const DashboardLigacaoTab = ({
         marca: e.marca,
       }));
       
+      console.log(`✅ DashboardLigacao - ${events.length} eventos encontrados`);
       setAvailableEvents(events);
       
       // Set selected event if we have one

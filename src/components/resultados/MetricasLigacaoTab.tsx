@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useCompany } from '@/contexts/CompanyContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -75,10 +76,12 @@ interface Filters {
 }
 
 export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabProps) => {
+  const { activeCompany } = useCompany();
   const [allEventsData, setAllEventsData] = useState<EventMetrics[]>([]);
   const [loading, setLoading] = useState(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [lastAppUpdate, setLastAppUpdate] = useState('');
+  const [companyDealerId, setCompanyDealerId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({
     telefone_pri: '',
     evento: '',
@@ -88,28 +91,69 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
     showOnlyWhatsapp: false,
   });
 
+  // Fetch company dealer_id (crm_id) for filtering events
   useEffect(() => {
-    if (selectedAgentPhone) {
+    const fetchCompanyDealerId = async () => {
+      if (!activeCompany?.id) {
+        setCompanyDealerId(null);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('empresas')
+          .select('crm_id')
+          .eq('id', activeCompany.id)
+          .single();
+
+        if (error) {
+          console.error('Erro ao buscar crm_id da empresa:', error);
+          setCompanyDealerId(null);
+          return;
+        }
+
+        const dealerId = data?.crm_id?.trim() || null;
+        console.log('🏪 Métricas Ligação - Dealer ID (crm_id):', dealerId);
+        setCompanyDealerId(dealerId);
+      } catch (error) {
+        console.error('Erro ao buscar dealer_id:', error);
+        setCompanyDealerId(null);
+      }
+    };
+
+    fetchCompanyDealerId();
+  }, [activeCompany?.id]);
+
+  useEffect(() => {
+    if (selectedAgentPhone && companyDealerId) {
       fetchAllMetrics();
     }
-  }, [selectedAgentPhone]);
+  }, [selectedAgentPhone, companyDealerId]);
 
   const fetchAllMetrics = async () => {
-    if (!selectedAgentPhone) return;
+    if (!selectedAgentPhone || !companyDealerId) return;
     
     try {
       setLoading(true);
       
-      // First get all events for this agent via edge function
+      // First get all events for this agent via edge function with dealerid
+      console.log('📊 Métricas - Buscando eventos com telefone_pri:', selectedAgentPhone, 'e dealerid:', companyDealerId);
+      
       const { data: eventsData, error: eventsError } = await supabase.functions.invoke('external-webhook-proxy', {
-        body: { endpoint: 'verifica-eventos', telefone_pri: selectedAgentPhone },
+        body: { 
+          endpoint: 'verifica-eventos', 
+          telefone_pri: selectedAgentPhone,
+          dealerid: companyDealerId
+        },
       });
       
       if (eventsError) {
         throw new Error('Erro ao buscar eventos');
       }
       
-      const events = eventsData?.eventos || eventsData || [];
+      const events = Array.isArray(eventsData) ? eventsData : (eventsData?.eventos || []);
+      
+      console.log(`✅ Métricas - ${events.length} eventos encontrados`);
       
       if (events.length === 0) {
         setAllEventsData([]);
@@ -117,17 +161,17 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
         return;
       }
       
-      // Fetch data for each event
+      // Fetch data for each event using dash-pri
       const allData: EventMetrics[] = [];
       
       for (const event of events) {
         try {
           const eventId = String(event.id_evento || event.id);
           
-          // Use edge function para consultar com token SAGA_ONE
+          // Use edge function para consultar dash-pri com telefone_pri + id_evento
           const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
             body: { 
-              endpoint: 'verifica-contatos', 
+              endpoint: 'dash-pri', 
               telefone_pri: selectedAgentPhone, 
               id_evento: eventId 
             },
