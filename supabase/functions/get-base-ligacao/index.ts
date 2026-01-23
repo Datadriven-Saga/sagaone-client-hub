@@ -105,52 +105,83 @@ Deno.serve(async (req: Request) => {
     }
 
     // =====================================================
-    // BUSCAR TODOS OS PROSPECTS
-    // Filtrar por id_evento + empresa_id (prospect_pri_voz não tem coluna dealerid)
+    // BUSCAR TODOS OS PROSPECTS - Usando apenas id_evento como PK
+    // A tabela prospect_pri_voz já está segmentada por id_evento
     // =====================================================
-    console.log(`📥 [${requestId}] Buscando prospects: id_evento=${id_evento}, empresa_id=${empresa_id}, loja=${lojaFilter || 'todas'}`);
+    console.log(`📥 [${requestId}] Buscando TODOS os prospects para id_evento=${id_evento}`);
     
-    const { data: allProspects, error: prospectsError, count: prospectsCount } = await supabase
-      .from('prospect_pri_voz')
-      .select('*', { count: 'exact' })
-      .eq('id_evento', id_evento)
-      .eq('empresa_id', empresa_id)
-      .limit(60000); // Limite alto para eventos grandes
+    // Buscar em lotes para contornar limite do Supabase
+    let allProspects: any[] = [];
+    let hasMore = true;
+    let offset = 0;
+    const batchSize = 10000;
     
-    console.log(`📊 [${requestId}] Query prospects retornou ${allProspects?.length || 0} registros (count: ${prospectsCount})`);
-
-    if (prospectsError) {
-      console.error(`❌ [${requestId}] Erro ao buscar prospects:`, prospectsError);
-      return new Response(
-        JSON.stringify({ success: false, error: prospectsError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    while (hasMore) {
+      const { data: batch, error: batchError } = await supabase
+        .from('prospect_pri_voz')
+        .select('*')
+        .eq('id_evento', id_evento)
+        .range(offset, offset + batchSize - 1);
+      
+      if (batchError) {
+        console.error(`❌ [${requestId}] Erro ao buscar prospects (batch ${offset}):`, batchError);
+        return new Response(
+          JSON.stringify({ success: false, error: batchError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (batch && batch.length > 0) {
+        allProspects = allProspects.concat(batch);
+        offset += batchSize;
+        hasMore = batch.length === batchSize;
+        console.log(`📊 [${requestId}] Batch ${Math.ceil(offset/batchSize)}: +${batch.length} prospects (total: ${allProspects.length})`);
+      } else {
+        hasMore = false;
+      }
     }
+    
+    console.log(`📊 [${requestId}] Total prospects carregados: ${allProspects.length}`);
 
     // =====================================================
     // BUSCAR CADENCIAS (tentativas) - JOIN por telefone_lead + id_evento
+    // Também em lotes para eventos grandes
     // =====================================================
-    const { data: cadenciaData, error: cadenciaError } = await supabase
-      .from('cadencia_pri_voz')
-      .select('telefone_lead, telefone_pri, id_evento, num_tentativas, hora_primeira_tentativa, hora_ultima_tentativa')
-      .eq('id_evento', id_evento)
-      .eq('empresa_id', empresa_id)
-      .limit(60000);
+    let allCadencias: any[] = [];
+    hasMore = true;
+    offset = 0;
     
-    console.log(`📊 [${requestId}] Query cadencia retornou ${cadenciaData?.length || 0} registros`);
-
-    if (cadenciaError) {
-      console.error(`❌ [${requestId}] Erro ao buscar cadencias:`, cadenciaError);
+    while (hasMore) {
+      const { data: batch, error: batchError } = await supabase
+        .from('cadencia_pri_voz')
+        .select('telefone_lead, telefone_pri, id_evento, num_tentativas, hora_primeira_tentativa, hora_ultima_tentativa')
+        .eq('id_evento', id_evento)
+        .range(offset, offset + batchSize - 1);
+      
+      if (batchError) {
+        console.error(`❌ [${requestId}] Erro ao buscar cadencias (batch ${offset}):`, batchError);
+        break;
+      }
+      
+      if (batch && batch.length > 0) {
+        allCadencias = allCadencias.concat(batch);
+        offset += batchSize;
+        hasMore = batch.length === batchSize;
+      } else {
+        hasMore = false;
+      }
     }
+    
+    console.log(`📊 [${requestId}] Total cadencias carregadas: ${allCadencias.length}`);
 
-    // Criar mapa de cadencias por telefone_lead
+    // Criar mapa de cadencias por telefone_lead (PK do JOIN)
     const cadenciaMap = new Map<string, {
       num_tentativas: number;
       hora_primeira_tentativa: string | null;
       hora_ultima_tentativa: string | null;
     }>();
     
-    (cadenciaData || []).forEach(c => {
+    allCadencias.forEach(c => {
       cadenciaMap.set(c.telefone_lead, {
         num_tentativas: c.num_tentativas || 0,
         hora_primeira_tentativa: c.hora_primeira_tentativa,
@@ -158,7 +189,7 @@ Deno.serve(async (req: Request) => {
       });
     });
 
-    console.log(`📊 [${requestId}] Prospects: ${allProspects?.length || 0}, Cadencias mapeadas: ${cadenciaMap.size}`);
+    console.log(`📊 [${requestId}] Prospects: ${allProspects.length}, Cadencias mapeadas: ${cadenciaMap.size}`);
 
     // =====================================================
     // ENRIQUECER PROSPECTS COM DADOS DE CADENCIA (JOIN)
