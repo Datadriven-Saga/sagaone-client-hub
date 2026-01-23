@@ -276,7 +276,7 @@ Deno.serve(async (req: Request) => {
     console.log(`📊 [${requestId}] Métricas${lojaFilter ? ` (loja: ${lojaFilter})` : ''}: total=${metricas.total}, pendentes=${metricas.pendentes}, agendados=${metricas.agendados}, atendidos=${metricas.atendidos}`);
 
     // =====================================================
-    // APLICAR FILTROS ADICIONAIS (client-side, após JOIN)
+    // APLICAR FILTROS ADICIONAIS (server-side, após JOIN)
     // =====================================================
     let filteredProspects = [...prospectsForMetrics];
 
@@ -305,17 +305,36 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    if (filters.tentativas && filters.tentativas !== 'todos') {
+    if (filters.tentativas && filters.tentativas !== 'todos' && filters.tentativas !== '__all__') {
       filteredProspects = filteredProspects.filter(p => {
         switch (filters.tentativas) {
           case '0': return p.num_tentativas === 0;
           case '1': return p.num_tentativas === 1;
           case '2': return p.num_tentativas === 2;
+          case '3': return p.num_tentativas === 3;
           case '3+': return p.num_tentativas >= 3;
           default: return true;
         }
       });
     }
+
+    // =====================================================
+    // RECALCULAR MÉTRICAS APÓS FILTROS
+    // =====================================================
+    const hasFilters = filters.search || filters.status_ligacao || filters.tentativas;
+    const metricasFinais: MetricasResult = hasFilters ? {
+      total: filteredProspects.length,
+      pendentes: filteredProspects.filter(p => p.status_calculado === 'pendente').length,
+      disparados: filteredProspects.filter(p => p.status_calculado === 'disparado').length,
+      emFila: filteredProspects.filter(p => p.status_calculado === 'em_fila').length,
+      encerrados: filteredProspects.filter(p => p.status_calculado === 'encerrado').length,
+      agendados: filteredProspects.filter(p => p.status_agendado).length,
+      whatsappEnviado: filteredProspects.filter(p => p.enviado_whatsapp).length,
+      atendidos: filteredProspects.filter(p => p.ligacao_atendida).length,
+      elegiveisDisparo: filteredProspects.filter(p => p.status_calculado === 'pendente' || p.status_calculado === 'em_fila').length,
+    } : metricas;
+
+    console.log(`📊 [${requestId}] Após filtros: ${filteredProspects.length} de ${prospectsForMetrics.length} prospects`);
 
     // =====================================================
     // PAGINAÇÃO
@@ -337,7 +356,8 @@ Deno.serve(async (req: Request) => {
           dealerid: eventoData.dealerid,
           telefone_pri: eventoData.telefone_pri,
         } : null,
-        metricas,
+        metricas: metricasFinais, // Métricas já consideram filtros aplicados
+        metricas_totais: metricas, // Métricas totais sem filtros (para referência)
         lojas, // Lista de lojas disponíveis com contagem
         loja_selecionada: lojaFilter || null,
         contatos: paginatedProspects,
