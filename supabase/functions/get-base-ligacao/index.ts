@@ -9,10 +9,12 @@ interface RequestBody {
   id_evento: number;
   empresa_id: string;
   prospeccao_id?: string;
+  loja?: string; // Filtro por loja específica
   page?: number;
   page_size?: number;
   filters?: {
     search?: string;
+    loja?: string; // Filtro por loja
     status?: 'todos' | 'pendente' | 'em_fila' | 'disparado' | 'encerrado';
     status_ligacao?: 'todos' | 'agendado' | 'whatsapp' | 'atendido' | 'em_fila' | 'elegivel';
     tentativas?: 'todos' | '0' | '1' | '2' | '3+';
@@ -31,6 +33,11 @@ interface MetricasResult {
   elegiveisDisparo: number;
 }
 
+interface LojaInfo {
+  loja: string;
+  total: number;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -44,10 +51,14 @@ Deno.serve(async (req: Request) => {
     const { 
       id_evento, 
       empresa_id, 
+      loja: lojaParam,
       page = 1, 
       page_size = 20,
       filters = {}
     } = body;
+    
+    // Loja pode vir como parâmetro direto ou dentro de filters
+    const lojaFilter = lojaParam || filters.loja;
 
     if (!id_evento) {
       return new Response(
@@ -63,7 +74,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log(`📥 [${requestId}] Parâmetros: id_evento=${id_evento}, empresa=${empresa_id}, page=${page}`);
+    console.log(`📥 [${requestId}] Parâmetros: id_evento=${id_evento}, empresa=${empresa_id}, loja=${lojaFilter || 'todas'}, page=${page}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -143,10 +154,32 @@ Deno.serve(async (req: Request) => {
     });
 
     // =====================================================
-    // CALCULAR MÉTRICAS (todos os prospects, sem filtro)
+    // FILTRAR POR LOJA SE ESPECIFICADA (antes de calcular métricas)
+    // =====================================================
+    let prospectsForMetrics = enrichedProspects;
+    if (lojaFilter && lojaFilter !== '__all__') {
+      prospectsForMetrics = enrichedProspects.filter(p => p.loja === lojaFilter);
+      console.log(`🏪 [${requestId}] Filtrado por loja "${lojaFilter}": ${prospectsForMetrics.length} de ${enrichedProspects.length}`);
+    }
+
+    // =====================================================
+    // LISTAR LOJAS DISPONÍVEIS (para o dropdown)
+    // =====================================================
+    const lojasMap = new Map<string, number>();
+    enrichedProspects.forEach(p => {
+      if (p.loja) {
+        lojasMap.set(p.loja, (lojasMap.get(p.loja) || 0) + 1);
+      }
+    });
+    const lojas: LojaInfo[] = Array.from(lojasMap.entries())
+      .map(([loja, total]) => ({ loja, total }))
+      .sort((a, b) => b.total - a.total);
+
+    // =====================================================
+    // CALCULAR MÉTRICAS (considerando filtro de loja)
     // =====================================================
     const metricas: MetricasResult = {
-      total: enrichedProspects.length,
+      total: prospectsForMetrics.length,
       pendentes: 0,
       disparados: 0,
       emFila: 0,
@@ -157,7 +190,7 @@ Deno.serve(async (req: Request) => {
       elegiveisDisparo: 0,
     };
 
-    enrichedProspects.forEach(p => {
+    prospectsForMetrics.forEach(p => {
       if (p.status_calculado === 'encerrado') metricas.encerrados++;
       if (p.status_calculado === 'em_fila') metricas.emFila++;
       if (p.status_calculado === 'pendente') metricas.pendentes++;
@@ -169,12 +202,12 @@ Deno.serve(async (req: Request) => {
 
     metricas.elegiveisDisparo = metricas.pendentes + metricas.emFila;
 
-    console.log(`📊 [${requestId}] Métricas: total=${metricas.total}, pendentes=${metricas.pendentes}, encerrados=${metricas.encerrados}`);
+    console.log(`📊 [${requestId}] Métricas${lojaFilter ? ` (loja: ${lojaFilter})` : ''}: total=${metricas.total}, pendentes=${metricas.pendentes}, encerrados=${metricas.encerrados}`);
 
     // =====================================================
-    // APLICAR FILTROS (client-side, após JOIN)
+    // APLICAR FILTROS ADICIONAIS (client-side, após JOIN)
     // =====================================================
-    let filteredProspects = [...enrichedProspects];
+    let filteredProspects = [...prospectsForMetrics];
 
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
@@ -228,6 +261,8 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         success: true,
         metricas,
+        lojas, // Lista de lojas disponíveis com contagem
+        loja_selecionada: lojaFilter || null,
         contatos: paginatedProspects,
         pagination: {
           page,
