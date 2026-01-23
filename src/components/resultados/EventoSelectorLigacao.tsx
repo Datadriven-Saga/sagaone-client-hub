@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, MapPin, Search, Filter, Radio, RefreshCw, X } from 'lucide-react';
+import { Loader2, MapPin, Search, Radio, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -62,7 +62,6 @@ export const EventoSelectorLigacao = ({
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(false);
-  const [companyDealerId, setCompanyDealerId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({
     search: '',
     cidade: '',
@@ -71,39 +70,6 @@ export const EventoSelectorLigacao = ({
     showAtivos: true,
     showInativos: true,
   });
-
-  // Fetch company dealer_id (crm_id) for filtering events
-  useEffect(() => {
-    const fetchCompanyDealerId = async () => {
-      if (!activeCompany?.id) {
-        setCompanyDealerId(null);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('empresas')
-          .select('crm_id')
-          .eq('id', activeCompany.id)
-          .single();
-
-        if (error) {
-          console.error('Erro ao buscar crm_id da empresa:', error);
-          setCompanyDealerId(null);
-          return;
-        }
-
-        const dealerId = data?.crm_id?.trim() || null;
-        console.log('🏪 Dealer ID (crm_id) da empresa ativa:', dealerId);
-        setCompanyDealerId(dealerId);
-      } catch (error) {
-        console.error('Erro ao buscar dealer_id:', error);
-        setCompanyDealerId(null);
-      }
-    };
-
-    fetchCompanyDealerId();
-  }, [activeCompany?.id]);
 
   // Fetch agents (Pri - Ligação type only - filter by nome containing "Ligação" or "ligacao")
   useEffect(() => {
@@ -166,59 +132,44 @@ export const EventoSelectorLigacao = ({
     fetchAgents();
   }, [activeCompany?.id, agentPhone]);
 
-  // Fetch events when agent is selected - use verifica-eventos with telefone_pri + dealerid
+  // Fetch events when agent is selected - use local cache table eventos_pri_voz
   useEffect(() => {
     const fetchEvents = async () => {
-      if (!selectedAgent?.telefone) {
-        setEvents([]);
-        return;
-      }
-
-      // Validar que temos o dealer_id da empresa para filtrar
-      if (!companyDealerId) {
-        console.warn('⚠️ Empresa sem crm_id/dealer_id configurado - não é possível filtrar eventos');
-        toast.error('Empresa sem crm_id configurado. Configure o crm_id da loja.');
+      if (!activeCompany?.id || !selectedAgent?.telefone) {
         setEvents([]);
         return;
       }
       
       try {
         setLoadingEvents(true);
-        
-        // Use edge function para consultar verifica-eventos com telefone_pri + dealerid
-        console.log('📊 Buscando eventos com telefone_pri:', selectedAgent.telefone, 'e dealerid:', companyDealerId);
-        
-        const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
-          body: { 
-            endpoint: 'verifica-eventos', 
-            telefone_pri: selectedAgent.telefone,
-            dealerid: companyDealerId
-          },
-        });
-        
+
+        console.log('📊 Buscando eventos (eventos_pri_voz) com telefone_pri:', selectedAgent.telefone, 'empresa_id:', activeCompany.id);
+
+        const { data, error } = await supabase
+          .from('eventos_pri_voz')
+          .select('id_evento, nome, telefone_pri, cidade, uf, marca, dealerid, evt_status, data_inicio')
+          .eq('empresa_id', activeCompany.id)
+          .eq('telefone_pri', selectedAgent.telefone)
+          .order('data_inicio', { ascending: false });
+
         if (error) {
-          throw new Error('Erro ao buscar eventos');
+          console.error('Erro ao buscar eventos_pri_voz:', error);
+          throw new Error(error.message);
         }
-        
-        console.log('📊 Resposta da API verifica-eventos:', data);
-        
-        // A API retorna array de eventos filtrados pelo telefone_pri + dealerid
-        const eventsArray = Array.isArray(data) ? data : (data?.dados_eventos || data?.eventos || []);
-        
-        // Mapear eventos retornados (já vem filtrado pelo backend)
-        const eventsData = eventsArray.map((e: any) => ({
-          id: String(e.id_evento || e.id),
-          nome: e.evt_nome || e.nome || e.name || e.evento_nome || 'Evento sem nome',
-          telefone_pri: e.telefone_pri,
-          cidade: e.cidade,
-          uf: e.uf || e.estado,
-          estado: e.uf || e.estado,
-          marca: e.marca,
-          dealer_id: String(e.dealer_id || e.dealerid || '').trim(),
+
+        const eventsData: EventData[] = (data || []).map((e: any) => ({
+          id: String(e.id_evento),
+          nome: e.nome || 'Evento sem nome',
+          telefone_pri: e.telefone_pri || undefined,
+          cidade: e.cidade || undefined,
+          uf: e.uf || undefined,
+          estado: e.uf || undefined,
+          marca: e.marca || undefined,
+          dealer_id: String(e.dealerid || '').trim(),
           evt_status: e.evt_status || 'ativo',
         }));
-        
-        console.log(`✅ ${eventsData.length} eventos encontrados para telefone_pri ${selectedAgent.telefone} + dealerid ${companyDealerId}`);
+
+        console.log(`✅ ${eventsData.length} eventos encontrados (cache local) para telefone_pri ${selectedAgent.telefone}`);
         setEvents(eventsData);
       } catch (error) {
         console.error('Error fetching events:', error);
@@ -230,7 +181,7 @@ export const EventoSelectorLigacao = ({
     };
 
     fetchEvents();
-  }, [selectedAgent, companyDealerId]);
+  }, [activeCompany?.id, selectedAgent]);
 
   // Filter options
   const filterOptions = useMemo(() => {
@@ -453,7 +404,7 @@ export const EventoSelectorLigacao = ({
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">
                 {events.length === 0 
-                  ? `Nenhum evento encontrado para esta loja (dealer_id: ${companyDealerId || 'não configurado'})`
+                  ? 'Nenhum evento encontrado para este agente/empresa'
                   : 'Nenhum evento corresponde aos filtros'}
               </p>
             </Card>
