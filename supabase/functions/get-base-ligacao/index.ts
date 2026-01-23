@@ -110,18 +110,21 @@ Deno.serve(async (req: Request) => {
     // =====================================================
     console.log(`📥 [${requestId}] Buscando TODOS os prospects para id_evento=${id_evento}`);
     
-    // Buscar em lotes para contornar limite do Supabase
+    // Buscar em lotes para contornar limite do Supabase (default 1000 rows)
     let allProspects: any[] = [];
     let hasMore = true;
     let offset = 0;
-    const batchSize = 10000;
+    const batchSize = 1000; // Supabase default limit
     
     while (hasMore) {
-      const { data: batch, error: batchError } = await supabase
+      console.log(`📥 [${requestId}] Buscando prospects batch: offset=${offset}, limit=${batchSize}`);
+      
+      const { data: batch, error: batchError, count } = await supabase
         .from('prospect_pri_voz')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('id_evento', id_evento)
-        .range(offset, offset + batchSize - 1);
+        .range(offset, offset + batchSize - 1)
+        .order('criado_em', { ascending: false });
       
       if (batchError) {
         console.error(`❌ [${requestId}] Erro ao buscar prospects (batch ${offset}):`, batchError);
@@ -133,9 +136,10 @@ Deno.serve(async (req: Request) => {
       
       if (batch && batch.length > 0) {
         allProspects = allProspects.concat(batch);
-        offset += batchSize;
+        offset += batch.length;
+        // Continue if we got a full batch (there might be more)
         hasMore = batch.length === batchSize;
-        console.log(`📊 [${requestId}] Batch ${Math.ceil(offset/batchSize)}: +${batch.length} prospects (total: ${allProspects.length})`);
+        console.log(`📊 [${requestId}] Batch: +${batch.length} prospects (total acumulado: ${allProspects.length})`);
       } else {
         hasMore = false;
       }
@@ -149,24 +153,27 @@ Deno.serve(async (req: Request) => {
     // =====================================================
     let allCadencias: any[] = [];
     hasMore = true;
-    offset = 0;
+    let cadenciaOffset = 0;
     
     while (hasMore) {
+      console.log(`📥 [${requestId}] Buscando cadencias batch: offset=${cadenciaOffset}`);
+      
       const { data: batch, error: batchError } = await supabase
         .from('cadencia_pri_voz')
         .select('telefone_lead, telefone_pri, id_evento, num_tentativas, hora_primeira_tentativa, hora_ultima_tentativa')
         .eq('id_evento', id_evento)
-        .range(offset, offset + batchSize - 1);
+        .range(cadenciaOffset, cadenciaOffset + batchSize - 1);
       
       if (batchError) {
-        console.error(`❌ [${requestId}] Erro ao buscar cadencias (batch ${offset}):`, batchError);
+        console.error(`❌ [${requestId}] Erro ao buscar cadencias (batch ${cadenciaOffset}):`, batchError);
         break;
       }
       
       if (batch && batch.length > 0) {
         allCadencias = allCadencias.concat(batch);
-        offset += batchSize;
+        cadenciaOffset += batch.length;
         hasMore = batch.length === batchSize;
+        console.log(`📊 [${requestId}] Cadencias batch: +${batch.length} (total: ${allCadencias.length})`);
       } else {
         hasMore = false;
       }
