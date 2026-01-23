@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Search, Loader2, Phone, MessageSquare, X, RefreshCw, Calendar, PhoneCall, PhoneOff, CalendarCheck, Users, Plus, Minus, Filter } from 'lucide-react';
+import { SyncButton } from './SyncButton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -543,10 +544,18 @@ export const DashboardLigacaoTab = ({
             )}
           </div>
           
-          <Button variant="outline" size="sm" onClick={fetchDashboardData} className="w-full sm:w-auto">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Atualizar
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <SyncButton
+              telefonePri={selectedAgentPhone}
+              idEvento={selectedEventId}
+              empresaId={activeCompany?.id || null}
+              onSyncComplete={fetchDashboardData}
+            />
+            <Button variant="outline" size="sm" onClick={fetchDashboardData} className="flex-1 sm:flex-none">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Atualizar
+            </Button>
+          </div>
         </div>
         
         {selectedEvent && (
