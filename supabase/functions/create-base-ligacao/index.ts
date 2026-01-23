@@ -25,15 +25,43 @@ interface RequestBody {
   sync_external?: boolean; // Se deve sincronizar com sistema externo (default: true)
 }
 
-// Normaliza telefone para apenas dígitos
-const normalizePhone = (phone: string | null): string => {
-  if (!phone) return '';
+// Normaliza telefone para exatamente 10 dígitos (DDD + 8 dígitos, sem o 9 inicial)
+const normalizePhoneTo10Digits = (phone: string | null): { valid: boolean; normalized: string; original: string } => {
+  const original = phone || '';
+  if (!phone) return { valid: false, normalized: '', original };
+  
   let digits = phone.replace(/\D/g, '');
-  // Remover prefixo 55 se o número tiver mais de 11 dígitos
-  if (digits.length > 11 && digits.startsWith('55')) {
-    digits = digits.substring(2);
+  
+  // Remove DDI 55 se existir
+  if (digits.startsWith('55') && digits.length > 11) {
+    digits = digits.slice(2);
   }
-  return digits;
+  if (digits.startsWith('0055')) {
+    digits = digits.slice(4);
+  }
+  
+  // Remove zero inicial (0XX)
+  if (digits.startsWith('0') && (digits.length === 11 || digits.length === 12)) {
+    digits = digits.slice(1);
+  }
+  
+  // Se tem 11 dígitos e o 3º é 9, remove o 9
+  if (digits.length === 11 && digits[2] === '9') {
+    digits = digits.slice(0, 2) + digits.slice(3);
+  }
+  
+  // Validação: deve ter exatamente 10 dígitos
+  if (digits.length !== 10) {
+    return { valid: false, normalized: '', original };
+  }
+  
+  // Validação: DDD entre 11-99
+  const ddd = digits.slice(0, 2);
+  if (!/^[1-9]\d$/.test(ddd)) {
+    return { valid: false, normalized: '', original };
+  }
+  
+  return { valid: true, normalized: digits, original };
 };
 
 Deno.serve(async (req: Request) => {
@@ -106,7 +134,8 @@ Deno.serve(async (req: Request) => {
       nomeEmpresa = empresaData?.nome_empresa || '';
     }
 
-    const telefonePriNormalizado = normalizePhone(telefone_pri);
+    const telefonePriResult = normalizePhoneTo10Digits(telefone_pri);
+    const telefonePriNormalizado = telefonePriResult.normalized || telefone_pri.replace(/\D/g, '');
     const now = new Date().toISOString();
 
     // =====================================================
@@ -114,15 +143,25 @@ Deno.serve(async (req: Request) => {
     // =====================================================
     console.log(`\n💾 [${requestId}] Salvando contatos no Supabase (fonte primária)...`);
 
-    // 1a. Preparar dados para prospect_pri_voz
-    const prospectsToUpsert = contatos.map(contato => ({
-      telefone_lead: normalizePhone(contato.telefone),
+    // 1a. Validar e normalizar telefones - filtrar inválidos
+    const contatosValidados = contatos.map(contato => {
+      const result = normalizePhoneTo10Digits(contato.telefone);
+      return { ...contato, phoneResult: result };
+    });
+    
+    const contatosValidos = contatosValidados.filter(c => c.phoneResult.valid);
+    const contatosInvalidos = contatosValidados.filter(c => !c.phoneResult.valid);
+    
+    console.log(`📊 [${requestId}] Validação: ${contatosValidos.length} válidos, ${contatosInvalidos.length} inválidos`);
+
+    // 1b. Preparar dados para prospect_pri_voz (apenas válidos)
+    const prospectsToUpsert = contatosValidos.map(contato => ({
+      telefone_lead: contato.phoneResult.normalized,
       id_evento: id_evento,
       nome: contato.nome || null,
-      telefone_pri: telefonePriNormalizado,
+      telefone_pri: normalizePhoneTo10Digits(telefone_pri).normalized || telefone_pri.replace(/\D/g, ''),
       loja: nomeEmpresa,
       empresa_id: empresa_id,
-      // Status inicial - todos inativos até disparar
       ligacao_atendida: false,
       status_agendado: false,
       enviado_whatsapp: false,
@@ -234,14 +273,15 @@ Deno.serve(async (req: Request) => {
     if (sync_external) {
       console.log(`\n🌐 [${requestId}] Sincronizando com sistema externo...`);
 
+      // Enviar apenas contatos válidos para o webhook externo
       const externalPayload = {
         id_evento: id_evento,
         telefone_pri: telefonePriNormalizado,
         loja: nomeEmpresa,
-        total_contatos: contatos.length,
-        contatos: contatos.map(c => ({
+        total_contatos: contatosValidos.length,
+        contatos: contatosValidos.map(c => ({
           nome: c.nome || '',
-          telefone: normalizePhone(c.telefone),
+          telefone: c.phoneResult.normalized,
         })),
       };
 

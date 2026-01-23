@@ -288,14 +288,16 @@ export function generatePhoneVariations(phone: string | null | undefined): strin
 }
 
 /**
- * Normaliza telefone para formato de armazenamento (localPhone)
+ * Normaliza telefone para formato de armazenamento IA Ligação (10 dígitos)
  * Formato: DDD + 8 dígitos (sem o nono dígito)
  * Exemplo: "1199887766"
  * 
- * Baseado na lógica n8n para padronização:
- * - Remove DDI 55 se presente
- * - Remove o 9º dígito de celulares
- * - Retorna DDD + 8 dígitos
+ * REGRAS DE NORMALIZAÇÃO (conforme requisitos):
+ * 1. Remove caracteres especiais (+, -, espaços, parênteses)
+ * 2. Remove prefixos: +55, 55, 062 (DDI/DDD inicial)
+ * 3. Se o número tiver 9 inicial após o DDD: remove o 9
+ * 4. Se após normalização tiver 10 dígitos: válido
+ * 5. Qualquer outro caso: inválido
  */
 export interface LocalPhoneResult {
   valido: boolean;
@@ -311,69 +313,81 @@ export interface LocalPhoneResult {
 
 export function normalizeToLocalPhone(phone: string | null | undefined): LocalPhoneResult {
   const raw = phone ?? '';
-  const digits = String(raw).replace(/\D/g, '');
+  let digits = String(raw).replace(/\D/g, '');
+  const originalDigits = digits;
   
   // Nada para processar
   if (!digits) {
     return {
       valido: false,
       razao: 'Telefone vazio ou inválido',
-      telefoneEntrada: digits
+      telefoneEntrada: originalDigits
     };
   }
   
-  // Se veio com mais de 11 dígitos, precisa iniciar com 55 (Brasil)
-  if (digits.length > 11 && !digits.startsWith('55')) {
-    return {
-      valido: false,
-      razao: 'Para números com mais de 11 dígitos, o prefixo deve iniciar com 55',
-      telefoneEntrada: digits
-    };
-  }
-  
-  // Remove DDI 55 se existir
+  // Remove DDI 55 se existir (quando tem mais de 11 dígitos ou exatamente 13 com 55)
   let hasCountry = false;
-  let local = digits;
-  if (local.startsWith('55') && local.length > 11) {
+  if (digits.startsWith('55') && digits.length > 11) {
     hasCountry = true;
-    local = local.slice(2);
+    digits = digits.slice(2);
   }
   
-  // Agora esperamos 10 (fixo/celular sem nono) ou 11 (celular com nono) dígitos locais
-  if (local.length !== 10 && local.length !== 11) {
+  // Remove DDI 0055 se existir
+  if (digits.startsWith('0055')) {
+    hasCountry = true;
+    digits = digits.slice(4);
+  }
+  
+  // Remove zero inicial (0XX para DDD)
+  if (digits.startsWith('0') && digits.length === 11) {
+    digits = digits.slice(1);
+  }
+  if (digits.startsWith('0') && digits.length === 12) {
+    digits = digits.slice(1);
+  }
+  
+  // Se ainda começa com 0 + DDD (ex: 062), remove o 0
+  if (digits.length === 11 && digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
+  
+  // Agora esperamos 10 ou 11 dígitos
+  if (digits.length !== 10 && digits.length !== 11) {
     return {
       valido: false,
-      razao: 'Quantidade de dígitos locais inválida (esperado 10 ou 11 após DDI)',
-      telefoneEntrada: digits
+      razao: `Quantidade incorreta de dígitos (esperado 10, encontrado ${digits.length} após normalização)`,
+      telefoneEntrada: originalDigits
     };
   }
   
   // DDD (2) + número (8 ou 9)
-  const ddd = local.slice(0, 2);
-  let numeroRestante = local.slice(2);
+  const ddd = digits.slice(0, 2);
+  let numeroRestante = digits.slice(2);
   
-  // Valida DDD minimamente (não inicia com 0 e dois dígitos)
-  if (!/^[1-9]\d$/.test(ddd)) {
+  // Valida DDD (deve ser entre 11-99 e não começar com 0)
+  if (!/^[1-9]\d$/.test(ddd) || !VALID_DDDS.has(ddd)) {
     return {
       valido: false,
-      razao: 'DDD inválido',
-      telefoneEntrada: digits
+      razao: `DDD inválido: ${ddd}`,
+      telefoneEntrada: originalDigits
     };
   }
   
   let removedNinth = false;
-  // Se tem 11 dígitos locais, precisa começar com 9 (nono dígito dos celulares)
-  if (local.length === 11) {
-    if (numeroRestante[0] !== '9') {
+  // Se tem 11 dígitos locais, verifica se começa com 9 e remove
+  if (digits.length === 11) {
+    if (numeroRestante[0] === '9') {
+      // Remove o 9 para padronizar em 8 dígitos
+      numeroRestante = numeroRestante.slice(1);
+      removedNinth = true;
+    } else {
+      // Se não começa com 9, é inválido para celular
       return {
         valido: false,
-        razao: 'Para 11 dígitos locais, o nono dígito deve ser 9 (celular)',
-        telefoneEntrada: digits
+        razao: 'Para 11 dígitos, o terceiro dígito deve ser 9 (celular)',
+        telefoneEntrada: originalDigits
       };
     }
-    // Removemos o 9 para padronizar em 8 dígitos
-    numeroRestante = numeroRestante.slice(1);
-    removedNinth = true;
   }
   
   // Neste ponto, numeroRestante **deve** ter 8 dígitos
@@ -381,7 +395,18 @@ export function normalizeToLocalPhone(phone: string | null | undefined): LocalPh
     return {
       valido: false,
       razao: 'Número local inválido; esperado exatamente 8 dígitos após o DDD',
-      telefoneEntrada: digits
+      telefoneEntrada: originalDigits
+    };
+  }
+  
+  // Validação: padrões inválidos (repetições)
+  const fullNumber = ddd + numeroRestante;
+  if (INVALID_PATTERNS.some(pattern => pattern.test(fullNumber)) ||
+      INVALID_PATTERNS.some(pattern => pattern.test(ddd + '9' + numeroRestante))) {
+    return {
+      valido: false,
+      razao: 'Número com dígitos repetidos inválidos',
+      telefoneEntrada: originalDigits
     };
   }
   
@@ -394,12 +419,151 @@ export function normalizeToLocalPhone(phone: string | null | undefined): LocalPh
     valido: true,
     ddd,
     numero8,
-    localPhone,       // ex.: "1199887766"
-    intlPhone,        // ex.: "551199887766"
+    localPhone,       // ex.: "6291775252" (10 dígitos)
+    intlPhone,        // ex.: "556291775252" (12 dígitos)
     tinhaDDI55: hasCountry,
     removeuNonoDigito: removedNinth,
-    telefoneEntrada: digits
+    telefoneEntrada: originalDigits
   };
+}
+
+/**
+ * Valida e normaliza telefone para IA Ligação (padrão 10 dígitos)
+ * Retorna resultado completo com motivo de erro se inválido
+ */
+export interface IALigacaoPhoneResult {
+  isValid: boolean;
+  normalized: string | null;      // 10 dígitos (DDD + 8)
+  original: string;
+  errorCode: PhoneErrorCode | null;
+  errorMessage: string | null;
+}
+
+export function validatePhoneForIALigacao(phone: string | null | undefined): IALigacaoPhoneResult {
+  const original = phone || '';
+  
+  if (!phone || phone.trim() === '') {
+    return {
+      isValid: false,
+      normalized: null,
+      original,
+      errorCode: 'EMPTY',
+      errorMessage: ERROR_MESSAGES.EMPTY
+    };
+  }
+  
+  const result = normalizeToLocalPhone(phone);
+  
+  if (!result.valido) {
+    // Mapear razão para errorCode
+    let errorCode: PhoneErrorCode = 'INVALID_FORMAT';
+    if (result.razao?.includes('DDD')) errorCode = 'INVALID_DDD';
+    else if (result.razao?.includes('dígitos')) errorCode = 'WRONG_LENGTH';
+    else if (result.razao?.includes('vazio')) errorCode = 'EMPTY';
+    else if (result.razao?.includes('repetidos')) errorCode = 'REPEATED_DIGITS';
+    
+    return {
+      isValid: false,
+      normalized: null,
+      original,
+      errorCode,
+      errorMessage: result.razao || 'Formato inválido'
+    };
+  }
+  
+  return {
+    isValid: true,
+    normalized: result.localPhone!,
+    original,
+    errorCode: null,
+    errorMessage: null
+  };
+}
+
+/**
+ * Valida lote de telefones para IA Ligação (padrão 10 dígitos)
+ */
+export interface IALigacaoBatchResult {
+  valid: Array<{
+    original: string;
+    normalized: string;  // 10 dígitos
+    nome?: string;
+    index: number;
+  }>;
+  invalid: Array<{
+    original: string;
+    nome?: string;
+    errorCode: PhoneErrorCode;
+    errorMessage: string;
+    index: number;
+  }>;
+  duplicates: Array<{
+    original: string;
+    normalized: string;
+    nome?: string;
+    index: number;
+    duplicateOf: number;
+  }>;
+  summary: {
+    total: number;
+    valid: number;
+    invalid: number;
+    duplicates: number;
+  };
+}
+
+export function validatePhoneBatchForIALigacao(
+  contatos: Array<{ nome?: string; telefone: string }>
+): IALigacaoBatchResult {
+  const result: IALigacaoBatchResult = {
+    valid: [],
+    invalid: [],
+    duplicates: [],
+    summary: { total: contatos.length, valid: 0, invalid: 0, duplicates: 0 }
+  };
+  
+  const seenPhones = new Map<string, number>(); // normalized -> first index
+  
+  contatos.forEach((contato, index) => {
+    const validation = validatePhoneForIALigacao(contato.telefone);
+    
+    if (!validation.isValid) {
+      result.invalid.push({
+        original: contato.telefone,
+        nome: contato.nome,
+        errorCode: validation.errorCode!,
+        errorMessage: validation.errorMessage!,
+        index
+      });
+      result.summary.invalid++;
+      return;
+    }
+    
+    // Checar duplicatas
+    const normalized = validation.normalized!;
+    if (seenPhones.has(normalized)) {
+      result.duplicates.push({
+        original: contato.telefone,
+        normalized,
+        nome: contato.nome,
+        index,
+        duplicateOf: seenPhones.get(normalized)!
+      });
+      result.summary.duplicates++;
+      return;
+    }
+    
+    seenPhones.set(normalized, index);
+    result.valid.push({
+      original: contato.telefone,
+      normalized,
+      nome: contato.nome,
+      index
+    });
+    result.summary.valid++;
+  });
+  
+  return result;
 }
 
 /**

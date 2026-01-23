@@ -12,13 +12,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound, Image, FileImage, Megaphone, Upload, QrCode, User, Building, CalendarDays, Clock, Link, Palette, ChevronLeft, ChevronRight, AlertTriangle, Maximize2, Minimize2 } from "lucide-react";
+import { FileText, Target, Users, MapPin, ThumbsUp, Phone, Info, Trophy, Award, Gift, Star, Search, Plus, Edit2, Trash2, X, Check, UsersRound, Image, FileImage, Megaphone, Upload, QrCode, User, Building, CalendarDays, Clock, Link, Palette, ChevronLeft, ChevronRight, AlertTriangle, Maximize2, Minimize2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { validatePhoneBatchForIALigacao } from "@/lib/phoneUtils";
 
 
 interface CriarProspeccaoModalProps {
@@ -175,14 +178,23 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   // Base de Contatos para IA Ligação
   interface ContatoLigacao {
     nome: string;
-    telefone: string;
+    telefone: string;       // Telefone original
+    telefoneNormalizado?: string;  // 10 dígitos após normalização
     email?: string;
     cpf?: string;
     segmentacao?: string;
     responsavel?: string;
     origem?: string;
   }
+  interface ContatoInvalido {
+    nome: string;
+    telefone: string;
+    motivo: string;
+    index: number;
+  }
   const [contatosLigacao, setContatosLigacao] = useState<ContatoLigacao[]>([]);
+  const [contatosInvalidos, setContatosInvalidos] = useState<ContatoInvalido[]>([]);
+  const [contatosDuplicados, setContatosDuplicados] = useState<ContatoInvalido[]>([]);
   
   // Campos de localização do evento (para IA Ligação)
   const [eventoUF, setEventoUF] = useState("");
@@ -408,6 +420,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setDataEnvioCadencia("");
     // Reset IA Ligação
     setContatosLigacao([]);
+    setContatosInvalidos([]);
+    setContatosDuplicados([]);
     setProcessandoPlanilha(false);
     setEventoUF("");
     setEventoCidade("");
@@ -2221,6 +2235,10 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
     }
     
     setProcessandoPlanilha(true);
+    // Limpar estados anteriores
+    setContatosLigacao([]);
+    setContatosInvalidos([]);
+    setContatosDuplicados([]);
     
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
@@ -2266,7 +2284,8 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
         return;
       }
 
-      const contatos = dataRows
+      // Extrair todos os contatos brutos
+      const contatosBrutos = dataRows
         .filter(row => row && row.length > 0)
         .map(row => ({
           nome: nomeIdx >= 0 ? row[nomeIdx]?.toString().trim() || '' : '',
@@ -2276,13 +2295,56 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
         }))
         .filter(c => c.nome || c.telefone);
 
-      setContatosLigacao(contatos);
+      // Validar e normalizar telefones para 10 dígitos
+      const validationResult = validatePhoneBatchForIALigacao(contatosBrutos);
+      
+      // Contatos válidos com telefone normalizado
+      const contatosValidos = validationResult.valid.map(v => {
+        const original = contatosBrutos[v.index];
+        return {
+          nome: original.nome,
+          telefone: original.telefone,
+          telefoneNormalizado: v.normalized,
+          email: original.email,
+          cpf: original.cpf,
+        };
+      });
+      
+      // Contatos inválidos
+      const invalidos = validationResult.invalid.map(inv => ({
+        nome: contatosBrutos[inv.index]?.nome || '',
+        telefone: inv.original,
+        motivo: inv.errorMessage,
+        index: inv.index,
+      }));
+      
+      // Contatos duplicados
+      const duplicados = validationResult.duplicates.map(dup => ({
+        nome: contatosBrutos[dup.index]?.nome || '',
+        telefone: dup.original,
+        motivo: `Duplicado do contato #${dup.duplicateOf + 1}`,
+        index: dup.index,
+      }));
+
+      setContatosLigacao(contatosValidos);
+      setContatosInvalidos(invalidos);
+      setContatosDuplicados(duplicados);
       setProcessandoPlanilha(false);
       
-      toast({
-        title: "Arquivo processado",
-        description: `${contatos.length} contatos encontrados`,
-      });
+      // Mostrar resumo
+      const { summary } = validationResult;
+      if (summary.invalid > 0 || summary.duplicates > 0) {
+        toast({
+          title: "Arquivo processado com alertas",
+          description: `${summary.valid} válidos | ${summary.invalid} inválidos | ${summary.duplicates} duplicados`,
+          variant: summary.valid === 0 ? "destructive" : "default",
+        });
+      } else {
+        toast({
+          title: "Arquivo processado",
+          description: `${summary.valid} contatos válidos encontrados`,
+        });
+      }
     } catch (error) {
       console.error('Erro ao processar arquivo:', error);
       setProcessandoPlanilha(false);
@@ -2812,7 +2874,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
             </div>
           );
         } else {
-          // IA Ligação - Configuração de localização
+          // IA Ligação - Configuração de localização + Upload de Base
           return (
             <div className="space-y-4">
               {/* Localização do Evento */}
@@ -2870,6 +2932,178 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 <p className="text-xs text-muted-foreground mt-2">
                   * Campos obrigatórios para o disparo das ligações
                 </p>
+              </div>
+
+              {/* Upload de Base de Contatos */}
+              <div className="rounded-lg border border-border p-4 bg-card">
+                <div className="flex items-center gap-2 mb-4">
+                  <Upload className="h-4 w-4 text-primary" />
+                  <h4 className="text-sm font-medium">Base de Contatos</h4>
+                </div>
+                
+                {/* Input de arquivo */}
+                <div className="mb-4">
+                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    {processandoPlanilha ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                        <span className="text-sm text-muted-foreground">Processando...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                        <span className="text-sm text-muted-foreground">Clique para enviar planilha</span>
+                        <span className="text-xs text-muted-foreground">.xlsx, .xls ou .csv</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      className="hidden"
+                      onChange={handleFileLigacao}
+                      disabled={processandoPlanilha}
+                    />
+                  </label>
+                </div>
+
+                {/* Resumo dos contatos */}
+                {(contatosLigacao.length > 0 || contatosInvalidos.length > 0 || contatosDuplicados.length > 0) && (
+                  <div className="space-y-3">
+                    {/* Cards de resumo */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <Card className="p-3 bg-green-50 border-green-200">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <div>
+                            <p className="text-lg font-bold text-green-700">{contatosLigacao.length}</p>
+                            <p className="text-xs text-green-600">Válidos</p>
+                          </div>
+                        </div>
+                      </Card>
+                      <Card className="p-3 bg-red-50 border-red-200">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-red-600" />
+                          <div>
+                            <p className="text-lg font-bold text-red-700">{contatosInvalidos.length}</p>
+                            <p className="text-xs text-red-600">Inválidos</p>
+                          </div>
+                        </div>
+                      </Card>
+                      <Card className="p-3 bg-yellow-50 border-yellow-200">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                          <div>
+                            <p className="text-lg font-bold text-yellow-700">{contatosDuplicados.length}</p>
+                            <p className="text-xs text-yellow-600">Duplicados</p>
+                          </div>
+                        </div>
+                      </Card>
+                    </div>
+
+                    {/* Tabs para ver detalhes */}
+                    {(contatosInvalidos.length > 0 || contatosDuplicados.length > 0) && (
+                      <Tabs defaultValue="invalidos" className="w-full">
+                        <TabsList className="w-full grid grid-cols-2">
+                          <TabsTrigger value="invalidos" className="text-xs">
+                            Inválidos ({contatosInvalidos.length})
+                          </TabsTrigger>
+                          <TabsTrigger value="duplicados" className="text-xs">
+                            Duplicados ({contatosDuplicados.length})
+                          </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="invalidos" className="mt-2">
+                          <div className="max-h-40 overflow-y-auto border rounded-md">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs py-1">Nome</TableHead>
+                                  <TableHead className="text-xs py-1">Telefone</TableHead>
+                                  <TableHead className="text-xs py-1">Motivo</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {contatosInvalidos.slice(0, 50).map((contato, idx) => (
+                                  <TableRow key={idx}>
+                                    <TableCell className="text-xs py-1">{contato.nome || '-'}</TableCell>
+                                    <TableCell className="text-xs py-1 font-mono">{contato.telefone}</TableCell>
+                                    <TableCell className="text-xs py-1">
+                                      <Badge variant="destructive" className="text-[10px]">
+                                        {contato.motivo}
+                                      </Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                                {contatosInvalidos.length > 50 && (
+                                  <TableRow>
+                                    <TableCell colSpan={3} className="text-xs text-center text-muted-foreground py-2">
+                                      ... e mais {contatosInvalidos.length - 50} inválidos
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </TabsContent>
+                        <TabsContent value="duplicados" className="mt-2">
+                          <div className="max-h-40 overflow-y-auto border rounded-md">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs py-1">Nome</TableHead>
+                                  <TableHead className="text-xs py-1">Telefone</TableHead>
+                                  <TableHead className="text-xs py-1">Motivo</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {contatosDuplicados.slice(0, 50).map((contato, idx) => (
+                                  <TableRow key={idx}>
+                                    <TableCell className="text-xs py-1">{contato.nome || '-'}</TableCell>
+                                    <TableCell className="text-xs py-1 font-mono">{contato.telefone}</TableCell>
+                                    <TableCell className="text-xs py-1">
+                                      <Badge variant="secondary" className="text-[10px] bg-yellow-100 text-yellow-800">
+                                        {contato.motivo}
+                                      </Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                                {contatosDuplicados.length > 50 && (
+                                  <TableRow>
+                                    <TableCell colSpan={3} className="text-xs text-center text-muted-foreground py-2">
+                                      ... e mais {contatosDuplicados.length - 50} duplicados
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </TabsContent>
+                      </Tabs>
+                    )}
+
+                    {/* Aviso sobre inválidos não serem salvos */}
+                    {contatosInvalidos.length > 0 && (
+                      <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-amber-800">
+                          <strong>Atenção:</strong> Os {contatosInvalidos.length} contatos inválidos não serão salvos na base. 
+                          Apenas os {contatosLigacao.length} contatos válidos serão enviados para o sistema de ligação.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Formato esperado */}
+                {contatosLigacao.length === 0 && contatosInvalidos.length === 0 && (
+                  <div className="text-center py-2">
+                    <p className="text-xs text-muted-foreground">
+                      Colunas obrigatórias: <strong>Nome</strong> e <strong>Telefone</strong>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Formato do telefone: 10 dígitos (DDD + número, sem o 9 inicial)
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Descrição com borda e botão expandir */}
