@@ -231,92 +231,72 @@ export const DashboardLigacaoTab = ({
     try {
       setLoading(true);
       
-      // Use edge function para consultar com token SAGA_ONE - usando dash-pri
-      const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
-        body: { 
-          endpoint: 'dash-pri', 
-          telefone_pri: selectedAgentPhone, 
-          id_evento: selectedEventId 
-        },
+      const idEventoNum = parseInt(selectedEventId, 10);
+      
+      // Buscar dados do Supabase local (tabela prospect_pri_voz)
+      console.log('📊 DashboardLigacao - Buscando dados do Supabase local para evento:', idEventoNum);
+      
+      const { data: prospectsData, error: prospectsError } = await supabase
+        .from('prospect_pri_voz')
+        .select('*')
+        .eq('id_evento', idEventoNum);
+      
+      if (prospectsError) {
+        console.error('Erro ao buscar prospects:', prospectsError);
+        throw new Error('Erro ao buscar dados do Supabase');
+      }
+      
+      // Se não encontrou dados locais, pode ser que precise sincronizar
+      if (!prospectsData || prospectsData.length === 0) {
+        console.log('⚠️ Nenhum dado local encontrado. Clique em "Sincronizar" para buscar dados do n8n.');
+        setLeads([]);
+        setMetricas({
+          totalLeads: 0,
+          leadsAtendidos: 0,
+          leadsEmFila: 0,
+          leadsAgendados: 0,
+          mensagensEnviadas: 0,
+        });
+        toast.info('Nenhum dado encontrado. Clique em "Sincronizar" para buscar dados do n8n.');
+        setLastAppUpdate(new Date().toLocaleString('pt-BR'));
+        return;
+      }
+      
+      console.log(`✅ Encontrados ${prospectsData.length} registros no Supabase local`);
+      
+      // Processar leads da tabela prospect_pri_voz
+      const processedLeads = prospectsData.map((lead: any) => ({
+        id: lead.id,
+        nome: lead.nome,
+        telefone_lead: lead.telefone_lead,
+        telefone_pri: lead.telefone_pri,
+        loja: lead.loja,
+        status: calculateLeadStatus(lead),
+        proposal_id: lead.proposal_id,
+        num_tentativas: lead.num_tentativas ?? 0,
+        ultima_atualizacao: lead.atualizado_em,
+        ligacao_atendida: lead.ligacao_atendida ?? false,
+        status_agendado: lead.status_agendado ?? false,
+        ligacao_erro: lead.ligacao_erro ?? false,
+        enviado_whatsapp: lead.enviado_whatsapp ?? false,
+      }));
+      
+      setLeads(processedLeads);
+      
+      // Calcular métricas
+      setMetricas({
+        totalLeads: processedLeads.length,
+        leadsAtendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
+        leadsEmFila: processedLeads.filter((l: LeadData) => l.ligacao_erro && !l.status_agendado).length,
+        leadsAgendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
+        mensagensEnviadas: processedLeads.filter((l: LeadData) => l.enviado_whatsapp).length,
       });
       
-      if (error) {
-        throw new Error('Erro ao buscar dados');
-      }
-      
-      console.log('📊 DashboardLigacao - Resposta dash-pri:', data);
-      
-      // O dash-pri retorna dados AGREGADOS, não uma lista de leads
-      // Formato: [{ total_registros, tentativas_0, tentativas_1, etc... }]
-      const responseArray = Array.isArray(data) ? data : [data];
-      const aggregatedData = responseArray[0] || {};
-      
-      // Se recebemos dados agregados (tem total_registros), usar diretamente
-      if (aggregatedData.total_registros !== undefined) {
-        const totalRegistros = parseInt(aggregatedData.total_registros || '0', 10);
-        const ligacaoAtendida = parseInt(aggregatedData.ligacao_atendida || '0', 10);
-        const statusAgendado = parseInt(aggregatedData.status_agendado || '0', 10);
-        const ligacaoErro = parseInt(aggregatedData.ligacao_erro || '0', 10);
-        const enviadoWhatsapp = parseInt(aggregatedData.enviado_whatsapp || '0', 10);
-        const tentativas0 = parseInt(aggregatedData.tentativas_0 || '0', 10);
-        const tentativas1 = parseInt(aggregatedData.tentativas_1 || '0', 10);
-        const tentativas2 = parseInt(aggregatedData.tentativas_2 || '0', 10);
-        const tentativasMaior2 = parseInt(aggregatedData.tentativas_maior_2 || '0', 10);
-        
-        // Calcular Em Fila: leads com erro que não estão agendados
-        // Como não temos dados individuais, usamos ligacao_erro como proxy
-        const leadsEmFila = ligacaoErro;
-        
-        // Set métricas diretamente dos dados agregados
-        setMetricas({
-          totalLeads: totalRegistros,
-          leadsAtendidos: ligacaoAtendida,
-          leadsEmFila: leadsEmFila,
-          leadsAgendados: statusAgendado,
-          mensagensEnviadas: enviadoWhatsapp,
-        });
-        
-        // Limpar leads já que não temos dados individuais
-        setLeads([]);
-        
-        console.log('✅ Métricas agregadas carregadas:', {
-          total: totalRegistros,
-          atendidos: ligacaoAtendida,
-          agendados: statusAgendado,
-          emFila: leadsEmFila,
-          whatsapp: enviadoWhatsapp,
-          tentativas: { t0: tentativas0, t1: tentativas1, t2: tentativas2, tMaior2: tentativasMaior2 }
-        });
-      } else {
-        // Fallback: se recebemos lista de leads (formato antigo)
-        const leadsData = Array.isArray(data) ? data : (data?.contatos || data?.leads || []);
-        
-        const processedLeads = leadsData.map((lead: any) => ({
-          id: lead.id,
-          nome: lead.nome || lead.name,
-          telefone_lead: lead.telefone_lead || lead.telefone,
-          telefone_pri: lead.telefone_pri,
-          loja: lead.loja,
-          status: calculateLeadStatus(lead),
-          proposal_id: lead.proposal_id,
-          num_tentativas: lead.num_tentativas ?? lead.tentativas ?? 0,
-          ultima_atualizacao: lead.atualizado_em || lead.updated_at || lead.ultima_atualizacao,
-          ligacao_atendida: lead.ligacao_atendida,
-          status_agendado: lead.status_agendado,
-          ligacao_erro: lead.ligacao_erro,
-          enviado_whatsapp: lead.enviado_whatsapp,
-        }));
-        
-        setLeads(processedLeads);
-        
-        setMetricas({
-          totalLeads: processedLeads.length,
-          leadsAtendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
-          leadsEmFila: processedLeads.filter((l: LeadData) => l.ligacao_erro && !l.status_agendado).length,
-          leadsAgendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
-          mensagensEnviadas: processedLeads.filter((l: LeadData) => l.enviado_whatsapp).length,
-        });
-      }
+      console.log('✅ Dashboard carregado do Supabase local:', {
+        total: processedLeads.length,
+        atendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
+        agendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
+      });
       
       setLastAppUpdate(new Date().toLocaleString('pt-BR'));
     } catch (error) {
