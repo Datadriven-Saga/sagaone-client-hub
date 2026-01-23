@@ -125,35 +125,33 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
   }, [activeCompany?.id]);
 
   useEffect(() => {
-    if (selectedAgentPhone && companyDealerId) {
+    if (selectedAgentPhone && activeCompany?.id) {
       fetchAllMetrics();
     }
-  }, [selectedAgentPhone, companyDealerId]);
+  }, [selectedAgentPhone, activeCompany?.id]);
 
   const fetchAllMetrics = async () => {
-    if (!selectedAgentPhone || !companyDealerId) return;
+    if (!selectedAgentPhone) return;
     
     try {
       setLoading(true);
       
-      // First get all events for this agent via edge function with dealerid
-      console.log('📊 Métricas - Buscando eventos com telefone_pri:', selectedAgentPhone, 'e dealerid:', companyDealerId);
+      // Buscar eventos diretamente do Supabase (tabela eventos_pri_voz)
+      console.log('📊 Métricas - Buscando eventos do Supabase para empresa:', activeCompany?.id);
       
-      const { data: eventsData, error: eventsError } = await supabase.functions.invoke('external-webhook-proxy', {
-        body: { 
-          endpoint: 'verifica-eventos', 
-          telefone_pri: selectedAgentPhone,
-          dealerid: companyDealerId
-        },
-      });
+      const { data: eventsFromDb, error: eventsDbError } = await supabase
+        .from('eventos_pri_voz')
+        .select('*')
+        .eq('empresa_id', activeCompany?.id)
+        .order('data_inicio', { ascending: false });
       
-      if (eventsError) {
+      if (eventsDbError) {
+        console.error('❌ Erro ao buscar eventos:', eventsDbError);
         throw new Error('Erro ao buscar eventos');
       }
       
-      const events = Array.isArray(eventsData) ? eventsData : (eventsData?.eventos || []);
-      
-      console.log(`✅ Métricas - ${events.length} eventos encontrados`);
+      const events = eventsFromDb || [];
+      console.log(`✅ Métricas - ${events.length} eventos encontrados no Supabase`);
       
       if (events.length === 0) {
         setAllEventsData([]);
@@ -161,19 +159,21 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
         return;
       }
       
-      // Fetch metrics for each event using the 'metricas' endpoint
+      // Buscar métricas de cada evento usando a mesma edge function get-base-ligacao
       const allData: EventMetrics[] = [];
       
       for (const event of events) {
         try {
-          const eventId = String(event.id_evento || event.id);
+          const eventId = event.id_evento;
           
-          // Use edge function para consultar 'metricas' com telefone_pri + id_evento
-          const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+          // Usar get-base-ligacao para buscar dados locais (mesma fonte do Dashboard)
+          const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
             body: { 
-              endpoint: 'metricas', 
-              telefone_pri: selectedAgentPhone, 
-              id_evento: eventId 
+              id_evento: eventId,
+              empresa_id: activeCompany?.id,
+              telefone_pri: event.telefone_pri,
+              page: 1,
+              page_size: 1, // Só precisamos das métricas
             },
           });
           
@@ -182,37 +182,31 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
             continue;
           }
           
-          console.log(`📊 Métricas - Resposta 'metricas' para evento ${eventId}:`, data);
+          if (!data?.success) {
+            console.warn(`⚠️ Evento ${eventId}: resposta inválida`, data);
+            continue;
+          }
           
-          // O endpoint 'metricas' retorna dados agregados
-          // Formato esperado: [{ total_registros, tentativas_0, tentativas_1, ligacao_atendida, etc... }]
-          const responseArray = Array.isArray(data) ? data : [data];
-          const aggregatedData = responseArray[0] || {};
-          
-          const totalRegistros = parseInt(aggregatedData.total_registros || '0', 10);
-          const ligacaoAtendida = parseInt(aggregatedData.ligacao_atendida || '0', 10);
-          const statusAgendado = parseInt(aggregatedData.status_agendado || '0', 10);
-          const ligacaoErro = parseInt(aggregatedData.ligacao_erro || '0', 10);
-          const enviadoWhatsapp = parseInt(aggregatedData.enviado_whatsapp || '0', 10);
+          const metricas = data.metricas || {};
           
           allData.push({
-            eventId,
-            eventName: event.evt_nome || event.nome || event.name || 'Evento sem nome',
+            eventId: String(eventId),
+            eventName: event.nome || 'Evento sem nome',
             marca: event.marca,
-            estado: event.uf || event.estado,
+            estado: event.uf,
             cidade: event.cidade,
             telefone_pri: event.telefone_pri,
-            leads: [], // Endpoint de métricas retorna dados agregados, não lista de leads
+            leads: [], // Métricas agregadas, não lista de leads
             metricas: {
-              totalLeads: totalRegistros,
-              leadsAtendidos: ligacaoAtendida,
-              leadsEmFila: ligacaoErro,
-              leadsAgendados: statusAgendado,
-              mensagensEnviadas: enviadoWhatsapp,
+              totalLeads: metricas.total || 0,
+              leadsAtendidos: metricas.atendidos || 0,
+              leadsEmFila: metricas.emFila || 0,
+              leadsAgendados: metricas.agendados || 0,
+              mensagensEnviadas: metricas.whatsappEnviado || 0,
             },
           });
           
-          console.log(`✅ Evento ${eventId}: ${totalRegistros} leads, ${ligacaoAtendida} atendidos, ${statusAgendado} agendados`);
+          console.log(`✅ Evento ${eventId}: ${metricas.total || 0} leads, ${metricas.atendidos || 0} atendidos, ${metricas.agendados || 0} agendados`);
         } catch (error) {
           console.error(`Error fetching metrics for event ${event.id_evento}:`, error);
         }
