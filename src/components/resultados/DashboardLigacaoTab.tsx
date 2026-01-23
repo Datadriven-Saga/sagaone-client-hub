@@ -226,29 +226,33 @@ export const DashboardLigacaoTab = ({
   };
 
   const fetchDashboardData = async () => {
-    if (!selectedEventId || !selectedAgentPhone) return;
+    if (!selectedEventId || !selectedAgentPhone || !activeCompany?.id) return;
     
     try {
       setLoading(true);
       
       const idEventoNum = parseInt(selectedEventId, 10);
       
-      // Buscar dados do Supabase local (tabela prospect_pri_voz)
-      console.log('📊 DashboardLigacao - Buscando dados do Supabase local para evento:', idEventoNum);
+      // Usar edge function que faz JOIN entre prospect_pri_voz e cadencia_pri_voz
+      console.log('📊 DashboardLigacao - Buscando dados via get-base-ligacao para evento:', idEventoNum);
       
-      const { data: prospectsData, error: prospectsError } = await supabase
-        .from('prospect_pri_voz')
-        .select('*')
-        .eq('id_evento', idEventoNum);
+      const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
+        body: {
+          id_evento: idEventoNum,
+          empresa_id: activeCompany.id,
+          page: 1,
+          page_size: 50000, // Buscar todos para métricas
+        },
+      });
       
-      if (prospectsError) {
-        console.error('Erro ao buscar prospects:', prospectsError);
+      if (error) {
+        console.error('Erro ao buscar dados:', error);
         throw new Error('Erro ao buscar dados do Supabase');
       }
       
-      // Se não encontrou dados locais, pode ser que precise sincronizar
-      if (!prospectsData || prospectsData.length === 0) {
-        console.log('⚠️ Nenhum dado local encontrado. Clique em "Sincronizar" para buscar dados do n8n.');
+      // Se não encontrou dados, pode ser que precise sincronizar
+      if (!data?.success || !data?.contatos || data.contatos.length === 0) {
+        console.log('⚠️ Nenhum dado encontrado. Clique em "Sincronizar" para buscar dados do n8n.');
         setLeads([]);
         setMetricas({
           totalLeads: 0,
@@ -262,18 +266,18 @@ export const DashboardLigacaoTab = ({
         return;
       }
       
-      console.log(`✅ Encontrados ${prospectsData.length} registros no Supabase local`);
+      console.log(`✅ Encontrados ${data.contatos.length} registros (JOIN prospect + cadencia)`);
       
-      // Processar leads da tabela prospect_pri_voz
-      const processedLeads = prospectsData.map((lead: any) => ({
+      // Processar leads (já vem com JOIN de cadencia_pri_voz)
+      const processedLeads = data.contatos.map((lead: any) => ({
         id: lead.id,
         nome: lead.nome,
         telefone_lead: lead.telefone_lead,
         telefone_pri: lead.telefone_pri,
         loja: lead.loja,
-        status: calculateLeadStatus(lead),
+        status: lead.status_calculado || calculateLeadStatus(lead),
         proposal_id: lead.proposal_id,
-        num_tentativas: lead.num_tentativas ?? 0,
+        num_tentativas: lead.num_tentativas ?? 0, // Agora vem do JOIN com cadencia_pri_voz
         ultima_atualizacao: lead.atualizado_em,
         ligacao_atendida: lead.ligacao_atendida ?? false,
         status_agendado: lead.status_agendado ?? false,
@@ -283,19 +287,31 @@ export const DashboardLigacaoTab = ({
       
       setLeads(processedLeads);
       
-      // Calcular métricas
-      setMetricas({
-        totalLeads: processedLeads.length,
-        leadsAtendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
-        leadsEmFila: processedLeads.filter((l: LeadData) => l.ligacao_erro && !l.status_agendado).length,
-        leadsAgendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
-        mensagensEnviadas: processedLeads.filter((l: LeadData) => l.enviado_whatsapp).length,
-      });
+      // Usar métricas já calculadas pela edge function (considera JOIN)
+      if (data.metricas) {
+        setMetricas({
+          totalLeads: data.metricas.total,
+          leadsAtendidos: data.metricas.atendidos,
+          leadsEmFila: data.metricas.emFila,
+          leadsAgendados: data.metricas.agendados,
+          mensagensEnviadas: data.metricas.whatsappEnviado,
+        });
+      } else {
+        // Fallback
+        setMetricas({
+          totalLeads: processedLeads.length,
+          leadsAtendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
+          leadsEmFila: processedLeads.filter((l: LeadData) => l.ligacao_erro && !l.status_agendado).length,
+          leadsAgendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
+          mensagensEnviadas: processedLeads.filter((l: LeadData) => l.enviado_whatsapp).length,
+        });
+      }
       
-      console.log('✅ Dashboard carregado do Supabase local:', {
-        total: processedLeads.length,
-        atendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
-        agendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
+      console.log('✅ Dashboard carregado com JOIN:', {
+        total: data.metricas?.total,
+        atendidos: data.metricas?.atendidos,
+        agendados: data.metricas?.agendados,
+        comTentativas: processedLeads.filter((l: LeadData) => (l.num_tentativas || 0) > 0).length,
       });
       
       setLastAppUpdate(new Date().toLocaleString('pt-BR'));
