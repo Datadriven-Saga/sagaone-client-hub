@@ -9,8 +9,10 @@ const corsHeaders = {
 const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }> = {
   // Consultas - verifica-eventos usa POST com telefone_pri + dealer_id no body
   'verifica-eventos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', method: 'POST' },
-  // dash-pri usa POST para enviar telefone_pri + id_evento no body (usado para métricas e contatos)
+  // dash-pri usa POST para enviar telefone_pri + id_evento no body (usado para lista de contatos no dashboard)
   'dash-pri': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/dash-pri', method: 'POST' },
+  // metricas usa POST para enviar telefone_pri + id_evento no body (retorna dados agregados para tela de métricas)
+  'metricas': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/metricas', method: 'POST' },
   'busca-dados-agentes': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-dados-agentes', method: 'GET' },
   'dashboard-evento-pri-whats': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/dashboard-evento-pri-whats', method: 'POST' },
   

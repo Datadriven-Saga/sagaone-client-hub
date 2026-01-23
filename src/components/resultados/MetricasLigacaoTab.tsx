@@ -161,92 +161,60 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
         return;
       }
       
-      // Fetch data for each event using dash-pri
+      // Fetch metrics for each event using the 'metricas' endpoint
       const allData: EventMetrics[] = [];
       
       for (const event of events) {
         try {
           const eventId = String(event.id_evento || event.id);
           
-          // Use edge function para consultar dash-pri com telefone_pri + id_evento
+          // Use edge function para consultar 'metricas' com telefone_pri + id_evento
           const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
             body: { 
-              endpoint: 'dash-pri', 
+              endpoint: 'metricas', 
               telefone_pri: selectedAgentPhone, 
               id_evento: eventId 
             },
           });
           
-          if (error) continue;
+          if (error) {
+            console.error(`Erro ao buscar métricas para evento ${eventId}:`, error);
+            continue;
+          }
           
-          console.log(`📊 Métricas - Resposta dash-pri para evento ${eventId}:`, data);
+          console.log(`📊 Métricas - Resposta 'metricas' para evento ${eventId}:`, data);
           
-          // O dash-pri retorna dados AGREGADOS, não uma lista de leads
-          // Formato: [{ total_registros, tentativas_0, tentativas_1, etc... }]
+          // O endpoint 'metricas' retorna dados agregados
+          // Formato esperado: [{ total_registros, tentativas_0, tentativas_1, ligacao_atendida, etc... }]
           const responseArray = Array.isArray(data) ? data : [data];
           const aggregatedData = responseArray[0] || {};
           
-          // Se recebemos dados agregados (tem total_registros), usar diretamente
-          if (aggregatedData.total_registros !== undefined) {
-            const totalRegistros = parseInt(aggregatedData.total_registros || '0', 10);
-            const ligacaoAtendida = parseInt(aggregatedData.ligacao_atendida || '0', 10);
-            const statusAgendado = parseInt(aggregatedData.status_agendado || '0', 10);
-            const ligacaoErro = parseInt(aggregatedData.ligacao_erro || '0', 10);
-            const enviadoWhatsapp = parseInt(aggregatedData.enviado_whatsapp || '0', 10);
-            
-            allData.push({
-              eventId,
-              eventName: event.evt_nome || event.nome || event.name || 'Evento sem nome',
-              marca: event.marca,
-              estado: event.uf || event.estado,
-              cidade: event.cidade,
-              telefone_pri: event.telefone_pri,
-              leads: [], // Dados agregados não têm lista de leads
-              metricas: {
-                totalLeads: totalRegistros,
-                leadsAtendidos: ligacaoAtendida,
-                leadsEmFila: ligacaoErro,
-                leadsAgendados: statusAgendado,
-                mensagensEnviadas: enviadoWhatsapp,
-              },
-            });
-            
-            console.log(`✅ Evento ${eventId}: ${totalRegistros} leads, ${ligacaoAtendida} atendidos, ${statusAgendado} agendados`);
-          } else {
-            // Fallback: formato antigo com lista de leads
-            const leadsData = data?.contatos || data?.leads || data || [];
-            
-            const eventLeads = leadsData.map((lead: any) => ({
-              ...lead,
-              evento_id: eventId,
-              evento_nome: event.nome || event.name,
-              marca: lead.marca || event.marca,
-              estado: lead.estado || lead.uf || event.uf || event.estado,
-              atendido: lead.ligacao_atendida,
-              agendado: lead.status_agendado,
-              erro: lead.ligacao_erro && !lead.status_agendado,
-              whatsapp_enviado: lead.enviado_whatsapp,
-            }));
-
-            allData.push({
-              eventId,
-              eventName: event.evt_nome || event.nome || event.name || 'Evento sem nome',
-              marca: event.marca,
-              estado: event.uf || event.estado,
-              cidade: event.cidade,
-              telefone_pri: event.telefone_pri,
-              leads: eventLeads,
-              metricas: {
-                totalLeads: eventLeads.length,
-                leadsAtendidos: eventLeads.filter((l: LeadData) => l.atendido).length,
-                leadsEmFila: eventLeads.filter((l: LeadData) => l.erro && !l.agendado).length,
-                leadsAgendados: eventLeads.filter((l: LeadData) => l.agendado).length,
-                mensagensEnviadas: eventLeads.filter((l: LeadData) => l.whatsapp_enviado).length,
-              },
-            });
-          }
+          const totalRegistros = parseInt(aggregatedData.total_registros || '0', 10);
+          const ligacaoAtendida = parseInt(aggregatedData.ligacao_atendida || '0', 10);
+          const statusAgendado = parseInt(aggregatedData.status_agendado || '0', 10);
+          const ligacaoErro = parseInt(aggregatedData.ligacao_erro || '0', 10);
+          const enviadoWhatsapp = parseInt(aggregatedData.enviado_whatsapp || '0', 10);
+          
+          allData.push({
+            eventId,
+            eventName: event.evt_nome || event.nome || event.name || 'Evento sem nome',
+            marca: event.marca,
+            estado: event.uf || event.estado,
+            cidade: event.cidade,
+            telefone_pri: event.telefone_pri,
+            leads: [], // Endpoint de métricas retorna dados agregados, não lista de leads
+            metricas: {
+              totalLeads: totalRegistros,
+              leadsAtendidos: ligacaoAtendida,
+              leadsEmFila: ligacaoErro,
+              leadsAgendados: statusAgendado,
+              mensagensEnviadas: enviadoWhatsapp,
+            },
+          });
+          
+          console.log(`✅ Evento ${eventId}: ${totalRegistros} leads, ${ligacaoAtendida} atendidos, ${statusAgendado} agendados`);
         } catch (error) {
-          console.error(`Error fetching data for event ${event.id_evento}:`, error);
+          console.error(`Error fetching metrics for event ${event.id_evento}:`, error);
         }
       }
       
