@@ -64,6 +64,11 @@ interface Metricas {
   mensagensEnviadas: number;
 }
 
+interface LojaInfo {
+  loja: string;
+  total: number;
+}
+
 const PAGE_SIZE = 10;
 
 // Configuração das métricas com cores e ícones
@@ -111,9 +116,10 @@ export const DashboardLigacaoTab = ({
   onEventChange 
 }: DashboardLigacaoTabProps) => {
   const { activeCompany } = useCompany();
+  const [selectedLoja, setSelectedLoja] = useState<string>(''); // Loja principal selecionada
+  const [lojasDisponiveis, setLojasDisponiveis] = useState<LojaInfo[]>([]); // Lojas do evento
   const [filters, setFilters] = useState({
     search: '',
-    loja: '',
     status: '',
     tentativas: '',
     showOnlyAtendidos: false,
@@ -171,9 +177,19 @@ export const DashboardLigacaoTab = ({
 
   useEffect(() => {
     if (selectedEventId && selectedAgentPhone) {
+      // Reset loja selecionada ao trocar de evento
+      setSelectedLoja('');
+      setLojasDisponiveis([]);
       fetchDashboardData();
     }
   }, [selectedEventId, selectedAgentPhone]);
+
+  // Recarregar quando mudar a loja selecionada
+  useEffect(() => {
+    if (selectedEventId && selectedAgentPhone && activeCompany?.id) {
+      fetchDashboardData();
+    }
+  }, [selectedLoja]);
 
   const loadAvailableEvents = async () => {
     if (!selectedAgentPhone || !companyDealerId) return;
@@ -234,12 +250,13 @@ export const DashboardLigacaoTab = ({
       const idEventoNum = parseInt(selectedEventId, 10);
       
       // Usar edge function que faz JOIN entre prospect_pri_voz e cadencia_pri_voz
-      console.log('📊 DashboardLigacao - Buscando dados via get-base-ligacao para evento:', idEventoNum);
+      console.log('📊 DashboardLigacao - Buscando dados via get-base-ligacao para evento:', idEventoNum, 'loja:', selectedLoja || 'todas');
       
       const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
         body: {
           id_evento: idEventoNum,
           empresa_id: activeCompany.id,
+          loja: selectedLoja || undefined, // Passa loja selecionada para API
           page: 1,
           page_size: 50000, // Buscar todos para métricas
         },
@@ -248,6 +265,12 @@ export const DashboardLigacaoTab = ({
       if (error) {
         console.error('Erro ao buscar dados:', error);
         throw new Error('Erro ao buscar dados do Supabase');
+      }
+      
+      // Atualizar lista de lojas disponíveis (sempre, independente de ter loja selecionada)
+      if (data?.lojas && Array.isArray(data.lojas)) {
+        setLojasDisponiveis(data.lojas);
+        console.log(`🏪 ${data.lojas.length} lojas disponíveis:`, data.lojas.map((l: LojaInfo) => `${l.loja} (${l.total})`));
       }
       
       // Se não encontrou dados, pode ser que precise sincronizar
@@ -261,12 +284,14 @@ export const DashboardLigacaoTab = ({
           leadsAgendados: 0,
           mensagensEnviadas: 0,
         });
-        toast.info('Nenhum dado encontrado. Clique em "Sincronizar" para buscar dados do n8n.');
+        if (!selectedLoja) {
+          toast.info('Nenhum dado encontrado. Clique em "Sincronizar" para buscar dados do n8n.');
+        }
         setLastAppUpdate(new Date().toLocaleString('pt-BR'));
         return;
       }
       
-      console.log(`✅ Encontrados ${data.contatos.length} registros (JOIN prospect + cadencia)`);
+      console.log(`✅ Encontrados ${data.contatos.length} registros${selectedLoja ? ` para loja "${selectedLoja}"` : ''}`);
       
       // Processar leads (já vem com JOIN de cadencia_pri_voz)
       const processedLeads = data.contatos.map((lead: any) => ({
@@ -287,7 +312,7 @@ export const DashboardLigacaoTab = ({
       
       setLeads(processedLeads);
       
-      // Usar métricas já calculadas pela edge function (considera JOIN)
+      // Usar métricas já calculadas pela edge function (considera JOIN + filtro de loja)
       if (data.metricas) {
         setMetricas({
           totalLeads: data.metricas.total,
@@ -308,6 +333,7 @@ export const DashboardLigacaoTab = ({
       }
       
       console.log('✅ Dashboard carregado com JOIN:', {
+        loja: selectedLoja || 'todas',
         total: data.metricas?.total,
         atendidos: data.metricas?.atendidos,
         agendados: data.metricas?.agendados,
@@ -395,15 +421,10 @@ export const DashboardLigacaoTab = ({
     );
   };
 
-  // Get unique lojas for filter dropdown
-  const lojas = useMemo(() => {
-    return [...new Set(leads.map((l) => l.loja).filter(Boolean))] as string[];
-  }, [leads]);
-
   // Status options
   const statusOptions = ['pendente', 'atendido', 'agendado', 'em fila', 'não agendado'];
 
-  // Filter leads
+  // Filter leads (filtros locais - loja já foi filtrada na API)
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
       const query = filters.search.toLowerCase();
@@ -413,7 +434,6 @@ export const DashboardLigacaoTab = ({
         lead.telefone_lead?.includes(query) ||
         lead.status?.includes(query);
 
-      const matchesLoja = !filters.loja || filters.loja === '__all__' || lead.loja === filters.loja;
       const matchesStatus = !filters.status || filters.status === '__all__' || lead.status === filters.status;
       
       // Filtro de tentativas
@@ -431,7 +451,7 @@ export const DashboardLigacaoTab = ({
       const matchesEmFila = !filters.showOnlyEmFila || (lead.ligacao_erro && !lead.status_agendado);
       const matchesWhatsapp = !filters.showOnlyWhatsapp || lead.enviado_whatsapp;
 
-      return matchesSearch && matchesLoja && matchesStatus && matchesTentativas && matchesAtendidos && matchesAgendados && matchesEmFila && matchesWhatsapp;
+      return matchesSearch && matchesStatus && matchesTentativas && matchesAtendidos && matchesAgendados && matchesEmFila && matchesWhatsapp;
     });
   }, [leads, filters]);
 
@@ -474,7 +494,6 @@ export const DashboardLigacaoTab = ({
   const clearFilters = () => {
     setFilters({
       search: '',
-      loja: '',
       status: '',
       tentativas: '',
       showOnlyAtendidos: false,
@@ -482,11 +501,12 @@ export const DashboardLigacaoTab = ({
       showOnlyEmFila: false,
       showOnlyWhatsapp: false,
     });
+    setSelectedLoja(''); // Também limpa a loja selecionada
   };
 
   const activeFiltersCount = [
     filters.search,
-    filters.loja && filters.loja !== '__all__' ? filters.loja : '',
+    selectedLoja ? selectedLoja : '', // Contabiliza loja selecionada
     filters.status && filters.status !== '__all__' ? filters.status : '',
     filters.tentativas && filters.tentativas !== '__all__' ? filters.tentativas : '',
     filters.showOnlyAtendidos ? 'atendidos' : '',
@@ -538,6 +558,28 @@ export const DashboardLigacaoTab = ({
                 </SelectContent>
               </Select>
             )}
+
+            {/* LOJA SWITCHER - Principal */}
+            {lojasDisponiveis.length > 1 && (
+              <Select 
+                value={selectedLoja || '__all__'} 
+                onValueChange={(value) => setSelectedLoja(value === '__all__' ? '' : value)}
+              >
+                <SelectTrigger className="w-full sm:w-[280px] border-primary/50 bg-primary/5">
+                  <SelectValue placeholder="Selecionar loja..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">
+                    <span className="font-medium">Todas as lojas ({lojasDisponiveis.reduce((acc, l) => acc + l.total, 0)} leads)</span>
+                  </SelectItem>
+                  {lojasDisponiveis.map(loja => (
+                    <SelectItem key={loja.loja} value={loja.loja}>
+                      {loja.loja} ({loja.total} leads)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
           
           <div className="flex gap-2 w-full sm:w-auto">
@@ -569,6 +611,11 @@ export const DashboardLigacaoTab = ({
                 Agente IA: {selectedAgentPhone}
               </div>
             )}
+            {selectedLoja && (
+              <div className="flex items-center gap-1 text-primary font-medium">
+                <span>🏪 {selectedLoja}</span>
+              </div>
+            )}
           </div>
         )}
         
@@ -581,7 +628,7 @@ export const DashboardLigacaoTab = ({
 
       {/* Search and Filter */}
       <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="relative sm:col-span-2 lg:col-span-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -594,21 +641,6 @@ export const DashboardLigacaoTab = ({
               className="pl-10"
             />
           </div>
-          
-          <Select 
-            value={filters.loja || '__all__'} 
-            onValueChange={(value) => setFilters(prev => ({ ...prev, loja: value === '__all__' ? '' : value }))}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Todas as lojas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Todas as lojas</SelectItem>
-              {lojas.map(loja => (
-                <SelectItem key={loja} value={loja}>{loja}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           
           <Select 
             value={filters.status || '__all__'} 
