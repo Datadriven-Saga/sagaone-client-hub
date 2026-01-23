@@ -2358,6 +2358,7 @@ export type Database = {
           status_agendado: boolean | null
           telefone_lead: string
           telefone_pri: string | null
+          updated_at: string | null
         }
         Insert: {
           atualizado_em?: string | null
@@ -2375,6 +2376,7 @@ export type Database = {
           status_agendado?: boolean | null
           telefone_lead: string
           telefone_pri?: string | null
+          updated_at?: string | null
         }
         Update: {
           atualizado_em?: string | null
@@ -2392,6 +2394,7 @@ export type Database = {
           status_agendado?: boolean | null
           telefone_lead?: string
           telefone_pri?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
