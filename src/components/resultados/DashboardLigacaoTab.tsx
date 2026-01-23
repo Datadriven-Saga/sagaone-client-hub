@@ -250,12 +250,14 @@ export const DashboardLigacaoTab = ({
       const idEventoNum = parseInt(selectedEventId, 10);
       
       // Usar edge function que faz JOIN entre prospect_pri_voz e cadencia_pri_voz
-      console.log('📊 DashboardLigacao - Buscando dados via get-base-ligacao para evento:', idEventoNum, 'loja:', selectedLoja || 'todas');
+      console.log('📊 DashboardLigacao - Buscando dados via get-base-ligacao para evento:', idEventoNum, 'dealerid:', companyDealerId, 'loja:', selectedLoja || 'todas');
       
       const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
         body: {
           id_evento: idEventoNum,
           empresa_id: activeCompany.id,
+          telefone_pri: selectedAgentPhone, // Passa telefone do agente
+          dealerid: companyDealerId, // Passa CRM ID da empresa para filtrar corretamente
           loja: selectedLoja || undefined, // Passa loja selecionada para API
           page: 1,
           page_size: 50000, // Buscar todos para métricas

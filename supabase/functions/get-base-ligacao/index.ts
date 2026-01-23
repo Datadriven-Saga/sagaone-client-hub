@@ -10,6 +10,8 @@ interface RequestBody {
   empresa_id: string;
   prospeccao_id?: string;
   loja?: string; // Filtro por loja específica
+  telefone_pri?: string; // Telefone do agente PRI
+  dealerid?: string; // CRM ID da loja para filtrar dados
   page?: number;
   page_size?: number;
   filters?: {
@@ -52,6 +54,8 @@ Deno.serve(async (req: Request) => {
       id_evento, 
       empresa_id, 
       loja: lojaParam,
+      telefone_pri,
+      dealerid,
       page = 1, 
       page_size = 20,
       filters = {}
@@ -59,6 +63,8 @@ Deno.serve(async (req: Request) => {
     
     // Loja pode vir como parâmetro direto ou dentro de filters
     const lojaFilter = lojaParam || filters.loja;
+
+    console.log(`📥 [${requestId}] Parâmetros recebidos: id_evento=${id_evento}, empresa=${empresa_id}, dealerid=${dealerid || 'não informado'}, telefone_pri=${telefone_pri || 'não informado'}`);
 
     if (!id_evento) {
       return new Response(
@@ -74,20 +80,33 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log(`📥 [${requestId}] Parâmetros: id_evento=${id_evento}, empresa=${empresa_id}, loja=${lojaFilter || 'todas'}, page=${page}`);
+    console.log(`📥 [${requestId}] Parâmetros: id_evento=${id_evento}, empresa=${empresa_id}, dealerid=${dealerid || 'não informado'}, loja=${lojaFilter || 'todas'}, page=${page}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // =====================================================
-    // BUSCAR TODOS OS PROSPECTS (sem filtro de validação)
+    // BUSCAR TODOS OS PROSPECTS (com filtro de dealerid se informado)
+    // Supabase tem limite padrão de 1000, precisamos aumentar para eventos grandes
     // =====================================================
-    const { data: allProspects, error: prospectsError } = await supabase
+    let prospectsQuery = supabase
       .from('prospect_pri_voz')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('id_evento', id_evento)
-      .eq('empresa_id', empresa_id);
+      .limit(50000); // Aumentar limite para suportar eventos grandes
+    
+    // Se dealerid (crm_id) foi informado, filtrar por ele
+    if (dealerid) {
+      prospectsQuery = prospectsQuery.eq('dealerid', dealerid);
+      console.log(`🏪 [${requestId}] Filtrando por dealerid: ${dealerid}`);
+    } else {
+      // Fallback: usar empresa_id
+      prospectsQuery = prospectsQuery.eq('empresa_id', empresa_id);
+    }
+    
+    const { data: allProspects, error: prospectsError, count: prospectsCount } = await prospectsQuery;
+    console.log(`📊 [${requestId}] Query retornou ${allProspects?.length || 0} registros (count: ${prospectsCount})`);
 
     if (prospectsError) {
       console.error(`❌ [${requestId}] Erro ao buscar prospects:`, prospectsError);
@@ -100,11 +119,14 @@ Deno.serve(async (req: Request) => {
     // =====================================================
     // BUSCAR CADENCIAS (tentativas) - JOIN por telefone_lead + id_evento
     // =====================================================
-    const { data: cadenciaData, error: cadenciaError } = await supabase
+    let cadenciaQuery = supabase
       .from('cadencia_pri_voz')
       .select('telefone_lead, telefone_pri, id_evento, num_tentativas, hora_primeira_tentativa, hora_ultima_tentativa')
       .eq('id_evento', id_evento)
-      .eq('empresa_id', empresa_id);
+      .eq('empresa_id', empresa_id)
+      .limit(50000); // Aumentar limite
+    
+    const { data: cadenciaData, error: cadenciaError } = await cadenciaQuery;
 
     if (cadenciaError) {
       console.error(`❌ [${requestId}] Erro ao buscar cadencias:`, cadenciaError);
