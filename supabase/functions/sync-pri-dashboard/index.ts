@@ -10,8 +10,8 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Usar o endpoint dash-pri que retorna todos os contatos do evento
-const DASH_PRI_WEBHOOK_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/dash-pri';
+// Endpoint sincroniza_sagaone para sincronizar dados
+const SYNC_WEBHOOK_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/sincroniza_sagaone';
 const SAGA_ONE = Deno.env.get('SAGA_ONE') ?? '';
 
 // Interface baseada no formato exato enviado pelo webhook dash-pri
@@ -82,10 +82,10 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Buscar TODOS os dados do webhook dash-pri (sem paginação - retorna tudo)
-    console.log(`📡 Chamando webhook dash-pri: ${DASH_PRI_WEBHOOK_URL}`);
+    // 1. Buscar TODOS os dados do webhook sincroniza_sagaone
+    console.log(`📡 Chamando webhook sincroniza_sagaone: ${SYNC_WEBHOOK_URL}`);
 
-    const webhookResponse = await fetch(DASH_PRI_WEBHOOK_URL, {
+    const webhookResponse = await fetch(SYNC_WEBHOOK_URL, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
