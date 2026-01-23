@@ -11,7 +11,7 @@ interface RequestBody {
   prospeccao_id?: string;
   loja?: string; // Filtro por loja específica
   telefone_pri?: string; // Telefone do agente PRI
-  dealerid?: string; // CRM ID da loja para filtrar dados
+  dealerid?: string; // CRM ID da loja (apenas para referência, busca do evento)
   page?: number;
   page_size?: number;
   filters?: {
@@ -55,7 +55,7 @@ Deno.serve(async (req: Request) => {
       empresa_id, 
       loja: lojaParam,
       telefone_pri,
-      dealerid,
+      dealerid: dealerIdParam,
       page = 1, 
       page_size = 20,
       filters = {}
@@ -64,7 +64,7 @@ Deno.serve(async (req: Request) => {
     // Loja pode vir como parâmetro direto ou dentro de filters
     const lojaFilter = lojaParam || filters.loja;
 
-    console.log(`📥 [${requestId}] Parâmetros recebidos: id_evento=${id_evento}, empresa=${empresa_id}, dealerid=${dealerid || 'não informado'}, telefone_pri=${telefone_pri || 'não informado'}`);
+    console.log(`📥 [${requestId}] Parâmetros recebidos: id_evento=${id_evento}, empresa=${empresa_id}, dealerid_param=${dealerIdParam || 'não informado'}, telefone_pri=${telefone_pri || 'não informado'}`);
 
     if (!id_evento) {
       return new Response(
@@ -80,33 +80,44 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log(`📥 [${requestId}] Parâmetros: id_evento=${id_evento}, empresa=${empresa_id}, dealerid=${dealerid || 'não informado'}, loja=${lojaFilter || 'todas'}, page=${page}`);
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // =====================================================
-    // BUSCAR TODOS OS PROSPECTS (com filtro de dealerid se informado)
-    // Supabase tem limite padrão de 1000, precisamos aumentar para eventos grandes
+    // BUSCAR DADOS DO EVENTO da tabela eventos_pri_voz
+    // Usado para referência e validação, não para filtrar prospects
     // =====================================================
-    let prospectsQuery = supabase
+    console.log(`🔎 [${requestId}] Buscando dados do evento ${id_evento} na tabela eventos_pri_voz...`);
+    
+    const { data: eventoData, error: eventoError } = await supabase
+      .from('eventos_pri_voz')
+      .select('id_evento, dealerid, telefone_pri, nome, empresa_id')
+      .eq('id_evento', id_evento)
+      .maybeSingle();
+    
+    if (eventoError) {
+      console.error(`⚠️ [${requestId}] Erro ao buscar evento:`, eventoError);
+    } else if (eventoData) {
+      console.log(`✅ [${requestId}] Evento encontrado: "${eventoData.nome}", dealerid=${eventoData.dealerid}, telefone_pri=${eventoData.telefone_pri}, empresa_id=${eventoData.empresa_id}`);
+    } else {
+      console.log(`⚠️ [${requestId}] Evento ${id_evento} não encontrado em eventos_pri_voz`);
+    }
+
+    // =====================================================
+    // BUSCAR TODOS OS PROSPECTS
+    // Filtrar por id_evento + empresa_id (prospect_pri_voz não tem coluna dealerid)
+    // =====================================================
+    console.log(`📥 [${requestId}] Buscando prospects: id_evento=${id_evento}, empresa_id=${empresa_id}, loja=${lojaFilter || 'todas'}`);
+    
+    const { data: allProspects, error: prospectsError, count: prospectsCount } = await supabase
       .from('prospect_pri_voz')
       .select('*', { count: 'exact' })
       .eq('id_evento', id_evento)
-      .limit(50000); // Aumentar limite para suportar eventos grandes
+      .eq('empresa_id', empresa_id)
+      .limit(60000); // Limite alto para eventos grandes
     
-    // Se dealerid (crm_id) foi informado, filtrar por ele
-    if (dealerid) {
-      prospectsQuery = prospectsQuery.eq('dealerid', dealerid);
-      console.log(`🏪 [${requestId}] Filtrando por dealerid: ${dealerid}`);
-    } else {
-      // Fallback: usar empresa_id
-      prospectsQuery = prospectsQuery.eq('empresa_id', empresa_id);
-    }
-    
-    const { data: allProspects, error: prospectsError, count: prospectsCount } = await prospectsQuery;
-    console.log(`📊 [${requestId}] Query retornou ${allProspects?.length || 0} registros (count: ${prospectsCount})`);
+    console.log(`📊 [${requestId}] Query prospects retornou ${allProspects?.length || 0} registros (count: ${prospectsCount})`);
 
     if (prospectsError) {
       console.error(`❌ [${requestId}] Erro ao buscar prospects:`, prospectsError);
@@ -119,14 +130,14 @@ Deno.serve(async (req: Request) => {
     // =====================================================
     // BUSCAR CADENCIAS (tentativas) - JOIN por telefone_lead + id_evento
     // =====================================================
-    let cadenciaQuery = supabase
+    const { data: cadenciaData, error: cadenciaError } = await supabase
       .from('cadencia_pri_voz')
       .select('telefone_lead, telefone_pri, id_evento, num_tentativas, hora_primeira_tentativa, hora_ultima_tentativa')
       .eq('id_evento', id_evento)
       .eq('empresa_id', empresa_id)
-      .limit(50000); // Aumentar limite
+      .limit(60000);
     
-    const { data: cadenciaData, error: cadenciaError } = await cadenciaQuery;
+    console.log(`📊 [${requestId}] Query cadencia retornou ${cadenciaData?.length || 0} registros`);
 
     if (cadenciaError) {
       console.error(`❌ [${requestId}] Erro ao buscar cadencias:`, cadenciaError);
@@ -147,7 +158,7 @@ Deno.serve(async (req: Request) => {
       });
     });
 
-    console.log(`📊 [${requestId}] Prospects: ${allProspects?.length || 0}, Cadencias: ${cadenciaData?.length || 0}`);
+    console.log(`📊 [${requestId}] Prospects: ${allProspects?.length || 0}, Cadencias mapeadas: ${cadenciaMap.size}`);
 
     // =====================================================
     // ENRIQUECER PROSPECTS COM DADOS DE CADENCIA (JOIN)
@@ -224,7 +235,7 @@ Deno.serve(async (req: Request) => {
 
     metricas.elegiveisDisparo = metricas.pendentes + metricas.emFila;
 
-    console.log(`📊 [${requestId}] Métricas${lojaFilter ? ` (loja: ${lojaFilter})` : ''}: total=${metricas.total}, pendentes=${metricas.pendentes}, encerrados=${metricas.encerrados}`);
+    console.log(`📊 [${requestId}] Métricas${lojaFilter ? ` (loja: ${lojaFilter})` : ''}: total=${metricas.total}, pendentes=${metricas.pendentes}, agendados=${metricas.agendados}, atendidos=${metricas.atendidos}`);
 
     // =====================================================
     // APLICAR FILTROS ADICIONAIS (client-side, após JOIN)
@@ -282,6 +293,12 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: true,
+        evento: eventoData ? {
+          id_evento: eventoData.id_evento,
+          nome: eventoData.nome,
+          dealerid: eventoData.dealerid,
+          telefone_pri: eventoData.telefone_pri,
+        } : null,
         metricas,
         lojas, // Lista de lojas disponíveis com contagem
         loja_selecionada: lojaFilter || null,

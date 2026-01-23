@@ -250,17 +250,18 @@ export const DashboardLigacaoTab = ({
       const idEventoNum = parseInt(selectedEventId, 10);
       
       // Usar edge function que faz JOIN entre prospect_pri_voz e cadencia_pri_voz
-      console.log('📊 DashboardLigacao - Buscando dados via get-base-ligacao para evento:', idEventoNum, 'dealerid:', companyDealerId, 'loja:', selectedLoja || 'todas');
+      console.log('📊 DashboardLigacao - Buscando dados via get-base-ligacao para evento:', idEventoNum, 'empresa:', activeCompany.id, 'loja:', selectedLoja || 'todas');
       
+      // A edge function busca automaticamente o dealerid e telefone_pri da tabela eventos_pri_voz
+      // Passa apenas id_evento e empresa_id - a função faz o JOIN das 3 tabelas PRI
       const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
         body: {
           id_evento: idEventoNum,
           empresa_id: activeCompany.id,
-          telefone_pri: selectedAgentPhone, // Passa telefone do agente
-          dealerid: companyDealerId, // Passa CRM ID da empresa para filtrar corretamente
-          loja: selectedLoja || undefined, // Passa loja selecionada para API
+          telefone_pri: selectedAgentPhone, // Opcional, para referência
+          loja: selectedLoja || undefined, // Passa loja selecionada para filtrar
           page: 1,
-          page_size: 50000, // Buscar todos para métricas
+          page_size: 60000, // Limite alto para buscar todos os registros
         },
       });
       
