@@ -67,3 +67,6 @@ verify_jwt = true
 
 [functions.get-base-ligacao]
 verify_jwt = true
+
+[functions.sync-pri-dashboard]
+verify_jwt = true
