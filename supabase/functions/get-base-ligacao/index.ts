@@ -314,10 +314,10 @@ Deno.serve(async (req: Request) => {
     // PAGINAÇÃO
     // =====================================================
     const totalFiltered = filteredProspects.length;
-    const offset = (page - 1) * page_size;
+    const paginationOffset = (page - 1) * page_size;
     const paginatedProspects = filteredProspects
       .sort((a, b) => new Date(b.criado_em || 0).getTime() - new Date(a.criado_em || 0).getTime())
-      .slice(offset, offset + page_size);
+      .slice(paginationOffset, paginationOffset + page_size);
 
     console.log(`✅ [${requestId}] Retornando ${paginatedProspects.length} contatos (página ${page} de ${Math.ceil(totalFiltered / page_size)})`);
 
