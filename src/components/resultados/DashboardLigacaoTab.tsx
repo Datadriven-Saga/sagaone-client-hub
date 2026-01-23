@@ -243,35 +243,79 @@ export const DashboardLigacaoTab = ({
         throw new Error('Erro ao buscar dados');
       }
       
-      const leadsData = Array.isArray(data) ? data : (data?.contatos || data?.leads || []);
+      console.log('📊 DashboardLigacao - Resposta dash-pri:', data);
       
-      // Process leads
-      const processedLeads = leadsData.map((lead: any) => ({
-        id: lead.id,
-        nome: lead.nome || lead.name,
-        telefone_lead: lead.telefone_lead || lead.telefone,
-        telefone_pri: lead.telefone_pri,
-        loja: lead.loja,
-        status: calculateLeadStatus(lead),
-        proposal_id: lead.proposal_id,
-        num_tentativas: lead.num_tentativas ?? lead.tentativas ?? 0,
-        ultima_atualizacao: lead.atualizado_em || lead.updated_at || lead.ultima_atualizacao,
-        ligacao_atendida: lead.ligacao_atendida,
-        status_agendado: lead.status_agendado,
-        ligacao_erro: lead.ligacao_erro,
-        enviado_whatsapp: lead.enviado_whatsapp,
-      }));
+      // O dash-pri retorna dados AGREGADOS, não uma lista de leads
+      // Formato: [{ total_registros, tentativas_0, tentativas_1, etc... }]
+      const responseArray = Array.isArray(data) ? data : [data];
+      const aggregatedData = responseArray[0] || {};
       
-      setLeads(processedLeads);
-      
-      // Calculate metrics
-      setMetricas({
-        totalLeads: processedLeads.length,
-        leadsAtendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
-        leadsEmFila: processedLeads.filter((l: LeadData) => l.ligacao_erro && !l.status_agendado).length,
-        leadsAgendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
-        mensagensEnviadas: processedLeads.filter((l: LeadData) => l.enviado_whatsapp).length,
-      });
+      // Se recebemos dados agregados (tem total_registros), usar diretamente
+      if (aggregatedData.total_registros !== undefined) {
+        const totalRegistros = parseInt(aggregatedData.total_registros || '0', 10);
+        const ligacaoAtendida = parseInt(aggregatedData.ligacao_atendida || '0', 10);
+        const statusAgendado = parseInt(aggregatedData.status_agendado || '0', 10);
+        const ligacaoErro = parseInt(aggregatedData.ligacao_erro || '0', 10);
+        const enviadoWhatsapp = parseInt(aggregatedData.enviado_whatsapp || '0', 10);
+        const tentativas0 = parseInt(aggregatedData.tentativas_0 || '0', 10);
+        const tentativas1 = parseInt(aggregatedData.tentativas_1 || '0', 10);
+        const tentativas2 = parseInt(aggregatedData.tentativas_2 || '0', 10);
+        const tentativasMaior2 = parseInt(aggregatedData.tentativas_maior_2 || '0', 10);
+        
+        // Calcular Em Fila: leads com erro que não estão agendados
+        // Como não temos dados individuais, usamos ligacao_erro como proxy
+        const leadsEmFila = ligacaoErro;
+        
+        // Set métricas diretamente dos dados agregados
+        setMetricas({
+          totalLeads: totalRegistros,
+          leadsAtendidos: ligacaoAtendida,
+          leadsEmFila: leadsEmFila,
+          leadsAgendados: statusAgendado,
+          mensagensEnviadas: enviadoWhatsapp,
+        });
+        
+        // Limpar leads já que não temos dados individuais
+        setLeads([]);
+        
+        console.log('✅ Métricas agregadas carregadas:', {
+          total: totalRegistros,
+          atendidos: ligacaoAtendida,
+          agendados: statusAgendado,
+          emFila: leadsEmFila,
+          whatsapp: enviadoWhatsapp,
+          tentativas: { t0: tentativas0, t1: tentativas1, t2: tentativas2, tMaior2: tentativasMaior2 }
+        });
+      } else {
+        // Fallback: se recebemos lista de leads (formato antigo)
+        const leadsData = Array.isArray(data) ? data : (data?.contatos || data?.leads || []);
+        
+        const processedLeads = leadsData.map((lead: any) => ({
+          id: lead.id,
+          nome: lead.nome || lead.name,
+          telefone_lead: lead.telefone_lead || lead.telefone,
+          telefone_pri: lead.telefone_pri,
+          loja: lead.loja,
+          status: calculateLeadStatus(lead),
+          proposal_id: lead.proposal_id,
+          num_tentativas: lead.num_tentativas ?? lead.tentativas ?? 0,
+          ultima_atualizacao: lead.atualizado_em || lead.updated_at || lead.ultima_atualizacao,
+          ligacao_atendida: lead.ligacao_atendida,
+          status_agendado: lead.status_agendado,
+          ligacao_erro: lead.ligacao_erro,
+          enviado_whatsapp: lead.enviado_whatsapp,
+        }));
+        
+        setLeads(processedLeads);
+        
+        setMetricas({
+          totalLeads: processedLeads.length,
+          leadsAtendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
+          leadsEmFila: processedLeads.filter((l: LeadData) => l.ligacao_erro && !l.status_agendado).length,
+          leadsAgendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
+          mensagensEnviadas: processedLeads.filter((l: LeadData) => l.enviado_whatsapp).length,
+        });
+      }
       
       setLastAppUpdate(new Date().toLocaleString('pt-BR'));
     } catch (error) {
