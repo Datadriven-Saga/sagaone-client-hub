@@ -136,13 +136,21 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
     try {
       setLoading(true);
       
-      // Buscar eventos diretamente do Supabase (tabela eventos_pri_voz)
-      console.log('📊 Métricas - Buscando eventos do Supabase para empresa:', activeCompany?.id);
+      // Buscar eventos da tabela eventos_pri_voz filtrados por telefone_pri
+      console.log('📊 Métricas - Buscando eventos para telefone_pri:', selectedAgentPhone, 'empresa:', activeCompany?.id);
       
-      const { data: eventsFromDb, error: eventsDbError } = await supabase
+      // Query base filtrando por empresa_id e telefone_pri
+      let eventsQuery = supabase
         .from('eventos_pri_voz')
         .select('*')
-        .eq('empresa_id', activeCompany?.id)
+        .eq('empresa_id', activeCompany?.id);
+      
+      // Filtrar por telefone_pri se informado
+      if (selectedAgentPhone) {
+        eventsQuery = eventsQuery.eq('telefone_pri', selectedAgentPhone);
+      }
+      
+      const { data: eventsFromDb, error: eventsDbError } = await eventsQuery
         .order('data_inicio', { ascending: false });
       
       if (eventsDbError) {
@@ -151,7 +159,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       }
       
       const events = eventsFromDb || [];
-      console.log(`✅ Métricas - ${events.length} eventos encontrados no Supabase`);
+      console.log(`✅ Métricas - ${events.length} eventos encontrados para telefone_pri=${selectedAgentPhone}`);
       
       if (events.length === 0) {
         setAllEventsData([]);
