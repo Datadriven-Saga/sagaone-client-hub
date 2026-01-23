@@ -62,7 +62,7 @@ export function useMetricasLigacao() {
     return null;
   }, [activeCompany?.id, telefonePriCache]);
 
-  // Buscar métricas de IA Ligação do webhook externo (verifica-contatos)
+  // Buscar métricas de IA Ligação do webhook externo (dash-pri)
   const fetchMetricasLigacao = useCallback(async (
     eventoId: string,
     eventIdPri?: string | null,
@@ -91,11 +91,11 @@ export function useMetricasLigacao() {
 
       const idEvento = eventIdPri || eventoId;
       
-      console.log('📊 Buscando métricas externas (verifica-contatos) para evento:', idEvento);
+      console.log('📊 Buscando métricas externas (dash-pri) para evento:', idEvento);
 
       const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
         body: {
-          endpoint: 'verifica-contatos',
+          endpoint: 'dash-pri',
           id_evento: idEvento,
           telefone_pri: telefonePri
         }
