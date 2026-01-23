@@ -1,14 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
   Loader2, Phone, PhoneCall, PhoneOff, CalendarCheck, MessageSquare, TrendingUp, 
-  Filter, X, RefreshCw 
+  RefreshCw, Users, Clock, CheckCircle2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -21,34 +20,6 @@ interface MetricasLigacaoTabProps {
   selectedAgentPhone: string | null;
 }
 
-interface EventData {
-  id: string;
-  nome: string;
-  telefone_pri?: string;
-  cidade?: string;
-  uf?: string;
-  estado?: string;
-  marca?: string;
-}
-
-interface LeadData {
-  id?: string;
-  nome?: string;
-  telefone_lead?: string;
-  telefone_pri?: string;
-  loja?: string;
-  marca?: string;
-  estado?: string;
-  uf?: string;
-  cidade?: string;
-  evento_id?: string;
-  evento_nome?: string;
-  atendido?: boolean;
-  agendado?: boolean;
-  erro?: boolean;
-  whatsapp_enviado?: boolean;
-}
-
 interface EventMetrics {
   eventId: string;
   eventName: string;
@@ -56,73 +27,24 @@ interface EventMetrics {
   estado?: string;
   cidade?: string;
   telefone_pri?: string;
-  leads: LeadData[];
   metricas: {
-    totalLeads: number;
-    leadsAtendidos: number;
-    leadsEmFila: number;
-    leadsAgendados: number;
-    mensagensEnviadas: number;
+    total: number;
+    pendentes: number;
+    disparados: number;
+    emFila: number;
+    encerrados: number;
+    agendados: number;
+    whatsappEnviado: number;
+    atendidos: number;
   };
-}
-
-interface Filters {
-  telefone_pri: string;
-  evento: string;
-  showOnlyAtendidos: boolean;
-  showOnlyAgendados: boolean;
-  showOnlyEmFila: boolean;
-  showOnlyWhatsapp: boolean;
 }
 
 export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabProps) => {
   const { activeCompany } = useCompany();
   const [allEventsData, setAllEventsData] = useState<EventMetrics[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [lastAppUpdate, setLastAppUpdate] = useState('');
-  const [companyDealerId, setCompanyDealerId] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>({
-    telefone_pri: '',
-    evento: '',
-    showOnlyAtendidos: false,
-    showOnlyAgendados: false,
-    showOnlyEmFila: false,
-    showOnlyWhatsapp: false,
-  });
-
-  // Fetch company dealer_id (crm_id) for filtering events
-  useEffect(() => {
-    const fetchCompanyDealerId = async () => {
-      if (!activeCompany?.id) {
-        setCompanyDealerId(null);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('empresas')
-          .select('crm_id')
-          .eq('id', activeCompany.id)
-          .single();
-
-        if (error) {
-          console.error('Erro ao buscar crm_id da empresa:', error);
-          setCompanyDealerId(null);
-          return;
-        }
-
-        const dealerId = data?.crm_id?.trim() || null;
-        console.log('🏪 Métricas Ligação - Dealer ID (crm_id):', dealerId);
-        setCompanyDealerId(dealerId);
-      } catch (error) {
-        console.error('Erro ao buscar dealer_id:', error);
-        setCompanyDealerId(null);
-      }
-    };
-
-    fetchCompanyDealerId();
-  }, [activeCompany?.id]);
+  const [selectedEvento, setSelectedEvento] = useState<string>('__all__');
 
   useEffect(() => {
     if (selectedAgentPhone && activeCompany?.id) {
@@ -137,20 +59,12 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       setLoading(true);
       
       // Buscar eventos da tabela eventos_pri_voz filtrados por telefone_pri
-      console.log('📊 Métricas - Buscando eventos para telefone_pri:', selectedAgentPhone, 'empresa:', activeCompany?.id);
+      console.log('📊 Métricas - Buscando eventos para telefone_pri:', selectedAgentPhone);
       
-      // Query base filtrando por empresa_id e telefone_pri
-      let eventsQuery = supabase
+      const { data: eventsFromDb, error: eventsDbError } = await supabase
         .from('eventos_pri_voz')
         .select('*')
-        .eq('empresa_id', activeCompany?.id);
-      
-      // Filtrar por telefone_pri se informado
-      if (selectedAgentPhone) {
-        eventsQuery = eventsQuery.eq('telefone_pri', selectedAgentPhone);
-      }
-      
-      const { data: eventsFromDb, error: eventsDbError } = await eventsQuery
+        .eq('telefone_pri', selectedAgentPhone)
         .order('data_inicio', { ascending: false });
       
       if (eventsDbError) {
@@ -167,21 +81,21 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
         return;
       }
       
-      // Buscar métricas de cada evento usando a mesma edge function get-base-ligacao
+      // Buscar métricas agregadas de cada evento (SEM lista de leads)
       const allData: EventMetrics[] = [];
       
       for (const event of events) {
         try {
           const eventId = event.id_evento;
           
-          // Usar get-base-ligacao para buscar dados locais (mesma fonte do Dashboard)
+          // Usar get-base-ligacao com page_size=1 (só precisamos das métricas agregadas)
           const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
             body: { 
               id_evento: eventId,
               empresa_id: activeCompany?.id,
               telefone_pri: event.telefone_pri,
               page: 1,
-              page_size: 1, // Só precisamos das métricas
+              page_size: 1, // Não precisamos dos leads, só métricas
             },
           });
           
@@ -204,17 +118,19 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
             estado: event.uf,
             cidade: event.cidade,
             telefone_pri: event.telefone_pri,
-            leads: [], // Métricas agregadas, não lista de leads
             metricas: {
-              totalLeads: metricas.total || 0,
-              leadsAtendidos: metricas.atendidos || 0,
-              leadsEmFila: metricas.emFila || 0,
-              leadsAgendados: metricas.agendados || 0,
-              mensagensEnviadas: metricas.whatsappEnviado || 0,
+              total: metricas.total || 0,
+              pendentes: metricas.pendentes || 0,
+              disparados: metricas.disparados || 0,
+              emFila: metricas.emFila || 0,
+              encerrados: metricas.encerrados || 0,
+              agendados: metricas.agendados || 0,
+              whatsappEnviado: metricas.whatsappEnviado || 0,
+              atendidos: metricas.atendidos || 0,
             },
           });
           
-          console.log(`✅ Evento ${eventId}: ${metricas.total || 0} leads, ${metricas.atendidos || 0} atendidos, ${metricas.agendados || 0} agendados`);
+          console.log(`✅ Evento ${eventId}: total=${metricas.total}, atendidos=${metricas.atendidos}, agendados=${metricas.agendados}`);
         } catch (error) {
           console.error(`Error fetching metrics for event ${event.id_evento}:`, error);
         }
@@ -231,106 +147,45 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
     }
   };
 
-  // Get all unique values for filters
-  const filterOptions = useMemo(() => {
-    const eventNameCounts: Record<string, number> = {};
-    const eventos = allEventsData.map(e => {
-      const name = e.eventName || 'Sem nome';
-      eventNameCounts[name] = (eventNameCounts[name] || 0) + 1;
-      return { id: e.eventId, name, count: eventNameCounts[name] };
-    });
-    
-    const nameTotals: Record<string, number> = {};
-    allEventsData.forEach(e => {
-      const name = e.eventName || 'Sem nome';
-      nameTotals[name] = (nameTotals[name] || 0) + 1;
-    });
-    
-    const eventosFormatted = eventos.map(e => ({
-      id: e.id,
-      displayName: nameTotals[e.name] > 1 ? `${e.name} (${e.count})` : e.name
-    }));
-    
-    return { eventos: eventosFormatted };
-  }, [allEventsData]);
-
-  // Filter data based on filters
+  // Filtrar por evento selecionado
   const filteredData = useMemo(() => {
-    return allEventsData.map(eventData => {
-      const matchesEvento = !filters.evento || filters.evento === '__all__' || eventData.eventId === filters.evento;
-      
-      if (!matchesEvento) {
-        return null;
-      }
+    if (selectedEvento === '__all__') {
+      return allEventsData;
+    }
+    return allEventsData.filter(e => e.eventId === selectedEvento);
+  }, [allEventsData, selectedEvento]);
 
-      // Filter leads
-      const filteredLeads = eventData.leads.filter(lead => {
-        const matchesAtendidos = !filters.showOnlyAtendidos || lead.atendido;
-        const matchesAgendados = !filters.showOnlyAgendados || lead.agendado;
-        const matchesEmFila = !filters.showOnlyEmFila || lead.erro;
-        const matchesWhatsapp = !filters.showOnlyWhatsapp || lead.whatsapp_enviado;
-        
-        return matchesAtendidos && matchesAgendados && matchesEmFila && matchesWhatsapp;
-      });
-
-      return {
-        ...eventData,
-        leads: filteredLeads,
-        metricas: {
-          totalLeads: filteredLeads.length,
-          leadsAtendidos: filteredLeads.filter(l => l.atendido).length,
-          leadsEmFila: filteredLeads.filter(l => l.erro && !l.agendado).length,
-          leadsAgendados: filteredLeads.filter(l => l.agendado).length,
-          mensagensEnviadas: filteredLeads.filter(l => l.whatsapp_enviado).length,
-        },
-      };
-    }).filter(Boolean) as EventMetrics[];
-  }, [allEventsData, filters]);
-
-  // Aggregate metrics
+  // Agregar métricas de todos os eventos filtrados
   const aggregatedMetrics = useMemo(() => {
     return filteredData.reduce((acc, event) => {
       return {
-        totalLeads: acc.totalLeads + event.metricas.totalLeads,
-        leadsAtendidos: acc.leadsAtendidos + event.metricas.leadsAtendidos,
-        leadsEmFila: acc.leadsEmFila + event.metricas.leadsEmFila,
-        leadsAgendados: acc.leadsAgendados + event.metricas.leadsAgendados,
-        mensagensEnviadas: acc.mensagensEnviadas + event.metricas.mensagensEnviadas,
+        total: acc.total + event.metricas.total,
+        pendentes: acc.pendentes + event.metricas.pendentes,
+        disparados: acc.disparados + event.metricas.disparados,
+        emFila: acc.emFila + event.metricas.emFila,
+        encerrados: acc.encerrados + event.metricas.encerrados,
+        agendados: acc.agendados + event.metricas.agendados,
+        whatsappEnviado: acc.whatsappEnviado + event.metricas.whatsappEnviado,
+        atendidos: acc.atendidos + event.metricas.atendidos,
         totalEventos: acc.totalEventos + 1,
       };
     }, {
-      totalLeads: 0,
-      leadsAtendidos: 0,
-      leadsEmFila: 0,
-      leadsAgendados: 0,
-      mensagensEnviadas: 0,
+      total: 0,
+      pendentes: 0,
+      disparados: 0,
+      emFila: 0,
+      encerrados: 0,
+      agendados: 0,
+      whatsappEnviado: 0,
+      atendidos: 0,
       totalEventos: 0,
     });
   }, [filteredData]);
-
-  const clearFilters = () => {
-    setFilters({
-      telefone_pri: '',
-      evento: '',
-      showOnlyAtendidos: false,
-      showOnlyAgendados: false,
-      showOnlyEmFila: false,
-      showOnlyWhatsapp: false,
-    });
-  };
 
   const calculatePercentage = (value: number, total: number): string => {
     if (total === 0) return '0%';
     return `${((value / total) * 100).toFixed(1)}%`;
   };
-
-  const activeFiltersCount = [
-    filters.evento && filters.evento !== '__all__' ? filters.evento : '',
-    filters.showOnlyAtendidos ? 'atendidos' : '',
-    filters.showOnlyAgendados ? 'agendados' : '',
-    filters.showOnlyEmFila ? 'emfila' : '',
-    filters.showOnlyWhatsapp ? 'whatsapp' : '',
-  ].filter(Boolean).length;
 
   if (!selectedAgentPhone) {
     return (
@@ -357,9 +212,9 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold">Métricas Gerais</h2>
+          <h2 className="text-xl font-bold">Métricas Consolidadas</h2>
           <p className="text-sm text-muted-foreground">
-            Visão consolidada de todos os eventos
+            Dados agregados de todos os eventos (apenas contadores)
           </p>
           {lastAppUpdate && (
             <p className="text-xs text-muted-foreground mt-1">
@@ -368,170 +223,146 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
           )}
         </div>
         
-        <Button variant="outline" size="sm" onClick={fetchAllMetrics}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Atualizar
-        </Button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="outline"
-          onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-          className="gap-2 relative"
-        >
-          <Filter className="h-4 w-4" />
-          Filtros
-          {activeFiltersCount > 0 && (
-            <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-              {activeFiltersCount}
-            </Badge>
+        <div className="flex items-center gap-2">
+          {allEventsData.length > 0 && (
+            <Select value={selectedEvento} onValueChange={setSelectedEvento}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Todos os eventos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todos os eventos ({allEventsData.length})</SelectItem>
+                {allEventsData.map(e => (
+                  <SelectItem key={e.eventId} value={e.eventId}>{e.eventName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
-        </Button>
-        
-        {filterOptions.eventos.length > 0 && (
-          <Select 
-            value={filters.evento || '__all__'} 
-            onValueChange={(value) => setFilters(prev => ({ ...prev, evento: value === '__all__' ? '' : value }))}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Todos os eventos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Todos os eventos</SelectItem>
-              {filterOptions.eventos.map(e => (
-                <SelectItem key={e.id} value={e.id}>{e.displayName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
-
-      {/* Active Filters Tags */}
-      {activeFiltersCount > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {filters.evento && filters.evento !== '__all__' && (
-            <Badge variant="secondary" className="gap-1">
-              Evento: {filterOptions.eventos.find(e => e.id === filters.evento)?.displayName || filters.evento}
-              <X className="h-3 w-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, evento: '' }))} />
-            </Badge>
-          )}
-          {filters.showOnlyAtendidos && (
-            <Badge variant="secondary" className="gap-1">
-              Atendidas
-              <X className="h-3 w-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, showOnlyAtendidos: false }))} />
-            </Badge>
-          )}
-          {filters.showOnlyAgendados && (
-            <Badge variant="secondary" className="gap-1">
-              Agendados
-              <X className="h-3 w-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, showOnlyAgendados: false }))} />
-            </Badge>
-          )}
-          {filters.showOnlyEmFila && (
-            <Badge variant="secondary" className="gap-1">
-              Em Fila
-              <X className="h-3 w-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, showOnlyEmFila: false }))} />
-            </Badge>
-          )}
-          {filters.showOnlyWhatsapp && (
-            <Badge variant="secondary" className="gap-1">
-              WhatsApp Enviado
-              <X className="h-3 w-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, showOnlyWhatsapp: false }))} />
-            </Badge>
-          )}
+          
+          <Button variant="outline" size="sm" onClick={fetchAllMetrics}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Atualizar
+          </Button>
         </div>
-      )}
+      </div>
 
-      {/* Main Metrics Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <Card>
+      {/* Main Metrics Grid - Apenas contadores agregados */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Total de Leads
             </CardTitle>
-            <Phone className="h-4 w-4 text-muted-foreground" />
+            <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-primary">{aggregatedMetrics.totalLeads}</p>
+            <p className="text-3xl font-bold text-primary">{aggregatedMetrics.total.toLocaleString('pt-BR')}</p>
             <p className="text-xs text-muted-foreground mt-1">
               Em {aggregatedMetrics.totalEventos} evento{aggregatedMetrics.totalEventos !== 1 ? 's' : ''}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-yellow-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Leads Atendidos
+              Pendentes
             </CardTitle>
-            <PhoneCall className="h-4 w-4 text-green-600" />
+            <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-green-600">{aggregatedMetrics.leadsAtendidos}</p>
+            <p className="text-3xl font-bold text-yellow-600">{aggregatedMetrics.pendentes.toLocaleString('pt-BR')}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {calculatePercentage(aggregatedMetrics.leadsAtendidos, aggregatedMetrics.totalLeads)} do total
+              {calculatePercentage(aggregatedMetrics.pendentes, aggregatedMetrics.total)} do total
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Disparados
+            </CardTitle>
+            <Phone className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-blue-600">{aggregatedMetrics.disparados.toLocaleString('pt-BR')}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {calculatePercentage(aggregatedMetrics.disparados, aggregatedMetrics.total)} do total
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-orange-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Em Fila
             </CardTitle>
-            <PhoneOff className="h-4 w-4 text-destructive" />
+            <PhoneOff className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-destructive">{aggregatedMetrics.leadsEmFila}</p>
+            <p className="text-3xl font-bold text-orange-600">{aggregatedMetrics.emFila.toLocaleString('pt-BR')}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {calculatePercentage(aggregatedMetrics.leadsEmFila, aggregatedMetrics.totalLeads)} do total
+              {calculatePercentage(aggregatedMetrics.emFila, aggregatedMetrics.total)} do total
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-green-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Leads Agendados
+              Atendidos
             </CardTitle>
-            <CalendarCheck className="h-4 w-4 text-blue-600" />
+            <PhoneCall className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-blue-600">{aggregatedMetrics.leadsAgendados}</p>
+            <p className="text-3xl font-bold text-green-600">{aggregatedMetrics.atendidos.toLocaleString('pt-BR')}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {calculatePercentage(aggregatedMetrics.leadsAgendados, aggregatedMetrics.totalLeads)} do total
+              {calculatePercentage(aggregatedMetrics.atendidos, aggregatedMetrics.total)} do total
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-[#04bbda]">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Agendados
+            </CardTitle>
+            <CalendarCheck className="h-4 w-4 text-[#04bbda]" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-[#04bbda]">{aggregatedMetrics.agendados.toLocaleString('pt-BR')}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {calculatePercentage(aggregatedMetrics.agendados, aggregatedMetrics.total)} do total
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-emerald-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               WhatsApp Enviados
             </CardTitle>
-            <MessageSquare className="h-4 w-4 text-green-500" />
+            <MessageSquare className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-green-500">{aggregatedMetrics.mensagensEnviadas}</p>
+            <p className="text-3xl font-bold text-emerald-600">{aggregatedMetrics.whatsappEnviado.toLocaleString('pt-BR')}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Mensagens enviadas
+              {calculatePercentage(aggregatedMetrics.whatsappEnviado, aggregatedMetrics.total)} do total
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-slate-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total de Eventos
+              Encerrados
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CheckCircle2 className="h-4 w-4 text-slate-600" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{aggregatedMetrics.totalEventos}</p>
+            <p className="text-3xl font-bold text-slate-600">{aggregatedMetrics.encerrados.toLocaleString('pt-BR')}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Eventos ativos
+              {calculatePercentage(aggregatedMetrics.encerrados, aggregatedMetrics.total)} do total
             </p>
           </CardContent>
         </Card>
@@ -542,36 +373,36 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
         <CardHeader>
           <CardTitle>Resumo de Performance</CardTitle>
           <CardDescription>
-            Indicadores consolidados de todas as operações
+            Indicadores consolidados (dados agregados, sem informações individuais)
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-muted/50 rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-primary">
-                {calculatePercentage(aggregatedMetrics.leadsAtendidos, aggregatedMetrics.totalLeads)}
+              <p className="text-2xl font-bold text-green-600">
+                {calculatePercentage(aggregatedMetrics.atendidos, aggregatedMetrics.total)}
               </p>
               <p className="text-sm text-muted-foreground mt-1">Taxa de Atendimento</p>
             </div>
             
             <div className="bg-muted/50 rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-blue-600">
-                {calculatePercentage(aggregatedMetrics.leadsAgendados, aggregatedMetrics.totalLeads)}
+              <p className="text-2xl font-bold text-[#04bbda]">
+                {calculatePercentage(aggregatedMetrics.agendados, aggregatedMetrics.total)}
               </p>
               <p className="text-sm text-muted-foreground mt-1">Taxa de Agendamento</p>
             </div>
             
             <div className="bg-muted/50 rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-destructive">
-                {calculatePercentage(aggregatedMetrics.leadsEmFila, aggregatedMetrics.totalLeads)}
+              <p className="text-2xl font-bold text-blue-600">
+                {calculatePercentage(aggregatedMetrics.disparados, aggregatedMetrics.total)}
               </p>
-              <p className="text-sm text-muted-foreground mt-1">Taxa Em Fila</p>
+              <p className="text-sm text-muted-foreground mt-1">Taxa de Disparo</p>
             </div>
             
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <p className="text-2xl font-bold">
-                {aggregatedMetrics.leadsAtendidos > 0 
-                  ? ((aggregatedMetrics.leadsAgendados / aggregatedMetrics.leadsAtendidos) * 100).toFixed(1) 
+                {aggregatedMetrics.atendidos > 0 
+                  ? ((aggregatedMetrics.agendados / aggregatedMetrics.atendidos) * 100).toFixed(1) 
                   : '0'}%
               </p>
               <p className="text-sm text-muted-foreground mt-1">Conversão (Atendido → Agendado)</p>
@@ -579,6 +410,51 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
           </div>
         </CardContent>
       </Card>
+
+      {/* Per-Event Summary (if multiple events) */}
+      {selectedEvento === '__all__' && allEventsData.length > 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Métricas por Evento</CardTitle>
+            <CardDescription>
+              Contadores individuais de cada evento
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {allEventsData.map(event => (
+                <div key={event.eventId} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div>
+                    <p className="font-medium">{event.eventName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {event.cidade}{event.estado ? `, ${event.estado}` : ''}
+                      {event.marca ? ` • ${event.marca}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="text-center">
+                      <p className="font-bold text-primary">{event.metricas.total.toLocaleString('pt-BR')}</p>
+                      <p className="text-xs text-muted-foreground">Total</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-bold text-green-600">{event.metricas.atendidos.toLocaleString('pt-BR')}</p>
+                      <p className="text-xs text-muted-foreground">Atendidos</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-bold text-[#04bbda]">{event.metricas.agendados.toLocaleString('pt-BR')}</p>
+                      <p className="text-xs text-muted-foreground">Agendados</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-bold text-orange-600">{event.metricas.emFila.toLocaleString('pt-BR')}</p>
+                      <p className="text-xs text-muted-foreground">Em Fila</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

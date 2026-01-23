@@ -70,6 +70,7 @@ interface LojaInfo {
 }
 
 const PAGE_SIZE = 10;
+const FETCH_LIMIT = 50; // Limite de leads para exibição na tabela
 
 // Configuração das métricas com cores e ícones
 const metricsConfig = [
@@ -254,14 +255,15 @@ export const DashboardLigacaoTab = ({
       
       // A edge function busca automaticamente o dealerid e telefone_pri da tabela eventos_pri_voz
       // Passa apenas id_evento e empresa_id - a função faz o JOIN das 3 tabelas PRI
+      // Buscar apenas 50 leads para exibição, mas as métricas vêm do total real
       const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
         body: {
           id_evento: idEventoNum,
           empresa_id: activeCompany.id,
-          telefone_pri: selectedAgentPhone, // Opcional, para referência
-          loja: selectedLoja || undefined, // Passa loja selecionada para filtrar
+          telefone_pri: selectedAgentPhone,
+          loja: selectedLoja || undefined,
           page: 1,
-          page_size: 60000, // Limite alto para buscar todos os registros
+          page_size: FETCH_LIMIT, // Apenas 50 leads para exibição na tabela
         },
       });
       
@@ -458,16 +460,32 @@ export const DashboardLigacaoTab = ({
     });
   }, [leads, filters]);
 
-  // Dynamic metrics based on filtered leads
-  const dynamicMetrics = useMemo(() => {
-    return {
-      totalLeads: filteredLeads.length,
-      leadsAtendidos: filteredLeads.filter(l => l.ligacao_atendida).length,
-      leadsEmFila: filteredLeads.filter(l => l.ligacao_erro && !l.status_agendado).length,
-      leadsAgendados: filteredLeads.filter(l => l.status_agendado).length,
-      mensagensEnviadas: filteredLeads.filter(l => l.enviado_whatsapp).length,
+  // As métricas vêm da API (total real, não limitado aos 50 leads exibidos)
+  // Para filtros locais, recalculamos apenas para os leads carregados
+  const displayMetrics = useMemo(() => {
+    // Se há filtros ativos, mostramos métricas dos leads filtrados (localmente)
+    const hasActiveFilters = filters.search || filters.status || filters.tentativas || 
+      filters.showOnlyAtendidos || filters.showOnlyAgendados || filters.showOnlyEmFila || filters.showOnlyWhatsapp;
+    
+    if (hasActiveFilters) {
+      return {
+        totalLeads: filteredLeads.length,
+        leadsAtendidos: filteredLeads.filter(l => l.ligacao_atendida).length,
+        leadsEmFila: filteredLeads.filter(l => l.ligacao_erro && !l.status_agendado).length,
+        leadsAgendados: filteredLeads.filter(l => l.status_agendado).length,
+        mensagensEnviadas: filteredLeads.filter(l => l.enviado_whatsapp).length,
+      };
+    }
+    
+    // Sem filtros, usamos as métricas reais da API
+    return metricas || {
+      totalLeads: 0,
+      leadsAtendidos: 0,
+      leadsEmFila: 0,
+      leadsAgendados: 0,
+      mensagensEnviadas: 0,
     };
-  }, [filteredLeads]);
+  }, [filteredLeads, metricas, filters]);
 
   // Paginate filtered leads
   const paginatedLeads = useMemo(() => {
@@ -769,7 +787,7 @@ export const DashboardLigacaoTab = ({
       {/* Metrics Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {metricsConfig.map((metric) => {
-          const value = dynamicMetrics[metric.key];
+          const value = displayMetrics[metric.key];
           const Icon = metric.icon;
           return (
             <Card key={metric.key} className={cn("border-l-4 shadow-sm", metric.borderColor)}>
@@ -793,9 +811,18 @@ export const DashboardLigacaoTab = ({
         })}
       </div>
 
-      {/* Leads Table */}
+      {/* Leads Table - Mostra apenas os primeiros 50 leads */}
       <Card>
         <CardContent className="p-0 overflow-x-auto">
+          {metricas && metricas.totalLeads > FETCH_LIMIT && (
+            <div className="px-4 py-2 bg-muted/50 border-b text-sm text-muted-foreground flex items-center gap-2">
+              <span>📋</span>
+              <span>
+                Exibindo {Math.min(leads.length, FETCH_LIMIT)} de {metricas.totalLeads.toLocaleString('pt-BR')} leads. 
+                Os totais acima refletem todos os registros.
+              </span>
+            </div>
+          )}
           <Table className="min-w-[900px]">
             <TableHeader className="bg-muted/50">
               <TableRow>
