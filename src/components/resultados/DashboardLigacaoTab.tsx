@@ -70,7 +70,7 @@ interface LojaInfo {
 }
 
 const PAGE_SIZE = 10;
-const FETCH_LIMIT = 50; // Limite de leads para exibição na tabela
+const FETCH_ALL = 10000; // Buscar todos os registros para filtragem correta
 
 // Configuração das métricas com cores e ícones
 const metricsConfig = [
@@ -185,12 +185,12 @@ export const DashboardLigacaoTab = ({
     }
   }, [selectedEventId, selectedAgentPhone]);
 
-  // Recarregar quando mudar a loja selecionada
+  // Recarregar quando mudar a loja selecionada ou filtros que precisam de API
   useEffect(() => {
     if (selectedEventId && selectedAgentPhone && activeCompany?.id) {
       fetchDashboardData();
     }
-  }, [selectedLoja]);
+  }, [selectedLoja, filters.showOnlyAtendidos, filters.showOnlyAgendados, filters.showOnlyEmFila, filters.showOnlyWhatsapp, filters.tentativas]);
 
   const loadAvailableEvents = async () => {
     if (!selectedAgentPhone || !companyDealerId) return;
@@ -250,12 +250,36 @@ export const DashboardLigacaoTab = ({
       
       const idEventoNum = parseInt(selectedEventId, 10);
       
-      // Usar edge function que faz JOIN entre prospect_pri_voz e cadencia_pri_voz
-      console.log('📊 DashboardLigacao - Buscando dados via get-base-ligacao para evento:', idEventoNum, 'empresa:', activeCompany.id, 'loja:', selectedLoja || 'todas');
+      // Preparar filtros para enviar à API
+      const apiFilters: {
+        search?: string;
+        status_ligacao?: string;
+        tentativas?: string;
+      } = {};
       
-      // A edge function busca automaticamente o dealerid e telefone_pri da tabela eventos_pri_voz
-      // Passa apenas id_evento e empresa_id - a função faz o JOIN das 3 tabelas PRI
-      // Buscar apenas 50 leads para exibição, mas as métricas vêm do total real
+      // Filtro de busca
+      if (filters.search) {
+        apiFilters.search = filters.search;
+      }
+      
+      // Filtro de status (atendidos, agendados, em fila, whatsapp)
+      if (filters.showOnlyAtendidos) {
+        apiFilters.status_ligacao = 'atendido';
+      } else if (filters.showOnlyAgendados) {
+        apiFilters.status_ligacao = 'agendado';
+      } else if (filters.showOnlyEmFila) {
+        apiFilters.status_ligacao = 'em_fila';
+      } else if (filters.showOnlyWhatsapp) {
+        apiFilters.status_ligacao = 'whatsapp';
+      }
+      
+      // Filtro de tentativas
+      if (filters.tentativas && filters.tentativas !== '__all__') {
+        apiFilters.tentativas = filters.tentativas;
+      }
+      
+      console.log('📊 DashboardLigacao - Buscando dados via get-base-ligacao para evento:', idEventoNum, 'empresa:', activeCompany.id, 'loja:', selectedLoja || 'todas', 'filtros:', apiFilters);
+      
       const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
         body: {
           id_evento: idEventoNum,
@@ -263,7 +287,8 @@ export const DashboardLigacaoTab = ({
           telefone_pri: selectedAgentPhone,
           loja: selectedLoja || undefined,
           page: 1,
-          page_size: FETCH_LIMIT, // Apenas 50 leads para exibição na tabela
+          page_size: FETCH_ALL, // Buscar todos para permitir paginação local
+          filters: Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
         },
       });
       
@@ -429,9 +454,10 @@ export const DashboardLigacaoTab = ({
   // Status options
   const statusOptions = ['pendente', 'atendido', 'agendado', 'em fila', 'não agendado'];
 
-  // Filter leads (filtros locais - loja já foi filtrada na API)
+  // Filtros locais - apenas busca por texto e status (os filtros rápidos já foram aplicados na API)
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
+      // Filtro de busca por texto (local - mais fluido)
       const query = filters.search.toLowerCase();
       const matchesSearch =
         !query ||
@@ -439,35 +465,17 @@ export const DashboardLigacaoTab = ({
         lead.telefone_lead?.includes(query) ||
         lead.status?.includes(query);
 
+      // Filtro de status por dropdown (local)
       const matchesStatus = !filters.status || filters.status === '__all__' || lead.status === filters.status;
-      
-      // Filtro de tentativas
-      const matchesTentativas = !filters.tentativas || filters.tentativas === '__all__' || (() => {
-        const t = lead.num_tentativas || 0;
-        if (filters.tentativas === '0') return t === 0;
-        if (filters.tentativas === '1') return t === 1;
-        if (filters.tentativas === '2') return t === 2;
-        if (filters.tentativas === '3+') return t >= 3;
-        return true;
-      })();
-      
-      const matchesAtendidos = !filters.showOnlyAtendidos || lead.ligacao_atendida;
-      const matchesAgendados = !filters.showOnlyAgendados || lead.status_agendado;
-      const matchesEmFila = !filters.showOnlyEmFila || (lead.ligacao_erro && !lead.status_agendado);
-      const matchesWhatsapp = !filters.showOnlyWhatsapp || lead.enviado_whatsapp;
 
-      return matchesSearch && matchesStatus && matchesTentativas && matchesAtendidos && matchesAgendados && matchesEmFila && matchesWhatsapp;
+      return matchesSearch && matchesStatus;
     });
-  }, [leads, filters]);
+  }, [leads, filters.search, filters.status]);
 
-  // As métricas vêm da API (total real, não limitado aos 50 leads exibidos)
-  // Para filtros locais, recalculamos apenas para os leads carregados
+  // Métricas - usar os dados retornados da API (já filtrados pelo servidor)
   const displayMetrics = useMemo(() => {
-    // Se há filtros ativos, mostramos métricas dos leads filtrados (localmente)
-    const hasActiveFilters = filters.search || filters.status || filters.tentativas || 
-      filters.showOnlyAtendidos || filters.showOnlyAgendados || filters.showOnlyEmFila || filters.showOnlyWhatsapp;
-    
-    if (hasActiveFilters) {
+    // Se há filtro de busca por texto local, recalcular métricas dos resultados filtrados
+    if (filters.search || (filters.status && filters.status !== '__all__')) {
       return {
         totalLeads: filteredLeads.length,
         leadsAtendidos: filteredLeads.filter(l => l.ligacao_atendida).length,
@@ -477,7 +485,7 @@ export const DashboardLigacaoTab = ({
       };
     }
     
-    // Sem filtros, usamos as métricas reais da API
+    // Sem filtros locais, usar as métricas da API (que já consideram filtros do servidor)
     return metricas || {
       totalLeads: 0,
       leadsAtendidos: 0,
@@ -485,7 +493,7 @@ export const DashboardLigacaoTab = ({
       leadsAgendados: 0,
       mensagensEnviadas: 0,
     };
-  }, [filteredLeads, metricas, filters]);
+  }, [filteredLeads, metricas, filters.search, filters.status]);
 
   // Paginate filtered leads
   const paginatedLeads = useMemo(() => {
@@ -811,15 +819,14 @@ export const DashboardLigacaoTab = ({
         })}
       </div>
 
-      {/* Leads Table - Mostra apenas os primeiros 50 leads */}
+      {/* Leads Table */}
       <Card>
         <CardContent className="p-0 overflow-x-auto">
-          {metricas && metricas.totalLeads > FETCH_LIMIT && (
+          {metricas && leads.length > 0 && (
             <div className="px-4 py-2 bg-muted/50 border-b text-sm text-muted-foreground flex items-center gap-2">
               <span>📋</span>
               <span>
-                Exibindo {Math.min(leads.length, FETCH_LIMIT)} de {metricas.totalLeads.toLocaleString('pt-BR')} leads. 
-                Os totais acima refletem todos os registros.
+                Exibindo {filteredLeads.length.toLocaleString('pt-BR')} leads{metricas.totalLeads !== filteredLeads.length ? ` (de ${metricas.totalLeads.toLocaleString('pt-BR')} total)` : ''}.
               </span>
             </div>
           )}
