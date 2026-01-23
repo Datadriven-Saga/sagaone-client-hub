@@ -7,9 +7,9 @@ const corsHeaders = {
 
 // Mapeamento de endpoints permitidos para URLs externas
 const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }> = {
-  // Consultas (GET) - verifica-eventos usa POST para enviar telefone_pri + dealerid
+  // Consultas (POST) - verifica-eventos e verifica-contatos usam POST
   'verifica-eventos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', method: 'POST' },
-  'verifica-contatos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-contatos', method: 'GET' },
+  'verifica-contatos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-contatos', method: 'POST' },
   'eventos-pri': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/eventos-pri', method: 'GET' },
   // dash-pri usa POST para enviar telefone_pri + id_evento no body
   'dash-pri': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/dash-pri', method: 'POST' },
