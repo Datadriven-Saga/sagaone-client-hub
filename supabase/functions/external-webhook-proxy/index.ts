@@ -7,8 +7,9 @@ const corsHeaders = {
 
 // Mapeamento de endpoints permitidos para URLs externas
 const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }> = {
-  // Consultas - verifica-eventos usa POST com telefone_pri + dealer_id no body
-  'verifica-eventos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', method: 'POST' },
+  // Consultas - verifica-eventos (n8n) só aceita GET (POST retorna 404)
+  // Enviamos telefone_pri + dealer_id via query params.
+  'verifica-eventos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', method: 'GET' },
   // dash-pri usa POST para enviar telefone_pri + id_evento no body (usado para métricas e contatos)
   'dash-pri': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/dash-pri', method: 'POST' },
   'busca-dados-agentes': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-dados-agentes', method: 'GET' },
@@ -72,18 +73,19 @@ Deno.serve(async (req: Request) => {
     for (const [key, value] of Object.entries(bodyData)) {
       if (key !== 'endpoint') {
         if (endpointConfig.method === 'GET' && value !== undefined && value !== null) {
-          externalUrl.searchParams.set(key, String(value));
-        } else if (endpointConfig.method === 'POST') {
-          // Para verifica-eventos, enviar apenas telefone_pri e dealer_id
+          // Para verifica-eventos: enviar SOMENTE telefone_pri + dealer_id (normalizando dealerid -> dealer_id)
           if (endpoint === 'verifica-eventos') {
-            if (key === 'telefone_pri' || key === 'dealer_id' || key === 'dealerid') {
-              // Normalizar dealerid para dealer_id
-              const bodyKey = key === 'dealerid' ? 'dealer_id' : key;
-              postBody[bodyKey] = value;
+            if (key === 'telefone_pri') {
+              externalUrl.searchParams.set('telefone_pri', String(value));
+            }
+            if (key === 'dealer_id' || key === 'dealerid') {
+              externalUrl.searchParams.set('dealer_id', String(value));
             }
           } else {
-            postBody[key] = value;
+            externalUrl.searchParams.set(key, String(value));
           }
+        } else if (endpointConfig.method === 'POST') {
+          postBody[key] = value;
         }
       }
     }
