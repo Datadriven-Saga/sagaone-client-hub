@@ -9,8 +9,8 @@ const corsHeaders = {
 const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }> = {
   // Consultas - verifica-eventos usa POST com telefone_pri + dealer_id no body
   'verifica-eventos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', method: 'POST' },
-  // dash-pri usa POST para enviar telefone_pri + id_evento no body (usado para lista de contatos no dashboard)
-  'dash-pri': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/dash-pri', method: 'POST' },
+  // sincroniza_sagaone para sincronizar contatos do PRI para Supabase
+  'sincroniza_sagaone': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/sincroniza_sagaone', method: 'POST' },
   // metricas usa POST para enviar telefone_pri + id_evento no body (retorna dados agregados para tela de métricas)
   'metricas': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/metricas', method: 'POST' },
   'busca-dados-agentes': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-dados-agentes', method: 'GET' },
@@ -22,6 +22,7 @@ const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }>
   'atualiza-agente': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-agente', method: 'POST' },
   'cria-agente': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-agente', method: 'POST' },
   'cria-base-ligacao': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-base-ligacao', method: 'POST' },
+  'dispara-ligacao': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/dispara-ligacao', method: 'POST' },
   'apaga-template-meta': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/apaga-template-meta', method: 'POST' },
   'pri-config': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/pri-config', method: 'POST' },
 };
