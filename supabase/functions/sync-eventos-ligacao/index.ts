@@ -15,7 +15,7 @@ const webhookAuthHeaders: Record<string, string> = SAGA_ONE
   : {};
 
 interface WebhookEvento {
-  id_evento?: string;
+  id_evento?: string | number;
   event_id?: string;
   id?: string;
   nome?: string;
@@ -28,9 +28,11 @@ interface WebhookEvento {
 interface SyncResult {
   total_webhook: number;
   total_local: number;
+  total_eventos_pri_voz: number;
   criados: string[];
   deletados: string[];
   mantidos: string[];
+  sincronizados_de_eventos_pri: string[];
   erros: string[];
 }
 
@@ -65,79 +67,35 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Buscar eventos do webhook externo
-    console.log(`📡 Buscando eventos do webhook: ${WEBHOOK_URL}`);
+    const result: SyncResult = {
+      total_webhook: 0,
+      total_local: 0,
+      total_eventos_pri_voz: 0,
+      criados: [],
+      deletados: [],
+      mantidos: [],
+      sincronizados_de_eventos_pri: [],
+      erros: [],
+    };
 
-    const telefoneFormatado = String(pri_telefone).replace(/\D/g, '');
+    // 1. Buscar eventos já existentes em eventos_pri_voz para esta empresa
+    console.log(`📂 Buscando eventos de eventos_pri_voz para empresa: ${empresa_id}`);
+    const { data: eventosPriVoz, error: priVozError } = await supabase
+      .from('eventos_pri_voz')
+      .select('*')
+      .eq('empresa_id', empresa_id);
 
-    // Tentar POST primeiro, depois GET se necessário
-    let webhookResponse = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...webhookAuthHeaders },
-      body: JSON.stringify({
-        agente_id: telefoneFormatado,
-        telefone: telefoneFormatado,
-      }),
-    });
-
-    let webhookText = await webhookResponse.text();
-
-    // Se POST falhar com 404, tentar GET
-    if (webhookResponse.status === 404 && webhookText.toLowerCase().includes('not registered for post')) {
-      console.log('⚠️ Webhook exige GET, tentando novamente...');
-      const url = new URL(WEBHOOK_URL);
-      url.searchParams.set('agente_id', telefoneFormatado);
-      url.searchParams.set('telefone', telefoneFormatado);
-
-      webhookResponse = await fetch(url.toString(), {
-        method: 'GET',
-        headers: webhookAuthHeaders,
-      });
-      webhookText = await webhookResponse.text();
+    if (priVozError) {
+      console.error('❌ Erro ao buscar eventos_pri_voz:', priVozError);
+    } else {
+      console.log(`📋 Eventos em eventos_pri_voz: ${eventosPriVoz?.length || 0}`);
+      result.total_eventos_pri_voz = eventosPriVoz?.length || 0;
     }
 
-    console.log(`📥 Resposta do webhook (status ${webhookResponse.status}):`, webhookText.substring(0, 500));
-
-    if (!webhookResponse.ok) {
-      return new Response(
-        JSON.stringify({
-          error: 'Webhook retornou erro',
-          status: webhookResponse.status,
-          raw: webhookText,
-        }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    let eventosWebhook: WebhookEvento[] = [];
-    try {
-      const parsed = JSON.parse(webhookText);
-      eventosWebhook = Array.isArray(parsed) ? parsed : (parsed?.eventos || parsed?.data || []);
-    } catch (e) {
-      console.error('❌ Erro ao parsear resposta do webhook:', e);
-      return new Response(
-        JSON.stringify({ error: 'Resposta inválida do webhook', raw: webhookText }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`📋 Eventos encontrados no webhook: ${eventosWebhook.length}`);
-
-    // Extrair IDs únicos do webhook (normalizar diferentes campos de ID)
-    const webhookEventIds = new Map<string, WebhookEvento>();
-    eventosWebhook.forEach(evt => {
-      const eventId = String(evt.id_evento || evt.event_id || evt.id || '').trim();
-      if (eventId) {
-        webhookEventIds.set(eventId, evt);
-      }
-    });
-
-    console.log(`🔑 IDs únicos no webhook: ${webhookEventIds.size}`);
-
-    // 2. Buscar eventos locais de Ligação para esta empresa
+    // 2. Buscar eventos locais de Ligação na tabela prospeccoes
     const { data: eventosLocais, error: localError } = await supabase
       .from('prospeccoes')
-      .select('id, titulo, canal, event_id_pri, data_inicio, data_fim, empresa_id')
+      .select('id, titulo, canal, event_id_pri, data_inicio, data_fim, empresa_id, ativo')
       .eq('empresa_id', empresa_id)
       .ilike('canal', '%Liga%');
 
@@ -149,17 +107,8 @@ serve(async (req) => {
       );
     }
 
-    console.log(`📂 Eventos locais de Ligação encontrados: ${eventosLocais?.length || 0}`);
-
-    // 3. Comparar e sincronizar
-    const result: SyncResult = {
-      total_webhook: webhookEventIds.size,
-      total_local: eventosLocais?.length || 0,
-      criados: [],
-      deletados: [],
-      mantidos: [],
-      erros: [],
-    };
+    console.log(`📂 Eventos locais de Ligação em prospeccoes: ${eventosLocais?.length || 0}`);
+    result.total_local = eventosLocais?.length || 0;
 
     // Mapear eventos locais por event_id_pri
     const locaisMap = new Map<string, typeof eventosLocais[0]>();
@@ -169,79 +118,168 @@ serve(async (req) => {
       }
     });
 
-    // 3a. Eventos no webhook que NÃO existem localmente → CRIAR
-    for (const [eventId, webhookEvt] of webhookEventIds) {
-      if (!locaisMap.has(eventId)) {
-        console.log(`➕ Criar evento local: ${eventId} - ${webhookEvt.nome || webhookEvt.titulo || 'Sem nome'}`);
+    // 3. NOVA LÓGICA: Sincronizar eventos de eventos_pri_voz → prospeccoes
+    // Isso garante que eventos de Ligação apareçam na lista principal
+    if (eventosPriVoz && eventosPriVoz.length > 0) {
+      for (const evtPri of eventosPriVoz) {
+        const eventIdStr = String(evtPri.id_evento);
         
-        if (!dry_run) {
-          const { data: novoEvento, error: createError } = await supabase
-            .from('prospeccoes')
-            .insert({
-              titulo: webhookEvt.nome || webhookEvt.titulo || `Evento Ligação ${eventId}`,
-              canal: 'Ligação',
-              empresa_id: empresa_id,
-              event_id_pri: eventId,
-              data_inicio: webhookEvt.data_inicio || null,
-              data_fim: webhookEvt.data_fim || null,
-            })
-            .select('id, titulo')
-            .single();
+        // Verificar se já existe em prospeccoes
+        if (!locaisMap.has(eventIdStr)) {
+          console.log(`➕ Criar evento em prospeccoes de eventos_pri_voz: ${eventIdStr} - ${evtPri.nome}`);
+          
+          if (!dry_run) {
+            const isAtivo = evtPri.evt_status?.toLowerCase() !== 'inativo';
+            
+            const { data: novoEvento, error: createError } = await supabase
+              .from('prospeccoes')
+              .insert({
+                titulo: evtPri.nome || `Evento Ligação ${eventIdStr}`,
+                canal: 'Ligação',
+                empresa_id: empresa_id,
+                event_id_pri: eventIdStr,
+                data_inicio: evtPri.data_inicio || null,
+                data_fim: evtPri.data_fim || null,
+                ativo: isAtivo,
+              })
+              .select('id, titulo')
+              .single();
 
-          if (createError) {
-            console.error(`❌ Erro ao criar evento ${eventId}:`, createError);
-            result.erros.push(`Criar ${eventId}: ${createError.message}`);
+            if (createError) {
+              console.error(`❌ Erro ao criar evento de eventos_pri_voz ${eventIdStr}:`, createError);
+              result.erros.push(`Criar de eventos_pri_voz ${eventIdStr}: ${createError.message}`);
+            } else {
+              result.sincronizados_de_eventos_pri.push(`${eventIdStr} → ${novoEvento?.id} (${evtPri.nome})`);
+              // Adicionar ao mapa para evitar duplicações
+              locaisMap.set(eventIdStr, { ...novoEvento, event_id_pri: eventIdStr } as any);
+            }
           } else {
-            result.criados.push(`${eventId} → ${novoEvento?.id}`);
+            result.sincronizados_de_eventos_pri.push(`${eventIdStr} (${evtPri.nome}) (dry_run)`);
           }
         } else {
-          result.criados.push(`${eventId} (dry_run)`);
-        }
-      } else {
-        result.mantidos.push(eventId);
-      }
-    }
-
-    // 3b. Eventos locais que NÃO existem no webhook → DELETAR
-    for (const [eventIdPri, localEvt] of locaisMap) {
-      if (!webhookEventIds.has(eventIdPri)) {
-        console.log(`🗑️ Deletar evento local: ${localEvt.id} - ${localEvt.titulo} (event_id_pri: ${eventIdPri})`);
-        
-        if (!dry_run) {
-          // Primeiro deletar registros relacionados em eventos_prospeccao
-          const { error: deleteEventosError } = await supabase
-            .from('eventos_prospeccao')
-            .delete()
-            .eq('prospeccao_id', localEvt.id);
-
-          if (deleteEventosError) {
-            console.error(`❌ Erro ao deletar eventos_prospeccao para ${localEvt.id}:`, deleteEventosError);
+          // Evento já existe, verificar se precisa atualizar status ativo
+          const existente = locaisMap.get(eventIdStr)!;
+          const isAtivo = evtPri.evt_status?.toLowerCase() !== 'inativo';
+          
+          if (existente.ativo !== isAtivo) {
+            console.log(`🔄 Atualizar status de ${existente.id}: ativo=${isAtivo}`);
+            
+            if (!dry_run) {
+              const { error: updateError } = await supabase
+                .from('prospeccoes')
+                .update({ ativo: isAtivo })
+                .eq('id', existente.id);
+              
+              if (updateError) {
+                console.error(`❌ Erro ao atualizar status:`, updateError);
+              }
+            }
           }
-
-          // Deletar o evento de prospecção
-          const { error: deleteError } = await supabase
-            .from('prospeccoes')
-            .delete()
-            .eq('id', localEvt.id);
-
-          if (deleteError) {
-            console.error(`❌ Erro ao deletar evento ${localEvt.id}:`, deleteError);
-            result.erros.push(`Deletar ${localEvt.id}: ${deleteError.message}`);
-          } else {
-            result.deletados.push(`${localEvt.id} (${localEvt.titulo})`);
-          }
-        } else {
-          result.deletados.push(`${localEvt.id} (${localEvt.titulo}) (dry_run)`);
+          
+          result.mantidos.push(`${eventIdStr} (já existe em prospeccoes)`);
         }
       }
     }
 
-    // 3c. Eventos locais SEM event_id_pri → Avisar (são órfãos)
-    const orfaos = (eventosLocais || []).filter(evt => !evt.event_id_pri);
+    // 4. Tentar buscar eventos do webhook externo também (fallback)
+    console.log(`📡 Buscando eventos do webhook: ${WEBHOOK_URL}`);
+    const telefoneFormatado = String(pri_telefone).replace(/\D/g, '');
+
+    try {
+      let webhookResponse = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...webhookAuthHeaders },
+        body: JSON.stringify({
+          agente_id: telefoneFormatado,
+          telefone: telefoneFormatado,
+        }),
+      });
+
+      let webhookText = await webhookResponse.text();
+
+      // Se POST falhar com 404, tentar GET
+      if (webhookResponse.status === 404 && webhookText.toLowerCase().includes('not registered for post')) {
+        console.log('⚠️ Webhook exige GET, tentando novamente...');
+        const url = new URL(WEBHOOK_URL);
+        url.searchParams.set('agente_id', telefoneFormatado);
+        url.searchParams.set('telefone', telefoneFormatado);
+
+        webhookResponse = await fetch(url.toString(), {
+          method: 'GET',
+          headers: webhookAuthHeaders,
+        });
+        webhookText = await webhookResponse.text();
+      }
+
+      console.log(`📥 Resposta do webhook (status ${webhookResponse.status}):`, webhookText.substring(0, 500));
+
+      if (webhookResponse.ok) {
+        let eventosWebhook: WebhookEvento[] = [];
+        try {
+          const parsed = JSON.parse(webhookText);
+          eventosWebhook = Array.isArray(parsed) ? parsed : (parsed?.eventos || parsed?.data || []);
+        } catch (e) {
+          console.error('❌ Erro ao parsear resposta do webhook:', e);
+        }
+
+        console.log(`📋 Eventos encontrados no webhook: ${eventosWebhook.length}`);
+        result.total_webhook = eventosWebhook.length;
+
+        // Extrair IDs únicos do webhook
+        const webhookEventIds = new Map<string, WebhookEvento>();
+        eventosWebhook.forEach(evt => {
+          const eventId = String(evt.id_evento || evt.event_id || evt.id || '').trim();
+          if (eventId) {
+            webhookEventIds.set(eventId, evt);
+          }
+        });
+
+        // Criar eventos do webhook que não existem localmente
+        for (const [eventId, webhookEvt] of webhookEventIds) {
+          if (!locaisMap.has(eventId)) {
+            console.log(`➕ Criar evento local do webhook: ${eventId} - ${webhookEvt.nome || webhookEvt.titulo || 'Sem nome'}`);
+            
+            if (!dry_run) {
+              const { data: novoEvento, error: createError } = await supabase
+                .from('prospeccoes')
+                .insert({
+                  titulo: webhookEvt.nome || webhookEvt.titulo || `Evento Ligação ${eventId}`,
+                  canal: 'Ligação',
+                  empresa_id: empresa_id,
+                  event_id_pri: eventId,
+                  data_inicio: webhookEvt.data_inicio || null,
+                  data_fim: webhookEvt.data_fim || null,
+                })
+                .select('id, titulo')
+                .single();
+
+              if (createError) {
+                console.error(`❌ Erro ao criar evento ${eventId}:`, createError);
+                result.erros.push(`Criar ${eventId}: ${createError.message}`);
+              } else {
+                result.criados.push(`${eventId} → ${novoEvento?.id}`);
+                locaisMap.set(eventId, novoEvento as any);
+              }
+            } else {
+              result.criados.push(`${eventId} (dry_run)`);
+            }
+          }
+        }
+      }
+    } catch (webhookError) {
+      console.error('⚠️ Erro ao consultar webhook (continuando com eventos_pri_voz):', webhookError);
+    }
+
+    // 5. Alertar sobre eventos órfãos (em prospeccoes mas não em eventos_pri_voz)
+    const eventIdsPriVoz = new Set((eventosPriVoz || []).map(e => String(e.id_evento)));
+    const orfaos = (eventosLocais || []).filter(evt => 
+      evt.event_id_pri && !eventIdsPriVoz.has(evt.event_id_pri)
+    );
+    
     if (orfaos.length > 0) {
-      console.log(`⚠️ Eventos locais sem event_id_pri (órfãos): ${orfaos.length}`);
+      console.log(`⚠️ Eventos em prospeccoes sem correspondência em eventos_pri_voz: ${orfaos.length}`);
       orfaos.forEach(evt => {
-        result.erros.push(`Órfão sem event_id_pri: ${evt.id} - ${evt.titulo}`);
+        result.erros.push(`Órfão: ${evt.id} - ${evt.titulo} (event_id_pri: ${evt.event_id_pri})`);
       });
     }
 
@@ -254,6 +292,7 @@ serve(async (req) => {
         result,
         summary: {
           criados: result.criados.length,
+          sincronizados_de_eventos_pri: result.sincronizados_de_eventos_pri.length,
           deletados: result.deletados.length,
           mantidos: result.mantidos.length,
           erros: result.erros.length,

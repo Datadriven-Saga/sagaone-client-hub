@@ -362,9 +362,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         
         if (showToast) {
           const summary = syncResult?.summary || {};
+          const totalSincronizados = (summary.criados || 0) + (summary.sincronizados_de_eventos_pri || 0);
           toast({
             title: "Sincronização concluída",
-            description: `Criados: ${summary.criados || 0} | Removidos: ${summary.deletados || 0} | Mantidos: ${summary.mantidos || 0}`,
+            description: `Sincronizados: ${totalSincronizados} | Mantidos: ${summary.mantidos || 0}`,
           });
         }
         
