@@ -907,6 +907,39 @@ export default function EventoBase() {
     try {
       console.log('🚀 Iniciando disparo em massa...');
       
+      // Para IA Ligação: sincronizar com n8n ANTES de disparar para garantir dados atualizados
+      const canalAtual = prospeccao.canal?.toLowerCase() || '';
+      const isLigacao = canalAtual.includes('liga');
+      
+      if (isLigacao) {
+        console.log('🔄 Sincronizando com n8n antes de disparar...');
+        toast({ title: "Sincronizando...", description: "Atualizando dados antes do disparo" });
+        
+        try {
+          const telefonePri = await fetchTelefonePriLigacao();
+          if (telefonePri) {
+            const { data: syncData, error: syncError } = await supabase.functions.invoke('sync-pri-dashboard', {
+              body: {
+                telefone_pri: telefonePri.replace(/\D/g, ''),
+                id_evento: parseInt(String(prospeccao.event_id_pri || eventoId), 10),
+                empresa_id: activeCompany.id,
+              }
+            });
+            
+            if (syncError) {
+              console.warn('⚠️ Erro na sincronização pré-disparo:', syncError);
+            } else {
+              console.log('✅ Sincronização pré-disparo concluída:', syncData);
+              // Recarregar métricas após sincronização
+              await fetchMetricas();
+            }
+          }
+        } catch (syncErr) {
+          console.warn('⚠️ Erro ao sincronizar antes do disparo:', syncErr);
+          // Continua mesmo com erro de sync
+        }
+      }
+      
       // Buscar todos os contatos pendentes
       let contatosPendentes = await fetchContatosPendentes();
       
@@ -916,10 +949,7 @@ export default function EventoBase() {
         return;
       }
 
-      // Para IA Ligação: filtrar leads encerrados baseado nos dados externos
-      const canalAtual = prospeccao.canal?.toLowerCase() || '';
-      const isLigacao = canalAtual.includes('liga');
-      
+      // Para IA Ligação: filtrar leads encerrados baseado nos dados externos (já sincronizados)
       if (isLigacao && contatosExternos.size > 0) {
         const totalAntes = contatosPendentes.length;
         contatosPendentes = contatosPendentes.filter(contato => {
@@ -1309,6 +1339,62 @@ export default function EventoBase() {
     }
   }, [prospeccao, activeCompany?.id, fetchMetricas, fetchContatos, toast]);
 
+  // Sincronizar com n8n (sistema externo) - chama sync-pri-dashboard para buscar dados atualizados
+  const handleSyncN8N = useCallback(async () => {
+    const canalAtual = prospeccao?.canal?.toLowerCase() || '';
+    const isLigacao = canalAtual.includes('liga');
+    if (!prospeccao || !activeCompany?.id || !isLigacao) return;
+
+    setIsSyncingContatos(true);
+    try {
+      console.log('🔄 Sincronizando com n8n (sistema externo)...');
+      
+      // Buscar telefone_pri do agente de ligação
+      const telefonePri = await fetchTelefonePriLigacao();
+      if (!telefonePri) {
+        toast({ 
+          title: "Erro", 
+          description: "Agente Pri(Ligação) não encontrado para esta empresa", 
+          variant: "destructive" 
+        });
+        return;
+      }
+
+      // Chamar edge function sync-pri-dashboard para sincronizar dados do n8n
+      const { data, error } = await supabase.functions.invoke('sync-pri-dashboard', {
+        body: {
+          telefone_pri: telefonePri.replace(/\D/g, ''),
+          id_evento: parseInt(String(prospeccao.event_id_pri || eventoId), 10),
+          empresa_id: activeCompany.id,
+        }
+      });
+
+      if (error) throw error;
+
+      console.log('✅ Sincronização n8n concluída:', data);
+      
+      const result = data?.result || {};
+      toast({ 
+        title: "Sincronização concluída", 
+        description: `${result.prospect_upserted || 0} prospects e ${result.cadencia_upserted || 0} cadências atualizados` 
+      });
+
+      // Recarregar dados do Supabase após sincronização
+      await fetchMetricas();
+      await fetchContatos();
+
+    } catch (error) {
+      console.error('Erro ao sincronizar com n8n:', error);
+      toast({ 
+        title: "Erro", 
+        description: "Erro ao sincronizar com n8n: " + (error as Error).message, 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsSyncingContatos(false);
+    }
+  }, [prospeccao, activeCompany?.id, eventoId, fetchTelefonePriLigacao, fetchMetricas, fetchContatos, toast]);
+
   // Não precisa mais de sincronização automática - dados já estão no Supabase
   // useEffect removido para evitar chamadas desnecessárias
 
@@ -1370,6 +1456,32 @@ export default function EventoBase() {
           </div>
 
           <div className="flex gap-2">
+            {/* Botão Sincronizar com n8n - apenas para IA Ligação */}
+            {isIALigacao && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleSyncN8N} 
+                      disabled={loadingPage || isSyncingContatos || isLoadingExternalMetrics}
+                      className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                    >
+                      {isSyncingContatos ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      {isSyncingContatos ? 'Sincronizando...' : 'Sincronizar n8n'}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Sincroniza dados de ligação com o sistema n8n antes de exibir ou disparar</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loadingPage || isSyncingContatos || isLoadingExternalMetrics}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loadingPage || isLoadingExternalMetrics ? 'animate-spin' : ''}`} />
               Atualizar
