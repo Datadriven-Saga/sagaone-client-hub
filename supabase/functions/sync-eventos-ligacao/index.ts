@@ -98,14 +98,18 @@ serve(async (req) => {
     let eventosWebhook: WebhookEvento[] = [];
     
     try {
-      // Tentar POST primeiro com telefone_pri e dealer_id
+      // Enviar telefone_pri e dealerid no body
       const postBody: Record<string, string> = {
         telefone_pri: telefoneFormatado,
       };
       
+      // Enviar dealerid (sem underscore) para compatibilidade com n8n
       if (dealer_id) {
-        postBody.dealer_id = dealer_id;
+        postBody.dealerid = dealer_id;
+        postBody.dealer_id = dealer_id; // Enviar ambos por compatibilidade
       }
+
+      console.log(`📤 Payload para webhook:`, JSON.stringify(postBody));
 
       let webhookResponse = await fetch(WEBHOOK_URL, {
         method: 'POST',
