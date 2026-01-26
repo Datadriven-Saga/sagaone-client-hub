@@ -38,7 +38,7 @@ import CamposObrigatorios from "./pages/admin/CamposObrigatorios";
 import APIs from "./pages/admin/APIs";
 import TestAPIs from "./pages/admin/TestAPIs";
 import AdminAgentes from "./pages/admin/Agentes";
-import AgentesNextip from "./pages/admin/AgentesNextip";
+import ControleAgentes from "./pages/admin/ControleAgentes";
 
 // Agentes IA page imports
 import Instancias from "./pages/agentes-ia/Instancias";
@@ -84,7 +84,7 @@ const AppRoutes = () => {
       <Route path="/administracao/campos" element={<AdminProtectedRoute><CamposObrigatorios /></AdminProtectedRoute>} />
       <Route path="/administracao/apis" element={<AdminProtectedRoute><APIs /></AdminProtectedRoute>} />
       <Route path="/administracao/test-apis" element={<AdminProtectedRoute><TestAPIs /></AdminProtectedRoute>} />
-      <Route path="/administracao/agentes-nextip" element={<AdminProtectedRoute><AgentesNextip /></AdminProtectedRoute>} />
+      <Route path="/administracao/controle-agentes" element={<TIAdminProtectedRoute><ControleAgentes /></TIAdminProtectedRoute>} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

@@ -139,6 +139,9 @@ export type Database = {
           created_by: string | null
           empresa_id: string
           id: string
+          observacoes: string | null
+          status: Database["public"]["Enums"]["status_agente_empresa"]
+          updated_at: string | null
         }
         Insert: {
           agente_id: string
@@ -146,6 +149,9 @@ export type Database = {
           created_by?: string | null
           empresa_id: string
           id?: string
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["status_agente_empresa"]
+          updated_at?: string | null
         }
         Update: {
           agente_id?: string
@@ -153,6 +159,9 @@ export type Database = {
           created_by?: string | null
           empresa_id?: string
           id?: string
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["status_agente_empresa"]
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -3192,6 +3201,12 @@ export type Database = {
         | "ligacao"
         | "grande_evento"
         | "prospeccao_mensal"
+      status_agente_empresa:
+        | "ativo"
+        | "inativo"
+        | "em_desenvolvimento"
+        | "em_rollout"
+        | "pendente"
       status_gatilho: "Ativo" | "Inativo" | "Pausado"
       status_lead:
         | "Novo"
@@ -3393,6 +3408,13 @@ export const Constants = {
         "ligacao",
         "grande_evento",
         "prospeccao_mensal",
+      ],
+      status_agente_empresa: [
+        "ativo",
+        "inativo",
+        "em_desenvolvimento",
+        "em_rollout",
+        "pendente",
       ],
       status_gatilho: ["Ativo", "Inativo", "Pausado"],
       status_lead: [
