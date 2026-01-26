@@ -91,11 +91,11 @@ export function useMetricasLigacao() {
 
       const idEvento = eventIdPri || eventoId;
       
-      console.log('📊 Buscando métricas externas (dash-pri) para evento:', idEvento);
+      console.log('📊 Buscando métricas externas para evento:', idEvento);
 
       const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
         body: {
-          endpoint: 'dash-pri',
+          endpoint: 'metricas',
           id_evento: idEvento,
           telefone_pri: telefonePri
         }
