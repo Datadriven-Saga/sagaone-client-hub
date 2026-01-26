@@ -127,15 +127,20 @@ export const useContatoData = () => {
     try {
       console.log('🔍 Fetching prospeccoes for company:', activeCompany.id, '| showAllEvents:', showAllEvents);
       
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Primeiro, buscar eventos que atendem ao filtro de data OU são de Ligação (sincronizados externamente)
+      // Eventos de Ligação com event_id_pri são controlados externamente e não devem ser filtrados por data
       let query = supabase
         .from('prospeccoes')
         .select('*')
         .eq('empresa_id', activeCompany.id);
       
       // Filtrar apenas eventos ativos (data_fim >= hoje) se não for para mostrar todos
+      // MAS sempre incluir eventos de Ligação sincronizados (têm event_id_pri)
       if (!showAllEvents) {
-        const today = new Date().toISOString().split('T')[0];
-        query = query.or(`data_fim.gte.${today},data_fim.is.null`);
+        // Usar filtro OR: data_fim >= hoje OU data_fim é null OU canal é Ligação
+        query = query.or(`data_fim.gte.${today},data_fim.is.null,canal.eq.Ligação`);
       }
       
       const { data, error } = await query.order('created_at', { ascending: false });
