@@ -67,8 +67,7 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
       
       const { data, error } = await supabase.functions.invoke('eventos-ligacao-proxy', {
         body: {
-          action: 'listar',
-          agente_id: agenteId,
+          action: 'listar_todos',
           telefone_pri: agenteTelefone
         }
       });
