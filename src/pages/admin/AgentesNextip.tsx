@@ -71,7 +71,8 @@ interface FilterOptions {
   lojas: string[];
   marcas: string[];
   ufs: string[];
-  agentes: string[];
+  agentes: string[];  // Departamento
+  nomes: string[];    // Nome do agente
   statuses: string[];
 }
 
@@ -87,7 +88,8 @@ const AgentesNextip = () => {
   const [selectedLoja, setSelectedLoja] = useState("todos");
   const [selectedMarca, setSelectedMarca] = useState("todos");
   const [selectedUf, setSelectedUf] = useState("todos");
-  const [selectedAgente, setSelectedAgente] = useState("todos");
+  const [selectedAgente, setSelectedAgente] = useState("todos"); // Departamento
+  const [selectedNome, setSelectedNome] = useState("todos");     // Nome do agente
   const [selectedStatus, setSelectedStatus] = useState("todos");
 
   // Filter options derived from data
@@ -95,9 +97,10 @@ const AgentesNextip = () => {
     const lojas = [...new Set(data.map(d => d.loja).filter(Boolean))].sort();
     const marcas = [...new Set(data.map(d => d.marca).filter(Boolean))].sort();
     const ufs = [...new Set(data.map(d => d.uf).filter(Boolean))].sort();
-    const agentes = [...new Set(data.map(d => d.agente).filter(Boolean))].sort();
+    const agentes = [...new Set(data.map(d => d.agente).filter(Boolean))].sort(); // Departamento
+    const nomes = [...new Set(data.map(d => d.nome).filter(Boolean))].sort();     // Nome do agente
     const statuses = [...new Set(data.map(d => d.status_meta).filter(Boolean) as string[])].sort();
-    return { lojas, marcas, ufs, agentes, statuses };
+    return { lojas, marcas, ufs, agentes, nomes, statuses };
   }, [data]);
 
   // Filtered data
@@ -121,11 +124,12 @@ const AgentesNextip = () => {
       if (selectedMarca !== "todos" && item.marca !== selectedMarca) return false;
       if (selectedUf !== "todos" && item.uf !== selectedUf) return false;
       if (selectedAgente !== "todos" && item.agente !== selectedAgente) return false;
+      if (selectedNome !== "todos" && item.nome !== selectedNome) return false;
       if (selectedStatus !== "todos" && item.status_meta !== selectedStatus) return false;
 
       return true;
     });
-  }, [data, searchTerm, selectedLoja, selectedMarca, selectedUf, selectedAgente, selectedStatus]);
+  }, [data, searchTerm, selectedLoja, selectedMarca, selectedUf, selectedAgente, selectedNome, selectedStatus]);
 
   // Stats
   const stats = useMemo(() => ({
@@ -137,7 +141,7 @@ const AgentesNextip = () => {
   }), [data, filteredData, filterOptions]);
 
   const hasActiveFilters = selectedLoja !== "todos" || selectedMarca !== "todos" ||
-    selectedUf !== "todos" || selectedAgente !== "todos" || selectedStatus !== "todos" || searchTerm;
+    selectedUf !== "todos" || selectedAgente !== "todos" || selectedNome !== "todos" || selectedStatus !== "todos" || searchTerm;
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -145,6 +149,7 @@ const AgentesNextip = () => {
     setSelectedMarca("todos");
     setSelectedUf("todos");
     setSelectedAgente("todos");
+    setSelectedNome("todos");
     setSelectedStatus("todos");
   };
 
@@ -565,13 +570,26 @@ const AgentesNextip = () => {
                   </SelectContent>
                 </Select>
 
-                {/* Agente Filter */}
-                <Select value={selectedAgente} onValueChange={setSelectedAgente}>
-                  <SelectTrigger className="w-[130px]">
-                    <SelectValue placeholder="Agente" />
+                {/* Nome Filter */}
+                <Select value={selectedNome} onValueChange={setSelectedNome}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Nome" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover">
-                    <SelectItem value="todos">Todos Agentes</SelectItem>
+                    <SelectItem value="todos">Todos Nomes</SelectItem>
+                    {filterOptions.nomes.map(nome => (
+                      <SelectItem key={nome} value={nome}>{nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Agente (Departamento) Filter */}
+                <Select value={selectedAgente} onValueChange={setSelectedAgente}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Departamento" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    <SelectItem value="todos">Todos Dept.</SelectItem>
                     {filterOptions.agentes.map(agente => (
                       <SelectItem key={agente} value={agente}>{agente}</SelectItem>
                     ))}
@@ -619,9 +637,15 @@ const AgentesNextip = () => {
                       <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedMarca("todos")} />
                     </Badge>
                   )}
+                  {selectedNome !== "todos" && (
+                    <Badge variant="secondary" className="gap-1">
+                      Nome: {selectedNome}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedNome("todos")} />
+                    </Badge>
+                  )}
                   {selectedAgente !== "todos" && (
                     <Badge variant="secondary" className="gap-1">
-                      Agente: {selectedAgente}
+                      Dept: {selectedAgente}
                       <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedAgente("todos")} />
                     </Badge>
                   )}
