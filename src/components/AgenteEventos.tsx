@@ -69,7 +69,7 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
         body: {
           action: 'listar',
           agente_id: agenteId,
-          telefone: agenteTelefone
+          telefone_pri: agenteTelefone
         }
       });
 
