@@ -22,6 +22,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Upload,
   Download,
   Search,
@@ -34,7 +40,8 @@ import {
   MapPin,
   FileSpreadsheet,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  ChevronDown
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -310,7 +317,7 @@ const AgentesNextip = () => {
     }
   };
 
-  const handleExport = () => {
+  const handleExport = (format: "csv" | "xls" | "xlsx") => {
     const exportData = filteredData.map(item => ({
       "ID": item.codigo_id,
       "Nome": item.nome,
@@ -330,11 +337,21 @@ const AgentesNextip = () => {
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Agentes Nextip");
-    XLSX.writeFile(wb, `agentes_nextip_${new Date().toISOString().split("T")[0]}.xlsx`);
+
+    const dateStr = new Date().toISOString().split("T")[0];
+    const filename = `agentes_nextip_${dateStr}`;
+
+    if (format === "csv") {
+      XLSX.writeFile(wb, `${filename}.csv`, { bookType: "csv" });
+    } else if (format === "xls") {
+      XLSX.writeFile(wb, `${filename}.xls`, { bookType: "xls" });
+    } else {
+      XLSX.writeFile(wb, `${filename}.xlsx`, { bookType: "xlsx" });
+    }
 
     toast({
       title: "Exportação concluída",
-      description: `${exportData.length} registros exportados.`
+      description: `${exportData.length} registros exportados em ${format.toUpperCase()}.`
     });
   };
 
@@ -355,10 +372,29 @@ const AgentesNextip = () => {
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                 Atualizar
               </Button>
-              <Button variant="outline" size="sm" onClick={handleExport} disabled={filteredData.length === 0}>
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={filteredData.length === 0}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Exportar
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-popover">
+                  <DropdownMenuItem onClick={() => handleExport("xlsx")}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel (.xlsx)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport("xls")}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel 97-2003 (.xls)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport("csv")}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    CSV (.csv)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Label htmlFor="file-upload" className="cursor-pointer">
                 <Button asChild variant="default" size="sm" disabled={importing}>
                   <span>
