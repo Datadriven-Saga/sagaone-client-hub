@@ -251,8 +251,10 @@ export const useContatoData = () => {
       setLoading(true);
       
       try {
+        // Carregar prospecções com showAllEvents=true por padrão
+        // A página pode sobrescrever chamando fetchProspeccoes com valor específico
         await Promise.all([
-          fetchProspeccoes(),
+          fetchProspeccoes(true),
           fetchContatos()
         ]);
         console.log('✅ Data loaded successfully');
