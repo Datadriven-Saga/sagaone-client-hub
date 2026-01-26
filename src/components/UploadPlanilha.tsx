@@ -222,10 +222,10 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       console.log('Cabeçalhos encontrados:', headers);
       console.log('Mapeamento de colunas:', columnIndices);
 
-      if (columnIndices.nome === -1 || columnIndices.telefone === -1) {
+      if (columnIndices.telefone === -1) {
         toast({
-          title: "Colunas obrigatórias não encontradas",
-          description: "Não foi possível identificar claramente as colunas 'Nome' e 'Telefone' no cabeçalho.",
+          title: "Coluna obrigatória não encontrada",
+          description: "Não foi possível identificar a coluna 'Telefone' no cabeçalho.",
           variant: "destructive",
         });
         setIsProcessing(false);
@@ -258,15 +258,8 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
             responsavel: columnIndices.responsavel >= 0 ? row[columnIndices.responsavel]?.toString().trim() || '' : '',
           };
           
-          // Validação de nome obrigatório
-          if (!nome) {
-            invalidClientes.push({
-              ...clienteBase,
-              validationError: 'Nome é obrigatório',
-              validationErrorCode: 'EMPTY' as PhoneErrorCode
-            });
-            return;
-          }
+          // Nome é opcional - se não tiver nome, usar telefone como identificador
+          // (validação removida - nome não é mais obrigatório)
           
           // Validação de telefone
           if (!phoneValidation.isValid) {
