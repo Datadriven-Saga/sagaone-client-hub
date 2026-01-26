@@ -21,10 +21,20 @@ serve(async (req) => {
     let body: Record<string, any>;
 
     switch (action) {
-      case 'listar':
+      case 'listar_todos':
+        // Nova action para a tela de Eventos do Agente - apenas telefone_pri
         webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-todos-eventos-pri';
         body = {
           telefone_pri: params.telefone_pri,
+        };
+        break;
+
+      case 'listar':
+        // Action original que usa telefone_pri e dealerid
+        webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos';
+        body = {
+          telefone_pri: params.telefone_pri,
+          dealer_id: params.dealer_id,
         };
         break;
 
