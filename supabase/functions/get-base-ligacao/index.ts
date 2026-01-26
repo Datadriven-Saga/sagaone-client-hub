@@ -278,9 +278,12 @@ Deno.serve(async (req: Request) => {
       const numTentativas = p.num_tentativas || 0;
       const isSuccessEncerrado = p.status_agendado || p.enviado_whatsapp || p.ligacao_atendida;
       
-      // Contagem por tentativas
+      // Contagem por tentativas (CUMULATIVO)
+      // Pendentes = 0 tentativas
       if (numTentativas === 0) metricas.pendentes++;
-      if (numTentativas === 1) metricas.disparados1++;
+      // 1ª Tentativa = quem já recebeu pelo menos 1 tentativa
+      if (numTentativas >= 1) metricas.disparados1++;
+      // 2ª+ Tentativa = quem já recebeu pelo menos 2 tentativas
       if (numTentativas >= 2) metricas.disparados2++;
       
       // Em Fila = ligacao_erro=true E tentativas < 2 E não sucesso
@@ -353,7 +356,9 @@ Deno.serve(async (req: Request) => {
     const metricasFinais: MetricasResult = hasFilters ? {
       total: filteredProspects.length,
       pendentes: filteredProspects.filter(p => p.num_tentativas === 0).length,
-      disparados1: filteredProspects.filter(p => p.num_tentativas === 1).length,
+      // CUMULATIVO: 1ª Tentativa = pelo menos 1 tentativa
+      disparados1: filteredProspects.filter(p => p.num_tentativas >= 1).length,
+      // CUMULATIVO: 2ª+ Tentativa = pelo menos 2 tentativas
       disparados2: filteredProspects.filter(p => p.num_tentativas >= 2).length,
       emFila: filteredProspects.filter(p => p.ligacao_erro && p.num_tentativas < 2 && !(p.status_agendado || p.enviado_whatsapp || p.ligacao_atendida)).length,
       encerrados: filteredProspects.filter(p => p.num_tentativas >= 2 || p.status_agendado || p.enviado_whatsapp || p.ligacao_atendida).length,
