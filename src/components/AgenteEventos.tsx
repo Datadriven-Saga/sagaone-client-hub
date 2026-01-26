@@ -115,7 +115,8 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
         body: {
           action: 'mudar_status',
           id_evento: evento.id_evento,
-          evt_status: novoStatus
+          evt_status: novoStatus,
+          telefone_pri: agenteTelefone
         }
       });
 
