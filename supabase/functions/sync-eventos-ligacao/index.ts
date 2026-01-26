@@ -98,18 +98,17 @@ serve(async (req) => {
     let eventosWebhook: WebhookEvento[] = [];
     
     try {
-      // Enviar telefone_pri e dealerid no body
+      // Enviar telefone_pri e dealer_id no body
       const postBody: Record<string, string> = {
         telefone_pri: telefoneFormatado,
       };
       
-      // Enviar dealerid (sem underscore) para compatibilidade com n8n
       if (dealer_id) {
-        postBody.dealerid = dealer_id;
-        postBody.dealer_id = dealer_id; // Enviar ambos por compatibilidade
+        postBody.dealer_id = dealer_id;
       }
 
       console.log(`📤 Payload para webhook:`, JSON.stringify(postBody));
+      console.log(`⚠️ dealer_id recebido: "${dealer_id}" (tipo: ${typeof dealer_id})`);
 
       let webhookResponse = await fetch(WEBHOOK_URL, {
         method: 'POST',

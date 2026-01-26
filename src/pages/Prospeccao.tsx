@@ -337,13 +337,23 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       
       const telefonePri = String(agenteLigacao.telefone).replace(/\D/g, '');
       
-      console.log('🔄 Sincronizando eventos de Ligação com webhook...');
+      // Buscar crm_id da empresa para usar como dealer_id
+      const { data: empresaData } = await supabase
+        .from('empresas')
+        .select('crm_id')
+        .eq('id', activeCompany.id)
+        .single();
+      
+      const dealerId = empresaData?.crm_id || null;
+      
+      console.log('🔄 Sincronizando eventos de Ligação com webhook...', { telefonePri, dealerId });
       
       // Chamar edge function de sincronização
       const { data: syncResult, error: syncError } = await supabase.functions.invoke('sync-eventos-ligacao', {
         body: {
           pri_telefone: telefonePri,
           empresa_id: activeCompany.id,
+          dealer_id: dealerId,
           dry_run: false
         }
       });
