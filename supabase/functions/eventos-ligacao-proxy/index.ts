@@ -43,6 +43,7 @@ serve(async (req) => {
         body = {
           id_evento: params.id_evento,
           evt_status: params.evt_status,
+          telefone_pri: params.telefone_pri,
         };
         break;
 
