@@ -48,13 +48,14 @@ interface ContatoEvento {
 // Estado do lead para IA Ligação (baseado no webhook externo)
 interface MetricasLigacaoExternas {
   total: number;
-  pendentes: number;     // num_tentativas = 0 e não encerrado
-  disparados: number;    // num_tentativas >= 1
-  emFila: number;        // ligacao_erro = true E não encerrado (aguardando retry)
-  encerrados: number;    // status_agendado || enviado_whatsapp || ligacao_atendida
-  agendados: number;     // status_agendado = true
-  whatsappEnviado: number; // enviado_whatsapp = true
-  atendidos: number;     // ligacao_atendida = true
+  pendentes: number;        // 0 tentativas
+  disparados1: number;      // 1 tentativa
+  disparados2: number;      // 2+ tentativas
+  emFila: number;           // ligacao_erro=true E tentativas < 2 E não encerrado
+  encerrados: number;       // tentativas >= 2 OU (agendado/atendido/whatsapp)
+  agendados: number;        // status_agendado = true
+  whatsappEnviado: number;  // enviado_whatsapp = true
+  atendidos: number;        // ligacao_atendida = true
   elegiveisDisparo: number; // pendentes + emFila (o que realmente pode disparar)
 }
 
@@ -247,7 +248,8 @@ export default function EventoBase() {
         const metricsResult: MetricasLigacaoExternas = {
           total: data.metricas.total || 0,
           pendentes: data.metricas.pendentes || 0,
-          disparados: data.metricas.disparados || 0,
+          disparados1: data.metricas.disparados1 || 0,
+          disparados2: data.metricas.disparados2 || 0,
           emFila: data.metricas.emFila || 0,
           encerrados: data.metricas.encerrados || 0,
           agendados: data.metricas.agendados || 0,
@@ -308,7 +310,7 @@ export default function EventoBase() {
           console.log('✅ Usando métricas externas (classificação completa)');
           setMetricasLigacao(metricasExternas);
           baseMetricas.pendentes = metricasExternas.pendentes;
-          baseMetricas.disparados = metricasExternas.disparados;
+          baseMetricas.disparados = metricasExternas.disparados1 + metricasExternas.disparados2;
           baseMetricas.total = metricasExternas.total;
         }
       }
@@ -1624,70 +1626,56 @@ export default function EventoBase() {
 
         {/* Cards de métricas - IA Ligação */}
         {isIALigacao && metricasLigacao ? (
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-6">
             {/* 1. Total */}
             <Card>
               <CardContent className="p-4 text-center">
                 {isLoadingExternalMetrics ? (
                   <Loader2 className="h-8 w-8 animate-spin text-foreground mx-auto" />
                 ) : (
-                  <p className="text-3xl font-bold text-foreground">{metricas.total}</p>
+                  <p className="text-3xl font-bold text-foreground">{metricasLigacao.total}</p>
                 )}
-                <p className="text-sm text-muted-foreground">Total de Contatos</p>
+                <p className="text-sm text-muted-foreground">Total</p>
                 <p className="text-xs text-muted-foreground mt-1">(base completa)</p>
               </CardContent>
             </Card>
             
-            {/* 2. Disparados */}
-            <Card className="border-green-200 dark:border-green-900">
+            {/* 2. Pendentes (0 tentativas) */}
+            <Card className="border-slate-200 dark:border-slate-700">
               <CardContent className="p-4 text-center">
                 {isLoadingExternalMetrics ? (
-                  <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto" />
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-600 mx-auto" />
                 ) : (
-                  <p className="text-3xl font-bold text-green-600">{metricas.disparados}</p>
+                  <p className="text-3xl font-bold text-slate-600">{metricasLigacao.pendentes}</p>
                 )}
-                <p className="text-sm text-green-600/80">Disparados</p>
-                <p className="text-xs text-muted-foreground mt-1">(≥1 tentativa de ligação)</p>
+                <p className="text-sm text-slate-600/80">Pendentes</p>
+                <p className="text-xs text-muted-foreground mt-1">(0 tentativas)</p>
               </CardContent>
             </Card>
             
-            {/* 3. Encerrados */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Card className="border-orange-200 dark:border-orange-900 cursor-help">
-                    <CardContent className="p-4 text-center">
-                      {isLoadingExternalMetrics ? (
-                        <Loader2 className="h-8 w-8 animate-spin text-orange-600 mx-auto" />
-                      ) : (
-                        <p className="text-3xl font-bold text-orange-600">{metricasLigacao.encerrados}</p>
-                      )}
-                      <p className="text-sm text-orange-600/80">Encerrados</p>
-                      <p className="text-xs text-muted-foreground mt-1">(não recebem mais ligação)</p>
-                    </CardContent>
-                  </Card>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <div className="space-y-1 text-xs">
-                    <p><strong>Motivos do encerramento:</strong></p>
-                    <p>• Agendados: {metricasLigacao.agendados}</p>
-                    <p>• WhatsApp enviado: {metricasLigacao.whatsappEnviado}</p>
-                    <p>• Ligação atendida: {metricasLigacao.atendidos}</p>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            {/* 4. Pendentes */}
-            <Card className="border-amber-200 dark:border-amber-900">
+            {/* 3. Disparados 1ª tentativa */}
+            <Card className="border-yellow-200 dark:border-yellow-900">
               <CardContent className="p-4 text-center">
                 {isLoadingExternalMetrics ? (
-                  <Loader2 className="h-8 w-8 animate-spin text-amber-600 mx-auto" />
+                  <Loader2 className="h-8 w-8 animate-spin text-yellow-600 mx-auto" />
                 ) : (
-                  <p className="text-3xl font-bold text-amber-600">{metricas.pendentes}</p>
+                  <p className="text-3xl font-bold text-yellow-600">{metricasLigacao.disparados1}</p>
                 )}
-                <p className="text-sm text-amber-600/80">Pendentes</p>
-                <p className="text-xs text-muted-foreground mt-1">(nunca tentados)</p>
+                <p className="text-sm text-yellow-600/80">1ª Tentativa</p>
+                <p className="text-xs text-muted-foreground mt-1">(disparados)</p>
+              </CardContent>
+            </Card>
+            
+            {/* 4. Disparados 2ª tentativa */}
+            <Card className="border-orange-200 dark:border-orange-900">
+              <CardContent className="p-4 text-center">
+                {isLoadingExternalMetrics ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-orange-600 mx-auto" />
+                ) : (
+                  <p className="text-3xl font-bold text-orange-600">{metricasLigacao.disparados2}</p>
+                )}
+                <p className="text-sm text-orange-600/80">2ª+ Tentativa</p>
+                <p className="text-xs text-muted-foreground mt-1">(disparados)</p>
               </CardContent>
             </Card>
             
@@ -1700,9 +1688,37 @@ export default function EventoBase() {
                   <p className="text-3xl font-bold text-blue-600">{metricasLigacao.emFila}</p>
                 )}
                 <p className="text-sm text-blue-600/80">Em Fila</p>
-                <p className="text-xs text-muted-foreground mt-1">(limite de concorrência)</p>
+                <p className="text-xs text-muted-foreground mt-1">(aguardando retry)</p>
               </CardContent>
             </Card>
+            
+            {/* 6. Encerrados */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card className="border-green-200 dark:border-green-900 cursor-help">
+                    <CardContent className="p-4 text-center">
+                      {isLoadingExternalMetrics ? (
+                        <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto" />
+                      ) : (
+                        <p className="text-3xl font-bold text-green-600">{metricasLigacao.encerrados}</p>
+                      )}
+                      <p className="text-sm text-green-600/80">Encerrados</p>
+                      <p className="text-xs text-muted-foreground mt-1">(≥2 tent. ou sucesso)</p>
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <div className="space-y-1 text-xs">
+                    <p><strong>Motivos do encerramento:</strong></p>
+                    <p>• ≥2 tentativas (limite atingido)</p>
+                    <p>• Agendados: {metricasLigacao.agendados}</p>
+                    <p>• WhatsApp enviado: {metricasLigacao.whatsappEnviado}</p>
+                    <p>• Ligação atendida: {metricasLigacao.atendidos}</p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         ) : (
           /* Cards de métricas - IA WhatsApp ou Não-IA */

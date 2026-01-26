@@ -4,10 +4,11 @@ import { useCompany } from '@/contexts/CompanyContext';
 
 export interface MetricasLigacaoExternas {
   total: number;
-  pendentes: number;     // num_tentativas = 0 e não encerrado
-  disparados: number;    // num_tentativas >= 1
-  emFila: number;        // ligacao_erro = true (aguardando retry)
-  encerrados: number;    // status_agendado || enviado_whatsapp || ligacao_atendida
+  pendentes: number;        // 0 tentativas
+  disparados1: number;      // 1 tentativa
+  disparados2: number;      // 2+ tentativas
+  emFila: number;           // ligacao_erro=true E tentativas < 2 E não encerrado
+  encerrados: number;       // tentativas >= 2 OU (agendado/atendido/whatsapp)
   elegiveisDisparo: number; // pendentes + emFila (o que realmente pode disparar)
 }
 
@@ -111,7 +112,8 @@ export function useMetricasLigacao() {
         const metricsResult: MetricasLigacaoExternas = {
           total: data.length,
           pendentes: 0,
-          disparados: 0,
+          disparados1: 0,
+          disparados2: 0,
           emFila: 0,
           encerrados: 0,
           elegiveisDisparo: 0
@@ -124,25 +126,27 @@ export function useMetricasLigacao() {
           const ligacaoAtendida = contato.ligacao_atendida === true;
           const ligacaoErro = contato.ligacao_erro === true;
 
-          // Um lead está "encerrado" se não deve mais receber ligação
-          const isEncerrado = statusAgendado || enviadoWhatsapp || ligacaoAtendida;
+          // Um lead está "encerrado" se atingiu >= 2 tentativas OU sucesso
+          const isSuccessEncerrado = statusAgendado || enviadoWhatsapp || ligacaoAtendida;
+          const isEncerrado = isSuccessEncerrado || numTentativas >= 2;
           
-          // Em fila = ligacao_erro=true E NÃO está encerrado
-          const isEmFila = ligacaoErro && !isEncerrado;
+          // Em fila = ligacao_erro=true E tentativas < 2 E NÃO está encerrado por sucesso
+          const isEmFila = ligacaoErro && numTentativas < 2 && !isSuccessEncerrado;
           
           if (isEmFila) metricsResult.emFila++;
           if (isEncerrado) metricsResult.encerrados++;
 
-          // Classificar como pendente ou disparado
+          // Classificar por tentativas
           if (numTentativas === 0) {
             metricsResult.pendentes++;
+          } else if (numTentativas === 1) {
+            metricsResult.disparados1++;
           } else {
-            metricsResult.disparados++;
+            metricsResult.disparados2++;
           }
         }
 
         // Elegíveis para disparo = Pendentes (nunca tentados) + Em Fila (retry)
-        // NÃO inclui encerrados (já atingiram objetivo)
         metricsResult.elegiveisDisparo = metricsResult.pendentes + metricsResult.emFila;
 
         console.log(`📊 Métricas externas para ${eventoId}:`, metricsResult);
