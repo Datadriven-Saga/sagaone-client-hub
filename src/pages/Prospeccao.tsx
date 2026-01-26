@@ -118,7 +118,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     dataFim: "",
     responsavelId: "todos",
     status: "todos",
-    dadosLead: ""
+    dadosLead: "",
+    showAllEvents: false
   });
   const [disparandoIA, setDisparandoIA] = useState<string | null>(null);
   const [contagemPendentes, setContagemPendentes] = useState<Record<string, { total: number; pendentes: number; disparados: number }>>({});
@@ -154,6 +155,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     reenviarGatilhos,
     dispararParaIA,
     contarContatosPendentesDisparo,
+    fetchProspeccoes,
     refetch
   } = useContatoData();
   const { vendas, criarVenda, refetch: refetchVendas } = useVendasProspeccao();
@@ -278,6 +280,13 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       fetchProfiles();
     }
   }, [activeCompany?.id]);
+
+  // Recarregar eventos quando o filtro "mostrar todos" mudar
+  useEffect(() => {
+    if (activeCompany?.id) {
+      fetchProspeccoes(globalFilters.showAllEvents);
+    }
+  }, [globalFilters.showAllEvents, activeCompany?.id, fetchProspeccoes]);
 
   // Sincronizar eventos de Ligação com o webhook externo
   const [sincronizandoLigacao, setSincronizandoLigacao] = useState(false);

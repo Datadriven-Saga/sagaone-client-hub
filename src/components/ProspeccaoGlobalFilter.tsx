@@ -2,8 +2,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, X, Filter, SlidersHorizontal } from "lucide-react";
+import { Search, X, SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -14,6 +16,7 @@ export interface ProspeccaoGlobalFilters {
   responsavelId: string;
   status: string;
   dadosLead: string;
+  showAllEvents: boolean;
 }
 
 interface Prospeccao {
@@ -61,10 +64,17 @@ export function ProspeccaoGlobalFilter({
   const [open, setOpen] = useState(false);
 
   const updateFilter = (key: keyof ProspeccaoGlobalFilters, value: string) => {
-    onFiltersChange({
-      ...filters,
-      [key]: value
-    });
+    if (key === 'showAllEvents') {
+      onFiltersChange({
+        ...filters,
+        showAllEvents: value === 'true'
+      });
+    } else {
+      onFiltersChange({
+        ...filters,
+        [key]: value
+      });
+    }
   };
 
   const clearFilter = (key: keyof ProspeccaoGlobalFilters) => {
@@ -82,7 +92,8 @@ export function ProspeccaoGlobalFilter({
       dataFim: "",
       responsavelId: "todos",
       status: "todos",
-      dadosLead: ""
+      dadosLead: "",
+      showAllEvents: filters.showAllEvents // Manter o toggle ao limpar outros filtros
     });
   };
 
@@ -285,6 +296,18 @@ export function ProspeccaoGlobalFilter({
                       className="h-8 text-xs pl-7"
                     />
                   </div>
+                </div>
+
+                {/* Toggle Mostrar Eventos Passados */}
+                <div className="flex items-center justify-between col-span-2 pt-2 border-t">
+                  <Label htmlFor="show-all-events" className="text-xs font-medium text-muted-foreground cursor-pointer">
+                    Mostrar eventos encerrados
+                  </Label>
+                  <Switch
+                    id="show-all-events"
+                    checked={filters.showAllEvents}
+                    onCheckedChange={(checked) => updateFilter('showAllEvents', checked ? 'true' : 'false')}
+                  />
                 </div>
               </div>
             </div>

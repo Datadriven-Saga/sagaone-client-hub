@@ -137,10 +137,9 @@ export const useContatoData = () => {
         .eq('empresa_id', activeCompany.id);
       
       // Filtrar apenas eventos ativos (data_fim >= hoje) se não for para mostrar todos
-      // MAS sempre incluir eventos de Ligação sincronizados (têm event_id_pri)
       if (!showAllEvents) {
-        // Usar filtro OR: data_fim >= hoje OU data_fim é null OU canal é Ligação
-        query = query.or(`data_fim.gte.${today},data_fim.is.null,canal.eq.Ligação`);
+        // Usar filtro OR: data_fim >= hoje OU data_fim é null
+        query = query.or(`data_fim.gte.${today},data_fim.is.null`);
       }
       
       const { data, error } = await query.order('created_at', { ascending: false });
