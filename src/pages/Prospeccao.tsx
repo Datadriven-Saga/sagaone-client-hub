@@ -139,7 +139,8 @@ showAllEvents: true
   const { registrarMovimentacao } = useProspeccaoLogs();
   const { 
     contatos, 
-    prospeccoes, 
+    prospeccoes,
+    contatosProspeccoes,
     loading, 
     adicionarContatos,
     atualizarContato,
@@ -765,6 +766,13 @@ showAllEvents: true
   // Função de filtragem global para contatos
   const filteredContatos = useMemo(() => {
     return contatos.filter(contato => {
+      // Filtro por prospecção/evento - usa o mapa de vínculos
+      if (globalFilters.prospeccaoId !== "todos") {
+        const prospeccaoIds = contatosProspeccoes.get(contato.id);
+        if (!prospeccaoIds || !prospeccaoIds.has(globalFilters.prospeccaoId)) {
+          return false;
+        }
+      }
       if (globalFilters.dataInicio) {
         const dataInicio = new Date(globalFilters.dataInicio);
         const contatoData = new Date(contato.created_at || '');
@@ -832,7 +840,7 @@ showAllEvents: true
       }
       return true;
     });
-  }, [contatos, globalFilters, profiles]);
+  }, [contatos, globalFilters, profiles, contatosProspeccoes]);
 
   // Função de filtragem global para prospecções/eventos
   // NOTA: Eventos de Ligação agora são mostrados mesmo sem estar no webhook externo

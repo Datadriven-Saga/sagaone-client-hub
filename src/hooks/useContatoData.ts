@@ -103,6 +103,7 @@ export interface Prospeccao {
 export const useContatoData = () => {
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
+  const [contatosProspeccoes, setContatosProspeccoes] = useState<Map<string, Set<string>>>(new Map()); // contato_id -> Set<prospeccao_id>
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<{ start: string; end: string }>({
     start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
@@ -170,6 +171,7 @@ export const useContatoData = () => {
     if (!activeCompany?.id) {
       console.warn('useContatoData: No active company found for contatos');
       setContatos([]);
+      setContatosProspeccoes(new Map());
       return;
     }
 
@@ -206,6 +208,48 @@ export const useContatoData = () => {
       
       console.log('📞 Total contatos fetched:', allContatos.length);
       setContatos(allContatos);
+
+      // Buscar vínculos contato <-> prospecção para permitir filtro por evento
+      console.log('🔗 Fetching eventos_prospeccao links...');
+      const contatoIds = allContatos.map(c => c.id);
+      const contatoProspeccaoMap = new Map<string, Set<string>>();
+      
+      // Paginar busca de eventos_prospeccao
+      const LINKS_PAGE_SIZE = 1000;
+      let linksPage = 0;
+      let linksHasMore = true;
+      
+      while (linksHasMore) {
+        const { data: linksData, error: linksError } = await supabase
+          .from('eventos_prospeccao')
+          .select('contato_id, prospeccao_id')
+          .in('contato_id', contatoIds.slice(linksPage * LINKS_PAGE_SIZE, (linksPage + 1) * LINKS_PAGE_SIZE))
+          .not('contato_id', 'is', null)
+          .not('prospeccao_id', 'is', null);
+        
+        if (linksError) {
+          console.error('Error fetching eventos_prospeccao:', linksError);
+          break;
+        }
+        
+        if (linksData) {
+          for (const link of linksData) {
+            if (link.contato_id && link.prospeccao_id) {
+              if (!contatoProspeccaoMap.has(link.contato_id)) {
+                contatoProspeccaoMap.set(link.contato_id, new Set());
+              }
+              contatoProspeccaoMap.get(link.contato_id)!.add(link.prospeccao_id);
+            }
+          }
+        }
+        
+        linksPage++;
+        linksHasMore = (linksPage * LINKS_PAGE_SIZE) < contatoIds.length;
+      }
+      
+      console.log(`🔗 Vínculos carregados: ${contatoProspeccaoMap.size} contatos com prospecções`);
+      setContatosProspeccoes(contatoProspeccaoMap);
+      
     } catch (error) {
       console.error('Erro ao buscar contatos:', error);
       toast({
@@ -214,6 +258,7 @@ export const useContatoData = () => {
         variant: "destructive"
       });
       setContatos([]);
+      setContatosProspeccoes(new Map());
     }
   }, [activeCompany?.id, toast]);
 
@@ -1693,6 +1738,7 @@ export const useContatoData = () => {
   return {
     contatos,
     prospeccoes,
+    contatosProspeccoes, // Mapa contato_id -> Set<prospeccao_id> para filtrar por evento
     loading,
     adicionarContatos,
     atualizarContato,
