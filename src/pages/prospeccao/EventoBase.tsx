@@ -8,11 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { 
   Download, Users, Search, Filter, Send, Loader2, CheckCircle, Phone, Mail, 
   Calendar, Clock, ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, MessageCircle, 
-  PhoneCall, Lock, RotateCcw, CalendarCheck, PhoneMissed, PhoneOutgoing
+  PhoneCall, Lock, RotateCcw, CalendarCheck, PhoneMissed, PhoneOutgoing, FileSpreadsheet, FileText
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -692,93 +694,162 @@ export default function EventoBase() {
     });
   }, [contatos, contatosExternos, disparoFilter, statusLigacaoFilter, tentativasFilter, isIALigacaoLocal]);
 
-  // Exportar dados - carrega sob demanda
-  const handleExport = async () => {
+  // Exportar dados - suporta CSV e XLS
+  const handleExport = async (exportFormat: 'csv' | 'xls') => {
     if (metricas.total === 0) {
       toast({ title: "Atenção", description: "Nenhum contato para exportar" });
       return;
     }
 
     setIsExporting(true);
-    toast({ title: "Exportando...", description: "Preparando arquivo CSV, isso pode levar alguns segundos..." });
+    toast({ title: "Exportando...", description: `Preparando arquivo ${exportFormat.toUpperCase()}, isso pode levar alguns segundos...` });
 
     try {
-      // Buscar todos os contatos para export (com paginação interna)
-      const EXPORT_BATCH_SIZE = 1000;
-      let allContatos: ContatoEvento[] = [];
-      let offset = 0;
-      let hasMore = true;
-
-      while (hasMore) {
-        let query = supabase
-          .from('contatos')
-          .select(`
-            id, nome, telefone, email, status, origem, 
-            created_at, updated_at, 
-            responsavel_email, vendedor_nome,
-            eventos_prospeccao!inner(prospeccao_id, data_disparo_ia)
-          `)
-          .eq('empresa_id', activeCompany!.id)
-          .eq('eventos_prospeccao.prospeccao_id', eventoId!);
-
-        // Aplicar mesmos filtros
-        if (searchTerm) {
-          query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
-        }
-        if (statusFilter !== 'todos') {
-          query = query.eq('status', statusFilter as any);
-        }
-        if (disparoFilter === 'pendente') {
-          query = query.is('eventos_prospeccao.data_disparo_ia', null);
-        } else if (disparoFilter === 'disparado') {
-          query = query.not('eventos_prospeccao.data_disparo_ia', 'is', null);
-        }
-
-        query = query
-          .order('created_at', { ascending: false })
-          .range(offset, offset + EXPORT_BATCH_SIZE - 1);
-
-        const { data, error } = await query;
+      const canalAtual = prospeccao?.canal?.toLowerCase() || '';
+      const isLigacao = canalAtual.includes('liga');
+      
+      let exportData: any[] = [];
+      
+      // Para IA Ligação, buscar de prospect_pri_voz
+      if (isLigacao && prospeccao?.event_id_pri) {
+        const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
+          body: {
+            id_evento: parseInt(String(prospeccao.event_id_pri), 10),
+            empresa_id: activeCompany!.id,
+            prospeccao_id: eventoId!,
+            page: 1,
+            page_size: 100000, // Buscar todos para export
+            filters: {
+              search: searchTerm || undefined,
+              status: disparoFilter !== 'todos' ? disparoFilter : undefined,
+              status_ligacao: statusLigacaoFilter !== 'todos' ? statusLigacaoFilter : undefined,
+              tentativas: tentativasFilter !== 'todos' ? tentativasFilter : undefined,
+            }
+          }
+        });
 
         if (error) throw error;
 
-        if (data && data.length > 0) {
-          const cleanData = data.map(({ eventos_prospeccao, ...rest }) => {
-            const evento = Array.isArray(eventos_prospeccao) ? eventos_prospeccao[0] : eventos_prospeccao;
-            return {
-              ...rest,
-              data_disparo_ia: evento?.data_disparo_ia || null
-            };
-          }) as ContatoEvento[];
-          allContatos = [...allContatos, ...cleanData];
-          offset += EXPORT_BATCH_SIZE;
-          hasMore = data.length === EXPORT_BATCH_SIZE;
-        } else {
-          hasMore = false;
+        if (data?.success && data?.contatos) {
+          exportData = data.contatos.map((c: any) => ({
+            Nome: c.nome || '',
+            Telefone: c.telefone_lead || '',
+            Status: c.status_calculado === 'encerrado' 
+              ? (c.status_agendado ? 'Agendado' : c.ligacao_atendida ? 'Atendido' : 'Encerrado')
+              : c.status_calculado === 'em_fila' ? 'Em Fila' 
+              : c.status_calculado === 'disparado' ? 'Disparado' : 'Pendente',
+            Loja: c.loja || '',
+            Tentativas: c.num_tentativas || 0,
+            Agendado: c.status_agendado ? 'Sim' : 'Não',
+            'WhatsApp Enviado': c.enviado_whatsapp ? 'Sim' : 'Não',
+            Atendido: c.ligacao_atendida ? 'Sim' : 'Não',
+            'Primeira Tentativa': c.hora_primeira_tentativa ? format(new Date(c.hora_primeira_tentativa), 'dd/MM/yyyy HH:mm') : '',
+            'Última Tentativa': c.hora_ultima_tentativa ? format(new Date(c.hora_ultima_tentativa), 'dd/MM/yyyy HH:mm') : '',
+            'Data Criação': c.criado_em ? format(new Date(c.criado_em), 'dd/MM/yyyy HH:mm') : '',
+          }));
         }
+      } else {
+        // Para outros canais, buscar de contatos
+        const EXPORT_BATCH_SIZE = 1000;
+        let allContatos: ContatoEvento[] = [];
+        let offset = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          let query = supabase
+            .from('contatos')
+            .select(`
+              id, nome, telefone, email, status, origem, 
+              created_at, updated_at, 
+              responsavel_email, vendedor_nome,
+              eventos_prospeccao!inner(prospeccao_id, data_disparo_ia)
+            `)
+            .eq('empresa_id', activeCompany!.id)
+            .eq('eventos_prospeccao.prospeccao_id', eventoId!);
+
+          if (searchTerm) {
+            query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
+          }
+          if (statusFilter !== 'todos') {
+            query = query.eq('status', statusFilter as any);
+          }
+          if (disparoFilter === 'pendente') {
+            query = query.is('eventos_prospeccao.data_disparo_ia', null);
+          } else if (disparoFilter === 'disparado') {
+            query = query.not('eventos_prospeccao.data_disparo_ia', 'is', null);
+          }
+
+          query = query
+            .order('created_at', { ascending: false })
+            .range(offset, offset + EXPORT_BATCH_SIZE - 1);
+
+          const { data, error } = await query;
+
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            const cleanData = data.map(({ eventos_prospeccao, ...rest }) => {
+              const evento = Array.isArray(eventos_prospeccao) ? eventos_prospeccao[0] : eventos_prospeccao;
+              return {
+                ...rest,
+                data_disparo_ia: evento?.data_disparo_ia || null
+              };
+            }) as ContatoEvento[];
+            allContatos = [...allContatos, ...cleanData];
+            offset += EXPORT_BATCH_SIZE;
+            hasMore = data.length === EXPORT_BATCH_SIZE;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        exportData = allContatos.map(c => ({
+          Nome: c.nome || '',
+          Telefone: c.telefone || '',
+          Email: c.email || '',
+          Status: c.status || '',
+          Origem: c.origem || '',
+          Vendedor: c.vendedor_nome || '',
+          'Data Criação': c.created_at ? format(new Date(c.created_at), 'dd/MM/yyyy HH:mm') : '',
+          'Último Update': c.updated_at ? format(new Date(c.updated_at), 'dd/MM/yyyy HH:mm') : '',
+          'Disparo IA': c.data_disparo_ia ? format(new Date(c.data_disparo_ia), 'dd/MM/yyyy HH:mm') : 'Pendente',
+        }));
       }
 
-      if (allContatos.length === 0) {
+      if (exportData.length === 0) {
         toast({ title: "Atenção", description: "Nenhum contato para exportar com os filtros aplicados" });
+        setIsExporting(false);
         return;
       }
 
-      const csvContent = [
-        'Nome,Telefone,Email,Status,Origem,Vendedor,Data Criação,Último Update,Disparo IA',
-        ...allContatos.map(c => 
-          `"${c.nome || ''}","${c.telefone || ''}","${c.email || ''}","${c.status || ''}","${c.origem || ''}","${c.vendedor_nome || ''}","${c.created_at ? format(new Date(c.created_at), 'dd/MM/yyyy HH:mm') : ''}","${c.updated_at ? format(new Date(c.updated_at), 'dd/MM/yyyy HH:mm') : ''}","${c.data_disparo_ia ? format(new Date(c.data_disparo_ia), 'dd/MM/yyyy HH:mm') : 'Pendente'}"`
-        )
-      ].join('\n');
+      const fileName = `${prospeccao?.titulo || 'evento'}_base_contatos`;
 
-      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${prospeccao?.titulo || 'evento'}_base_contatos.csv`;
-      link.click();
-      window.URL.revokeObjectURL(url);
+      if (exportFormat === 'csv') {
+        // Export CSV
+        const headers = Object.keys(exportData[0]);
+        const csvContent = [
+          headers.join(','),
+          ...exportData.map(row => 
+            headers.map(h => `"${String(row[h] || '').replace(/"/g, '""')}"`).join(',')
+          )
+        ].join('\n');
 
-      toast({ title: "Sucesso", description: `${allContatos.length} contatos exportados` });
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${fileName}.csv`;
+        link.click();
+        window.URL.revokeObjectURL(url);
+      } else {
+        // Export XLS
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Contatos');
+        XLSX.writeFile(workbook, `${fileName}.xlsx`);
+      }
+
+      toast({ title: "Sucesso", description: `${exportData.length} contatos exportados` });
     } catch (error) {
       console.error('Erro ao exportar:', error);
       toast({ title: "Erro", description: "Erro ao exportar contatos", variant: "destructive" });
@@ -1526,14 +1597,28 @@ export default function EventoBase() {
               <RefreshCw className={`h-4 w-4 mr-2 ${loadingPage || isLoadingExternalMetrics ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
-              {isExporting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4 mr-2" />
-              )}
-              {isExporting ? 'Exportando...' : 'Exportar'}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isExporting}>
+                  {isExporting ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  {isExporting ? 'Exportando...' : 'Exportar'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleExport('csv')}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Exportar CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('xls')}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Exportar Excel (XLS)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
