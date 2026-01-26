@@ -81,7 +81,24 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
         return;
       }
       
-      // Buscar métricas agregadas de cada evento (SEM lista de leads)
+      // SINCRONIZAR COM N8N PRIMEIRO para garantir dados atualizados
+      for (const event of events) {
+        try {
+          console.log(`🔄 Sincronizando evento ${event.id_evento} com n8n antes de exibir...`);
+          await supabase.functions.invoke('sync-pri-dashboard', {
+            body: {
+              telefone_pri: selectedAgentPhone.replace(/\D/g, ''),
+              id_evento: event.id_evento,
+              empresa_id: activeCompany?.id,
+            }
+          });
+          console.log(`✅ Evento ${event.id_evento} sincronizado`);
+        } catch (syncError) {
+          console.warn(`⚠️ Falha ao sincronizar evento ${event.id_evento}:`, syncError);
+        }
+      }
+      
+      // AGORA buscar métricas do Supabase (dados já atualizados)
       const allData: EventMetrics[] = [];
       
       for (const event of events) {

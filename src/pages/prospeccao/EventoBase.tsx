@@ -330,11 +330,41 @@ export default function EventoBase() {
   }, [eventoId, activeCompany?.id, prospeccao, fetchMetricasLigacao]);
 
   // Carregar métricas iniciais (após prospeccao ser carregada)
+  // Para IA Ligação, sincroniza com n8n primeiro para garantir dados atualizados
   useEffect(() => {
-    if (prospeccao) {
-      fetchMetricas().finally(() => setLoading(false));
-    }
-  }, [prospeccao, fetchMetricas]);
+    const loadInitialData = async () => {
+      if (!prospeccao) return;
+      
+      const canalAtual = prospeccao?.canal?.toLowerCase() || '';
+      const isLigacao = canalAtual.includes('liga');
+      
+      // Para IA Ligação, sincroniza com n8n ANTES de mostrar dados
+      if (isLigacao && prospeccao?.event_id_pri && activeCompany?.id) {
+        try {
+          console.log('🔄 Carregamento inicial: sincronizando com n8n...');
+          const telefonePri = await fetchTelefonePriLigacao();
+          if (telefonePri) {
+            await supabase.functions.invoke('sync-pri-dashboard', {
+              body: {
+                telefone_pri: telefonePri.replace(/\D/g, ''),
+                id_evento: parseInt(String(prospeccao.event_id_pri), 10),
+                empresa_id: activeCompany.id,
+              }
+            });
+            console.log('✅ Sincronização inicial n8n concluída');
+          }
+        } catch (error) {
+          console.warn('⚠️ Falha na sincronização inicial com n8n, continuando com dados locais:', error);
+        }
+      }
+      
+      // Depois busca dados do Supabase
+      await fetchMetricas();
+      setLoading(false);
+    };
+    
+    loadInitialData();
+  }, [prospeccao, activeCompany?.id, fetchMetricas, fetchTelefonePriLigacao]);
 
   // Buscar contatos paginados - para IA Ligação usa prospect_pri_voz (Supabase)
   const fetchContatos = useCallback(async () => {
@@ -544,18 +574,60 @@ export default function EventoBase() {
     setDataFimFilter('');
   };
   
-  // Atualizar tudo: métricas (incluindo webhook externo para IA Ligação) + contatos
+  // Sincroniza com n8n primeiro (para IA Ligação), depois busca dados do Supabase
+  // Isso garante que os dados exibidos estão sempre atualizados
+  const syncAndRefresh = useCallback(async (showToast = false) => {
+    const canalAtual = prospeccao?.canal?.toLowerCase() || '';
+    const isLigacao = canalAtual.includes('liga');
+    
+    // Para IA Ligação, sincroniza com n8n primeiro
+    if (isLigacao && prospeccao?.event_id_pri && activeCompany?.id) {
+      try {
+        console.log('🔄 Sincronizando com n8n antes de exibir dados...');
+        
+        // Buscar telefone_pri do agente de ligação
+        const telefonePri = await fetchTelefonePriLigacao();
+        if (telefonePri) {
+          const { data, error } = await supabase.functions.invoke('sync-pri-dashboard', {
+            body: {
+              telefone_pri: telefonePri.replace(/\D/g, ''),
+              id_evento: parseInt(String(prospeccao.event_id_pri), 10),
+              empresa_id: activeCompany.id,
+            }
+          });
+
+          if (error) {
+            console.warn('⚠️ Erro ao sincronizar com n8n:', error);
+          } else {
+            console.log('✅ Sincronização n8n concluída:', data?.result);
+            if (showToast && data?.result) {
+              toast({ 
+                title: "Sincronização concluída", 
+                description: `${data.result.prospect_upserted || 0} prospects e ${data.result.cadencia_upserted || 0} cadências atualizados` 
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Falha ao sincronizar com n8n, continuando com dados locais:', error);
+      }
+    }
+    
+    // Agora busca dados do Supabase (fonte primária)
+    await fetchMetricas();
+    await fetchContatos();
+  }, [prospeccao, activeCompany?.id, fetchTelefonePriLigacao, fetchMetricas, fetchContatos, toast]);
+
+  // Atualizar tudo: sincroniza n8n (IA Ligação) + métricas + contatos do Supabase
   const handleRefresh = useCallback(async () => {
     setLoadingPage(true);
     try {
-      // Primeiro buscar métricas (que também popula contatosExternos via webhook)
-      await fetchMetricas();
-      // Depois buscar contatos
-      await fetchContatos();
+      // Sincronizar com n8n (se aplicável) e depois buscar dados do Supabase
+      await syncAndRefresh(false); // Sem toast para refresh simples
     } finally {
       setLoadingPage(false);
     }
-  }, [fetchMetricas, fetchContatos]);
+  }, [syncAndRefresh]);
   
   // Verificar se tem filtros ativos
   const hasActiveFilters = searchTerm || statusFilter !== 'todos' || disparoFilter !== 'todos' || 
@@ -1339,50 +1411,17 @@ export default function EventoBase() {
     }
   }, [prospeccao, activeCompany?.id, fetchMetricas, fetchContatos, toast]);
 
-  // Sincronizar com n8n (sistema externo) - chama sync-pri-dashboard para buscar dados atualizados
+  // Sincronizar com n8n (sistema externo) - usa a função centralizada
   const handleSyncN8N = useCallback(async () => {
     const canalAtual = prospeccao?.canal?.toLowerCase() || '';
     const isLigacao = canalAtual.includes('liga');
     if (!prospeccao || !activeCompany?.id || !isLigacao) return;
 
     setIsSyncingContatos(true);
+    setLoadingPage(true);
     try {
-      console.log('🔄 Sincronizando com n8n (sistema externo)...');
-      
-      // Buscar telefone_pri do agente de ligação
-      const telefonePri = await fetchTelefonePriLigacao();
-      if (!telefonePri) {
-        toast({ 
-          title: "Erro", 
-          description: "Agente Pri(Ligação) não encontrado para esta empresa", 
-          variant: "destructive" 
-        });
-        return;
-      }
-
-      // Chamar edge function sync-pri-dashboard para sincronizar dados do n8n
-      const { data, error } = await supabase.functions.invoke('sync-pri-dashboard', {
-        body: {
-          telefone_pri: telefonePri.replace(/\D/g, ''),
-          id_evento: parseInt(String(prospeccao.event_id_pri || eventoId), 10),
-          empresa_id: activeCompany.id,
-        }
-      });
-
-      if (error) throw error;
-
-      console.log('✅ Sincronização n8n concluída:', data);
-      
-      const result = data?.result || {};
-      toast({ 
-        title: "Sincronização concluída", 
-        description: `${result.prospect_upserted || 0} prospects e ${result.cadencia_upserted || 0} cadências atualizados` 
-      });
-
-      // Recarregar dados do Supabase após sincronização
-      await fetchMetricas();
-      await fetchContatos();
-
+      // Usa a função centralizada com toast
+      await syncAndRefresh(true);
     } catch (error) {
       console.error('Erro ao sincronizar com n8n:', error);
       toast({ 
@@ -1392,8 +1431,9 @@ export default function EventoBase() {
       });
     } finally {
       setIsSyncingContatos(false);
+      setLoadingPage(false);
     }
-  }, [prospeccao, activeCompany?.id, eventoId, fetchTelefonePriLigacao, fetchMetricas, fetchContatos, toast]);
+  }, [prospeccao, activeCompany?.id, syncAndRefresh, toast]);
 
   // Não precisa mais de sincronização automática - dados já estão no Supabase
   // useEffect removido para evitar chamadas desnecessárias
