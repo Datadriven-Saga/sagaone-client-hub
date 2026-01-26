@@ -728,6 +728,77 @@ export type Database = {
           },
         ]
       }
+      controle_agentes: {
+        Row: {
+          chamado: string | null
+          cnpj: string
+          created_at: string
+          created_by: string | null
+          cronograma: string | null
+          empresa_id: string | null
+          id: string
+          implantador: string | null
+          loja: string
+          marca: string
+          nome_agente: string
+          observacoes: string | null
+          responsavel: string | null
+          status: string | null
+          telefone_toca: string | null
+          tipo_agente: string
+          uf: string
+          updated_at: string
+        }
+        Insert: {
+          chamado?: string | null
+          cnpj: string
+          created_at?: string
+          created_by?: string | null
+          cronograma?: string | null
+          empresa_id?: string | null
+          id?: string
+          implantador?: string | null
+          loja: string
+          marca: string
+          nome_agente: string
+          observacoes?: string | null
+          responsavel?: string | null
+          status?: string | null
+          telefone_toca?: string | null
+          tipo_agente: string
+          uf: string
+          updated_at?: string
+        }
+        Update: {
+          chamado?: string | null
+          cnpj?: string
+          created_at?: string
+          created_by?: string | null
+          cronograma?: string | null
+          empresa_id?: string | null
+          id?: string
+          implantador?: string | null
+          loja?: string
+          marca?: string
+          nome_agente?: string
+          observacoes?: string | null
+          responsavel?: string | null
+          status?: string | null
+          telefone_toca?: string | null
+          tipo_agente?: string
+          uf?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "controle_agentes_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departamentos: {
         Row: {
           ativo: boolean
