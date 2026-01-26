@@ -9,8 +9,7 @@ import {
   Zap,
   FileText,
   AlertTriangle,
-  Bot,
-  Phone
+  Bot
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
@@ -92,10 +91,10 @@ const Administracao = () => {
       route: "/administracao/campos"
     },
     {
-      title: "Agentes Nextip",
-      description: "Gerenciar números e instâncias de agentes",
-      icon: Phone,
-      route: "/administracao/agentes-nextip"
+      title: "Controle de Agentes",
+      description: "Gerenciar status e atribuição de agentes por loja",
+      icon: Bot,
+      route: "/administracao/controle-agentes"
     },
     {
       title: "APIs",
