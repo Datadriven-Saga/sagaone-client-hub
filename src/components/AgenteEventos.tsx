@@ -109,13 +109,15 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
     try {
       setChangingStatus(evento.id_evento);
       
-      const novoStatus = evento.evt_status === 'ativo' ? 'inativo' : 'ativo';
+      const isCurrentlyActive = evento.evt_status === 'ativo';
+      const novoStatusBoolean = !isCurrentlyActive;
+      const novoStatusString = novoStatusBoolean ? 'ativo' : 'inativo';
       
       const { error } = await supabase.functions.invoke('eventos-ligacao-proxy', {
         body: {
           action: 'mudar_status',
           id_evento: evento.id_evento,
-          evt_status: novoStatus,
+          evt_status: novoStatusBoolean,
           telefone_pri: agenteTelefone
         }
       });
@@ -126,13 +128,13 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
 
       toast({
         title: "Status atualizado",
-        description: `Evento ${novoStatus === 'ativo' ? 'ativado' : 'inativado'} com sucesso`
+        description: `Evento ${novoStatusString === 'ativo' ? 'ativado' : 'inativado'} com sucesso`
       });
 
       // Atualizar localmente
       setEventos(prev => prev.map(e => 
         e.id_evento === evento.id_evento 
-          ? { ...e, evt_status: novoStatus }
+          ? { ...e, evt_status: novoStatusString }
           : e
       ));
     } catch (error) {
