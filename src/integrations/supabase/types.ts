@@ -407,6 +407,66 @@ export type Database = {
         }
         Relationships: []
       }
+      agentes_nextip: {
+        Row: {
+          agente: string
+          bu: string | null
+          codigo_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          id_aplicativo: string | null
+          id_numero: string | null
+          instancia: string | null
+          loja: string
+          marca: string
+          nome: string
+          numero: string | null
+          status_meta: string | null
+          uf: string
+          updated_at: string
+          waba: string | null
+        }
+        Insert: {
+          agente: string
+          bu?: string | null
+          codigo_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          id_aplicativo?: string | null
+          id_numero?: string | null
+          instancia?: string | null
+          loja: string
+          marca: string
+          nome: string
+          numero?: string | null
+          status_meta?: string | null
+          uf: string
+          updated_at?: string
+          waba?: string | null
+        }
+        Update: {
+          agente?: string
+          bu?: string | null
+          codigo_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          id_aplicativo?: string | null
+          id_numero?: string | null
+          instancia?: string | null
+          loja?: string
+          marca?: string
+          nome?: string
+          numero?: string | null
+          status_meta?: string | null
+          uf?: string
+          updated_at?: string
+          waba?: string | null
+        }
+        Relationships: []
+      }
       bases_importadas: {
         Row: {
           created_at: string
