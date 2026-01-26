@@ -39,10 +39,14 @@ serve(async (req) => {
         break;
 
       case 'mudar_status':
-        webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/muda-status-evento';
+        // Webhook diferente para ativar ou desativar
+        if (params.evt_status === true) {
+          webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/ativa-evento';
+        } else {
+          webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/desativa-evento';
+        }
         body = {
           id_evento: params.id_evento,
-          evt_status: params.evt_status,
           telefone_pri: params.telefone_pri,
         };
         break;
