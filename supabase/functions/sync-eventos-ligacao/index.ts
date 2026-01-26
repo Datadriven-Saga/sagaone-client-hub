@@ -20,19 +20,30 @@ interface WebhookEvento {
   id?: string;
   nome?: string;
   titulo?: string;
+  descricao?: string;
+  categoria?: string;
+  marca?: string;
+  dealerid?: string;
+  dealer_id?: string;
+  telefone_pri?: string;
+  telefone_pri_whatsapp?: string;
+  uf?: string;
+  cidade?: string;
+  endereco?: string;
   data_inicio?: string;
   data_fim?: string;
+  evt_status?: string;
   status?: string;
 }
 
 interface SyncResult {
   total_webhook: number;
-  total_local: number;
-  total_eventos_pri_voz: number;
-  criados: string[];
-  deletados: string[];
-  mantidos: string[];
-  sincronizados_de_eventos_pri: string[];
+  total_local_eventos_pri_voz: number;
+  total_local_prospeccoes: number;
+  eventos_pri_voz_criados: string[];
+  eventos_pri_voz_atualizados: string[];
+  prospeccoes_criados: string[];
+  prospeccoes_atualizados: string[];
   erros: string[];
 }
 
@@ -43,7 +54,7 @@ serve(async (req) => {
   }
 
   try {
-    const { pri_telefone, empresa_id, dry_run = false } = await req.json();
+    const { pri_telefone, empresa_id, dealer_id, dry_run = false } = await req.json();
 
     if (!pri_telefone) {
       return new Response(
@@ -69,130 +80,37 @@ serve(async (req) => {
 
     const result: SyncResult = {
       total_webhook: 0,
-      total_local: 0,
-      total_eventos_pri_voz: 0,
-      criados: [],
-      deletados: [],
-      mantidos: [],
-      sincronizados_de_eventos_pri: [],
+      total_local_eventos_pri_voz: 0,
+      total_local_prospeccoes: 0,
+      eventos_pri_voz_criados: [],
+      eventos_pri_voz_atualizados: [],
+      prospeccoes_criados: [],
+      prospeccoes_atualizados: [],
       erros: [],
     };
 
-    // 1. Buscar eventos já existentes em eventos_pri_voz para esta empresa
-    console.log(`📂 Buscando eventos de eventos_pri_voz para empresa: ${empresa_id}`);
-    const { data: eventosPriVoz, error: priVozError } = await supabase
-      .from('eventos_pri_voz')
-      .select('*')
-      .eq('empresa_id', empresa_id);
-
-    if (priVozError) {
-      console.error('❌ Erro ao buscar eventos_pri_voz:', priVozError);
-    } else {
-      console.log(`📋 Eventos em eventos_pri_voz: ${eventosPriVoz?.length || 0}`);
-      result.total_eventos_pri_voz = eventosPriVoz?.length || 0;
-    }
-
-    // 2. Buscar eventos locais de Ligação na tabela prospeccoes
-    const { data: eventosLocais, error: localError } = await supabase
-      .from('prospeccoes')
-      .select('id, titulo, canal, event_id_pri, data_inicio, data_fim, empresa_id, ativo')
-      .eq('empresa_id', empresa_id)
-      .ilike('canal', '%Liga%');
-
-    if (localError) {
-      console.error('❌ Erro ao buscar eventos locais:', localError);
-      return new Response(
-        JSON.stringify({ error: 'Erro ao buscar eventos locais', details: localError }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`📂 Eventos locais de Ligação em prospeccoes: ${eventosLocais?.length || 0}`);
-    result.total_local = eventosLocais?.length || 0;
-
-    // Mapear eventos locais por event_id_pri
-    const locaisMap = new Map<string, typeof eventosLocais[0]>();
-    (eventosLocais || []).forEach(evt => {
-      if (evt.event_id_pri) {
-        locaisMap.set(evt.event_id_pri, evt);
-      }
-    });
-
-    // 3. NOVA LÓGICA: Sincronizar eventos de eventos_pri_voz → prospeccoes
-    // Isso garante que eventos de Ligação apareçam na lista principal
-    if (eventosPriVoz && eventosPriVoz.length > 0) {
-      for (const evtPri of eventosPriVoz) {
-        const eventIdStr = String(evtPri.id_evento);
-        
-        // Verificar se já existe em prospeccoes
-        if (!locaisMap.has(eventIdStr)) {
-          console.log(`➕ Criar evento em prospeccoes de eventos_pri_voz: ${eventIdStr} - ${evtPri.nome}`);
-          
-          if (!dry_run) {
-            const isAtivo = evtPri.evt_status?.toLowerCase() !== 'inativo';
-            
-            const { data: novoEvento, error: createError } = await supabase
-              .from('prospeccoes')
-              .insert({
-                titulo: evtPri.nome || `Evento Ligação ${eventIdStr}`,
-                canal: 'Ligação',
-                empresa_id: empresa_id,
-                event_id_pri: eventIdStr,
-                data_inicio: evtPri.data_inicio || null,
-                data_fim: evtPri.data_fim || null,
-                ativo: isAtivo,
-              })
-              .select('id, titulo')
-              .single();
-
-            if (createError) {
-              console.error(`❌ Erro ao criar evento de eventos_pri_voz ${eventIdStr}:`, createError);
-              result.erros.push(`Criar de eventos_pri_voz ${eventIdStr}: ${createError.message}`);
-            } else {
-              result.sincronizados_de_eventos_pri.push(`${eventIdStr} → ${novoEvento?.id} (${evtPri.nome})`);
-              // Adicionar ao mapa para evitar duplicações
-              locaisMap.set(eventIdStr, { ...novoEvento, event_id_pri: eventIdStr } as any);
-            }
-          } else {
-            result.sincronizados_de_eventos_pri.push(`${eventIdStr} (${evtPri.nome}) (dry_run)`);
-          }
-        } else {
-          // Evento já existe, verificar se precisa atualizar status ativo
-          const existente = locaisMap.get(eventIdStr)!;
-          const isAtivo = evtPri.evt_status?.toLowerCase() !== 'inativo';
-          
-          if (existente.ativo !== isAtivo) {
-            console.log(`🔄 Atualizar status de ${existente.id}: ativo=${isAtivo}`);
-            
-            if (!dry_run) {
-              const { error: updateError } = await supabase
-                .from('prospeccoes')
-                .update({ ativo: isAtivo })
-                .eq('id', existente.id);
-              
-              if (updateError) {
-                console.error(`❌ Erro ao atualizar status:`, updateError);
-              }
-            }
-          }
-          
-          result.mantidos.push(`${eventIdStr} (já existe em prospeccoes)`);
-        }
-      }
-    }
-
-    // 4. Tentar buscar eventos do webhook externo também (fallback)
+    // ===============================================
+    // ETAPA 1: Buscar eventos do webhook externo
+    // ===============================================
     console.log(`📡 Buscando eventos do webhook: ${WEBHOOK_URL}`);
     const telefoneFormatado = String(pri_telefone).replace(/\D/g, '');
 
+    let eventosWebhook: WebhookEvento[] = [];
+    
     try {
+      // Tentar POST primeiro com telefone_pri e dealer_id
+      const postBody: Record<string, string> = {
+        telefone_pri: telefoneFormatado,
+      };
+      
+      if (dealer_id) {
+        postBody.dealer_id = dealer_id;
+      }
+
       let webhookResponse = await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...webhookAuthHeaders },
-        body: JSON.stringify({
-          agente_id: telefoneFormatado,
-          telefone: telefoneFormatado,
-        }),
+        body: JSON.stringify(postBody),
       });
 
       let webhookText = await webhookResponse.text();
@@ -201,8 +119,10 @@ serve(async (req) => {
       if (webhookResponse.status === 404 && webhookText.toLowerCase().includes('not registered for post')) {
         console.log('⚠️ Webhook exige GET, tentando novamente...');
         const url = new URL(WEBHOOK_URL);
-        url.searchParams.set('agente_id', telefoneFormatado);
-        url.searchParams.set('telefone', telefoneFormatado);
+        url.searchParams.set('telefone_pri', telefoneFormatado);
+        if (dealer_id) {
+          url.searchParams.set('dealer_id', dealer_id);
+        }
 
         webhookResponse = await fetch(url.toString(), {
           method: 'GET',
@@ -214,73 +134,227 @@ serve(async (req) => {
       console.log(`📥 Resposta do webhook (status ${webhookResponse.status}):`, webhookText.substring(0, 500));
 
       if (webhookResponse.ok) {
-        let eventosWebhook: WebhookEvento[] = [];
         try {
           const parsed = JSON.parse(webhookText);
           eventosWebhook = Array.isArray(parsed) ? parsed : (parsed?.eventos || parsed?.data || []);
         } catch (e) {
           console.error('❌ Erro ao parsear resposta do webhook:', e);
         }
+      }
+    } catch (webhookError) {
+      console.error('⚠️ Erro ao consultar webhook:', webhookError);
+      result.erros.push(`Erro ao consultar webhook: ${webhookError}`);
+    }
 
-        console.log(`📋 Eventos encontrados no webhook: ${eventosWebhook.length}`);
-        result.total_webhook = eventosWebhook.length;
+    console.log(`📋 Eventos encontrados no webhook: ${eventosWebhook.length}`);
+    result.total_webhook = eventosWebhook.length;
 
-        // Extrair IDs únicos do webhook
-        const webhookEventIds = new Map<string, WebhookEvento>();
-        eventosWebhook.forEach(evt => {
-          const eventId = String(evt.id_evento || evt.event_id || evt.id || '').trim();
-          if (eventId) {
-            webhookEventIds.set(eventId, evt);
+    // ===============================================
+    // ETAPA 2: Buscar eventos locais existentes
+    // ===============================================
+    const { data: eventosLocaisPriVoz, error: localPriVozError } = await supabase
+      .from('eventos_pri_voz')
+      .select('*')
+      .eq('empresa_id', empresa_id);
+
+    if (localPriVozError) {
+      console.error('❌ Erro ao buscar eventos_pri_voz:', localPriVozError);
+      result.erros.push(`Erro ao buscar eventos_pri_voz: ${localPriVozError.message}`);
+    }
+
+    result.total_local_eventos_pri_voz = eventosLocaisPriVoz?.length || 0;
+    console.log(`📂 Eventos em eventos_pri_voz: ${result.total_local_eventos_pri_voz}`);
+
+    // Mapear eventos_pri_voz por id_evento
+    const eventosLocalMap = new Map<number, any>();
+    (eventosLocaisPriVoz || []).forEach(evt => {
+      if (evt.id_evento) {
+        eventosLocalMap.set(Number(evt.id_evento), evt);
+      }
+    });
+
+    // Buscar prospecções locais de Ligação
+    const { data: prospeccoesLocais, error: prospeccoesError } = await supabase
+      .from('prospeccoes')
+      .select('id, titulo, canal, event_id_pri, data_inicio, data_fim, empresa_id, ativo')
+      .eq('empresa_id', empresa_id)
+      .ilike('canal', '%Liga%');
+
+    if (prospeccoesError) {
+      console.error('❌ Erro ao buscar prospeccoes:', prospeccoesError);
+      result.erros.push(`Erro ao buscar prospeccoes: ${prospeccoesError.message}`);
+    }
+
+    result.total_local_prospeccoes = prospeccoesLocais?.length || 0;
+    console.log(`📂 Prospecções de Ligação: ${result.total_local_prospeccoes}`);
+
+    // Mapear prospecções por event_id_pri
+    const prospeccoesMap = new Map<string, any>();
+    (prospeccoesLocais || []).forEach(evt => {
+      if (evt.event_id_pri) {
+        prospeccoesMap.set(evt.event_id_pri, evt);
+      }
+    });
+
+    // ===============================================
+    // ETAPA 3: Sincronizar eventos do webhook → eventos_pri_voz
+    // ===============================================
+    console.log('🔄 Sincronizando eventos do webhook → eventos_pri_voz...');
+    
+    for (const webhookEvt of eventosWebhook) {
+      const eventIdNum = Number(webhookEvt.id_evento || webhookEvt.event_id || webhookEvt.id);
+      
+      if (!eventIdNum || isNaN(eventIdNum)) {
+        console.warn('⚠️ Evento sem id_evento válido:', webhookEvt);
+        continue;
+      }
+
+      const eventIdStr = String(eventIdNum);
+      const isAtivo = String(webhookEvt.evt_status || webhookEvt.status || 'ativo').toLowerCase() !== 'inativo';
+      
+      const eventoData = {
+        id_evento: eventIdNum,
+        nome: webhookEvt.nome || webhookEvt.titulo || `Evento Ligação ${eventIdNum}`,
+        descricao: webhookEvt.descricao || null,
+        categoria: webhookEvt.categoria || 'evento',
+        marca: webhookEvt.marca || null,
+        dealerid: webhookEvt.dealerid || webhookEvt.dealer_id || dealer_id || null,
+        telefone_pri: webhookEvt.telefone_pri || telefoneFormatado,
+        telefone_pri_whatsapp: webhookEvt.telefone_pri_whatsapp || null,
+        uf: webhookEvt.uf || null,
+        cidade: webhookEvt.cidade || null,
+        endereco: webhookEvt.endereco || null,
+        data_inicio: webhookEvt.data_inicio || null,
+        data_fim: webhookEvt.data_fim || null,
+        evt_status: isAtivo ? 'ativo' : 'inativo',
+        empresa_id: empresa_id,
+        atualizado_em: new Date().toISOString(),
+      };
+
+      const existente = eventosLocalMap.get(eventIdNum);
+
+      if (!existente) {
+        // Criar novo registro em eventos_pri_voz
+        console.log(`➕ Criar em eventos_pri_voz: ${eventIdNum} - ${eventoData.nome}`);
+        
+        if (!dry_run) {
+          const { error: insertError } = await supabase
+            .from('eventos_pri_voz')
+            .insert({
+              ...eventoData,
+              criado_em: new Date().toISOString(),
+            });
+
+          if (insertError) {
+            console.error(`❌ Erro ao inserir eventos_pri_voz ${eventIdNum}:`, insertError);
+            result.erros.push(`Inserir eventos_pri_voz ${eventIdNum}: ${insertError.message}`);
+          } else {
+            result.eventos_pri_voz_criados.push(`${eventIdNum} (${eventoData.nome})`);
+            // Adicionar ao mapa local para sincronização de prospeccoes
+            eventosLocalMap.set(eventIdNum, { ...eventoData, id_evento: eventIdNum });
           }
-        });
+        } else {
+          result.eventos_pri_voz_criados.push(`${eventIdNum} (${eventoData.nome}) (dry_run)`);
+        }
+      } else {
+        // Atualizar registro existente se mudou algo relevante
+        const needsUpdate = 
+          existente.nome !== eventoData.nome ||
+          existente.evt_status !== eventoData.evt_status ||
+          existente.telefone_pri !== eventoData.telefone_pri;
 
-        // Criar eventos do webhook que não existem localmente
-        for (const [eventId, webhookEvt] of webhookEventIds) {
-          if (!locaisMap.has(eventId)) {
-            console.log(`➕ Criar evento local do webhook: ${eventId} - ${webhookEvt.nome || webhookEvt.titulo || 'Sem nome'}`);
-            
-            if (!dry_run) {
-              const { data: novoEvento, error: createError } = await supabase
-                .from('prospeccoes')
-                .insert({
-                  titulo: webhookEvt.nome || webhookEvt.titulo || `Evento Ligação ${eventId}`,
-                  canal: 'Ligação',
-                  empresa_id: empresa_id,
-                  event_id_pri: eventId,
-                  data_inicio: webhookEvt.data_inicio || null,
-                  data_fim: webhookEvt.data_fim || null,
-                })
-                .select('id, titulo')
-                .single();
+        if (needsUpdate) {
+          console.log(`🔄 Atualizar em eventos_pri_voz: ${eventIdNum}`);
+          
+          if (!dry_run) {
+            const { error: updateError } = await supabase
+              .from('eventos_pri_voz')
+              .update(eventoData)
+              .eq('id_evento', eventIdNum)
+              .eq('empresa_id', empresa_id);
 
-              if (createError) {
-                console.error(`❌ Erro ao criar evento ${eventId}:`, createError);
-                result.erros.push(`Criar ${eventId}: ${createError.message}`);
-              } else {
-                result.criados.push(`${eventId} → ${novoEvento?.id}`);
-                locaisMap.set(eventId, novoEvento as any);
-              }
+            if (updateError) {
+              console.error(`❌ Erro ao atualizar eventos_pri_voz ${eventIdNum}:`, updateError);
+              result.erros.push(`Atualizar eventos_pri_voz ${eventIdNum}: ${updateError.message}`);
             } else {
-              result.criados.push(`${eventId} (dry_run)`);
+              result.eventos_pri_voz_atualizados.push(`${eventIdNum} (${eventoData.nome})`);
             }
+          } else {
+            result.eventos_pri_voz_atualizados.push(`${eventIdNum} (${eventoData.nome}) (dry_run)`);
           }
         }
       }
-    } catch (webhookError) {
-      console.error('⚠️ Erro ao consultar webhook (continuando com eventos_pri_voz):', webhookError);
     }
 
-    // 5. Alertar sobre eventos órfãos (em prospeccoes mas não em eventos_pri_voz)
-    const eventIdsPriVoz = new Set((eventosPriVoz || []).map(e => String(e.id_evento)));
-    const orfaos = (eventosLocais || []).filter(evt => 
-      evt.event_id_pri && !eventIdsPriVoz.has(evt.event_id_pri)
-    );
-    
-    if (orfaos.length > 0) {
-      console.log(`⚠️ Eventos em prospeccoes sem correspondência em eventos_pri_voz: ${orfaos.length}`);
-      orfaos.forEach(evt => {
-        result.erros.push(`Órfão: ${evt.id} - ${evt.titulo} (event_id_pri: ${evt.event_id_pri})`);
-      });
+    // ===============================================
+    // ETAPA 4: Sincronizar eventos_pri_voz → prospeccoes
+    // ===============================================
+    console.log('🔄 Sincronizando eventos_pri_voz → prospeccoes...');
+
+    // Recarregar eventos_pri_voz após inserções
+    const { data: eventosAtualizados } = await supabase
+      .from('eventos_pri_voz')
+      .select('*')
+      .eq('empresa_id', empresa_id);
+
+    for (const evtPri of (eventosAtualizados || [])) {
+      const eventIdStr = String(evtPri.id_evento);
+      const isAtivo = String(evtPri.evt_status || 'ativo').toLowerCase() !== 'inativo';
+
+      const existenteProsp = prospeccoesMap.get(eventIdStr);
+
+      if (!existenteProsp) {
+        // Criar nova prospecção
+        console.log(`➕ Criar em prospeccoes: ${eventIdStr} - ${evtPri.nome}`);
+        
+        if (!dry_run) {
+          const { data: novoEvento, error: createError } = await supabase
+            .from('prospeccoes')
+            .insert({
+              titulo: evtPri.nome || `Evento Ligação ${eventIdStr}`,
+              canal: 'Ligação',
+              empresa_id: empresa_id,
+              event_id_pri: eventIdStr,
+              data_inicio: evtPri.data_inicio || null,
+              data_fim: evtPri.data_fim || null,
+              ativo: isAtivo,
+              descricao: evtPri.descricao || null,
+            })
+            .select('id, titulo')
+            .single();
+
+          if (createError) {
+            console.error(`❌ Erro ao criar prospeccao ${eventIdStr}:`, createError);
+            result.erros.push(`Criar prospeccao ${eventIdStr}: ${createError.message}`);
+          } else {
+            result.prospeccoes_criados.push(`${eventIdStr} → ${novoEvento?.id} (${evtPri.nome})`);
+            prospeccoesMap.set(eventIdStr, novoEvento);
+          }
+        } else {
+          result.prospeccoes_criados.push(`${eventIdStr} (${evtPri.nome}) (dry_run)`);
+        }
+      } else {
+        // Verificar se precisa atualizar status ativo
+        if (existenteProsp.ativo !== isAtivo) {
+          console.log(`🔄 Atualizar status prospeccao ${existenteProsp.id}: ativo=${isAtivo}`);
+          
+          if (!dry_run) {
+            const { error: updateError } = await supabase
+              .from('prospeccoes')
+              .update({ ativo: isAtivo })
+              .eq('id', existenteProsp.id);
+
+            if (updateError) {
+              console.error(`❌ Erro ao atualizar prospeccao:`, updateError);
+              result.erros.push(`Atualizar prospeccao ${existenteProsp.id}: ${updateError.message}`);
+            } else {
+              result.prospeccoes_atualizados.push(`${eventIdStr} (${evtPri.nome})`);
+            }
+          } else {
+            result.prospeccoes_atualizados.push(`${eventIdStr} (${evtPri.nome}) (dry_run)`);
+          }
+        }
+      }
     }
 
     console.log(`✅ Sincronização concluída:`, result);
@@ -291,10 +365,11 @@ serve(async (req) => {
         dry_run,
         result,
         summary: {
-          criados: result.criados.length,
-          sincronizados_de_eventos_pri: result.sincronizados_de_eventos_pri.length,
-          deletados: result.deletados.length,
-          mantidos: result.mantidos.length,
+          eventos_webhook: result.total_webhook,
+          eventos_pri_voz_criados: result.eventos_pri_voz_criados.length,
+          eventos_pri_voz_atualizados: result.eventos_pri_voz_atualizados.length,
+          prospeccoes_criados: result.prospeccoes_criados.length,
+          prospeccoes_atualizados: result.prospeccoes_atualizados.length,
           erros: result.erros.length,
         }
       }),
