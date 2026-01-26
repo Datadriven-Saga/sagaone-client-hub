@@ -22,9 +22,8 @@ serve(async (req) => {
 
     switch (action) {
       case 'listar':
-        webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos';
+        webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-todos-eventos-pri';
         body = {
-          agente_id: params.agente_id,
           telefone_pri: params.telefone_pri,
         };
         break;
