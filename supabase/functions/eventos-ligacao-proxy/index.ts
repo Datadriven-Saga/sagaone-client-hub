@@ -25,7 +25,7 @@ serve(async (req) => {
         webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos';
         body = {
           agente_id: params.agente_id,
-          telefone: params.telefone,
+          telefone_pri: params.telefone_pri,
         };
         break;
 
