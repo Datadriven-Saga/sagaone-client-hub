@@ -250,7 +250,7 @@ const AgentesNextip = () => {
       }
 
       // Parse and prepare data for upsert
-      const agentesToUpsert = rows
+      const agentesRaw = rows
         .filter(row => {
           const rowArray = row as unknown[];
           return rowArray[columnMap.id] && String(rowArray[columnMap.id]).trim();
@@ -276,6 +276,15 @@ const AgentesNextip = () => {
           };
         });
 
+      // Remove duplicates by codigo_id (keep last occurrence)
+      const uniqueAgentesMap = new Map<string, typeof agentesRaw[0]>();
+      agentesRaw.forEach(agente => {
+        if (agente.codigo_id) {
+          uniqueAgentesMap.set(agente.codigo_id, agente);
+        }
+      });
+      const agentesToUpsert = Array.from(uniqueAgentesMap.values());
+
       if (agentesToUpsert.length === 0) {
         toast({
           title: "Nenhum dado válido",
@@ -284,6 +293,8 @@ const AgentesNextip = () => {
         });
         return;
       }
+
+      const duplicatesRemoved = agentesRaw.length - agentesToUpsert.length;
 
       // Upsert data - update on conflict
       const { error: upsertError } = await supabase
@@ -295,9 +306,10 @@ const AgentesNextip = () => {
 
       if (upsertError) throw upsertError;
 
+      const duplicateMsg = duplicatesRemoved > 0 ? ` (${duplicatesRemoved} duplicatas removidas)` : "";
       toast({
         title: "Importação concluída!",
-        description: `${agentesToUpsert.length} agentes importados/atualizados com sucesso.`,
+        description: `${agentesToUpsert.length} agentes importados/atualizados com sucesso.${duplicateMsg}`,
       });
 
       // Refresh data
