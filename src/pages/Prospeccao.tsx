@@ -714,7 +714,7 @@ showAllEvents: true
                     contagem: {
                       total: metricasExternas.total,
                       pendentes: metricasExternas.pendentes, // Apenas pendentes, não elegiveisDisparo
-                      disparados: metricasExternas.disparados
+                      disparados: metricasExternas.disparados1 + metricasExternas.disparados2
                     },
                     metricasExternas
                   };
