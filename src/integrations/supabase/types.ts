@@ -855,39 +855,39 @@ export type Database = {
           agente_visao_id: string | null
           atividade: string
           concluido: boolean
+          controle_agente_id: string | null
           created_at: string
           data_inicio: string
           data_termino: string
-          fase: string
           id: string
           observacoes: string | null
-          unidades: string
+          responsavel: string | null
           updated_at: string
         }
         Insert: {
           agente_visao_id?: string | null
           atividade: string
           concluido?: boolean
+          controle_agente_id?: string | null
           created_at?: string
           data_inicio: string
           data_termino: string
-          fase: string
           id?: string
           observacoes?: string | null
-          unidades: string
+          responsavel?: string | null
           updated_at?: string
         }
         Update: {
           agente_visao_id?: string | null
           atividade?: string
           concluido?: boolean
+          controle_agente_id?: string | null
           created_at?: string
           data_inicio?: string
           data_termino?: string
-          fase?: string
           id?: string
           observacoes?: string | null
-          unidades?: string
+          responsavel?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -896,6 +896,13 @@ export type Database = {
             columns: ["agente_visao_id"]
             isOneToOne: false
             referencedRelation: "agentes_visao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cronograma_implantacao_controle_agente_id_fkey"
+            columns: ["controle_agente_id"]
+            isOneToOne: false
+            referencedRelation: "controle_agentes"
             referencedColumns: ["id"]
           },
         ]

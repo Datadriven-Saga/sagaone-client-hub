@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -43,13 +42,15 @@ import {
   Save,
   X,
   Users,
-  Target
+  Target,
+  ArrowLeft
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useNavigate } from "react-router-dom";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 
 interface AgenteVisao {
   id: string;
@@ -66,13 +67,13 @@ interface AgenteVisao {
 interface CronogramaItem {
   id: string;
   agente_visao_id: string | null;
-  fase: string;
-  unidades: string;
+  controle_agente_id: string | null;
   atividade: string;
   data_inicio: string;
   data_termino: string;
   observacoes: string | null;
   concluido: boolean;
+  responsavel: string | null;
 }
 
 interface ControleAgente {
@@ -157,7 +158,6 @@ export default function VisaoGeral() {
   }, []);
 
   useEffect(() => {
-    // Carregar dados iniciais
     fetchAgentesVisao();
     fetchCronograma();
     fetchControleAgentes();
@@ -251,17 +251,30 @@ export default function VisaoGeral() {
     }
   };
 
+  // Helper para buscar o nome do agente no controle
+  const getControleAgenteName = (controleAgenteId: string | null) => {
+    if (!controleAgenteId) return "-";
+    const agente = controlesAgentes.find(a => a.id === controleAgenteId);
+    if (!agente) return "-";
+    return `${agente.nome_agente} - ${agente.loja} (${agente.marca}/${agente.uf})`;
+  };
+
   return (
     <DashboardLayout>
       <ScrollIndicator className="h-full">
         <div className="space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Visão Geral</h1>
-              <p className="text-muted-foreground">
-                Catálogo de agentes e cronograma de implantação
-              </p>
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div>
+                <h1 className="text-3xl font-bold text-foreground">Visão Geral</h1>
+                <p className="text-muted-foreground">
+                  Catálogo de agentes e cronograma de implantação
+                </p>
+              </div>
             </div>
             <Button variant="outline" onClick={() => navigate("/administracao/agentes")}>
               Voltar para Agentes
@@ -291,7 +304,7 @@ export default function VisaoGeral() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold">{cronograma.filter(c => c.concluido).length.toLocaleString('pt-BR')}</p>
-                    <p className="text-xs text-muted-foreground">Fases Concluídas</p>
+                    <p className="text-xs text-muted-foreground">Concluídos</p>
                   </div>
                 </div>
               </CardContent>
@@ -304,7 +317,7 @@ export default function VisaoGeral() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold">{cronograma.filter(c => !c.concluido).length.toLocaleString('pt-BR')}</p>
-                    <p className="text-xs text-muted-foreground">Fases Pendentes</p>
+                    <p className="text-xs text-muted-foreground">Pendentes</p>
                   </div>
                 </div>
               </CardContent>
@@ -337,7 +350,7 @@ export default function VisaoGeral() {
               </TabsTrigger>
             </TabsList>
 
-            {/* Visão dos Agentes Tab */}
+            {/* Visão dos Agentes Tab - LISTA */}
             <TabsContent value="visao" className="space-y-4">
               <Card>
                 <CardHeader className="pb-3">
@@ -373,20 +386,45 @@ export default function VisaoGeral() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {agentesVisao.map((av) => (
-                        <Card key={av.id} className="hover:shadow-md transition-shadow">
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between mb-3">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nome</TableHead>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead>Criador</TableHead>
+                          <TableHead>Implantação</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="w-[100px]">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {agentesVisao.map((av) => (
+                          <TableRow key={av.id}>
+                            <TableCell>
                               <div className="flex items-center gap-2">
-                                <div className="p-2 rounded-lg bg-primary/10">
-                                  <Bot className="h-4 w-4 text-primary" />
-                                </div>
-                                <div>
-                                  <h3 className="font-semibold">{av.nome}</h3>
-                                  <p className="text-xs text-muted-foreground">{av.tipo}</p>
-                                </div>
+                                <Bot className="h-4 w-4 text-primary" />
+                                <span className="font-medium">{av.nome}</span>
+                                {av.strategica && (
+                                  <Badge variant="outline" className="text-[10px] border-yellow-500 text-yellow-600">
+                                    <Target className="h-2.5 w-2.5 mr-1" />
+                                    Estratégica
+                                  </Badge>
+                                )}
                               </div>
+                            </TableCell>
+                            <TableCell>{av.tipo}</TableCell>
+                            <TableCell>{av.criador || "-"}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {av.tipo_implantacao}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={av.ativo ? "default" : "secondary"} className="text-xs">
+                                {av.ativo ? "Ativo" : "Inativo"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
                               <div className="flex gap-1">
                                 <Button
                                   variant="ghost"
@@ -405,35 +443,11 @@ export default function VisaoGeral() {
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
-                            </div>
-                            <div className="flex flex-wrap gap-1.5">
-                              <Badge variant={av.ativo ? "default" : "secondary"} className="text-[10px]">
-                                {av.ativo ? "Ativo" : "Inativo"}
-                              </Badge>
-                              {av.strategica && (
-                                <Badge variant="outline" className="text-[10px] border-yellow-500 text-yellow-600">
-                                  <Target className="h-2.5 w-2.5 mr-1" />
-                                  Estratégica
-                                </Badge>
-                              )}
-                              <Badge variant="outline" className="text-[10px]">
-                                {av.tipo_implantacao}
-                              </Badge>
-                            </div>
-                            {av.criador && (
-                              <p className="text-xs text-muted-foreground mt-2">
-                                Criado por: {av.criador}
-                              </p>
-                            )}
-                            {av.descricao && (
-                              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                                {av.descricao}
-                              </p>
-                            )}
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   )}
                 </CardContent>
               </Card>
@@ -446,7 +460,7 @@ export default function VisaoGeral() {
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle>Cronograma de Implantação</CardTitle>
-                      <CardDescription>Fases e datas de implantação dos agentes</CardDescription>
+                      <CardDescription>Gerenciamento de implantação dos agentes</CardDescription>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={fetchCronograma} disabled={loadingCronograma}>
@@ -455,7 +469,7 @@ export default function VisaoGeral() {
                       </Button>
                       <Button size="sm" onClick={() => { setEditingCronograma(null); setNovoCronogramaOpen(true); }}>
                         <Plus className="h-4 w-4 mr-2" />
-                        Nova Fase
+                        Nova Implantação
                       </Button>
                     </div>
                   </div>
@@ -471,31 +485,26 @@ export default function VisaoGeral() {
                       <p>Nenhum cronograma cadastrado</p>
                       <Button className="mt-4" onClick={() => setNovoCronogramaOpen(true)}>
                         <Plus className="h-4 w-4 mr-2" />
-                        Criar Primeira Fase
+                        Criar Primeira Implantação
                       </Button>
                     </div>
                   ) : (
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Fase</TableHead>
-                          <TableHead>Agente/Unidades</TableHead>
+                          <TableHead>Agente</TableHead>
                           <TableHead>Atividade</TableHead>
                           <TableHead>Período</TableHead>
                           <TableHead>Status</TableHead>
+                          <TableHead>Responsável</TableHead>
                           <TableHead className="w-[100px]">Ações</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {cronograma.map((item) => (
                           <TableRow key={item.id}>
-                            <TableCell>
-                              <Badge variant={item.fase.includes("INFRA") || item.fase.includes("FINAL") ? "secondary" : "outline"}>
-                                {item.fase}
-                              </Badge>
-                            </TableCell>
                             <TableCell className="max-w-[200px]">
-                              <p className="truncate text-sm">{item.unidades}</p>
+                              <p className="truncate text-sm font-medium">{getControleAgenteName(item.controle_agente_id)}</p>
                             </TableCell>
                             <TableCell className="max-w-[200px]">
                               <p className="truncate text-sm">{item.atividade}</p>
@@ -520,6 +529,9 @@ export default function VisaoGeral() {
                                   )}
                                 </Badge>
                               </Button>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm">{item.responsavel || "-"}</span>
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">
@@ -571,7 +583,7 @@ export default function VisaoGeral() {
       <Dialog open={novoCronogramaOpen || !!editingCronograma} onOpenChange={(open) => { if (!open) { setNovoCronogramaOpen(false); setEditingCronograma(null); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingCronograma ? "Editar Fase" : "Nova Fase"}</DialogTitle>
+            <DialogTitle>{editingCronograma ? "Editar Implantação" : "Nova Implantação"}</DialogTitle>
           </DialogHeader>
           <CronogramaForm
             initial={editingCronograma}
@@ -692,7 +704,7 @@ function VisaoForm({
   );
 }
 
-// Componente para formulário de Cronograma
+// Componente para formulário de Cronograma - SEM FASE
 function CronogramaForm({ 
   initial,
   controlesAgentes,
@@ -705,34 +717,24 @@ function CronogramaForm({
   onCancel: () => void;
 }) {
   const [data, setData] = useState({
-    fase: initial?.fase || "",
-    unidades: initial?.unidades || "",
+    controle_agente_id: initial?.controle_agente_id || null,
     atividade: initial?.atividade || "",
     data_inicio: initial?.data_inicio || new Date().toISOString().split('T')[0],
     data_termino: initial?.data_termino || new Date().toISOString().split('T')[0],
     observacoes: initial?.observacoes || "",
     concluido: initial?.concluido || false,
+    responsavel: initial?.responsavel || "",
     agente_visao_id: initial?.agente_visao_id || null
   });
-
-  const [selectedAgente, setSelectedAgente] = useState<string>("");
-
-  const handleSelectAgente = (agenteId: string) => {
-    setSelectedAgente(agenteId);
-    const agente = controlesAgentes.find(a => a.id === agenteId);
-    if (agente) {
-      setData(prev => ({
-        ...prev,
-        unidades: `${agente.nome_agente} - ${agente.loja} (${agente.marca}/${agente.uf})`
-      }));
-    }
-  };
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Selecionar Agente (opcional)</Label>
-        <Select value={selectedAgente} onValueChange={handleSelectAgente}>
+        <Label>Selecionar Agente do Controle *</Label>
+        <Select 
+          value={data.controle_agente_id || ""} 
+          onValueChange={(v) => setData({ ...data, controle_agente_id: v || null })}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Escolha um agente de Controle de Agentes" />
           </SelectTrigger>
@@ -745,34 +747,7 @@ function CronogramaForm({
             ))}
           </SelectContent>
         </Select>
-        <p className="text-xs text-muted-foreground">Ao selecionar, as unidades serão preenchidas automaticamente</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Fase *</Label>
-          <Select value={data.fase} onValueChange={(v) => setData({ ...data, fase: v })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione a fase" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="INFRA">INFRA</SelectItem>
-              <SelectItem value="Fase 1">Fase 1</SelectItem>
-              <SelectItem value="Fase 2">Fase 2</SelectItem>
-              <SelectItem value="Fase 3">Fase 3</SelectItem>
-              <SelectItem value="Fase 4">Fase 4</SelectItem>
-              <SelectItem value="FINAL">FINAL</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Unidades *</Label>
-          <Input
-            value={data.unidades}
-            onChange={(e) => setData({ ...data, unidades: e.target.value })}
-            placeholder="Unidades afetadas"
-          />
-        </div>
+        <p className="text-xs text-muted-foreground">Selecione o agente que será implantado</p>
       </div>
       
       <div className="space-y-2">
@@ -780,7 +755,7 @@ function CronogramaForm({
         <Input
           value={data.atividade}
           onChange={(e) => setData({ ...data, atividade: e.target.value })}
-          placeholder="Descrição da atividade"
+          placeholder="Descrição da atividade de implantação"
         />
       </div>
 
@@ -801,6 +776,15 @@ function CronogramaForm({
             onChange={(e) => setData({ ...data, data_termino: e.target.value })}
           />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Responsável</Label>
+        <Input
+          value={data.responsavel}
+          onChange={(e) => setData({ ...data, responsavel: e.target.value })}
+          placeholder="Nome do responsável pela implantação"
+        />
       </div>
 
       <div className="space-y-2">
@@ -826,7 +810,7 @@ function CronogramaForm({
           <X className="h-4 w-4 mr-2" />
           Cancelar
         </Button>
-        <Button onClick={() => onSave(data)} disabled={!data.fase || !data.unidades || !data.atividade}>
+        <Button onClick={() => onSave(data)} disabled={!data.controle_agente_id || !data.atividade}>
           <Save className="h-4 w-4 mr-2" />
           Salvar
         </Button>
