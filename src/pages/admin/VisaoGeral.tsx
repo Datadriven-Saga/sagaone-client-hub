@@ -43,7 +43,8 @@ import {
   X,
   Users,
   Target,
-  ArrowLeft
+  ArrowLeft,
+  Building2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +52,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { ControleEmpresasTab } from "@/components/admin/ControleEmpresasTab";
 
 interface AgenteVisao {
   id: string;
@@ -364,7 +366,7 @@ export default function VisaoGeral() {
 
           {/* Main Content */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsList className="grid w-full max-w-xl grid-cols-3">
               <TabsTrigger value="visao" className="flex items-center gap-2">
                 <Eye className="h-4 w-4" />
                 Visão dos Agentes
@@ -372,6 +374,10 @@ export default function VisaoGeral() {
               <TabsTrigger value="cronograma" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 Cronograma
+              </TabsTrigger>
+              <TabsTrigger value="empresas" className="flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                Controle Empresas
               </TabsTrigger>
             </TabsList>
 
@@ -591,6 +597,11 @@ export default function VisaoGeral() {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Controle Empresas Tab */}
+            <TabsContent value="empresas" className="space-y-4">
+              <ControleEmpresasTab />
             </TabsContent>
           </Tabs>
         </div>
