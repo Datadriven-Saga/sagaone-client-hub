@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ControleAgentesContent } from "@/components/admin/ControleAgentesContent";
 import { 
   Bot, 
   RefreshCw, 
@@ -175,6 +176,7 @@ export default function AdminAgentes() {
   const [filterLojaUF, setFilterLojaUF] = useState<string>("all");
   const [filterLojaCidade, setFilterLojaCidade] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("dados-gerais");
+  const [mainTab, setMainTab] = useState("agentes");
   const [isNewAgente, setIsNewAgente] = useState(false);
   const [creatingInstancia, setCreatingInstancia] = useState(false);
   const [novaInstancia, setNovaInstancia] = useState<NovaInstanciaData>({
@@ -1616,28 +1618,36 @@ export default function AdminAgentes() {
     <DashboardLayout title="Agentes - Administração">
       <ScrollIndicator className="flex-1 h-full">
         <div className="space-y-6 pb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Agentes de IA</h1>
-              <p className="text-muted-foreground">
-                Gerencie todos os agentes de todas as lojas
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleCreateNewAgent}>
-                <Plus className="h-4 w-4 mr-2" />
-                Criar Agente
-              </Button>
-              <Button onClick={carregarAgentes} disabled={loading} variant="outline">
-                {loading ? (
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                Atualizar
-              </Button>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Agentes</h1>
+            <p className="text-muted-foreground">
+              Gerencie agentes de IA e controle de implantação
+            </p>
           </div>
+
+          {/* Tabs Principais */}
+          <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="agentes">Agentes de IA</TabsTrigger>
+              <TabsTrigger value="controle">Controle de Agentes</TabsTrigger>
+            </TabsList>
+
+            {/* Tab Agentes de IA */}
+            <TabsContent value="agentes" className="space-y-6 mt-6">
+              <div className="flex items-center justify-end gap-2">
+                <Button onClick={handleCreateNewAgent}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Agente
+                </Button>
+                <Button onClick={carregarAgentes} disabled={loading} variant="outline">
+                  {loading ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  Atualizar
+                </Button>
+              </div>
 
           {/* Filtros */}
           <Card className="border-muted">
@@ -3016,6 +3026,13 @@ export default function AdminAgentes() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+            </TabsContent>
+
+            {/* Tab Controle de Agentes */}
+            <TabsContent value="controle" className="mt-6">
+              <ControleAgentesContent />
+            </TabsContent>
+          </Tabs>
         </div>
       </ScrollIndicator>
     </DashboardLayout>
