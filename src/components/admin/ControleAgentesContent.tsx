@@ -218,11 +218,11 @@ export function ControleAgentesContent() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Card className="cursor-pointer hover:bg-muted/50" onClick={clearFilters}><CardContent className="p-3"><div className="flex items-center gap-2"><Bot className="h-4 w-4 text-primary" /><div><p className="text-xl font-bold">{stats.total}</p><p className="text-[10px] text-muted-foreground">Total</p></div></div></CardContent></Card>
-        <Card><CardContent className="p-3"><div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /><div><p className="text-xl font-bold">{stats.implantados}</p><p className="text-[10px] text-muted-foreground">Implantados</p></div></div></CardContent></Card>
-        <Card><CardContent className="p-3"><div className="flex items-center gap-2"><Rocket className="h-4 w-4 text-blue-500" /><div><p className="text-xl font-bold">{stats.emRollOut}</p><p className="text-[10px] text-muted-foreground">Em Roll Out</p></div></div></CardContent></Card>
-        <Card><CardContent className="p-3"><div className="flex items-center gap-2"><Clock className="h-4 w-4 text-gray-500" /><div><p className="text-xl font-bold">{stats.pendentes}</p><p className="text-[10px] text-muted-foreground">Pendentes</p></div></div></CardContent></Card>
-        <Card><CardContent className="p-3"><div className="flex items-center gap-2"><XCircle className="h-4 w-4 text-red-500" /><div><p className="text-xl font-bold">{stats.erros}</p><p className="text-[10px] text-muted-foreground">Erros</p></div></div></CardContent></Card>
+        <Card className="cursor-pointer hover:bg-muted/50" onClick={clearFilters}><CardContent className="p-3"><div className="flex items-center gap-2"><Bot className="h-4 w-4 text-primary" /><div><p className="text-xl font-bold">{stats.total.toLocaleString('pt-BR')}</p><p className="text-[10px] text-muted-foreground">Total</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-3"><div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /><div><p className="text-xl font-bold">{stats.implantados.toLocaleString('pt-BR')}</p><p className="text-[10px] text-muted-foreground">Implantados</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-3"><div className="flex items-center gap-2"><Rocket className="h-4 w-4 text-blue-500" /><div><p className="text-xl font-bold">{stats.emRollOut.toLocaleString('pt-BR')}</p><p className="text-[10px] text-muted-foreground">Em Roll Out</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-3"><div className="flex items-center gap-2"><Clock className="h-4 w-4 text-gray-500" /><div><p className="text-xl font-bold">{stats.pendentes.toLocaleString('pt-BR')}</p><p className="text-[10px] text-muted-foreground">Pendentes</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-3"><div className="flex items-center gap-2"><XCircle className="h-4 w-4 text-red-500" /><div><p className="text-xl font-bold">{stats.erros.toLocaleString('pt-BR')}</p><p className="text-[10px] text-muted-foreground">Erros</p></div></div></CardContent></Card>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -242,7 +242,7 @@ export function ControleAgentesContent() {
         </div>
       </CardContent></Card>
 
-      <p className="text-sm text-muted-foreground">Exibindo {filteredData.length} de {data.length} agentes</p>
+      <p className="text-sm text-muted-foreground">Exibindo {filteredData.length.toLocaleString('pt-BR')} de {data.length.toLocaleString('pt-BR')} agentes</p>
 
       <Card><CardContent className="p-0">
         <ScrollArea className="h-[calc(100vh-500px)] min-h-[300px]">
