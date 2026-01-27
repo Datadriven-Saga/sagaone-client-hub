@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Bot, Phone, RefreshCw, User, Brain, ChevronRight, Store, Sparkles, Activity, Zap, MessageSquare } from "lucide-react";
+import { Bot, Phone, RefreshCw, User, Brain, ChevronRight, Store, Sparkles, Activity, Zap, MessageSquare, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,15 @@ import {
 import { Label } from "@/components/ui/label";
 import { useCompany } from "@/contexts/CompanyContext";
 import { formatPhone } from "@/lib/utils";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
 
 interface AgenteLocal {
   id: string;
@@ -47,6 +56,8 @@ function isWebhookAgent(agente: AgenteLocal): boolean {
   return digits.length >= 10;
 }
 
+const ITEMS_PER_PAGE = 12;
+
 export default function AgentesIA() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -56,6 +67,7 @@ export default function AgentesIA() {
   const [loading, setLoading] = useState(false);
   const [selectedAgente, setSelectedAgente] = useState<AgenteLocal | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const carregarAgentes = async () => {
     if (!activeCompany?.id) {
@@ -140,6 +152,34 @@ export default function AgentesIA() {
 
   const agentesAtivos = agentes.filter(a => a.ativo).length;
   const agentesInativos = agentes.filter(a => !a.ativo).length;
+
+  // Paginação
+  const totalPages = Math.ceil(agentes.length / ITEMS_PER_PAGE);
+  const paginatedAgentes = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return agentes.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [agentes, currentPage]);
+
+  // Reset para página 1 quando agentes mudam
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [agentes.length]);
+
+  const getVisiblePages = () => {
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('ellipsis');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push('ellipsis');
+      if (totalPages > 1) pages.push(totalPages);
+    }
+    return pages;
+  };
 
   return (
     <DashboardLayout title="Agentes de IA">
@@ -238,87 +278,131 @@ export default function AgentesIA() {
               </CardContent>
             </Card>
           ) : (
-            /* Grid de cards dos agentes */
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {agentes.map((agente) => (
-                <Card 
-                  key={agente.id} 
-                  className={`group relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 cursor-pointer ${
-                    agente.ativo 
-                      ? 'border-l-4 border-l-green-500' 
-                      : 'border-l-4 border-l-red-500 opacity-75'
-                  }`}
-                  onClick={() => handleOpenAgente(agente)}
-                >
-                  {/* Efeito de hover */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  
-                  <CardContent className="p-5 relative">
-                    <div className="flex items-start gap-4">
-                      {/* Avatar com indicador de status */}
-                      <div className="relative">
-                        <Avatar className="h-14 w-14 ring-2 ring-background shadow-md">
-                          <AvatarImage src={agente.foto_url || undefined} alt={agente.nome || "Agente"} />
-                          <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-lg font-semibold">
-                            {agente.nome?.charAt(0).toUpperCase() || "?"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-background ${
-                          agente.ativo ? 'bg-green-500' : 'bg-red-500'
-                        }`} />
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className={`font-semibold truncate ${
-                            !agente.nome || agente.nome === "Novo agente" 
-                              ? "text-muted-foreground italic" 
-                              : ""
-                          }`}>
-                            {agente.nome && agente.nome !== "Novo agente" ? agente.nome : "Sem nome"}
-                          </h3>
+            <>
+              {/* Grid de cards dos agentes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {paginatedAgentes.map((agente) => (
+                  <Card 
+                    key={agente.id} 
+                    className={`group relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 cursor-pointer ${
+                      agente.ativo 
+                        ? 'border-l-4 border-l-green-500' 
+                        : 'border-l-4 border-l-red-500 opacity-75'
+                    }`}
+                    onClick={() => handleOpenAgente(agente)}
+                  >
+                    {/* Efeito de hover */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    
+                    <CardContent className="p-5 relative">
+                      <div className="flex items-start gap-4">
+                        {/* Avatar com indicador de status */}
+                        <div className="relative">
+                          <Avatar className="h-14 w-14 ring-2 ring-background shadow-md">
+                            <AvatarImage src={agente.foto_url || undefined} alt={agente.nome || "Agente"} />
+                            <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-lg font-semibold">
+                              {agente.nome?.charAt(0).toUpperCase() || "?"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-background ${
+                            agente.ativo ? 'bg-green-500' : 'bg-red-500'
+                          }`} />
                         </div>
                         
-                        <div className="space-y-1.5">
-                          {agente.telefone && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Phone className="h-3.5 w-3.5" />
-                              <span className="truncate">{formatPhone(agente.telefone) || agente.telefone}</span>
-                            </div>
-                          )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className={`font-semibold truncate ${
+                              !agente.nome || agente.nome === "Novo agente" 
+                                ? "text-muted-foreground italic" 
+                                : ""
+                            }`}>
+                              {agente.nome && agente.nome !== "Novo agente" ? agente.nome : "Sem nome"}
+                            </h3>
+                          </div>
                           
-                          {agente.dealer_id && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Store className="h-3.5 w-3.5" />
-                              <span className="truncate">{agente.dealer_id}</span>
-                            </div>
-                          )}
+                          <div className="space-y-1.5">
+                            {agente.telefone && (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Phone className="h-3.5 w-3.5" />
+                                <span className="truncate">{formatPhone(agente.telefone) || agente.telefone}</span>
+                              </div>
+                            )}
+                            
+                            {agente.dealer_id && (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Store className="h-3.5 w-3.5" />
+                                <span className="truncate">{agente.dealer_id}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Indicadores de recursos */}
+                          <div className="flex items-center gap-2 mt-3">
+                            {agente.persona && (
+                              <Badge variant="secondary" className="text-[10px] px-2 py-0.5 gap-1">
+                                <User className="h-3 w-3" />
+                                Persona
+                              </Badge>
+                            )}
+                            {agente.cerebro && (
+                              <Badge variant="secondary" className="text-[10px] px-2 py-0.5 gap-1">
+                                <Brain className="h-3 w-3" />
+                                Cérebro
+                              </Badge>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Indicadores de recursos */}
-                        <div className="flex items-center gap-2 mt-3">
-                          {agente.persona && (
-                            <Badge variant="secondary" className="text-[10px] px-2 py-0.5 gap-1">
-                              <User className="h-3 w-3" />
-                              Persona
-                            </Badge>
-                          )}
-                          {agente.cerebro && (
-                            <Badge variant="secondary" className="text-[10px] px-2 py-0.5 gap-1">
-                              <Brain className="h-3 w-3" />
-                              Cérebro
-                            </Badge>
-                          )}
-                        </div>
+                        {/* Seta indicadora */}
+                        <ChevronRight className="h-5 w-5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                       </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
 
-                      {/* Seta indicadora */}
-                      <ChevronRight className="h-5 w-5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+              {/* Paginação */}
+              {totalPages > 1 && (
+                <div className="flex flex-col items-center gap-3 pt-6">
+                  <p className="text-sm text-muted-foreground">
+                    Exibindo {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, agentes.length)} de {agentes.length} agentes
+                  </p>
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      
+                      {getVisiblePages().map((page, idx) => (
+                        <PaginationItem key={idx}>
+                          {page === 'ellipsis' ? (
+                            <PaginationEllipsis />
+                          ) : (
+                            <PaginationLink
+                              onClick={() => setCurrentPage(page)}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          )}
+                        </PaginationItem>
+                      ))}
+                      
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           )}
         </div>
       </ScrollIndicator>
