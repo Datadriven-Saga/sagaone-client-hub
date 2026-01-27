@@ -173,7 +173,7 @@ export default function VisaoGeral() {
       const { data, error } = await supabase
         .from("profiles")
         .select("id, nome_completo")
-        .eq("tipo_acesso", "TI")
+        .eq("departamento", "TI")
         .eq("status", "Ativo")
         .order("nome_completo");
       if (error) throw error;
