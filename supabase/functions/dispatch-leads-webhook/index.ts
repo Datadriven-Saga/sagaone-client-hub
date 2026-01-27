@@ -418,15 +418,30 @@ serve(async (req) => {
           
           // Atualizar todos os leads como disparados
           const leadIds = leads.map(l => l.id);
+          
+          // Atualizar contatos (global)
           const { error: updateError } = await supabase
             .from('contatos')
             .update({ data_disparo_ia: dataDisparoIA })
             .in('id', leadIds);
           
           if (updateError) {
-            console.error(`❌ [${requestId}] Erro ao atualizar banco:`, updateError);
+            console.error(`❌ [${requestId}] Erro ao atualizar contatos:`, updateError);
           } else {
-            console.log(`💾 [${requestId}] ${leadIds.length} leads atualizados no banco`);
+            console.log(`💾 [${requestId}] ${leadIds.length} contatos atualizados`);
+          }
+          
+          // Atualizar eventos_prospeccao (por evento) - CRÍTICO para métricas
+          const { error: eventosUpdateError } = await supabase
+            .from('eventos_prospeccao')
+            .update({ data_disparo_ia: dataDisparoIA })
+            .eq('prospeccao_id', prospeccao_id)
+            .in('contato_id', leadIds);
+          
+          if (eventosUpdateError) {
+            console.error(`❌ [${requestId}] Erro ao atualizar eventos_prospeccao:`, eventosUpdateError);
+          } else {
+            console.log(`💾 [${requestId}] eventos_prospeccao atualizados para prospecção ${prospeccao_id}`);
           }
 
           // =====================================================
@@ -640,16 +655,30 @@ serve(async (req) => {
       // ATUALIZAR data_disparo_ia IMEDIATAMENTE após cada batch
       const leadsComSucessoBatch = batchResultados.filter(r => r.success).map(r => r.lead_id);
       if (leadsComSucessoBatch.length > 0) {
+        // Atualizar contatos (global)
         const { error: updateError } = await supabase
           .from('contatos')
           .update({ data_disparo_ia: dataDisparoIA })
           .in('id', leadsComSucessoBatch);
         
         if (updateError) {
-          console.error(`   ❌ [${requestId}] Erro ao atualizar banco no batch ${batchNum}:`, updateError);
+          console.error(`   ❌ [${requestId}] Erro ao atualizar contatos no batch ${batchNum}:`, updateError);
         } else {
           totalAtualizadosNoBanco += leadsComSucessoBatch.length;
-          console.log(`   💾 [${requestId}] Batch ${batchNum}: ${leadsComSucessoBatch.length} leads atualizados no banco (total: ${totalAtualizadosNoBanco})`);
+          console.log(`   💾 [${requestId}] Batch ${batchNum}: ${leadsComSucessoBatch.length} contatos atualizados (total: ${totalAtualizadosNoBanco})`);
+        }
+        
+        // Atualizar eventos_prospeccao (por evento) - CRÍTICO para métricas
+        const { error: eventosUpdateError } = await supabase
+          .from('eventos_prospeccao')
+          .update({ data_disparo_ia: dataDisparoIA })
+          .eq('prospeccao_id', prospeccao_id)
+          .in('contato_id', leadsComSucessoBatch);
+        
+        if (eventosUpdateError) {
+          console.error(`   ❌ [${requestId}] Erro ao atualizar eventos_prospeccao no batch ${batchNum}:`, eventosUpdateError);
+        } else {
+          console.log(`   💾 [${requestId}] Batch ${batchNum}: eventos_prospeccao atualizados`);
         }
       }
       
