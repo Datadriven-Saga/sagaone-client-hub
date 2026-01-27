@@ -39,6 +39,7 @@ import APIs from "./pages/admin/APIs";
 import TestAPIs from "./pages/admin/TestAPIs";
 import AdminAgentes from "./pages/admin/Agentes";
 import ControleAgentes from "./pages/admin/ControleAgentes";
+import VisaoGeral from "./pages/admin/VisaoGeral";
 
 // Agentes IA page imports
 import Instancias from "./pages/agentes-ia/Instancias";
@@ -82,6 +83,7 @@ const AppRoutes = () => {
       <Route path="/admin/acessos" element={<AdminProtectedRoute><Acessos /></AdminProtectedRoute>} />
       <Route path="/administracao/agentes" element={<TIAdminProtectedRoute><AdminAgentes /></TIAdminProtectedRoute>} />
       <Route path="/administracao/agentes/controle" element={<TIAdminProtectedRoute><ControleAgentes /></TIAdminProtectedRoute>} />
+      <Route path="/administracao/agentes/visao-geral" element={<TIAdminProtectedRoute><VisaoGeral /></TIAdminProtectedRoute>} />
       <Route path="/administracao/campos" element={<AdminProtectedRoute><CamposObrigatorios /></AdminProtectedRoute>} />
       <Route path="/administracao/apis" element={<AdminProtectedRoute><APIs /></AdminProtectedRoute>} />
       <Route path="/administracao/test-apis" element={<AdminProtectedRoute><TestAPIs /></AdminProtectedRoute>} />
