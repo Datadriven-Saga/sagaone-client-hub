@@ -476,6 +476,48 @@ export type Database = {
         }
         Relationships: []
       }
+      agentes_visao: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          criador: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          ordem: number
+          strategica: boolean
+          tipo: string
+          tipo_implantacao: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          criador?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+          strategica?: boolean
+          tipo: string
+          tipo_implantacao?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          criador?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          strategica?: boolean
+          tipo?: string
+          tipo_implantacao?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bases_importadas: {
         Row: {
           created_at: string
@@ -804,6 +846,56 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cronograma_implantacao: {
+        Row: {
+          agente_visao_id: string | null
+          atividade: string
+          concluido: boolean
+          created_at: string
+          data_inicio: string
+          data_termino: string
+          fase: string
+          id: string
+          observacoes: string | null
+          unidades: string
+          updated_at: string
+        }
+        Insert: {
+          agente_visao_id?: string | null
+          atividade: string
+          concluido?: boolean
+          created_at?: string
+          data_inicio: string
+          data_termino: string
+          fase: string
+          id?: string
+          observacoes?: string | null
+          unidades: string
+          updated_at?: string
+        }
+        Update: {
+          agente_visao_id?: string | null
+          atividade?: string
+          concluido?: boolean
+          created_at?: string
+          data_inicio?: string
+          data_termino?: string
+          fase?: string
+          id?: string
+          observacoes?: string | null
+          unidades?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cronograma_implantacao_agente_visao_id_fkey"
+            columns: ["agente_visao_id"]
+            isOneToOne: false
+            referencedRelation: "agentes_visao"
             referencedColumns: ["id"]
           },
         ]

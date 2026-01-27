@@ -39,10 +39,17 @@ import {
   Settings,
   Server,
   RefreshCw,
-  FileText
+  FileText,
+  Eye,
+  Calendar,
+  Plus,
+  Pencil,
+  Trash2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface ControleAgente {
   id: string;
@@ -83,6 +90,30 @@ interface InstanciaEvolution {
   cw_token_maia: string | null;
 }
 
+interface AgenteVisao {
+  id: string;
+  nome: string;
+  tipo: string;
+  criador: string | null;
+  strategica: boolean;
+  tipo_implantacao: string;
+  ativo: boolean;
+  descricao: string | null;
+  ordem: number;
+}
+
+interface CronogramaItem {
+  id: string;
+  agente_visao_id: string | null;
+  fase: string;
+  unidades: string;
+  atividade: string;
+  data_inicio: string;
+  data_termino: string;
+  observacoes: string | null;
+  concluido: boolean;
+}
+
 interface Props {
   agente: ControleAgente | null;
   open: boolean;
@@ -91,14 +122,17 @@ interface Props {
 }
 
 const statusOptions = [
-  { value: "ok", label: "OK", icon: CheckCircle2, color: "text-green-600" },
-  { value: "IMPLANTADA", label: "Implantada", icon: CheckCircle2, color: "text-green-600" },
-  { value: "em_desenvolvimento", label: "Em Desenvolvimento", icon: Settings, color: "text-yellow-600" },
-  { value: "em_roll_out", label: "Em Roll Out", icon: Rocket, color: "text-blue-600" },
-  { value: "pendente", label: "Pendente", icon: Clock, color: "text-gray-600" },
-  { value: "erro", label: "Erro", icon: AlertCircle, color: "text-red-600" },
-  { value: "bloqueado", label: "Bloqueado", icon: XCircle, color: "text-red-600" },
+  { value: "pendente", label: "Pendente", icon: Clock, color: "text-gray-600", bgColor: "bg-gray-500/10" },
+  { value: "em_desenvolvimento", label: "Em Desenvolvimento", icon: Settings, color: "text-yellow-600", bgColor: "bg-yellow-500/10" },
+  { value: "em_roll_out", label: "Em Roll Out", icon: Rocket, color: "text-blue-600", bgColor: "bg-blue-500/10" },
+  { value: "IMPLANTADA", label: "Implantado", icon: CheckCircle2, color: "text-green-600", bgColor: "bg-green-500/10" },
+  { value: "ok", label: "OK", icon: CheckCircle2, color: "text-green-600", bgColor: "bg-green-500/10" },
+  { value: "erro", label: "Erro", icon: AlertCircle, color: "text-red-600", bgColor: "bg-red-500/10" },
+  { value: "bloqueado", label: "Bloqueado", icon: XCircle, color: "text-red-600", bgColor: "bg-red-500/10" },
 ];
+
+// Status que permite o agente estar ativo
+const activeStatusValues = ["em_roll_out", "IMPLANTADA", "ok"];
 
 export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: Props) {
   const { toast } = useToast();
@@ -106,6 +140,16 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
   const [saving, setSaving] = useState(false);
   const [loadingInstancia, setLoadingInstancia] = useState(false);
   const [instanciaData, setInstanciaData] = useState<InstanciaEvolution | null>(null);
+  
+  // Visão dos Agentes
+  const [agentesVisao, setAgentesVisao] = useState<AgenteVisao[]>([]);
+  const [loadingVisao, setLoadingVisao] = useState(false);
+  const [editingVisao, setEditingVisao] = useState<AgenteVisao | null>(null);
+  const [novoVisaoOpen, setNovoVisaoOpen] = useState(false);
+  
+  // Cronograma
+  const [cronograma, setCronograma] = useState<CronogramaItem[]>([]);
+  const [loadingCronograma, setLoadingCronograma] = useState(false);
   
   const [formData, setFormData] = useState({
     nome_agente: "",
@@ -126,8 +170,14 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
     ativo: true
   });
 
+  // Determinar se pode estar ativo baseado no status
+  const canBeActive = activeStatusValues.includes(formData.status);
+
   useEffect(() => {
     if (agente) {
+      const status = agente.status || "pendente";
+      const shouldBeActive = activeStatusValues.includes(status);
+      
       setFormData({
         nome_agente: agente.nome_agente || "",
         tipo_agente: agente.tipo_agente || "",
@@ -139,17 +189,65 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
         implantador: agente.implantador || "",
         telefone_toca: agente.telefone_toca || "",
         cronograma: agente.cronograma || "",
-        status: agente.status || "",
+        status: status,
         chamado: agente.chamado || "",
         observacoes: agente.observacoes || "",
         descricao: agente.descricao || "",
         numero_telefone: agente.numero_telefone || "",
-        ativo: agente.ativo ?? true
+        ativo: shouldBeActive ? agente.ativo : false
       });
       setActiveTab("detalhes");
       setInstanciaData(null);
     }
   }, [agente]);
+
+  // Atualizar ativo automaticamente quando status muda
+  useEffect(() => {
+    if (!canBeActive && formData.ativo) {
+      setFormData(prev => ({ ...prev, ativo: false }));
+    }
+  }, [formData.status, canBeActive]);
+
+  const fetchAgentesVisao = async () => {
+    setLoadingVisao(true);
+    try {
+      const { data, error } = await supabase
+        .from("agentes_visao")
+        .select("*")
+        .order("ordem");
+      if (error) throw error;
+      setAgentesVisao(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar visão:", error);
+    } finally {
+      setLoadingVisao(false);
+    }
+  };
+
+  const fetchCronograma = async () => {
+    setLoadingCronograma(true);
+    try {
+      const { data, error } = await supabase
+        .from("cronograma_implantacao")
+        .select("*")
+        .order("data_inicio");
+      if (error) throw error;
+      setCronograma(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar cronograma:", error);
+    } finally {
+      setLoadingCronograma(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open && activeTab === "visao") {
+      fetchAgentesVisao();
+    }
+    if (open && activeTab === "cronograma") {
+      fetchCronograma();
+    }
+  }, [open, activeTab]);
 
   const buscarInstancia = async () => {
     if (!formData.numero_telefone) {
@@ -210,6 +308,9 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
       return;
     }
 
+    // Garantir que ativo está correto baseado no status
+    const finalAtivo = canBeActive ? formData.ativo : false;
+
     setSaving(true);
     try {
       const { error } = await supabase
@@ -230,7 +331,7 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
           observacoes: formData.observacoes || null,
           descricao: formData.descricao || null,
           numero_telefone: formData.numero_telefone || null,
-          ativo: formData.ativo
+          ativo: finalAtivo
         })
         .eq("id", agente.id);
 
@@ -251,29 +352,63 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
     }
   };
 
-  const getStatusIcon = (status: string | null) => {
-    const opt = statusOptions.find(s => s.value === status);
-    if (opt) {
-      const Icon = opt.icon;
-      return <Icon className={`h-4 w-4 ${opt.color}`} />;
+  const handleSaveVisao = async (item: Partial<AgenteVisao>) => {
+    try {
+      if (editingVisao?.id) {
+        const { error } = await supabase
+          .from("agentes_visao")
+          .update(item)
+          .eq("id", editingVisao.id);
+        if (error) throw error;
+        toast({ title: "Agente atualizado!" });
+      } else {
+        const { error } = await supabase
+          .from("agentes_visao")
+          .insert([item as any]);
+        if (error) throw error;
+        toast({ title: "Agente criado!" });
+      }
+      setEditingVisao(null);
+      setNovoVisaoOpen(false);
+      fetchAgentesVisao();
+    } catch (error) {
+      console.error("Erro:", error);
+      toast({ title: "Erro ao salvar", variant: "destructive" });
     }
-    return <Clock className="h-4 w-4 text-gray-600" />;
+  };
+
+  const getStatusConfig = (status: string | null) => {
+    const opt = statusOptions.find(s => s.value === status);
+    return opt || statusOptions[0];
+  };
+
+  const getStatusBadge = (status: string | null) => {
+    const config = getStatusConfig(status);
+    const Icon = config.icon;
+    return (
+      <Badge variant="outline" className={`${config.bgColor} ${config.color} border-0 gap-1`}>
+        <Icon className="h-3 w-3" />
+        {config.label}
+      </Badge>
+    );
   };
 
   if (!agente) return null;
 
+  const statusConfig = getStatusConfig(formData.status);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="flex-shrink-0 p-6 pb-4 border-b">
           <DialogTitle className="flex items-center gap-3">
             <Bot className="h-6 w-6 text-primary" />
             <div className="flex-1">
-              <span>{agente.nome_agente}</span>
+              <span className="font-bold">{agente.nome_agente}</span>
               <span className="text-muted-foreground font-normal ml-2">- {agente.loja}</span>
             </div>
             <div className="flex items-center gap-2">
-              {getStatusIcon(formData.status)}
+              {getStatusBadge(formData.status)}
               <Badge variant={formData.ativo ? "default" : "secondary"}>
                 {formData.ativo ? "Ativo" : "Inativo"}
               </Badge>
@@ -282,23 +417,85 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
-            <TabsTrigger value="detalhes" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Detalhes
-            </TabsTrigger>
-            <TabsTrigger value="implantacao" className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Implantação
-            </TabsTrigger>
-            <TabsTrigger value="instancia" className="flex items-center gap-2">
-              <Server className="h-4 w-4" />
-              Instância
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex-shrink-0 px-6 pt-4 border-b">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="detalhes" className="flex items-center gap-1.5 text-xs">
+                <FileText className="h-3.5 w-3.5" />
+                Detalhes
+              </TabsTrigger>
+              <TabsTrigger value="implantacao" className="flex items-center gap-1.5 text-xs">
+                <Building2 className="h-3.5 w-3.5" />
+                Implantação
+              </TabsTrigger>
+              <TabsTrigger value="instancia" className="flex items-center gap-1.5 text-xs">
+                <Server className="h-3.5 w-3.5" />
+                Instância
+              </TabsTrigger>
+              <TabsTrigger value="visao" className="flex items-center gap-1.5 text-xs">
+                <Eye className="h-3.5 w-3.5" />
+                Visão Agentes
+              </TabsTrigger>
+              <TabsTrigger value="cronograma" className="flex items-center gap-1.5 text-xs">
+                <Calendar className="h-3.5 w-3.5" />
+                Cronograma
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          <ScrollArea className="flex-1 mt-4">
-            <TabsContent value="detalhes" className="m-0 space-y-4">
+          <ScrollArea className="flex-1 p-6">
+            {/* Detalhes Tab */}
+            <TabsContent value="detalhes" className="m-0 mt-0 space-y-4">
+              {/* Status Card - First */}
+              <Card className="border-2 border-primary/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <statusConfig.icon className={`h-5 w-5 ${statusConfig.color}`} />
+                    Status do Agente
+                  </CardTitle>
+                  <CardDescription>Status atual e ativação do agente</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Status de Implantação</Label>
+                      <Select
+                        value={formData.status || "pendente"}
+                        onValueChange={(value) => setFormData({ ...formData, status: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statusOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              <div className="flex items-center gap-2">
+                                <opt.icon className={`h-4 w-4 ${opt.color}`} />
+                                {opt.label}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+                      <div className="space-y-0.5">
+                        <Label>Agente Ativo</Label>
+                        <p className="text-xs text-muted-foreground">
+                          {canBeActive 
+                            ? "Agente pode ser ativado" 
+                            : "Apenas agentes implantados ou em roll out podem estar ativos"}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={formData.ativo}
+                        onCheckedChange={(checked) => setFormData({ ...formData, ativo: checked })}
+                        disabled={!canBeActive}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Informações do Agente</CardTitle>
@@ -352,25 +549,15 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
                       value={formData.descricao}
                       onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                       placeholder="Descreva o que esse agente faz e pelo que é responsável..."
-                      rows={4}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
-                    <div className="space-y-0.5">
-                      <Label>Status do Agente</Label>
-                      <p className="text-sm text-muted-foreground">Ative ou desative o agente</p>
-                    </div>
-                    <Switch
-                      checked={formData.ativo}
-                      onCheckedChange={(checked) => setFormData({ ...formData, ativo: checked })}
+                      rows={3}
                     />
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="implantacao" className="m-0 space-y-4">
+            {/* Implantação Tab */}
+            <TabsContent value="implantacao" className="m-0 mt-0 space-y-4">
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Local de Implantação</CardTitle>
@@ -417,8 +604,8 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
 
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Status da Implantação</CardTitle>
-                  <CardDescription>Acompanhamento do processo</CardDescription>
+                  <CardTitle className="text-base">Acompanhamento da Implantação</CardTitle>
+                  <CardDescription>Responsáveis e cronograma</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -442,27 +629,6 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Status</Label>
-                      <Select
-                        value={formData.status || "pendente"}
-                        onValueChange={(value) => setFormData({ ...formData, status: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusOptions.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              <div className="flex items-center gap-2">
-                                <opt.icon className={`h-4 w-4 ${opt.color}`} />
-                                {opt.label}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
                       <Label>Cronograma</Label>
                       <Input
                         value={formData.cronograma}
@@ -470,15 +636,14 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
                         placeholder="Ex: 12/fev"
                       />
                     </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Número do Chamado</Label>
-                    <Input
-                      value={formData.chamado}
-                      onChange={(e) => setFormData({ ...formData, chamado: e.target.value })}
-                      placeholder="Ex: #12345"
-                    />
+                    <div className="space-y-2">
+                      <Label>Número do Chamado</Label>
+                      <Input
+                        value={formData.chamado}
+                        onChange={(e) => setFormData({ ...formData, chamado: e.target.value })}
+                        placeholder="Ex: #12345"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -494,7 +659,8 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
               </Card>
             </TabsContent>
 
-            <TabsContent value="instancia" className="m-0 space-y-4">
+            {/* Instância Tab */}
+            <TabsContent value="instancia" className="m-0 mt-0 space-y-4">
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -575,10 +741,167 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* Visão Agentes Tab */}
+            <TabsContent value="visao" className="m-0 mt-0 space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base">Visão dos Agentes</CardTitle>
+                      <CardDescription>Catálogo de tipos de agentes disponíveis</CardDescription>
+                    </div>
+                    <Button size="sm" onClick={() => { setEditingVisao(null); setNovoVisaoOpen(true); }}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Novo Agente
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loadingVisao ? (
+                    <div className="flex justify-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin" />
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nome</TableHead>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead>Criador</TableHead>
+                          <TableHead>Estratégica</TableHead>
+                          <TableHead>Implantação</TableHead>
+                          <TableHead className="w-[80px]">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {agentesVisao.map((av) => (
+                          <TableRow key={av.id}>
+                            <TableCell className="font-medium">{av.nome}</TableCell>
+                            <TableCell>{av.tipo}</TableCell>
+                            <TableCell>{av.criador || "-"}</TableCell>
+                            <TableCell>
+                              <Badge variant={av.strategica ? "default" : "secondary"}>
+                                {av.strategica ? "Sim" : "Não"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{av.tipo_implantacao}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => setEditingVisao(av)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {agentesVisao.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                              Nenhum agente cadastrado
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Modal de edição/criação de Visão */}
+              {(editingVisao || novoVisaoOpen) && (
+                <Card className="border-primary">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">
+                      {editingVisao ? "Editar Agente" : "Novo Agente"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <VisaoForm
+                      initial={editingVisao}
+                      onSave={handleSaveVisao}
+                      onCancel={() => { setEditingVisao(null); setNovoVisaoOpen(false); }}
+                    />
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* Cronograma Tab */}
+            <TabsContent value="cronograma" className="m-0 mt-0 space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base">Cronograma de Implantação</CardTitle>
+                      <CardDescription>Fases e datas de implantação dos agentes</CardDescription>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={fetchCronograma} disabled={loadingCronograma}>
+                      <RefreshCw className={`h-4 w-4 mr-2 ${loadingCronograma ? "animate-spin" : ""}`} />
+                      Atualizar
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loadingCronograma ? (
+                    <div className="flex justify-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin" />
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Fase</TableHead>
+                          <TableHead>Unidades</TableHead>
+                          <TableHead>Atividade</TableHead>
+                          <TableHead>Início</TableHead>
+                          <TableHead>Término</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {cronograma.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <Badge variant={item.fase.includes("INFRA") || item.fase.includes("FINAL") ? "secondary" : "outline"}>
+                                {item.fase}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{item.unidades}</TableCell>
+                            <TableCell>{item.atividade}</TableCell>
+                            <TableCell>
+                              {format(new Date(item.data_inicio), "dd/MMM", { locale: ptBR })}
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(item.data_termino), "dd/MMM", { locale: ptBR })}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={item.concluido ? "default" : "secondary"}>
+                                {item.concluido ? "Concluído" : "Pendente"}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {cronograma.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                              Nenhum cronograma cadastrado
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </ScrollArea>
         </Tabs>
 
-        <div className="flex items-center justify-end gap-2 pt-4 border-t flex-shrink-0">
+        <div className="flex items-center justify-end gap-2 p-6 pt-4 border-t flex-shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             <X className="h-4 w-4 mr-2" />
             Cancelar
@@ -594,5 +917,106 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Componente para formulário de Visão
+function VisaoForm({ 
+  initial, 
+  onSave, 
+  onCancel 
+}: { 
+  initial: AgenteVisao | null;
+  onSave: (data: Partial<AgenteVisao>) => void;
+  onCancel: () => void;
+}) {
+  const [data, setData] = useState({
+    nome: initial?.nome || "",
+    tipo: initial?.tipo || "",
+    criador: initial?.criador || "",
+    strategica: initial?.strategica || false,
+    tipo_implantacao: initial?.tipo_implantacao || "Marca/UF",
+    ativo: initial?.ativo ?? true,
+    descricao: initial?.descricao || "",
+    ordem: initial?.ordem || 0
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Nome *</Label>
+          <Input
+            value={data.nome}
+            onChange={(e) => setData({ ...data, nome: e.target.value })}
+            placeholder="Nome do agente"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Tipo *</Label>
+          <Input
+            value={data.tipo}
+            onChange={(e) => setData({ ...data, tipo: e.target.value })}
+            placeholder="Ex: Prospecção, Entrega..."
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Criador</Label>
+          <Input
+            value={data.criador}
+            onChange={(e) => setData({ ...data, criador: e.target.value })}
+            placeholder="Nome do criador"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Tipo de Implantação</Label>
+          <Select
+            value={data.tipo_implantacao}
+            onValueChange={(v) => setData({ ...data, tipo_implantacao: v })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Marca/UF">Marca/UF</SelectItem>
+              <SelectItem value="Marca">Marca</SelectItem>
+              <SelectItem value="UF">UF</SelectItem>
+              <SelectItem value="Unica">Única</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={data.strategica}
+            onCheckedChange={(v) => setData({ ...data, strategica: v })}
+          />
+          <Label>Estratégica</Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={data.ativo}
+            onCheckedChange={(v) => setData({ ...data, ativo: v })}
+          />
+          <Label>Ativo</Label>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Descrição</Label>
+        <Textarea
+          value={data.descricao}
+          onChange={(e) => setData({ ...data, descricao: e.target.value })}
+          placeholder="Descrição do agente..."
+          rows={2}
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+        <Button onClick={() => onSave(data)}>Salvar</Button>
+      </div>
+    </div>
   );
 }
