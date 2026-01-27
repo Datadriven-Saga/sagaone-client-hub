@@ -40,6 +40,7 @@ import {
   ChevronUp,
   Settings,
   Phone,
+  Pencil,
   Eye,
   Power,
   PowerOff
@@ -261,7 +262,7 @@ export function ControleAgentesContent() {
                     <TableCell><span className="text-sm">{item.loja}</span><br/><span className="text-xs text-muted-foreground">{item.marca} • {item.uf}</span></TableCell>
                     <TableCell>{item.numero_telefone ? <span className="font-mono text-xs">{item.numero_telefone}</span> : '-'}</TableCell>
                     <TableCell onClick={e => e.stopPropagation()}><Select value={item.status || "pendente"} onValueChange={v => handleQuickStatusChange(item.id, v)}><SelectTrigger className="h-8 w-[120px]"><div className="flex items-center gap-1"><StatusIcon className="h-3 w-3" /><span className="text-xs">{statusConf.label}</span></div></SelectTrigger><SelectContent>{statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent></Select></TableCell>
-                    <TableCell><Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button></TableCell>
+                    <TableCell><Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-4 w-4" /></Button></TableCell>
                   </TableRow>
                 );
               })}

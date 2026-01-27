@@ -157,13 +157,11 @@ export default function VisaoGeral() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === "visao") {
-      fetchAgentesVisao();
-    } else if (activeTab === "cronograma") {
-      fetchCronograma();
-      fetchControleAgentes();
-    }
-  }, [activeTab, fetchAgentesVisao, fetchCronograma, fetchControleAgentes]);
+    // Carregar dados iniciais
+    fetchAgentesVisao();
+    fetchCronograma();
+    fetchControleAgentes();
+  }, [fetchAgentesVisao, fetchCronograma, fetchControleAgentes]);
 
   const handleSaveVisao = async (item: Partial<AgenteVisao>) => {
     try {
