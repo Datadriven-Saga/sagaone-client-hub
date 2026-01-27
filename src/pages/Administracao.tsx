@@ -74,7 +74,7 @@ const Administracao = () => {
     },
     {
       title: "Agentes",
-      description: "Gerenciar agentes de IA de todas as lojas",
+      description: "Gerenciar agentes de IA e controle de implantação",
       icon: Bot,
       route: "/administracao/agentes"
     },
@@ -89,12 +89,6 @@ const Administracao = () => {
       description: "Configurar campos obrigatórios por módulo",
       icon: FileText,
       route: "/administracao/campos"
-    },
-    {
-      title: "Controle de Agentes",
-      description: "Gerenciar status e atribuição de agentes por loja",
-      icon: Bot,
-      route: "/administracao/controle-agentes"
     },
     {
       title: "APIs",

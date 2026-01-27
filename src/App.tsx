@@ -81,10 +81,10 @@ const AppRoutes = () => {
       <Route path="/administracao/acessos" element={<AdminProtectedRoute><Acessos /></AdminProtectedRoute>} />
       <Route path="/admin/acessos" element={<AdminProtectedRoute><Acessos /></AdminProtectedRoute>} />
       <Route path="/administracao/agentes" element={<TIAdminProtectedRoute><AdminAgentes /></TIAdminProtectedRoute>} />
+      <Route path="/administracao/agentes/controle" element={<TIAdminProtectedRoute><ControleAgentes /></TIAdminProtectedRoute>} />
       <Route path="/administracao/campos" element={<AdminProtectedRoute><CamposObrigatorios /></AdminProtectedRoute>} />
       <Route path="/administracao/apis" element={<AdminProtectedRoute><APIs /></AdminProtectedRoute>} />
       <Route path="/administracao/test-apis" element={<AdminProtectedRoute><TestAPIs /></AdminProtectedRoute>} />
-      <Route path="/administracao/controle-agentes" element={<TIAdminProtectedRoute><ControleAgentes /></TIAdminProtectedRoute>} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
