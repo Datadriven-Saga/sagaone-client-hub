@@ -17,17 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Bot,
   Building2,
-  MapPin,
   Phone,
   Save,
   X,
@@ -40,16 +31,9 @@ import {
   Server,
   RefreshCw,
   FileText,
-  Eye,
-  Calendar,
-  Plus,
-  Pencil,
-  Trash2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 interface ControleAgente {
   id: string;
@@ -90,30 +74,6 @@ interface InstanciaEvolution {
   cw_token_maia: string | null;
 }
 
-interface AgenteVisao {
-  id: string;
-  nome: string;
-  tipo: string;
-  criador: string | null;
-  strategica: boolean;
-  tipo_implantacao: string;
-  ativo: boolean;
-  descricao: string | null;
-  ordem: number;
-}
-
-interface CronogramaItem {
-  id: string;
-  agente_visao_id: string | null;
-  fase: string;
-  unidades: string;
-  atividade: string;
-  data_inicio: string;
-  data_termino: string;
-  observacoes: string | null;
-  concluido: boolean;
-}
-
 interface Props {
   agente: ControleAgente | null;
   open: boolean;
@@ -131,7 +91,6 @@ const statusOptions = [
   { value: "bloqueado", label: "Bloqueado", icon: XCircle, color: "text-red-600", bgColor: "bg-red-500/10" },
 ];
 
-// Status que permite o agente estar ativo
 const activeStatusValues = ["em_roll_out", "IMPLANTADA", "ok"];
 
 export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: Props) {
@@ -140,16 +99,6 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
   const [saving, setSaving] = useState(false);
   const [loadingInstancia, setLoadingInstancia] = useState(false);
   const [instanciaData, setInstanciaData] = useState<InstanciaEvolution | null>(null);
-  
-  // Visão dos Agentes
-  const [agentesVisao, setAgentesVisao] = useState<AgenteVisao[]>([]);
-  const [loadingVisao, setLoadingVisao] = useState(false);
-  const [editingVisao, setEditingVisao] = useState<AgenteVisao | null>(null);
-  const [novoVisaoOpen, setNovoVisaoOpen] = useState(false);
-  
-  // Cronograma
-  const [cronograma, setCronograma] = useState<CronogramaItem[]>([]);
-  const [loadingCronograma, setLoadingCronograma] = useState(false);
   
   const [formData, setFormData] = useState({
     nome_agente: "",
@@ -170,7 +119,6 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
     ativo: true
   });
 
-  // Determinar se pode estar ativo baseado no status
   const canBeActive = activeStatusValues.includes(formData.status);
 
   useEffect(() => {
@@ -201,53 +149,11 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
     }
   }, [agente]);
 
-  // Atualizar ativo automaticamente quando status muda
   useEffect(() => {
     if (!canBeActive && formData.ativo) {
       setFormData(prev => ({ ...prev, ativo: false }));
     }
   }, [formData.status, canBeActive]);
-
-  const fetchAgentesVisao = async () => {
-    setLoadingVisao(true);
-    try {
-      const { data, error } = await supabase
-        .from("agentes_visao")
-        .select("*")
-        .order("ordem");
-      if (error) throw error;
-      setAgentesVisao(data || []);
-    } catch (error) {
-      console.error("Erro ao carregar visão:", error);
-    } finally {
-      setLoadingVisao(false);
-    }
-  };
-
-  const fetchCronograma = async () => {
-    setLoadingCronograma(true);
-    try {
-      const { data, error } = await supabase
-        .from("cronograma_implantacao")
-        .select("*")
-        .order("data_inicio");
-      if (error) throw error;
-      setCronograma(data || []);
-    } catch (error) {
-      console.error("Erro ao carregar cronograma:", error);
-    } finally {
-      setLoadingCronograma(false);
-    }
-  };
-
-  useEffect(() => {
-    if (open && activeTab === "visao") {
-      fetchAgentesVisao();
-    }
-    if (open && activeTab === "cronograma") {
-      fetchCronograma();
-    }
-  }, [open, activeTab]);
 
   const buscarInstancia = async () => {
     if (!formData.numero_telefone) {
@@ -308,7 +214,6 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
       return;
     }
 
-    // Garantir que ativo está correto baseado no status
     const finalAtivo = canBeActive ? formData.ativo : false;
 
     setSaving(true);
@@ -352,31 +257,6 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
     }
   };
 
-  const handleSaveVisao = async (item: Partial<AgenteVisao>) => {
-    try {
-      if (editingVisao?.id) {
-        const { error } = await supabase
-          .from("agentes_visao")
-          .update(item)
-          .eq("id", editingVisao.id);
-        if (error) throw error;
-        toast({ title: "Agente atualizado!" });
-      } else {
-        const { error } = await supabase
-          .from("agentes_visao")
-          .insert([item as any]);
-        if (error) throw error;
-        toast({ title: "Agente criado!" });
-      }
-      setEditingVisao(null);
-      setNovoVisaoOpen(false);
-      fetchAgentesVisao();
-    } catch (error) {
-      console.error("Erro:", error);
-      toast({ title: "Erro ao salvar", variant: "destructive" });
-    }
-  };
-
   const getStatusConfig = (status: string | null) => {
     const opt = statusOptions.find(s => s.value === status);
     return opt || statusOptions[0];
@@ -399,7 +279,7 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0">
         <DialogHeader className="flex-shrink-0 p-6 pb-4 border-b">
           <DialogTitle className="flex items-center gap-3">
             <Bot className="h-6 w-6 text-primary" />
@@ -418,7 +298,7 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <div className="flex-shrink-0 px-6 pt-4 border-b">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="detalhes" className="flex items-center gap-1.5 text-xs">
                 <FileText className="h-3.5 w-3.5" />
                 Detalhes
@@ -431,21 +311,12 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
                 <Server className="h-3.5 w-3.5" />
                 Instância
               </TabsTrigger>
-              <TabsTrigger value="visao" className="flex items-center gap-1.5 text-xs">
-                <Eye className="h-3.5 w-3.5" />
-                Visão Agentes
-              </TabsTrigger>
-              <TabsTrigger value="cronograma" className="flex items-center gap-1.5 text-xs">
-                <Calendar className="h-3.5 w-3.5" />
-                Cronograma
-              </TabsTrigger>
             </TabsList>
           </div>
 
           <ScrollArea className="flex-1 p-6">
             {/* Detalhes Tab */}
             <TabsContent value="detalhes" className="m-0 mt-0 space-y-4">
-              {/* Status Card - First */}
               <Card className="border-2 border-primary/20">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -498,8 +369,7 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
 
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Informações do Agente</CardTitle>
-                  <CardDescription>Dados básicos e descrição do agente</CardDescription>
+                  <CardTitle className="text-base">Informações Básicas</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -508,7 +378,7 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
                       <Input
                         value={formData.nome_agente}
                         onChange={(e) => setFormData({ ...formData, nome_agente: e.target.value })}
-                        placeholder="Ex: Aila, Bela, Pri..."
+                        placeholder="Nome do agente"
                       />
                     </div>
                     <div className="space-y-2">
@@ -516,40 +386,25 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
                       <Input
                         value={formData.tipo_agente}
                         onChange={(e) => setFormData({ ...formData, tipo_agente: e.target.value })}
-                        placeholder="Ex: Prospecção, Entrega..."
+                        placeholder="Tipo do agente"
                       />
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        <Phone className="h-4 w-4" />
-                        Número do Agente
-                      </Label>
-                      <Input
-                        value={formData.numero_telefone}
-                        onChange={(e) => setFormData({ ...formData, numero_telefone: e.target.value })}
-                        placeholder="Ex: 5562999999999"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Telefone que Toca</Label>
-                      <Input
-                        value={formData.telefone_toca}
-                        onChange={(e) => setFormData({ ...formData, telefone_toca: e.target.value })}
-                        placeholder="Telefone de transferência"
-                      />
-                    </div>
-                  </div>
-
                   <div className="space-y-2">
                     <Label>Descrição</Label>
                     <Textarea
                       value={formData.descricao}
                       onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                      placeholder="Descreva o que esse agente faz e pelo que é responsável..."
+                      placeholder="Descrição das responsabilidades do agente..."
                       rows={3}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Número de Telefone</Label>
+                    <Input
+                      value={formData.numero_telefone}
+                      onChange={(e) => setFormData({ ...formData, numero_telefone: e.target.value })}
+                      placeholder="+55 11 99999-9999"
                     />
                   </div>
                 </CardContent>
@@ -560,17 +415,31 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
             <TabsContent value="implantacao" className="m-0 mt-0 space-y-4">
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Local de Implantação</CardTitle>
-                  <CardDescription>Onde o agente está rodando</CardDescription>
+                  <CardTitle className="text-base">Dados da Loja</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Loja *</Label>
+                      <Input
+                        value={formData.loja}
+                        onChange={(e) => setFormData({ ...formData, loja: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>CNPJ *</Label>
+                      <Input
+                        value={formData.cnpj}
+                        onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Marca *</Label>
                       <Input
                         value={formData.marca}
                         onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
-                        placeholder="Ex: Fiat, BYD..."
                       />
                     </div>
                     <div className="space-y-2">
@@ -578,34 +447,16 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
                       <Input
                         value={formData.uf}
                         onChange={(e) => setFormData({ ...formData, uf: e.target.value })}
-                        placeholder="Ex: DF, GO..."
+                        maxLength={2}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Loja *</Label>
-                      <Input
-                        value={formData.loja}
-                        onChange={(e) => setFormData({ ...formData, loja: e.target.value })}
-                        placeholder="Ex: Park Sul"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>CNPJ *</Label>
-                    <Input
-                      value={formData.cnpj}
-                      onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
-                      placeholder="XX.XXX.XXX/XXXX-XX"
-                    />
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Acompanhamento da Implantação</CardTitle>
-                  <CardDescription>Responsáveis e cronograma</CardDescription>
+                  <CardTitle className="text-base">Responsáveis</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -626,26 +477,24 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
                       />
                     </div>
                   </div>
-
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Cronograma</Label>
-                      <Input
-                        value={formData.cronograma}
-                        onChange={(e) => setFormData({ ...formData, cronograma: e.target.value })}
-                        placeholder="Ex: 12/fev"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Número do Chamado</Label>
+                      <Label>Chamado</Label>
                       <Input
                         value={formData.chamado}
                         onChange={(e) => setFormData({ ...formData, chamado: e.target.value })}
-                        placeholder="Ex: #12345"
+                        placeholder="Número do chamado"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Telefone Toca</Label>
+                      <Input
+                        value={formData.telefone_toca}
+                        onChange={(e) => setFormData({ ...formData, telefone_toca: e.target.value })}
+                        placeholder="Telefone"
                       />
                     </div>
                   </div>
-
                   <div className="space-y-2">
                     <Label>Observações</Label>
                     <Textarea
@@ -665,15 +514,10 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle className="text-base">Instância Evolution</CardTitle>
-                      <CardDescription>Dados da instância vinculada ao agente</CardDescription>
+                      <CardTitle className="text-base">Dados da Instância Evolution</CardTitle>
+                      <CardDescription>Informações técnicas da instância WhatsApp</CardDescription>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={buscarInstancia}
-                      disabled={loadingInstancia || !formData.numero_telefone}
-                    >
+                    <Button size="sm" onClick={buscarInstancia} disabled={loadingInstancia}>
                       {loadingInstancia ? (
                         <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
@@ -684,14 +528,13 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {!formData.numero_telefone ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Phone className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                      <p>Configure o número do agente para buscar a instância</p>
+                  {loadingInstancia ? (
+                    <div className="flex justify-center py-8">
+                      <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
                   ) : instanciaData ? (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <div className="space-y-1">
                           <Label className="text-xs text-muted-foreground">Número</Label>
                           <p className="text-sm font-medium">{instanciaData.num_maia}</p>
@@ -741,163 +584,6 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
                 </CardContent>
               </Card>
             </TabsContent>
-
-            {/* Visão Agentes Tab */}
-            <TabsContent value="visao" className="m-0 mt-0 space-y-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-base">Visão dos Agentes</CardTitle>
-                      <CardDescription>Catálogo de tipos de agentes disponíveis</CardDescription>
-                    </div>
-                    <Button size="sm" onClick={() => { setEditingVisao(null); setNovoVisaoOpen(true); }}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Novo Agente
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {loadingVisao ? (
-                    <div className="flex justify-center py-8">
-                      <RefreshCw className="h-6 w-6 animate-spin" />
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Nome</TableHead>
-                          <TableHead>Tipo</TableHead>
-                          <TableHead>Criador</TableHead>
-                          <TableHead>Estratégica</TableHead>
-                          <TableHead>Implantação</TableHead>
-                          <TableHead className="w-[80px]">Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {agentesVisao.map((av) => (
-                          <TableRow key={av.id}>
-                            <TableCell className="font-medium">{av.nome}</TableCell>
-                            <TableCell>{av.tipo}</TableCell>
-                            <TableCell>{av.criador || "-"}</TableCell>
-                            <TableCell>
-                              <Badge variant={av.strategica ? "default" : "secondary"}>
-                                {av.strategica ? "Sim" : "Não"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{av.tipo_implantacao}</TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => setEditingVisao(av)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {agentesVisao.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                              Nenhum agente cadastrado
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Modal de edição/criação de Visão */}
-              {(editingVisao || novoVisaoOpen) && (
-                <Card className="border-primary">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">
-                      {editingVisao ? "Editar Agente" : "Novo Agente"}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <VisaoForm
-                      initial={editingVisao}
-                      onSave={handleSaveVisao}
-                      onCancel={() => { setEditingVisao(null); setNovoVisaoOpen(false); }}
-                    />
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            {/* Cronograma Tab */}
-            <TabsContent value="cronograma" className="m-0 mt-0 space-y-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-base">Cronograma de Implantação</CardTitle>
-                      <CardDescription>Fases e datas de implantação dos agentes</CardDescription>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={fetchCronograma} disabled={loadingCronograma}>
-                      <RefreshCw className={`h-4 w-4 mr-2 ${loadingCronograma ? "animate-spin" : ""}`} />
-                      Atualizar
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {loadingCronograma ? (
-                    <div className="flex justify-center py-8">
-                      <RefreshCw className="h-6 w-6 animate-spin" />
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Fase</TableHead>
-                          <TableHead>Unidades</TableHead>
-                          <TableHead>Atividade</TableHead>
-                          <TableHead>Início</TableHead>
-                          <TableHead>Término</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {cronograma.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>
-                              <Badge variant={item.fase.includes("INFRA") || item.fase.includes("FINAL") ? "secondary" : "outline"}>
-                                {item.fase}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{item.unidades}</TableCell>
-                            <TableCell>{item.atividade}</TableCell>
-                            <TableCell>
-                              {format(new Date(item.data_inicio), "dd/MMM", { locale: ptBR })}
-                            </TableCell>
-                            <TableCell>
-                              {format(new Date(item.data_termino), "dd/MMM", { locale: ptBR })}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={item.concluido ? "default" : "secondary"}>
-                                {item.concluido ? "Concluído" : "Pendente"}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {cronograma.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                              Nenhum cronograma cadastrado
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
           </ScrollArea>
         </Tabs>
 
@@ -917,106 +603,5 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// Componente para formulário de Visão
-function VisaoForm({ 
-  initial, 
-  onSave, 
-  onCancel 
-}: { 
-  initial: AgenteVisao | null;
-  onSave: (data: Partial<AgenteVisao>) => void;
-  onCancel: () => void;
-}) {
-  const [data, setData] = useState({
-    nome: initial?.nome || "",
-    tipo: initial?.tipo || "",
-    criador: initial?.criador || "",
-    strategica: initial?.strategica || false,
-    tipo_implantacao: initial?.tipo_implantacao || "Marca/UF",
-    ativo: initial?.ativo ?? true,
-    descricao: initial?.descricao || "",
-    ordem: initial?.ordem || 0
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Nome *</Label>
-          <Input
-            value={data.nome}
-            onChange={(e) => setData({ ...data, nome: e.target.value })}
-            placeholder="Nome do agente"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Tipo *</Label>
-          <Input
-            value={data.tipo}
-            onChange={(e) => setData({ ...data, tipo: e.target.value })}
-            placeholder="Ex: Prospecção, Entrega..."
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Criador</Label>
-          <Input
-            value={data.criador}
-            onChange={(e) => setData({ ...data, criador: e.target.value })}
-            placeholder="Nome do criador"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Tipo de Implantação</Label>
-          <Select
-            value={data.tipo_implantacao}
-            onValueChange={(v) => setData({ ...data, tipo_implantacao: v })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Marca/UF">Marca/UF</SelectItem>
-              <SelectItem value="Marca">Marca</SelectItem>
-              <SelectItem value="UF">UF</SelectItem>
-              <SelectItem value="Unica">Única</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Switch
-            checked={data.strategica}
-            onCheckedChange={(v) => setData({ ...data, strategica: v })}
-          />
-          <Label>Estratégica</Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <Switch
-            checked={data.ativo}
-            onCheckedChange={(v) => setData({ ...data, ativo: v })}
-          />
-          <Label>Ativo</Label>
-        </div>
-      </div>
-      <div className="space-y-2">
-        <Label>Descrição</Label>
-        <Textarea
-          value={data.descricao}
-          onChange={(e) => setData({ ...data, descricao: e.target.value })}
-          placeholder="Descrição do agente..."
-          rows={2}
-        />
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-        <Button onClick={() => onSave(data)}>Salvar</Button>
-      </div>
-    </div>
   );
 }
