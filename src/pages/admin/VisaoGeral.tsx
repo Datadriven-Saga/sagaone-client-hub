@@ -74,6 +74,7 @@ interface CronogramaItem {
   observacoes: string | null;
   concluido: boolean;
   responsavel: string | null;
+  status: string | null;
 }
 
 interface ControleAgente {
@@ -84,6 +85,11 @@ interface ControleAgente {
   uf: string;
   loja: string;
   status: string | null;
+}
+
+interface TIUser {
+  id: string;
+  nome_completo: string;
 }
 
 export default function VisaoGeral() {
@@ -106,6 +112,9 @@ export default function VisaoGeral() {
   // Agentes de Controle (para seleção no cronograma)
   const [controlesAgentes, setControleAgentes] = useState<ControleAgente[]>([]);
   const [loadingControle, setLoadingControle] = useState(false);
+  
+  // Usuários TI (para seleção de responsável)
+  const [tiUsers, setTIUsers] = useState<TIUser[]>([]);
 
   const fetchAgentesVisao = useCallback(async () => {
     setLoadingVisao(true);
@@ -157,11 +166,27 @@ export default function VisaoGeral() {
     }
   }, []);
 
+  const fetchTIUsers = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, nome_completo")
+        .eq("tipo_acesso", "TI")
+        .eq("status", "Ativo")
+        .order("nome_completo");
+      if (error) throw error;
+      setTIUsers(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar usuários TI:", error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchAgentesVisao();
     fetchCronograma();
     fetchControleAgentes();
-  }, [fetchAgentesVisao, fetchCronograma, fetchControleAgentes]);
+    fetchTIUsers();
+  }, [fetchAgentesVisao, fetchCronograma, fetchControleAgentes, fetchTIUsers]);
 
   const handleSaveVisao = async (item: Partial<AgenteVisao>) => {
     try {
@@ -515,20 +540,26 @@ export default function VisaoGeral() {
                               </span>
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2"
-                                onClick={() => handleToggleConcluido(item.id, !item.concluido)}
+                              <Badge 
+                                variant={
+                                  item.status === "concluído" ? "default" : 
+                                  item.status === "em andamento" ? "secondary" : 
+                                  "outline"
+                                }
+                                className={
+                                  item.status === "concluído" ? "bg-green-500" : 
+                                  item.status === "em andamento" ? "bg-yellow-500 text-foreground" : 
+                                  ""
+                                }
                               >
-                                <Badge variant={item.concluido ? "default" : "secondary"} className="cursor-pointer">
-                                  {item.concluido ? (
-                                    <><CheckCircle2 className="h-3 w-3 mr-1" />Concluído</>
-                                  ) : (
-                                    <><Clock className="h-3 w-3 mr-1" />Pendente</>
-                                  )}
-                                </Badge>
-                              </Button>
+                                {item.status === "concluído" ? (
+                                  <><CheckCircle2 className="h-3 w-3 mr-1" />Concluído</>
+                                ) : item.status === "em andamento" ? (
+                                  <><RefreshCw className="h-3 w-3 mr-1" />Em Andamento</>
+                                ) : (
+                                  <><Clock className="h-3 w-3 mr-1" />Pendente</>
+                                )}
+                              </Badge>
                             </TableCell>
                             <TableCell>
                               <span className="text-sm">{item.responsavel || "-"}</span>
@@ -588,6 +619,7 @@ export default function VisaoGeral() {
           <CronogramaForm
             initial={editingCronograma}
             controlesAgentes={controlesAgentes}
+            tiUsers={tiUsers}
             onSave={handleSaveCronograma}
             onCancel={() => { setEditingCronograma(null); setNovoCronogramaOpen(false); }}
           />
@@ -704,15 +736,17 @@ function VisaoForm({
   );
 }
 
-// Componente para formulário de Cronograma - SEM FASE
+// Componente para formulário de Cronograma - COM STATUS E DROPDOWN TI
 function CronogramaForm({ 
   initial,
   controlesAgentes,
+  tiUsers,
   onSave, 
   onCancel 
 }: { 
   initial: CronogramaItem | null;
   controlesAgentes: ControleAgente[];
+  tiUsers: TIUser[];
   onSave: (data: Partial<CronogramaItem>) => void;
   onCancel: () => void;
 }) {
@@ -724,6 +758,7 @@ function CronogramaForm({
     observacoes: initial?.observacoes || "",
     concluido: initial?.concluido || false,
     responsavel: initial?.responsavel || "",
+    status: initial?.status || "pendente",
     agente_visao_id: initial?.agente_visao_id || null
   });
 
@@ -778,13 +813,41 @@ function CronogramaForm({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Responsável</Label>
-        <Input
-          value={data.responsavel}
-          onChange={(e) => setData({ ...data, responsavel: e.target.value })}
-          placeholder="Nome do responsável pela implantação"
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Responsável</Label>
+          <Select 
+            value={data.responsavel || ""} 
+            onValueChange={(v) => setData({ ...data, responsavel: v || "" })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione um responsável" />
+            </SelectTrigger>
+            <SelectContent>
+              {tiUsers.map((user) => (
+                <SelectItem key={user.id} value={user.nome_completo}>
+                  {user.nome_completo}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select 
+            value={data.status} 
+            onValueChange={(v) => setData({ ...data, status: v, concluido: v === "concluído" })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pendente">Pendente</SelectItem>
+              <SelectItem value="em andamento">Em Andamento</SelectItem>
+              <SelectItem value="concluído">Concluído</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -795,14 +858,6 @@ function CronogramaForm({
           placeholder="Observações adicionais..."
           rows={2}
         />
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Switch
-          checked={data.concluido}
-          onCheckedChange={(v) => setData({ ...data, concluido: v })}
-        />
-        <Label>Concluído</Label>
       </div>
 
       <div className="flex justify-end gap-2 pt-4 border-t">
