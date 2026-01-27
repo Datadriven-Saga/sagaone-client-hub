@@ -81,8 +81,8 @@ interface ControleAgente {
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  ok: { label: "OK", color: "bg-green-500/10 text-green-600 border-green-500/20", icon: CheckCircle2 },
-  IMPLANTADA: { label: "Implantada", color: "bg-green-500/10 text-green-600 border-green-500/20", icon: CheckCircle2 },
+  ok: { label: "Implantado", color: "bg-green-500/10 text-green-600 border-green-500/20", icon: CheckCircle2 },
+  IMPLANTADA: { label: "Implantado", color: "bg-green-500/10 text-green-600 border-green-500/20", icon: CheckCircle2 },
   em_desenvolvimento: { label: "Em Desenvolvimento", color: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20", icon: Settings },
   em_roll_out: { label: "Em Roll Out", color: "bg-blue-500/10 text-blue-600 border-blue-500/20", icon: Rocket },
   pendente: { label: "Pendente", color: "bg-gray-500/10 text-gray-600 border-gray-500/20", icon: Clock },
@@ -96,14 +96,18 @@ const getStatusConfig = (status: string | null) => {
 };
 
 const statusOptions = [
-  { value: "ok", label: "OK" },
-  { value: "IMPLANTADA", label: "Implantada" },
+  { value: "ok", label: "Implantado" },
+  { value: "IMPLANTADA", label: "Implantado" },
   { value: "em_desenvolvimento", label: "Em Desenvolvimento" },
   { value: "em_roll_out", label: "Em Roll Out" },
   { value: "pendente", label: "Pendente" },
   { value: "erro", label: "Erro" },
   { value: "bloqueado", label: "Bloqueado" },
 ];
+
+const isActiveStatus = (status: string | null) => {
+  return status === 'ok' || status === 'IMPLANTADA' || status === 'em_roll_out';
+};
 
 export function ControleAgentesContent() {
   const { toast } = useToast();
@@ -148,8 +152,8 @@ export function ControleAgentesContent() {
 
   const stats = useMemo(() => ({
     total: data.length,
-    ativos: data.filter(d => d.ativo).length,
-    ok: data.filter(d => d.status === 'ok' || d.status === 'IMPLANTADA').length,
+    implantados: data.filter(d => d.status === 'ok' || d.status === 'IMPLANTADA').length,
+    emRollOut: data.filter(d => d.status === 'em_roll_out').length,
     pendentes: data.filter(d => !d.status || d.status === 'pendente').length,
     erros: data.filter(d => d.status === 'erro' || d.status === 'bloqueado').length,
   }), [data]);
@@ -215,8 +219,8 @@ export function ControleAgentesContent() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="cursor-pointer hover:bg-muted/50" onClick={clearFilters}><CardContent className="p-3"><div className="flex items-center gap-2"><Bot className="h-4 w-4 text-primary" /><div><p className="text-xl font-bold">{stats.total}</p><p className="text-[10px] text-muted-foreground">Total</p></div></div></CardContent></Card>
-        <Card><CardContent className="p-3"><div className="flex items-center gap-2"><Power className="h-4 w-4 text-green-500" /><div><p className="text-xl font-bold">{stats.ativos}</p><p className="text-[10px] text-muted-foreground">Ativos</p></div></div></CardContent></Card>
-        <Card><CardContent className="p-3"><div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /><div><p className="text-xl font-bold">{stats.ok}</p><p className="text-[10px] text-muted-foreground">OK</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-3"><div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /><div><p className="text-xl font-bold">{stats.implantados}</p><p className="text-[10px] text-muted-foreground">Implantados</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-3"><div className="flex items-center gap-2"><Rocket className="h-4 w-4 text-blue-500" /><div><p className="text-xl font-bold">{stats.emRollOut}</p><p className="text-[10px] text-muted-foreground">Em Roll Out</p></div></div></CardContent></Card>
         <Card><CardContent className="p-3"><div className="flex items-center gap-2"><Clock className="h-4 w-4 text-gray-500" /><div><p className="text-xl font-bold">{stats.pendentes}</p><p className="text-[10px] text-muted-foreground">Pendentes</p></div></div></CardContent></Card>
         <Card><CardContent className="p-3"><div className="flex items-center gap-2"><XCircle className="h-4 w-4 text-red-500" /><div><p className="text-xl font-bold">{stats.erros}</p><p className="text-[10px] text-muted-foreground">Erros</p></div></div></CardContent></Card>
       </div>
@@ -251,7 +255,7 @@ export function ControleAgentesContent() {
                 const StatusIcon = statusConf.icon;
                 return (
                   <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => { setSelectedItem(item); setDetailsOpen(true); }}>
-                    <TableCell onClick={e => e.stopPropagation()}><Button variant="ghost" size="icon" className={`h-8 w-8 ${item.ativo ? 'text-green-600' : 'text-gray-400'}`} onClick={() => handleToggleAtivo(item.id, !item.ativo)}>{item.ativo ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}</Button></TableCell>
+                    <TableCell><Badge variant={isActiveStatus(item.status) ? "default" : "secondary"} className={isActiveStatus(item.status) ? "bg-green-500/10 text-green-600 border-green-500/20" : "bg-gray-500/10 text-gray-600 border-gray-500/20"}>{isActiveStatus(item.status) ? "Sim" : "Não"}</Badge></TableCell>
                     <TableCell><div className="flex items-center gap-2"><Bot className="h-4 w-4 text-primary" /><div><p className="font-medium">{item.nome_agente}</p><Badge variant="outline" className="font-normal text-xs">{item.tipo_agente}</Badge></div></div></TableCell>
                     <TableCell><span className="text-sm">{item.loja}</span><br/><span className="text-xs text-muted-foreground">{item.marca} • {item.uf}</span></TableCell>
                     <TableCell>{item.numero_telefone ? <span className="font-mono text-xs">{item.numero_telefone}</span> : '-'}</TableCell>
