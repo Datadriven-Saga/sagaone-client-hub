@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,6 +113,7 @@ const isActiveStatus = (status: string | null) => {
 
 export function ControleAgentesContent() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [data, setData] = useState<ControleAgente[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -228,7 +230,7 @@ export function ControleAgentesContent() {
 
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" onClick={() => setNovoOpen(true)}><Plus className="h-4 w-4 mr-2" />Novo Agente</Button>
-        <Button variant="outline" size="sm" onClick={() => window.location.href = '/administracao/agentes/visao-geral'}><Eye className="h-4 w-4 mr-2" />Visão Geral</Button>
+        <Button variant="outline" size="sm" onClick={() => navigate('/administracao/agentes/visao-geral')}><Eye className="h-4 w-4 mr-2" />Visão Geral</Button>
         <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 mr-2" />Importar</Button>
         <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm"><Download className="h-4 w-4 mr-2" />Exportar</Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onClick={() => exportData('csv')}>CSV</DropdownMenuItem><DropdownMenuItem onClick={() => exportData('xlsx')}>Excel (XLSX)</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
         <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}><RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />Atualizar</Button>
