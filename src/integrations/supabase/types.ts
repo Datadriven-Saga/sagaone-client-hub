@@ -3187,49 +3187,34 @@ export type Database = {
     Views: {
       profiles_safe: {
         Row: {
-          celular: string | null
-          cpf: string | null
           created_at: string | null
           departamento: string | null
           empresa_id: string | null
           foto_url: string | null
-          gestor_imediato: string | null
           id: string | null
           nome_completo: string | null
-          notificacao_email: boolean | null
-          notificacao_whatsapp: boolean | null
           status: Database["public"]["Enums"]["status_usuario"] | null
           tipo_acesso: Database["public"]["Enums"]["tipo_acesso"] | null
           updated_at: string | null
         }
         Insert: {
-          celular?: never
-          cpf?: never
           created_at?: string | null
           departamento?: string | null
           empresa_id?: string | null
           foto_url?: string | null
-          gestor_imediato?: string | null
           id?: string | null
           nome_completo?: string | null
-          notificacao_email?: boolean | null
-          notificacao_whatsapp?: boolean | null
           status?: Database["public"]["Enums"]["status_usuario"] | null
           tipo_acesso?: Database["public"]["Enums"]["tipo_acesso"] | null
           updated_at?: string | null
         }
         Update: {
-          celular?: never
-          cpf?: never
           created_at?: string | null
           departamento?: string | null
           empresa_id?: string | null
           foto_url?: string | null
-          gestor_imediato?: string | null
           id?: string | null
           nome_completo?: string | null
-          notificacao_email?: boolean | null
-          notificacao_whatsapp?: boolean | null
           status?: Database["public"]["Enums"]["status_usuario"] | null
           tipo_acesso?: Database["public"]["Enums"]["tipo_acesso"] | null
           updated_at?: string | null
@@ -3240,20 +3225,6 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "profiles_gestor_imediato_fkey"
-            columns: ["gestor_imediato"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "profiles_gestor_imediato_fkey"
-            columns: ["gestor_imediato"]
-            isOneToOne: false
-            referencedRelation: "profiles_safe"
             referencedColumns: ["id"]
           },
         ]
