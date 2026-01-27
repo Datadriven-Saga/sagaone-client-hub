@@ -449,6 +449,22 @@ export default function EventoBase() {
             }
           });
           setContatosExternos(externalMap);
+          
+          // Atualizar métricas com dados filtrados do servidor
+          if (data.metricas) {
+            setMetricasLigacao({
+              total: data.metricas.total || 0,
+              pendentes: data.metricas.pendentes || 0,
+              disparados1: data.metricas.disparados1 || 0,
+              disparados2: data.metricas.disparados2 || 0,
+              emFila: data.metricas.emFila || 0,
+              encerrados: data.metricas.encerrados || 0,
+              agendados: data.metricas.agendados || 0,
+              whatsappEnviado: data.metricas.whatsappEnviado || 0,
+              atendidos: data.metricas.atendidos || 0,
+              elegiveisDisparo: data.metricas.elegiveisDisparo || 0
+            });
+          }
         }
 
         setLoadingPage(false);
@@ -644,57 +660,18 @@ export default function EventoBase() {
   const isIALocal = isIAWhatsAppLocal || isIALigacaoLocal;
     
   // Filtrar contatos localmente com base nos filtros de IA Ligação
+  // IMPORTANTE: Para IA Ligação, os filtros já são aplicados no servidor (edge function)
+  // então não aplicamos filtros locais para evitar filtragem dupla
   const filteredContatos = useMemo(() => {
-    if (!isIALigacaoLocal) return contatos;
+    // Para IA Ligação, os dados já vêm filtrados do servidor
+    // Retornar contatos diretamente sem filtros locais
+    if (isIALigacaoLocal) {
+      return contatos;
+    }
     
-    return contatos.filter(contato => {
-      // Normalizar telefone
-      let telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
-      if (telefoneNormalizado.length > 11 && telefoneNormalizado.startsWith('55')) {
-        telefoneNormalizado = telefoneNormalizado.substring(2);
-      }
-      const dadosExternos = contatosExternos.get(telefoneNormalizado);
-      
-      // Calcular status do contato para filtros
-      const isEncerrado = dadosExternos ? (dadosExternos.status_agendado || dadosExternos.enviado_whatsapp || dadosExternos.ligacao_atendida) : false;
-      const isEmFila = dadosExternos ? (dadosExternos.ligacao_erro === true && !isEncerrado) : false;
-      const numTentativas = dadosExternos?.num_tentativas || 0;
-      const isDisparado = numTentativas > 0 && !isEmFila && !isEncerrado;
-      const isPendente = !dadosExternos || (numTentativas === 0 && !isEmFila && !isEncerrado);
-      
-      // Filtro por disparo (pendente, em_fila, disparado, encerrado)
-      if (disparoFilter !== 'todos') {
-        if (disparoFilter === 'pendente' && !isPendente) return false;
-        if (disparoFilter === 'em_fila' && !isEmFila) return false;
-        if (disparoFilter === 'disparado' && !isDisparado) return false;
-        if (disparoFilter === 'encerrado' && !isEncerrado) return false;
-      }
-      
-      // Filtro por status da ligação
-      if (statusLigacaoFilter !== 'todos' && dadosExternos) {
-        if (statusLigacaoFilter === 'agendado' && !dadosExternos.status_agendado) return false;
-        if (statusLigacaoFilter === 'whatsapp' && !dadosExternos.enviado_whatsapp) return false;
-        if (statusLigacaoFilter === 'atendido' && !dadosExternos.ligacao_atendida) return false;
-        // Em fila = erro E não encerrado
-        if (statusLigacaoFilter === 'em_fila' && !isEmFila) return false;
-        if (statusLigacaoFilter === 'elegivel' && (isEncerrado || isEmFila)) return false;
-      } else if (statusLigacaoFilter !== 'todos' && !dadosExternos) {
-        // Sem dados externos, só mostrar se filtro for "elegivel" ou "todos"
-        if (statusLigacaoFilter !== 'elegivel') return false;
-      }
-      
-      // Filtro por tentativas
-      if (tentativasFilter !== 'todos') {
-        const tentativas = dadosExternos?.num_tentativas || 0;
-        if (tentativasFilter === '0' && tentativas !== 0) return false;
-        if (tentativasFilter === '1' && tentativas !== 1) return false;
-        if (tentativasFilter === '2' && tentativas !== 2) return false;
-        if (tentativasFilter === '3+' && tentativas < 3) return false;
-      }
-      
-      return true;
-    });
-  }, [contatos, contatosExternos, disparoFilter, statusLigacaoFilter, tentativasFilter, isIALigacaoLocal]);
+    // Para outros canais, não há filtros locais específicos
+    return contatos;
+  }, [contatos, isIALigacaoLocal]);
 
   // Exportar dados - suporta CSV e XLS
   const handleExport = async (exportFormat: 'csv' | 'xls') => {
@@ -1633,7 +1610,7 @@ export default function EventoBase() {
                 {isLoadingExternalMetrics ? (
                   <Loader2 className="h-8 w-8 animate-spin text-foreground mx-auto" />
                 ) : (
-                  <p className="text-3xl font-bold text-foreground">{metricasLigacao.total}</p>
+                  <p className="text-3xl font-bold text-foreground">{metricasLigacao.total.toLocaleString('pt-BR')}</p>
                 )}
                 <p className="text-sm text-muted-foreground">Total</p>
                 <p className="text-xs text-muted-foreground mt-1">(base completa)</p>
@@ -1646,7 +1623,7 @@ export default function EventoBase() {
                 {isLoadingExternalMetrics ? (
                   <Loader2 className="h-8 w-8 animate-spin text-slate-600 mx-auto" />
                 ) : (
-                  <p className="text-3xl font-bold text-slate-600">{metricasLigacao.pendentes}</p>
+                  <p className="text-3xl font-bold text-slate-600">{metricasLigacao.pendentes.toLocaleString('pt-BR')}</p>
                 )}
                 <p className="text-sm text-slate-600/80">Pendentes</p>
                 <p className="text-xs text-muted-foreground mt-1">(0 tentativas)</p>
@@ -1659,7 +1636,7 @@ export default function EventoBase() {
                 {isLoadingExternalMetrics ? (
                   <Loader2 className="h-8 w-8 animate-spin text-yellow-600 mx-auto" />
                 ) : (
-                  <p className="text-3xl font-bold text-yellow-600">{metricasLigacao.disparados1}</p>
+                  <p className="text-3xl font-bold text-yellow-600">{metricasLigacao.disparados1.toLocaleString('pt-BR')}</p>
                 )}
                 <p className="text-sm text-yellow-600/80">1ª Tentativa</p>
                 <p className="text-xs text-muted-foreground mt-1">(disparados)</p>
@@ -1672,7 +1649,7 @@ export default function EventoBase() {
                 {isLoadingExternalMetrics ? (
                   <Loader2 className="h-8 w-8 animate-spin text-orange-600 mx-auto" />
                 ) : (
-                  <p className="text-3xl font-bold text-orange-600">{metricasLigacao.disparados2}</p>
+                  <p className="text-3xl font-bold text-orange-600">{metricasLigacao.disparados2.toLocaleString('pt-BR')}</p>
                 )}
                 <p className="text-sm text-orange-600/80">2ª+ Tentativa</p>
                 <p className="text-xs text-muted-foreground mt-1">(disparados)</p>
@@ -1685,7 +1662,7 @@ export default function EventoBase() {
                 {isLoadingExternalMetrics ? (
                   <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
                 ) : (
-                  <p className="text-3xl font-bold text-blue-600">{metricasLigacao.emFila}</p>
+                  <p className="text-3xl font-bold text-blue-600">{metricasLigacao.emFila.toLocaleString('pt-BR')}</p>
                 )}
                 <p className="text-sm text-blue-600/80">Em Fila</p>
                 <p className="text-xs text-muted-foreground mt-1">(aguardando retry)</p>
@@ -1701,7 +1678,7 @@ export default function EventoBase() {
                       {isLoadingExternalMetrics ? (
                         <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto" />
                       ) : (
-                        <p className="text-3xl font-bold text-green-600">{metricasLigacao.encerrados}</p>
+                        <p className="text-3xl font-bold text-green-600">{metricasLigacao.encerrados.toLocaleString('pt-BR')}</p>
                       )}
                       <p className="text-sm text-green-600/80">Encerrados</p>
                       <p className="text-xs text-muted-foreground mt-1">(≥2 tent. ou sucesso)</p>
@@ -1712,9 +1689,9 @@ export default function EventoBase() {
                   <div className="space-y-1 text-xs">
                     <p><strong>Motivos do encerramento:</strong></p>
                     <p>• ≥2 tentativas (limite atingido)</p>
-                    <p>• Agendados: {metricasLigacao.agendados}</p>
-                    <p>• WhatsApp enviado: {metricasLigacao.whatsappEnviado}</p>
-                    <p>• Ligação atendida: {metricasLigacao.atendidos}</p>
+                    <p>• Agendados: {metricasLigacao.agendados.toLocaleString('pt-BR')}</p>
+                    <p>• WhatsApp enviado: {metricasLigacao.whatsappEnviado.toLocaleString('pt-BR')}</p>
+                    <p>• Ligação atendida: {metricasLigacao.atendidos.toLocaleString('pt-BR')}</p>
                   </div>
                 </TooltipContent>
               </Tooltip>
@@ -1725,7 +1702,7 @@ export default function EventoBase() {
           <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
             <Card>
               <CardContent className="p-4 text-center">
-                <p className="text-3xl font-bold text-foreground">{metricas.total}</p>
+                <p className="text-3xl font-bold text-foreground">{metricas.total.toLocaleString('pt-BR')}</p>
                 <p className="text-sm text-muted-foreground">Total de Contatos</p>
               </CardContent>
             </Card>
@@ -1733,13 +1710,13 @@ export default function EventoBase() {
               <>
                 <Card className="border-green-200 dark:border-green-900">
                   <CardContent className="p-4 text-center">
-                    <p className="text-3xl font-bold text-green-600">{metricas.disparados}</p>
+                    <p className="text-3xl font-bold text-green-600">{metricas.disparados.toLocaleString('pt-BR')}</p>
                     <p className="text-sm text-green-600/80">Disparados</p>
                   </CardContent>
                 </Card>
                 <Card className="border-amber-200 dark:border-amber-900">
                   <CardContent className="p-4 text-center">
-                    <p className="text-3xl font-bold text-amber-600">{metricas.pendentes}</p>
+                    <p className="text-3xl font-bold text-amber-600">{metricas.pendentes.toLocaleString('pt-BR')}</p>
                     <p className="text-sm text-amber-600/80">Pendentes IA</p>
                   </CardContent>
                 </Card>
@@ -1747,7 +1724,7 @@ export default function EventoBase() {
             )}
             <Card className="border-primary/30">
               <CardContent className="p-4 text-center">
-                <p className="text-3xl font-bold text-primary">{metricas.vendas}</p>
+                <p className="text-3xl font-bold text-primary">{metricas.vendas.toLocaleString('pt-BR')}</p>
                 <p className="text-sm text-primary/80">Vendas</p>
               </CardContent>
             </Card>
@@ -2350,7 +2327,7 @@ export default function EventoBase() {
                 {/* Paginação */}
                 <div className="flex items-center justify-between px-4 py-3 border-t">
                   <p className="text-sm text-muted-foreground">
-                    Mostrando {((currentPage - 1) * PAGE_SIZE) + 1} - {Math.min(currentPage * PAGE_SIZE, totalCount)} de {totalCount} contatos
+                    Mostrando {(((currentPage - 1) * PAGE_SIZE) + 1).toLocaleString('pt-BR')} - {Math.min(currentPage * PAGE_SIZE, totalCount).toLocaleString('pt-BR')} de {totalCount.toLocaleString('pt-BR')} contatos
                   </p>
                   <div className="flex items-center gap-2">
                     <Button
