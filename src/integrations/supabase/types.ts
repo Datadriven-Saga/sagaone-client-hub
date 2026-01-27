@@ -730,17 +730,20 @@ export type Database = {
       }
       controle_agentes: {
         Row: {
+          ativo: boolean
           chamado: string | null
           cnpj: string
           created_at: string
           created_by: string | null
           cronograma: string | null
+          descricao: string | null
           empresa_id: string | null
           id: string
           implantador: string | null
           loja: string
           marca: string
           nome_agente: string
+          numero_telefone: string | null
           observacoes: string | null
           responsavel: string | null
           status: string | null
@@ -750,17 +753,20 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ativo?: boolean
           chamado?: string | null
           cnpj: string
           created_at?: string
           created_by?: string | null
           cronograma?: string | null
+          descricao?: string | null
           empresa_id?: string | null
           id?: string
           implantador?: string | null
           loja: string
           marca: string
           nome_agente: string
+          numero_telefone?: string | null
           observacoes?: string | null
           responsavel?: string | null
           status?: string | null
@@ -770,17 +776,20 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ativo?: boolean
           chamado?: string | null
           cnpj?: string
           created_at?: string
           created_by?: string | null
           cronograma?: string | null
+          descricao?: string | null
           empresa_id?: string | null
           id?: string
           implantador?: string | null
           loja?: string
           marca?: string
           nome_agente?: string
+          numero_telefone?: string | null
           observacoes?: string | null
           responsavel?: string | null
           status?: string | null
