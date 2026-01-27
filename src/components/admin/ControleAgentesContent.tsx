@@ -20,31 +20,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
 import {
   Search,
   RefreshCw,
-  X,
   Bot,
-  Building2,
-  MapPin,
   Plus,
   CheckCircle2,
   Clock,
-  AlertCircle,
   Rocket,
   XCircle,
   Download,
-  FileSpreadsheet,
   Upload,
-  ChevronDown,
-  ChevronUp,
-  Settings,
-  Phone,
   Pencil,
   Eye,
-  Power,
-  PowerOff
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -85,10 +82,10 @@ interface ControleAgente {
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   ok: { label: "Implantado", color: "bg-green-500/10 text-green-600 border-green-500/20", icon: CheckCircle2 },
   IMPLANTADA: { label: "Implantado", color: "bg-green-500/10 text-green-600 border-green-500/20", icon: CheckCircle2 },
-  em_desenvolvimento: { label: "Em Desenvolvimento", color: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20", icon: Settings },
+  em_desenvolvimento: { label: "Em Desenvolvimento", color: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20", icon: Clock },
   em_roll_out: { label: "Em Roll Out", color: "bg-blue-500/10 text-blue-600 border-blue-500/20", icon: Rocket },
   pendente: { label: "Pendente", color: "bg-gray-500/10 text-gray-600 border-gray-500/20", icon: Clock },
-  erro: { label: "Erro", color: "bg-red-500/10 text-red-600 border-red-500/20", icon: AlertCircle },
+  erro: { label: "Erro", color: "bg-red-500/10 text-red-600 border-red-500/20", icon: XCircle },
   bloqueado: { label: "Bloqueado", color: "bg-red-500/10 text-red-600 border-red-500/20", icon: XCircle },
 };
 
@@ -111,6 +108,8 @@ const isActiveStatus = (status: string | null) => {
   return status === 'ok' || status === 'IMPLANTADA' || status === 'em_roll_out';
 };
 
+const ITEMS_PER_PAGE = 20;
+
 export function ControleAgentesContent() {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -122,11 +121,11 @@ export function ControleAgentesContent() {
   const [selectedUf, setSelectedUf] = useState("todos");
   const [selectedStatus, setSelectedStatus] = useState("todos");
   const [selectedAtivo, setSelectedAtivo] = useState("todos");
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ControleAgente | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [novoOpen, setNovoOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const filterOptions = useMemo(() => {
     const agentes = [...new Set(data.map(d => d.nome_agente))].sort();
@@ -153,6 +152,18 @@ export function ControleAgentesContent() {
     });
   }, [data, searchTerm, selectedAgente, selectedMarca, selectedUf, selectedStatus, selectedAtivo]);
 
+  // Paginação
+  const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredData, currentPage]);
+
+  // Reset para página 1 quando filtros mudam
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedAgente, selectedMarca, selectedUf, selectedStatus, selectedAtivo]);
+
   const stats = useMemo(() => ({
     total: data.length,
     implantados: data.filter(d => d.status === 'ok' || d.status === 'IMPLANTADA').length,
@@ -168,6 +179,7 @@ export function ControleAgentesContent() {
     setSelectedUf("todos");
     setSelectedStatus("todos");
     setSelectedAtivo("todos");
+    setCurrentPage(1);
   };
 
   const fetchData = useCallback(async () => {
@@ -197,15 +209,6 @@ export function ControleAgentesContent() {
     } catch { toast({ title: "Erro", variant: "destructive" }); }
   };
 
-  const handleToggleAtivo = async (id: string, ativo: boolean) => {
-    try {
-      const { error } = await supabase.from("controle_agentes").update({ ativo }).eq("id", id);
-      if (error) throw error;
-      setData(prev => prev.map(item => item.id === id ? { ...item, ativo } : item));
-      toast({ title: ativo ? "Agente ativado!" : "Agente desativado!" });
-    } catch { toast({ title: "Erro", variant: "destructive" }); }
-  };
-
   const exportData = (format: 'csv' | 'xlsx' | 'xls') => {
     const exportRows = filteredData.map(item => ({
       'Nome Agente': item.nome_agente, 'Tipo': item.tipo_agente, 'Marca': item.marca, 'UF': item.uf,
@@ -216,6 +219,23 @@ export function ControleAgentesContent() {
     XLSX.utils.book_append_sheet(wb, ws, 'Controle Agentes');
     XLSX.writeFile(wb, `controle-agentes-${new Date().toISOString().split('T')[0]}.${format}`, { bookType: format === 'csv' ? 'csv' : format });
     toast({ title: "Exportação concluída!" });
+  };
+
+  // Gerar páginas para exibição
+  const getVisiblePages = () => {
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('ellipsis');
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push('ellipsis');
+      pages.push(totalPages);
+    }
+    return pages;
   };
 
   return (
@@ -246,15 +266,19 @@ export function ControleAgentesContent() {
         </div>
       </CardContent></Card>
 
-      <p className="text-sm text-muted-foreground">Exibindo {filteredData.length.toLocaleString('pt-BR')} de {data.length.toLocaleString('pt-BR')} agentes</p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Exibindo {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredData.length)} de {filteredData.length.toLocaleString('pt-BR')} agentes
+        </p>
+      </div>
 
       <Card><CardContent className="p-0">
-        <ScrollArea className="h-[calc(100vh-500px)] min-h-[300px]">
+        <ScrollArea className="h-[calc(100vh-580px)] min-h-[300px]">
           <Table><TableHeader><TableRow className="bg-muted/50"><TableHead className="w-[50px]">Ativo</TableHead><TableHead>Agente</TableHead><TableHead>Local</TableHead><TableHead>Telefone</TableHead><TableHead>Status</TableHead><TableHead className="w-[60px]">Ações</TableHead></TableRow></TableHeader>
             <TableBody>
               {loading ? <TableRow><TableCell colSpan={6} className="text-center py-8"><RefreshCw className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow> :
-              filteredData.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum agente encontrado</TableCell></TableRow> :
-              filteredData.map(item => {
+              paginatedData.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum agente encontrado</TableCell></TableRow> :
+              paginatedData.map(item => {
                 const statusConf = getStatusConfig(item.status);
                 const StatusIcon = statusConf.icon;
                 return (
@@ -272,6 +296,41 @@ export function ControleAgentesContent() {
           </Table>
         </ScrollArea>
       </CardContent></Card>
+
+      {/* Paginação */}
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+            {getVisiblePages().map((page, idx) => (
+              <PaginationItem key={idx}>
+                {page === 'ellipsis' ? (
+                  <PaginationEllipsis />
+                ) : (
+                  <PaginationLink
+                    onClick={() => setCurrentPage(page)}
+                    isActive={currentPage === page}
+                    className="cursor-pointer"
+                  >
+                    {page}
+                  </PaginationLink>
+                )}
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
 
       <ControleAgentesDetalhes agente={selectedItem} open={detailsOpen} onOpenChange={setDetailsOpen} onSave={fetchData} />
       <ControleAgentesImport open={importOpen} onOpenChange={setImportOpen} onImportComplete={fetchData} />
