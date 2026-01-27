@@ -18,6 +18,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Building2,
   RefreshCw,
   Search,
@@ -27,7 +32,7 @@ import {
   Check,
   X,
   Plus,
-  Filter,
+  Phone,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +50,13 @@ interface AgenteVisao {
   id: string;
   nome: string;
   tipo: string;
+  ativo: boolean;
+}
+
+interface AgenteIA {
+  id: string;
+  nome: string;
+  telefone: string | null;
   ativo: boolean;
 }
 
@@ -74,6 +86,12 @@ export function ControleEmpresasTab() {
   const [agentesVisao, setAgentesVisao] = useState<AgenteVisao[]>([]);
   const [agentesEmpresa, setAgentesEmpresa] = useState<AgenteEmpresa[]>([]);
   const [loadingAgentes, setLoadingAgentes] = useState(false);
+  
+  // Seleção de agente específico
+  const [selectedAgenteVisao, setSelectedAgenteVisao] = useState<AgenteVisao | null>(null);
+  const [agentesIADisponiveis, setAgentesIADisponiveis] = useState<AgenteIA[]>([]);
+  const [loadingAgentesIA, setLoadingAgentesIA] = useState(false);
+  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
 
   const fetchEmpresas = useCallback(async () => {
     setLoading(true);
@@ -162,20 +180,49 @@ export function ControleEmpresasTab() {
     setCurrentPage(1);
   };
 
-  const handleAtribuirAgente = async (agenteVisaoId: string) => {
+  // Busca agentes_ia pelo nome do agente do catálogo
+  const fetchAgentesIAByName = useCallback(async (nomeAgente: string) => {
+    setLoadingAgentesIA(true);
+    try {
+      const { data, error } = await supabase
+        .from("agentes_ia")
+        .select("id, nome, telefone, ativo")
+        .ilike("nome", `%${nomeAgente}%`)
+        .eq("ativo", true)
+        .order("telefone");
+      
+      if (error) throw error;
+      setAgentesIADisponiveis(data || []);
+    } catch (error) {
+      console.error("Erro ao buscar agentes IA:", error);
+      setAgentesIADisponiveis([]);
+    } finally {
+      setLoadingAgentesIA(false);
+    }
+  }, []);
+
+  const handleOpenAtribuirPopover = async (agente: AgenteVisao) => {
+    setSelectedAgenteVisao(agente);
+    setOpenPopoverId(agente.id);
+    await fetchAgentesIAByName(agente.nome);
+  };
+
+  const handleAtribuirAgenteIA = async (agenteIAId: string) => {
     if (!selectedEmpresa) return;
     
     try {
       const { error } = await supabase
         .from("agente_empresas")
         .insert({
-          agente_id: agenteVisaoId,
+          agente_id: agenteIAId,
           empresa_id: selectedEmpresa.id,
           status: "pendente"
         });
       
       if (error) throw error;
       toast({ title: "Agente atribuído com sucesso!" });
+      setOpenPopoverId(null);
+      setSelectedAgenteVisao(null);
       fetchAgentesData(selectedEmpresa.id);
     } catch (error: any) {
       console.error("Erro ao atribuir agente:", error);
@@ -502,14 +549,63 @@ export function ControleEmpresasTab() {
                                 <p className="text-xs text-muted-foreground">{agente.tipo}</p>
                               </div>
                             </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleAtribuirAgente(agente.id)}
+                            <Popover 
+                              open={openPopoverId === agente.id} 
+                              onOpenChange={(open) => {
+                                if (!open) {
+                                  setOpenPopoverId(null);
+                                  setSelectedAgenteVisao(null);
+                                }
+                              }}
                             >
-                              <Plus className="h-3 w-3 mr-1" />
-                              Atribuir
-                            </Button>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenAtribuirPopover(agente)}
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Atribuir
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-80 p-0" align="end">
+                                <div className="p-3 border-b bg-muted/50">
+                                  <p className="font-medium text-sm">Selecione o agente {agente.nome}</p>
+                                  <p className="text-xs text-muted-foreground">Escolha a instância com o telefone correto</p>
+                                </div>
+                                <div className="max-h-[250px] overflow-y-auto">
+                                  {loadingAgentesIA ? (
+                                    <div className="flex justify-center py-4">
+                                      <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+                                    </div>
+                                  ) : agentesIADisponiveis.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground text-center py-4">
+                                      Nenhum agente encontrado
+                                    </p>
+                                  ) : (
+                                    agentesIADisponiveis.map((agenteIA) => (
+                                      <div
+                                        key={agenteIA.id}
+                                        className="flex items-center justify-between p-3 hover:bg-muted cursor-pointer border-b last:border-0"
+                                        onClick={() => handleAtribuirAgenteIA(agenteIA.id)}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <Bot className="h-4 w-4 text-primary" />
+                                          <div>
+                                            <p className="text-sm font-medium">{agenteIA.nome}</p>
+                                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                              <Phone className="h-3 w-3" />
+                                              <span>{agenteIA.telefone || "Sem telefone"}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <Check className="h-4 w-4 text-green-500 opacity-0 hover:opacity-100" />
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           </div>
                         ))
                       )}
