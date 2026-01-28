@@ -9,6 +9,7 @@ import { VoiceSimulation } from "@/components/academy/VoiceSimulation";
 import { SimulationHistory } from "@/components/academy/SimulationHistory";
 import { SimulationDetails } from "@/components/academy/SimulationDetails";
 import { SimulationFeedbackModal } from "@/components/academy/SimulationFeedbackModal";
+import { AcademyAdminPanel } from "@/components/academy/AcademyAdminPanel";
 import { TrainingScenario, Persona } from "@/types/academy";
 
 const Treinamentos = () => {
@@ -82,14 +83,7 @@ const Treinamentos = () => {
       return <SimulationDetails />;
     }
     if (path === "/treinamentos/admin") {
-      return (
-        <div className="p-6">
-          <h1 className="text-2xl font-bold text-foreground mb-4">Painel Admin</h1>
-          <p className="text-muted-foreground">
-            Configurações administrativas em breve...
-          </p>
-        </div>
-      );
+      return <AcademyAdminPanel />;
     }
 
     return <AcademyDashboard />;
