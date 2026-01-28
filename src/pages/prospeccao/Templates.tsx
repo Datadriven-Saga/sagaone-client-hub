@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { BoldTextarea } from "@/components/ui/bold-textarea";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -1397,7 +1397,7 @@ export default function Templates() {
             <p className="text-sm text-muted-foreground mb-2">
               Máximo de 1024 caracteres
             </p>
-            <BoldTextarea
+            <RichTextarea
               id="conteudo"
               value={formData.conteudo}
               onValueChange={(value) => {
@@ -1406,7 +1406,8 @@ export default function Templates() {
                 }
               }}
               placeholder="Digite o conteúdo do template..."
-              className="min-h-[150px] bg-white"
+              className="bg-white"
+              minHeight="150px"
             />
             <p className="text-sm text-muted-foreground mt-1 text-right">
               {formData.conteudo.length}/1024
@@ -1547,7 +1548,7 @@ export default function Templates() {
           {/* Corpo do Texto */}
           <div>
             <Label htmlFor="corpoTexto">Corpo do Texto</Label>
-            <BoldTextarea
+            <RichTextarea
               id="corpoTexto"
               value={formData.cardData.corpoTexto}
               onValueChange={(value) => {
@@ -1559,7 +1560,8 @@ export default function Templates() {
                 }
               }}
               placeholder="Conteúdo principal do card..."
-              className="min-h-[80px] bg-white"
+              className="bg-white"
+              minHeight="80px"
               maxLength={1024}
             />
             <div className="flex items-center justify-end mt-1">
@@ -1567,6 +1569,22 @@ export default function Templates() {
                 {formData.cardData.corpoTexto.length}/1024
               </p>
             </div>
+
+            {/* Editor de variáveis dinâmicas */}
+            <TemplateVariablesEditor
+              text={formData.cardData.corpoTexto}
+              variables={variableMappings}
+              onVariablesChange={setVariableMappings}
+              onInsertVariable={() => {
+                const nextNum = variableMappings.length > 0 
+                  ? Math.max(...variableMappings.map(v => v.position)) + 1 
+                  : 1;
+                setFormData(prev => ({
+                  ...prev,
+                  cardData: { ...prev.cardData, corpoTexto: prev.cardData.corpoTexto + `{{${nextNum}}}` }
+                }));
+              }}
+            />
           </div>
 
           {/* Rodapé */}
@@ -1689,7 +1707,7 @@ export default function Templates() {
           {/* Corpo do Texto */}
           <div>
             <Label htmlFor="corpoTextoBotao">Corpo do Texto</Label>
-            <BoldTextarea
+            <RichTextarea
               id="corpoTextoBotao"
               value={formData.cardData.corpoTexto}
               onValueChange={(value) => {
@@ -1701,7 +1719,8 @@ export default function Templates() {
                 }
               }}
               placeholder="Digite o conteúdo da mensagem..."
-              className="min-h-[120px] bg-white"
+              className="bg-white"
+              minHeight="120px"
               maxLength={1024}
             />
             <div className="flex items-center justify-end mt-1">
@@ -1709,6 +1728,22 @@ export default function Templates() {
                 {formData.cardData.corpoTexto.length}/1024
               </p>
             </div>
+
+            {/* Editor de variáveis dinâmicas */}
+            <TemplateVariablesEditor
+              text={formData.cardData.corpoTexto}
+              variables={variableMappings}
+              onVariablesChange={setVariableMappings}
+              onInsertVariable={() => {
+                const nextNum = variableMappings.length > 0 
+                  ? Math.max(...variableMappings.map(v => v.position)) + 1 
+                  : 1;
+                setFormData(prev => ({
+                  ...prev,
+                  cardData: { ...prev.cardData, corpoTexto: prev.cardData.corpoTexto + `{{${nextNum}}}` }
+                }));
+              }}
+            />
           </div>
 
           {/* Botões */}
@@ -1843,7 +1878,7 @@ export default function Templates() {
           {/* Corpo do Texto */}
           <div>
             <Label htmlFor="corpoTextoImagem">Corpo do Texto</Label>
-            <BoldTextarea
+            <RichTextarea
               id="corpoTextoImagem"
               value={formData.cardData.corpoTexto}
               onValueChange={(value) => {
@@ -1855,7 +1890,8 @@ export default function Templates() {
                 }
               }}
               placeholder="Digite o conteúdo da mensagem..."
-              className="min-h-[120px] bg-white"
+              className="bg-white"
+              minHeight="120px"
               maxLength={1024}
             />
             <div className="flex items-center justify-end mt-1">
@@ -1863,6 +1899,22 @@ export default function Templates() {
                 {formData.cardData.corpoTexto.length}/1024
               </p>
             </div>
+
+            {/* Editor de variáveis dinâmicas */}
+            <TemplateVariablesEditor
+              text={formData.cardData.corpoTexto}
+              variables={variableMappings}
+              onVariablesChange={setVariableMappings}
+              onInsertVariable={() => {
+                const nextNum = variableMappings.length > 0 
+                  ? Math.max(...variableMappings.map(v => v.position)) + 1 
+                  : 1;
+                setFormData(prev => ({
+                  ...prev,
+                  cardData: { ...prev.cardData, corpoTexto: prev.cardData.corpoTexto + `{{${nextNum}}}` }
+                }));
+              }}
+            />
           </div>
         </div>
       );
@@ -2009,7 +2061,7 @@ export default function Templates() {
           {/* Corpo do Texto */}
           <div>
             <Label htmlFor="corpoTextoVideo">Corpo do Texto</Label>
-            <BoldTextarea
+            <RichTextarea
               id="corpoTextoVideo"
               value={formData.cardData.corpoTexto}
               onValueChange={(value) => {
@@ -2021,7 +2073,8 @@ export default function Templates() {
                 }
               }}
               placeholder="Digite o conteúdo da mensagem..."
-              className="min-h-[120px] bg-white"
+              className="bg-white"
+              minHeight="120px"
               maxLength={1024}
             />
             <div className="flex items-center justify-end mt-1">
@@ -2029,6 +2082,22 @@ export default function Templates() {
                 {formData.cardData.corpoTexto.length}/1024
               </p>
             </div>
+
+            {/* Editor de variáveis dinâmicas */}
+            <TemplateVariablesEditor
+              text={formData.cardData.corpoTexto}
+              variables={variableMappings}
+              onVariablesChange={setVariableMappings}
+              onInsertVariable={() => {
+                const nextNum = variableMappings.length > 0 
+                  ? Math.max(...variableMappings.map(v => v.position)) + 1 
+                  : 1;
+                setFormData(prev => ({
+                  ...prev,
+                  cardData: { ...prev.cardData, corpoTexto: prev.cardData.corpoTexto + `{{${nextNum}}}` }
+                }));
+              }}
+            />
           </div>
         </div>
       );

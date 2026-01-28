@@ -131,11 +131,11 @@ export function TemplateVariablesEditor({
 
   if (detectedVariables.length === 0) {
     return (
-      <div className="border rounded-lg p-4 bg-muted/30">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Variable className="h-4 w-4" />
-            <span className="text-sm">Nenhuma variável detectada no texto</span>
+      <div className="border rounded-lg p-4 bg-muted/30 overflow-hidden">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 text-muted-foreground min-w-0">
+            <Variable className="h-4 w-4 shrink-0" />
+            <span className="text-sm truncate">Nenhuma variável detectada</span>
           </div>
           <TooltipProvider>
             <Tooltip>
@@ -145,6 +145,7 @@ export function TemplateVariablesEditor({
                   variant="outline"
                   size="sm"
                   onClick={onInsertVariable}
+                  className="shrink-0"
                 >
                   <Plus className="h-3 w-3 mr-1" />
                   Adicionar {"{{1}}"}
@@ -164,13 +165,13 @@ export function TemplateVariablesEditor({
   }
 
   return (
-    <Card className="p-4 border-primary/20">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Variable className="h-4 w-4 text-primary" />
-          <Label className="font-medium">Mapeamento de Variáveis</Label>
-          <Badge variant="secondary" className="text-xs">
-            {detectedVariables.length} {detectedVariables.length === 1 ? "variável" : "variáveis"}
+    <Card className="p-4 border-primary/20 overflow-hidden">
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <Variable className="h-4 w-4 text-primary shrink-0" />
+          <Label className="font-medium whitespace-nowrap">Variáveis</Label>
+          <Badge variant="secondary" className="text-xs shrink-0">
+            {detectedVariables.length}
           </Badge>
         </div>
         {detectedVariables.length < maxVariables && (
@@ -179,6 +180,7 @@ export function TemplateVariablesEditor({
             variant="outline"
             size="sm"
             onClick={onInsertVariable}
+            className="shrink-0"
           >
             <Plus className="h-3 w-3 mr-1" />
             {`{{${getNextVariableNumber()}}}`}
@@ -189,21 +191,20 @@ export function TemplateVariablesEditor({
       <div className="flex items-start gap-2 mb-3 p-2 bg-blue-50 rounded-md border border-blue-200">
         <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
         <p className="text-xs text-blue-700">
-          Selecione qual dado do contato será inserido em cada variável. 
-          O exemplo é usado apenas para aprovação do template na Meta.
+          Selecione qual dado será inserido em cada variável.
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 overflow-x-auto">
         {detectedVariables.map((position) => {
           const variable = variables.find((v) => v.position === position);
           const isEmpty = !variable?.field;
 
           return (
-            <div key={position} className="flex items-center gap-3">
+            <div key={position} className="flex items-center gap-2 min-w-0 flex-wrap sm:flex-nowrap">
               <Badge
                 variant="outline"
-                className={`shrink-0 font-mono ${isEmpty ? "border-amber-500 text-amber-600" : "border-primary text-primary"}`}
+                className={`shrink-0 font-mono text-xs ${isEmpty ? "border-amber-500 text-amber-600" : "border-primary text-primary"}`}
               >
                 {`{{${position}}}`}
               </Badge>
@@ -211,8 +212,8 @@ export function TemplateVariablesEditor({
                 value={variable?.field || ""}
                 onValueChange={(value) => handleFieldChange(position, value)}
               >
-                <SelectTrigger className={`w-48 ${isEmpty ? "border-amber-500/50" : ""}`}>
-                  <SelectValue placeholder="Selecione o campo..." />
+                <SelectTrigger className={`w-full sm:w-40 ${isEmpty ? "border-amber-500/50" : ""}`}>
+                  <SelectValue placeholder="Campo..." />
                 </SelectTrigger>
                 <SelectContent>
                   {availableFields.map((field) => (
@@ -223,10 +224,10 @@ export function TemplateVariablesEditor({
                 </SelectContent>
               </Select>
               <Input
-                placeholder="Exemplo para Meta..."
+                placeholder="Exemplo..."
                 value={variable?.example || ""}
                 onChange={(e) => handleExampleChange(position, e.target.value)}
-                className="flex-1"
+                className="flex-1 min-w-[100px]"
               />
             </div>
           );
