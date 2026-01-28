@@ -4,7 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Filter, Sparkles } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from "@/components/ui/sheet";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Filter, Sparkles, Loader2, X, Check, User, LayoutTemplate } from "lucide-react";
 import {
   Radar,
   RadarChart,
@@ -13,7 +18,6 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer,
 } from "recharts";
-import { PerformanceDimension } from "@/types/academy";
 
 // Mock data for radar chart
 const radarData = [
@@ -39,17 +43,197 @@ const situationItems = [
   { question: "Criou ambiente positivo e confortável?", score: 0.0, maxScore: 10 },
 ];
 
+interface Filters {
+  dataInicio: string;
+  dataTermino: string;
+  duracao: number;
+  time: string;
+  colaborador: string;
+  template: string;
+}
+
 export function AcademyDashboard() {
   const [activeTab, setActiveTab] = useState("performance");
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [isGeneratingRecommendations, setIsGeneratingRecommendations] = useState(false);
+  const [recommendations, setRecommendations] = useState<string[]>([]);
+  
+  const [filters, setFilters] = useState<Filters>({
+    dataInicio: "",
+    dataTermino: "",
+    duracao: 0,
+    time: "",
+    colaborador: "",
+    template: "",
+  });
+
+  const handleGenerateRecommendations = async () => {
+    setIsGeneratingRecommendations(true);
+    
+    // Simulate AI processing
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Mock recommendations based on dimension scores
+    const mockRecommendations = [
+      "🎯 Foco prioritário: Trabalhe técnicas de fechamento - sua nota atual é 0.0. Pratique simulações de fechamento com objeções.",
+      "💡 Melhore a apresentação pessoal: Dedique 5 minutos antes de cada reunião para preparar uma introdução impactante.",
+      "🔄 Pratique a escuta ativa: Nas próximas simulações, foque em identificar os problemas do cliente antes de propor soluções.",
+      "📈 Acompanhe seu progresso: Realize ao menos 2 simulações por semana para acelerar seu desenvolvimento.",
+    ];
+    
+    setRecommendations(mockRecommendations);
+    setIsGeneratingRecommendations(false);
+  };
+
+  const handleClearFilters = () => {
+    setFilters({
+      dataInicio: "",
+      dataTermino: "",
+      duracao: 0,
+      time: "",
+      colaborador: "",
+      template: "",
+    });
+  };
+
+  const handleApplyFilters = () => {
+    // Apply filters logic here
+    console.log("Applying filters:", filters);
+    setIsFiltersOpen(false);
+  };
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Filter className="h-4 w-4" />
-          Filtros
-        </Button>
+        <Sheet open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Filter className="h-4 w-4" />
+              Filtros
+            </Button>
+          </SheetTrigger>
+          <SheetContent className="w-[400px] sm:w-[450px]">
+            <SheetHeader>
+              <SheetTitle>Filtros</SheetTitle>
+            </SheetHeader>
+            
+            <div className="space-y-6 py-6">
+              {/* Período */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Período</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="dataInicio" className="text-sm text-muted-foreground">Data de Início</Label>
+                    <Input
+                      id="dataInicio"
+                      type="date"
+                      value={filters.dataInicio}
+                      onChange={(e) => setFilters({ ...filters, dataInicio: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dataTermino" className="text-sm text-muted-foreground">Data de Término</Label>
+                    <Input
+                      id="dataTermino"
+                      type="date"
+                      value={filters.dataTermino}
+                      onChange={(e) => setFilters({ ...filters, dataTermino: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Duração */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Duração (minutos)</Label>
+                <div className="px-2">
+                  <div className="text-sm text-primary font-medium mb-2">{filters.duracao}</div>
+                  <Slider
+                    value={[filters.duracao]}
+                    onValueChange={([value]) => setFilters({ ...filters, duracao: value })}
+                    max={120}
+                    step={5}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
+              {/* Time */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Time</Label>
+                <Select 
+                  value={filters.time} 
+                  onValueChange={(value) => setFilters({ ...filters, time: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Times" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vendas">Vendas</SelectItem>
+                    <SelectItem value="pos-vendas">Pós-Vendas</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                    <SelectItem value="marketing">Marketing</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Colaborador */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Colaborador</Label>
+                <Select 
+                  value={filters.colaborador} 
+                  onValueChange={(value) => setFilters({ ...filters, colaborador: value })}
+                >
+                  <SelectTrigger>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <SelectValue placeholder="Usuários" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="ativos">Usuários Ativos</SelectItem>
+                    <SelectItem value="novos">Novos Usuários</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Template de Reunião */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Template de Reunião</Label>
+                <Select 
+                  value={filters.template} 
+                  onValueChange={(value) => setFilters({ ...filters, template: value })}
+                >
+                  <SelectTrigger>
+                    <div className="flex items-center gap-2">
+                      <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
+                      <SelectValue placeholder="Atendimento Automóvel" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="atendimento-automovel">Atendimento Automóvel</SelectItem>
+                    <SelectItem value="pos-venda">Pós-Venda</SelectItem>
+                    <SelectItem value="financiamento">Financiamento</SelectItem>
+                    <SelectItem value="test-drive">Test Drive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <SheetFooter className="flex gap-2 sm:gap-2">
+              <Button variant="outline" onClick={handleClearFilters} className="flex-1 gap-2">
+                <X className="h-4 w-4" />
+                Limpar
+              </Button>
+              <Button onClick={handleApplyFilters} className="flex-1 gap-2 bg-primary hover:bg-primary/90">
+                <Check className="h-4 w-4" />
+                Aplicar
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -97,13 +281,38 @@ export function AcademyDashboard() {
                   <Badge variant="outline" className="text-xs">experimental</Badge>
                 </div>
               </div>
-              <Button className="w-full gap-2 bg-primary hover:bg-primary/90">
-                <Sparkles className="h-4 w-4" />
-                Gerar Recomendações
+              
+              <Button 
+                onClick={handleGenerateRecommendations}
+                disabled={isGeneratingRecommendations}
+                className="w-full gap-2 bg-primary hover:bg-primary/90"
+              >
+                {isGeneratingRecommendations ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Gerar Recomendações
+                  </>
+                )}
               </Button>
-              <p className="text-sm text-muted-foreground mt-4">
-                Clique para gerar recomendações personalizadas baseadas no seu desempenho nas simulações.
-              </p>
+              
+              {recommendations.length > 0 ? (
+                <div className="mt-4 space-y-3">
+                  {recommendations.map((rec, index) => (
+                    <div key={index} className="p-3 bg-muted/50 rounded-lg text-sm">
+                      {rec}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground mt-4">
+                  Clique para gerar recomendações personalizadas baseadas no seu desempenho nas simulações.
+                </p>
+              )}
             </Card>
           </div>
 
