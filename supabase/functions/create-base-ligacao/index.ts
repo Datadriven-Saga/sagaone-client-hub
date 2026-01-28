@@ -64,6 +64,28 @@ const normalizePhoneTo10Digits = (phone: string | null): { valid: boolean; norma
   return { valid: true, normalized: digits, original };
 };
 
+// Normaliza telefone mantendo o formato original (apenas dígitos)
+// Usado para comparações e busca no banco
+const normalizePhone = (phone: string | null): string => {
+  if (!phone) return '';
+  let digits = phone.replace(/\D/g, '');
+  
+  // Remove DDI 55 se existir
+  if (digits.startsWith('55') && digits.length > 11) {
+    digits = digits.slice(2);
+  }
+  if (digits.startsWith('0055')) {
+    digits = digits.slice(4);
+  }
+  
+  // Remove zero inicial (0XX)
+  if (digits.startsWith('0') && (digits.length === 11 || digits.length === 12)) {
+    digits = digits.slice(1);
+  }
+  
+  return digits;
+};
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

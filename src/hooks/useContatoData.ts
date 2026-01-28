@@ -117,8 +117,9 @@ export const useContatoData = () => {
   console.log('🏢 useContatoData - activeCompany:', activeCompany);
   console.log('👤 useContatoData - user:', user);
 
-  // Buscar prospecções com filtro de empresa (apenas eventos ativos por padrão)
-  const fetchProspeccoes = useCallback(async (showAllEvents: boolean = false) => {
+  // Buscar prospecções com filtro de empresa
+  // IMPORTANTE: Por padrão mostra TODOS os eventos (incluindo encerrados) para permitir importação/visualização
+  const fetchProspeccoes = useCallback(async (showAllEvents: boolean = true) => {
     if (!activeCompany?.id) {
       console.warn('useContatoData: No active company found for prospeccoes');
       setProspeccoes([]);
@@ -130,17 +131,18 @@ export const useContatoData = () => {
       
       const today = new Date().toISOString().split('T')[0];
       
-      // Primeiro, buscar eventos que atendem ao filtro de data OU são de Ligação (sincronizados externamente)
+      // Buscar eventos da empresa
       // Eventos de Ligação com event_id_pri são controlados externamente e não devem ser filtrados por data
       let query = supabase
         .from('prospeccoes')
         .select('*')
         .eq('empresa_id', activeCompany.id);
       
-      // Filtrar apenas eventos ativos (data_fim >= hoje) se não for para mostrar todos
+      // Filtrar apenas eventos ativos (data_fim >= hoje) se NÃO for para mostrar todos
+      // NOTA: Eventos de Ligação sempre são incluídos independente da data para permitir importação retroativa
       if (!showAllEvents) {
-        // Usar filtro OR: data_fim >= hoje OU data_fim é null
-        query = query.or(`data_fim.gte.${today},data_fim.is.null`);
+        // Usar filtro OR: data_fim >= hoje OU data_fim é null OU é evento de Ligação
+        query = query.or(`data_fim.gte.${today},data_fim.is.null,canal.eq.Ligação`);
       }
       
       const { data, error } = await query.order('created_at', { ascending: false });

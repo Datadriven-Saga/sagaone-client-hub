@@ -1135,12 +1135,12 @@ showAllEvents: true
       // Usar a função do hook que já trata empresa_id automaticamente e vincula na eventos_prospeccao
       const resultado = await adicionarContatos(novosContatos, prospeccaoSelecionada.id);
 
-      // Para eventos de Ligação, enviar ao webhook para criar a base no banco externo
-      // (isso NÃO dispara as ligações, apenas registra a base com os IDs do SagaOne)
+      // Para eventos de Ligação, salvar no Supabase (prospect_pri_voz) e enviar ao webhook externo
+      // A Edge Function create-base-ligacao faz AMBOS: salva no Supabase E envia para o n8n/PRI
       const isLigacaoEvent = prospeccaoSelecionada.canal === 'Ligação';
-      if (isLigacaoEvent && prospeccaoSelecionada.event_id_pri && resultado?.todosContatosProcessados) {
+      if (isLigacaoEvent && resultado?.todosContatosProcessados && resultado.todosContatosProcessados.length > 0) {
         try {
-          console.log('📞 Enviando base para webhook cria-base-ligacao COM lead_id...');
+          console.log('📞 Criando base de ligação no Supabase e sincronizando com sistema externo...');
           
           // Buscar agente de ligação (Pri) ativo da empresa para obter telefone_pri
           const { data: agenteData, error: agenteError } = await supabase
@@ -1162,56 +1162,55 @@ showAllEvents: true
           if (!agenteError && agenteData?.agentes_ia?.telefone) {
             const telefonePri = agenteData.agentes_ia.telefone.replace(/\D/g, '');
             const lojaNome = activeCompany?.nome_empresa || '';
-
-            const idEvento = Number(prospeccaoSelecionada.event_id_pri);
+            const idEvento = prospeccaoSelecionada.event_id_pri ? Number(prospeccaoSelecionada.event_id_pri) : null;
 
             const normalizeTelefoneForPri = (digits: string) => {
-              // Alguns contatos vêm com DDI (55). O workflow PRI normalmente espera apenas DDD+Número.
               if (digits.length > 11 && digits.startsWith('55')) return digits.slice(2);
               return digits;
             };
 
-            const contatosPayload = resultado.todosContatosProcessados
-              .filter((c) => c.lead_id !== null && c.lead_id !== undefined)
-              .map((c) => {
-                const telefoneDigitsRaw = c.telefone?.replace(/\D/g, '') || '';
-                const telefoneDigits = normalizeTelefoneForPri(telefoneDigitsRaw);
+            const contatosPayload = resultado.todosContatosProcessados.map((c) => {
+              const telefoneDigitsRaw = c.telefone?.replace(/\D/g, '') || '';
+              const telefoneDigits = normalizeTelefoneForPri(telefoneDigitsRaw);
 
-                return {
-                  lead_id: c.lead_id, // ID serial do contato (mesmo formato do webhook recebe-leads-pri)
-                  nome: c.nome,
-                  telefone: telefoneDigits,
-                  telefone_lead: telefoneDigits,
+              return {
+                nome: c.nome || '',
+                telefone: telefoneDigits,
+              };
+            });
 
-                  // Campos redundantes (mantidos para compatibilidade com o workflow n8n)
-                  id_evento: idEvento,
-                  telefone_pri: telefonePri,
-                  loja: lojaNome,
-                };
-              });
-
-            // Usar edge function para enviar base com token SAGA_ONE
-            const { data: webhookData, error: webhookError } = await supabase.functions.invoke('external-webhook-proxy', {
+            // Usar Edge Function create-base-ligacao que:
+            // 1. Salva no Supabase (prospect_pri_voz) - fonte primária
+            // 2. Envia para webhook externo n8n/PRI - sincronização
+            const { data: createBaseData, error: createBaseError } = await supabase.functions.invoke('create-base-ligacao', {
               body: {
-                endpoint: 'cria-base-ligacao',
-                id_evento: idEvento,
-                telefone_pri: telefonePri,
-                loja: lojaNome,
                 contatos: contatosPayload,
-                total_contatos: contatosPayload.length,
+                id_evento: idEvento || 0, // Se não tem event_id_pri, ainda salva no Supabase
+                telefone_pri: telefonePri,
+                empresa_id: activeCompany?.id,
+                prospeccao_id: prospeccaoSelecionada.id,
+                loja: lojaNome,
+                sync_external: !!idEvento, // Só sincroniza com webhook externo se tiver event_id_pri
               },
             });
 
-            if (!webhookError) {
-              console.log('✅ Base enviada para sistema de ligação com lead_id');
+            if (!createBaseError) {
+              console.log('✅ Base de ligação criada:', createBaseData?.summary);
+              
+              // Se sincronizou com sucesso com o sistema externo, mostrar feedback
+              if (createBaseData?.external_sync?.success) {
+                console.log('✅ Sincronização com sistema externo concluída');
+              } else if (idEvento) {
+                console.warn('⚠️ Base salva localmente, mas sincronização externa falhou:', createBaseData?.external_sync?.message);
+              }
             } else {
-              console.warn('⚠️ Falha ao enviar base para sistema de ligação:', webhookError);
+              console.warn('⚠️ Falha ao criar base de ligação:', createBaseError);
             }
           } else {
-            console.warn('⚠️ Nenhum agente Pri encontrado para enviar ao webhook');
+            console.warn('⚠️ Nenhum agente Pri encontrado para criar base de ligação');
           }
-        } catch (webhookError) {
-          console.error('❌ Erro ao enviar para webhook cria-base-ligacao:', webhookError);
+        } catch (createBaseError) {
+          console.error('❌ Erro ao criar base de ligação:', createBaseError);
         }
       }
 
