@@ -34,13 +34,27 @@ export function TemplatePreview({
   conteudo, 
   cardData 
 }: TemplatePreviewProps) {
+  // Função para renderizar texto com negrito (*texto* → <strong>texto</strong>)
+  const renderBoldText = (text: string) => {
+    if (!text) return null;
+    
+    // Convert *text* to bold spans
+    const parts = text.split(/(\*[^*]+\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+        return <strong key={index} className="font-bold">{part.slice(1, -1)}</strong>;
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
   // Função para renderizar o conteúdo baseado no formato
   const renderTemplateContent = () => {
     switch (formato) {
       case "texto":
         return (
           <div className="whitespace-pre-wrap text-sm">
-            {conteudo || "Texto da mensagem..."}
+            {renderBoldText(conteudo) || "Texto da mensagem..."}
           </div>
         );
 
@@ -48,7 +62,7 @@ export function TemplatePreview({
         return (
           <div className="space-y-2">
             <div className="whitespace-pre-wrap text-sm">
-              {conteudo || "Texto da mensagem..."}
+              {renderBoldText(conteudo) || "Texto da mensagem..."}
             </div>
             {cardData?.botoes && cardData.botoes.length > 0 && (
               <div className="space-y-1 pt-2 border-t border-[#25D366]/20">
@@ -83,7 +97,7 @@ export function TemplatePreview({
             )}
             {conteudo && (
               <div className="whitespace-pre-wrap text-sm">
-                {conteudo}
+                {renderBoldText(conteudo)}
               </div>
             )}
           </div>
@@ -111,7 +125,7 @@ export function TemplatePreview({
             )}
             {conteudo && (
               <div className="whitespace-pre-wrap text-sm">
-                {conteudo}
+                {renderBoldText(conteudo)}
               </div>
             )}
           </div>
@@ -135,7 +149,7 @@ export function TemplatePreview({
             )}
             {conteudo && (
               <div className="whitespace-pre-wrap text-sm">
-                {conteudo}
+                {renderBoldText(conteudo)}
               </div>
             )}
           </div>
@@ -169,7 +183,7 @@ export function TemplatePreview({
             {/* Corpo do texto */}
             {conteudo && (
               <div className="whitespace-pre-wrap text-sm">
-                {conteudo}
+                {renderBoldText(conteudo)}
               </div>
             )}
             
