@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { BoldTextarea } from "@/components/ui/bold-textarea";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -1396,12 +1397,12 @@ export default function Templates() {
             <p className="text-sm text-muted-foreground mb-2">
               Máximo de 1024 caracteres
             </p>
-            <Textarea
+            <BoldTextarea
               id="conteudo"
               value={formData.conteudo}
-              onChange={(e) => {
-                if (e.target.value.length <= 1024) {
-                  setFormData(prev => ({ ...prev, conteudo: e.target.value }));
+              onValueChange={(value) => {
+                if (value.length <= 1024) {
+                  setFormData(prev => ({ ...prev, conteudo: value }));
                 }
               }}
               placeholder="Digite o conteúdo do template..."
@@ -1546,14 +1547,14 @@ export default function Templates() {
           {/* Corpo do Texto */}
           <div>
             <Label htmlFor="corpoTexto">Corpo do Texto</Label>
-            <Textarea
+            <BoldTextarea
               id="corpoTexto"
               value={formData.cardData.corpoTexto}
-              onChange={(e) => {
-                if (e.target.value.length <= 1024) {
+              onValueChange={(value) => {
+                if (value.length <= 1024) {
                   setFormData(prev => ({
                     ...prev,
-                    cardData: { ...prev.cardData, corpoTexto: e.target.value }
+                    cardData: { ...prev.cardData, corpoTexto: value }
                   }));
                 }
               }}
@@ -1688,14 +1689,14 @@ export default function Templates() {
           {/* Corpo do Texto */}
           <div>
             <Label htmlFor="corpoTextoBotao">Corpo do Texto</Label>
-            <Textarea
+            <BoldTextarea
               id="corpoTextoBotao"
               value={formData.cardData.corpoTexto}
-              onChange={(e) => {
-                if (e.target.value.length <= 1024) {
+              onValueChange={(value) => {
+                if (value.length <= 1024) {
                   setFormData(prev => ({
                     ...prev,
-                    cardData: { ...prev.cardData, corpoTexto: e.target.value }
+                    cardData: { ...prev.cardData, corpoTexto: value }
                   }));
                 }
               }}
@@ -1842,14 +1843,14 @@ export default function Templates() {
           {/* Corpo do Texto */}
           <div>
             <Label htmlFor="corpoTextoImagem">Corpo do Texto</Label>
-            <Textarea
+            <BoldTextarea
               id="corpoTextoImagem"
               value={formData.cardData.corpoTexto}
-              onChange={(e) => {
-                if (e.target.value.length <= 1024) {
+              onValueChange={(value) => {
+                if (value.length <= 1024) {
                   setFormData(prev => ({
                     ...prev,
-                    cardData: { ...prev.cardData, corpoTexto: e.target.value }
+                    cardData: { ...prev.cardData, corpoTexto: value }
                   }));
                 }
               }}
@@ -2008,14 +2009,14 @@ export default function Templates() {
           {/* Corpo do Texto */}
           <div>
             <Label htmlFor="corpoTextoVideo">Corpo do Texto</Label>
-            <Textarea
+            <BoldTextarea
               id="corpoTextoVideo"
               value={formData.cardData.corpoTexto}
-              onChange={(e) => {
-                if (e.target.value.length <= 1024) {
+              onValueChange={(value) => {
+                if (value.length <= 1024) {
                   setFormData(prev => ({
                     ...prev,
-                    cardData: { ...prev.cardData, corpoTexto: e.target.value }
+                    cardData: { ...prev.cardData, corpoTexto: value }
                   }));
                 }
               }}
