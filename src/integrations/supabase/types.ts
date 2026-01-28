@@ -3026,12 +3026,17 @@ export type Database = {
           categoria: string | null
           conteudo: string | null
           created_at: string | null
+          criado_por: string | null
+          departamento: string | null
           descricao: string | null
+          dificuldade: string | null
           duracao_minutos: number | null
           empresa_id: string | null
           id: string
           instrutor_id: string | null
           nivel: string | null
+          nota_minima: number | null
+          tipo: string | null
           titulo: string
           updated_at: string | null
         }
@@ -3040,12 +3045,17 @@ export type Database = {
           categoria?: string | null
           conteudo?: string | null
           created_at?: string | null
+          criado_por?: string | null
+          departamento?: string | null
           descricao?: string | null
+          dificuldade?: string | null
           duracao_minutos?: number | null
           empresa_id?: string | null
           id?: string
           instrutor_id?: string | null
           nivel?: string | null
+          nota_minima?: number | null
+          tipo?: string | null
           titulo: string
           updated_at?: string | null
         }
@@ -3054,12 +3064,17 @@ export type Database = {
           categoria?: string | null
           conteudo?: string | null
           created_at?: string | null
+          criado_por?: string | null
+          departamento?: string | null
           descricao?: string | null
+          dificuldade?: string | null
           duracao_minutos?: number | null
           empresa_id?: string | null
           id?: string
           instrutor_id?: string | null
           nivel?: string | null
+          nota_minima?: number | null
+          tipo?: string | null
           titulo?: string
           updated_at?: string | null
         }

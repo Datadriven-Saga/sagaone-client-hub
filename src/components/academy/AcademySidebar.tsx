@@ -14,12 +14,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 
 interface NavItem {
   id: string;
   label: string;
   icon: React.ElementType;
   path: string;
+  adminOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -29,7 +31,7 @@ const navItems: NavItem[] = [
   { id: "voz", label: "Simulações por Voz", icon: Mic, path: "/treinamentos/simulacoes-voz" },
   { id: "texto", label: "Simulações por Texto", icon: MessageSquare, path: "/treinamentos/simulacoes-texto" },
   { id: "historico", label: "Histórico", icon: History, path: "/treinamentos/historico" },
-  { id: "admin", label: "Painel Admin", icon: Settings, path: "/treinamentos/admin" },
+  { id: "admin", label: "Painel Admin", icon: Settings, path: "/treinamentos/admin", adminOnly: true },
 ];
 
 interface AcademySidebarProps {
@@ -41,6 +43,18 @@ export function AcademySidebar({ collapsed = false, onToggle }: AcademySidebarPr
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isAdminOrTI, isGerente, isDiretor } = useUserAccessType();
+  
+  // Check if user has admin access to show admin panel
+  const hasAdminAccess = isAdminOrTI || isGerente || isDiretor;
+  
+  // Filter nav items based on permissions
+  const filteredNavItems = navItems.filter(item => {
+    if (item.adminOnly) {
+      return hasAdminAccess;
+    }
+    return true;
+  });
 
   const isActive = (path: string) => {
     if (path === "/treinamentos") {
@@ -96,7 +110,7 @@ export function AcademySidebar({ collapsed = false, onToggle }: AcademySidebarPr
 
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-        {navItems.map((item) => (
+        {filteredNavItems.map((item) => (
           <button
             key={item.id}
             onClick={() => navigate(item.path)}
