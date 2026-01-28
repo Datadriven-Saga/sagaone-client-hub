@@ -705,6 +705,14 @@ showAllEvents: true
           const results = await Promise.all(
             batch.map(async (evento) => {
               try {
+                // Métricas externas de Ligação precisam do event_id_pri (numérico).
+                // Se não existir, não chamar webhook externo (evita 500 "Error in workflow").
+                if (!evento.event_id_pri) {
+                  console.log(`⚠️ Evento ${evento.id} sem event_id_pri; usando fallback local`);
+                  const contagem = await contarContatosPendentesDisparo(evento.id);
+                  return { id: evento.id, contagem, metricasExternas: null };
+                }
+
                 // Primeiro tenta métricas externas
                 const metricasExternas = await fetchMetricasLigacao(evento.id, evento.event_id_pri);
                 
