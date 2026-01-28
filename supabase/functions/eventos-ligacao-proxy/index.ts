@@ -20,6 +20,8 @@ serve(async (req) => {
     let webhookUrl: string;
     let body: Record<string, any>;
 
+    console.log(`🔄 Action recebida: ${action}`, params);
+
     switch (action) {
       case 'listar_todos':
         // Nova action para a tela de Eventos do Agente - apenas telefone_pri
@@ -27,6 +29,7 @@ serve(async (req) => {
         body = {
           telefone_pri: params.telefone_pri,
         };
+        console.log(`📞 Buscando eventos para telefone_pri: ${params.telefone_pri}`);
         break;
 
       case 'listar':

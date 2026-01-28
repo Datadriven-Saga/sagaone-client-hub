@@ -72,25 +72,34 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
         }
       });
 
+      console.log('Resposta eventos-ligacao-proxy:', { data, error });
+
       if (error) {
+        console.error('Erro na edge function:', error);
         throw error;
       }
 
-      console.log('Eventos carregados:', data);
-      
       // Garantir que sempre temos um array válido
       // Se retornar array vazio ou null/undefined, significa que não há eventos
       let eventosArray: Evento[] = [];
       
-      if (Array.isArray(data) && data.length > 0) {
+      // Verificar se retornou um objeto com propriedade error ou message (erro do webhook)
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        if (data.error || data.message === 'Error in workflow') {
+          console.warn('Webhook retornou erro:', data);
+          setEventos([]);
+          return;
+        }
+        // Se tem propriedade eventos, usar ela
+        if (data.eventos && Array.isArray(data.eventos)) {
+          eventosArray = data.eventos.filter((e: any) => e && e.id_evento);
+        }
+      } else if (Array.isArray(data) && data.length > 0) {
         // Filtrar apenas eventos válidos (com id_evento definido)
         eventosArray = data.filter((e: any) => e && e.id_evento);
-      } else if (data && !Array.isArray(data) && data.eventos) {
-        eventosArray = Array.isArray(data.eventos) 
-          ? data.eventos.filter((e: any) => e && e.id_evento)
-          : [];
       }
       
+      console.log('Eventos filtrados:', eventosArray);
       setEventos(eventosArray);
     } catch (error) {
       console.error('Erro ao carregar eventos:', error);
