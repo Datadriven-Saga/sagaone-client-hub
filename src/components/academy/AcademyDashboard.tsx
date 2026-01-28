@@ -24,8 +24,8 @@ const radarData = [
   { dimension: "Situação", score: 2.5, fullMark: 10 },
   { dimension: "Problema", score: 4.2, fullMark: 10 },
   { dimension: "Implicação", score: 0.8, fullMark: 10 },
-  { dimension: "Negociação", score: 0.6, fullMark: 10 },
-  { dimension: "Fechamento", score: 0.0, fullMark: 10 },
+  { dimension: "Negociação e Objeção", score: 0.6, fullMark: 10 },
+  { dimension: "Fechamento e Próximos Passos", score: 0.0, fullMark: 10 },
 ];
 
 const dimensionScores = [
