@@ -2840,6 +2840,186 @@ export type Database = {
         }
         Relationships: []
       }
+      treinamento_modulos: {
+        Row: {
+          ativo: boolean
+          cenario: string | null
+          created_at: string
+          descricao: string | null
+          id: string
+          ordem: number
+          persona_cargo: string | null
+          persona_empresa: string | null
+          persona_nome: string | null
+          persona_objetivo: string | null
+          prompt_ia: string | null
+          titulo: string
+          treinamento_id: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cenario?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          ordem?: number
+          persona_cargo?: string | null
+          persona_empresa?: string | null
+          persona_nome?: string | null
+          persona_objetivo?: string | null
+          prompt_ia?: string | null
+          titulo: string
+          treinamento_id: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cenario?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          ordem?: number
+          persona_cargo?: string | null
+          persona_empresa?: string | null
+          persona_nome?: string | null
+          persona_objetivo?: string | null
+          prompt_ia?: string | null
+          titulo?: string
+          treinamento_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treinamento_modulos_treinamento_id_fkey"
+            columns: ["treinamento_id"]
+            isOneToOne: false
+            referencedRelation: "treinamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      treinamento_obrigatorios: {
+        Row: {
+          atribuido_por: string
+          created_at: string
+          empresa_id: string | null
+          id: string
+          motivo: string | null
+          prazo: string | null
+          treinamento_id: string
+          user_id: string
+        }
+        Insert: {
+          atribuido_por: string
+          created_at?: string
+          empresa_id?: string | null
+          id?: string
+          motivo?: string | null
+          prazo?: string | null
+          treinamento_id: string
+          user_id: string
+        }
+        Update: {
+          atribuido_por?: string
+          created_at?: string
+          empresa_id?: string | null
+          id?: string
+          motivo?: string | null
+          prazo?: string | null
+          treinamento_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treinamento_obrigatorios_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treinamento_obrigatorios_treinamento_id_fkey"
+            columns: ["treinamento_id"]
+            isOneToOne: false
+            referencedRelation: "treinamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      treinamento_progresso: {
+        Row: {
+          created_at: string
+          data_conclusao: string | null
+          data_inicio: string | null
+          empresa_id: string | null
+          feedback_ia: string | null
+          id: string
+          modulo_id: string | null
+          nota: number | null
+          status: string
+          tempo_gasto_segundos: number | null
+          tentativas: number | null
+          treinamento_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          empresa_id?: string | null
+          feedback_ia?: string | null
+          id?: string
+          modulo_id?: string | null
+          nota?: number | null
+          status?: string
+          tempo_gasto_segundos?: number | null
+          tentativas?: number | null
+          treinamento_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          empresa_id?: string | null
+          feedback_ia?: string | null
+          id?: string
+          modulo_id?: string | null
+          nota?: number | null
+          status?: string
+          tempo_gasto_segundos?: number | null
+          tentativas?: number | null
+          treinamento_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treinamento_progresso_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treinamento_progresso_modulo_id_fkey"
+            columns: ["modulo_id"]
+            isOneToOne: false
+            referencedRelation: "treinamento_modulos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treinamento_progresso_treinamento_id_fkey"
+            columns: ["treinamento_id"]
+            isOneToOne: false
+            referencedRelation: "treinamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       treinamentos: {
         Row: {
           ativo: boolean | null
