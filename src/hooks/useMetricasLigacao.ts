@@ -107,8 +107,48 @@ export function useMetricasLigacao() {
         return null;
       }
 
-      // O webhook retorna um array de contatos com campos de controle
-      if (Array.isArray(data)) {
+      // O webhook pode retornar dados agregados ou lista de contatos
+      if (Array.isArray(data) && data.length > 0) {
+        const firstItem = data[0];
+        
+        // Formato agregado: [{total_registros, tentativas_0, tentativas_1, ...}]
+        if ('total_registros' in firstItem) {
+          const agg = firstItem;
+          const total = Number(agg.total_registros) || 0;
+          const tentativas0 = Number(agg.tentativas_0) || 0;
+          const tentativas1 = Number(agg.tentativas_1) || 0;
+          const tentativas2 = Number(agg.tentativas_2) || 0;
+          const tentativasMaior2 = Number(agg.tentativas_maior_2) || 0;
+          const ligacaoAtendida = Number(agg.ligacao_atendida) || 0;
+          const statusAgendado = Number(agg.status_agendado) || 0;
+          const ligacaoErro = Number(agg.ligacao_erro) || 0;
+          const enviadoWhatsapp = Number(agg.enviado_whatsapp) || 0;
+
+          // Encerrados = sucesso (agendado/atendido/whatsapp) + tentativas >= 2
+          const encerradosSucesso = Math.max(ligacaoAtendida, statusAgendado, enviadoWhatsapp);
+          const encerradosTentativas = tentativas2 + tentativasMaior2;
+          
+          const metricsResult: MetricasLigacaoExternas = {
+            total,
+            pendentes: tentativas0,
+            disparados1: tentativas1,
+            disparados2: tentativas2 + tentativasMaior2,
+            emFila: ligacaoErro,
+            encerrados: encerradosSucesso + encerradosTentativas,
+            elegiveisDisparo: tentativas0 + ligacaoErro
+          };
+
+          console.log(`📊 Métricas agregadas para ${eventoId}:`, metricsResult);
+
+          metricsCache[cacheKey] = {
+            metrics: metricsResult,
+            timestamp: Date.now()
+          };
+
+          return metricsResult;
+        }
+        
+        // Formato legado: lista de contatos individuais
         const metricsResult: MetricasLigacaoExternas = {
           total: data.length,
           pendentes: 0,
@@ -126,17 +166,13 @@ export function useMetricasLigacao() {
           const ligacaoAtendida = contato.ligacao_atendida === true;
           const ligacaoErro = contato.ligacao_erro === true;
 
-          // Um lead está "encerrado" se atingiu >= 2 tentativas OU sucesso
           const isSuccessEncerrado = statusAgendado || enviadoWhatsapp || ligacaoAtendida;
           const isEncerrado = isSuccessEncerrado || numTentativas >= 2;
-          
-          // Em fila = ligacao_erro=true E tentativas < 2 E NÃO está encerrado por sucesso
           const isEmFila = ligacaoErro && numTentativas < 2 && !isSuccessEncerrado;
           
           if (isEmFila) metricsResult.emFila++;
           if (isEncerrado) metricsResult.encerrados++;
 
-          // Classificar por tentativas
           if (numTentativas === 0) {
             metricsResult.pendentes++;
           } else if (numTentativas === 1) {
@@ -146,12 +182,9 @@ export function useMetricasLigacao() {
           }
         }
 
-        // Elegíveis para disparo = Pendentes (nunca tentados) + Em Fila (retry)
         metricsResult.elegiveisDisparo = metricsResult.pendentes + metricsResult.emFila;
+        console.log(`📊 Métricas calculadas para ${eventoId}:`, metricsResult);
 
-        console.log(`📊 Métricas externas para ${eventoId}:`, metricsResult);
-
-        // Salvar no cache
         metricsCache[cacheKey] = {
           metrics: metricsResult,
           timestamp: Date.now()
