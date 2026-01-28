@@ -66,6 +66,13 @@ const AppRoutes = () => {
       <Route path="/resultados" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
       <Route path="/relatorios" element={<AdminProtectedRoute><Relatorios /></AdminProtectedRoute>} />
       <Route path="/treinamentos" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
+      <Route path="/treinamentos/ranking" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
+      <Route path="/treinamentos/trilhas" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
+      <Route path="/treinamentos/simulacoes-voz" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
+      <Route path="/treinamentos/simulacoes-texto" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
+      <Route path="/treinamentos/historico" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
+      <Route path="/treinamentos/historico/:id" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
+      <Route path="/treinamentos/admin" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
       <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
       <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
       <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
