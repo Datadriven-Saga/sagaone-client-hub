@@ -649,13 +649,9 @@ export function AcademyAdminPanel() {
 
         <TabsContent value="progress" className="mt-4">
           <Card>
-            {loadingProgress ? (
+            {!users?.length ? (
               <div className="p-8 text-center text-muted-foreground">
-                Carregando progresso...
-              </div>
-            ) : !filteredProgress?.length ? (
-              <div className="p-8 text-center text-muted-foreground">
-                Nenhum progresso registrado ainda.
+                Nenhum usuário encontrado.
               </div>
             ) : (
               <Table>
@@ -663,41 +659,82 @@ export function AcademyAdminPanel() {
                   <TableRow>
                     <TableHead>Usuário</TableHead>
                     <TableHead>Departamento</TableHead>
-                    <TableHead>Treinamento</TableHead>
-                    <TableHead>Tipo</TableHead>
+                    <TableHead>Tipo de Acesso</TableHead>
+                    <TableHead>Treinamentos Concluídos</TableHead>
+                    <TableHead>Em Andamento</TableHead>
+                    <TableHead>Média de Notas</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Nota</TableHead>
-                    <TableHead>Tentativas</TableHead>
-                    <TableHead>Conclusão</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredProgress.map((progress) => (
-                    <TableRow key={progress.id}>
-                      <TableCell className="font-medium">
-                        {(progress.profiles as any)?.nome_completo || "—"}
-                      </TableCell>
-                      <TableCell>
-                        {(progress.profiles as any)?.departamento || "—"}
-                      </TableCell>
-                      <TableCell>
-                        {(progress.treinamentos as any)?.titulo || "—"}
-                      </TableCell>
-                      <TableCell>
-                        {getTipoBadge((progress.treinamentos as any)?.tipo || "curso")}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(progress.status)}</TableCell>
-                      <TableCell>
-                        {progress.nota !== null ? `${progress.nota}/10` : "—"}
-                      </TableCell>
-                      <TableCell>{progress.tentativas}</TableCell>
-                      <TableCell>
-                        {progress.data_conclusao
-                          ? new Date(progress.data_conclusao).toLocaleDateString("pt-BR")
-                          : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {users
+                    .filter(u => 
+                      u.nome_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      u.departamento?.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map((userProfile) => {
+                      // Calculate user's progress stats
+                      const userProgressData = userProgress?.filter(p => p.user_id === userProfile.id) || [];
+                      const concluidos = userProgressData.filter(p => p.status === "concluido").length;
+                      const emAndamento = userProgressData.filter(p => p.status === "em_andamento").length;
+                      const notasValidas = userProgressData.filter(p => p.nota !== null).map(p => p.nota as number);
+                      const mediaNota = notasValidas.length > 0 
+                        ? (notasValidas.reduce((a, b) => a + b, 0) / notasValidas.length).toFixed(1)
+                        : "—";
+                      
+                      return (
+                        <TableRow key={userProfile.id}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+                                {userProfile.nome_completo?.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase() || "?"}
+                              </div>
+                              <span>{userProfile.nome_completo || "—"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{userProfile.departamento || "—"}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{userProfile.tipo_acesso || "—"}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium text-green-600">{concluidos}</span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium text-yellow-600">{emAndamento}</span>
+                          </TableCell>
+                          <TableCell>
+                            {mediaNota !== "—" ? (
+                              <Badge className={
+                                parseFloat(mediaNota) >= 7 
+                                  ? "bg-green-100 text-green-700" 
+                                  : parseFloat(mediaNota) >= 5 
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : "bg-red-100 text-red-700"
+                              }>
+                                {mediaNota}/10
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {userProgressData.length === 0 ? (
+                              <Badge variant="outline" className="text-muted-foreground">Sem atividade</Badge>
+                            ) : concluidos > 0 ? (
+                              <Badge className="bg-green-100 text-green-700">
+                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                Ativo
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-yellow-100 text-yellow-700">
+                                <Clock className="h-3 w-3 mr-1" />
+                                Em progresso
+                              </Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                 </TableBody>
               </Table>
             )}
