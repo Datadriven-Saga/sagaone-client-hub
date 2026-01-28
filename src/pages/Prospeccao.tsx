@@ -1135,12 +1135,27 @@ showAllEvents: true
       // Usar a função do hook que já trata empresa_id automaticamente e vincula na eventos_prospeccao
       const resultado = await adicionarContatos(novosContatos, prospeccaoSelecionada.id);
 
+      console.log('📊 Resultado do adicionarContatos:', {
+        temResultado: !!resultado,
+        todosContatosProcessados: resultado?.todosContatosProcessados?.length || 0,
+        novosContatosCriados: resultado?.novosContatosCriados?.length || 0,
+        contatosVinculados: resultado?.contatosVinculados?.length || 0
+      });
+
       // Para eventos de Ligação, salvar no Supabase (prospect_pri_voz) e enviar ao webhook externo
       // A Edge Function create-base-ligacao faz AMBOS: salva no Supabase E envia para o n8n/PRI
       const isLigacaoEvent = prospeccaoSelecionada.canal === 'Ligação';
-      if (isLigacaoEvent && resultado?.todosContatosProcessados && resultado.todosContatosProcessados.length > 0) {
+      console.log('📞 Verificando se é evento de Ligação:', { 
+        canal: prospeccaoSelecionada.canal, 
+        isLigacaoEvent,
+        totalClientesImportados: clientes.length
+      });
+
+      // SEMPRE chamar a Edge Function para eventos de Ligação, mesmo que resultado seja parcial
+      // Usar os clientes originais se o resultado estiver vazio
+      if (isLigacaoEvent) {
         try {
-          console.log('📞 Criando base de ligação no Supabase e sincronizando com sistema externo...');
+          console.log('📞 Criando base de ligação no Supabase e sincronizando com webhook externo...');
           
           // Buscar agente de ligação (Pri) ativo da empresa para obter telefone_pri
           const { data: agenteData, error: agenteError } = await supabase
@@ -1159,17 +1174,38 @@ showAllEvents: true
             .limit(1)
             .single();
 
+          console.log('🔍 Busca de agente:', { 
+            agenteData: agenteData ? 'encontrado' : 'não encontrado', 
+            agenteError: agenteError?.message,
+            telefonePri: agenteData?.agentes_ia?.telefone 
+          });
+
           if (!agenteError && agenteData?.agentes_ia?.telefone) {
             const telefonePri = agenteData.agentes_ia.telefone.replace(/\D/g, '');
             const lojaNome = activeCompany?.nome_empresa || '';
             const idEvento = prospeccaoSelecionada.event_id_pri ? Number(prospeccaoSelecionada.event_id_pri) : null;
+
+            console.log('📦 Dados para create-base-ligacao:', { 
+              telefonePri, 
+              lojaNome, 
+              idEvento,
+              empresaId: activeCompany?.id,
+              prospeccaoId: prospeccaoSelecionada.id
+            });
 
             const normalizeTelefoneForPri = (digits: string) => {
               if (digits.length > 11 && digits.startsWith('55')) return digits.slice(2);
               return digits;
             };
 
-            const contatosPayload = resultado.todosContatosProcessados.map((c) => {
+            // IMPORTANTE: Usar os contatos processados OU os clientes originais como fallback
+            const contatosParaEnviar = (resultado?.todosContatosProcessados && resultado.todosContatosProcessados.length > 0)
+              ? resultado.todosContatosProcessados
+              : clientes.map(c => ({ nome: c.nome, telefone: c.telefone }));
+
+            console.log('📋 Contatos para enviar à Edge Function:', contatosParaEnviar.length);
+
+            const contatosPayload = contatosParaEnviar.map((c) => {
               const telefoneDigitsRaw = c.telefone?.replace(/\D/g, '') || '';
               const telefoneDigits = normalizeTelefoneForPri(telefoneDigitsRaw);
 
@@ -1178,6 +1214,8 @@ showAllEvents: true
                 telefone: telefoneDigits,
               };
             });
+
+            console.log('🚀 Chamando Edge Function create-base-ligacao com', contatosPayload.length, 'contatos');
 
             // Usar Edge Function create-base-ligacao que:
             // 1. Salva no Supabase (prospect_pri_voz) - fonte primária
@@ -1194,20 +1232,31 @@ showAllEvents: true
               },
             });
 
+            console.log('📥 Resposta da Edge Function:', { createBaseData, createBaseError });
+
             if (!createBaseError) {
               console.log('✅ Base de ligação criada:', createBaseData?.summary);
               
               // Se sincronizou com sucesso com o sistema externo, mostrar feedback
               if (createBaseData?.external_sync?.success) {
-                console.log('✅ Sincronização com sistema externo concluída');
+                console.log('✅ Webhook externo cria-base-ligacao chamado com sucesso');
+                toast({
+                  title: "Sincronização concluída",
+                  description: `${contatosPayload.length} contatos enviados para o sistema de ligação`,
+                });
               } else if (idEvento) {
                 console.warn('⚠️ Base salva localmente, mas sincronização externa falhou:', createBaseData?.external_sync?.message);
               }
             } else {
-              console.warn('⚠️ Falha ao criar base de ligação:', createBaseError);
+              console.error('❌ Erro ao chamar Edge Function create-base-ligacao:', createBaseError);
             }
           } else {
             console.warn('⚠️ Nenhum agente Pri encontrado para criar base de ligação');
+            toast({
+              title: "Aviso",
+              description: "Agente Pri não encontrado. Contatos importados localmente, mas não sincronizados com o sistema de ligação.",
+              variant: "destructive"
+            });
           }
         } catch (createBaseError) {
           console.error('❌ Erro ao criar base de ligação:', createBaseError);
