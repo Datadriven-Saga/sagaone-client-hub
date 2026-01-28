@@ -42,6 +42,10 @@ import {
   Clock,
   Search,
   Filter,
+  ChevronLeft,
+  ChevronRight,
+  Building2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -86,7 +90,17 @@ interface UserProfile {
   departamento: string | null;
   tipo_acesso: string;
   empresa_id: string | null;
+  empresas?: {
+    nome_empresa: string;
+  } | null;
 }
+
+interface Empresa {
+  id: string;
+  nome_empresa: string;
+}
+
+const ITEMS_PER_PAGE = 10;
 
 const DEPARTMENTS = [
   "Vendas Novos",
@@ -113,6 +127,12 @@ export function AcademyAdminPanel() {
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  
+  // User progress filters
+  const [userNameFilter, setUserNameFilter] = useState("");
+  const [userDepartmentFilter, setUserDepartmentFilter] = useState<string>("all");
+  const [userStoreFilter, setUserStoreFilter] = useState<string>("all");
+  const [userProgressPage, setUserProgressPage] = useState(1);
   
   // Form state for creating/editing training
   const [formData, setFormData] = useState({
@@ -170,19 +190,30 @@ export function AcademyAdminPanel() {
     enabled: hasAdminAccess,
   });
 
-  // Fetch users for assignment
-  const { data: users } = useQuery({
-    queryKey: ["academy-users", activeCompany, departmentFilter],
+  // Fetch empresas (stores)
+  const { data: empresas } = useQuery({
+    queryKey: ["academy-empresas"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("empresas")
+        .select("id, nome_empresa")
+        .order("nome_empresa");
+      
+      if (error) throw error;
+      return data as Empresa[];
+    },
+    enabled: hasAdminAccess && isAdminOrTI,
+  });
+
+  // Fetch users for assignment and progress
+  const { data: users, isLoading: loadingUsers } = useQuery({
+    queryKey: ["academy-users", activeCompany, isAdminOrTI],
     queryFn: async () => {
       let query = supabase
         .from("profiles")
-        .select("id, nome_completo, departamento, tipo_acesso, empresa_id")
+        .select("id, nome_completo, departamento, tipo_acesso, empresa_id, empresas:empresa_id(nome_empresa)")
         .eq("status", "Ativo")
         .order("nome_completo");
-      
-      if (departmentFilter !== "all") {
-        query = query.eq("departamento", departmentFilter);
-      }
       
       // For managers, filter by their company
       if (!isAdminOrTI && activeCompany?.id) {
@@ -647,97 +678,228 @@ export function AcademyAdminPanel() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="progress" className="mt-4">
-          <Card>
-            {!users?.length ? (
-              <div className="p-8 text-center text-muted-foreground">
-                Nenhum usuário encontrado.
+        <TabsContent value="progress" className="mt-4 space-y-4">
+          {/* User Progress Filters */}
+          <Card className="p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome..."
+                  value={userNameFilter}
+                  onChange={(e) => {
+                    setUserNameFilter(e.target.value);
+                    setUserProgressPage(1);
+                  }}
+                  className="pl-10"
+                />
               </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Usuário</TableHead>
-                    <TableHead>Departamento</TableHead>
-                    <TableHead>Tipo de Acesso</TableHead>
-                    <TableHead>Treinamentos Concluídos</TableHead>
-                    <TableHead>Em Andamento</TableHead>
-                    <TableHead>Média de Notas</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users
-                    .filter(u => 
-                      u.nome_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      u.departamento?.toLowerCase().includes(searchTerm.toLowerCase())
-                    )
-                    .map((userProfile) => {
-                      // Calculate user's progress stats
-                      const userProgressData = userProgress?.filter(p => p.user_id === userProfile.id) || [];
-                      const concluidos = userProgressData.filter(p => p.status === "concluido").length;
-                      const emAndamento = userProgressData.filter(p => p.status === "em_andamento").length;
-                      const notasValidas = userProgressData.filter(p => p.nota !== null).map(p => p.nota as number);
-                      const mediaNota = notasValidas.length > 0 
-                        ? (notasValidas.reduce((a, b) => a + b, 0) / notasValidas.length).toFixed(1)
-                        : "—";
-                      
-                      return (
-                        <TableRow key={userProfile.id}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-                                {userProfile.nome_completo?.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase() || "?"}
+              
+              <Select 
+                value={userDepartmentFilter} 
+                onValueChange={(v) => {
+                  setUserDepartmentFilter(v);
+                  setUserProgressPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Departamento" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  <SelectItem value="all">Todos departamentos</SelectItem>
+                  {DEPARTMENTS.map(dept => (
+                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {isAdminOrTI && (
+                <Select 
+                  value={userStoreFilter} 
+                  onValueChange={(v) => {
+                    setUserStoreFilter(v);
+                    setUserProgressPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[200px]">
+                    <Building2 className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Loja" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    <SelectItem value="all">Todas as lojas</SelectItem>
+                    {empresas?.map(emp => (
+                      <SelectItem key={emp.id} value={emp.id}>{emp.nome_empresa}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              
+              {/* Clear filters button */}
+              {(userNameFilter || userDepartmentFilter !== "all" || userStoreFilter !== "all") && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    setUserNameFilter("");
+                    setUserDepartmentFilter("all");
+                    setUserStoreFilter("all");
+                    setUserProgressPage(1);
+                  }}
+                  className="gap-1"
+                >
+                  <X className="h-4 w-4" />
+                  Limpar
+                </Button>
+              )}
+            </div>
+          </Card>
+
+          <Card>
+            {loadingUsers ? (
+              <div className="p-8 text-center text-muted-foreground">
+                Carregando usuários...
+              </div>
+            ) : (() => {
+              // Filter users
+              const filteredUsers = users?.filter(u => {
+                const matchesName = !userNameFilter || 
+                  u.nome_completo?.toLowerCase().includes(userNameFilter.toLowerCase());
+                const matchesDept = userDepartmentFilter === "all" || 
+                  u.departamento === userDepartmentFilter;
+                const matchesStore = userStoreFilter === "all" || 
+                  u.empresa_id === userStoreFilter;
+                return matchesName && matchesDept && matchesStore;
+              }) || [];
+              
+              // Pagination
+              const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+              const startIndex = (userProgressPage - 1) * ITEMS_PER_PAGE;
+              const paginatedUsers = filteredUsers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+              
+              return !filteredUsers.length ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  Nenhum usuário encontrado com os filtros aplicados.
+                </div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Usuário</TableHead>
+                        <TableHead>Loja</TableHead>
+                        <TableHead>Departamento</TableHead>
+                        <TableHead>Tipo de Acesso</TableHead>
+                        <TableHead>Concluídos</TableHead>
+                        <TableHead>Em Andamento</TableHead>
+                        <TableHead>Média</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedUsers.map((userProfile) => {
+                        // Calculate user's progress stats
+                        const userProgressData = userProgress?.filter(p => p.user_id === userProfile.id) || [];
+                        const concluidos = userProgressData.filter(p => p.status === "concluido").length;
+                        const emAndamento = userProgressData.filter(p => p.status === "em_andamento").length;
+                        const notasValidas = userProgressData.filter(p => p.nota !== null).map(p => p.nota as number);
+                        const mediaNota = notasValidas.length > 0 
+                          ? (notasValidas.reduce((a, b) => a + b, 0) / notasValidas.length).toFixed(1)
+                          : "—";
+                        
+                        return (
+                          <TableRow key={userProfile.id}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+                                  {userProfile.nome_completo?.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase() || "?"}
+                                </div>
+                                <span>{userProfile.nome_completo || "—"}</span>
                               </div>
-                              <span>{userProfile.nome_completo || "—"}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>{userProfile.departamento || "—"}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{userProfile.tipo_acesso || "—"}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-medium text-green-600">{concluidos}</span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-medium text-yellow-600">{emAndamento}</span>
-                          </TableCell>
-                          <TableCell>
-                            {mediaNota !== "—" ? (
-                              <Badge className={
-                                parseFloat(mediaNota) >= 7 
-                                  ? "bg-green-100 text-green-700" 
-                                  : parseFloat(mediaNota) >= 5 
-                                    ? "bg-yellow-100 text-yellow-700"
-                                    : "bg-red-100 text-red-700"
-                              }>
-                                {mediaNota}/10
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {userProgressData.length === 0 ? (
-                              <Badge variant="outline" className="text-muted-foreground">Sem atividade</Badge>
-                            ) : concluidos > 0 ? (
-                              <Badge className="bg-green-100 text-green-700">
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Ativo
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-yellow-100 text-yellow-700">
-                                <Clock className="h-3 w-3 mr-1" />
-                                Em progresso
-                              </Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                </TableBody>
-              </Table>
-            )}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {(userProfile.empresas as any)?.nome_empresa || "—"}
+                            </TableCell>
+                            <TableCell>{userProfile.departamento || "—"}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{userProfile.tipo_acesso || "—"}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium text-green-600">{concluidos}</span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium text-yellow-600">{emAndamento}</span>
+                            </TableCell>
+                            <TableCell>
+                              {mediaNota !== "—" ? (
+                                <Badge className={
+                                  parseFloat(mediaNota) >= 7 
+                                    ? "bg-green-100 text-green-700" 
+                                    : parseFloat(mediaNota) >= 5 
+                                      ? "bg-yellow-100 text-yellow-700"
+                                      : "bg-red-100 text-red-700"
+                                }>
+                                  {mediaNota}/10
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {userProgressData.length === 0 ? (
+                                <Badge variant="outline" className="text-muted-foreground">Sem atividade</Badge>
+                              ) : concluidos > 0 ? (
+                                <Badge className="bg-green-100 text-green-700">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                                  Ativo
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-yellow-100 text-yellow-700">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  Em progresso
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                  
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t">
+                      <p className="text-sm text-muted-foreground">
+                        Mostrando {startIndex + 1} - {Math.min(startIndex + ITEMS_PER_PAGE, filteredUsers.length)} de {filteredUsers.length.toLocaleString("pt-BR")} usuários
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setUserProgressPage(p => Math.max(1, p - 1))}
+                          disabled={userProgressPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Anterior
+                        </Button>
+                        <span className="text-sm text-muted-foreground px-2">
+                          Página {userProgressPage} de {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setUserProgressPage(p => Math.min(totalPages, p + 1))}
+                          disabled={userProgressPage === totalPages}
+                        >
+                          Próximo
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </Card>
         </TabsContent>
       </Tabs>
