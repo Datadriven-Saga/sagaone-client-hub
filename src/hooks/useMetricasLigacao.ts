@@ -90,14 +90,25 @@ export function useMetricasLigacao() {
         return null;
       }
 
-      const idEvento = eventIdPri || eventoId;
-      
-      console.log('📊 Buscando métricas externas para evento:', idEvento);
+      // IMPORTANTE: o endpoint externo "metricas" exige id_evento numérico (PRI).
+      // Se não temos event_id_pri, NÃO devemos enviar o UUID do Supabase (gera "Error in workflow").
+      if (!eventIdPri) {
+        console.warn('⚠️ event_id_pri não fornecido; pulando métricas externas para evitar erro no workflow');
+        return null;
+      }
+
+      const idEventoNumerico = parseInt(String(eventIdPri), 10);
+      if (Number.isNaN(idEventoNumerico)) {
+        console.warn('⚠️ event_id_pri inválido (não numérico):', eventIdPri);
+        return null;
+      }
+
+      console.log('📊 Buscando métricas externas para id_evento (PRI):', idEventoNumerico);
 
       const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
         body: {
           endpoint: 'metricas',
-          id_evento: idEvento,
+          id_evento: idEventoNumerico,
           telefone_pri: telefonePri
         }
       });
