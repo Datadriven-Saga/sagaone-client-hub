@@ -8,6 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -49,6 +53,13 @@ import {
   Building2,
   X,
   UserPlus,
+  Eye,
+  Calendar,
+  AlertCircle,
+  GraduationCap,
+  Layers,
+  FileText,
+  PlayCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -59,6 +70,8 @@ import {
   useCreateTreinamento, 
   useAssignTreinamento 
 } from "@/hooks/useAcademyData";
+import { format, addDays } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -107,8 +120,10 @@ export function AcademyAdminPanel() {
   const [activeTab, setActiveTab] = useState("trainings");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedTraining, setSelectedTraining] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<string>("");
+  const [assignmentDeadline, setAssignmentDeadline] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -126,6 +141,7 @@ export function AcademyAdminPanel() {
     tipo: "texto",
     nivel: "intermediario",
     duracao_estimada_minutos: 30,
+    prazo_padrao_dias: 30, // Default deadline in days after assignment
     obrigatorio: false,
     publicoAlvo: [] as string[],
     aiPrompt: "",
@@ -220,6 +236,7 @@ export function AcademyAdminPanel() {
       tipo: "texto",
       nivel: "intermediario",
       duracao_estimada_minutos: 30,
+      prazo_padrao_dias: 30,
       obrigatorio: false,
       publicoAlvo: [],
       aiPrompt: "",
@@ -281,6 +298,7 @@ export function AcademyAdminPanel() {
       tipo: formData.tipo,
       nivel: formData.nivel,
       duracao_estimada_minutos: formData.duracao_estimada_minutos,
+      prazo_padrao_dias: formData.prazo_padrao_dias,
       obrigatorio: formData.obrigatorio,
       // Voice config
       personaNome: formData.personaNome,
@@ -300,16 +318,29 @@ export function AcademyAdminPanel() {
       return;
     }
     
+    // Calculate deadline based on selected date or default
+    const dataLimite = assignmentDeadline || 
+      (selectedTraining.conteudo?.prazo_padrao_dias 
+        ? format(addDays(new Date(), selectedTraining.conteudo.prazo_padrao_dias), "yyyy-MM-dd")
+        : format(addDays(new Date(), formData.prazo_padrao_dias), "yyyy-MM-dd"));
+    
     assignTreinamento.mutate({
       treinamentoId: selectedTraining.id,
       userId: selectedUser,
       obrigatorio: true,
+      dataLimite,
     }, {
       onSuccess: () => {
         setIsAssignModalOpen(false);
         setSelectedUser("");
+        setAssignmentDeadline("");
       }
     });
+  };
+
+  const handleOpenDetails = (training: any) => {
+    setSelectedTraining(training);
+    setIsDetailsModalOpen(true);
   };
 
   const filteredTrainings = trainings?.filter(t => 
@@ -480,6 +511,22 @@ export function AcademyAdminPanel() {
                 </div>
               </div>
 
+              {/* Prazo padrão para conclusão */}
+              <div>
+                <label className="text-sm font-medium mb-1 block">Prazo padrão para conclusão (dias)</label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Quando atribuído a um usuário, ele terá este prazo para concluir o curso.
+                </p>
+                <Input
+                  type="number"
+                  value={formData.prazo_padrao_dias}
+                  onChange={(e) => setFormData(prev => ({ ...prev, prazo_padrao_dias: parseInt(e.target.value) || 30 }))}
+                  min={1}
+                  max={365}
+                  placeholder="30"
+                />
+              </div>
+
               {/* Voice configuration - only show for simulation type */}
               {formData.tipo === "simulacao" && (
                 <Card className="p-4 border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20">
@@ -635,8 +682,20 @@ export function AcademyAdminPanel() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              onClick={() => handleOpenDetails(training)}
+                              title="Ver detalhes"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => {
                                 setSelectedTraining(training);
+                                // Set default deadline based on training config
+                                const conteudo = training.conteudo as Record<string, any> | null;
+                                const defaultDays = conteudo?.prazo_padrao_dias || 30;
+                                setAssignmentDeadline(format(addDays(new Date(), defaultDays), "yyyy-MM-dd"));
                                 setIsAssignModalOpen(true);
                               }}
                               title="Atribuir a usuário"
@@ -910,24 +969,39 @@ export function AcademyAdminPanel() {
       </Tabs>
 
       {/* Assign Training Modal */}
-      <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
+      <Dialog open={isAssignModalOpen} onOpenChange={(open) => {
+        setIsAssignModalOpen(open);
+        if (!open) {
+          setAssignmentDeadline("");
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Atribuir Treinamento</DialogTitle>
+            <DialogDescription>
+              Defina o usuário e o prazo para conclusão do treinamento.
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             {selectedTraining && (
               <div className="p-3 bg-muted rounded-lg">
                 <p className="font-medium">{selectedTraining.titulo}</p>
-                <p className="text-sm text-muted-foreground">
-                  {getTipoBadge(selectedTraining.tipo)} • {selectedTraining.nivel || "—"}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  {getTipoBadge(selectedTraining.tipo)}
+                  <span className="text-sm text-muted-foreground">• {selectedTraining.nivel || "—"}</span>
+                  {selectedTraining.duracao_estimada_minutos && (
+                    <span className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {selectedTraining.duracao_estimada_minutos}min
+                    </span>
+                  )}
+                </div>
               </div>
             )}
             
             <div>
-              <label className="text-sm font-medium mb-2 block">Selecione um usuário</label>
+              <Label className="text-sm font-medium mb-2 block">Selecione um usuário *</Label>
               <Select value={selectedUser} onValueChange={setSelectedUser}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar usuário..." />
@@ -941,13 +1015,37 @@ export function AcademyAdminPanel() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-2 block flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Prazo para conclusão *
+              </Label>
+              <Input
+                type="date"
+                value={assignmentDeadline}
+                onChange={(e) => setAssignmentDeadline(e.target.value)}
+                min={format(new Date(), "yyyy-MM-dd")}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                O usuário terá até esta data para concluir o treinamento.
+              </p>
+            </div>
             
             {!selectedTraining && trainings && (
               <div>
-                <label className="text-sm font-medium mb-2 block">Selecione um treinamento</label>
+                <Label className="text-sm font-medium mb-2 block">Selecione um treinamento</Label>
                 <Select 
                   value={selectedTraining?.id || ""} 
-                  onValueChange={(v) => setSelectedTraining(trainings.find(t => t.id === v))}
+                  onValueChange={(v) => {
+                    const training = trainings.find(t => t.id === v);
+                    setSelectedTraining(training);
+                    if (training) {
+                      const conteudo = training.conteudo as Record<string, any> | null;
+                      const defaultDays = conteudo?.prazo_padrao_dias || 30;
+                      setAssignmentDeadline(format(addDays(new Date(), defaultDays), "yyyy-MM-dd"));
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecionar treinamento..." />
@@ -970,11 +1068,155 @@ export function AcademyAdminPanel() {
             </Button>
             <Button 
               onClick={handleAssignTraining}
-              disabled={!selectedUser || (!selectedTraining && !selectedUser) || assignTreinamento.isPending}
+              disabled={!selectedUser || !selectedTraining || !assignmentDeadline || assignTreinamento.isPending}
             >
               {assignTreinamento.isPending ? "Atribuindo..." : "Atribuir"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Training Details Modal */}
+      <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5" />
+              Detalhes do Treinamento
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedTraining && (
+            <ScrollArea className="flex-1 pr-4">
+              <div className="space-y-6">
+                {/* Training Header */}
+                <div className="p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border">
+                  <h2 className="text-xl font-bold text-foreground mb-2">{selectedTraining.titulo}</h2>
+                  {selectedTraining.descricao && (
+                    <p className="text-muted-foreground mb-3">{selectedTraining.descricao}</p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-3">
+                    {getTipoBadge(selectedTraining.tipo)}
+                    <Badge variant="outline">{selectedTraining.nivel || "Não definido"}</Badge>
+                    {selectedTraining.duracao_estimada_minutos && (
+                      <span className="text-sm text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        {selectedTraining.duracao_estimada_minutos} minutos
+                      </span>
+                    )}
+                    {getStatusBadge(selectedTraining.status)}
+                  </div>
+                </div>
+
+                {/* Training Configuration */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <Layers className="h-5 w-5" />
+                    Configuração
+                  </h3>
+                  <Card className="p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Prazo padrão</p>
+                        <p className="font-medium">
+                          {(selectedTraining.conteudo as Record<string, any>)?.prazo_padrao_dias || 30} dias
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Obrigatório</p>
+                        <p className="font-medium">{selectedTraining.obrigatorio ? "Sim" : "Não"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Criado em</p>
+                        <p className="font-medium">
+                          {format(new Date(selectedTraining.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Última atualização</p>
+                        <p className="font-medium">
+                          {format(new Date(selectedTraining.updated_at), "dd/MM/yyyy", { locale: ptBR })}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Voice Configuration if simulation */}
+                {selectedTraining.tipo === "simulacao" && selectedTraining.conteudo && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                      🎙️ Configuração de Voz
+                    </h3>
+                    <Card className="p-4 bg-purple-50/50 dark:bg-purple-950/20 border-purple-200">
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Nome da Persona</p>
+                          <p className="font-medium">
+                            {(selectedTraining.conteudo as Record<string, any>)?.config_voz?.persona_nome || "Cliente"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Gênero</p>
+                          <p className="font-medium">
+                            {(selectedTraining.conteudo as Record<string, any>)?.config_voz?.persona_genero === "M" ? "Masculino" : 
+                             (selectedTraining.conteudo as Record<string, any>)?.config_voz?.persona_genero === "F" ? "Feminino" : "Neutro"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Voz da IA</p>
+                          <p className="font-medium capitalize">
+                            {(selectedTraining.conteudo as Record<string, any>)?.config_voz?.voz_openai || "shimmer"}
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+
+                {/* Modules placeholder */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Módulos / Conteúdo
+                  </h3>
+                  <Card className="p-6 text-center">
+                    <BookOpen className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">
+                      Este treinamento ainda não possui módulos configurados.
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Os módulos serão adicionados em uma próxima versão.
+                    </p>
+                  </Card>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="flex items-center gap-3 pt-4 border-t">
+                  <Button 
+                    className="gap-2"
+                    onClick={() => {
+                      setIsDetailsModalOpen(false);
+                      // Set default deadline
+                      const conteudo = selectedTraining.conteudo as Record<string, any> | null;
+                      const defaultDays = conteudo?.prazo_padrao_dias || 30;
+                      setAssignmentDeadline(format(addDays(new Date(), defaultDays), "yyyy-MM-dd"));
+                      setIsAssignModalOpen(true);
+                    }}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Atribuir a Usuário
+                  </Button>
+                  {selectedTraining.tipo === "simulacao" && (
+                    <Button variant="outline" className="gap-2">
+                      <PlayCircle className="h-4 w-4" />
+                      Testar Simulação
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </ScrollArea>
+          )}
         </DialogContent>
       </Dialog>
     </div>
