@@ -60,6 +60,8 @@ import {
   Layers,
   FileText,
   PlayCircle,
+  Volume2,
+  Square,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -141,6 +143,9 @@ export function AcademyAdminPanel() {
   const [tipoFilter, setTipoFilter] = useState<string>("all");
   const [nivelFilter, setNivelFilter] = useState<string>("all");
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const [audioRef, setAudioRef] = useState<HTMLAudioElement | null>(null);
   
   // User progress filters
   const [userNameFilter, setUserNameFilter] = useState("");
@@ -308,6 +313,59 @@ export function AcademyAdminPanel() {
       toast.error("Erro ao gerar com IA: " + (err?.message || "erro desconhecido"));
     } finally {
       setIsGeneratingAI(false);
+    }
+  };
+
+  const handlePlayVoicePreview = async (voiceId: string) => {
+    // Stop current audio if playing
+    if (audioRef) {
+      audioRef.pause();
+      audioRef.currentTime = 0;
+      setAudioRef(null);
+    }
+
+    // If clicking the same voice that's playing, just stop
+    if (playingVoiceId === voiceId && isPlayingVoice) {
+      setIsPlayingVoice(false);
+      setPlayingVoiceId(null);
+      return;
+    }
+
+    setIsPlayingVoice(true);
+    setPlayingVoiceId(voiceId);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("academy-voice-preview", {
+        body: { voice: voiceId },
+      });
+
+      if (error) throw error;
+
+      if (data?.audioContent) {
+        const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
+        const audio = new Audio(audioUrl);
+        
+        audio.onended = () => {
+          setIsPlayingVoice(false);
+          setPlayingVoiceId(null);
+          setAudioRef(null);
+        };
+
+        audio.onerror = () => {
+          setIsPlayingVoice(false);
+          setPlayingVoiceId(null);
+          setAudioRef(null);
+          toast.error("Erro ao reproduzir áudio");
+        };
+
+        setAudioRef(audio);
+        await audio.play();
+      }
+    } catch (err: any) {
+      console.error("Erro ao gerar preview de voz:", err);
+      toast.error("Erro ao gerar preview de voz");
+      setIsPlayingVoice(false);
+      setPlayingVoiceId(null);
     }
   };
 
@@ -677,19 +735,40 @@ export function AcademyAdminPanel() {
                     </div>
                     <div>
                       <label className="text-sm font-medium mb-1 block">Voz da IA</label>
-                      <Select
-                        value={formData.vozIA}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, vozIA: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {VOZES_IA.map(voz => (
-                            <SelectItem key={voz.value} value={voz.value}>{voz.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex gap-2">
+                        <Select
+                          value={formData.vozIA}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, vozIA: value }))}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {VOZES_IA.map(voz => (
+                              <SelectItem key={voz.value} value={voz.value}>{voz.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handlePlayVoicePreview(formData.vozIA)}
+                          disabled={isPlayingVoice && playingVoiceId !== formData.vozIA}
+                          title={playingVoiceId === formData.vozIA && isPlayingVoice ? "Parar" : "Ouvir voz"}
+                        >
+                          {playingVoiceId === formData.vozIA && isPlayingVoice ? (
+                            <Square className="h-4 w-4" />
+                          ) : playingVoiceId === formData.vozIA ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Volume2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Clique no ícone de som para ouvir uma amostra da voz
+                      </p>
                     </div>
                   </div>
                 )}
