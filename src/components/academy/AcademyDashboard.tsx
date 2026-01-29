@@ -256,36 +256,6 @@ export function AcademyDashboard() {
         </Sheet>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="p-5 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950/20 dark:to-purple-900/20 border-purple-200 dark:border-purple-800 cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => navigate("/treinamentos/simulacoes-voz")}>
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-purple-500/10">
-              <Mic className="h-6 w-6 text-purple-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-foreground">Simulação por Voz</h3>
-              <p className="text-sm text-muted-foreground">Pratique conversas reais com clientes virtuais</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-          </div>
-        </Card>
-        
-        <Card className="p-5 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20 border-blue-200 dark:border-blue-800 cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => navigate("/treinamentos/simulacoes")}>
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-blue-500/10">
-              <BookOpen className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-foreground">Todas as Simulações</h3>
-              <p className="text-sm text-muted-foreground">Explore cenários de roleplay disponíveis</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-          </div>
-        </Card>
-      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
