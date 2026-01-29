@@ -21,6 +21,47 @@ import {
 } from "recharts";
 import { useAcademyRadarData, useAcademyRecomendacoes, useGenerateRecomendacoes, useAcademySessoes, useAcademyProgresso } from "@/hooks/useAcademyData";
 
+function wrapTickLabel(value: string, maxLineLength = 14) {
+  const words = value.split(" ").filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const w of words) {
+    const next = current ? `${current} ${w}` : w;
+    if (next.length <= maxLineLength) {
+      current = next;
+    } else {
+      if (current) lines.push(current);
+      current = w;
+    }
+  }
+  if (current) lines.push(current);
+
+  return lines.slice(0, 3);
+}
+
+function RadarAxisTick(props: any) {
+  const { x, y, payload } = props;
+  const value = String(payload?.value ?? "");
+  const lines = wrapTickLabel(value);
+
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor="middle"
+      fill="hsl(var(--muted-foreground))"
+      fontSize={10}
+    >
+      {lines.map((line, idx) => (
+        <tspan key={idx} x={x} dy={idx === 0 ? "0.35em" : "1.1em"}>
+          {line}
+        </tspan>
+      ))}
+    </text>
+  );
+}
+
 interface Filters {
   dataInicio: string;
   dataTermino: string;
@@ -268,13 +309,16 @@ export function AcademyDashboard() {
             {/* Radar Chart */}
             <Card className="p-4 md:p-6">
               <h3 className="text-lg font-semibold mb-4">Dimensões de avaliação</h3>
-              <div className="h-64 md:h-80">
+              <div className="h-72 sm:h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={radarData}>
+                  <RadarChart
+                    data={radarData}
+                    margin={{ top: 24, right: 56, bottom: 24, left: 56 }}
+                  >
                     <PolarGrid stroke="hsl(var(--border))" />
                     <PolarAngleAxis 
                       dataKey="dimension" 
-                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                      tick={<RadarAxisTick />}
                       tickLine={false}
                     />
                     <PolarRadiusAxis 
@@ -288,6 +332,7 @@ export function AcademyDashboard() {
                       stroke="hsl(var(--primary))"
                       fill="hsl(var(--primary))"
                       fillOpacity={0.3}
+                      isAnimationActive={false}
                     />
                   </RadarChart>
                 </ResponsiveContainer>
