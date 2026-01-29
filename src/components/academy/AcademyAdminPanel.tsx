@@ -719,6 +719,10 @@ export function AcademyAdminPanel() {
                           const mediaGeral = Number(metrics?.media_geral || 0);
                           const totalSimulacoes = metrics?.total_simulacoes_realizadas || 0;
                           
+                          // Loja is the empresa, Departamento is the actual departamento field
+                          const loja = (userProfile.empresas as any)?.nome_empresa || "—";
+                          const departamento = userProfile.departamento || "—";
+                          
                           return (
                             <TableRow key={userProfile.id}>
                               <TableCell className="font-medium">
@@ -730,9 +734,9 @@ export function AcademyAdminPanel() {
                                 </div>
                               </TableCell>
                               <TableCell className="hidden md:table-cell text-sm">
-                                {(userProfile.empresas as any)?.nome_empresa || "—"}
+                                {loja}
                               </TableCell>
-                              <TableCell className="hidden sm:table-cell">{userProfile.departamento || "—"}</TableCell>
+                              <TableCell className="hidden sm:table-cell">{departamento}</TableCell>
                               <TableCell>
                                 <Badge variant="outline" className="text-xs">{userProfile.tipo_acesso || "—"}</Badge>
                               </TableCell>
