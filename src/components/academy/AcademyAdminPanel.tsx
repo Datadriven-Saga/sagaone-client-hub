@@ -73,7 +73,11 @@ const DEPARTMENTS = [
   "Recepção",
 ];
 
-const NIVEIS = ["Fácil", "Médio", "Difícil"];
+const NIVEIS = [
+  { value: "iniciante", label: "Fácil" },
+  { value: "intermediario", label: "Médio" },
+  { value: "avancado", label: "Difícil" },
+];
 const TIPOS = [
   { value: "curso", label: "Curso" },
   { value: "simulacao_voz", label: "Simulação por Voz" },
@@ -107,7 +111,7 @@ export function AcademyAdminPanel() {
     titulo: "",
     descricao: "",
     tipo: "curso",
-    nivel: "Médio",
+    nivel: "intermediario",
     duracao_estimada_minutos: 30,
     obrigatorio: false,
     publicoAlvo: [] as string[],
@@ -197,7 +201,7 @@ export function AcademyAdminPanel() {
       titulo: "",
       descricao: "",
       tipo: "curso",
-      nivel: "Médio",
+      nivel: "intermediario",
       duracao_estimada_minutos: 30,
       obrigatorio: false,
       publicoAlvo: [],
@@ -404,7 +408,7 @@ export function AcademyAdminPanel() {
                     </SelectTrigger>
                     <SelectContent>
                       {NIVEIS.map(nivel => (
-                        <SelectItem key={nivel} value={nivel}>{nivel}</SelectItem>
+                        <SelectItem key={nivel.value} value={nivel.value}>{nivel.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
