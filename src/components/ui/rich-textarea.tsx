@@ -16,7 +16,7 @@ export interface RichTextareaProps {
 }
 
 /**
- * Renderiza texto com asteriscos visíveis e texto em negrito entre eles
+ * Renders text with visible asterisks (muted) and bold text between them
  */
 function renderFormattedContent(text: string): React.ReactNode[] {
   if (!text) return [];
@@ -28,7 +28,7 @@ function renderFormattedContent(text: string): React.ReactNode[] {
   let key = 0;
   
   while ((match = regex.exec(text)) !== null) {
-    // Texto antes do match
+    // Add text before the match
     if (match.index > lastIndex) {
       const beforeText = text.slice(lastIndex, match.index);
       result.push(
@@ -43,9 +43,9 @@ function renderFormattedContent(text: string): React.ReactNode[] {
       );
     }
     
-    // Texto em negrito com asteriscos visíveis
-    const fullMatch = match[0]; // ex: "*texto bold*"
-    const innerText = fullMatch.slice(1, -1); // ex: "texto bold"
+    // Add the formatted bold section with visible asterisks
+    const fullMatch = match[0]; // e.g., "*bold text*"
+    const innerText = fullMatch.slice(1, -1); // e.g., "bold text"
     
     result.push(
       <span key={key++}>
@@ -58,7 +58,7 @@ function renderFormattedContent(text: string): React.ReactNode[] {
     lastIndex = match.index + fullMatch.length;
   }
   
-  // Texto restante
+  // Add remaining text
   if (lastIndex < text.length) {
     const remaining = text.slice(lastIndex);
     result.push(
@@ -77,7 +77,7 @@ function renderFormattedContent(text: string): React.ReactNode[] {
 }
 
 /**
- * Textarea com suporte a formatação em negrito visual para WhatsApp.
+ * Textarea rico com suporte a formatação em negrito visual para WhatsApp.
  * - Mostra asteriscos visíveis (esmaecidos) com texto em negrito
  * - Armazena internamente com asteriscos (*texto*)
  * - Botão "B" para aplicar negrito no texto selecionado
@@ -95,6 +95,7 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
     id 
   }, ref) => {
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+    // Mantido apenas para o atalho Ctrl/Cmd+B e limite de caracteres.
 
     const handleChange = React.useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value;
@@ -116,24 +117,25 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
       let newCursorPos: number;
 
       if (selectedText) {
-        // Verifica se já está envolvido em asteriscos
+        // Check if already wrapped in asterisks
         const beforeChar = start > 0 ? value[start - 1] : '';
         const afterChar = end < value.length ? value[end] : '';
         
         if (beforeChar === '*' && afterChar === '*') {
-          // Remove negrito
+          // Remove bold - remove the asterisks around selection
           newValue = value.substring(0, start - 1) + selectedText + value.substring(end + 1);
           newCursorPos = start - 1 + selectedText.length;
         } else {
-          // Aplica negrito
+          // Apply bold - wrap selection in asterisks
           newValue = value.substring(0, start) + '*' + selectedText + '*' + value.substring(end);
           newCursorPos = end + 2;
         }
       } else {
-        // Sem seleção - insere placeholder
+        // No selection - insert placeholder bold markers
         newValue = value.substring(0, start) + '*texto*' + value.substring(end);
-        newCursorPos = start + 1;
+        newCursorPos = start + 1; // Position cursor after first asterisk
         
+        // Select the "texto" placeholder for easy replacement
         setTimeout(() => {
           textarea.setSelectionRange(start + 1, start + 6);
           textarea.focus();
@@ -146,8 +148,9 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
 
       onValueChange(newValue);
       
+      // Restore cursor position
       setTimeout(() => {
-        if (!selectedText) return;
+        if (!selectedText) return; // Skip if we're selecting placeholder
         textarea.setSelectionRange(newCursorPos, newCursorPos);
         textarea.focus();
       }, 0);
@@ -155,6 +158,7 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
 
     const handleKeyDown = React.useCallback(
       (e: React.KeyboardEvent) => {
+        // Ctrl+B ou Cmd+B para negrito
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
           e.preventDefault();
           applyBold();
@@ -163,9 +167,10 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
       [applyBold]
     );
 
+
     return (
       <div className="relative" ref={ref}>
-        {/* Botão Bold */}
+        {/* Toolbar */}
         <div className="absolute top-2 right-2 z-20">
           <TooltipProvider>
             <Tooltip>
@@ -189,40 +194,22 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
           </TooltipProvider>
         </div>
 
-        {/* Container com camadas sobrepostas */}
-        <div className="relative" style={{ minHeight }}>
-          {/* Camada de preview (mostra texto formatado) */}
-          <div
-            className={cn(
-              "absolute inset-0 w-full rounded-md border border-input bg-background px-3 py-2 pr-12 text-sm overflow-y-auto whitespace-pre-wrap break-words pointer-events-none",
-              disabled && "opacity-50"
-            )}
-            style={{ minHeight }}
-            aria-hidden="true"
-          >
-            {!value && placeholder ? (
-              <span className="text-muted-foreground">{placeholder}</span>
-            ) : (
-              renderFormattedContent(value)
-            )}
-          </div>
-
-          {/* Textarea invisível (funcional) por cima */}
-          <textarea
-            ref={textareaRef}
-            id={id}
-            value={value}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            disabled={disabled}
-            className={cn(
-              "relative z-10 w-full rounded-md border border-transparent bg-transparent px-3 py-2 pr-12 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none",
-              "text-transparent caret-foreground selection:bg-primary/30 selection:text-transparent"
-            )}
-            style={{ minHeight }}
-            placeholder=""
-          />
-        </div>
+        {/* Textarea simples (texto sempre visível) */}
+        <textarea
+          ref={textareaRef}
+          id={id}
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          className={cn(
+            // Coloca className primeiro para evitar que algo como `text-transparent` sobrescreva nossa base
+            className,
+            "w-full rounded-md border border-input bg-background px-3 py-2 pr-12 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+          )}
+          style={{ minHeight }}
+          placeholder={placeholder}
+        />
       </div>
     );
   }
