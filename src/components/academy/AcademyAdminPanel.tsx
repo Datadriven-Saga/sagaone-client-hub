@@ -79,12 +79,23 @@ const NIVEIS = [
   { value: "intermediario", label: "Médio" },
   { value: "avancado", label: "Difícil" },
 ];
+
+// DB constraint: tipo IN ('texto', 'audio', 'video', 'simulacao')
 const TIPOS = [
-  { value: "curso", label: "Curso" },
-  { value: "simulacao_voz", label: "Simulação por Voz" },
-  { value: "simulacao_texto", label: "Simulação por Texto" },
+  { value: "texto", label: "Curso/Texto" },
+  { value: "simulacao", label: "Simulação por Voz" },
   { value: "video", label: "Vídeo" },
-  { value: "documento", label: "Documento" },
+  { value: "audio", label: "Áudio" },
+];
+
+// OpenAI Realtime voices
+const VOZES_IA = [
+  { value: "shimmer", label: "Shimmer (Feminina)", gender: "F" },
+  { value: "alloy", label: "Alloy (Neutra)", gender: "N" },
+  { value: "echo", label: "Echo (Masculina)", gender: "M" },
+  { value: "fable", label: "Fable (Masculina)", gender: "M" },
+  { value: "onyx", label: "Onyx (Masculina)", gender: "M" },
+  { value: "nova", label: "Nova (Feminina)", gender: "F" },
 ];
 
 export function AcademyAdminPanel() {
@@ -112,12 +123,16 @@ export function AcademyAdminPanel() {
   const [formData, setFormData] = useState({
     titulo: "",
     descricao: "",
-    tipo: "curso",
+    tipo: "texto",
     nivel: "intermediario",
     duracao_estimada_minutos: 30,
     obrigatorio: false,
     publicoAlvo: [] as string[],
     aiPrompt: "",
+    // Voice simulation config
+    personaNome: "",
+    personaGenero: "F",
+    vozIA: "shimmer",
   });
 
   // Check if user has admin access
@@ -202,12 +217,15 @@ export function AcademyAdminPanel() {
     setFormData({
       titulo: "",
       descricao: "",
-      tipo: "curso",
+      tipo: "texto",
       nivel: "intermediario",
       duracao_estimada_minutos: 30,
       obrigatorio: false,
       publicoAlvo: [],
       aiPrompt: "",
+      personaNome: "",
+      personaGenero: "F",
+      vozIA: "shimmer",
     });
   };
 
@@ -264,6 +282,10 @@ export function AcademyAdminPanel() {
       nivel: formData.nivel,
       duracao_estimada_minutos: formData.duracao_estimada_minutos,
       obrigatorio: formData.obrigatorio,
+      // Voice config
+      personaNome: formData.personaNome,
+      personaGenero: formData.personaGenero,
+      vozIA: formData.vozIA,
     }, {
       onSuccess: () => {
         setIsCreateModalOpen(false);
@@ -297,16 +319,15 @@ export function AcademyAdminPanel() {
 
   const getTipoBadge = (tipo: string) => {
     switch (tipo) {
-      case "simulacao_voz":
-        return <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">Voz</Badge>;
-      case "simulacao_texto":
-        return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Texto</Badge>;
+      case "simulacao":
+        return <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">Simulação</Badge>;
       case "video":
         return <Badge className="bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400">Vídeo</Badge>;
-      case "documento":
-        return <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">Doc</Badge>;
+      case "audio":
+        return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Áudio</Badge>;
+      case "texto":
       default:
-        return <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">Curso</Badge>;
+        return <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">Texto</Badge>;
     }
   };
 
@@ -458,6 +479,61 @@ export function AcademyAdminPanel() {
                   />
                 </div>
               </div>
+
+              {/* Voice configuration - only show for simulation type */}
+              {formData.tipo === "simulacao" && (
+                <Card className="p-4 border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20">
+                  <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                    <span className="text-lg">🎙️</span>
+                    Configuração da Voz IA
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Nome da Persona</label>
+                      <Input
+                        value={formData.personaNome}
+                        onChange={(e) => setFormData(prev => ({ ...prev, personaNome: e.target.value }))}
+                        placeholder="Ex: Maria, João, Ana..."
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Gênero</label>
+                      <Select
+                        value={formData.personaGenero}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, personaGenero: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="F">Feminino</SelectItem>
+                          <SelectItem value="M">Masculino</SelectItem>
+                          <SelectItem value="N">Neutro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Voz da IA</label>
+                      <Select
+                        value={formData.vozIA}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, vozIA: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {VOZES_IA.map(voz => (
+                            <SelectItem key={voz.value} value={voz.value}>{voz.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Essas configurações definem a persona do cliente na simulação por voz.
+                  </p>
+                </Card>
+              )}
             </div>
             
             <DialogFooter className="gap-2">
@@ -719,9 +795,27 @@ export function AcademyAdminPanel() {
                           const mediaGeral = Number(metrics?.media_geral || 0);
                           const totalSimulacoes = metrics?.total_simulacoes_realizadas || 0;
                           
-                          // Loja is the empresa, Departamento is the actual departamento field
-                          const loja = (userProfile.empresas as any)?.nome_empresa || "—";
-                          const departamento = userProfile.departamento || "—";
+                          // Logic to determine Loja and Departamento correctly
+                          // Some users have store names in 'departamento' field instead of empresa_id
+                          const empresaNome = (userProfile.empresas as any)?.nome_empresa;
+                          const deptoField = userProfile.departamento || "";
+                          const tipoAcesso = userProfile.tipo_acesso || "—";
+                          
+                          // Check if departamento looks like a store name (e.g., "PRIMEIRA MÃO...")
+                          const isStoreNameInDepto = deptoField.toUpperCase().includes("PRIMEIRA MÃO") || 
+                                                     deptoField.toUpperCase().includes("SAGA") ||
+                                                     deptoField.toUpperCase().includes("CONTAINER") ||
+                                                     deptoField.toUpperCase().includes("PARK") ||
+                                                     deptoField.toUpperCase().includes("JARDIM") ||
+                                                     deptoField.toUpperCase().includes("SCIA") ||
+                                                     deptoField.toUpperCase().includes("GAMA") ||
+                                                     deptoField.toUpperCase().includes("OUTLET");
+                          
+                          // Loja: prioritize empresa, fallback to departamento if it looks like store name
+                          const loja = empresaNome || (isStoreNameInDepto ? deptoField : "—");
+                          
+                          // Departamento: if depto contains store name, use tipo_acesso, otherwise use depto
+                          const departamento = isStoreNameInDepto ? tipoAcesso : (deptoField || tipoAcesso);
                           
                           return (
                             <TableRow key={userProfile.id}>

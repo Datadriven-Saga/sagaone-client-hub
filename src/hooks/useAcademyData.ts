@@ -374,8 +374,21 @@ export function useCreateTreinamento() {
       nivel?: string;
       obrigatorio?: boolean;
       duracao_estimada_minutos?: number;
+      // Voice config for simulations
+      personaNome?: string;
+      personaGenero?: string;
+      vozIA?: string;
     }) => {
       const empresaId = isAdminOrTI ? null : activeCompany?.id || null;
+      
+      // Build content/config object for voice simulations
+      const conteudo = data.tipo === "simulacao" ? {
+        config_voz: {
+          persona_nome: data.personaNome || "Cliente",
+          persona_genero: data.personaGenero || "F",
+          voz_openai: data.vozIA || "shimmer",
+        }
+      } : null;
       
       const { error } = await supabase.from("academy_treinamentos").insert([{
         titulo: data.titulo,
@@ -387,6 +400,7 @@ export function useCreateTreinamento() {
         empresa_id: empresaId,
         criado_por: user?.id,
         status: "rascunho",
+        conteudo,
       }]);
 
       if (error) throw error;
