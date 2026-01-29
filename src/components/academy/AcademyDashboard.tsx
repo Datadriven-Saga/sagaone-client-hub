@@ -123,7 +123,12 @@ export function AcademyDashboard() {
     <div className="p-4 md:p-6 space-y-6 max-w-full overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-xl md:text-2xl font-bold text-foreground">Dashboard</h1>
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Dashboard de Performance</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Acompanhe seu progresso nas simulações práticas
+          </p>
+        </div>
         <Sheet open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
           <SheetTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2">
@@ -254,12 +259,43 @@ export function AcademyDashboard() {
         </Sheet>
       </div>
 
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-5 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950/20 dark:to-purple-900/20 border-purple-200 dark:border-purple-800 cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/treinamentos/simulacoes-voz")}>
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-purple-500/10">
+              <Mic className="h-6 w-6 text-purple-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-foreground">Simulação por Voz</h3>
+              <p className="text-sm text-muted-foreground">Pratique conversas reais com clientes virtuais</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </div>
+        </Card>
+        
+        <Card className="p-5 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20 border-blue-200 dark:border-blue-800 cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/treinamentos/trilhas")}>
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-blue-500/10">
+              <BookOpen className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-foreground">Todas as Simulações</h3>
+              <p className="text-sm text-muted-foreground">Explore cenários de roleplay disponíveis</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </div>
+        </Card>
+      </div>
+
       {/* Assigned Trainings Section */}
       {atribuicoes && atribuicoes.length > 0 && (
         <Card className="p-4 md:p-6 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
           <div className="flex items-center gap-2 mb-4">
             <AlertCircle className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-semibold text-foreground">Treinamentos Atribuídos</h3>
+            <h3 className="text-lg font-semibold text-foreground">Práticas Prioritárias</h3>
             <Badge variant="secondary">{atribuicoes.length}</Badge>
           </div>
           
