@@ -212,6 +212,7 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
       wsUrl.searchParams.set('role', persona.role);
       wsUrl.searchParams.set('context', scenario.description);
       wsUrl.searchParams.set('difficulty', persona.difficulty);
+      wsUrl.searchParams.set('voice', persona.voice || 'shimmer');
 
       console.log('Connecting to:', wsUrl.toString());
       wsRef.current = new WebSocket(wsUrl.toString());
@@ -247,7 +248,7 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
       wsRef.current.onmessage = async (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('Received event:', data.type);
+          console.log('Received event:', data.type, data);
 
           switch (data.type) {
             case 'response.audio.delta':
@@ -264,13 +265,32 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
 
             case 'response.audio_transcript.delta':
               // AI transcript partial
-              currentAITranscriptRef.current += data.delta || '';
-              setPartialTranscript(currentAITranscriptRef.current);
+              if (data.delta) {
+                currentAITranscriptRef.current += data.delta;
+                setPartialTranscript(currentAITranscriptRef.current);
+              }
               break;
 
             case 'response.audio_transcript.done':
+              // Finalize AI message with transcript
+              if (currentAITranscriptRef.current.trim()) {
+                addMessage('ai', currentAITranscriptRef.current.trim());
+                currentAITranscriptRef.current = '';
+                setPartialTranscript('');
+              }
+              break;
+
+            case 'response.text.delta':
+              // Text response partial (fallback if no audio transcript)
+              if (data.delta && !currentAITranscriptRef.current) {
+                currentAITranscriptRef.current += data.delta;
+                setPartialTranscript(currentAITranscriptRef.current);
+              }
+              break;
+
+            case 'response.text.done':
             case 'response.done':
-              // Finalize AI message
+              // Finalize AI message if we have pending text
               if (currentAITranscriptRef.current.trim()) {
                 addMessage('ai', currentAITranscriptRef.current.trim());
                 currentAITranscriptRef.current = '';
@@ -279,9 +299,12 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
               break;
 
             case 'conversation.item.input_audio_transcription.completed':
-              // User speech transcribed
-              if (data.transcript?.trim()) {
-                addMessage('user', data.transcript.trim());
+              // User speech transcribed - look for transcript in different locations
+              const transcript = data.transcript || 
+                                 data.transcription?.transcript ||
+                                 (data.content && data.content[0]?.transcript);
+              if (transcript?.trim()) {
+                addMessage('user', transcript.trim());
               }
               break;
 
@@ -291,6 +314,11 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
 
             case 'input_audio_buffer.speech_stopped':
               console.log('User stopped speaking');
+              break;
+
+            case 'session.updated':
+              console.log('Session configured successfully');
+              toast.success('Simulação pronta! A IA vai iniciar a conversa.');
               break;
 
             case 'error':

@@ -15,7 +15,13 @@ import {
   BarChart3,
   MessageSquareText,
   UserCheck,
-  ShoppingCart
+  ShoppingCart,
+  LayoutDashboard,
+  Trophy,
+  GraduationCap,
+  Mic,
+  MessageSquare,
+  History
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -46,6 +52,16 @@ const prospeccaoSubItems = [
   { title: "Performance", url: "/prospeccao/performance", icon: BarChart3 },
 ];
 
+const treinamentosSubItems = [
+  { title: "Dashboard", url: "/treinamentos", icon: LayoutDashboard, exact: true },
+  { title: "Ranking", url: "/treinamentos/ranking", icon: Trophy },
+  { title: "Simulações Práticas", url: "/treinamentos/trilhas", icon: GraduationCap },
+  { title: "Prática por Voz", url: "/treinamentos/simulacoes-voz", icon: Mic },
+  { title: "Prática por Texto", url: "/treinamentos/simulacoes-texto", icon: MessageSquare },
+  { title: "Histórico", url: "/treinamentos/historico", icon: History },
+  { title: "Painel Admin", url: "/treinamentos/admin", icon: Settings, adminOnly: true },
+];
+
 const agentesIASubItems = [
   { title: "Agentes", url: "/agentes-ia", icon: Bot },
 ];
@@ -54,7 +70,6 @@ const agentesIASubItems = [
 const afterProspeccaoItemsAdmin = [
   { title: "Carteira de Clientes", url: "/clientes", icon: Users },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
-  { title: "Treinamentos", url: "/treinamentos", icon: BookOpen },
 ];
 
 const bottomMenuItemsPublic = [
@@ -70,15 +85,27 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
-  const { isAdmin, isAdminOrTI } = useUserAccessType();
+  const { isAdmin, isAdminOrTI, isGerente, isDiretor } = useUserAccessType();
   
   // Menus sempre abertos por padrão
   const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(true);
+  const [isTreinamentosOpen, setIsTreinamentosOpen] = useState(currentPath.startsWith('/treinamentos'));
   const [isAgentesIAOpen, setIsAgentesIAOpen] = useState(true);
+
+  // Check if user has admin access to show admin panel
+  const hasAdminAccess = isAdminOrTI || isGerente || isDiretor;
 
   const bottomMenuItems = isAdmin
     ? [...bottomMenuItemsPublic, ...bottomMenuItemsAdmin]
     : bottomMenuItemsPublic;
+
+  // Filter treinamentos items based on permissions
+  const filteredTreinamentosItems = treinamentosSubItems.filter(item => {
+    if (item.adminOnly) {
+      return hasAdminAccess;
+    }
+    return true;
+  });
 
   return (
     <Sidebar
@@ -157,6 +184,46 @@ export function AppSidebar() {
                             to={subItem.url}
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
                               currentPath.startsWith(subItem.url)
+                                ? "font-bold border-b-2 border-primary"
+                                : "hover:scale-105 hover:opacity-80"
+                            }`}
+                          >
+                            <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                            <span>{subItem.title}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      ))}
+                    </CollapsibleContent>
+                  )}
+                </Collapsible>
+              </SidebarMenuItem>
+
+              {/* Treinamentos com submenu */}
+              <SidebarMenuItem>
+                <Collapsible open={isTreinamentosOpen} onOpenChange={setIsTreinamentosOpen}>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between hover:scale-105 hover:opacity-80 text-sidebar-foreground"
+                    >
+                      <div className="flex items-center gap-3">
+                        <BookOpen className="h-5 w-5 flex-shrink-0" />
+                        {!isCollapsed && <span className="font-medium">Treinamentos</span>}
+                      </div>
+                      {!isCollapsed && (
+                        isTreinamentosOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
+                      )}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  {!isCollapsed && (
+                    <CollapsibleContent className="pl-4 mt-1 space-y-1">
+                      {filteredTreinamentosItems.map((subItem) => (
+                        <SidebarMenuButton key={subItem.title} asChild>
+                          <NavLink 
+                            to={subItem.url}
+                            end={subItem.exact}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
+                              (subItem.exact && currentPath === subItem.url) || 
+                              (!subItem.exact && currentPath.startsWith(subItem.url) && currentPath !== '/treinamentos')
                                 ? "font-bold border-b-2 border-primary"
                                 : "hover:scale-105 hover:opacity-80"
                             }`}

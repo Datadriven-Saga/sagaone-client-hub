@@ -35,8 +35,9 @@ serve(async (req) => {
   const personaRole = url.searchParams.get('role') || 'Cliente interessado em veículo';
   const scenarioContext = url.searchParams.get('context') || 'Atendimento presencial em concessionária';
   const difficulty = url.searchParams.get('difficulty') || 'Médio';
+  const voiceId = url.searchParams.get('voice') || 'shimmer';
 
-  console.log(`Starting voice simulation - Persona: ${personaName}, Role: ${personaRole}, Difficulty: ${difficulty}`);
+  console.log(`Starting voice simulation - Persona: ${personaName}, Role: ${personaRole}, Difficulty: ${difficulty}, Voice: ${voiceId}`);
 
   // Upgrade to WebSocket
   const { socket: clientSocket, response } = Deno.upgradeWebSocket(req);
@@ -50,34 +51,43 @@ serve(async (req) => {
 
   let sessionCreated = false;
 
-  // Build system prompt based on persona
+  // Build system prompt based on persona - PORTUGUÊS BRASILEIRO OBRIGATÓRIO
   const systemPrompt = `Você é ${personaName}, ${personaRole}. 
+
+IMPORTANTE: VOCÊ DEVE FALAR APENAS EM PORTUGUÊS BRASILEIRO. NUNCA USE INGLÊS OU QUALQUER OUTRO IDIOMA.
 
 CONTEXTO DA SIMULAÇÃO:
 ${scenarioContext}
 
 NÍVEL DE DIFICULDADE: ${difficulty}
-${difficulty === 'Fácil' ? '- Seja receptivo e faça perguntas simples. Demonstre interesse genuíno.' : ''}
-${difficulty === 'Médio' ? '- Faça algumas objeções moderadas sobre preço e condições. Peça mais informações antes de decidir.' : ''}
-${difficulty === 'Difícil' ? '- Seja cético e faça objeções fortes. Compare com concorrentes. Pressione por descontos. Demonstre resistência.' : ''}
+${difficulty === 'Fácil' ? '- Seja receptivo e faça perguntas simples. Demonstre interesse genuíno e seja cooperativo.' : ''}
+${difficulty === 'Médio' ? '- Faça algumas objeções moderadas sobre preço e condições. Peça mais informações antes de decidir. Mostre um pouco de resistência.' : ''}
+${difficulty === 'Difícil' ? '- Seja cético e faça objeções fortes. Compare com concorrentes. Pressione por descontos significativos. Demonstre muita resistência e desconfiança.' : ''}
 
-INSTRUÇÕES DE COMPORTAMENTO:
-- Responda sempre em português brasileiro
-- Mantenha respostas curtas e naturais (1-3 frases)
-- Aja como um cliente real, com dúvidas e objeções naturais
-- Se o vendedor usar técnicas de venda eficazes (SPIN, rapport, etc.), reaja positivamente
-- Se o vendedor for muito agressivo ou não ouvir, demonstre desconforto
-- Faça perguntas sobre: preço, financiamento, garantia, consumo, valor de revenda, comparação com outros modelos
+INSTRUÇÕES OBRIGATÓRIAS DE COMPORTAMENTO:
+1. FALE SEMPRE EM PORTUGUÊS BRASILEIRO FLUENTE E NATURAL
+2. Use expressões brasileiras comuns ("tá", "né", "beleza", "então", "bom", "olha")
+3. Mantenha respostas curtas e naturais (1-3 frases no máximo)
+4. Aja como um cliente brasileiro real, com sotaque e expressões regionais
+5. Se o vendedor usar técnicas de venda eficazes, reaja positivamente mas com naturalidade
+6. Se o vendedor for muito agressivo ou não ouvir, demonstre desconforto educadamente
 
-OBJETIVO:
-Avaliar as habilidades do vendedor nas dimensões:
-1. Situação - Faz perguntas para entender o contexto do cliente
-2. Problema - Identifica as dores e necessidades
-3. Implicação - Mostra as consequências de não resolver o problema
-4. Negociação - Lida bem com objeções e negocia condições
-5. Fechamento - Conduz para os próximos passos de forma natural
+EXEMPLOS DE RESPOSTAS EM PORTUGUÊS:
+- "Olha, eu tô procurando um carro pra família, sabe?"
+- "Hum, interessante... E o valor? Como fica?"
+- "Tá, mas e se comparar com o da concorrência?"
+- "Beleza, mas preciso pensar um pouco ainda."
 
-Lembre-se: você é o CLIENTE, não o vendedor. Aguarde o vendedor iniciar ou conduza a conversa como cliente faria.`;
+PERGUNTAS QUE VOCÊ PODE FAZER:
+- Quanto custa? Qual o preço à vista?
+- Tem financiamento? Quais as condições?
+- A garantia cobre o quê? Por quanto tempo?
+- E o consumo? Faz quantos km por litro?
+- Vocês aceitam meu carro usado na troca?
+
+VOCÊ É O CLIENTE. Inicie a conversa de forma natural, como se estivesse entrando na loja ou atendendo uma ligação.
+
+PRIMEIRA FALA: Cumprimente o vendedor de forma natural em português, como "Oi, boa tarde!" ou "Olá, tudo bem?".`;
 
   openaiWs.onopen = () => {
     console.log('Connected to OpenAI Realtime API');
@@ -86,42 +96,78 @@ Lembre-se: você é o CLIENTE, não o vendedor. Aguarde o vendedor iniciar ou co
   openaiWs.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      console.log('OpenAI event:', data.type);
+      
+      // Log all events for debugging (not just type)
+      if (data.type !== 'response.audio.delta') {
+        console.log('OpenAI event:', data.type, data.error ? JSON.stringify(data.error) : '');
+      } else {
+        console.log('OpenAI event: response.audio.delta (audio chunk received)');
+      }
 
       // Send session update after session.created
       if (data.type === 'session.created' && !sessionCreated) {
         sessionCreated = true;
-        console.log('Session created, sending configuration...');
+        console.log('Session created, sending configuration with Portuguese language...');
         
         const sessionUpdate = {
           type: 'session.update',
           session: {
             modalities: ['text', 'audio'],
             instructions: systemPrompt,
-            voice: 'shimmer', // Brazilian Portuguese friendly voice
+            voice: voiceId,
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             input_audio_transcription: {
               model: 'whisper-1',
+              language: 'pt', // FORÇA TRANSCRIÇÃO EM PORTUGUÊS
             },
             turn_detection: {
               type: 'server_vad',
               threshold: 0.5,
               prefix_padding_ms: 300,
-              silence_duration_ms: 800,
+              silence_duration_ms: 1000,
             },
-            temperature: 0.8,
-            max_response_output_tokens: 300,
+            temperature: 0.7,
+            max_response_output_tokens: 200,
           },
         };
         
         openaiWs.send(JSON.stringify(sessionUpdate));
-        console.log('Session configuration sent');
+        console.log('Session configuration sent with PT-BR language');
+      }
+
+      // After session is updated, trigger initial AI response
+      if (data.type === 'session.updated') {
+        console.log('Session updated, triggering AI to speak first...');
+        
+        // Create a conversation item with the AI speaking first
+        const initialMessage = {
+          type: 'conversation.item.create',
+          item: {
+            type: 'message',
+            role: 'user',
+            content: [
+              {
+                type: 'input_text',
+                text: '[Sistema: Você é o cliente. Inicie a conversa agora, cumprimentando o vendedor em português brasileiro. Diga algo como "Oi, boa tarde!" ou "Olá, tudo bem? Eu vim dar uma olhada nos carros..." - RESPONDA EM PORTUGUÊS]'
+              }
+            ]
+          }
+        };
+        
+        openaiWs.send(JSON.stringify(initialMessage));
+        
+        // Then trigger response
+        setTimeout(() => {
+          if (openaiWs.readyState === WebSocket.OPEN) {
+            openaiWs.send(JSON.stringify({ type: 'response.create' }));
+            console.log('Response.create sent');
+          }
+        }, 100);
       }
 
       // Forward relevant events to client
       if (clientSocket.readyState === WebSocket.OPEN) {
-        // Forward these event types to the client
         const forwardEvents = [
           'session.created',
           'session.updated',
@@ -132,9 +178,11 @@ Lembre-se: você é o CLIENTE, não o vendedor. Aguarde o vendedor iniciar ou co
           'response.text.delta',
           'response.text.done',
           'response.done',
+          'response.created',
           'input_audio_buffer.speech_started',
           'input_audio_buffer.speech_stopped',
           'conversation.item.input_audio_transcription.completed',
+          'conversation.item.created',
           'error',
         ];
 

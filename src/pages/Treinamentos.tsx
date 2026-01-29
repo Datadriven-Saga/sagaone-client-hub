@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
-import { AcademyLayout } from "@/components/academy/AcademyLayout";
+import { useLocation } from "react-router-dom";
+import { DashboardLayout } from "@/components/DashboardLayout";
 import { AcademyDashboard } from "@/components/academy/AcademyDashboard";
 import { AcademyRanking } from "@/components/academy/AcademyRanking";
 import { LearningPaths } from "@/components/academy/LearningPaths";
@@ -34,16 +34,18 @@ const Treinamentos = () => {
     setShowFeedbackModal(false);
   };
 
-  // If there's an active simulation, render it full screen
+  // If there's an active simulation, render it full screen within DashboardLayout
   if (activeSimulation) {
     return (
-      <AcademyLayout>
-        <VoiceSimulation
-          scenario={activeSimulation.scenario}
-          persona={activeSimulation.persona}
-          onEnd={handleEndSimulation}
-        />
-      </AcademyLayout>
+      <DashboardLayout>
+        <div className="h-[calc(100vh-4rem)]">
+          <VoiceSimulation
+            scenario={activeSimulation.scenario}
+            persona={activeSimulation.persona}
+            onEnd={handleEndSimulation}
+          />
+        </div>
+      </DashboardLayout>
     );
   }
 
@@ -90,15 +92,17 @@ const Treinamentos = () => {
   };
 
   return (
-    <AcademyLayout>
-      {renderContent()}
+    <DashboardLayout>
+      <div className="p-6">
+        {renderContent()}
+      </div>
       
       <SimulationFeedbackModal
         isOpen={showFeedbackModal}
         onClose={() => setShowFeedbackModal(false)}
         onSubmit={handleFeedbackSubmit}
       />
-    </AcademyLayout>
+    </DashboardLayout>
   );
 };
 
