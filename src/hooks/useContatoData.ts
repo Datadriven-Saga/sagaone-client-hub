@@ -1658,7 +1658,7 @@ export const useContatoData = () => {
                 event_id_pri: prospeccaoData.event_id_pri,
                 data_inicio: prospeccaoData.data_inicio,
                 data_fim: prospeccaoData.data_fim,
-                template_prospeccao: (prospeccaoData as any).template_prospeccao || null
+                template_prospeccao_id: (prospeccaoData as any).template_prospeccao_id || null
               }
             }
           });

@@ -1172,7 +1172,7 @@ export default function EventoBase() {
                 event_id_pri: prospeccao.event_id_pri || null,
                 data_inicio: prospeccao.data_inicio || null,
                 data_fim: prospeccao.data_fim || null,
-                template_prospeccao: (prospeccao as any).template_prospeccao || null
+                template_prospeccao_id: (prospeccao as any).template_prospeccao_id || null
               }
             }
           });
@@ -1323,7 +1323,7 @@ export default function EventoBase() {
             event_id_pri: prospeccao.event_id_pri || null,
             data_inicio: prospeccao.data_inicio || null,
             data_fim: prospeccao.data_fim || null,
-            template_prospeccao: (prospeccao as any).template_prospeccao || null
+            template_prospeccao_id: (prospeccao as any).template_prospeccao_id || null
           }
         }
       });
@@ -1395,7 +1395,7 @@ export default function EventoBase() {
             event_id_pri: prospeccao.event_id_pri || null,
             data_inicio: prospeccao.data_inicio || null,
             data_fim: prospeccao.data_fim || null,
-            template_prospeccao: (prospeccao as any).template_prospeccao || null
+            template_prospeccao_id: (prospeccao as any).template_prospeccao_id || null
           }
         }
       });
