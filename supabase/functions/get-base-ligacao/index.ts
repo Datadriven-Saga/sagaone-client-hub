@@ -352,16 +352,17 @@ Deno.serve(async (req: Request) => {
     // =====================================================
     // RECALCULAR MÉTRICAS APÓS FILTROS
     // =====================================================
-    const hasFilters = filters.search || filters.status_ligacao || filters.tentativas;
+    // CORREÇÃO: Incluir filters.status na verificação de hasFilters
+    const hasFilters = filters.search || filters.status || filters.status_ligacao || filters.tentativas;
     const metricasFinais: MetricasResult = hasFilters ? {
       total: filteredProspects.length,
-      pendentes: filteredProspects.filter(p => p.num_tentativas === 0).length,
+      pendentes: filteredProspects.filter(p => p.num_tentativas === 0 && p.status_calculado === 'pendente').length,
       // CUMULATIVO: 1ª Tentativa = pelo menos 1 tentativa
       disparados1: filteredProspects.filter(p => p.num_tentativas >= 1).length,
       // CUMULATIVO: 2ª+ Tentativa = pelo menos 2 tentativas
       disparados2: filteredProspects.filter(p => p.num_tentativas >= 2).length,
-      emFila: filteredProspects.filter(p => p.ligacao_erro && p.num_tentativas < 2 && !(p.status_agendado || p.enviado_whatsapp || p.ligacao_atendida)).length,
-      encerrados: filteredProspects.filter(p => p.num_tentativas >= 2 || p.status_agendado || p.enviado_whatsapp || p.ligacao_atendida).length,
+      emFila: filteredProspects.filter(p => p.status_calculado === 'em_fila').length,
+      encerrados: filteredProspects.filter(p => p.status_calculado === 'encerrado').length,
       agendados: filteredProspects.filter(p => p.status_agendado).length,
       whatsappEnviado: filteredProspects.filter(p => p.enviado_whatsapp).length,
       atendidos: filteredProspects.filter(p => p.ligacao_atendida).length,
