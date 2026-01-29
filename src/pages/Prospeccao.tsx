@@ -1164,11 +1164,12 @@ showAllEvents: true
           console.log('📞 Criando base de ligação no Supabase e sincronizando com webhook externo...');
           
           // Buscar agente de ligação (Pri) ativo da empresa para obter telefone_pri
+          // IMPORTANTE: Usar maybeSingle() para evitar crash quando não há agente configurado
           const { data: agenteData, error: agenteError } = await supabase
             .from('agente_empresas')
             .select(`
               agente_id,
-              agentes_ia!inner (
+              agentes_ia (
                 id,
                 nome,
                 telefone,
@@ -1176,18 +1177,20 @@ showAllEvents: true
               )
             `)
             .eq('empresa_id', activeCompany?.id)
-            .eq('agentes_ia.ativo', true)
-            .limit(1)
-            .single();
+            .limit(10);
+          
+          // Filtrar agente ativo no código (evita problemas com RLS e inner join)
+          const agenteAtivo = agenteData?.find(a => a.agentes_ia?.ativo === true && a.agentes_ia?.telefone);
 
           console.log('🔍 Busca de agente:', { 
-            agenteData: agenteData ? 'encontrado' : 'não encontrado', 
+            agentesEncontrados: agenteData?.length || 0,
+            agenteAtivo: agenteAtivo ? 'encontrado' : 'não encontrado', 
             agenteError: agenteError?.message,
-            telefonePri: agenteData?.agentes_ia?.telefone 
+            telefonePri: agenteAtivo?.agentes_ia?.telefone 
           });
 
-          if (!agenteError && agenteData?.agentes_ia?.telefone) {
-            const telefonePri = agenteData.agentes_ia.telefone.replace(/\D/g, '');
+          if (!agenteError && agenteAtivo?.agentes_ia?.telefone) {
+            const telefonePri = agenteAtivo.agentes_ia.telefone.replace(/\D/g, '');
             const lojaNome = activeCompany?.nome_empresa || '';
             const idEvento = prospeccaoSelecionada.event_id_pri ? Number(prospeccaoSelecionada.event_id_pri) : null;
 
