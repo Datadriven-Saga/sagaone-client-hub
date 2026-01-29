@@ -528,9 +528,10 @@ export function useGenerateRecomendacoes() {
 
       const recommendations: Partial<AcademyRecomendacao>[] = [];
 
+      // Valid tipos according to DB constraint: 'treinamento', 'simulacao', 'melhoria', 'geral'
       if (!metrics || metrics.total_simulacoes_realizadas === 0) {
         recommendations.push({
-          tipo: "acao",
+          tipo: "simulacao",
           titulo: "Realize sua primeira simulação",
           descricao: "Comece praticando com uma simulação de vendas para identificar seus pontos fortes e áreas de melhoria.",
           prioridade: 10,
@@ -548,7 +549,7 @@ export function useGenerateRecomendacoes() {
         const weakest = dimensions[0];
         if (weakest.score < 5) {
           recommendations.push({
-            tipo: "treino",
+            tipo: "melhoria",
             titulo: `Foco prioritário: ${weakest.name}`,
             descricao: `Sua nota em ${weakest.name} é ${weakest.score.toFixed(1)}. Pratique simulações focadas nesta dimensão para melhorar seu desempenho.`,
             prioridade: 9,
@@ -557,7 +558,7 @@ export function useGenerateRecomendacoes() {
 
         if (metrics.total_simulacoes_realizadas < 5) {
           recommendations.push({
-            tipo: "acao",
+            tipo: "geral",
             titulo: "Pratique mais simulações",
             descricao: "Realize ao menos 2 simulações por semana para acelerar seu desenvolvimento e melhorar suas notas.",
             prioridade: 7,
