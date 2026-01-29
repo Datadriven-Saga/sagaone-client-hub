@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Filter, Sparkles, Loader2, X, Check, User, LayoutTemplate, TrendingUp, BookOpen, Mic, Clock, AlertCircle, Calendar, ChevronRight } from "lucide-react";
+import { Filter, Sparkles, Loader2, X, Check, User, LayoutTemplate, TrendingUp, BookOpen, Mic, Clock, ChevronRight } from "lucide-react";
 import {
   Radar,
   RadarChart,
@@ -20,9 +20,7 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer,
 } from "recharts";
-import { useAcademyRadarData, useAcademyRecomendacoes, useGenerateRecomendacoes, useAcademySessoes, useAcademyProgresso, useAcademyAtribuicoes } from "@/hooks/useAcademyData";
-import { format, differenceInDays, isPast } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { useAcademyRadarData, useAcademyRecomendacoes, useGenerateRecomendacoes, useAcademySessoes, useAcademyProgresso } from "@/hooks/useAcademyData";
 
 function wrapTickLabel(value: string, maxLineLength = 14) {
   const words = value.split(" ").filter(Boolean);
@@ -93,7 +91,6 @@ export function AcademyDashboard() {
   const { data: recomendacoes, isLoading: loadingRecomendacoes } = useAcademyRecomendacoes();
   const { data: sessoes, isLoading: loadingSessoes } = useAcademySessoes(5);
   const { data: progresso, isLoading: loadingProgresso } = useAcademyProgresso();
-  const { data: atribuicoes, isLoading: loadingAtribuicoes } = useAcademyAtribuicoes();
   const generateRecomendacoes = useGenerateRecomendacoes();
 
   const handleClearFilters = () => {
@@ -276,7 +273,7 @@ export function AcademyDashboard() {
         </Card>
         
         <Card className="p-5 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20 border-blue-200 dark:border-blue-800 cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => navigate("/treinamentos/trilhas")}>
+          onClick={() => navigate("/treinamentos/simulacoes")}>
           <div className="flex items-center gap-4">
             <div className="p-3 rounded-xl bg-blue-500/10">
               <BookOpen className="h-6 w-6 text-blue-600" />
@@ -289,87 +286,6 @@ export function AcademyDashboard() {
           </div>
         </Card>
       </div>
-
-      {/* Assigned Trainings Section */}
-      {atribuicoes && atribuicoes.length > 0 && (
-        <Card className="p-4 md:p-6 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
-          <div className="flex items-center gap-2 mb-4">
-            <AlertCircle className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-semibold text-foreground">Práticas Prioritárias</h3>
-            <Badge variant="secondary">{atribuicoes.length}</Badge>
-          </div>
-          
-          <div className="space-y-3">
-            {atribuicoes
-              .filter((a: any) => a.status === "pendente" || a.status === "em_andamento")
-              .slice(0, 3)
-              .map((atribuicao: any) => {
-                const treinamento = atribuicao.treinamento;
-                const dataLimite = atribuicao.data_limite ? new Date(atribuicao.data_limite) : null;
-                const diasRestantes = dataLimite ? differenceInDays(dataLimite, new Date()) : null;
-                const atrasado = dataLimite && isPast(dataLimite);
-                
-                return (
-                  <div 
-                    key={atribuicao.id} 
-                    className="flex items-center justify-between p-3 bg-background rounded-lg border hover:border-primary/50 transition-colors cursor-pointer"
-                    onClick={() => navigate("/treinamentos/trilhas")}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`p-2 rounded-lg ${atrasado ? "bg-destructive/10" : "bg-primary/10"}`}>
-                        <BookOpen className={`h-5 w-5 ${atrasado ? "text-destructive" : "text-primary"}`} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium text-foreground truncate">
-                          {treinamento?.titulo || "Treinamento"}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{treinamento?.tipo || "—"}</span>
-                          {treinamento?.duracao_estimada_minutos && (
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {treinamento.duracao_estimada_minutos}min
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {dataLimite && (
-                        <Badge 
-                          variant={atrasado ? "destructive" : diasRestantes && diasRestantes <= 7 ? "default" : "outline"}
-                          className="flex items-center gap-1"
-                        >
-                          <Calendar className="h-3 w-3" />
-                          {atrasado 
-                            ? "Atrasado" 
-                            : diasRestantes === 0 
-                              ? "Hoje"
-                              : diasRestantes === 1
-                                ? "Amanhã"
-                                : `${diasRestantes} dias`
-                          }
-                        </Badge>
-                      )}
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-          
-          {atribuicoes.filter((a: any) => a.status === "pendente" || a.status === "em_andamento").length > 3 && (
-            <Button 
-              variant="ghost" 
-              className="w-full mt-3 gap-2"
-              onClick={() => navigate("/treinamentos/trilhas")}
-            >
-              Ver todos os treinamentos
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          )}
-        </Card>
-      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
