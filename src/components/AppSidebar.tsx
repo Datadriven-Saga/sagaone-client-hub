@@ -80,10 +80,10 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const { isAdmin, isAdminOrTI, isGerente, isDiretor } = useUserAccessType();
   
-  // Menus sempre abertos por padrão
-  const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(true);
+  // Submenus recolhidos por padrão, abrem apenas se a rota atual está dentro
+  const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(currentPath.startsWith('/prospeccao'));
   const [isTreinamentosOpen, setIsTreinamentosOpen] = useState(currentPath.startsWith('/treinamentos'));
-  const [isAgentesIAOpen, setIsAgentesIAOpen] = useState(true);
+  const [isAgentesIAOpen, setIsAgentesIAOpen] = useState(currentPath.startsWith('/agentes-ia'));
 
   // Check if user has admin access to show admin panel
   const hasAdminAccess = isAdminOrTI || isGerente || isDiretor;
