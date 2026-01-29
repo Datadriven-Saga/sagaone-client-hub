@@ -1,10 +1,17 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Mic, MessageSquare, Phone } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Mic, MessageSquare, Phone, Users, Target, ChevronRight, Sparkles } from "lucide-react";
 import { TrainingScenario, Persona, SimulationType } from "@/types/academy";
 import { cn } from "@/lib/utils";
 import { useAcademySimulacoes } from "@/hooks/useAcademyData";
@@ -92,7 +99,7 @@ const mockScenarios: TrainingScenario[] = [
 
 export function SimulationSelector({ type, onStartSimulation }: SimulationSelectorProps) {
   const [selectedScenario, setSelectedScenario] = useState<TrainingScenario | null>(null);
-  const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const dbType = type === "voice" ? "simulacao_voz" : "simulacao_texto";
   const { data: simulacoes, isLoading } = useAcademySimulacoes(dbType);
@@ -107,191 +114,195 @@ export function SimulationSelector({ type, onStartSimulation }: SimulationSelect
 
   const isVoice = type === "voice";
 
-  const handleStartSimulation = () => {
-    if (selectedScenario && selectedPersona) {
-      onStartSimulation(selectedScenario, selectedPersona);
+  const handleScenarioClick = (scenario: TrainingScenario) => {
+    setSelectedScenario(scenario);
+    setIsModalOpen(true);
+  };
+
+  const handlePersonaSelect = (persona: Persona) => {
+    if (selectedScenario) {
+      setIsModalOpen(false);
+      onStartSimulation(selectedScenario, persona);
     }
   };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case "Fácil":
-        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+        return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
       case "Médio":
-        return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+        return "bg-amber-500/10 text-amber-600 border-amber-500/20";
       case "Difícil":
-        return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+        return "bg-rose-500/10 text-rose-600 border-rose-500/20";
       default:
-        return "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400";
+        return "bg-muted text-muted-foreground";
+    }
+  };
+
+  const getDifficultyIcon = (difficulty: string) => {
+    switch (difficulty) {
+      case "Fácil":
+        return "🟢";
+      case "Médio":
+        return "🟡";
+      case "Difícil":
+        return "🔴";
+      default:
+        return "⚪";
     }
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-full overflow-x-hidden">
-      <h1 className="text-xl md:text-2xl font-bold text-foreground mb-6">
-        {isVoice ? "Simulações por Voz" : "Simulações por Texto"}
-      </h1>
-
-      {isLoading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-          <Card className="p-6"><Skeleton className="h-48 w-full" /></Card>
-          <Card className="p-6"><Skeleton className="h-48 w-full" /></Card>
-          <Card className="p-6"><Skeleton className="h-48 w-full" /></Card>
+    <div className="p-6 md:p-8 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-2 rounded-xl bg-sagaone-login-card/10">
+            {isVoice ? (
+              <Mic className="h-6 w-6 text-sagaone-login-card" />
+            ) : (
+              <MessageSquare className="h-6 w-6 text-sagaone-login-card" />
+            )}
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+            {isVoice ? "Simulações por Voz" : "Simulações por Texto"}
+          </h1>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-          {/* Scenario Selection */}
-          <Card className="p-4 md:p-6">
-            <h3 className="text-sm font-medium text-muted-foreground mb-4">
-              Selecione a simulação que deseja praticar.
-            </h3>
-            <div className="space-y-2 max-h-[400px] overflow-y-auto">
-              {scenarios.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  Nenhuma simulação disponível. Entre em contato com seu gestor.
-                </p>
-              ) : (
-                scenarios.map((scenario) => (
-                  <button
-                    key={scenario.id}
-                    onClick={() => {
-                      setSelectedScenario(scenario);
-                      setSelectedPersona(null);
-                    }}
-                    className={cn(
-                      "w-full text-left p-4 rounded-lg border transition-colors",
-                      selectedScenario?.id === scenario.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-muted"
-                    )}
-                  >
-                    <p className="font-medium text-foreground">{scenario.title}</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{scenario.description || scenario.language}</p>
-                    <Badge variant="outline" className="mt-2 text-xs">
-                      {scenario.personas.length} persona{scenario.personas.length !== 1 ? 's' : ''}
-                    </Badge>
-                  </button>
-                ))
-              )}
-            </div>
-          </Card>
+        <p className="text-muted-foreground mt-2">
+          Selecione um cenário para iniciar sua prática. Cada simulação possui personagens com diferentes níveis de dificuldade.
+        </p>
+      </div>
 
-          {/* Persona Selection */}
-          <Card className="p-4 md:p-6">
-            <h3 className="text-sm font-medium text-muted-foreground mb-4">
-              Selecione o personagem que deseja praticar.
-            </h3>
-            {selectedScenario?.personas && selectedScenario.personas.length > 0 ? (
-              <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                {selectedScenario.personas.map((persona) => (
-                  <button
-                    key={persona.id}
-                    onClick={() => setSelectedPersona(persona)}
-                    className={cn(
-                      "w-full text-left p-4 rounded-lg border transition-colors",
-                      selectedPersona?.id === persona.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-muted"
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-12 w-12 flex-shrink-0">
-                        <AvatarFallback className="bg-primary/10 text-primary">
+      {/* Scenarios Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="overflow-hidden">
+              <Skeleton className="h-48 w-full" />
+            </Card>
+          ))}
+        </div>
+      ) : scenarios.length === 0 ? (
+        <Card className="p-12 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+            <Sparkles className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-2">
+            Nenhuma simulação disponível
+          </h3>
+          <p className="text-muted-foreground">
+            Entre em contato com seu gestor para configurar simulações.
+          </p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {scenarios.map((scenario) => (
+            <Card
+              key={scenario.id}
+              className="group cursor-pointer overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-sagaone-login-card/30"
+              onClick={() => handleScenarioClick(scenario)}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <Badge variant="outline" className="text-xs font-normal">
+                    {scenario.department}
+                  </Badge>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-sagaone-login-card transition-colors" />
+                </div>
+                <CardTitle className="text-lg mt-3 group-hover:text-sagaone-login-card transition-colors">
+                  {scenario.title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                  {scenario.description || "Pratique suas habilidades neste cenário interativo."}
+                </p>
+                
+                <div className="flex items-center justify-between pt-4 border-t border-border">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Users className="h-4 w-4" />
+                    <span>{scenario.personas.length} persona{scenario.personas.length !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="flex -space-x-2">
+                    {scenario.personas.slice(0, 3).map((persona, idx) => (
+                      <Avatar key={persona.id} className="h-8 w-8 border-2 border-card">
+                        <AvatarFallback className="text-xs bg-sagaone-primary text-primary-foreground">
                           {persona.name.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-medium text-foreground">{persona.name}</p>
-                        </div>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {persona.role} @ {persona.company}
-                        </p>
-                        <Badge 
-                          variant="outline" 
-                          className={cn("mt-2 text-xs", getDifficultyColor(persona.difficulty))}
-                        >
-                          {persona.difficulty}
-                        </Badge>
+                    ))}
+                    {scenario.personas.length > 3 && (
+                      <div className="h-8 w-8 rounded-full bg-muted border-2 border-card flex items-center justify-center text-xs text-muted-foreground">
+                        +{scenario.personas.length - 3}
                       </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                {selectedScenario 
-                  ? "Nenhum personagem disponível para esta simulação." 
-                  : "Selecione uma simulação primeiro."}
-              </p>
-            )}
-          </Card>
-
-          {/* Meeting Details */}
-          <Card className="p-4 md:p-6">
-            <h3 className="text-sm font-medium text-muted-foreground mb-4">
-              Detalhes da simulação
-            </h3>
-            {selectedPersona ? (
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-semibold text-foreground mb-2">Instruções</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Você está participando de uma simulação de atendimento {isVoice ? "por voz" : "por texto"} na loja da Saga.
-                  </p>
-                  {selectedPersona.description && (
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {selectedPersona.description}
-                    </p>
-                  )}
-                  {selectedPersona.objective && (
-                    <p className="text-sm text-muted-foreground mt-2">
-                      <strong>Seu objetivo:</strong> {selectedPersona.objective}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-3 pt-4 border-t">
-                  <Avatar className="h-12 w-12">
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {selectedPersona.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground">{selectedPersona.name}</p>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {selectedPersona.role} @ {selectedPersona.company}
-                    </p>
-                    <Badge 
-                      variant="outline" 
-                      className={cn("mt-1 text-xs", getDifficultyColor(selectedPersona.difficulty))}
-                    >
-                      {selectedPersona.difficulty}
-                    </Badge>
+                    )}
                   </div>
                 </div>
-
-                <Button 
-                  onClick={handleStartSimulation}
-                  className="w-full gap-2 bg-primary hover:bg-primary/90"
-                >
-                  {isVoice ? <Phone className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
-                  {isVoice ? "Iniciar chamada" : "Iniciar conversa"}
-                </Button>
-              </div>
-            ) : (
-              <div className="py-8 text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-                  {isVoice ? <Mic className="h-8 w-8 text-muted-foreground" /> : <MessageSquare className="h-8 w-8 text-muted-foreground" />}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Selecione uma simulação e um personagem para ver os detalhes.
-                </p>
-              </div>
-            )}
-          </Card>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
+
+      {/* Persona Selection Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Escolha o Personagem</DialogTitle>
+            <DialogDescription>
+              {selectedScenario?.title} — Selecione com quem você deseja praticar.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-3 mt-4 max-h-[400px] overflow-y-auto pr-1">
+            {selectedScenario?.personas.map((persona) => (
+              <button
+                key={persona.id}
+                onClick={() => handlePersonaSelect(persona)}
+                className="w-full text-left p-4 rounded-xl border border-border bg-card hover:border-sagaone-login-card/50 hover:bg-sagaone-login-card/5 transition-all duration-200 group"
+              >
+                <div className="flex items-start gap-4">
+                  <Avatar className="h-14 w-14 flex-shrink-0">
+                    <AvatarFallback className="text-lg bg-sagaone-primary text-primary-foreground">
+                      {persona.name.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-semibold text-foreground group-hover:text-sagaone-login-card transition-colors">
+                        {persona.name}
+                      </p>
+                      <Badge 
+                        variant="outline" 
+                        className={cn("text-xs", getDifficultyColor(persona.difficulty))}
+                      >
+                        {getDifficultyIcon(persona.difficulty)} {persona.difficulty}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {persona.role} • {persona.company}
+                    </p>
+                    {persona.description && (
+                      <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                        {persona.description}
+                      </p>
+                    )}
+                    {persona.objective && (
+                      <div className="flex items-start gap-2 mt-3 p-2 rounded-lg bg-muted/50">
+                        <Target className="h-4 w-4 text-sagaone-login-card flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Objetivo:</span> {persona.objective}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-sagaone-login-card transition-colors flex-shrink-0" />
+                </div>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

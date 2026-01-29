@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Phone, PhoneOff, Mic, MicOff, Volume2, Loader2 } from "lucide-react";
-import { TrainingScenario, Persona, SimulationMessage } from "@/types/academy";
+import { Card } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Phone, PhoneOff, Mic, MicOff, Volume2, Loader2, Target, User, Clock } from "lucide-react";
+import { TrainingScenario, Persona } from "@/types/academy";
 import { cn } from "@/lib/utils";
 import { useVoiceSimulation } from "@/hooks/useVoiceSimulation";
 
@@ -53,70 +54,81 @@ export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationPro
     onEnd();
   };
 
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case "Fácil":
+        return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
+      case "Médio":
+        return "bg-amber-500/10 text-amber-600 border-amber-500/20";
+      case "Difícil":
+        return "bg-rose-500/10 text-rose-600 border-rose-500/20";
+      default:
+        return "bg-muted text-muted-foreground";
+    }
+  };
+
   return (
-    <div className="h-full flex">
-      {/* Main Video/Avatar Area */}
-      <div className="flex-1 relative bg-gradient-to-b from-muted to-muted/50">
-        {/* Status indicator */}
-        <div className="absolute top-4 left-4 z-10">
-          <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
-            {isConnecting ? (
-              <>
-                <Loader2 className="w-3 h-3 animate-spin text-yellow-500" />
-                <span className="text-sm font-medium">Conectando...</span>
-              </>
-            ) : isConnected ? (
-              <>
-                <div className={cn(
-                  "w-3 h-3 rounded-full",
-                  isAISpeaking ? "bg-blue-500 animate-pulse" : "bg-green-500 animate-pulse"
-                )} />
-                <span className="text-sm font-medium">
-                  {isAISpeaking ? "IA falando..." : "Em chamada"}
-                </span>
-              </>
-            ) : (
-              <>
-                <div className="w-3 h-3 rounded-full bg-red-500" />
-                <span className="text-sm font-medium">Desconectado</span>
-              </>
-            )}
+    <div className="h-full flex bg-background">
+      {/* Main Call Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Top Bar */}
+        <div className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "w-3 h-3 rounded-full",
+              isConnecting ? "bg-amber-500 animate-pulse" : 
+              isConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
+            )} />
+            <span className="text-sm font-medium text-foreground">
+              {isConnecting ? "Conectando..." : isConnected ? (isAISpeaking ? "IA falando..." : "Em chamada") : "Desconectado"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground" />
+            <span className="font-mono text-lg font-semibold text-foreground">
+              {formatDuration(duration)}
+            </span>
           </div>
         </div>
 
-        {/* Avatar/Video placeholder */}
-        <div className="h-full flex items-center justify-center">
-          <div className="relative">
-            <div className={cn(
-              "w-64 h-64 rounded-full flex items-center justify-center transition-all duration-300",
-              isAISpeaking 
-                ? "bg-gradient-to-br from-primary/40 to-primary/20 ring-4 ring-primary/50 ring-offset-4 ring-offset-background" 
-                : "bg-gradient-to-br from-primary/20 to-primary/5"
-            )}>
-              <Avatar className="h-48 w-48">
-                <AvatarFallback className="text-6xl bg-primary/10 text-primary">
-                  {persona.name.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
+        {/* Avatar Area */}
+        <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-muted/30 to-muted/50">
+          <div className="text-center">
+            <div className="relative inline-block">
+              <div className={cn(
+                "w-48 h-48 md:w-56 md:h-56 rounded-full flex items-center justify-center transition-all duration-300",
+                isAISpeaking 
+                  ? "bg-sagaone-login-card/20 ring-4 ring-sagaone-login-card/40 ring-offset-4 ring-offset-background" 
+                  : "bg-sagaone-primary/10"
+              )}>
+                <Avatar className="h-40 w-40 md:h-48 md:w-48">
+                  <AvatarFallback className="text-5xl md:text-6xl bg-sagaone-primary text-primary-foreground">
+                    {persona.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              {isAISpeaking && (
+                <div className="absolute inset-0 rounded-full animate-ping bg-sagaone-login-card/20" style={{ animationDuration: '1.5s' }} />
+              )}
             </div>
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
-              <Badge variant="secondary" className="bg-background shadow-md">
-                {persona.name} - {persona.difficulty}
-              </Badge>
-            </div>
+            <h2 className="mt-6 text-2xl font-bold text-foreground">{persona.name}</h2>
+            <p className="text-muted-foreground mt-1">{persona.role}</p>
+            <Badge variant="outline" className={cn("mt-3", getDifficultyColor(persona.difficulty))}>
+              {persona.difficulty}
+            </Badge>
           </div>
         </div>
 
         {/* Call Controls */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4">
+        <div className="h-28 border-t border-border bg-card flex items-center justify-center gap-6">
           <Button
             variant="outline"
             size="icon"
             onClick={toggleMute}
             disabled={!isConnected}
             className={cn(
-              "h-14 w-14 rounded-full transition-colors",
-              isMuted && "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              "h-14 w-14 rounded-full transition-all",
+              isMuted && "bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive"
             )}
           >
             {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
@@ -126,10 +138,10 @@ export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationPro
             onClick={handleEndCall}
             size="lg"
             disabled={isConnecting}
-            className="h-14 px-8 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            className="h-14 px-10 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground gap-2"
           >
-            <PhoneOff className="h-5 w-5 mr-2" />
-            Encerrar Chamada
+            <PhoneOff className="h-5 w-5" />
+            Encerrar
           </Button>
 
           <Button
@@ -140,104 +152,119 @@ export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationPro
             <Volume2 className="h-6 w-6" />
           </Button>
         </div>
-
-        {/* Duration */}
-        <div className="absolute top-4 right-4">
-          <Badge variant="secondary" className="text-lg font-mono">
-            {formatDuration(duration)}
-          </Badge>
-        </div>
       </div>
 
-      {/* Right Panel - Instructions & Transcription */}
+      {/* Right Panel - Details & Transcription */}
       <div className="w-96 border-l border-border bg-card flex flex-col">
-        {/* Instructions */}
-        <div className="p-4 border-b border-border">
-          <h3 className="font-semibold text-foreground text-sm uppercase tracking-wide mb-3">
-            Instruções
+        {/* Scenario Details */}
+        <div className="p-5 border-b border-border">
+          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-4 flex items-center gap-2">
+            <Target className="h-4 w-4 text-sagaone-login-card" />
+            Detalhes da Simulação
           </h3>
-          <p className="text-sm text-muted-foreground">
-            Você está participando de uma simulação de atendimento presencial na loja da Saga.
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            O cliente foi atendido por telefone, demonstrou interesse em um veículo específico e compareceu à loja para conhecer o carro pessoalmente, tirar dúvidas e, eventualmente, avançar na negociação.
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            <strong>Seu objetivo</strong> é conduzir um bom atendimento, esclarecer as dúvidas do cliente sobre valor, estado do carro, financiamento e negociação, e tentar avançar para uma proposta formal.
-          </p>
+          
+          <Card className="p-4 bg-muted/30 border-0">
+            <p className="text-sm font-medium text-foreground mb-2">{scenario.title}</p>
+            <p className="text-xs text-muted-foreground">
+              Você está participando de uma simulação de atendimento na loja da Saga.
+            </p>
+            {persona.description && (
+              <p className="text-xs text-muted-foreground mt-2">
+                {persona.description}
+              </p>
+            )}
+            {persona.objective && (
+              <div className="mt-3 p-2 rounded-lg bg-sagaone-login-card/10">
+                <p className="text-xs text-sagaone-login-card font-medium">
+                  Objetivo: {persona.objective}
+                </p>
+              </div>
+            )}
+          </Card>
         </div>
 
         {/* Transcription */}
-        <div className="flex-1 p-4 overflow-y-auto">
-          <h3 className="font-semibold text-foreground text-sm uppercase tracking-wide mb-3">
-            Transcrição
-          </h3>
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  "flex gap-3",
-                  message.role === "user" ? "justify-end" : "justify-start"
-                )}
-              >
-                {message.role === "ai" && (
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="p-5 pb-3">
+            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide flex items-center gap-2">
+              <User className="h-4 w-4 text-sagaone-login-card" />
+              Transcrição
+            </h3>
+          </div>
+          
+          <ScrollArea className="flex-1 px-5 pb-5">
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={cn(
+                    "flex gap-3",
+                    message.role === "user" ? "justify-end" : "justify-start"
+                  )}
+                >
+                  {message.role === "ai" && (
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarFallback className="text-xs bg-sagaone-primary text-primary-foreground">
+                        {persona.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div
+                    className={cn(
+                      "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm",
+                      message.role === "user"
+                        ? "bg-sagaone-login-card text-white rounded-br-md"
+                        : "bg-muted text-foreground rounded-bl-md"
+                    )}
+                  >
+                    {message.content}
+                  </div>
+                  {message.role === "user" && (
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarFallback className="text-xs bg-sagaone-login-card text-white">
+                        EU
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                </div>
+              ))}
+
+              {/* Partial transcript (AI currently speaking) */}
+              {partialTranscript && (
+                <div className="flex gap-3 justify-start opacity-70">
                   <Avatar className="h-8 w-8 flex-shrink-0">
-                    <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    <AvatarFallback className="text-xs bg-sagaone-primary text-primary-foreground">
                       {persona.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
-                )}
-                <div
-                  className={cn(
-                    "max-w-[80%] rounded-2xl px-4 py-2 text-sm",
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : "bg-muted text-foreground rounded-bl-sm"
-                  )}
-                >
-                  {message.content}
+                  <div className="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm bg-muted text-foreground rounded-bl-md">
+                    {partialTranscript}
+                    <span className="inline-block w-2 h-4 bg-foreground/50 animate-pulse ml-1" />
+                  </div>
                 </div>
-                {message.role === "user" && (
-                  <Avatar className="h-8 w-8 flex-shrink-0">
-                    <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                      EU
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            ))}
+              )}
 
-            {/* Partial transcript (AI currently speaking) */}
-            {partialTranscript && (
-              <div className="flex gap-3 justify-start opacity-70">
-                <Avatar className="h-8 w-8 flex-shrink-0">
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                    {persona.name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="max-w-[80%] rounded-2xl px-4 py-2 text-sm bg-muted text-foreground rounded-bl-sm">
-                  {partialTranscript}
-                  <span className="inline-block w-2 h-4 bg-foreground/50 animate-pulse ml-1" />
+              {/* Empty state */}
+              {messages.length === 0 && !partialTranscript && isConnected && (
+                <div className="py-8 text-center">
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
+                    <Mic className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Aguardando você iniciar a conversa...
+                  </p>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Empty state */}
-            {messages.length === 0 && !partialTranscript && isConnected && (
-              <p className="text-center text-muted-foreground text-sm py-8">
-                Aguardando você iniciar a conversa...
-              </p>
-            )}
-
-            {/* Connecting state */}
-            {isConnecting && (
-              <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Conectando à simulação...</span>
-              </div>
-            )}
-          </div>
+              {/* Connecting state */}
+              {isConnecting && (
+                <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Conectando à simulação...</span>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
         </div>
       </div>
     </div>
