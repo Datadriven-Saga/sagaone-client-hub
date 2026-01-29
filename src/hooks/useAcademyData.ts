@@ -465,7 +465,7 @@ export interface SimulacaoPersona {
 export interface CreateSimulacaoData {
   titulo: string;
   descricao?: string;
-  tipo: "simulacao_voz" | "simulacao_texto";
+  tipo: "voz" | "texto"; // DB constraint: voz or texto only
   cenario?: string;
   objetivo?: string;
   departamento?: string;
@@ -497,14 +497,14 @@ export function useCreateSimulacao() {
       };
 
       // Build config_voz for voice simulations
-      const configVoz = data.tipo === "simulacao_voz" ? {
+      const configVoz = data.tipo === "voz" ? {
         voz_openai: data.vozIA || "shimmer",
       } : null;
 
       const { error } = await supabase.from("academy_simulacoes").insert([{
         titulo: data.titulo,
         descricao: data.descricao || null,
-        tipo: data.tipo,
+        tipo: data.tipo, // "voz" or "texto"
         ativo: true,
         empresa_id: activeCompany?.id || null,
         criado_por: user?.id,
