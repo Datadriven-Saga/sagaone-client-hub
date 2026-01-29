@@ -76,3 +76,6 @@ verify_jwt = false
 
 [functions.academy-generate-training]
 verify_jwt = false
+
+[functions.academy-voice-preview]
+verify_jwt = false
