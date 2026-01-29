@@ -452,25 +452,73 @@ export function useCreateTreinamento() {
   });
 }
 
+export interface SimulacaoPersona {
+  id: string;
+  nome: string;
+  cargo: string;
+  empresa: string;
+  dificuldade: string;
+  descricao: string;
+  objetivo: string;
+}
+
+export interface CreateSimulacaoData {
+  titulo: string;
+  descricao?: string;
+  tipo: "simulacao_voz" | "simulacao_texto";
+  cenario?: string;
+  objetivo?: string;
+  departamento?: string;
+  personas: SimulacaoPersona[];
+  vozIA?: string;
+}
+
 export function useCreateSimulacao() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { activeCompany } = useCompany();
 
   return useMutation({
-    mutationFn: async (data: {
-      titulo: string;
-      descricao?: string;
-      tipo: string;
-      ativo?: boolean;
-    }) => {
+    mutationFn: async (data: CreateSimulacaoData) => {
+      // Build cenario object with personas
+      const cenario = {
+        departamento: data.departamento || "Vendas Novos",
+        contexto: data.descricao || "",
+        objetivo: data.objetivo || "",
+        personas: data.personas.map(p => ({
+          id: p.id,
+          nome: p.nome,
+          cargo: p.cargo,
+          empresa: p.empresa,
+          dificuldade: p.dificuldade,
+          descricao: p.descricao,
+          objetivo: p.objetivo,
+        })),
+      };
+
+      // Build config_voz for voice simulations
+      const configVoz = data.tipo === "simulacao_voz" ? {
+        voz_openai: data.vozIA || "shimmer",
+      } : null;
+
       const { error } = await supabase.from("academy_simulacoes").insert([{
         titulo: data.titulo,
         descricao: data.descricao || null,
         tipo: data.tipo,
-        ativo: data.ativo ?? true,
+        ativo: true,
         empresa_id: activeCompany?.id || null,
         criado_por: user?.id,
+        cenario,
+        config_voz: configVoz,
+        criterios_avaliacao: {
+          dimensoes: [
+            { nome: "Situação", peso: 20 },
+            { nome: "Problema", peso: 20 },
+            { nome: "Implicação", peso: 20 },
+            { nome: "Negociação e Objeção", peso: 20 },
+            { nome: "Fechamento e Próximos Passos", peso: 20 },
+          ],
+        },
       }]);
 
       if (error) throw error;

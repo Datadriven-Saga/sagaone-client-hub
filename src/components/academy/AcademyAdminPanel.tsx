@@ -68,7 +68,9 @@ import { useCompany } from "@/contexts/CompanyContext";
 import { 
   useAcademyTreinamentos, 
   useCreateTreinamento, 
-  useAssignTreinamento 
+  useAssignTreinamento,
+  useCreateSimulacao,
+  useAcademySimulacoes,
 } from "@/hooks/useAcademyData";
 import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -171,9 +173,11 @@ export function AcademyAdminPanel() {
   // Check if user has admin access
   const hasAdminAccess = isAdminOrTI || isGerente || isDiretor;
 
-  // Fetch trainings using the new hook
+  // Fetch trainings and simulations
   const { data: trainings, isLoading: loadingTrainings } = useAcademyTreinamentos();
+  const { data: simulacoes, isLoading: loadingSimulacoes } = useAcademySimulacoes();
   const createTreinamento = useCreateTreinamento();
+  const createSimulacao = useCreateSimulacao();
   const assignTreinamento = useAssignTreinamento();
 
   // Fetch empresas (stores)
@@ -313,17 +317,33 @@ export function AcademyAdminPanel() {
       return;
     }
     
-    createTreinamento.mutate({
+    if (!formData.personaNome) {
+      toast.error("O nome da persona é obrigatório.");
+      return;
+    }
+    
+    // Create simulation in academy_simulacoes table
+    const tipoSimulacao = formData.tipo === "simulacao" ? "simulacao_voz" : "simulacao_texto";
+    
+    // Build persona from form data
+    const persona = {
+      id: crypto.randomUUID(),
+      nome: formData.personaNome,
+      cargo: formData.personaCargo || "Cliente",
+      empresa: formData.personaEmpresa || "Empresa",
+      dificuldade: formData.nivel === "iniciante" ? "Fácil" : formData.nivel === "avancado" ? "Difícil" : "Médio",
+      descricao: formData.descricao || "",
+      objetivo: formData.objetivoSimulacao || "",
+    };
+    
+    createSimulacao.mutate({
       titulo: formData.titulo,
       descricao: formData.descricao,
-      tipo: formData.tipo,
-      nivel: formData.nivel,
-      duracao_estimada_minutos: formData.duracao_estimada_minutos,
-      prazo_padrao_dias: formData.prazo_padrao_dias,
-      obrigatorio: formData.obrigatorio,
-      // Voice config
-      personaNome: formData.personaNome,
-      personaGenero: formData.personaGenero,
+      tipo: tipoSimulacao,
+      cenario: formData.cenario,
+      objetivo: formData.objetivoSimulacao,
+      departamento: formData.publicoAlvo[0] || "Vendas Novos",
+      personas: [persona],
       vozIA: formData.vozIA,
     }, {
       onSuccess: () => {
@@ -681,9 +701,9 @@ export function AcademyAdminPanel() {
               </Button>
               <Button 
                 onClick={handleCreateTraining}
-                disabled={!formData.titulo || createTreinamento.isPending}
+                disabled={!formData.titulo || !formData.personaNome || createSimulacao.isPending}
               >
-                {createTreinamento.isPending ? "Criando..." : "Criar Simulação"}
+                {createSimulacao.isPending ? "Criando..." : "Criar Simulação"}
               </Button>
             </DialogFooter>
           </DialogContent>
