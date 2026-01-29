@@ -1974,95 +1974,44 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
       // Adicionar templates para IA Whatsapp com IDs Pri e Meta
       if (tipoEvento === 'IA Whatsapp') {
-        // Comparação robusta (resolve espaços duplos, maiúsculas/minúsculas e caracteres especiais invisíveis)
-        const normalizeTemplateName = (value?: string | null) =>
-          (value ?? '')
-            .normalize('NFKC')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .toLowerCase();
+        const lookupTemplateById = async (templateId?: string | null) => {
+          if (!templateId) return null;
 
-        const buildIlikePattern = (value?: string | null) => {
-          const normalized = (value ?? '')
-            .normalize('NFKC')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-          if (!normalized) return null;
-
-          // Tolerante a variações de espaços no banco (ex: "PRI  PRI")
-          const withWildcards = normalized.replace(/\s+/g, '%');
-          return `%${withWildcards}%`;
-        };
-
-        const lookupTemplateByName = async (templateName?: string | null) => {
-          const desired = normalizeTemplateName(templateName);
-          if (!desired) return null;
-
-          const localMatch = whatsappTemplates.find(
-            (t) => normalizeTemplateName(t.nome) === desired
-          );
+          const localMatch = whatsappTemplates.find((t) => t.id === templateId);
           if (localMatch?.template_id_pri || localMatch?.id_meta) return localMatch;
 
-          // Buscar pri_telefone da empresa ativa
-          const { data: agenteData } = await supabase
-            .from('agentes_ia')
-            .select('telefone')
-            .eq('empresa_id', activeCompany.id)
-            .eq('nome', 'Pri')
-            .not('telefone', 'is', null)
+          const { data, error } = await supabase
+            .from('whatsapp_templates')
+            .select('id, nome, template_id_pri, id_meta')
+            .eq('id', templateId)
             .maybeSingle();
-          
-          const priTelefone = agenteData?.telefone?.replace(/\D/g, '') || null;
-
-          // Fallback: busca direto no banco usando pri_telefone
-          const pattern = buildIlikePattern(templateName);
-          if (!pattern) return localMatch ?? null;
-
-          let data;
-          if (priTelefone) {
-            const result = await supabase
-              .from('whatsapp_templates')
-              .select('id, nome, template_id_pri, id_meta')
-              .eq('pri_telefone', priTelefone)
-              .ilike('nome', pattern)
-              .order('updated_at', { ascending: false })
-              .limit(5);
-            data = result.data;
-          } else {
-            const result = await supabase
-              .from('whatsapp_templates')
-              .select('id, nome, template_id_pri, id_meta')
-              .eq('empresa_id', activeCompany.id)
-              .ilike('nome', pattern)
-              .order('updated_at', { ascending: false })
-              .limit(5);
-            data = result.data;
-          }
-
-          const dbMatch = (data ?? []).find(
-            (t) => normalizeTemplateName(t.nome) === desired
-          );
-
-          return dbMatch ?? (data?.[0] ?? localMatch ?? null);
+          if (error) throw error;
+          return data ?? localMatch ?? null;
         };
 
-        const [templateProspeccaoData, templateAgendadoData, templateNaoAgendadoData] =
-          await Promise.all([
-            lookupTemplateByName(prospeccaoData.template_prospeccao),
-            lookupTemplateByName(prospeccaoData.template_agendado),
-            lookupTemplateByName(prospeccaoData.template_nao_agendado),
-          ]);
+        const templateProspeccaoUuid = (prospeccaoData as any).template_prospeccao_id as string | null | undefined;
+        const templateAgendadoUuid = (prospeccaoData as any).template_agendado_id as string | null | undefined;
+        const templateNaoAgendadoUuid = (prospeccaoData as any).template_nao_agendado_id as string | null | undefined;
 
-        payload.template_prospeccao = prospeccaoData.template_prospeccao || null;
+        const [templateProspeccaoData, templateAgendadoData, templateNaoAgendadoData] = await Promise.all([
+          lookupTemplateById(templateProspeccaoUuid),
+          lookupTemplateById(templateAgendadoUuid),
+          lookupTemplateById(templateNaoAgendadoUuid),
+        ]);
+
+        // Enviar tanto o UUID (novo padrão) quanto os ids externos (PRI/Meta)
+        payload.template_prospeccao_id = templateProspeccaoUuid || null;
+        payload.template_prospeccao = templateProspeccaoData?.nome || null;
         payload.template_prospeccao_id_pri = templateProspeccaoData?.template_id_pri || null;
         payload.template_prospeccao_id_meta = templateProspeccaoData?.id_meta || null;
 
-        payload.template_agendado = prospeccaoData.template_agendado || null;
+        payload.template_agendado_id = templateAgendadoUuid || null;
+        payload.template_agendado = templateAgendadoData?.nome || null;
         payload.template_agendado_id_pri = templateAgendadoData?.template_id_pri || null;
         payload.template_agendado_id_meta = templateAgendadoData?.id_meta || null;
 
-        payload.template_nao_agendado = prospeccaoData.template_nao_agendado || null;
+        payload.template_nao_agendado_id = templateNaoAgendadoUuid || null;
+        payload.template_nao_agendado = templateNaoAgendadoData?.nome || null;
         payload.template_nao_agendado_id_pri = templateNaoAgendadoData?.template_id_pri || null;
         payload.template_nao_agendado_id_meta = templateNaoAgendadoData?.id_meta || null;
       }
