@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,9 @@ import {
   MessageSquare,
   Sparkles,
   Star,
+  ArrowLeft,
 } from "lucide-react";
+import { AcademyPageHeader } from "./AcademyPageHeader";
 
 // Mock data
 const mockFeedback = {
@@ -74,6 +77,8 @@ const mockFeedback = {
 };
 
 export function SimulationDetails() {
+  const navigate = useNavigate();
+  const { id } = useParams();
   const [activeTab, setActiveTab] = useState("visao_geral");
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
@@ -85,39 +90,35 @@ export function SimulationDetails() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-12 w-12">
-            <AvatarFallback className="bg-primary/10 text-primary">L</AvatarFallback>
-          </Avatar>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">
-              {mockFeedback.scenario_title}
-            </h1>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <Badge variant="outline" className="gap-1">
-                <Mic className="h-3 w-3" />
-                Voz
-              </Badge>
-              <span className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                {mockFeedback.duration}
-              </span>
-              <span className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                {mockFeedback.date}
-              </span>
-            </div>
-          </div>
-        </div>
-        <Button className="gap-2 bg-primary hover:bg-primary/90">
-          <FileDown className="h-4 w-4" />
-          Exportar PDF
-        </Button>
-      </div>
+    <div className="space-y-6">
+      {/* Header with Back Button */}
+      <AcademyPageHeader
+        title={mockFeedback.scenario_title}
+        backPath="/treinamentos/historico"
+        icon={<Eye className="h-6 w-6 text-sagaone-login-card" />}
+        actions={
+          <Button className="gap-2 bg-primary hover:bg-primary/90">
+            <FileDown className="h-4 w-4" />
+            Exportar PDF
+          </Button>
+        }
+      />
 
+      {/* Meta info */}
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <Badge variant="outline" className="gap-1">
+          <Mic className="h-3 w-3" />
+          Voz
+        </Badge>
+        <span className="flex items-center gap-1">
+          <Clock className="h-4 w-4" />
+          {mockFeedback.duration}
+        </span>
+        <span className="flex items-center gap-1">
+          <Calendar className="h-4 w-4" />
+          {mockFeedback.date}
+        </span>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">

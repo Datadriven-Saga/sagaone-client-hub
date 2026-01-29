@@ -117,8 +117,8 @@ export function AcademyDashboard() {
   const mediaGeral = Number(metrics?.media_geral || 0);
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-full overflow-x-hidden">
-      {/* Header */}
+    <div className="space-y-6 max-w-full overflow-x-hidden">
+      {/* Header - Dashboard is the home, no back button */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-foreground">Dashboard de Performance</h1>

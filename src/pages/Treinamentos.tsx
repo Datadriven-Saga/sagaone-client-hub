@@ -41,9 +41,7 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
   if (adminMode) {
     return (
       <DashboardLayout>
-        <div className="p-6">
-          <AcademyAdminPanel />
-        </div>
+        <AcademyAdminPanel />
       </DashboardLayout>
     );
   }
@@ -101,9 +99,7 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
-        {renderContent()}
-      </div>
+      {renderContent()}
       
       <SimulationFeedbackModal
         isOpen={showFeedbackModal}

@@ -13,6 +13,7 @@ import {
 import { TrendingUp, TrendingDown, Minus, Trophy, Medal, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAcademyRanking } from "@/hooks/useAcademyData";
+import { AcademyPageHeader } from "./AcademyPageHeader";
 
 export function AcademyRanking() {
   const { data: ranking, isLoading } = useAcademyRanking(50);
@@ -56,7 +57,7 @@ export function AcademyRanking() {
 
   if (isLoading) {
     return (
-      <div className="p-4 md:p-6 space-y-6">
+      <div className="space-y-6">
         <Skeleton className="h-8 w-64" />
         <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
           <Skeleton className="h-32" />
@@ -85,13 +86,12 @@ export function AcademyRanking() {
   const third = rankingEntries[2];
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-full overflow-x-hidden">
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-foreground">Ranking de Performance</h1>
-        <p className="text-sm text-muted-foreground">
-          Classificação dos colaboradores com base nas simulações realizadas
-        </p>
-      </div>
+    <div className="space-y-6 max-w-full overflow-x-hidden">
+      <AcademyPageHeader
+        title="Ranking de Performance"
+        description="Classificação dos colaboradores com base nas simulações realizadas"
+        icon={<Trophy className="h-6 w-6 text-sagaone-login-card" />}
+      />
 
       {rankingEntries.length === 0 ? (
         <Card className="p-8 text-center">

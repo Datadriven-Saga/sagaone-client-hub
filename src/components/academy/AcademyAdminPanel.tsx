@@ -62,6 +62,7 @@ import {
   PlayCircle,
   Volume2,
   Square,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -76,6 +77,7 @@ import {
 } from "@/hooks/useAcademyData";
 import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { AcademyPageHeader } from "./AcademyPageHeader";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -488,7 +490,7 @@ export function AcademyAdminPanel() {
 
   if (!hasAdminAccess) {
     return (
-      <div className="p-6">
+      <div>
         <Card className="p-8 text-center">
           <h2 className="text-xl font-semibold text-foreground mb-2">Acesso Restrito</h2>
           <p className="text-muted-foreground">
@@ -500,23 +502,21 @@ export function AcademyAdminPanel() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-full overflow-x-hidden">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground">Painel Admin</h1>
-          <p className="text-sm text-muted-foreground">
-            Gerencie treinamentos, progresso de usuários e atribuições.
-          </p>
-        </div>
-        
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Nova Simulação
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="space-y-6 max-w-full overflow-x-hidden">
+      <AcademyPageHeader
+        title="Painel Admin"
+        description="Gerencie treinamentos, progresso de usuários e atribuições."
+        icon={<Settings className="h-6 w-6 text-sagaone-login-card" />}
+        actions={
+          <Button className="gap-2" onClick={() => setIsCreateModalOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Nova Simulação
+          </Button>
+        }
+      />
+
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 🎯 Criar Nova Simulação Prática
@@ -788,9 +788,8 @@ export function AcademyAdminPanel() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
 
-      {/* Search and Filters */}
+        {/* Search and Filters */}
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">

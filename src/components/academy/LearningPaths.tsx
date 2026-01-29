@@ -31,9 +31,11 @@ import {
   X,
   Users,
   Flame,
+  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAcademySimulacoes, useAcademySessoes, useAcademyAtribuicoes } from "@/hooks/useAcademyData";
+import { AcademyPageHeader } from "./AcademyPageHeader";
 
 interface Simulacao {
   id: string;
@@ -142,7 +144,7 @@ export function LearningPaths() {
   // Loading state
   if (loadingSimulacoes) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6">
         <Skeleton className="h-8 w-64" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map(i => (
@@ -165,12 +167,12 @@ export function LearningPaths() {
     const isVoice = selectedSimulacao.tipo === "simulacao_voz" || selectedSimulacao.tipo === "simulacao";
     
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6">
         {/* Back Button */}
         <Button
           variant="ghost"
           onClick={() => setSelectedSimulacao(null)}
-          className="gap-2"
+          className="gap-2 -ml-2"
         >
           <ArrowLeft className="h-4 w-4" />
           Voltar para Simulações
@@ -346,8 +348,11 @@ export function LearningPaths() {
   // No simulations available
   if (!filteredSimulacoes?.length && !hasFilters) {
     return (
-      <div className="p-6 space-y-6">
-        <h1 className="text-2xl font-bold text-foreground">Simulações Práticas</h1>
+      <div className="space-y-6">
+        <AcademyPageHeader
+          title="Simulações Práticas"
+          icon={<GraduationCap className="h-6 w-6 text-sagaone-login-card" />}
+        />
         <Card className="p-8 text-center">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
             <Mic className="h-8 w-8 text-primary" />
@@ -363,20 +368,13 @@ export function LearningPaths() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Flame className="h-6 w-6 text-orange-500" />
-            Simulações Práticas
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Aprenda fazendo. Pratique situações reais através de roleplays interativos com IA.
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3">
+      <AcademyPageHeader
+        title="Simulações Práticas"
+        description="Aprenda fazendo. Pratique situações reais através de roleplays interativos com IA."
+        icon={<Flame className="h-6 w-6 text-orange-500" />}
+        actions={
           <Button 
             variant="outline" 
             className="gap-2"
@@ -385,8 +383,8 @@ export function LearningPaths() {
             <Zap className="h-4 w-4" />
             Prática Rápida
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Filters */}
       <Card className="p-4">
