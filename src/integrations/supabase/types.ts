@@ -2924,9 +2924,9 @@ export type Database = {
           premio_vendedor_prata: number | null
           qualificar_lead: boolean
           responsavel_id: string | null
-          template_agendado: string | null
-          template_nao_agendado: string | null
-          template_prospeccao: string | null
+          template_agendado_id: string | null
+          template_nao_agendado_id: string | null
+          template_prospeccao_id: string | null
           titulo: string
           updated_at: string | null
         }
@@ -2970,9 +2970,9 @@ export type Database = {
           premio_vendedor_prata?: number | null
           qualificar_lead?: boolean
           responsavel_id?: string | null
-          template_agendado?: string | null
-          template_nao_agendado?: string | null
-          template_prospeccao?: string | null
+          template_agendado_id?: string | null
+          template_nao_agendado_id?: string | null
+          template_prospeccao_id?: string | null
           titulo: string
           updated_at?: string | null
         }
@@ -3016,9 +3016,9 @@ export type Database = {
           premio_vendedor_prata?: number | null
           qualificar_lead?: boolean
           responsavel_id?: string | null
-          template_agendado?: string | null
-          template_nao_agendado?: string | null
-          template_prospeccao?: string | null
+          template_agendado_id?: string | null
+          template_nao_agendado_id?: string | null
+          template_prospeccao_id?: string | null
           titulo?: string
           updated_at?: string | null
         }
@@ -3049,6 +3049,27 @@ export type Database = {
             columns: ["responsavel_id"]
             isOneToOne: false
             referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccoes_template_agendado_id_fkey"
+            columns: ["template_agendado_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccoes_template_nao_agendado_id_fkey"
+            columns: ["template_nao_agendado_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccoes_template_prospeccao_id_fkey"
+            columns: ["template_prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
             referencedColumns: ["id"]
           },
         ]

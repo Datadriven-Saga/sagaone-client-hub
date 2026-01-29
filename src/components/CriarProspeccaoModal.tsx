@@ -65,9 +65,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
   const [canal, setCanal] = useState<'Whatsapp' | 'Ligação'>('Whatsapp');
-  const [templateProspeccao, setTemplateProspeccao] = useState("");
-  const [templateAgendado, setTemplateAgendado] = useState("");
-  const [templateNaoAgendado, setTemplateNaoAgendado] = useState("");
+  const [templateProspeccaoId, setTemplateProspeccaoId] = useState("");
+  const [templateAgendadoId, setTemplateAgendadoId] = useState("");
+  const [templateNaoAgendadoId, setTemplateNaoAgendadoId] = useState("");
   const [convite, setConvite] = useState("");
   const [imagemDivulgacao, setImagemDivulgacao] = useState("");
   
@@ -245,9 +245,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       setDataInicio(editingProspeccao.data_inicio || "");
       setDataFim(editingProspeccao.data_fim || "");
       setCanal(editingProspeccao.canal || 'Whatsapp');
-      setTemplateProspeccao(editingProspeccao.template_prospeccao || "");
-      setTemplateAgendado(editingProspeccao.template_agendado || "");
-      setTemplateNaoAgendado(editingProspeccao.template_nao_agendado || "");
+      setTemplateProspeccaoId(editingProspeccao.template_prospeccao_id || "");
+      setTemplateAgendadoId(editingProspeccao.template_agendado_id || "");
+      setTemplateNaoAgendadoId(editingProspeccao.template_nao_agendado_id || "");
       setConvite((editingProspeccao as any).convite || "");
       setImagemDivulgacao(editingProspeccao.imagem_divulgacao_url || "");
       
@@ -354,9 +354,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setDataInicio("");
     setDataFim("");
     setCanal('Whatsapp');
-    setTemplateProspeccao("");
-    setTemplateAgendado("");
-    setTemplateNaoAgendado("");
+    setTemplateProspeccaoId("");
+    setTemplateAgendadoId("");
+    setTemplateNaoAgendadoId("");
     setConvite("");
     setImagemDivulgacao("");
     setMetaNovos("");
@@ -1087,7 +1087,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
 
     // Validação específica para IA Whatsapp: template prospecção é obrigatório
-    if (tipoEvento === 'IA Whatsapp' && !templateProspeccao.trim()) {
+    if (tipoEvento === 'IA Whatsapp' && !templateProspeccaoId) {
       toast({
         title: "Campo obrigatório",
         description: "Para eventos do tipo IA Whatsapp, o Template de Prospecção é obrigatório.",
@@ -1271,9 +1271,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
       // Adicionar campos específicos do tipo de evento
       if (tipoEvento === 'IA Whatsapp') {
-        dadosProspeccao.template_prospeccao = templateProspeccao.trim() || null;
-        dadosProspeccao.template_agendado = templateAgendado.trim() || null;
-        dadosProspeccao.template_nao_agendado = templateNaoAgendado.trim() || null;
+        dadosProspeccao.template_prospeccao_id = templateProspeccaoId || null;
+        dadosProspeccao.template_agendado_id = templateAgendadoId || null;
+        dadosProspeccao.template_nao_agendado_id = templateNaoAgendadoId || null;
         dadosProspeccao.convite = null;
         // Novos campos IA Whatsapp
         dadosProspeccao.evento_principal = eventoPrincipal;
@@ -2685,10 +2685,12 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="template_prospeccao">Template Prospecção</Label>
+                <Label htmlFor="template_prospeccao">
+                  Template Prospecção <span className="text-destructive">*</span>
+                </Label>
                 <div className="flex gap-2">
-                  <Select value={templateProspeccao} onValueChange={(value) => {
-                    if (value === templateAgendado || value === templateNaoAgendado) {
+                  <Select value={templateProspeccaoId} onValueChange={(value) => {
+                    if (value === templateAgendadoId || value === templateNaoAgendadoId) {
                       toast({
                         title: "Template já utilizado",
                         description: "Este template já está selecionado em outro campo. Escolha um template diferente.",
@@ -2696,27 +2698,72 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                       });
                       return;
                     }
-                    setTemplateProspeccao(value);
+                    setTemplateProspeccaoId(value);
                   }}>
                     <SelectTrigger className="flex-1">
                       <SelectValue placeholder="Selecione um template aprovado" />
                     </SelectTrigger>
                     <SelectContent>
                       {whatsappTemplates
-                        .filter(t => (t.template_id_pri || t.id_meta) && t.nome !== templateAgendado && t.nome !== templateNaoAgendado)
+                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateAgendadoId && t.id !== templateNaoAgendadoId)
                         .map(template => (
-                          <SelectItem key={template.id} value={template.nome}>
+                          <SelectItem key={template.id} value={template.id}>
                             {template.nome}
                           </SelectItem>
                         ))}
                     </SelectContent>
                   </Select>
-                  {templateProspeccao && (
+                  {templateProspeccaoId && (
                     <Button
                       type="button"
                       variant="outline"
                       size="icon"
-                      onClick={() => setTemplateProspeccao("")}
+                      onClick={() => setTemplateProspeccaoId("")}
+                      className="shrink-0"
+                      title="Limpar seleção"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                {!templateProspeccaoId && (
+                  <p className="text-xs text-destructive">Template de prospecção é obrigatório</p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="template_agendado">Template Agendado (opcional)</Label>
+                <div className="flex gap-2">
+                  <Select value={templateAgendadoId} onValueChange={(value) => {
+                    if (value === templateProspeccaoId || value === templateNaoAgendadoId) {
+                      toast({
+                        title: "Template já utilizado",
+                        description: "Este template já está selecionado em outro campo. Escolha um template diferente.",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    setTemplateAgendadoId(value);
+                  }}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Selecione um template aprovado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {whatsappTemplates
+                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateNaoAgendadoId)
+                        .map(template => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.nome}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {templateAgendadoId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setTemplateAgendadoId("")}
                       className="shrink-0"
                       title="Limpar seleção"
                     >
@@ -2727,10 +2774,10 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="template_agendado">Template Agendado</Label>
+                <Label htmlFor="template_nao_agendado">Template Não Agendado (opcional)</Label>
                 <div className="flex gap-2">
-                  <Select value={templateAgendado} onValueChange={(value) => {
-                    if (value === templateProspeccao || value === templateNaoAgendado) {
+                  <Select value={templateNaoAgendadoId} onValueChange={(value) => {
+                    if (value === templateProspeccaoId || value === templateAgendadoId) {
                       toast({
                         title: "Template já utilizado",
                         description: "Este template já está selecionado em outro campo. Escolha um template diferente.",
@@ -2738,69 +2785,27 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                       });
                       return;
                     }
-                    setTemplateAgendado(value);
+                    setTemplateNaoAgendadoId(value);
                   }}>
                     <SelectTrigger className="flex-1">
                       <SelectValue placeholder="Selecione um template aprovado" />
                     </SelectTrigger>
                     <SelectContent>
                       {whatsappTemplates
-                        .filter(t => (t.template_id_pri || t.id_meta) && t.nome !== templateProspeccao && t.nome !== templateNaoAgendado)
+                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendadoId)
                         .map(template => (
-                          <SelectItem key={template.id} value={template.nome}>
+                          <SelectItem key={template.id} value={template.id}>
                             {template.nome}
                           </SelectItem>
                         ))}
                     </SelectContent>
                   </Select>
-                  {templateAgendado && (
+                  {templateNaoAgendadoId && (
                     <Button
                       type="button"
                       variant="outline"
                       size="icon"
-                      onClick={() => setTemplateAgendado("")}
-                      className="shrink-0"
-                      title="Limpar seleção"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="template_nao_agendado">Template Não Agendado</Label>
-                <div className="flex gap-2">
-                  <Select value={templateNaoAgendado} onValueChange={(value) => {
-                    if (value === templateProspeccao || value === templateAgendado) {
-                      toast({
-                        title: "Template já utilizado",
-                        description: "Este template já está selecionado em outro campo. Escolha um template diferente.",
-                        variant: "destructive"
-                      });
-                      return;
-                    }
-                    setTemplateNaoAgendado(value);
-                  }}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecione um template aprovado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {whatsappTemplates
-                        .filter(t => (t.template_id_pri || t.id_meta) && t.nome !== templateProspeccao && t.nome !== templateAgendado)
-                        .map(template => (
-                          <SelectItem key={template.id} value={template.nome}>
-                            {template.nome}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  {templateNaoAgendado && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setTemplateNaoAgendado("")}
+                      onClick={() => setTemplateNaoAgendadoId("")}
                       className="shrink-0"
                       title="Limpar seleção"
                     >

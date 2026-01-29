@@ -38,7 +38,7 @@ interface RequestBody {
     event_id_pri: string | null;
     data_inicio: string | null;
     data_fim: string | null;
-    template_prospeccao: string | null;
+    template_prospeccao_id: string | null; // UUID do template
   };
 }
 
@@ -287,36 +287,42 @@ serve(async (req) => {
     // O evento e a base já foram criados anteriormente pelos webhooks cria-evento-ligacao e cria-base-ligacao
     const eventIdPri = prospeccao_data?.event_id_pri || '';
 
-    // Buscar template WhatsApp associado à empresa para obter variable_mapping
+    // Buscar template WhatsApp associado à prospecção para obter variable_mapping
     let variableMapping: Record<string, any> | null = null;
     let temVariavel = 'Não';
+    let templateNome = '';
     
     if (!isIALigacao) {
-      const templateName = prospeccao_data?.template_prospeccao;
+      const templateId = prospeccao_data?.template_prospeccao_id;
       console.log(`\n📝 [${requestId}] Buscando template WhatsApp...`);
-      console.log(`   ├─ Template do evento: ${templateName || 'N/A'}`);
+      console.log(`   ├─ Template ID do evento: ${templateId || 'N/A'}`);
       
-      // Buscar template pelo nome específico do evento, ou fallback para qualquer ativo
-      let templateQuery = supabase
-        .from('whatsapp_templates')
-        .select('variable_mapping, conteudo, nome')
-        .eq('empresa_id', empresa_id)
-        .eq('ativo', true);
-      
-      if (templateName) {
-        // Se temos o nome do template, buscar especificamente por ele
-        templateQuery = templateQuery.eq('nome', templateName);
-      } else {
-        // Fallback: buscar o mais recente ativo
-        templateQuery = templateQuery.order('created_at', { ascending: false }).limit(1);
+      if (!templateId) {
+        // Sem template configurado - não pode disparar
+        console.error(`❌ [${requestId}] Evento não possui template de prospecção configurado`);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Evento não possui template de prospecção configurado. Configure um template antes de disparar.',
+            request_id: requestId 
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
       
-      const { data: templateData, error: templateError } = await templateQuery.maybeSingle();
+      // Buscar template pelo ID (UUID)
+      const { data: templateData, error: templateError } = await supabase
+        .from('whatsapp_templates')
+        .select('variable_mapping, conteudo, nome')
+        .eq('id', templateId)
+        .eq('ativo', true)
+        .maybeSingle();
 
       if (templateError) {
         console.warn(`⚠️ [${requestId}] Erro ao buscar template:`, templateError);
       } else if (templateData) {
         variableMapping = templateData.variable_mapping as Record<string, any> | null;
+        templateNome = templateData.nome;
         // Verificar se tem variáveis no conteúdo
         const hasVars = /\{\{\d+\}\}/.test(templateData.conteudo || '');
         temVariavel = hasVars ? 'Sim' : 'Não';
@@ -324,7 +330,15 @@ serve(async (req) => {
         console.log(`   ├─ Variable mapping:`, variableMapping ? JSON.stringify(variableMapping) : 'Não definido');
         console.log(`   └─ tem_variavel: ${temVariavel}`);
       } else {
-        console.log(`   └─ Nenhum template encontrado${templateName ? ` com nome "${templateName}"` : ''}`);
+        console.error(`❌ [${requestId}] Template com ID ${templateId} não encontrado ou inativo`);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Template configurado não encontrado ou está inativo. Verifique a configuração do evento.`,
+            request_id: requestId 
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     }
 
