@@ -1312,6 +1312,18 @@ export default function EventoBase() {
         canal: prospeccao.canal 
       });
 
+      // Garantir que o template_prospeccao_id exista no payload (algumas telas/listagens não carregam esse campo)
+      let templateProspeccaoId = (prospeccao as any).template_prospeccao_id as string | null | undefined;
+      if (!templateProspeccaoId) {
+        const { data: pData, error: pError } = await supabase
+          .from('prospeccoes')
+          .select('template_prospeccao_id')
+          .eq('id', prospeccao.id)
+          .maybeSingle();
+        if (pError) throw pError;
+        templateProspeccaoId = (pData as any)?.template_prospeccao_id || null;
+      }
+
       const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
         body: {
           leads,
@@ -1323,7 +1335,7 @@ export default function EventoBase() {
             event_id_pri: prospeccao.event_id_pri || null,
             data_inicio: prospeccao.data_inicio || null,
             data_fim: prospeccao.data_fim || null,
-            template_prospeccao_id: (prospeccao as any).template_prospeccao_id || null
+            template_prospeccao_id: templateProspeccaoId || null
           }
         }
       });
@@ -1384,6 +1396,18 @@ export default function EventoBase() {
         canal: prospeccao.canal 
       });
 
+      // Garantir que o template_prospeccao_id exista no payload (algumas telas/listagens não carregam esse campo)
+      let templateProspeccaoId = (prospeccao as any).template_prospeccao_id as string | null | undefined;
+      if (!templateProspeccaoId) {
+        const { data: pData, error: pError } = await supabase
+          .from('prospeccoes')
+          .select('template_prospeccao_id')
+          .eq('id', prospeccao.id)
+          .maybeSingle();
+        if (pError) throw pError;
+        templateProspeccaoId = (pData as any)?.template_prospeccao_id || null;
+      }
+
       const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
         body: {
           leads,
@@ -1395,7 +1419,7 @@ export default function EventoBase() {
             event_id_pri: prospeccao.event_id_pri || null,
             data_inicio: prospeccao.data_inicio || null,
             data_fim: prospeccao.data_fim || null,
-            template_prospeccao_id: (prospeccao as any).template_prospeccao_id || null
+            template_prospeccao_id: templateProspeccaoId || null
           }
         }
       });
