@@ -15,6 +15,7 @@ import { Mic, MessageSquare, Phone, Users, Target, ChevronRight, Sparkles } from
 import { TrainingScenario, Persona, SimulationType } from "@/types/academy";
 import { cn } from "@/lib/utils";
 import { useAcademySimulacoes } from "@/hooks/useAcademyData";
+import { AcademyPageHeader } from "./AcademyPageHeader";
 
 interface SimulationSelectorProps {
   type: SimulationType;
@@ -157,25 +158,17 @@ export function SimulationSelector({ type, onStartSimulation }: SimulationSelect
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 rounded-xl bg-sagaone-login-card/10">
-            {isVoice ? (
-              <Mic className="h-6 w-6 text-sagaone-login-card" />
-            ) : (
-              <MessageSquare className="h-6 w-6 text-sagaone-login-card" />
-            )}
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-            {isVoice ? "Simulações por Voz" : "Simulações por Texto"}
-          </h1>
-        </div>
-        <p className="text-muted-foreground mt-2">
-          Selecione um cenário para iniciar sua prática. Cada simulação possui personagens com diferentes níveis de dificuldade.
-        </p>
-      </div>
+      <AcademyPageHeader
+        title={isVoice ? "Simulações por Voz" : "Simulações por Texto"}
+        description="Selecione um cenário para iniciar sua prática. Cada simulação possui personagens com diferentes níveis de dificuldade."
+        icon={isVoice ? (
+          <Mic className="h-6 w-6 text-sagaone-login-card" />
+        ) : (
+          <MessageSquare className="h-6 w-6 text-sagaone-login-card" />
+        )}
+      />
 
       {/* Scenarios Grid */}
       {isLoading ? (

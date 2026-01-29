@@ -30,11 +30,13 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
+  History
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAcademyAllSessoes } from "@/hooks/useAcademyData";
+import { AcademyPageHeader } from "./AcademyPageHeader";
 
 const ITEMS_PER_PAGE = 15;
 
@@ -104,10 +106,12 @@ export function SimulationHistory() {
   const hasActiveFilters = searchTerm || tipoFilter !== "all";
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl md:text-2xl font-bold text-foreground">Histórico</h1>
-      </div>
+    <div className="space-y-6">
+      <AcademyPageHeader
+        title="Histórico"
+        description="Visualize todas as suas simulações realizadas"
+        icon={<History className="h-6 w-6 text-sagaone-login-card" />}
+      />
 
       {/* Filters */}
       <Card className="p-4">
