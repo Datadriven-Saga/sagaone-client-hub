@@ -167,7 +167,6 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
       [applyBold]
     );
 
-    const showPlaceholder = !value && !isFocused;
 
     return (
       <div className="relative" ref={ref}>
@@ -195,43 +194,23 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
           </TooltipProvider>
         </div>
 
-        {/* Container with proper stacking */}
-        <div className="relative" style={{ minHeight }}>
-          {/* Visual preview layer (shows formatted text) - BELOW textarea */}
-          <div
-            className={cn(
-              "absolute inset-0 w-full rounded-md border border-input bg-background px-3 py-2 pr-12 text-sm overflow-y-auto whitespace-pre-wrap break-words",
-              disabled && "opacity-50",
-              className
-            )}
-            aria-hidden="true"
-          >
-            {showPlaceholder && placeholder ? (
-              <span className="text-muted-foreground">{placeholder}</span>
-            ) : (
-              renderFormattedContent(value)
-            )}
-          </div>
-
-          {/* Actual textarea (transparent text, visible caret) - ABOVE preview */}
-          <textarea
-            ref={textareaRef}
-            id={id}
-            value={value}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            disabled={disabled}
-            className={cn(
-              "relative z-10 w-full rounded-md border border-transparent bg-transparent px-3 py-2 pr-12 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none",
-              "text-transparent caret-foreground selection:bg-primary/30",
-              className
-            )}
-            style={{ minHeight }}
-            placeholder=""
-          />
-        </div>
+        {/* Single textarea with visible text */}
+        <textarea
+          ref={textareaRef}
+          id={id}
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          disabled={disabled}
+          className={cn(
+            "w-full rounded-md border border-input bg-background px-3 py-2 pr-12 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none",
+            className
+          )}
+          style={{ minHeight }}
+          placeholder={placeholder}
+        />
       </div>
     );
   }
