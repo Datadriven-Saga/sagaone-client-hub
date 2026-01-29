@@ -93,12 +93,22 @@ const NIVEIS = [
   { value: "avancado", label: "Difícil" },
 ];
 
-// DB constraint: tipo IN ('texto', 'audio', 'video', 'simulacao')
+// Saga Academy = Simulações práticas (não cursos teóricos)
 const TIPOS = [
-  { value: "texto", label: "Curso/Texto" },
-  { value: "simulacao", label: "Simulação por Voz" },
-  { value: "video", label: "Vídeo" },
-  { value: "audio", label: "Áudio" },
+  { value: "simulacao", label: "Simulação por Voz", icon: "🎙️" },
+  { value: "texto", label: "Simulação por Texto", icon: "💬" },
+];
+
+// Cenários de roleplay
+const CENARIOS = [
+  "Venda de Veículo Novo",
+  "Venda de Seminovo", 
+  "Atendimento Pós-Venda",
+  "Negociação de Financiamento",
+  "Tratamento de Objeções",
+  "Agendamento de Test Drive",
+  "Follow-up de Lead",
+  "Recuperação de Cliente",
 ];
 
 // OpenAI Realtime voices
@@ -136,19 +146,24 @@ export function AcademyAdminPanel() {
   const [userStoreFilter, setUserStoreFilter] = useState<string>("all");
   const [userProgressPage, setUserProgressPage] = useState(1);
   
-  // Form state
+  // Form state - focado em simulações práticas
   const [formData, setFormData] = useState({
     titulo: "",
     descricao: "",
-    tipo: "texto",
+    tipo: "simulacao", // Default: simulação por voz
     nivel: "intermediario",
-    duracao_estimada_minutos: 30,
-    prazo_padrao_dias: 30, // Default deadline in days after assignment
+    duracao_estimada_minutos: 15, // Simulações são mais curtas
+    prazo_padrao_dias: 7, // Prazo mais curto para práticas
     obrigatorio: false,
     publicoAlvo: [] as string[],
     aiPrompt: "",
+    // Cenário de roleplay
+    cenario: "",
+    objetivoSimulacao: "",
     // Voice simulation config
     personaNome: "",
+    personaCargo: "",
+    personaEmpresa: "",
     personaGenero: "F",
     vozIA: "shimmer",
   });
@@ -235,14 +250,18 @@ export function AcademyAdminPanel() {
     setFormData({
       titulo: "",
       descricao: "",
-      tipo: "texto",
+      tipo: "simulacao",
       nivel: "intermediario",
-      duracao_estimada_minutos: 30,
-      prazo_padrao_dias: 30,
+      duracao_estimada_minutos: 15,
+      prazo_padrao_dias: 7,
       obrigatorio: false,
       publicoAlvo: [],
       aiPrompt: "",
+      cenario: "",
+      objetivoSimulacao: "",
       personaNome: "",
+      personaCargo: "",
+      personaEmpresa: "",
       personaGenero: "F",
       vozIA: "shimmer",
     });
@@ -415,23 +434,28 @@ export function AcademyAdminPanel() {
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
-              Novo Treinamento
+              Nova Simulação
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Criar Novo Treinamento</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                🎯 Criar Nova Simulação Prática
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Crie um cenário de roleplay para treinar habilidades reais através de prática.
+              </p>
             </DialogHeader>
             
             {/* AI Generation Section */}
             <Card className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border-purple-200 dark:border-purple-800">
               <div className="flex items-center gap-2 mb-3">
                 <Wand2 className="h-5 w-5 text-purple-600" />
-                <span className="font-medium text-foreground">Gerar com IA</span>
+                <span className="font-medium text-foreground">Gerar Cenário com IA</span>
                 <Badge variant="outline" className="text-xs">beta</Badge>
               </div>
               <Textarea
-                placeholder="Descreva o treinamento que você quer criar. Ex: 'Simulação de venda de veículo novo para cliente que está em dúvida entre comprar ou alugar...'"
+                placeholder="Descreva o cenário de simulação que você quer criar. Ex: 'Cliente indeciso entre Compass e Renegade, está com pressa e quer fechar negócio hoje...'"
                 value={formData.aiPrompt}
                 onChange={(e) => setFormData(prev => ({ ...prev, aiPrompt: e.target.value }))}
                 className="mb-3"
@@ -447,29 +471,30 @@ export function AcademyAdminPanel() {
                 {isGeneratingAI ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Gerando...
+                    Gerando Cenário...
                   </>
                 ) : (
                   <>
                     <Wand2 className="h-4 w-4" />
-                    Gerar Treinamento
+                    Gerar Simulação
                   </>
                 )}
               </Button>
             </Card>
             
             <div className="grid gap-4">
+              {/* Título e Tipo */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Título *</label>
+                  <label className="text-sm font-medium mb-1 block">Título da Simulação *</label>
                   <Input
                     value={formData.titulo}
                     onChange={(e) => setFormData(prev => ({ ...prev, titulo: e.target.value }))}
-                    placeholder="Ex: Atendimento ao Cliente Premium"
+                    placeholder="Ex: Negociação de SUV Premium"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Tipo *</label>
+                  <label className="text-sm font-medium mb-1 block">Tipo de Simulação *</label>
                   <Select
                     value={formData.tipo}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, tipo: value }))}
@@ -479,23 +504,58 @@ export function AcademyAdminPanel() {
                     </SelectTrigger>
                     <SelectContent>
                       {TIPOS.map(tipo => (
-                        <SelectItem key={tipo.value} value={tipo.value}>{tipo.label}</SelectItem>
+                        <SelectItem key={tipo.value} value={tipo.value}>
+                          <span className="flex items-center gap-2">
+                            <span>{tipo.icon}</span>
+                            {tipo.label}
+                          </span>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               
+              {/* Cenário */}
               <div>
-                <label className="text-sm font-medium mb-1 block">Descrição</label>
+                <label className="text-sm font-medium mb-1 block">Tipo de Cenário</label>
+                <Select
+                  value={formData.cenario}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, cenario: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tipo de cenário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CENARIOS.map(cenario => (
+                      <SelectItem key={cenario} value={cenario}>{cenario}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Descrição/Objetivo */}
+              <div>
+                <label className="text-sm font-medium mb-1 block">Contexto da Simulação</label>
                 <Textarea
                   value={formData.descricao}
                   onChange={(e) => setFormData(prev => ({ ...prev, descricao: e.target.value }))}
-                  placeholder="Descreva o objetivo e conteúdo do treinamento..."
+                  placeholder="Descreva a situação que o vendedor irá enfrentar. Ex: O cliente chegou interessado no Compass Limited, mas está hesitante sobre o preço..."
                   rows={3}
                 />
               </div>
               
+              <div>
+                <label className="text-sm font-medium mb-1 block">Objetivo do Treinamento</label>
+                <Textarea
+                  value={formData.objetivoSimulacao}
+                  onChange={(e) => setFormData(prev => ({ ...prev, objetivoSimulacao: e.target.value }))}
+                  placeholder="O que o vendedor deve aprender/praticar? Ex: Contornar objeções de preço, apresentar benefícios do produto..."
+                  rows={2}
+                />
+              </div>
+              
+              {/* Dificuldade e Duração */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium mb-1 block">Nível de Dificuldade</label>
@@ -518,46 +578,68 @@ export function AcademyAdminPanel() {
                   <Input
                     type="number"
                     value={formData.duracao_estimada_minutos}
-                    onChange={(e) => setFormData(prev => ({ ...prev, duracao_estimada_minutos: parseInt(e.target.value) || 0 }))}
-                    min={1}
+                    onChange={(e) => setFormData(prev => ({ ...prev, duracao_estimada_minutos: parseInt(e.target.value) || 15 }))}
+                    min={5}
+                    max={60}
                   />
                 </div>
               </div>
 
-              {/* Prazo padrão para conclusão */}
+              {/* Prazo padrão */}
               <div>
-                <label className="text-sm font-medium mb-1 block">Prazo padrão para conclusão (dias)</label>
+                <label className="text-sm font-medium mb-1 block">Prazo para prática (dias)</label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Quando atribuído a um usuário, ele terá este prazo para concluir o curso.
+                  Quando atribuído, o usuário terá este prazo para completar a simulação.
                 </p>
                 <Input
                   type="number"
                   value={formData.prazo_padrao_dias}
-                  onChange={(e) => setFormData(prev => ({ ...prev, prazo_padrao_dias: parseInt(e.target.value) || 30 }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, prazo_padrao_dias: parseInt(e.target.value) || 7 }))}
                   min={1}
-                  max={365}
-                  placeholder="30"
+                  max={30}
                 />
               </div>
 
-              {/* Voice configuration - only show for simulation type */}
-              {formData.tipo === "simulacao" && (
-                <Card className="p-4 border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20">
-                  <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
-                    <span className="text-lg">🎙️</span>
-                    Configuração da Voz IA
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Configuração da Persona (Cliente IA) */}
+              <Card className="p-4 border-primary/20 bg-primary/5">
+                <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                  👤 Persona do Cliente (IA)
+                </h4>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Configure quem será o "cliente" na simulação. A IA vai interpretar esse personagem.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Nome</label>
+                    <Input
+                      value={formData.personaNome}
+                      onChange={(e) => setFormData(prev => ({ ...prev, personaNome: e.target.value }))}
+                      placeholder="Ex: Carlos, Maria..."
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Cargo/Profissão</label>
+                    <Input
+                      value={formData.personaCargo}
+                      onChange={(e) => setFormData(prev => ({ ...prev, personaCargo: e.target.value }))}
+                      placeholder="Ex: Empresário, Médica..."
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Empresa/Contexto</label>
+                    <Input
+                      value={formData.personaEmpresa}
+                      onChange={(e) => setFormData(prev => ({ ...prev, personaEmpresa: e.target.value }))}
+                      placeholder="Ex: Clínica ABC, Autônomo..."
+                    />
+                  </div>
+                </div>
+                
+                {/* Voz IA - apenas para simulação por voz */}
+                {formData.tipo === "simulacao" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t">
                     <div>
-                      <label className="text-sm font-medium mb-1 block">Nome da Persona</label>
-                      <Input
-                        value={formData.personaNome}
-                        onChange={(e) => setFormData(prev => ({ ...prev, personaNome: e.target.value }))}
-                        placeholder="Ex: Maria, João, Ana..."
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-1 block">Gênero</label>
+                      <label className="text-sm font-medium mb-1 block">Gênero da Voz</label>
                       <Select
                         value={formData.personaGenero}
                         onValueChange={(value) => setFormData(prev => ({ ...prev, personaGenero: value }))}
@@ -589,11 +671,8 @@ export function AcademyAdminPanel() {
                       </Select>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Essas configurações definem a persona do cliente na simulação por voz.
-                  </p>
-                </Card>
-              )}
+                )}
+              </Card>
             </div>
             
             <DialogFooter className="gap-2">
@@ -604,7 +683,7 @@ export function AcademyAdminPanel() {
                 onClick={handleCreateTraining}
                 disabled={!formData.titulo || createTreinamento.isPending}
               >
-                {createTreinamento.isPending ? "Criando..." : "Criar Treinamento"}
+                {createTreinamento.isPending ? "Criando..." : "Criar Simulação"}
               </Button>
             </DialogFooter>
           </DialogContent>

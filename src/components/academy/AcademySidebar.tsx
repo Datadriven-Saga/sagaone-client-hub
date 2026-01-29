@@ -27,9 +27,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/treinamentos" },
   { id: "ranking", label: "Ranking", icon: Trophy, path: "/treinamentos/ranking" },
-  { id: "trilhas", label: "Trilhas de Aprendizado", icon: GraduationCap, path: "/treinamentos/trilhas" },
-  { id: "voz", label: "Simulações por Voz", icon: Mic, path: "/treinamentos/simulacoes-voz" },
-  { id: "texto", label: "Simulações por Texto", icon: MessageSquare, path: "/treinamentos/simulacoes-texto" },
+  { id: "trilhas", label: "Simulações Práticas", icon: GraduationCap, path: "/treinamentos/trilhas" },
+  { id: "voz", label: "Prática por Voz", icon: Mic, path: "/treinamentos/simulacoes-voz" },
+  { id: "texto", label: "Prática por Texto", icon: MessageSquare, path: "/treinamentos/simulacoes-texto" },
   { id: "historico", label: "Histórico", icon: History, path: "/treinamentos/historico" },
   { id: "admin", label: "Painel Admin", icon: Settings, path: "/treinamentos/admin", adminOnly: true },
 ];
