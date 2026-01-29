@@ -135,7 +135,51 @@ export const useContatoData = () => {
       // Eventos de Ligação com event_id_pri são controlados externamente e não devem ser filtrados por data
       let query = supabase
         .from('prospeccoes')
-        .select('*')
+        .select(`
+          id,
+          titulo,
+          descricao,
+          data_inicio,
+          data_fim,
+          meta_leads,
+          meta_novos,
+          meta_seminovos,
+          meta_diretas,
+          meta_checkins,
+          meta_confirmacoes,
+          meta_convites,
+          leads_gerados,
+          responsavel_id,
+          empresa_id,
+          canal,
+          persona_id,
+          event_id_pri,
+          ativo,
+          created_at,
+          updated_at,
+          premio_equipe_campea,
+          premio_equipe_2lugar,
+          premio_equipe_3lugar,
+          premio_vendedor_ouro,
+          premio_vendedor_prata,
+          premio_vendedor_bronze,
+          premio_prospector_ouro,
+          premio_prospector_prata,
+          premio_prospector_bronze,
+          premio_checkin_ouro,
+          premio_checkin_prata,
+          premio_checkin_bronze,
+          premio_participacao_apoio,
+          premio_indicacao_venda,
+          imagem_divulgacao_url,
+          template_prospeccao_id,
+          template_agendado_id,
+          template_nao_agendado_id,
+          evento_principal,
+          qualificar_lead,
+          data_envio_template_inicial,
+          data_envio_cadencia
+        `)
         .eq('empresa_id', activeCompany.id);
       
       // Filtrar apenas eventos ativos (data_fim >= hoje) se NÃO for para mostrar todos
