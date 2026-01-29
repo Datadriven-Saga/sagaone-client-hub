@@ -40,7 +40,7 @@ function transformToScenario(simulacao: any): TrainingScenario {
     title: simulacao.titulo,
     description: simulacao.descricao || "",
     department: cenario.departamento || "Vendas Novos",
-    type: simulacao.tipo === "simulacao_voz" ? "voice" : "text",
+    type: simulacao.tipo === "voz" ? "voice" : "text",
     language: cenario.idioma || "Português",
     personas,
   };
@@ -101,7 +101,8 @@ export function SimulationSelector({ type, onStartSimulation }: SimulationSelect
   const [selectedScenario, setSelectedScenario] = useState<TrainingScenario | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const dbType = type === "voice" ? "simulacao_voz" : "simulacao_texto";
+  // DB constraint: tipo is 'voz' or 'texto'
+  const dbType = type === "voice" ? "voz" : "texto";
   const { data: simulacoes, isLoading } = useAcademySimulacoes(dbType);
 
   // Transform database data to scenarios

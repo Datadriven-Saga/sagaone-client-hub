@@ -323,7 +323,8 @@ export function AcademyAdminPanel() {
     }
     
     // Create simulation in academy_simulacoes table
-    const tipoSimulacao = formData.tipo === "simulacao" ? "simulacao_voz" : "simulacao_texto";
+    // DB constraint: tipo must be 'voz' or 'texto'
+    const tipoSimulacao = formData.tipo === "simulacao" ? "voz" : "texto";
     
     // Build persona from form data
     const persona = {
@@ -339,7 +340,7 @@ export function AcademyAdminPanel() {
     createSimulacao.mutate({
       titulo: formData.titulo,
       descricao: formData.descricao,
-      tipo: tipoSimulacao,
+      tipo: tipoSimulacao as "voz" | "texto",
       cenario: formData.cenario,
       objetivo: formData.objetivoSimulacao,
       departamento: formData.publicoAlvo[0] || "Vendas Novos",
