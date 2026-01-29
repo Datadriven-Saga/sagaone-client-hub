@@ -302,8 +302,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       } else if (canalSalvo === 'Ligação') {
         setTipoEvento('IA Ligação');
       } else if (canalSalvo === 'Whatsapp') {
-        // Whatsapp pode ser IA Whatsapp (com template) ou Mensal antigo
-        if (editingProspeccao.template_prospeccao) {
+        // Whatsapp pode ser IA Whatsapp (com template_prospeccao_id) ou Mensal antigo
+        if (editingProspeccao.template_prospeccao_id) {
           setTipoEvento('IA Whatsapp');
         } else {
           // Eventos antigos criados antes da mudança de schema
