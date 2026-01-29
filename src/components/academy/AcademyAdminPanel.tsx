@@ -38,6 +38,7 @@ import {
   Users,
   BookOpen,
   Wand2,
+  Loader2,
   CheckCircle2,
   XCircle,
   Clock,
@@ -99,6 +100,7 @@ export function AcademyAdminPanel() {
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   
   // User progress filters
   const [userNameFilter, setUserNameFilter] = useState("");
@@ -209,21 +211,44 @@ export function AcademyAdminPanel() {
     });
   };
 
-  const handleGenerateWithAI = () => {
+  const handleGenerateWithAI = async () => {
     if (!formData.aiPrompt) {
       toast.error("Digite uma descrição para gerar o treinamento com IA.");
       return;
     }
-    
-    // TODO: Integrate with AI service when OPENAI_API_KEY is configured
-    toast.info("Geração com IA será habilitada após configurar a chave da OpenAI.");
-    
-    // For now, populate with mock data based on prompt
-    setFormData(prev => ({
-      ...prev,
-      titulo: `Treinamento: ${prev.aiPrompt.slice(0, 50)}...`,
-      descricao: prev.aiPrompt,
-    }));
+
+    setIsGeneratingAI(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("academy-generate-training", {
+        body: {
+          prompt: formData.aiPrompt,
+          suggestedNivel: formData.nivel,
+          suggestedTipo: formData.tipo,
+        },
+      });
+
+      if (error) throw error;
+
+      setFormData(prev => ({
+        ...prev,
+        titulo: data?.titulo ?? prev.titulo,
+        descricao: data?.descricao ?? prev.descricao,
+        tipo: data?.tipo ?? prev.tipo,
+        nivel: data?.nivel ?? prev.nivel,
+        duracao_estimada_minutos:
+          typeof data?.duracao_estimada_minutos === "number"
+            ? data.duracao_estimada_minutos
+            : prev.duracao_estimada_minutos,
+        publicoAlvo: Array.isArray(data?.publico_alvo) ? data.publico_alvo : prev.publicoAlvo,
+      }));
+
+      toast.success("Treinamento gerado com IA. Revise e clique em 'Criar Treinamento'.");
+    } catch (err: any) {
+      console.error("Erro ao gerar treinamento com IA:", err);
+      toast.error("Erro ao gerar com IA: " + (err?.message || "erro desconhecido"));
+    } finally {
+      setIsGeneratingAI(false);
+    }
   };
 
   const handleCreateTraining = () => {
@@ -338,7 +363,7 @@ export function AcademyAdminPanel() {
               <div className="flex items-center gap-2 mb-3">
                 <Wand2 className="h-5 w-5 text-purple-600" />
                 <span className="font-medium text-foreground">Gerar com IA</span>
-                <Badge variant="outline" className="text-xs">em breve</Badge>
+                <Badge variant="outline" className="text-xs">beta</Badge>
               </div>
               <Textarea
                 placeholder="Descreva o treinamento que você quer criar. Ex: 'Simulação de venda de veículo novo para cliente que está em dúvida entre comprar ou alugar...'"
@@ -352,9 +377,19 @@ export function AcademyAdminPanel() {
                 variant="outline" 
                 className="gap-2"
                 onClick={handleGenerateWithAI}
+                disabled={isGeneratingAI}
               >
-                <Wand2 className="h-4 w-4" />
-                Gerar Treinamento
+                {isGeneratingAI ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-4 w-4" />
+                    Gerar Treinamento
+                  </>
+                )}
               </Button>
             </Card>
             

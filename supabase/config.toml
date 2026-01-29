@@ -73,3 +73,6 @@ verify_jwt = true
 
 [functions.academy-voice-simulation]
 verify_jwt = false
+
+[functions.academy-generate-training]
+verify_jwt = false
