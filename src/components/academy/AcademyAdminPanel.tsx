@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -46,59 +47,17 @@ import {
   ChevronRight,
   Building2,
   X,
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { useCompany } from "@/contexts/CompanyContext";
-
-interface Training {
-  id: string;
-  titulo: string;
-  descricao: string | null;
-  tipo: string;
-  departamento: string | null;
-  dificuldade: string;
-  duracao_minutos: number | null;
-  nota_minima: number | null;
-  ativo: boolean | null;
-  empresa_id: string | null;
-  created_at: string;
-}
-
-interface UserProgress {
-  id: string;
-  user_id: string;
-  treinamento_id: string;
-  status: string;
-  nota: number | null;
-  tentativas: number;
-  data_conclusao: string | null;
-  profiles?: {
-    nome_completo: string;
-    departamento: string | null;
-  };
-  treinamentos?: {
-    titulo: string;
-    tipo: string;
-  };
-}
-
-interface UserProfile {
-  id: string;
-  nome_completo: string;
-  departamento: string | null;
-  tipo_acesso: string;
-  empresa_id: string | null;
-  empresas?: {
-    nome_empresa: string;
-  } | null;
-}
-
-interface Empresa {
-  id: string;
-  nome_empresa: string;
-}
+import { 
+  useAcademyTreinamentos, 
+  useCreateTreinamento, 
+  useAssignTreinamento 
+} from "@/hooks/useAcademyData";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -114,6 +73,15 @@ const DEPARTMENTS = [
   "Recepção",
 ];
 
+const NIVEIS = ["Fácil", "Médio", "Difícil"];
+const TIPOS = [
+  { value: "curso", label: "Curso" },
+  { value: "simulacao_voz", label: "Simulação por Voz" },
+  { value: "simulacao_texto", label: "Simulação por Texto" },
+  { value: "video", label: "Vídeo" },
+  { value: "documento", label: "Documento" },
+];
+
 export function AcademyAdminPanel() {
   const { user } = useAuth();
   const { activeCompany } = useCompany();
@@ -123,7 +91,7 @@ export function AcademyAdminPanel() {
   const [activeTab, setActiveTab] = useState("trainings");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [selectedTraining, setSelectedTraining] = useState<Training | null>(null);
+  const [selectedTraining, setSelectedTraining] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
@@ -134,61 +102,25 @@ export function AcademyAdminPanel() {
   const [userStoreFilter, setUserStoreFilter] = useState<string>("all");
   const [userProgressPage, setUserProgressPage] = useState(1);
   
-  // Form state for creating/editing training
+  // Form state
   const [formData, setFormData] = useState({
     titulo: "",
     descricao: "",
     tipo: "curso",
-    departamento: "",
-    dificuldade: "Médio",
-    duracao_minutos: 30,
-    nota_minima: 7,
-    ativo: true,
+    nivel: "Médio",
+    duracao_estimada_minutos: 30,
+    obrigatorio: false,
+    publicoAlvo: [] as string[],
     aiPrompt: "",
   });
 
   // Check if user has admin access
   const hasAdminAccess = isAdminOrTI || isGerente || isDiretor;
 
-  // Fetch trainings
-  const { data: trainings, isLoading: loadingTrainings } = useQuery({
-    queryKey: ["academy-trainings", activeCompany],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("treinamentos")
-        .select("*")
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      return data as Training[];
-    },
-    enabled: hasAdminAccess,
-  });
-
-  // Fetch user progress
-  const { data: userProgress, isLoading: loadingProgress } = useQuery({
-    queryKey: ["academy-user-progress", activeCompany],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("treinamento_progresso")
-        .select(`
-          *,
-          profiles:user_id (
-            nome_completo,
-            departamento
-          ),
-          treinamentos:treinamento_id (
-            titulo,
-            tipo
-          )
-        `)
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: hasAdminAccess,
-  });
+  // Fetch trainings using the new hook
+  const { data: trainings, isLoading: loadingTrainings } = useAcademyTreinamentos();
+  const createTreinamento = useCreateTreinamento();
+  const assignTreinamento = useAssignTreinamento();
 
   // Fetch empresas (stores)
   const { data: empresas } = useQuery({
@@ -200,14 +132,14 @@ export function AcademyAdminPanel() {
         .order("nome_empresa");
       
       if (error) throw error;
-      return data as Empresa[];
+      return data;
     },
     enabled: hasAdminAccess && isAdminOrTI,
   });
 
   // Fetch users for assignment and progress
   const { data: users, isLoading: loadingUsers } = useQuery({
-    queryKey: ["academy-users", activeCompany, isAdminOrTI],
+    queryKey: ["academy-users", activeCompany?.id, isAdminOrTI],
     queryFn: async () => {
       let query = supabase
         .from("profiles")
@@ -222,46 +154,30 @@ export function AcademyAdminPanel() {
       
       const { data, error } = await query;
       if (error) throw error;
-      return data as UserProfile[];
+      return data;
     },
     enabled: hasAdminAccess,
   });
 
-  // Create training mutation
-  const createTrainingMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      const empresaId = isAdminOrTI ? null : activeCompany?.id || null;
-      const { error } = await supabase.from("treinamentos").insert([{
-        titulo: data.titulo,
-        descricao: data.descricao || null,
-        tipo: data.tipo,
-        departamento: data.departamento || null,
-        dificuldade: data.dificuldade,
-        duracao_minutos: data.duracao_minutos,
-        nota_minima: data.nota_minima,
-        ativo: data.ativo,
-        empresa_id: empresaId,
-        criado_por: user?.id,
-      }]);
+  // Fetch user metrics
+  const { data: userMetrics } = useQuery({
+    queryKey: ["academy-all-metrics", activeCompany?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("academy_metricas_usuario")
+        .select("*");
       
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
-      toast.success("Treinamento criado com sucesso!");
-      queryClient.invalidateQueries({ queryKey: ["academy-trainings"] });
-      setIsCreateModalOpen(false);
-      resetForm();
-    },
-    onError: (error) => {
-      toast.error("Erro ao criar treinamento: " + error.message);
-    },
+    enabled: hasAdminAccess,
   });
 
   // Delete training mutation
   const deleteTrainingMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from("treinamentos")
+        .from("academy_treinamentos")
         .delete()
         .eq("id", id);
       
@@ -269,38 +185,10 @@ export function AcademyAdminPanel() {
     },
     onSuccess: () => {
       toast.success("Treinamento excluído com sucesso!");
-      queryClient.invalidateQueries({ queryKey: ["academy-trainings"] });
+      queryClient.invalidateQueries({ queryKey: ["academy-treinamentos"] });
     },
     onError: (error) => {
       toast.error("Erro ao excluir treinamento: " + error.message);
-    },
-  });
-
-  // Assign mandatory training mutation
-  const assignTrainingMutation = useMutation({
-    mutationFn: async ({ trainingId, userId, prazo }: { trainingId: string; userId: string; prazo?: string }) => {
-      const empresaId = activeCompany?.id || null;
-      const { error } = await supabase.from("treinamento_obrigatorios").insert([{
-        treinamento_id: trainingId,
-        user_id: userId,
-        atribuido_por: user?.id || "",
-        prazo: prazo || null,
-        empresa_id: empresaId,
-      }]);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Treinamento atribuído com sucesso!");
-      setIsAssignModalOpen(false);
-      setSelectedUser("");
-    },
-    onError: (error) => {
-      if (error.message.includes("duplicate")) {
-        toast.error("Este treinamento já foi atribuído a este usuário.");
-      } else {
-        toast.error("Erro ao atribuir treinamento: " + error.message);
-      }
     },
   });
 
@@ -309,11 +197,10 @@ export function AcademyAdminPanel() {
       titulo: "",
       descricao: "",
       tipo: "curso",
-      departamento: "",
-      dificuldade: "Médio",
-      duracao_minutos: 30,
-      nota_minima: 7,
-      ativo: true,
+      nivel: "Médio",
+      duracao_estimada_minutos: 30,
+      obrigatorio: false,
+      publicoAlvo: [],
       aiPrompt: "",
     });
   };
@@ -324,8 +211,8 @@ export function AcademyAdminPanel() {
       return;
     }
     
-    // TODO: Integrate with AI service
-    toast.info("Geração com IA será implementada em breve!");
+    // TODO: Integrate with AI service when OPENAI_API_KEY is configured
+    toast.info("Geração com IA será habilitada após configurar a chave da OpenAI.");
     
     // For now, populate with mock data based on prompt
     setFormData(prev => ({
@@ -335,38 +222,75 @@ export function AcademyAdminPanel() {
     }));
   };
 
+  const handleCreateTraining = () => {
+    if (!formData.titulo) {
+      toast.error("O título é obrigatório.");
+      return;
+    }
+    
+    createTreinamento.mutate({
+      titulo: formData.titulo,
+      descricao: formData.descricao,
+      tipo: formData.tipo,
+      nivel: formData.nivel,
+      duracao_estimada_minutos: formData.duracao_estimada_minutos,
+      obrigatorio: formData.obrigatorio,
+    }, {
+      onSuccess: () => {
+        setIsCreateModalOpen(false);
+        resetForm();
+      }
+    });
+  };
+
+  const handleAssignTraining = () => {
+    if (!selectedTraining || !selectedUser) {
+      toast.error("Selecione um usuário para atribuir o treinamento.");
+      return;
+    }
+    
+    assignTreinamento.mutate({
+      treinamentoId: selectedTraining.id,
+      userId: selectedUser,
+      obrigatorio: true,
+    }, {
+      onSuccess: () => {
+        setIsAssignModalOpen(false);
+        setSelectedUser("");
+      }
+    });
+  };
+
   const filteredTrainings = trainings?.filter(t => 
     t.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.descricao?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredProgress = userProgress?.filter(p => {
-    const userName = (p.profiles as any)?.nome_completo?.toLowerCase() || "";
-    const trainingName = (p.treinamentos as any)?.titulo?.toLowerCase() || "";
-    return userName.includes(searchTerm.toLowerCase()) || trainingName.includes(searchTerm.toLowerCase());
-  });
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "concluido":
-        return <Badge className="bg-green-100 text-green-700"><CheckCircle2 className="h-3 w-3 mr-1" />Concluído</Badge>;
-      case "em_andamento":
-        return <Badge className="bg-yellow-100 text-yellow-700"><Clock className="h-3 w-3 mr-1" />Em Andamento</Badge>;
-      case "reprovado":
-        return <Badge className="bg-red-100 text-red-700"><XCircle className="h-3 w-3 mr-1" />Reprovado</Badge>;
+  const getTipoBadge = (tipo: string) => {
+    switch (tipo) {
+      case "simulacao_voz":
+        return <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">Voz</Badge>;
+      case "simulacao_texto":
+        return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Texto</Badge>;
+      case "video":
+        return <Badge className="bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400">Vídeo</Badge>;
+      case "documento":
+        return <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">Doc</Badge>;
       default:
-        return <Badge variant="outline">Pendente</Badge>;
+        return <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">Curso</Badge>;
     }
   };
 
-  const getTipoBadge = (tipo: string) => {
-    switch (tipo) {
-      case "voz":
-        return <Badge className="bg-purple-100 text-purple-700">Voz</Badge>;
-      case "texto":
-        return <Badge className="bg-blue-100 text-blue-700">Texto</Badge>;
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "publicado":
+        return <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Publicado</Badge>;
+      case "rascunho":
+        return <Badge variant="secondary">Rascunho</Badge>;
+      case "arquivado":
+        return <Badge variant="outline">Arquivado</Badge>;
       default:
-        return <Badge className="bg-gray-100 text-gray-700">Curso</Badge>;
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
@@ -384,12 +308,12 @@ export function AcademyAdminPanel() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-6 max-w-full overflow-x-hidden">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Painel Admin</h1>
-          <p className="text-muted-foreground">
-            Gerencie treinamentos, progresso de usuários e atribuições obrigatórias.
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Painel Admin</h1>
+          <p className="text-sm text-muted-foreground">
+            Gerencie treinamentos, progresso de usuários e atribuições.
           </p>
         </div>
         
@@ -406,10 +330,11 @@ export function AcademyAdminPanel() {
             </DialogHeader>
             
             {/* AI Generation Section */}
-            <Card className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border-purple-200">
+            <Card className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border-purple-200 dark:border-purple-800">
               <div className="flex items-center gap-2 mb-3">
                 <Wand2 className="h-5 w-5 text-purple-600" />
                 <span className="font-medium text-foreground">Gerar com IA</span>
+                <Badge variant="outline" className="text-xs">em breve</Badge>
               </div>
               <Textarea
                 placeholder="Descreva o treinamento que você quer criar. Ex: 'Simulação de venda de veículo novo para cliente que está em dúvida entre comprar ou alugar...'"
@@ -430,7 +355,7 @@ export function AcademyAdminPanel() {
             </Card>
             
             <div className="grid gap-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium mb-1 block">Título *</label>
                   <Input
@@ -449,9 +374,9 @@ export function AcademyAdminPanel() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="voz">Simulação por Voz</SelectItem>
-                      <SelectItem value="texto">Simulação por Texto</SelectItem>
-                      <SelectItem value="curso">Curso</SelectItem>
+                      {TIPOS.map(tipo => (
+                        <SelectItem key={tipo.value} value={tipo.value}>{tipo.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -467,74 +392,44 @@ export function AcademyAdminPanel() {
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Departamento</label>
+                  <label className="text-sm font-medium mb-1 block">Nível de Dificuldade</label>
                   <Select
-                    value={formData.departamento}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, departamento: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos os departamentos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Todos os departamentos</SelectItem>
-                      {DEPARTMENTS.map(dept => (
-                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Dificuldade *</label>
-                  <Select
-                    value={formData.dificuldade}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, dificuldade: value }))}
+                    value={formData.nivel}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, nivel: value }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Fácil">Fácil</SelectItem>
-                      <SelectItem value="Médio">Médio</SelectItem>
-                      <SelectItem value="Difícil">Difícil</SelectItem>
+                      {NIVEIS.map(nivel => (
+                        <SelectItem key={nivel} value={nivel}>{nivel}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Duração (minutos)</label>
+                  <label className="text-sm font-medium mb-1 block">Duração estimada (min)</label>
                   <Input
                     type="number"
-                    value={formData.duracao_minutos}
-                    onChange={(e) => setFormData(prev => ({ ...prev, duracao_minutos: parseInt(e.target.value) || 0 }))}
+                    value={formData.duracao_estimada_minutos}
+                    onChange={(e) => setFormData(prev => ({ ...prev, duracao_estimada_minutos: parseInt(e.target.value) || 0 }))}
                     min={1}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Nota Mínima</label>
-                  <Input
-                    type="number"
-                    value={formData.nota_minima}
-                    onChange={(e) => setFormData(prev => ({ ...prev, nota_minima: parseInt(e.target.value) || 0 }))}
-                    min={0}
-                    max={10}
                   />
                 </div>
               </div>
             </div>
             
-            <DialogFooter>
+            <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
                 Cancelar
               </Button>
               <Button 
-                onClick={() => createTrainingMutation.mutate(formData)}
-                disabled={!formData.titulo || createTrainingMutation.isPending}
+                onClick={handleCreateTraining}
+                disabled={!formData.titulo || createTreinamento.isPending}
               >
-                {createTrainingMutation.isPending ? "Criando..." : "Criar Treinamento"}
+                {createTreinamento.isPending ? "Criando..." : "Criar Treinamento"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -543,18 +438,18 @@ export function AcademyAdminPanel() {
 
       {/* Search and Filters */}
       <Card className="p-4">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar treinamentos ou usuários..."
+              placeholder="Buscar treinamentos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
           <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full sm:w-[200px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Filtrar por departamento" />
             </SelectTrigger>
@@ -570,110 +465,89 @@ export function AcademyAdminPanel() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="trainings" className="gap-2">
             <BookOpen className="h-4 w-4" />
-            Treinamentos
+            <span className="hidden sm:inline">Treinamentos</span>
           </TabsTrigger>
           <TabsTrigger value="progress" className="gap-2">
             <Users className="h-4 w-4" />
-            Progresso de Usuários
+            <span className="hidden sm:inline">Progresso de Usuários</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="trainings" className="mt-4">
           <Card>
             {loadingTrainings ? (
-              <div className="p-8 text-center text-muted-foreground">
-                Carregando treinamentos...
+              <div className="p-4 space-y-3">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
               </div>
             ) : !filteredTrainings?.length ? (
               <div className="p-8 text-center text-muted-foreground">
-                Nenhum treinamento encontrado.
+                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhum treinamento encontrado.</p>
+                <p className="text-sm mt-2">Crie um novo treinamento para começar.</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Departamento</TableHead>
-                    <TableHead>Dificuldade</TableHead>
-                    <TableHead>Duração</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTrainings.map((training) => (
-                    <TableRow key={training.id}>
-                      <TableCell className="font-medium">{training.titulo}</TableCell>
-                      <TableCell>{getTipoBadge(training.tipo)}</TableCell>
-                      <TableCell>{training.departamento || "Todos"}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{training.dificuldade}</Badge>
-                      </TableCell>
-                      <TableCell>{training.duracao_minutos}min</TableCell>
-                      <TableCell>
-                        {training.ativo ? (
-                          <Badge className="bg-green-100 text-green-700">Ativo</Badge>
-                        ) : (
-                          <Badge variant="secondary">Inativo</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setSelectedTraining(training);
-                              setIsAssignModalOpen(true);
-                            }}
-                            title="Atribuir a usuário"
-                          >
-                            <Users className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setSelectedTraining(training);
-                              setFormData({
-                                titulo: training.titulo,
-                                descricao: training.descricao || "",
-                                tipo: training.tipo,
-                                departamento: training.departamento || "",
-                                dificuldade: training.dificuldade,
-                                duracao_minutos: training.duracao_minutos || 30,
-                                nota_minima: training.nota_minima || 7,
-                                ativo: training.ativo ?? true,
-                                aiPrompt: "",
-                              });
-                              setIsCreateModalOpen(true);
-                            }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          {isAdminOrTI && (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Título</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead className="hidden md:table-cell">Nível</TableHead>
+                      <TableHead className="hidden md:table-cell">Duração</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTrainings.map((training) => (
+                      <TableRow key={training.id}>
+                        <TableCell className="font-medium max-w-[200px] truncate">{training.titulo}</TableCell>
+                        <TableCell>{getTipoBadge(training.tipo)}</TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <Badge variant="outline">{training.nivel || "—"}</Badge>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {training.duracao_estimada_minutos ? `${training.duracao_estimada_minutos}min` : "—"}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(training.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => {
-                                if (confirm("Tem certeza que deseja excluir este treinamento?")) {
-                                  deleteTrainingMutation.mutate(training.id);
-                                }
+                                setSelectedTraining(training);
+                                setIsAssignModalOpen(true);
                               }}
+                              title="Atribuir a usuário"
                             >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <UserPlus className="h-4 w-4" />
                             </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                            {isAdminOrTI && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  if (confirm("Tem certeza que deseja excluir este treinamento?")) {
+                                    deleteTrainingMutation.mutate(training.id);
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </Card>
         </TabsContent>
@@ -706,7 +580,7 @@ export function AcademyAdminPanel() {
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Departamento" />
                 </SelectTrigger>
-                <SelectContent className="bg-popover">
+                <SelectContent>
                   <SelectItem value="all">Todos departamentos</SelectItem>
                   {DEPARTMENTS.map(dept => (
                     <SelectItem key={dept} value={dept}>{dept}</SelectItem>
@@ -714,7 +588,7 @@ export function AcademyAdminPanel() {
                 </SelectContent>
               </Select>
               
-              {isAdminOrTI && (
+              {isAdminOrTI && empresas && (
                 <Select 
                   value={userStoreFilter} 
                   onValueChange={(v) => {
@@ -726,9 +600,9 @@ export function AcademyAdminPanel() {
                     <Building2 className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Loja" />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover">
+                  <SelectContent>
                     <SelectItem value="all">Todas as lojas</SelectItem>
-                    {empresas?.map(emp => (
+                    {empresas.map(emp => (
                       <SelectItem key={emp.id} value={emp.id}>{emp.nome_empresa}</SelectItem>
                     ))}
                   </SelectContent>
@@ -757,8 +631,10 @@ export function AcademyAdminPanel() {
 
           <Card>
             {loadingUsers ? (
-              <div className="p-8 text-center text-muted-foreground">
-                Carregando usuários...
+              <div className="p-4 space-y-3">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
               </div>
             ) : (() => {
               // Filter users
@@ -779,98 +655,92 @@ export function AcademyAdminPanel() {
               
               return !filteredUsers.length ? (
                 <div className="p-8 text-center text-muted-foreground">
-                  Nenhum usuário encontrado com os filtros aplicados.
+                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Nenhum usuário encontrado com os filtros aplicados.</p>
                 </div>
               ) : (
                 <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Usuário</TableHead>
-                        <TableHead>Loja</TableHead>
-                        <TableHead>Departamento</TableHead>
-                        <TableHead>Tipo de Acesso</TableHead>
-                        <TableHead>Concluídos</TableHead>
-                        <TableHead>Em Andamento</TableHead>
-                        <TableHead>Média</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedUsers.map((userProfile) => {
-                        // Calculate user's progress stats
-                        const userProgressData = userProgress?.filter(p => p.user_id === userProfile.id) || [];
-                        const concluidos = userProgressData.filter(p => p.status === "concluido").length;
-                        const emAndamento = userProgressData.filter(p => p.status === "em_andamento").length;
-                        const notasValidas = userProgressData.filter(p => p.nota !== null).map(p => p.nota as number);
-                        const mediaNota = notasValidas.length > 0 
-                          ? (notasValidas.reduce((a, b) => a + b, 0) / notasValidas.length).toFixed(1)
-                          : "—";
-                        
-                        return (
-                          <TableRow key={userProfile.id}>
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-                                  {userProfile.nome_completo?.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase() || "?"}
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Usuário</TableHead>
+                          <TableHead className="hidden md:table-cell">Loja</TableHead>
+                          <TableHead className="hidden sm:table-cell">Departamento</TableHead>
+                          <TableHead>Tipo de Acesso</TableHead>
+                          <TableHead className="text-center">Simulações</TableHead>
+                          <TableHead className="text-center">Média</TableHead>
+                          <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedUsers.map((userProfile) => {
+                          // Find user metrics
+                          const metrics = userMetrics?.find(m => m.user_id === userProfile.id);
+                          const mediaGeral = Number(metrics?.media_geral || 0);
+                          const totalSimulacoes = metrics?.total_simulacoes_realizadas || 0;
+                          
+                          return (
+                            <TableRow key={userProfile.id}>
+                              <TableCell className="font-medium">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary flex-shrink-0">
+                                    {userProfile.nome_completo?.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase() || "?"}
+                                  </div>
+                                  <span className="truncate max-w-[150px]">{userProfile.nome_completo || "—"}</span>
                                 </div>
-                                <span>{userProfile.nome_completo || "—"}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {(userProfile.empresas as any)?.nome_empresa || "—"}
-                            </TableCell>
-                            <TableCell>{userProfile.departamento || "—"}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{userProfile.tipo_acesso || "—"}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <span className="font-medium text-green-600">{concluidos}</span>
-                            </TableCell>
-                            <TableCell>
-                              <span className="font-medium text-yellow-600">{emAndamento}</span>
-                            </TableCell>
-                            <TableCell>
-                              {mediaNota !== "—" ? (
-                                <Badge className={
-                                  parseFloat(mediaNota) >= 7 
-                                    ? "bg-green-100 text-green-700" 
-                                    : parseFloat(mediaNota) >= 5 
-                                      ? "bg-yellow-100 text-yellow-700"
-                                      : "bg-red-100 text-red-700"
-                                }>
-                                  {mediaNota}/10
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {userProgressData.length === 0 ? (
-                                <Badge variant="outline" className="text-muted-foreground">Sem atividade</Badge>
-                              ) : concluidos > 0 ? (
-                                <Badge className="bg-green-100 text-green-700">
-                                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                                  Ativo
-                                </Badge>
-                              ) : (
-                                <Badge className="bg-yellow-100 text-yellow-700">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Em progresso
-                                </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell text-sm">
+                                {(userProfile.empresas as any)?.nome_empresa || "—"}
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell">{userProfile.departamento || "—"}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">{userProfile.tipo_acesso || "—"}</Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <span className="font-medium">{totalSimulacoes}</span>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {totalSimulacoes > 0 ? (
+                                  <Badge className={
+                                    mediaGeral >= 7 
+                                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" 
+                                      : mediaGeral >= 5 
+                                        ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                  }>
+                                    {mediaGeral.toFixed(1)}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedUser(userProfile.id);
+                                    setIsAssignModalOpen(true);
+                                  }}
+                                  className="gap-1"
+                                >
+                                  <UserPlus className="h-4 w-4" />
+                                  <span className="hidden sm:inline">Atribuir</span>
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                   
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t">
+                    <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t gap-3">
                       <p className="text-sm text-muted-foreground">
-                        Mostrando {startIndex + 1} - {Math.min(startIndex + ITEMS_PER_PAGE, filteredUsers.length)} de {filteredUsers.length.toLocaleString("pt-BR")} usuários
+                        Mostrando {startIndex + 1} - {Math.min(startIndex + ITEMS_PER_PAGE, filteredUsers.length)} de {filteredUsers.length}
                       </p>
                       <div className="flex items-center gap-2">
                         <Button
@@ -880,10 +750,9 @@ export function AcademyAdminPanel() {
                           disabled={userProgressPage === 1}
                         >
                           <ChevronLeft className="h-4 w-4" />
-                          Anterior
                         </Button>
                         <span className="text-sm text-muted-foreground px-2">
-                          Página {userProgressPage} de {totalPages}
+                          {userProgressPage} / {totalPages}
                         </span>
                         <Button
                           variant="outline"
@@ -891,7 +760,6 @@ export function AcademyAdminPanel() {
                           onClick={() => setUserProgressPage(p => Math.min(totalPages, p + 1))}
                           disabled={userProgressPage === totalPages}
                         >
-                          Próximo
                           <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
@@ -908,52 +776,66 @@ export function AcademyAdminPanel() {
       <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Atribuir Treinamento Obrigatório</DialogTitle>
+            <DialogTitle>Atribuir Treinamento</DialogTitle>
           </DialogHeader>
           
-          {selectedTraining && (
-            <div className="space-y-4">
+          <div className="space-y-4">
+            {selectedTraining && (
               <div className="p-3 bg-muted rounded-lg">
                 <p className="font-medium">{selectedTraining.titulo}</p>
                 <p className="text-sm text-muted-foreground">
-                  {selectedTraining.descricao?.slice(0, 100)}...
+                  {getTipoBadge(selectedTraining.tipo)} • {selectedTraining.nivel || "—"}
                 </p>
               </div>
-              
+            )}
+            
+            <div>
+              <label className="text-sm font-medium mb-2 block">Selecione um usuário</label>
+              <Select value={selectedUser} onValueChange={setSelectedUser}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar usuário..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {users?.map(u => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.nome_completo || u.id} - {u.departamento || "Sem departamento"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {!selectedTraining && trainings && (
               <div>
-                <label className="text-sm font-medium mb-1 block">Selecione o Usuário</label>
-                <Select value={selectedUser} onValueChange={setSelectedUser}>
+                <label className="text-sm font-medium mb-2 block">Selecione um treinamento</label>
+                <Select 
+                  value={selectedTraining?.id || ""} 
+                  onValueChange={(v) => setSelectedTraining(trainings.find(t => t.id === v))}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Escolha um usuário" />
+                    <SelectValue placeholder="Selecionar treinamento..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {users?.map(u => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.nome_completo} - {u.departamento || "Sem departamento"}
+                    {trainings.map(t => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.titulo}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-          )}
+            )}
+          </div>
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAssignModalOpen(false)}>
               Cancelar
             </Button>
-            <Button
-              onClick={() => {
-                if (selectedTraining && selectedUser) {
-                  assignTrainingMutation.mutate({
-                    trainingId: selectedTraining.id,
-                    userId: selectedUser,
-                  });
-                }
-              }}
-              disabled={!selectedUser || assignTrainingMutation.isPending}
+            <Button 
+              onClick={handleAssignTraining}
+              disabled={!selectedUser || (!selectedTraining && !selectedUser) || assignTreinamento.isPending}
             >
-              {assignTrainingMutation.isPending ? "Atribuindo..." : "Atribuir"}
+              {assignTreinamento.isPending ? "Atribuindo..." : "Atribuir"}
             </Button>
           </DialogFooter>
         </DialogContent>
