@@ -1133,7 +1133,13 @@ showAllEvents: true
       console.log('Prospeccao selecionada ID:', prospeccaoSelecionada.id);
 
       // Usar a função do hook que já trata empresa_id automaticamente e vincula na eventos_prospeccao
-      const resultado = await adicionarContatos(novosContatos, prospeccaoSelecionada.id);
+      let resultado;
+      try {
+        resultado = await adicionarContatos(novosContatos, prospeccaoSelecionada.id);
+      } catch (adicionarError) {
+        console.error('❌ Erro ao adicionar contatos:', adicionarError);
+        // Não retornar - continuar com os dados originais para eventos de ligação
+      }
 
       console.log('📊 Resultado do adicionarContatos:', {
         temResultado: !!resultado,
@@ -1282,29 +1288,15 @@ showAllEvents: true
   };
 
   const handleClientesSelected = async (prospeccaoId: string, clientes: ClienteData[]) => {
+    // BaseExistente já faz a vinculação diretamente no banco
+    // Este callback é chamado apenas para atualizar os dados locais
     try {
-      const prospeccaoSelecionada = prospeccoes.find(p => p.id === prospeccaoId);
-      if (!prospeccaoSelecionada) return;
-
-      // Determinar origem baseada no tipo de evento
-      const origemContato = getOrigemFromProspeccao(prospeccaoSelecionada);
-
-      const novosContatos = clientes.map(cliente => ({
-        nome: cliente.nome,
-        telefone: cliente.telefone,
-        email: cliente.email,
-        origem: origemContato,
-        observacoes: `Selecionado da base para o evento: ${prospeccaoSelecionada.titulo}`
-      }));
-
-      await adicionarContatos(novosContatos, prospeccaoSelecionada.id);
-
-      toast({
-        title: "Clientes adicionados",
-        description: `${clientes.length} clientes da base foram vinculados ao evento`,
-      });
-    } catch (error) {
-      console.error('Erro ao adicionar contatos:', error);
+      console.log(`✅ ${clientes.length} clientes vinculados ao evento ${prospeccaoId} via BaseExistente`);
+      
+      // Atualizar dados locais
+      refetch();
+    } catch (error: any) {
+      console.error('Erro ao atualizar dados:', error);
     }
   };
 
