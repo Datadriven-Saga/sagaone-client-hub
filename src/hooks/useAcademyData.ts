@@ -394,6 +394,7 @@ export function useCreateTreinamento() {
       nivel?: string;
       obrigatorio?: boolean;
       duracao_estimada_minutos?: number;
+      prazo_padrao_dias?: number;
       // Voice config for simulations
       personaNome?: string;
       personaGenero?: string;
@@ -405,19 +406,25 @@ export function useCreateTreinamento() {
       const tipoValidado = validateTipo(data.tipo);
       const nivelValidado = validateNivel(data.nivel);
       
-      // Build content/config object for voice simulations
-      const conteudo = tipoValidado === "simulacao" ? {
-        config_voz: {
+      // Build content/config object
+      const conteudo: Record<string, any> = {
+        prazo_padrao_dias: data.prazo_padrao_dias || 30,
+      };
+      
+      // Add voice config for simulations
+      if (tipoValidado === "simulacao") {
+        conteudo.config_voz = {
           persona_nome: data.personaNome || "Cliente",
           persona_genero: data.personaGenero || "F",
           voz_openai: data.vozIA || "shimmer",
-        }
-      } : null;
+        };
+      }
       
       console.log("[useCreateTreinamento] Inserting with:", {
         tipo: tipoValidado,
         nivel: nivelValidado,
         titulo: data.titulo,
+        prazo_padrao_dias: data.prazo_padrao_dias,
       });
       
       const { error } = await supabase.from("academy_treinamentos").insert([{
