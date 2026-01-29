@@ -13,6 +13,7 @@ export interface Persona {
   difficulty: DifficultyLevel;
   description: string;
   objective: string;
+  voice?: string; // OpenAI voice ID: shimmer, alloy, echo, fable, onyx, nova
 }
 
 export interface TrainingScenario {

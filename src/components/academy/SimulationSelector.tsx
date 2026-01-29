@@ -24,6 +24,8 @@ interface SimulationSelectorProps {
 // Transform database simulacao to TrainingScenario format
 function transformToScenario(simulacao: any): TrainingScenario {
   const cenario = simulacao.cenario || {};
+  const configVoz = simulacao.config_voz || {};
+  
   const personas: Persona[] = (cenario.personas || []).map((p: any) => ({
     id: p.id || crypto.randomUUID(),
     name: p.nome || p.name || "Persona",
@@ -33,6 +35,7 @@ function transformToScenario(simulacao: any): TrainingScenario {
     description: p.descricao || p.description || "",
     objective: p.objetivo || p.objective || "",
     avatar: p.avatar,
+    voice: configVoz.voice || p.voice || "shimmer", // OpenAI voice ID
   }));
 
   return {
