@@ -95,7 +95,7 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
     id 
   }, ref) => {
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
-    const [isFocused, setIsFocused] = React.useState(false);
+    // Mantido apenas para o atalho Ctrl/Cmd+B e limite de caracteres.
 
     const handleChange = React.useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value;
@@ -194,19 +194,18 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
           </TooltipProvider>
         </div>
 
-        {/* Single textarea with visible text */}
+        {/* Textarea simples (texto sempre visível) */}
         <textarea
           ref={textareaRef}
           id={id}
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
           disabled={disabled}
           className={cn(
-            "w-full rounded-md border border-input bg-background px-3 py-2 pr-12 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none",
-            className
+            // Coloca className primeiro para evitar que algo como `text-transparent` sobrescreva nossa base
+            className,
+            "w-full rounded-md border border-input bg-background px-3 py-2 pr-12 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
           )}
           style={{ minHeight }}
           placeholder={placeholder}
