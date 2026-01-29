@@ -360,6 +360,26 @@ export function useAcademyRanking(limit = 20) {
 }
 
 // Mutations
+// Valid types for academy_treinamentos DB constraint
+const VALID_TIPOS = ["texto", "audio", "video", "simulacao"] as const;
+const VALID_NIVEIS = ["iniciante", "intermediario", "avancado"] as const;
+
+function validateTipo(tipo: string): string {
+  const mapping: Record<string, string> = {
+    "curso": "texto",
+    "simulacao_voz": "simulacao",
+    "simulacao_texto": "texto",
+    "documento": "texto",
+  };
+  const mapped = mapping[tipo] || tipo;
+  return VALID_TIPOS.includes(mapped as any) ? mapped : "texto";
+}
+
+function validateNivel(nivel: string | undefined): string | null {
+  if (!nivel) return null;
+  return VALID_NIVEIS.includes(nivel as any) ? nivel : "intermediario";
+}
+
 export function useCreateTreinamento() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -381,8 +401,12 @@ export function useCreateTreinamento() {
     }) => {
       const empresaId = isAdminOrTI ? null : activeCompany?.id || null;
       
+      // Validate tipo and nivel to match DB constraints
+      const tipoValidado = validateTipo(data.tipo);
+      const nivelValidado = validateNivel(data.nivel);
+      
       // Build content/config object for voice simulations
-      const conteudo = data.tipo === "simulacao" ? {
+      const conteudo = tipoValidado === "simulacao" ? {
         config_voz: {
           persona_nome: data.personaNome || "Cliente",
           persona_genero: data.personaGenero || "F",
@@ -390,11 +414,17 @@ export function useCreateTreinamento() {
         }
       } : null;
       
+      console.log("[useCreateTreinamento] Inserting with:", {
+        tipo: tipoValidado,
+        nivel: nivelValidado,
+        titulo: data.titulo,
+      });
+      
       const { error } = await supabase.from("academy_treinamentos").insert([{
         titulo: data.titulo,
         descricao: data.descricao || null,
-        tipo: data.tipo,
-        nivel: data.nivel || null,
+        tipo: tipoValidado,
+        nivel: nivelValidado,
         obrigatorio: data.obrigatorio || false,
         duracao_estimada_minutos: data.duracao_estimada_minutos || null,
         empresa_id: empresaId,

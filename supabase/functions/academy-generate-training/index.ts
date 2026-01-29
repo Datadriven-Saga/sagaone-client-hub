@@ -7,14 +7,20 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ALLOWED_TIPOS = new Set([
-  "curso",
-  "simulacao_voz",
-  "simulacao_texto",
-  "video",
-  "documento",
-]);
+// DB constraint: tipo IN ('texto', 'audio', 'video', 'simulacao')
+const ALLOWED_TIPOS = new Set(["texto", "audio", "video", "simulacao"]);
 const ALLOWED_NIVEIS = new Set(["iniciante", "intermediario", "avancado"]);
+
+// Map AI-generated types to valid DB types
+function mapTipoToDb(tipo: string): string {
+  const mapping: Record<string, string> = {
+    "curso": "texto",
+    "simulacao_voz": "simulacao",
+    "simulacao_texto": "texto",
+    "documento": "texto",
+  };
+  return mapping[tipo] || tipo;
+}
 
 function safeJsonParse(input: string) {
   const trimmed = input.trim();
@@ -132,7 +138,7 @@ serve(async (req) => {
     const system =
       "Você é um gerador de treinamentos do Saga Academy (concessionárias). " +
       "Retorne SOMENTE JSON válido (sem markdown) com os campos: " +
-      "titulo (string), descricao (string), tipo (curso|simulacao_voz|simulacao_texto|video|documento), " +
+      "titulo (string), descricao (string), tipo (texto|simulacao|video|audio), " +
       "nivel (iniciante|intermediario|avancado), duracao_estimada_minutos (number), publico_alvo (string[]).";
 
     const userMsg =
@@ -200,14 +206,16 @@ serve(async (req) => {
     // Normalize and validate
     const titulo = String(result?.titulo ?? "").trim();
     const descricao = String(result?.descricao ?? "").trim();
-    let tipo = String(result?.tipo ?? suggestedTipo ?? "curso").trim();
+    let tipo = String(result?.tipo ?? suggestedTipo ?? "texto").trim();
     let nivel = String(result?.nivel ?? suggestedNivel ?? "intermediario").trim();
     const duracao_estimada_minutos = Number(result?.duracao_estimada_minutos ?? 30);
     const publico_alvo = Array.isArray(result?.publico_alvo)
       ? result.publico_alvo.map((x: any) => String(x))
       : [];
 
-    if (!ALLOWED_TIPOS.has(tipo)) tipo = "curso";
+    // Map AI-generated types to valid DB types
+    tipo = mapTipoToDb(tipo);
+    if (!ALLOWED_TIPOS.has(tipo)) tipo = "texto";
     if (!ALLOWED_NIVEIS.has(nivel)) nivel = "intermediario";
 
     const responseBody = {
