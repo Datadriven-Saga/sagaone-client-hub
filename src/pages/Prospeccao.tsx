@@ -1691,7 +1691,7 @@ showAllEvents: true
                           Criar Evento
                         </Button>
                       )}
-                      {canAddClientes && (
+                      {canUploadBase && (
                         <Button onClick={() => setShowAdicionarClientes(true)} size="sm" variant="outline">
                           <Users className="w-4 h-4 mr-2" />
                           Adicionar Clientes
