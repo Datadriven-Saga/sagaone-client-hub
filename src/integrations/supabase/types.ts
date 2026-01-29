@@ -14,6 +14,467 @@ export type Database = {
   }
   public: {
     Tables: {
+      academy_atribuicoes: {
+        Row: {
+          atribuido_por: string | null
+          created_at: string
+          data_limite: string | null
+          id: string
+          obrigatorio: boolean | null
+          prioridade: number | null
+          status: string
+          treinamento_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          atribuido_por?: string | null
+          created_at?: string
+          data_limite?: string | null
+          id?: string
+          obrigatorio?: boolean | null
+          prioridade?: number | null
+          status?: string
+          treinamento_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          atribuido_por?: string | null
+          created_at?: string
+          data_limite?: string | null
+          id?: string
+          obrigatorio?: boolean | null
+          prioridade?: number | null
+          status?: string
+          treinamento_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_atribuicoes_treinamento_id_fkey"
+            columns: ["treinamento_id"]
+            isOneToOne: false
+            referencedRelation: "academy_treinamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_metricas_usuario: {
+        Row: {
+          id: string
+          media_fechamento: number | null
+          media_geral: number | null
+          media_implicacao: number | null
+          media_negociacao: number | null
+          media_problema: number | null
+          media_situacao: number | null
+          pontuacao_ranking: number | null
+          posicao_ranking: number | null
+          tempo_total_minutos: number | null
+          total_simulacoes_realizadas: number | null
+          total_treinamentos_disponiveis: number | null
+          treinamentos_concluidos: number | null
+          treinamentos_em_andamento: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          media_fechamento?: number | null
+          media_geral?: number | null
+          media_implicacao?: number | null
+          media_negociacao?: number | null
+          media_problema?: number | null
+          media_situacao?: number | null
+          pontuacao_ranking?: number | null
+          posicao_ranking?: number | null
+          tempo_total_minutos?: number | null
+          total_simulacoes_realizadas?: number | null
+          total_treinamentos_disponiveis?: number | null
+          treinamentos_concluidos?: number | null
+          treinamentos_em_andamento?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          media_fechamento?: number | null
+          media_geral?: number | null
+          media_implicacao?: number | null
+          media_negociacao?: number | null
+          media_problema?: number | null
+          media_situacao?: number | null
+          pontuacao_ranking?: number | null
+          posicao_ranking?: number | null
+          tempo_total_minutos?: number | null
+          total_simulacoes_realizadas?: number | null
+          total_treinamentos_disponiveis?: number | null
+          treinamentos_concluidos?: number | null
+          treinamentos_em_andamento?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      academy_modulos: {
+        Row: {
+          conteudo: Json | null
+          created_at: string
+          descricao: string | null
+          duracao_estimada_minutos: number | null
+          id: string
+          obrigatorio: boolean | null
+          ordem: number
+          tipo: string
+          titulo: string
+          treinamento_id: string
+          updated_at: string
+        }
+        Insert: {
+          conteudo?: Json | null
+          created_at?: string
+          descricao?: string | null
+          duracao_estimada_minutos?: number | null
+          id?: string
+          obrigatorio?: boolean | null
+          ordem?: number
+          tipo: string
+          titulo: string
+          treinamento_id: string
+          updated_at?: string
+        }
+        Update: {
+          conteudo?: Json | null
+          created_at?: string
+          descricao?: string | null
+          duracao_estimada_minutos?: number | null
+          id?: string
+          obrigatorio?: boolean | null
+          ordem?: number
+          tipo?: string
+          titulo?: string
+          treinamento_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_modulos_treinamento_id_fkey"
+            columns: ["treinamento_id"]
+            isOneToOne: false
+            referencedRelation: "academy_treinamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_progresso: {
+        Row: {
+          created_at: string
+          dados_progresso: Json | null
+          data_conclusao: string | null
+          data_inicio: string | null
+          id: string
+          modulo_id: string | null
+          nota: number | null
+          percentual_concluido: number | null
+          status: string
+          tempo_gasto_minutos: number | null
+          tentativas: number | null
+          treinamento_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dados_progresso?: Json | null
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          id?: string
+          modulo_id?: string | null
+          nota?: number | null
+          percentual_concluido?: number | null
+          status?: string
+          tempo_gasto_minutos?: number | null
+          tentativas?: number | null
+          treinamento_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dados_progresso?: Json | null
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          id?: string
+          modulo_id?: string | null
+          nota?: number | null
+          percentual_concluido?: number | null
+          status?: string
+          tempo_gasto_minutos?: number | null
+          tentativas?: number | null
+          treinamento_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_progresso_modulo_id_fkey"
+            columns: ["modulo_id"]
+            isOneToOne: false
+            referencedRelation: "academy_modulos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_progresso_treinamento_id_fkey"
+            columns: ["treinamento_id"]
+            isOneToOne: false
+            referencedRelation: "academy_treinamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_recomendacoes: {
+        Row: {
+          acionada: boolean | null
+          contexto: Json | null
+          created_at: string
+          descricao: string
+          expires_at: string | null
+          id: string
+          prioridade: number | null
+          referencia_id: string | null
+          referencia_tipo: string | null
+          tipo: string
+          titulo: string
+          user_id: string
+          visualizada: boolean | null
+        }
+        Insert: {
+          acionada?: boolean | null
+          contexto?: Json | null
+          created_at?: string
+          descricao: string
+          expires_at?: string | null
+          id?: string
+          prioridade?: number | null
+          referencia_id?: string | null
+          referencia_tipo?: string | null
+          tipo: string
+          titulo: string
+          user_id: string
+          visualizada?: boolean | null
+        }
+        Update: {
+          acionada?: boolean | null
+          contexto?: Json | null
+          created_at?: string
+          descricao?: string
+          expires_at?: string | null
+          id?: string
+          prioridade?: number | null
+          referencia_id?: string | null
+          referencia_tipo?: string | null
+          tipo?: string
+          titulo?: string
+          user_id?: string
+          visualizada?: boolean | null
+        }
+        Relationships: []
+      }
+      academy_sessoes_simulacao: {
+        Row: {
+          avaliacoes: Json | null
+          created_at: string
+          data_fim: string | null
+          data_inicio: string
+          duracao_segundos: number | null
+          feedback_ia: string | null
+          id: string
+          nota_final: number | null
+          pontos_fortes: Json | null
+          pontos_melhoria: Json | null
+          simulacao_id: string
+          status: string
+          transcricao: Json | null
+          user_id: string
+        }
+        Insert: {
+          avaliacoes?: Json | null
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string
+          duracao_segundos?: number | null
+          feedback_ia?: string | null
+          id?: string
+          nota_final?: number | null
+          pontos_fortes?: Json | null
+          pontos_melhoria?: Json | null
+          simulacao_id: string
+          status?: string
+          transcricao?: Json | null
+          user_id: string
+        }
+        Update: {
+          avaliacoes?: Json | null
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string
+          duracao_segundos?: number | null
+          feedback_ia?: string | null
+          id?: string
+          nota_final?: number | null
+          pontos_fortes?: Json | null
+          pontos_melhoria?: Json | null
+          simulacao_id?: string
+          status?: string
+          transcricao?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_sessoes_simulacao_simulacao_id_fkey"
+            columns: ["simulacao_id"]
+            isOneToOne: false
+            referencedRelation: "academy_simulacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_simulacoes: {
+        Row: {
+          ativo: boolean | null
+          cenario: Json
+          config_voz: Json | null
+          created_at: string
+          criado_por: string | null
+          criterios_avaliacao: Json
+          descricao: string | null
+          empresa_id: string | null
+          id: string
+          tipo: string
+          titulo: string
+          treinamento_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          cenario?: Json
+          config_voz?: Json | null
+          created_at?: string
+          criado_por?: string | null
+          criterios_avaliacao?: Json
+          descricao?: string | null
+          empresa_id?: string | null
+          id?: string
+          tipo: string
+          titulo: string
+          treinamento_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean | null
+          cenario?: Json
+          config_voz?: Json | null
+          created_at?: string
+          criado_por?: string | null
+          criterios_avaliacao?: Json
+          descricao?: string | null
+          empresa_id?: string | null
+          id?: string
+          tipo?: string
+          titulo?: string
+          treinamento_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_simulacoes_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_simulacoes_treinamento_id_fkey"
+            columns: ["treinamento_id"]
+            isOneToOne: false
+            referencedRelation: "academy_treinamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_treinamentos: {
+        Row: {
+          conteudo: Json | null
+          created_at: string
+          criado_por: string | null
+          descricao: string | null
+          duracao_estimada_minutos: number | null
+          empresa_id: string | null
+          fonte_externa: string | null
+          formato_original: string | null
+          id: string
+          nivel: string | null
+          obrigatorio: boolean | null
+          ordem: number | null
+          publico_alvo: Json | null
+          status: string
+          tags: Json | null
+          tipo: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          conteudo?: Json | null
+          created_at?: string
+          criado_por?: string | null
+          descricao?: string | null
+          duracao_estimada_minutos?: number | null
+          empresa_id?: string | null
+          fonte_externa?: string | null
+          formato_original?: string | null
+          id?: string
+          nivel?: string | null
+          obrigatorio?: boolean | null
+          ordem?: number | null
+          publico_alvo?: Json | null
+          status?: string
+          tags?: Json | null
+          tipo: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          conteudo?: Json | null
+          created_at?: string
+          criado_por?: string | null
+          descricao?: string | null
+          duracao_estimada_minutos?: number | null
+          empresa_id?: string | null
+          fonte_externa?: string | null
+          formato_original?: string | null
+          id?: string
+          nivel?: string | null
+          obrigatorio?: boolean | null
+          ordem?: number | null
+          publico_alvo?: Json | null
+          status?: string
+          tags?: Json | null
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_treinamentos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agente_cadencias: {
         Row: {
           agente_id: string
@@ -3429,6 +3890,10 @@ export type Database = {
       }
     }
     Functions: {
+      academy_recalcular_metricas_usuario: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       can_manage_users: { Args: { user_id?: string }; Returns: boolean }
       check_password_protection_status: { Args: never; Returns: string }
       check_user_email_exists: {
