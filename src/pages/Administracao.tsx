@@ -9,7 +9,8 @@ import {
   Zap,
   FileText,
   AlertTriangle,
-  Bot
+  Bot,
+  GraduationCap
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
@@ -101,6 +102,12 @@ const Administracao = () => {
       description: "Testar APIs de prospecção do sistema",
       icon: Settings,
       route: "/administracao/test-apis"
+    },
+    {
+      title: "Painel Treinamento",
+      description: "Gerenciar treinamentos e simulações",
+      icon: GraduationCap,
+      route: "/administracao/treinamentos"
     }
   ];
 

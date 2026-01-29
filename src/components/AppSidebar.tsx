@@ -17,10 +17,7 @@ import {
   UserCheck,
   ShoppingCart,
   LayoutDashboard,
-  Trophy,
   GraduationCap,
-  Mic,
-  MessageSquare,
   History
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
@@ -54,12 +51,8 @@ const prospeccaoSubItems = [
 
 const treinamentosSubItems = [
   { title: "Dashboard", url: "/treinamentos", icon: LayoutDashboard, exact: true },
-  { title: "Ranking", url: "/treinamentos/ranking", icon: Trophy },
-  { title: "Simulações Práticas", url: "/treinamentos/trilhas", icon: GraduationCap },
-  { title: "Prática por Voz", url: "/treinamentos/simulacoes-voz", icon: Mic },
-  { title: "Prática por Texto", url: "/treinamentos/simulacoes-texto", icon: MessageSquare },
+  { title: "Simulações", url: "/treinamentos/simulacoes", icon: GraduationCap },
   { title: "Histórico", url: "/treinamentos/historico", icon: History },
-  { title: "Painel Admin", url: "/treinamentos/admin", icon: Settings, adminOnly: true },
 ];
 
 const agentesIASubItems = [
@@ -99,13 +92,8 @@ export function AppSidebar() {
     ? [...bottomMenuItemsPublic, ...bottomMenuItemsAdmin]
     : bottomMenuItemsPublic;
 
-  // Filter treinamentos items based on permissions
-  const filteredTreinamentosItems = treinamentosSubItems.filter(item => {
-    if (item.adminOnly) {
-      return hasAdminAccess;
-    }
-    return true;
-  });
+  // Use treinamentos items directly (no admin filtering needed now)
+  const filteredTreinamentosItems = treinamentosSubItems;
 
   return (
     <Sidebar

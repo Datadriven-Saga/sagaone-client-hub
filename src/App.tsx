@@ -65,14 +65,12 @@ const AppRoutes = () => {
       <Route path="/prospeccao/performance" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
       <Route path="/resultados" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
       <Route path="/relatorios" element={<AdminProtectedRoute><Relatorios /></AdminProtectedRoute>} />
-      <Route path="/treinamentos" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
-      <Route path="/treinamentos/ranking" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
-      <Route path="/treinamentos/trilhas" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
-      <Route path="/treinamentos/simulacoes-voz" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
-      <Route path="/treinamentos/simulacoes-texto" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
-      <Route path="/treinamentos/historico" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
-      <Route path="/treinamentos/historico/:id" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
-      <Route path="/treinamentos/admin" element={<AdminProtectedRoute><Treinamentos /></AdminProtectedRoute>} />
+      <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
+      <Route path="/treinamentos/simulacoes" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
+      <Route path="/treinamentos/simulacoes-voz" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
+      <Route path="/treinamentos/simulacoes-texto" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
+      <Route path="/treinamentos/historico" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
+      <Route path="/treinamentos/historico/:id" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
       <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
       <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
       <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
@@ -94,6 +92,7 @@ const AppRoutes = () => {
       <Route path="/administracao/campos" element={<AdminProtectedRoute><CamposObrigatorios /></AdminProtectedRoute>} />
       <Route path="/administracao/apis" element={<AdminProtectedRoute><APIs /></AdminProtectedRoute>} />
       <Route path="/administracao/test-apis" element={<AdminProtectedRoute><TestAPIs /></AdminProtectedRoute>} />
+      <Route path="/administracao/treinamentos" element={<TIAdminProtectedRoute><Treinamentos adminMode /></TIAdminProtectedRoute>} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

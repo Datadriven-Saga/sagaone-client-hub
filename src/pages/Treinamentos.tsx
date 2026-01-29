@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AcademyDashboard } from "@/components/academy/AcademyDashboard";
-import { AcademyRanking } from "@/components/academy/AcademyRanking";
 import { LearningPaths } from "@/components/academy/LearningPaths";
 import { SimulationSelector } from "@/components/academy/SimulationSelector";
 import { VoiceSimulation } from "@/components/academy/VoiceSimulation";
@@ -12,7 +11,11 @@ import { SimulationFeedbackModal } from "@/components/academy/SimulationFeedback
 import { AcademyAdminPanel } from "@/components/academy/AcademyAdminPanel";
 import { TrainingScenario, Persona } from "@/types/academy";
 
-const Treinamentos = () => {
+interface TreinamentosProps {
+  adminMode?: boolean;
+}
+
+const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
   const location = useLocation();
   const [activeSimulation, setActiveSimulation] = useState<{
     scenario: TrainingScenario;
@@ -33,6 +36,17 @@ const Treinamentos = () => {
     console.log("Feedback submitted:", { rating, comment });
     setShowFeedbackModal(false);
   };
+
+  // If admin mode, render admin panel directly
+  if (adminMode) {
+    return (
+      <DashboardLayout>
+        <div className="p-6">
+          <AcademyAdminPanel />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   // If there's an active simulation, render it full screen within DashboardLayout
   if (activeSimulation) {
@@ -56,10 +70,7 @@ const Treinamentos = () => {
     if (path === "/treinamentos") {
       return <AcademyDashboard />;
     }
-    if (path === "/treinamentos/ranking") {
-      return <AcademyRanking />;
-    }
-    if (path === "/treinamentos/trilhas") {
+    if (path === "/treinamentos/simulacoes") {
       return <LearningPaths />;
     }
     if (path === "/treinamentos/simulacoes-voz") {
@@ -83,9 +94,6 @@ const Treinamentos = () => {
     }
     if (path.startsWith("/treinamentos/historico/")) {
       return <SimulationDetails />;
-    }
-    if (path === "/treinamentos/admin") {
-      return <AcademyAdminPanel />;
     }
 
     return <AcademyDashboard />;
