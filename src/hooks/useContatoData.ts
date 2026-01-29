@@ -212,41 +212,55 @@ export const useContatoData = () => {
       setContatos(allContatos);
 
       // Buscar vínculos contato <-> prospecção para permitir filtro por evento
+      // CORREÇÃO: Buscar todos os vínculos da empresa diretamente (via prospeccao)
+      // em vez de usar .in() com IDs que pode falhar com muitos contatos
       console.log('🔗 Fetching eventos_prospeccao links...');
-      const contatoIds = allContatos.map(c => c.id);
       const contatoProspeccaoMap = new Map<string, Set<string>>();
       
-      // Paginar busca de eventos_prospeccao
-      const LINKS_PAGE_SIZE = 1000;
-      let linksPage = 0;
-      let linksHasMore = true;
+      // Buscar IDs das prospecções da empresa para filtrar
+      const prospeccaoIds = await supabase
+        .from('prospeccoes')
+        .select('id')
+        .eq('empresa_id', activeCompany.id);
       
-      while (linksHasMore) {
-        const { data: linksData, error: linksError } = await supabase
-          .from('eventos_prospeccao')
-          .select('contato_id, prospeccao_id')
-          .in('contato_id', contatoIds.slice(linksPage * LINKS_PAGE_SIZE, (linksPage + 1) * LINKS_PAGE_SIZE))
-          .not('contato_id', 'is', null)
-          .not('prospeccao_id', 'is', null);
+      const prosIds = (prospeccaoIds.data || []).map(p => p.id);
+      
+      if (prosIds.length > 0) {
+        // Paginar busca de eventos_prospeccao usando .range() para paginação real
+        const LINKS_PAGE_SIZE = 1000;
+        let linksPage = 0;
+        let linksHasMore = true;
         
-        if (linksError) {
-          console.error('Error fetching eventos_prospeccao:', linksError);
-          break;
-        }
-        
-        if (linksData) {
-          for (const link of linksData) {
-            if (link.contato_id && link.prospeccao_id) {
-              if (!contatoProspeccaoMap.has(link.contato_id)) {
-                contatoProspeccaoMap.set(link.contato_id, new Set());
+        while (linksHasMore) {
+          const { data: linksData, error: linksError } = await supabase
+            .from('eventos_prospeccao')
+            .select('contato_id, prospeccao_id')
+            .in('prospeccao_id', prosIds)
+            .not('contato_id', 'is', null)
+            .not('prospeccao_id', 'is', null)
+            .range(linksPage * LINKS_PAGE_SIZE, (linksPage + 1) * LINKS_PAGE_SIZE - 1);
+          
+          if (linksError) {
+            console.error('Error fetching eventos_prospeccao:', linksError);
+            break;
+          }
+          
+          if (linksData && linksData.length > 0) {
+            for (const link of linksData) {
+              if (link.contato_id && link.prospeccao_id) {
+                if (!contatoProspeccaoMap.has(link.contato_id)) {
+                  contatoProspeccaoMap.set(link.contato_id, new Set());
+                }
+                contatoProspeccaoMap.get(link.contato_id)!.add(link.prospeccao_id);
               }
-              contatoProspeccaoMap.get(link.contato_id)!.add(link.prospeccao_id);
             }
+            linksHasMore = linksData.length === LINKS_PAGE_SIZE;
+            linksPage++;
+            console.log(`📥 Vínculos página ${linksPage}: ${linksData.length} registros (total map: ${contatoProspeccaoMap.size})`);
+          } else {
+            linksHasMore = false;
           }
         }
-        
-        linksPage++;
-        linksHasMore = (linksPage * LINKS_PAGE_SIZE) < contatoIds.length;
       }
       
       console.log(`🔗 Vínculos carregados: ${contatoProspeccaoMap.size} contatos com prospecções`);
