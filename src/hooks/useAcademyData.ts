@@ -715,3 +715,72 @@ export function useAcademyAtribuicoes() {
     enabled: !!user?.id,
   });
 }
+
+// Hook for all simulation sessions (admin view)
+export function useAcademyAllSessoes(filters?: {
+  searchTerm?: string;
+  tipo?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const { activeCompany } = useCompany();
+  const { isAdminOrTI } = useUserAccessType();
+  
+  const page = filters?.page || 1;
+  const pageSize = filters?.pageSize || 20;
+
+  return useQuery({
+    queryKey: ["academy-all-sessoes", activeCompany?.id, isAdminOrTI, filters],
+    queryFn: async () => {
+      let query = supabase
+        .from("academy_sessoes_simulacao")
+        .select(`
+          *,
+          simulacao:simulacao_id (
+            titulo,
+            tipo,
+            descricao,
+            cenario
+          ),
+          profile:user_id (
+            nome_completo,
+            departamento,
+            empresa_id
+          )
+        `, { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range((page - 1) * pageSize, page * pageSize - 1);
+
+      const { data, error, count } = await query;
+      if (error) throw error;
+      
+      // Filter by company if not admin
+      let filtered = data || [];
+      if (!isAdminOrTI && activeCompany?.id) {
+        filtered = filtered.filter((s: any) => s.profile?.empresa_id === activeCompany?.id);
+      }
+      
+      // Apply text search
+      if (filters?.searchTerm) {
+        const term = filters.searchTerm.toLowerCase();
+        filtered = filtered.filter((s: any) => 
+          s.id.toLowerCase().includes(term) ||
+          s.profile?.nome_completo?.toLowerCase().includes(term) ||
+          s.simulacao?.titulo?.toLowerCase().includes(term)
+        );
+      }
+      
+      // Apply tipo filter
+      if (filters?.tipo && filters.tipo !== "all") {
+        filtered = filtered.filter((s: any) => s.simulacao?.tipo === filters.tipo);
+      }
+      
+      return {
+        data: filtered,
+        total: count || 0,
+        page,
+        pageSize,
+      };
+    },
+  });
+}

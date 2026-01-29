@@ -126,6 +126,8 @@ export function AcademyAdminPanel() {
   const [assignmentDeadline, setAssignmentDeadline] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [tipoFilter, setTipoFilter] = useState<string>("all");
+  const [nivelFilter, setNivelFilter] = useState<string>("all");
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   
   // User progress filters
@@ -343,10 +345,21 @@ export function AcademyAdminPanel() {
     setIsDetailsModalOpen(true);
   };
 
-  const filteredTrainings = trainings?.filter(t => 
-    t.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.descricao?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTrainings = trainings?.filter(t => {
+    const matchesSearch = t.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.descricao?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTipo = tipoFilter === "all" || t.tipo === tipoFilter;
+    const matchesNivel = nivelFilter === "all" || t.nivel === nivelFilter;
+    return matchesSearch && matchesTipo && matchesNivel;
+  });
+
+  const hasTrainingFilters = searchTerm || tipoFilter !== "all" || nivelFilter !== "all";
+
+  const clearTrainingFilters = () => {
+    setSearchTerm("");
+    setTipoFilter("all");
+    setNivelFilter("all");
+  };
 
   const getTipoBadge = (tipo: string) => {
     switch (tipo) {
@@ -600,8 +613,8 @@ export function AcademyAdminPanel() {
 
       {/* Search and Filters */}
       <Card className="p-4">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="relative flex-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar treinamentos..."
@@ -610,18 +623,43 @@ export function AcademyAdminPanel() {
               className="pl-10"
             />
           </div>
-          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-            <SelectTrigger className="w-full sm:w-[200px]">
+          
+          <Select value={tipoFilter} onValueChange={setTipoFilter}>
+            <SelectTrigger className="w-[160px]">
               <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Filtrar por departamento" />
+              <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os departamentos</SelectItem>
-              {DEPARTMENTS.map(dept => (
-                <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+              <SelectItem value="all">Todos os tipos</SelectItem>
+              {TIPOS.map(tipo => (
+                <SelectItem key={tipo.value} value={tipo.value}>{tipo.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
+          
+          <Select value={nivelFilter} onValueChange={setNivelFilter}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Nível" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos níveis</SelectItem>
+              {NIVEIS.map(nivel => (
+                <SelectItem key={nivel.value} value={nivel.value}>{nivel.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          {hasTrainingFilters && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={clearTrainingFilters}
+              className="gap-1"
+            >
+              <X className="h-4 w-4" />
+              Limpar
+            </Button>
+          )}
         </div>
       </Card>
 

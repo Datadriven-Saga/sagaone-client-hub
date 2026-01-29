@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -12,14 +13,47 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, Calendar, Clock, Mic, MessageSquare } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { 
+  Eye, 
+  Calendar, 
+  Clock, 
+  Mic, 
+  MessageSquare,
+  Search,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  X
+} from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useAcademySessoes } from "@/hooks/useAcademyData";
+import { useAcademyAllSessoes } from "@/hooks/useAcademyData";
+
+const ITEMS_PER_PAGE = 15;
 
 export function SimulationHistory() {
   const navigate = useNavigate();
-  const { data: sessoes, isLoading } = useAcademySessoes();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [tipoFilter, setTipoFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  
+  const { data: result, isLoading } = useAcademyAllSessoes({
+    searchTerm,
+    tipo: tipoFilter,
+    page,
+    pageSize: ITEMS_PER_PAGE,
+  });
+  
+  const sessoes = result?.data || [];
+  const total = result?.total || 0;
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
   const getScoreColor = (score: number) => {
     if (score >= 7) return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
@@ -35,7 +69,6 @@ export function SimulationHistory() {
     return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Get persona name from transcription or cenario
   const getPersonaName = (sessao: any): string => {
     const simulacao = sessao.simulacao;
     if (!simulacao) return "Persona";
@@ -50,11 +83,79 @@ export function SimulationHistory() {
     return "Cliente";
   };
 
+  const getTipoLabel = (tipo: string) => {
+    switch (tipo) {
+      case "simulacao":
+      case "simulacao_voz":
+        return "Outbound";
+      case "simulacao_texto":
+        return "Inbound";
+      default:
+        return tipo || "—";
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setTipoFilter("all");
+    setPage(1);
+  };
+
+  const hasActiveFilters = searchTerm || tipoFilter !== "all";
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl md:text-2xl font-bold text-foreground">Histórico de Simulações</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">Histórico</h1>
       </div>
+
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por ID, usuário ou simulação..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
+              className="pl-10"
+            />
+          </div>
+          
+          <Select 
+            value={tipoFilter} 
+            onValueChange={(v) => {
+              setTipoFilter(v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Tipo de reunião" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os tipos</SelectItem>
+              <SelectItem value="simulacao">Outbound (Voz)</SelectItem>
+              <SelectItem value="simulacao_texto">Inbound (Texto)</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {hasActiveFilters && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={clearFilters}
+              className="gap-1"
+            >
+              <X className="h-4 w-4" />
+              Limpar
+            </Button>
+          )}
+        </div>
+      </Card>
 
       <Card>
         {isLoading ? (
@@ -66,94 +167,115 @@ export function SimulationHistory() {
         ) : !sessoes?.length ? (
           <div className="p-8 text-center text-muted-foreground">
             <Mic className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Você ainda não realizou nenhuma simulação.</p>
-            <p className="text-sm mt-2">Complete uma simulação para ver seu histórico aqui.</p>
+            <p>Nenhuma simulação encontrada.</p>
+            <p className="text-sm mt-2">Complete uma simulação para ver o histórico aqui.</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Simulação</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead className="hidden sm:table-cell">Data</TableHead>
-                <TableHead className="hidden md:table-cell">Duração</TableHead>
-                <TableHead>Nota</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sessoes.map((sessao: any) => {
-                const simulacao = sessao.simulacao;
-                const isVoice = simulacao?.tipo === "simulacao_voz" || simulacao?.tipo === "simulacao";
-                const personaName = getPersonaName(sessao);
-                const score = Number(sessao.nota_final || 0);
-                
-                return (
-                  <TableRow key={sessao.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10 flex-shrink-0">
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            {personaName.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{simulacao?.titulo || "Simulação"}</p>
-                          <p className="text-sm text-muted-foreground">
-                            com {personaName}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="gap-1">
-                        {isVoice ? (
-                          <Mic className="h-3 w-3" />
-                        ) : (
-                          <MessageSquare className="h-3 w-3" />
-                        )}
-                        {isVoice ? "Voz" : "Texto"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
-                        {format(new Date(sessao.data_inicio), "dd/MM/yyyy", { locale: ptBR })}
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Clock className="h-4 w-4" />
-                        {formatDuration(sessao.duracao_segundos)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {sessao.status === "concluida" ? (
-                        <Badge className={getScoreColor(score)}>
-                          {score.toFixed(0)}/10
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">
-                          {sessao.status === "em_andamento" ? "Em andamento" : sessao.status}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(`/treinamentos/historico/${sessao.id}`)}
-                        className="gap-2"
-                      >
-                        <Eye className="h-4 w-4" />
-                        <span className="hidden sm:inline">Ver detalhes</span>
-                      </Button>
-                    </TableCell>
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID do feedback</TableHead>
+                    <TableHead>Usuário</TableHead>
+                    <TableHead>Personagem</TableHead>
+                    <TableHead className="hidden md:table-cell">Tipo de reunião</TableHead>
+                    <TableHead className="text-center">Nota</TableHead>
+                    <TableHead className="hidden sm:table-cell">Duração</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {sessoes.map((sessao: any) => {
+                    const simulacao = sessao.simulacao;
+                    const isVoice = simulacao?.tipo === "simulacao_voz" || simulacao?.tipo === "simulacao";
+                    const personaName = getPersonaName(sessao);
+                    const score = Number(sessao.nota_final || 0);
+                    const userName = sessao.profile?.nome_completo || "Usuário";
+                    
+                    return (
+                      <TableRow 
+                        key={sessao.id}
+                        className="cursor-pointer hover:bg-muted/70"
+                        onClick={() => navigate(`/treinamentos/historico/${sessao.id}`)}
+                      >
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {sessao.id.substring(0, 36)}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {userName}
+                        </TableCell>
+                        <TableCell>
+                          {personaName}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <Badge variant="outline">
+                            {getTipoLabel(simulacao?.tipo)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {sessao.status === "concluida" ? (
+                            <span className="font-medium">{score}</span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          {formatDuration(sessao.duracao_segundos)}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(sessao.data_inicio), "dd-MM-yyyy", { locale: ptBR })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/treinamentos/historico/${sessao.id}`);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between p-4 border-t">
+                <p className="text-sm text-muted-foreground">
+                  Mostrando {((page - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(page * ITEMS_PER_PAGE, total)} de {total.toLocaleString("pt-BR")} registros
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm">
+                    Página {page} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </Card>
     </div>
