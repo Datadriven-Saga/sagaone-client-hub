@@ -16,45 +16,69 @@ export interface RichTextareaProps {
 }
 
 /**
- * Converte texto com asteriscos (*negrito*) para exibição visual
- * Retorna HTML com spans em negrito
+ * Renders text with visible asterisks (muted) and bold text between them
  */
-function textToDisplayHtml(text: string): string {
-  // Escape HTML first
-  const escaped = text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\n/g, "<br>");
+function renderFormattedContent(text: string): React.ReactNode[] {
+  if (!text) return [];
   
-  // Convert *text* to <strong>text</strong>
-  return escaped.replace(/\*([^*]+)\*/g, '<strong class="font-bold">$1</strong>');
-}
-
-/**
- * Converte HTML de volta para texto com asteriscos
- */
-function htmlToText(html: string): string {
-  // Create a temporary div to parse HTML
-  const temp = document.createElement("div");
-  temp.innerHTML = html;
+  const result: React.ReactNode[] = [];
+  const regex = /(\*[^*]+\*)/g;
+  let lastIndex = 0;
+  let match;
+  let key = 0;
   
-  // Replace <strong> and <b> with asterisks
-  temp.querySelectorAll("strong, b").forEach(el => {
-    el.replaceWith(`*${el.textContent}*`);
-  });
+  while ((match = regex.exec(text)) !== null) {
+    // Add text before the match
+    if (match.index > lastIndex) {
+      const beforeText = text.slice(lastIndex, match.index);
+      result.push(
+        <span key={key++}>
+          {beforeText.split('\n').map((line, i, arr) => (
+            <React.Fragment key={i}>
+              {line}
+              {i < arr.length - 1 && <br />}
+            </React.Fragment>
+          ))}
+        </span>
+      );
+    }
+    
+    // Add the formatted bold section with visible asterisks
+    const fullMatch = match[0]; // e.g., "*bold text*"
+    const innerText = fullMatch.slice(1, -1); // e.g., "bold text"
+    
+    result.push(
+      <span key={key++}>
+        <span className="text-muted-foreground/50">*</span>
+        <strong className="font-bold">{innerText}</strong>
+        <span className="text-muted-foreground/50">*</span>
+      </span>
+    );
+    
+    lastIndex = match.index + fullMatch.length;
+  }
   
-  // Replace <br> with newlines
-  temp.querySelectorAll("br").forEach(el => {
-    el.replaceWith("\n");
-  });
+  // Add remaining text
+  if (lastIndex < text.length) {
+    const remaining = text.slice(lastIndex);
+    result.push(
+      <span key={key++}>
+        {remaining.split('\n').map((line, i, arr) => (
+          <React.Fragment key={i}>
+            {line}
+            {i < arr.length - 1 && <br />}
+          </React.Fragment>
+        ))}
+      </span>
+    );
+  }
   
-  return temp.textContent || "";
+  return result;
 }
 
 /**
  * Textarea rico com suporte a formatação em negrito visual para WhatsApp.
- * - Mostra negrito visualmente durante a edição
+ * - Mostra asteriscos visíveis (esmaecidos) com texto em negrito
  * - Armazena internamente com asteriscos (*texto*)
  * - Botão "B" para aplicar negrito no texto selecionado
  * - Atalho Ctrl+B / Cmd+B
@@ -70,94 +94,67 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
     disabled,
     id 
   }, ref) => {
-    const editorRef = React.useRef<HTMLDivElement>(null);
+    const textareaRef = React.useRef<HTMLTextAreaElement>(null);
     const [isFocused, setIsFocused] = React.useState(false);
-    
-    // Sync value to editor when it changes externally
-    React.useEffect(() => {
-      const editor = editorRef.current;
-      if (!editor) return;
-      
-      // Only update if editor doesn't have focus (to avoid cursor jumping)
-      if (document.activeElement !== editor) {
-        const html = textToDisplayHtml(value);
-        if (editor.innerHTML !== html) {
-          editor.innerHTML = html || "";
-        }
-      }
-    }, [value]);
 
-    const handleInput = React.useCallback(() => {
-      const editor = editorRef.current;
-      if (!editor) return;
-      
-      // Get text content with formatting preserved
-      let newValue = "";
-      
-      const processNode = (node: Node) => {
-        if (node.nodeType === Node.TEXT_NODE) {
-          newValue += node.textContent;
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-          const el = node as Element;
-          
-          if (el.tagName === "BR") {
-            newValue += "\n";
-          } else if (el.tagName === "STRONG" || el.tagName === "B") {
-            newValue += "*";
-            el.childNodes.forEach(processNode);
-            newValue += "*";
-          } else if (el.tagName === "DIV" || el.tagName === "P") {
-            if (newValue.length > 0 && !newValue.endsWith("\n")) {
-              newValue += "\n";
-            }
-            el.childNodes.forEach(processNode);
-          } else {
-            el.childNodes.forEach(processNode);
-          }
-        }
-      };
-      
-      editor.childNodes.forEach(processNode);
-      
-      // Remove trailing newline if it's just from empty divs
-      newValue = newValue.replace(/\n+$/, "");
-      
-      // Check maxLength
+    const handleChange = React.useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const newValue = e.target.value;
       if (maxLength && newValue.length > maxLength) {
         return;
       }
-      
       onValueChange(newValue);
     }, [onValueChange, maxLength]);
 
     const applyBold = React.useCallback(() => {
-      const selection = window.getSelection();
-      if (!selection || selection.rangeCount === 0) return;
-      
-      const range = selection.getRangeAt(0);
-      const editor = editorRef.current;
-      if (!editor || !editor.contains(range.commonAncestorContainer)) return;
-      
-      const selectedText = range.toString();
-      
-      if (!selectedText) {
-        // No selection - insert bold markers at cursor
-        document.execCommand("insertHTML", false, "<strong>\u200B</strong>");
-      } else {
-        // Check if already bold
-        const parentBold = range.commonAncestorContainer.parentElement?.closest("strong, b");
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const selectedText = value.substring(start, end);
+
+      let newValue: string;
+      let newCursorPos: number;
+
+      if (selectedText) {
+        // Check if already wrapped in asterisks
+        const beforeChar = start > 0 ? value[start - 1] : '';
+        const afterChar = end < value.length ? value[end] : '';
         
-        if (parentBold) {
-          // Remove bold
-          document.execCommand("removeFormat", false);
+        if (beforeChar === '*' && afterChar === '*') {
+          // Remove bold - remove the asterisks around selection
+          newValue = value.substring(0, start - 1) + selectedText + value.substring(end + 1);
+          newCursorPos = start - 1 + selectedText.length;
         } else {
-          // Apply bold
-          document.execCommand("bold", false);
+          // Apply bold - wrap selection in asterisks
+          newValue = value.substring(0, start) + '*' + selectedText + '*' + value.substring(end);
+          newCursorPos = end + 2;
         }
+      } else {
+        // No selection - insert placeholder bold markers
+        newValue = value.substring(0, start) + '*texto*' + value.substring(end);
+        newCursorPos = start + 1; // Position cursor after first asterisk
+        
+        // Select the "texto" placeholder for easy replacement
+        setTimeout(() => {
+          textarea.setSelectionRange(start + 1, start + 6);
+          textarea.focus();
+        }, 0);
       }
+
+      if (maxLength && newValue.length > maxLength) {
+        return;
+      }
+
+      onValueChange(newValue);
       
-      handleInput();
-    }, [handleInput]);
+      // Restore cursor position
+      setTimeout(() => {
+        if (!selectedText) return; // Skip if we're selecting placeholder
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        textarea.focus();
+      }, 0);
+    }, [value, onValueChange, maxLength]);
 
     const handleKeyDown = React.useCallback(
       (e: React.KeyboardEvent) => {
@@ -166,23 +163,9 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
           e.preventDefault();
           applyBold();
         }
-        
-        // Handle Enter to insert <br> instead of <div>
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          document.execCommand("insertLineBreak", false);
-          handleInput();
-        }
       },
-      [applyBold, handleInput]
+      [applyBold]
     );
-
-    const handlePaste = React.useCallback((e: React.ClipboardEvent) => {
-      e.preventDefault();
-      const text = e.clipboardData.getData("text/plain");
-      document.execCommand("insertText", false, text);
-      handleInput();
-    }, [handleInput]);
 
     const showPlaceholder = !value && !isFocused;
 
@@ -212,30 +195,40 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
           </TooltipProvider>
         </div>
 
-        {/* Placeholder */}
-        {showPlaceholder && placeholder && (
-          <div className="absolute top-2 left-3 text-muted-foreground pointer-events-none text-sm">
-            {placeholder}
-          </div>
-        )}
-
-        {/* Editable content */}
+        {/* Visual preview layer (shows formatted text) */}
         <div
-          ref={editorRef}
-          id={id}
-          contentEditable={!disabled}
-          onInput={handleInput}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
           className={cn(
-            "w-full rounded-md border border-input bg-background px-3 py-2 pr-12 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 overflow-y-auto",
-            disabled && "cursor-not-allowed opacity-50",
+            "w-full rounded-md border border-input bg-background px-3 py-2 pr-12 text-sm overflow-y-auto pointer-events-none absolute inset-0 whitespace-pre-wrap",
+            disabled && "opacity-50",
             className
           )}
           style={{ minHeight }}
-          suppressContentEditableWarning
+          aria-hidden="true"
+        >
+          {showPlaceholder && placeholder ? (
+            <span className="text-muted-foreground">{placeholder}</span>
+          ) : (
+            renderFormattedContent(value)
+          )}
+        </div>
+
+        {/* Actual textarea (invisible but functional) */}
+        <textarea
+          ref={textareaRef}
+          id={id}
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          disabled={disabled}
+          className={cn(
+            "w-full rounded-md border border-transparent bg-transparent px-3 py-2 pr-12 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none relative",
+            "text-transparent caret-foreground selection:bg-primary/30",
+            className
+          )}
+          style={{ minHeight }}
+          placeholder=""
         />
       </div>
     );
