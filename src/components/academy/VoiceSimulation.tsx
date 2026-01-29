@@ -3,9 +3,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Phone, PhoneOff, Mic, MicOff, Volume2 } from "lucide-react";
+import { Phone, PhoneOff, Mic, MicOff, Volume2, Loader2 } from "lucide-react";
 import { TrainingScenario, Persona, SimulationMessage } from "@/types/academy";
 import { cn } from "@/lib/utils";
+import { useVoiceSimulation } from "@/hooks/useVoiceSimulation";
 
 interface VoiceSimulationProps {
   scenario: TrainingScenario;
@@ -13,54 +14,43 @@ interface VoiceSimulationProps {
   onEnd: () => void;
 }
 
-// Mock messages for demonstration
-const mockMessages: SimulationMessage[] = [
-  {
-    id: "1",
-    session_id: "demo",
-    role: "ai",
-    content: "Olá. Sou o Lucas. Eu falei pelo telefone com alguém e agendei 1 visita.",
-    timestamp: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    session_id: "demo",
-    role: "user",
-    content: "Oi Lucas, tudo bem? Eu sou o Rafael posso te atender aqui hoje então é o que tu procura?",
-    timestamp: new Date().toISOString(),
-  },
-  {
-    id: "3",
-    session_id: "demo",
-    role: "ai",
-    content: "Tudo bem sim, vim ver o Compass Longitude, aquele 1.3 turbo que vi no site de vocês,",
-    timestamp: new Date().toISOString(),
-  },
-  {
-    id: "4",
-    session_id: "demo",
-    role: "user",
-    content: "Ah perfeito, claro consigo te mostrar aqui o carro para tu como é que ele é, tirar suas dúvidas. Tu está querendo trocar de carro? Tu já tem 1 carro hoje?",
-    timestamp: new Date().toISOString(),
-  },
-];
-
 export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationProps) {
-  const [isMuted, setIsMuted] = useState(false);
-  const [messages, setMessages] = useState<SimulationMessage[]>(mockMessages);
-  const [duration, setDuration] = useState(0);
+  const {
+    isConnected,
+    isConnecting,
+    isMuted,
+    isAISpeaking,
+    messages,
+    duration,
+    partialTranscript,
+    connect,
+    disconnect,
+    toggleMute,
+  } = useVoiceSimulation({
+    scenario,
+    persona,
+    onSessionEnd: (msgs, dur) => {
+      console.log('Session ended:', msgs.length, 'messages,', dur, 'seconds');
+    },
+  });
 
+  // Auto-connect on mount
   useEffect(() => {
-    const interval = setInterval(() => {
-      setDuration((d) => d + 1);
-    }, 1000);
-    return () => clearInterval(interval);
+    connect();
+    return () => {
+      disconnect();
+    };
   }, []);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const handleEndCall = () => {
+    disconnect();
+    onEnd();
   };
 
   return (
@@ -70,15 +60,39 @@ export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationPro
         {/* Status indicator */}
         <div className="absolute top-4 left-4 z-10">
           <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
-            <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm font-medium">Em chamada</span>
+            {isConnecting ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin text-yellow-500" />
+                <span className="text-sm font-medium">Conectando...</span>
+              </>
+            ) : isConnected ? (
+              <>
+                <div className={cn(
+                  "w-3 h-3 rounded-full",
+                  isAISpeaking ? "bg-blue-500 animate-pulse" : "bg-green-500 animate-pulse"
+                )} />
+                <span className="text-sm font-medium">
+                  {isAISpeaking ? "IA falando..." : "Em chamada"}
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="w-3 h-3 rounded-full bg-red-500" />
+                <span className="text-sm font-medium">Desconectado</span>
+              </>
+            )}
           </div>
         </div>
 
         {/* Avatar/Video placeholder */}
         <div className="h-full flex items-center justify-center">
           <div className="relative">
-            <div className="w-64 h-64 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+            <div className={cn(
+              "w-64 h-64 rounded-full flex items-center justify-center transition-all duration-300",
+              isAISpeaking 
+                ? "bg-gradient-to-br from-primary/40 to-primary/20 ring-4 ring-primary/50 ring-offset-4 ring-offset-background" 
+                : "bg-gradient-to-br from-primary/20 to-primary/5"
+            )}>
               <Avatar className="h-48 w-48">
                 <AvatarFallback className="text-6xl bg-primary/10 text-primary">
                   {persona.name.charAt(0)}
@@ -98,9 +112,10 @@ export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationPro
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setIsMuted(!isMuted)}
+            onClick={toggleMute}
+            disabled={!isConnected}
             className={cn(
-              "h-14 w-14 rounded-full",
+              "h-14 w-14 rounded-full transition-colors",
               isMuted && "bg-destructive text-destructive-foreground hover:bg-destructive/90"
             )}
           >
@@ -108,8 +123,9 @@ export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationPro
           </Button>
           
           <Button
-            onClick={onEnd}
+            onClick={handleEndCall}
             size="lg"
+            disabled={isConnecting}
             className="h-14 px-8 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground"
           >
             <PhoneOff className="h-5 w-5 mr-2" />
@@ -185,12 +201,42 @@ export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationPro
                 {message.role === "user" && (
                   <Avatar className="h-8 w-8 flex-shrink-0">
                     <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                      AU
+                      EU
                     </AvatarFallback>
                   </Avatar>
                 )}
               </div>
             ))}
+
+            {/* Partial transcript (AI currently speaking) */}
+            {partialTranscript && (
+              <div className="flex gap-3 justify-start opacity-70">
+                <Avatar className="h-8 w-8 flex-shrink-0">
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    {persona.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="max-w-[80%] rounded-2xl px-4 py-2 text-sm bg-muted text-foreground rounded-bl-sm">
+                  {partialTranscript}
+                  <span className="inline-block w-2 h-4 bg-foreground/50 animate-pulse ml-1" />
+                </div>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {messages.length === 0 && !partialTranscript && isConnected && (
+              <p className="text-center text-muted-foreground text-sm py-8">
+                Aguardando você iniciar a conversa...
+              </p>
+            )}
+
+            {/* Connecting state */}
+            {isConnecting && (
+              <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Conectando à simulação...</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

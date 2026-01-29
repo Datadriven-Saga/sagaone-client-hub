@@ -70,3 +70,6 @@ verify_jwt = true
 
 [functions.sync-pri-dashboard]
 verify_jwt = true
+
+[functions.academy-voice-simulation]
+verify_jwt = false
