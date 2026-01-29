@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Filter, Sparkles, Loader2, X, Check, User, LayoutTemplate } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Filter, Sparkles, Loader2, X, Check, User, LayoutTemplate, TrendingUp, BookOpen, Mic, Clock } from "lucide-react";
 import {
   Radar,
   RadarChart,
@@ -18,30 +19,7 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer,
 } from "recharts";
-
-// Mock data for radar chart
-const radarData = [
-  { dimension: "Situação", score: 2.5, fullMark: 10 },
-  { dimension: "Problema", score: 4.2, fullMark: 10 },
-  { dimension: "Implicação", score: 0.8, fullMark: 10 },
-  { dimension: "Negociação e Objeção", score: 0.6, fullMark: 10 },
-  { dimension: "Fechamento e Próximos Passos", score: 0.0, fullMark: 10 },
-];
-
-const dimensionScores = [
-  { name: "Situação", score: 2.5, color: "bg-red-100 text-red-700" },
-  { name: "Problema", score: 4.2, color: "bg-red-100 text-red-700" },
-  { name: "Implicação", score: 0.8, color: "bg-red-100 text-red-700" },
-  { name: "Negociação e Objeção", score: 0.6, color: "bg-red-100 text-red-700" },
-  { name: "Fechamento e Próximos Passos", score: 0.0, color: "bg-red-100 text-red-700" },
-];
-
-const situationItems = [
-  { question: "Se apresentou e transmitiu credibilidade?", score: 5.0, maxScore: 10 },
-  { question: "Cumprimentou o cliente com entusiasmo e respeito?", score: 2.5, maxScore: 10 },
-  { question: "Demonstrou interesse genuíno pelo cliente?", score: 2.5, maxScore: 10 },
-  { question: "Criou ambiente positivo e confortável?", score: 0.0, maxScore: 10 },
-];
+import { useAcademyRadarData, useAcademyRecomendacoes, useGenerateRecomendacoes, useAcademySessoes, useAcademyProgresso } from "@/hooks/useAcademyData";
 
 interface Filters {
   dataInicio: string;
@@ -55,8 +33,6 @@ interface Filters {
 export function AcademyDashboard() {
   const [activeTab, setActiveTab] = useState("performance");
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [isGeneratingRecommendations, setIsGeneratingRecommendations] = useState(false);
-  const [recommendations, setRecommendations] = useState<string[]>([]);
   
   const [filters, setFilters] = useState<Filters>({
     dataInicio: "",
@@ -67,23 +43,12 @@ export function AcademyDashboard() {
     template: "",
   });
 
-  const handleGenerateRecommendations = async () => {
-    setIsGeneratingRecommendations(true);
-    
-    // Simulate AI processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Mock recommendations based on dimension scores
-    const mockRecommendations = [
-      "🎯 Foco prioritário: Trabalhe técnicas de fechamento - sua nota atual é 0.0. Pratique simulações de fechamento com objeções.",
-      "💡 Melhore a apresentação pessoal: Dedique 5 minutos antes de cada reunião para preparar uma introdução impactante.",
-      "🔄 Pratique a escuta ativa: Nas próximas simulações, foque em identificar os problemas do cliente antes de propor soluções.",
-      "📈 Acompanhe seu progresso: Realize ao menos 2 simulações por semana para acelerar seu desenvolvimento.",
-    ];
-    
-    setRecommendations(mockRecommendations);
-    setIsGeneratingRecommendations(false);
-  };
+  // Data hooks
+  const { radarData, dimensionScores, metrics } = useAcademyRadarData();
+  const { data: recomendacoes, isLoading: loadingRecomendacoes } = useAcademyRecomendacoes();
+  const { data: sessoes, isLoading: loadingSessoes } = useAcademySessoes(5);
+  const { data: progresso, isLoading: loadingProgresso } = useAcademyProgresso();
+  const generateRecomendacoes = useGenerateRecomendacoes();
 
   const handleClearFilters = () => {
     setFilters({
@@ -97,15 +62,22 @@ export function AcademyDashboard() {
   };
 
   const handleApplyFilters = () => {
-    // Apply filters logic here
     console.log("Applying filters:", filters);
     setIsFiltersOpen(false);
   };
 
+  // Calculate stats
+  const totalSimulacoes = metrics?.total_simulacoes_realizadas || 0;
+  const treinamentosConcluidos = metrics?.treinamentos_concluidos || 0;
+  const emAndamento = metrics?.treinamentos_em_andamento || 0;
+  const tempoTotal = metrics?.tempo_total_minutos || 0;
+  const mediaGeral = Number(metrics?.media_geral || 0);
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+    <div className="p-4 md:p-6 space-y-6 max-w-full overflow-x-hidden">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">Dashboard</h1>
         <Sheet open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
           <SheetTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2">
@@ -113,7 +85,7 @@ export function AcademyDashboard() {
               Filtros
             </Button>
           </SheetTrigger>
-          <SheetContent className="w-[400px] sm:w-[450px]">
+          <SheetContent className="w-full sm:w-[400px] max-w-full">
             <SheetHeader>
               <SheetTitle>Filtros</SheetTitle>
             </SheetHeader>
@@ -236,25 +208,74 @@ export function AcademyDashboard() {
         </Sheet>
       </div>
 
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <TrendingUp className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-bold text-foreground">{mediaGeral.toFixed(1)}</p>
+              <p className="text-xs md:text-sm text-muted-foreground truncate">Média Geral</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-green-500/10">
+              <Mic className="h-5 w-5 text-green-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-bold text-foreground">{totalSimulacoes}</p>
+              <p className="text-xs md:text-sm text-muted-foreground truncate">Simulações</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-500/10">
+              <BookOpen className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-bold text-foreground">{treinamentosConcluidos}</p>
+              <p className="text-xs md:text-sm text-muted-foreground truncate">Concluídos</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-orange-500/10">
+              <Clock className="h-5 w-5 text-orange-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-bold text-foreground">{tempoTotal}</p>
+              <p className="text-xs md:text-sm text-muted-foreground truncate">Min. de treino</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-muted/50">
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-          <TabsTrigger value="metricas">Métricas de Uso</TabsTrigger>
-          <TabsTrigger value="analises">Tabela de Análises</TabsTrigger>
+        <TabsList className="bg-muted/50 w-full justify-start overflow-x-auto">
+          <TabsTrigger value="performance" className="text-xs md:text-sm">Performance</TabsTrigger>
+          <TabsTrigger value="metricas" className="text-xs md:text-sm">Métricas de Uso</TabsTrigger>
+          <TabsTrigger value="analises" className="text-xs md:text-sm">Tabela de Análises</TabsTrigger>
         </TabsList>
 
         <TabsContent value="performance" className="mt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
             {/* Radar Chart */}
-            <Card className="p-6">
+            <Card className="p-4 md:p-6">
               <h3 className="text-lg font-semibold mb-4">Dimensões de avaliação</h3>
-              <div className="h-80">
+              <div className="h-64 md:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart data={radarData}>
                     <PolarGrid stroke="hsl(var(--border))" />
                     <PolarAngleAxis 
                       dataKey="dimension" 
-                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                      tickLine={false}
                     />
                     <PolarRadiusAxis 
                       angle={90} 
@@ -274,7 +295,7 @@ export function AcademyDashboard() {
             </Card>
 
             {/* Recommendations */}
-            <Card className="p-6">
+            <Card className="p-4 md:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-semibold">Recomendações</h3>
@@ -283,11 +304,11 @@ export function AcademyDashboard() {
               </div>
               
               <Button 
-                onClick={handleGenerateRecommendations}
-                disabled={isGeneratingRecommendations}
+                onClick={() => generateRecomendacoes.mutate()}
+                disabled={generateRecomendacoes.isPending}
                 className="w-full gap-2 bg-primary hover:bg-primary/90"
               >
-                {isGeneratingRecommendations ? (
+                {generateRecomendacoes.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Gerando...
@@ -300,11 +321,17 @@ export function AcademyDashboard() {
                 )}
               </Button>
               
-              {recommendations.length > 0 ? (
+              {loadingRecomendacoes ? (
                 <div className="mt-4 space-y-3">
-                  {recommendations.map((rec, index) => (
-                    <div key={index} className="p-3 bg-muted/50 rounded-lg text-sm">
-                      {rec}
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : recomendacoes && recomendacoes.length > 0 ? (
+                <div className="mt-4 space-y-3 max-h-64 overflow-y-auto">
+                  {recomendacoes.map((rec) => (
+                    <div key={rec.id} className="p-3 bg-muted/50 rounded-lg text-sm">
+                      <p className="font-medium text-foreground">{rec.titulo}</p>
+                      <p className="text-muted-foreground mt-1">{rec.descricao}</p>
                     </div>
                   ))}
                 </div>
@@ -317,44 +344,121 @@ export function AcademyDashboard() {
           </div>
 
           {/* Dimension Scores */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mt-6">
             {dimensionScores.map((dim) => (
-              <Card key={dim.name} className={`p-4 ${dim.color}`}>
-                <p className="text-2xl font-bold">{dim.score.toFixed(1)}</p>
-                <p className="text-sm">{dim.name}</p>
+              <Card key={dim.name} className={`p-3 md:p-4 ${dim.color}`}>
+                <p className="text-xl md:text-2xl font-bold">{dim.score.toFixed(1)}</p>
+                <p className="text-xs md:text-sm truncate">{dim.name}</p>
               </Card>
             ))}
           </div>
 
-          {/* Situation Breakdown */}
-          <Card className="p-6 mt-6">
-            <h3 className="text-lg font-semibold mb-4">SITUAÇÃO</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {situationItems.map((item, index) => (
-                <Card key={index} className="p-4 bg-card border">
-                  <p className="text-sm text-foreground mb-2">{item.question}</p>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {item.score.toFixed(1)}/{item.maxScore}
-                  </p>
-                  <Progress 
-                    value={(item.score / item.maxScore) * 100} 
-                    className="h-2"
-                  />
-                </Card>
-              ))}
-            </div>
+          {/* Recent Sessions */}
+          <Card className="p-4 md:p-6 mt-6">
+            <h3 className="text-lg font-semibold mb-4">Sessões Recentes</h3>
+            {loadingSessoes ? (
+              <div className="space-y-3">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : sessoes && sessoes.length > 0 ? (
+              <div className="space-y-3">
+                {sessoes.map((sessao: any) => (
+                  <div key={sessao.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-foreground truncate">
+                        {sessao.simulacao?.titulo || "Simulação"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(sessao.data_inicio).toLocaleDateString("pt-BR")}
+                        {sessao.duracao_segundos && ` • ${Math.floor(sessao.duracao_segundos / 60)}min`}
+                      </p>
+                    </div>
+                    {sessao.nota_final !== null && (
+                      <Badge className={sessao.nota_final >= 7 ? "bg-green-100 text-green-700" : sessao.nota_final >= 5 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}>
+                        {Number(sessao.nota_final).toFixed(1)}/10
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Você ainda não realizou nenhuma simulação. Comece agora para acompanhar seu progresso!
+              </p>
+            )}
           </Card>
         </TabsContent>
 
         <TabsContent value="metricas" className="mt-6">
-          <Card className="p-6">
-            <p className="text-muted-foreground">Métricas de uso em breve...</p>
-          </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <Card className="p-4 md:p-6">
+              <h3 className="text-lg font-semibold mb-4">Tempo de Estudo</h3>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Tempo total</span>
+                    <span className="font-medium">{tempoTotal} minutos</span>
+                  </div>
+                  <Progress value={Math.min((tempoTotal / 120) * 100, 100)} className="h-2" />
+                  <p className="text-xs text-muted-foreground mt-1">Meta: 120 minutos/semana</p>
+                </div>
+              </div>
+            </Card>
+            
+            <Card className="p-4 md:p-6">
+              <h3 className="text-lg font-semibold mb-4">Progresso em Treinamentos</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Concluídos</span>
+                  <Badge className="bg-green-100 text-green-700">{treinamentosConcluidos}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Em andamento</span>
+                  <Badge className="bg-yellow-100 text-yellow-700">{emAndamento}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Total disponível</span>
+                  <Badge variant="outline">{metrics?.total_treinamentos_disponiveis || 0}</Badge>
+                </div>
+              </div>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="analises" className="mt-6">
-          <Card className="p-6">
-            <p className="text-muted-foreground">Tabela de análises em breve...</p>
+          <Card className="p-4 md:p-6">
+            <h3 className="text-lg font-semibold mb-4">Progresso Detalhado</h3>
+            {loadingProgresso ? (
+              <div className="space-y-3">
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+              </div>
+            ) : progresso && progresso.length > 0 ? (
+              <div className="space-y-4">
+                {progresso.map((item: any) => (
+                  <div key={item.id} className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-medium text-foreground">
+                        {item.treinamento?.titulo || "Treinamento"}
+                      </p>
+                      <Badge variant="outline">{item.treinamento?.nivel || "—"}</Badge>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span>Progresso: {item.percentual_concluido}%</span>
+                      {item.nota !== null && <span>Nota: {item.nota}/10</span>}
+                      <span>Tentativas: {item.tentativas}</span>
+                    </div>
+                    <Progress value={item.percentual_concluido} className="h-2 mt-2" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Nenhum progresso registrado ainda. Inicie um treinamento para acompanhar seu desenvolvimento.
+              </p>
+            )}
           </Card>
         </TabsContent>
       </Tabs>
