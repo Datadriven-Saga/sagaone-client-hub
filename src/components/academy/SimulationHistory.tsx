@@ -87,11 +87,13 @@ export function SimulationHistory() {
 
   const getTipoLabel = (tipo: string) => {
     switch (tipo) {
+      case "voz":
       case "simulacao":
       case "simulacao_voz":
-        return "Outbound";
+        return "Outbound (Voz)";
+      case "texto":
       case "simulacao_texto":
-        return "Inbound";
+        return "Inbound (Texto)";
       default:
         return tipo || "—";
     }
@@ -142,8 +144,8 @@ export function SimulationHistory() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os tipos</SelectItem>
-              <SelectItem value="simulacao">Outbound (Voz)</SelectItem>
-              <SelectItem value="simulacao_texto">Inbound (Texto)</SelectItem>
+              <SelectItem value="voz">Outbound (Voz)</SelectItem>
+              <SelectItem value="texto">Inbound (Texto)</SelectItem>
             </SelectContent>
           </Select>
           
