@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AcademyDashboard } from "@/components/academy/AcademyDashboard";
-import { LearningPaths } from "@/components/academy/LearningPaths";
-import { SimulationSelector } from "@/components/academy/SimulationSelector";
+import { SimulacoesUnificadas } from "@/components/academy/SimulacoesUnificadas";
 import { VoiceSimulation } from "@/components/academy/VoiceSimulation";
 import { SimulationHistory } from "@/components/academy/SimulationHistory";
 import { SimulationDetails } from "@/components/academy/SimulationDetails";
@@ -96,23 +95,13 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
     if (path === "/treinamentos") {
       return <AcademyDashboard />;
     }
-    if (path === "/treinamentos/simulacoes") {
-      return <LearningPaths />;
-    }
-    if (path === "/treinamentos/simulacoes-voz") {
+    // All simulation routes now use the unified component
+    if (path === "/treinamentos/simulacoes" || 
+        path === "/treinamentos/simulacoes-voz" || 
+        path === "/treinamentos/simulacoes-texto" ||
+        path === "/treinamentos/trilhas") {
       return (
-        <SimulationSelector
-          type="voice"
-          onStartSimulation={handleStartSimulation}
-        />
-      );
-    }
-    if (path === "/treinamentos/simulacoes-texto") {
-      return (
-        <SimulationSelector
-          type="text"
-          onStartSimulation={handleStartSimulation}
-        />
+        <SimulacoesUnificadas onStartSimulation={handleStartSimulation} />
       );
     }
     if (path === "/treinamentos/historico") {
