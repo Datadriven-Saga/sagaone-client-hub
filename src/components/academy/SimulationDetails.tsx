@@ -57,11 +57,14 @@ export function SimulationDetails() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Fetch session data from database
-  const { data: sessao, isLoading } = useQuery({
+  const { data: sessao, isLoading, error } = useQuery({
     queryKey: ["academy-sessao-details", id],
     queryFn: async () => {
       if (!id) return null;
-      
+
+      // IMPORTANT: avoid embedding profile here because it can fail depending on
+      // PostgREST relationship cache / RLS on profiles, which was causing the UI
+      // to fall back to "Sessão não encontrada" even when the session exists.
       const { data, error } = await supabase
         .from("academy_sessoes_simulacao")
         .select(`
@@ -72,16 +75,30 @@ export function SimulationDetails() {
             descricao,
             cenario,
             criterios_avaliacao
-          ),
-          profile:user_id (
-            nome_completo
           )
         `)
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      return data;
+
+      if (!data) return null;
+
+      // Best-effort profile fetch (do not block details view if it fails)
+      try {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("nome_completo")
+          .eq("id", data.user_id)
+          .maybeSingle();
+
+        return {
+          ...data,
+          profile: profileData || null,
+        } as any;
+      } catch {
+        return data as any;
+      }
     },
     enabled: !!id,
   });
@@ -181,6 +198,29 @@ export function SimulationDetails() {
             <Skeleton className="h-[300px] w-full" />
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <AcademyPageHeader
+          title="Erro ao carregar sessão"
+          backPath="/treinamentos/historico"
+          icon={<Eye className="h-6 w-6 text-muted-foreground" />}
+        />
+        <Card className="p-8 text-center">
+          <p className="text-muted-foreground">
+            Não foi possível carregar os detalhes desta sessão. Tente novamente.
+          </p>
+          <Button
+            className="mt-4"
+            onClick={() => navigate("/treinamentos/historico")}
+          >
+            Voltar ao Histórico
+          </Button>
+        </Card>
       </div>
     );
   }

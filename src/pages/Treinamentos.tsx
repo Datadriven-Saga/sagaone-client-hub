@@ -114,19 +114,16 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
         feedbackIA: `Avaliação do usuário: ${rating}/5 estrelas. ${comment || "Sem comentário adicional."}`,
         pontosFortes: [],
         pontosMelhoria: [],
+        duracaoSegundos: finalDuration,
       });
-
-      // Update session duration in database
-      await supabase
-        .from("academy_sessoes_simulacao")
-        .update({ duracao_segundos: finalDuration })
-        .eq("id", session.id);
 
       // Recalculate user metrics
       if (user?.id) {
-        await supabase.rpc("academy_recalcular_metricas_usuario", {
+        const { error: metricsError } = await supabase.rpc("academy_recalcular_metricas_usuario", {
           p_user_id: user.id,
         });
+
+        if (metricsError) throw metricsError;
       }
 
       // Invalidate all related queries to refresh data across all screens
@@ -134,6 +131,9 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
       await queryClient.invalidateQueries({ queryKey: ["academy-all-sessoes"] });
       await queryClient.invalidateQueries({ queryKey: ["academy-metrics"] });
       await queryClient.invalidateQueries({ queryKey: ["academy-ranking"] });
+      await queryClient.invalidateQueries({ queryKey: ["academy-progresso"] });
+      await queryClient.invalidateQueries({ queryKey: ["academy-recomendacoes"] });
+      await queryClient.invalidateQueries({ queryKey: ["academy-sessao-details"] });
 
       toast.success("Sessão salva com sucesso!");
       

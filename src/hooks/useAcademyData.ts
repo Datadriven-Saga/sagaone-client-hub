@@ -732,6 +732,7 @@ export function useEndSessao() {
       feedbackIA,
       pontosFortes,
       pontosMelhoria,
+      duracaoSegundos,
     }: {
       sessaoId: string;
       transcricao?: TranscricaoItem[];
@@ -740,21 +741,28 @@ export function useEndSessao() {
       feedbackIA?: string;
       pontosFortes?: string[];
       pontosMelhoria?: string[];
+      duracaoSegundos?: number;
     }) => {
       const dataFim = new Date().toISOString();
+
+      const payload: Record<string, unknown> = {
+        status: "concluida",
+        data_fim: dataFim,
+        transcricao: (transcricao || []) as unknown as null,
+        avaliacoes: (avaliacoes || {}) as unknown as null,
+        nota_final: notaFinal,
+        feedback_ia: feedbackIA,
+        pontos_fortes: (pontosFortes || []) as unknown as null,
+        pontos_melhoria: (pontosMelhoria || []) as unknown as null,
+      };
+
+      if (typeof duracaoSegundos === "number") {
+        payload.duracao_segundos = duracaoSegundos;
+      }
       
       const { error } = await supabase
         .from("academy_sessoes_simulacao")
-        .update({
-          status: "concluida",
-          data_fim: dataFim,
-          transcricao: (transcricao || []) as unknown as null,
-          avaliacoes: (avaliacoes || {}) as unknown as null,
-          nota_final: notaFinal,
-          feedback_ia: feedbackIA,
-          pontos_fortes: (pontosFortes || []) as unknown as null,
-          pontos_melhoria: (pontosMelhoria || []) as unknown as null,
-        })
+        .update(payload as any)
         .eq("id", sessaoId);
 
       if (error) throw error;
