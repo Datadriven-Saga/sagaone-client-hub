@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,9 +27,14 @@ export function SimulationFeedbackModal({
   const [isProcessing, setIsProcessing] = useState(true);
   const [progress, setProgress] = useState(0);
 
-  // Simulate processing
-  useState(() => {
+  // Reset and start processing when modal opens
+  useEffect(() => {
     if (isOpen) {
+      setRating(0);
+      setComment("");
+      setProgress(0);
+      setIsProcessing(true);
+      
       const interval = setInterval(() => {
         setProgress((p) => {
           if (p >= 100) {
@@ -40,10 +45,15 @@ export function SimulationFeedbackModal({
           return p + 10;
         });
       }, 200);
+
+      return () => clearInterval(interval);
     }
-  });
+  }, [isOpen]);
 
   const handleSubmit = () => {
+    if (rating === 0) {
+      return; // Don't allow submit without rating
+    }
     onSubmit(rating, comment);
     setRating(0);
     setComment("");
@@ -51,9 +61,22 @@ export function SimulationFeedbackModal({
     setIsProcessing(true);
   };
 
+  const canSubmit = rating > 0 && !isProcessing;
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog 
+      open={isOpen} 
+      onOpenChange={() => {
+        // Prevent closing if rating is not provided
+        // Modal can only be closed by submitting
+      }}
+    >
+      <DialogContent 
+        className="sm:max-w-md"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        hideCloseButton
+      >
         <DialogHeader>
           <DialogTitle className="text-xl">Sua simulação terminou!</DialogTitle>
         </DialogHeader>
@@ -75,9 +98,10 @@ export function SimulationFeedbackModal({
           <div className="space-y-3">
             <p className="font-medium text-foreground">
               Enquanto isso, avalie como estamos indo...
+              <span className="text-destructive"> *</span>
             </p>
             <p className="text-sm text-muted-foreground">
-              Avalie a qualidade e realismo da simulação da simulação com uma nota entre 1 e 5.
+              Avalie a qualidade e realismo da simulação com uma nota entre 1 e 5.
               Isso nos ajudará a melhorar a sua experiência.
             </p>
 
@@ -101,6 +125,11 @@ export function SimulationFeedbackModal({
                 </button>
               ))}
             </div>
+            {rating === 0 && (
+              <p className="text-xs text-destructive text-center">
+                * Avaliação obrigatória
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -119,9 +148,9 @@ export function SimulationFeedbackModal({
           <Button
             onClick={handleSubmit}
             className="w-full bg-primary hover:bg-primary/90"
-            disabled={isProcessing}
+            disabled={!canSubmit}
           >
-            Salvar
+            {rating === 0 ? "Selecione uma avaliação" : "Salvar"}
           </Button>
         </div>
       </DialogContent>
