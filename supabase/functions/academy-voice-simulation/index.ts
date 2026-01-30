@@ -123,9 +123,9 @@ PRIMEIRA FALA: Cumprimente o vendedor de forma natural em português, como "Oi, 
             },
             turn_detection: {
               type: 'server_vad',
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 1000,
+              threshold: 0.7, // Increased threshold to reduce sensitivity
+              prefix_padding_ms: 400, // More padding before speech
+              silence_duration_ms: 1200, // Longer silence to end turn
             },
             temperature: 0.7,
             max_response_output_tokens: 200,

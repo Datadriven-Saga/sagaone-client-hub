@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -16,6 +16,8 @@ interface VoiceSimulationProps {
 }
 
 export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationProps) {
+  const disconnectRef = useRef<() => void>(() => {});
+  
   const {
     isConnected,
     isConnecting,
@@ -35,11 +37,18 @@ export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationPro
     },
   });
 
-  // Auto-connect on mount
+  // Keep disconnect ref updated
+  useEffect(() => {
+    disconnectRef.current = disconnect;
+  }, [disconnect]);
+
+  // Auto-connect on mount and cleanup on unmount
   useEffect(() => {
     connect();
+    
     return () => {
-      disconnect();
+      console.log('VoiceSimulation component unmounting - calling disconnect');
+      disconnectRef.current();
     };
   }, []);
 

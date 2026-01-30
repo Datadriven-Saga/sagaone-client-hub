@@ -87,6 +87,8 @@ class AudioQueue {
   private isPlaying = false;
   private audioContext: AudioContext;
   private onPlayingChange: (playing: boolean) => void;
+  private currentSource: AudioBufferSourceNode | null = null;
+  private stopped = false;
 
   constructor(audioContext: AudioContext, onPlayingChange: (playing: boolean) => void) {
     this.audioContext = audioContext;
@@ -94,6 +96,7 @@ class AudioQueue {
   }
 
   async addToQueue(audioData: Uint8Array) {
+    if (this.stopped) return;
     this.queue.push(audioData);
     if (!this.isPlaying) {
       await this.playNext();
@@ -101,7 +104,7 @@ class AudioQueue {
   }
 
   private async playNext() {
-    if (this.queue.length === 0) {
+    if (this.stopped || this.queue.length === 0) {
       this.isPlaying = false;
       this.onPlayingChange(false);
       return;
@@ -116,15 +119,39 @@ class AudioQueue {
       const audioBuffer = await this.audioContext.decodeAudioData(wavData.buffer.slice(0) as ArrayBuffer);
       
       const source = this.audioContext.createBufferSource();
+      this.currentSource = source;
       source.buffer = audioBuffer;
       source.connect(this.audioContext.destination);
       
-      source.onended = () => this.playNext();
+      source.onended = () => {
+        this.currentSource = null;
+        if (!this.stopped) {
+          this.playNext();
+        }
+      };
       source.start(0);
     } catch (error) {
       console.error('Error playing audio:', error);
-      this.playNext();
+      this.currentSource = null;
+      if (!this.stopped) {
+        this.playNext();
+      }
     }
+  }
+
+  stop() {
+    this.stopped = true;
+    this.queue = [];
+    if (this.currentSource) {
+      try {
+        this.currentSource.stop();
+      } catch (e) {
+        // Ignore - source may have already stopped
+      }
+      this.currentSource = null;
+    }
+    this.isPlaying = false;
+    this.onPlayingChange(false);
   }
 
   clear() {
@@ -359,13 +386,23 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
   const disconnect = useCallback(() => {
     console.log('Disconnecting voice simulation...');
 
+    // FIRST: Stop audio queue to stop any ongoing playback immediately
+    if (audioQueueRef.current) {
+      audioQueueRef.current.stop();
+      audioQueueRef.current = null;
+    }
+
     // Stop audio capture
     if (sourceRef.current) {
-      sourceRef.current.disconnect();
+      try {
+        sourceRef.current.disconnect();
+      } catch (e) { /* ignore */ }
       sourceRef.current = null;
     }
     if (processorRef.current) {
-      processorRef.current.disconnect();
+      try {
+        processorRef.current.disconnect();
+      } catch (e) { /* ignore */ }
       processorRef.current = null;
     }
     if (streamRef.current) {
@@ -375,20 +412,18 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
 
     // Close WebSocket
     if (wsRef.current) {
-      wsRef.current.close();
+      try {
+        wsRef.current.close();
+      } catch (e) { /* ignore */ }
       wsRef.current = null;
     }
 
     // Close audio context
     if (audioContextRef.current) {
-      audioContextRef.current.close();
+      try {
+        audioContextRef.current.close();
+      } catch (e) { /* ignore */ }
       audioContextRef.current = null;
-    }
-
-    // Clear audio queue
-    if (audioQueueRef.current) {
-      audioQueueRef.current.clear();
-      audioQueueRef.current = null;
     }
 
     // Notify session end
@@ -404,10 +439,36 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
     setIsMuted(prev => !prev);
   }, []);
 
-  // Cleanup on unmount
+  // Cleanup on unmount - use refs to avoid stale closure
   useEffect(() => {
     return () => {
-      disconnect();
+      console.log('VoiceSimulation unmounting - cleaning up...');
+      
+      // Stop audio queue
+      if (audioQueueRef.current) {
+        audioQueueRef.current.stop();
+      }
+
+      // Stop audio capture
+      if (sourceRef.current) {
+        try { sourceRef.current.disconnect(); } catch (e) { /* ignore */ }
+      }
+      if (processorRef.current) {
+        try { processorRef.current.disconnect(); } catch (e) { /* ignore */ }
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      // Close WebSocket
+      if (wsRef.current) {
+        try { wsRef.current.close(); } catch (e) { /* ignore */ }
+      }
+
+      // Close audio context
+      if (audioContextRef.current) {
+        try { audioContextRef.current.close(); } catch (e) { /* ignore */ }
+      }
     };
   }, []);
 
