@@ -401,7 +401,7 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
         </div>
 
         {/* Evaluation Criteria */}
-        {selectedSimulacao.criterios_avaliacao && (
+        {Array.isArray(selectedSimulacao.criterios_avaliacao) && selectedSimulacao.criterios_avaliacao.length > 0 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
@@ -409,7 +409,7 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
             </h2>
             <Card className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                {(selectedSimulacao.criterios_avaliacao as any[]).map((criterio: any, index: number) => (
+                {selectedSimulacao.criterios_avaliacao.map((criterio: any, index: number) => (
                   <div key={index} className="text-center p-3 bg-muted/30 rounded-lg">
                     <p className="font-medium text-foreground">{criterio.dimensao}</p>
                     <p className="text-sm text-muted-foreground">Peso: {criterio.peso}%</p>
