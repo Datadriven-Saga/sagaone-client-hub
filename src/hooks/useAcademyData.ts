@@ -530,11 +530,11 @@ export function useCreateSimulacao() {
       // IMPORTANT: to guarantee appearance in "Treinamentos", create the training first and
       // link the simulation via academy_simulacoes.treinamento_id.
 
-      const conteudoTreinamento: Record<string, unknown> = {
+      const conteudoTreinamento = {
         tipo_simulacao: data.tipo,
         departamento: data.departamento || "Vendas Novos",
         config_voz: configVoz,
-      };
+      } as const;
 
       const { data: treinamento, error: treinamentoCreateError } = await supabase
         .from("academy_treinamentos")
@@ -588,13 +588,17 @@ export function useCreateSimulacao() {
       }
 
       // 3. Best-effort: store simulation id on training content (optional, since we already have treinamento_id link)
+      const updatedConteudo = {
+        tipo_simulacao: data.tipo,
+        departamento: data.departamento || "Vendas Novos",
+        config_voz: configVoz,
+        simulacao_id: simulacaoResult.id,
+      };
+      
       const { error: treinamentoUpdateError } = await supabase
         .from("academy_treinamentos")
         .update({
-          conteudo: {
-            ...(conteudoTreinamento || {}),
-            simulacao_id: simulacaoResult.id,
-          },
+          conteudo: updatedConteudo,
         })
         .eq("id", treinamento.id);
 
