@@ -10,6 +10,9 @@ import { SimulationDetails } from "@/components/academy/SimulationDetails";
 import { SimulationFeedbackModal } from "@/components/academy/SimulationFeedbackModal";
 import { AcademyAdminPanel } from "@/components/academy/AcademyAdminPanel";
 import { TrainingScenario, Persona } from "@/types/academy";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
+import { Construction } from "lucide-react";
+import { Card } from "@/components/ui/card";
 
 interface TreinamentosProps {
   adminMode?: boolean;
@@ -17,6 +20,7 @@ interface TreinamentosProps {
 
 const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
   const location = useLocation();
+  const { isAdminOrTI, loading: accessLoading } = useUserAccessType();
   const [activeSimulation, setActiveSimulation] = useState<{
     scenario: TrainingScenario;
     persona: Persona;
@@ -42,6 +46,30 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
     return (
       <DashboardLayout>
         <AcademyAdminPanel />
+      </DashboardLayout>
+    );
+  }
+
+  // Show "Em desenvolvimento" for non-admin/TI users
+  if (!accessLoading && !isAdminOrTI) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Card className="p-8 max-w-md text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="p-4 rounded-full bg-amber-100 dark:bg-amber-900/30">
+                <Construction className="h-12 w-12 text-amber-600 dark:text-amber-400" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-foreground">Em Desenvolvimento</h2>
+            <p className="text-muted-foreground">
+              O módulo de Treinamentos está sendo desenvolvido e estará disponível em breve.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Aguarde novidades!
+            </p>
+          </Card>
+        </div>
       </DashboardLayout>
     );
   }
