@@ -485,6 +485,10 @@ export function useCreateSimulacao() {
 
   return useMutation({
     mutationFn: async (data: CreateSimulacaoData) => {
+      if (!user?.id) {
+        throw new Error("Usuário não autenticado");
+      }
+
       // Build cenario object with personas and system prompt
       const cenario = {
         departamento: data.departamento || "Vendas Novos",
@@ -519,9 +523,41 @@ export function useCreateSimulacao() {
       const nivel = nivelMap[personaDifficulty] || "intermediario";
 
       // Default duration: 5min for voice, 10min for text
-      const duracao = data.duracao_estimada_minutos || (data.tipo === "voz" ? 5 : 10);
+      const duracao = data.duracao_estimada_minutos ?? (data.tipo === "voz" ? 5 : 10);
 
-      // 1. Create simulation in academy_simulacoes
+      const empresaId = activeCompany?.id ?? null;
+
+      // IMPORTANT: to guarantee appearance in "Treinamentos", create the training first and
+      // link the simulation via academy_simulacoes.treinamento_id.
+
+      const conteudoTreinamento: Record<string, unknown> = {
+        tipo_simulacao: data.tipo,
+        departamento: data.departamento || "Vendas Novos",
+        config_voz: configVoz,
+      };
+
+      const { data: treinamento, error: treinamentoCreateError } = await supabase
+        .from("academy_treinamentos")
+        .insert([
+          {
+            titulo: data.titulo,
+            descricao: data.descricao || null,
+            tipo: "simulacao",
+            nivel,
+            status: "publicado",
+            obrigatorio: false,
+            duracao_estimada_minutos: duracao,
+            empresa_id: empresaId,
+            criado_por: user.id,
+            conteudo: conteudoTreinamento,
+          },
+        ])
+        .select("id")
+        .single();
+
+      if (treinamentoCreateError) throw treinamentoCreateError;
+
+      // 2. Create simulation in academy_simulacoes linked to the training
       const { data: simulacaoResult, error: simulacaoError } = await supabase
         .from("academy_simulacoes")
         .insert([{
@@ -529,8 +565,9 @@ export function useCreateSimulacao() {
           descricao: data.descricao || null,
           tipo: data.tipo, // "voz" or "texto"
           ativo: true,
-          empresa_id: activeCompany?.id || null,
-          criado_por: user?.id,
+          empresa_id: empresaId,
+          criado_por: user.id,
+          treinamento_id: treinamento.id,
           cenario,
           config_voz: configVoz,
           criterios_avaliacao: [
@@ -544,31 +581,26 @@ export function useCreateSimulacao() {
         .select("id")
         .single();
 
-      if (simulacaoError) throw simulacaoError;
+      if (simulacaoError) {
+        // Best-effort rollback to avoid leaving a training without simulation.
+        await supabase.from("academy_treinamentos").delete().eq("id", treinamento.id);
+        throw simulacaoError;
+      }
 
-      // 2. Also create a linked training in academy_treinamentos so it shows in Treinamentos tab
-      const { error: treinamentoError } = await supabase
+      // 3. Best-effort: store simulation id on training content (optional, since we already have treinamento_id link)
+      const { error: treinamentoUpdateError } = await supabase
         .from("academy_treinamentos")
-        .insert([{
-          titulo: data.titulo,
-          descricao: data.descricao || null,
-          tipo: "simulacao", // Maps to valid DB constraint value
-          nivel,
-          status: "publicado", // Auto-publish so users can see it
-          obrigatorio: false,
-          duracao_estimada_minutos: duracao,
-          empresa_id: activeCompany?.id || null,
-          criado_por: user?.id,
+        .update({
           conteudo: {
+            ...(conteudoTreinamento || {}),
             simulacao_id: simulacaoResult.id,
-            departamento: data.departamento,
-            config_voz: configVoz,
           },
-        }]);
+        })
+        .eq("id", treinamento.id);
 
-      if (treinamentoError) {
-        console.error("Error creating linked training:", treinamentoError);
-        // Don't throw - simulation was created successfully
+      if (treinamentoUpdateError) {
+        // Don't block creation; the link via treinamento_id is already enough.
+        console.warn("[useCreateSimulacao] Falha ao atualizar conteudo do treinamento:", treinamentoUpdateError);
       }
     },
     onSuccess: () => {
