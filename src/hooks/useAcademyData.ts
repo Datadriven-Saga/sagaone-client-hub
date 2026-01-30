@@ -938,7 +938,8 @@ export function useAcademyAllSessoes(filters?: {
   return useQuery({
     queryKey: ["academy-all-sessoes", activeCompany?.id, isAdminOrTI, filters],
     queryFn: async () => {
-      let query = supabase
+      // Fetch sessions with simulation details (profile is a separate query)
+      const { data: sessoes, error: sessoesError, count } = await supabase
         .from("academy_sessoes_simulacao")
         .select(`
           *,
@@ -947,42 +948,58 @@ export function useAcademyAllSessoes(filters?: {
             tipo,
             descricao,
             cenario
-          ),
-          profile:user_id (
-            nome_completo,
-            departamento,
-            empresa_id
           )
         `, { count: "exact" })
-        .order("created_at", { ascending: false })
+        .order("data_inicio", { ascending: false })
         .range((page - 1) * pageSize, page * pageSize - 1);
 
-      const { data, error, count } = await query;
-      if (error) throw error;
+      if (sessoesError) throw sessoesError;
+
+      // Fetch profiles for these sessions
+      const userIds = [...new Set((sessoes || []).map((s: any) => s.user_id))];
+      let profilesMap: Record<string, any> = {};
+      
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, nome_completo, departamento, empresa_id")
+          .in("id", userIds);
+        
+        profilesMap = (profiles || []).reduce((acc: any, p: any) => {
+          acc[p.id] = p;
+          return acc;
+        }, {});
+      }
+
+      // Merge profiles into sessions
+      let merged = (sessoes || []).map((s: any) => ({
+        ...s,
+        profile: profilesMap[s.user_id] || null,
+      }));
       
       // Filter by company if not admin
-      let filtered = data || [];
       if (!isAdminOrTI && activeCompany?.id) {
-        filtered = filtered.filter((s: any) => s.profile?.empresa_id === activeCompany?.id);
+        merged = merged.filter((s: any) => s.profile?.empresa_id === activeCompany?.id);
       }
       
       // Apply text search
       if (filters?.searchTerm) {
         const term = filters.searchTerm.toLowerCase();
-        filtered = filtered.filter((s: any) => 
+        merged = merged.filter((s: any) => 
           s.id.toLowerCase().includes(term) ||
           s.profile?.nome_completo?.toLowerCase().includes(term) ||
           s.simulacao?.titulo?.toLowerCase().includes(term)
         );
       }
       
-      // Apply tipo filter
+      // Apply tipo filter (database uses 'voz' / 'texto' in academy_simulacoes.tipo)
       if (filters?.tipo && filters.tipo !== "all") {
-        filtered = filtered.filter((s: any) => s.simulacao?.tipo === filters.tipo);
+        const tipoDb = filters.tipo === "simulacao" ? "voz" : filters.tipo;
+        merged = merged.filter((s: any) => s.simulacao?.tipo === tipoDb);
       }
       
       return {
-        data: filtered,
+        data: merged,
         total: count || 0,
         page,
         pageSize,
