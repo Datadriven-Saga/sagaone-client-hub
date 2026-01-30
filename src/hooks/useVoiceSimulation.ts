@@ -151,6 +151,12 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
   const startTimeRef = useRef<number>(0);
   const currentAITranscriptRef = useRef<string>('');
   const currentUserTranscriptRef = useRef<string>('');
+  const isMutedRef = useRef<boolean>(false);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
 
   // Duration timer
   useEffect(() => {
@@ -228,7 +234,7 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
           processorRef.current = audioContextRef.current.createScriptProcessor(4096, 1, 1);
 
           processorRef.current.onaudioprocess = (e) => {
-            if (wsRef.current?.readyState === WebSocket.OPEN && !isMuted) {
+            if (wsRef.current?.readyState === WebSocket.OPEN && !isMutedRef.current) {
               const inputData = e.inputBuffer.getChannelData(0);
               const base64Audio = encodeAudioForAPI(new Float32Array(inputData));
               wsRef.current.send(JSON.stringify({
@@ -348,7 +354,7 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
       toast.error('Erro ao iniciar simulação. Verifique as permissões do microfone.');
       setIsConnecting(false);
     }
-  }, [isConnected, isConnecting, persona, scenario, isMuted, addMessage]);
+  }, [isConnected, isConnecting, persona, scenario, addMessage]);
 
   const disconnect = useCallback(() => {
     console.log('Disconnecting voice simulation...');
