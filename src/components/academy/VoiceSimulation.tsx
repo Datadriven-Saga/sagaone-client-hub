@@ -1,11 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Phone, PhoneOff, Mic, MicOff, Volume2, Loader2, Target, User, Clock } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Loader2, Target, User, Clock } from "lucide-react";
 import { TrainingScenario, Persona, SimulationMessage } from "@/types/academy";
 import { cn } from "@/lib/utils";
 import { useVoiceSimulation } from "@/hooks/useVoiceSimulation";
@@ -30,9 +32,11 @@ export function VoiceSimulation({ scenario, persona, onEnd, onSessionData }: Voi
     messages,
     duration,
     partialTranscript,
+    volume,
     connect,
     disconnect,
     toggleMute,
+    setVolume,
   } = useVoiceSimulation({
     scenario,
     persona,
@@ -192,22 +196,63 @@ export function VoiceSimulation({ scenario, persona, onEnd, onSessionData }: Voi
             </Tooltip>
           </TooltipProvider>
 
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-14 w-14 rounded-full"
-                >
-                  <Volume2 className="h-6 w-6" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Volume do áudio da IA</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Popover>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-14 w-14 rounded-full"
+                    >
+                      {volume === 0 ? (
+                        <VolumeX className="h-6 w-6" />
+                      ) : (
+                        <Volume2 className="h-6 w-6" />
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Volume do áudio da IA</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <PopoverContent side="top" className="w-48 p-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Volume</span>
+                  <span className="text-sm text-muted-foreground">{Math.round(volume * 100)}%</span>
+                </div>
+                <Slider
+                  value={[volume * 100]}
+                  onValueChange={([val]) => setVolume(val / 100)}
+                  max={100}
+                  step={5}
+                  className="w-full"
+                />
+                <div className="flex justify-between">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVolume(0)}
+                    className="text-xs"
+                  >
+                    Mudo
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVolume(1)}
+                    className="text-xs"
+                  >
+                    100%
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
