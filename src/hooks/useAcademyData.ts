@@ -475,6 +475,7 @@ export interface CreateSimulacaoData {
   personas: SimulacaoPersona[];
   vozIA?: string;
   promptSistema?: string;
+  duracao_estimada_minutos?: number;
 }
 
 export function useCreateSimulacao() {
@@ -508,31 +509,72 @@ export function useCreateSimulacao() {
         voz_openai: data.vozIA || "shimmer",
       } : null;
 
-      const { error } = await supabase.from("academy_simulacoes").insert([{
-        titulo: data.titulo,
-        descricao: data.descricao || null,
-        tipo: data.tipo, // "voz" or "texto"
-        ativo: true,
-        empresa_id: activeCompany?.id || null,
-        criado_por: user?.id,
-        cenario,
-        config_voz: configVoz,
-        criterios_avaliacao: {
-          dimensoes: [
-            { nome: "Situação", peso: 20 },
-            { nome: "Problema", peso: 20 },
-            { nome: "Implicação", peso: 20 },
-            { nome: "Negociação e Objeção", peso: 20 },
-            { nome: "Fechamento e Próximos Passos", peso: 20 },
-          ],
-        },
-      }]);
+      // Map difficulty to valid nivel
+      const personaDifficulty = data.personas[0]?.dificuldade || "Médio";
+      const nivelMap: Record<string, string> = {
+        "Fácil": "iniciante",
+        "Médio": "intermediario", 
+        "Difícil": "avancado",
+      };
+      const nivel = nivelMap[personaDifficulty] || "intermediario";
 
-      if (error) throw error;
+      // Default duration: 5min for voice, 10min for text
+      const duracao = data.duracao_estimada_minutos || (data.tipo === "voz" ? 5 : 10);
+
+      // 1. Create simulation in academy_simulacoes
+      const { data: simulacaoResult, error: simulacaoError } = await supabase
+        .from("academy_simulacoes")
+        .insert([{
+          titulo: data.titulo,
+          descricao: data.descricao || null,
+          tipo: data.tipo, // "voz" or "texto"
+          ativo: true,
+          empresa_id: activeCompany?.id || null,
+          criado_por: user?.id,
+          cenario,
+          config_voz: configVoz,
+          criterios_avaliacao: [
+            { dimensao: "Situação", peso: 20, itens: [] },
+            { dimensao: "Problema", peso: 20, itens: [] },
+            { dimensao: "Implicação", peso: 20, itens: [] },
+            { dimensao: "Negociação e Objeção", peso: 20, itens: [] },
+            { dimensao: "Fechamento e Próximos Passos", peso: 20, itens: [] },
+          ],
+        }])
+        .select("id")
+        .single();
+
+      if (simulacaoError) throw simulacaoError;
+
+      // 2. Also create a linked training in academy_treinamentos so it shows in Treinamentos tab
+      const { error: treinamentoError } = await supabase
+        .from("academy_treinamentos")
+        .insert([{
+          titulo: data.titulo,
+          descricao: data.descricao || null,
+          tipo: "simulacao", // Maps to valid DB constraint value
+          nivel,
+          status: "publicado", // Auto-publish so users can see it
+          obrigatorio: false,
+          duracao_estimada_minutos: duracao,
+          empresa_id: activeCompany?.id || null,
+          criado_por: user?.id,
+          conteudo: {
+            simulacao_id: simulacaoResult.id,
+            departamento: data.departamento,
+            config_voz: configVoz,
+          },
+        }]);
+
+      if (treinamentoError) {
+        console.error("Error creating linked training:", treinamentoError);
+        // Don't throw - simulation was created successfully
+      }
     },
     onSuccess: () => {
       toast.success("Simulação criada com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["academy-simulacoes"] });
+      queryClient.invalidateQueries({ queryKey: ["academy-treinamentos"] });
     },
     onError: (error) => {
       toast.error("Erro ao criar simulação: " + error.message);
