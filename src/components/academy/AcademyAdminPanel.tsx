@@ -161,7 +161,7 @@ export function AcademyAdminPanel() {
     descricao: "",
     tipo: "simulacao", // Default: simulação por voz
     nivel: "intermediario",
-    duracao_estimada_minutos: 15, // Simulações são mais curtas
+    duracao_estimada_minutos: 5, // Default: 5min para voz
     prazo_padrao_dias: 7, // Prazo mais curto para práticas
     obrigatorio: false,
     publicoAlvo: [] as string[],
@@ -183,6 +183,16 @@ export function AcademyAdminPanel() {
     objecoesPrincipais: [] as string[],
     gatilhosCompra: [] as string[],
   });
+
+  // Update duration when type changes
+  const handleTipoChange = (newTipo: string) => {
+    const defaultDuracao = newTipo === "simulacao" ? 5 : 10;
+    setFormData(prev => ({ 
+      ...prev, 
+      tipo: newTipo,
+      duracao_estimada_minutos: defaultDuracao,
+    }));
+  };
 
   // Check if user has admin access
   const hasAdminAccess = isAdminOrTI || isGerente || isDiretor;
@@ -270,7 +280,7 @@ export function AcademyAdminPanel() {
       descricao: "",
       tipo: "simulacao",
       nivel: "intermediario",
-      duracao_estimada_minutos: 15,
+      duracao_estimada_minutos: 5, // Default 5min for voice
       prazo_padrao_dias: 7,
       obrigatorio: false,
       publicoAlvo: [],
@@ -432,6 +442,7 @@ export function AcademyAdminPanel() {
       personas: [persona],
       vozIA: formData.vozIA,
       promptSistema: formData.promptSistema,
+      duracao_estimada_minutos: formData.duracao_estimada_minutos || (tipoSimulacao === "voz" ? 5 : 10),
     }, {
       onSuccess: () => {
         setIsCreateModalOpen(false);
@@ -602,7 +613,7 @@ export function AcademyAdminPanel() {
                   <label className="text-sm font-medium mb-1 block">Tipo de Simulação *</label>
                   <Select
                     value={formData.tipo}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, tipo: value }))}
+                    onValueChange={handleTipoChange}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -679,13 +690,22 @@ export function AcademyAdminPanel() {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Duração estimada (min)</label>
+                  <label className="text-sm font-medium mb-1 block">
+                    Duração estimada (min) 
+                    <span className="text-xs text-muted-foreground ml-1">
+                      ({formData.tipo === "simulacao" ? "padrão: 5" : "padrão: 10"})
+                    </span>
+                  </label>
                   <Input
                     type="number"
-                    value={formData.duracao_estimada_minutos}
-                    onChange={(e) => setFormData(prev => ({ ...prev, duracao_estimada_minutos: parseInt(e.target.value) || 15 }))}
-                    min={5}
+                    value={formData.duracao_estimada_minutos || ""}
+                    onChange={(e) => {
+                      const value = e.target.value === "" ? 0 : parseInt(e.target.value);
+                      setFormData(prev => ({ ...prev, duracao_estimada_minutos: value }));
+                    }}
+                    min={1}
                     max={60}
+                    placeholder={formData.tipo === "simulacao" ? "5" : "10"}
                   />
                 </div>
               </div>
