@@ -122,15 +122,20 @@ export function SimulationDetails() {
   const notaFinal = Number(sessao?.nota_final || 0);
 
   // Parse criteria-based feedback (if available in avaliacoes)
-  const categories: Category[] = simulacao?.criterios_avaliacao?.map((criterio: any) => ({
-    name: criterio.dimensao,
-    score: 0,
-    feedback: "",
-    items: criterio.itens?.map((item: any) => ({
-      question: item.pergunta,
-      passed: false,
-    })) || [],
-  })) || [];
+  const rawCriterios = simulacao?.criterios_avaliacao;
+  const categories: Category[] = Array.isArray(rawCriterios)
+    ? rawCriterios.map((criterio: any) => ({
+        name: criterio.dimensao,
+        score: 0,
+        feedback: "",
+        items: Array.isArray(criterio.itens)
+          ? criterio.itens.map((item: any) => ({
+              question: item.pergunta,
+              passed: false,
+            }))
+          : [],
+      }))
+    : [];
 
   // Format duration
   const formatDuration = (seconds: number | null) => {
