@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Phone, PhoneOff, Mic, MicOff, Volume2, Loader2, Target, User, Clock } from "lucide-react";
-import { TrainingScenario, Persona } from "@/types/academy";
+import { TrainingScenario, Persona, SimulationMessage } from "@/types/academy";
 import { cn } from "@/lib/utils";
 import { useVoiceSimulation } from "@/hooks/useVoiceSimulation";
 
@@ -14,10 +14,13 @@ interface VoiceSimulationProps {
   scenario: TrainingScenario;
   persona: Persona;
   onEnd: () => void;
+  onSessionData?: (messages: SimulationMessage[], duration: number) => void;
 }
 
-export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationProps) {
+export function VoiceSimulation({ scenario, persona, onEnd, onSessionData }: VoiceSimulationProps) {
   const disconnectRef = useRef<() => void>(() => {});
+  const messagesRef = useRef<SimulationMessage[]>([]);
+  const durationRef = useRef<number>(0);
   
   const {
     isConnected,
@@ -35,8 +38,21 @@ export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationPro
     persona,
     onSessionEnd: (msgs, dur) => {
       console.log('Session ended:', msgs.length, 'messages,', dur, 'seconds');
+      // Store final data
+      messagesRef.current = msgs;
+      durationRef.current = dur;
+      // Notify parent
+      if (onSessionData) {
+        onSessionData(msgs, dur);
+      }
     },
   });
+
+  // Keep messages and duration refs updated
+  useEffect(() => {
+    messagesRef.current = messages;
+    durationRef.current = duration;
+  }, [messages, duration]);
 
   // Keep disconnect ref updated
   useEffect(() => {
@@ -60,6 +76,10 @@ export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationPro
   };
 
   const handleEndCall = () => {
+    // Notify parent with current data before disconnecting
+    if (onSessionData) {
+      onSessionData(messagesRef.current, durationRef.current);
+    }
     disconnect();
     onEnd();
   };
