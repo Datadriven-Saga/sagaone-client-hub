@@ -255,19 +255,47 @@ export function AcademyAdminPanel() {
     enabled: hasAdminAccess,
   });
 
-  // Delete training mutation
+  // Delete training/simulation mutation
   const deleteTrainingMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("academy_treinamentos")
-        .delete()
-        .eq("id", id);
-      
-      if (error) throw error;
+      // Check if this is a virtual simulacao (prefixed with "sim-")
+      if (id.startsWith("sim-")) {
+        const realSimulacaoId = id.replace("sim-", "");
+        
+        // Delete from academy_simulacoes
+        const { error } = await supabase
+          .from("academy_simulacoes")
+          .delete()
+          .eq("id", realSimulacaoId);
+        
+        if (error) throw error;
+      } else {
+        // Check if training has a linked simulacao_id
+        const training = trainings?.find(t => t.id === id);
+        const simulacaoId = (training?.conteudo as any)?.simulacao_id;
+        
+        // Delete from academy_treinamentos
+        const { error: treinamentoError } = await supabase
+          .from("academy_treinamentos")
+          .delete()
+          .eq("id", id);
+        
+        if (treinamentoError) throw treinamentoError;
+        
+        // Also delete linked simulacao if exists
+        if (simulacaoId) {
+          await supabase
+            .from("academy_simulacoes")
+            .delete()
+            .eq("id", simulacaoId);
+        }
+      }
     },
     onSuccess: () => {
       toast.success("Treinamento excluído com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["academy-treinamentos"] });
+      queryClient.invalidateQueries({ queryKey: ["academy-treinamentos-admin"] });
+      queryClient.invalidateQueries({ queryKey: ["academy-simulacoes"] });
     },
     onError: (error) => {
       toast.error("Erro ao excluir treinamento: " + error.message);
