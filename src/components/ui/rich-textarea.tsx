@@ -16,9 +16,10 @@ export interface RichTextareaProps {
 }
 
 /**
- * Renders text with visible asterisks (muted) and bold text between them
+ * Renders text with bold formatting (hides asterisks, shows bold text)
+ * Used in the visual preview layer
  */
-function renderFormattedContent(text: string): React.ReactNode[] {
+function renderFormattedPreview(text: string): React.ReactNode[] {
   if (!text) return [];
   
   const result: React.ReactNode[] = [];
@@ -43,15 +44,15 @@ function renderFormattedContent(text: string): React.ReactNode[] {
       );
     }
     
-    // Add the formatted bold section with visible asterisks
+    // Add the formatted bold section - hide asterisks visually but keep spacing
     const fullMatch = match[0]; // e.g., "*bold text*"
     const innerText = fullMatch.slice(1, -1); // e.g., "bold text"
     
     result.push(
       <span key={key++}>
-        <span className="text-muted-foreground/50">*</span>
+        <span className="invisible">*</span>
         <strong className="font-bold">{innerText}</strong>
-        <span className="text-muted-foreground/50">*</span>
+        <span className="invisible">*</span>
       </span>
     );
     
@@ -78,8 +79,8 @@ function renderFormattedContent(text: string): React.ReactNode[] {
 
 /**
  * Textarea rico com suporte a formatação em negrito visual para WhatsApp.
- * - Mostra asteriscos visíveis (esmaecidos) com texto em negrito
- * - Armazena internamente com asteriscos (*texto*)
+ * - Mostra texto em negrito visualmente (asteriscos ficam invisíveis)
+ * - Armazena internamente com asteriscos (*texto*) para o payload
  * - Botão "B" para aplicar negrito no texto selecionado
  * - Atalho Ctrl+B / Cmd+B
  */
@@ -95,7 +96,15 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
     id 
   }, ref) => {
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
-    // Mantido apenas para o atalho Ctrl/Cmd+B e limite de caracteres.
+    const previewRef = React.useRef<HTMLDivElement>(null);
+
+    // Sync scroll between textarea and preview
+    const handleScroll = React.useCallback(() => {
+      if (textareaRef.current && previewRef.current) {
+        previewRef.current.scrollTop = textareaRef.current.scrollTop;
+        previewRef.current.scrollLeft = textareaRef.current.scrollLeft;
+      }
+    }, []);
 
     const handleChange = React.useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value;
@@ -167,6 +176,7 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
       [applyBold]
     );
 
+    const hasContent = value && value.length > 0;
 
     return (
       <div className="relative" ref={ref}>
@@ -194,22 +204,52 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
           </TooltipProvider>
         </div>
 
-        {/* Textarea simples (texto sempre visível) */}
-        <textarea
-          ref={textareaRef}
-          id={id}
-          value={value}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          className={cn(
-            // Coloca className primeiro para evitar que algo como `text-transparent` sobrescreva nossa base
-            className,
-            "w-full rounded-md border border-input bg-background px-3 py-2 pr-12 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-          )}
-          style={{ minHeight }}
-          placeholder={placeholder}
-        />
+        {/* Container for layered approach */}
+        <div className="relative">
+          {/* Preview layer - shows formatted text with visible bold */}
+          <div
+            ref={previewRef}
+            aria-hidden="true"
+            className={cn(
+              "w-full rounded-md border border-transparent bg-transparent px-3 py-2 pr-12 text-sm pointer-events-none overflow-hidden whitespace-pre-wrap break-words",
+              className
+            )}
+            style={{ 
+              minHeight,
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+          >
+            {hasContent ? renderFormattedPreview(value) : (
+              <span className="text-muted-foreground">{placeholder}</span>
+            )}
+          </div>
+
+          {/* Textarea layer - transparent text, handles editing */}
+          <textarea
+            ref={textareaRef}
+            id={id}
+            value={value}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onScroll={handleScroll}
+            disabled={disabled}
+            className={cn(
+              "w-full rounded-md border border-input bg-transparent px-3 py-2 pr-12 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none",
+              "text-transparent caret-foreground selection:bg-primary/20",
+              className
+            )}
+            style={{ 
+              minHeight,
+              position: 'relative',
+              zIndex: 10,
+            }}
+            placeholder=""
+          />
+        </div>
       </div>
     );
   }
