@@ -168,13 +168,20 @@ export function AcademyAdminPanel() {
     aiPrompt: "",
     // Cenário de roleplay
     cenario: "",
+    contextoSimulacao: "",
     objetivoSimulacao: "",
     // Voice simulation config
     personaNome: "",
     personaCargo: "",
     personaEmpresa: "",
+    personaDescricao: "",
     personaGenero: "F",
     vozIA: "shimmer",
+    // Prompt de sistema para a IA
+    promptSistema: "",
+    // Dados extras da persona
+    objecoesPrincipais: [] as string[],
+    gatilhosCompra: [] as string[],
   });
 
   // Check if user has admin access
@@ -269,49 +276,64 @@ export function AcademyAdminPanel() {
       publicoAlvo: [],
       aiPrompt: "",
       cenario: "",
+      contextoSimulacao: "",
       objetivoSimulacao: "",
       personaNome: "",
       personaCargo: "",
       personaEmpresa: "",
+      personaDescricao: "",
       personaGenero: "F",
       vozIA: "shimmer",
+      promptSistema: "",
+      objecoesPrincipais: [],
+      gatilhosCompra: [],
     });
   };
 
   const handleGenerateWithAI = async () => {
     if (!formData.aiPrompt) {
-      toast.error("Digite uma descrição para gerar o treinamento com IA.");
+      toast.error("Digite uma descrição para gerar a simulação com IA.");
       return;
     }
 
     setIsGeneratingAI(true);
     try {
-      const { data, error } = await supabase.functions.invoke("academy-generate-training", {
+      const { data, error } = await supabase.functions.invoke("academy-generate-simulation", {
         body: {
           prompt: formData.aiPrompt,
-          suggestedNivel: formData.nivel,
-          suggestedTipo: formData.tipo,
+          tipo: formData.tipo === "simulacao" ? "voz" : "texto",
+          departamento: formData.publicoAlvo[0] || "Vendas Novos",
+          nivel: formData.nivel,
         },
       });
 
       if (error) throw error;
 
+      // Populate all form fields with AI-generated data
       setFormData(prev => ({
         ...prev,
         titulo: data?.titulo ?? prev.titulo,
         descricao: data?.descricao ?? prev.descricao,
-        tipo: data?.tipo ?? prev.tipo,
-        nivel: data?.nivel ?? prev.nivel,
-        duracao_estimada_minutos:
-          typeof data?.duracao_estimada_minutos === "number"
-            ? data.duracao_estimada_minutos
-            : prev.duracao_estimada_minutos,
-        publicoAlvo: Array.isArray(data?.publico_alvo) ? data.publico_alvo : prev.publicoAlvo,
+        cenario: data?.cenario?.departamento ?? prev.cenario,
+        contextoSimulacao: data?.cenario?.contexto ?? prev.contextoSimulacao,
+        objetivoSimulacao: data?.cenario?.objetivo ?? prev.objetivoSimulacao,
+        // Persona
+        personaNome: data?.persona?.nome ?? prev.personaNome,
+        personaCargo: data?.persona?.cargo ?? prev.personaCargo,
+        personaEmpresa: data?.persona?.empresa ?? prev.personaEmpresa,
+        personaDescricao: data?.persona?.descricao ?? prev.personaDescricao,
+        personaGenero: data?.config_voz?.genero ?? prev.personaGenero,
+        vozIA: data?.config_voz?.voz_openai ?? prev.vozIA,
+        // Prompt sistema
+        promptSistema: data?.prompt_sistema ?? prev.promptSistema,
+        // Extra persona data
+        objecoesPrincipais: data?.persona?.objecoes_principais ?? [],
+        gatilhosCompra: data?.persona?.gatilhos_compra ?? [],
       }));
 
-      toast.success("Treinamento gerado com IA. Revise e clique em 'Criar Treinamento'.");
+      toast.success("Simulação gerada com IA! Revise os campos e clique em 'Criar Simulação'.");
     } catch (err: any) {
-      console.error("Erro ao gerar treinamento com IA:", err);
+      console.error("Erro ao gerar simulação com IA:", err);
       toast.error("Erro ao gerar com IA: " + (err?.message || "erro desconhecido"));
     } finally {
       setIsGeneratingAI(false);
@@ -386,15 +408,17 @@ export function AcademyAdminPanel() {
     // DB constraint: tipo must be 'voz' or 'texto'
     const tipoSimulacao = formData.tipo === "simulacao" ? "voz" : "texto";
     
-    // Build persona from form data
+    // Build persona from form data with all fields
     const persona = {
       id: crypto.randomUUID(),
       nome: formData.personaNome,
       cargo: formData.personaCargo || "Cliente",
       empresa: formData.personaEmpresa || "Empresa",
       dificuldade: formData.nivel === "iniciante" ? "Fácil" : formData.nivel === "avancado" ? "Difícil" : "Médio",
-      descricao: formData.descricao || "",
+      descricao: formData.personaDescricao || formData.descricao || "",
       objetivo: formData.objetivoSimulacao || "",
+      objecoes_principais: formData.objecoesPrincipais,
+      gatilhos_compra: formData.gatilhosCompra,
     };
     
     createSimulacao.mutate({
@@ -402,10 +426,12 @@ export function AcademyAdminPanel() {
       descricao: formData.descricao,
       tipo: tipoSimulacao as "voz" | "texto",
       cenario: formData.cenario,
+      contexto: formData.contextoSimulacao,
       objetivo: formData.objetivoSimulacao,
       departamento: formData.publicoAlvo[0] || "Vendas Novos",
       personas: [persona],
       vozIA: formData.vozIA,
+      promptSistema: formData.promptSistema,
     }, {
       onSuccess: () => {
         setIsCreateModalOpen(false);
@@ -613,12 +639,12 @@ export function AcademyAdminPanel() {
                 </Select>
               </div>
               
-              {/* Descrição/Objetivo */}
+              {/* Contexto detalhado */}
               <div>
                 <label className="text-sm font-medium mb-1 block">Contexto da Simulação</label>
                 <Textarea
-                  value={formData.descricao}
-                  onChange={(e) => setFormData(prev => ({ ...prev, descricao: e.target.value }))}
+                  value={formData.contextoSimulacao || formData.descricao}
+                  onChange={(e) => setFormData(prev => ({ ...prev, contextoSimulacao: e.target.value, descricao: e.target.value }))}
                   placeholder="Descreva a situação que o vendedor irá enfrentar. Ex: O cliente chegou interessado no Compass Limited, mas está hesitante sobre o preço..."
                   rows={3}
                 />
@@ -689,7 +715,7 @@ export function AcademyAdminPanel() {
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="text-sm font-medium mb-1 block">Nome</label>
+                    <label className="text-sm font-medium mb-1 block">Nome *</label>
                     <Input
                       value={formData.personaNome}
                       onChange={(e) => setFormData(prev => ({ ...prev, personaNome: e.target.value }))}
@@ -712,6 +738,17 @@ export function AcademyAdminPanel() {
                       placeholder="Ex: Clínica ABC, Autônomo..."
                     />
                   </div>
+                </div>
+                
+                {/* Perfil/Descrição da Persona */}
+                <div className="mt-4">
+                  <label className="text-sm font-medium mb-1 block">Perfil Psicológico</label>
+                  <Textarea
+                    value={formData.personaDescricao}
+                    onChange={(e) => setFormData(prev => ({ ...prev, personaDescricao: e.target.value }))}
+                    placeholder="Como o cliente se comporta? Quais são suas preocupações principais?"
+                    rows={2}
+                  />
                 </div>
                 
                 {/* Voz IA - apenas para simulação por voz */}
@@ -769,6 +806,43 @@ export function AcademyAdminPanel() {
                       <p className="text-xs text-muted-foreground mt-1">
                         Clique no ícone de som para ouvir uma amostra da voz
                       </p>
+                    </div>
+                  </div>
+                )}
+              </Card>
+              
+              {/* Prompt de Sistema para IA */}
+              <Card className="p-4 border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20">
+                <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                  🤖 Prompt de Sistema (IA)
+                </h4>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Instruções detalhadas para a IA sobre como interpretar o personagem durante o roleplay.
+                </p>
+                <Textarea
+                  value={formData.promptSistema}
+                  onChange={(e) => setFormData(prev => ({ ...prev, promptSistema: e.target.value }))}
+                  placeholder="Instruções para a IA: tom de voz, nível de resistência, pontos de dor, quando ceder, quando insistir, personalidade..."
+                  rows={4}
+                  className="font-mono text-sm"
+                />
+                {formData.objecoesPrincipais.length > 0 && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Objeções principais geradas:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {formData.objecoesPrincipais.map((obj, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">{obj}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {formData.gatilhosCompra.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Gatilhos de compra:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {formData.gatilhosCompra.map((gat, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">{gat}</Badge>
+                      ))}
                     </div>
                   </div>
                 )}

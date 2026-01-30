@@ -460,6 +460,8 @@ export interface SimulacaoPersona {
   dificuldade: string;
   descricao: string;
   objetivo: string;
+  objecoes_principais?: string[];
+  gatilhos_compra?: string[];
 }
 
 export interface CreateSimulacaoData {
@@ -467,10 +469,12 @@ export interface CreateSimulacaoData {
   descricao?: string;
   tipo: "voz" | "texto"; // DB constraint: voz or texto only
   cenario?: string;
+  contexto?: string;
   objetivo?: string;
   departamento?: string;
   personas: SimulacaoPersona[];
   vozIA?: string;
+  promptSistema?: string;
 }
 
 export function useCreateSimulacao() {
@@ -480,11 +484,12 @@ export function useCreateSimulacao() {
 
   return useMutation({
     mutationFn: async (data: CreateSimulacaoData) => {
-      // Build cenario object with personas
+      // Build cenario object with personas and system prompt
       const cenario = {
         departamento: data.departamento || "Vendas Novos",
-        contexto: data.descricao || "",
+        contexto: data.contexto || data.descricao || "",
         objetivo: data.objetivo || "",
+        prompt_sistema: data.promptSistema || "",
         personas: data.personas.map(p => ({
           id: p.id,
           nome: p.nome,
@@ -493,6 +498,8 @@ export function useCreateSimulacao() {
           dificuldade: p.dificuldade,
           descricao: p.descricao,
           objetivo: p.objetivo,
+          objecoes_principais: p.objecoes_principais || [],
+          gatilhos_compra: p.gatilhos_compra || [],
         })),
       };
 
