@@ -16,9 +16,11 @@ interface UseVoiceSimulationReturn {
   messages: SimulationMessage[];
   duration: number;
   partialTranscript: string;
+  volume: number;
   connect: () => Promise<void>;
   disconnect: () => void;
   toggleMute: () => void;
+  setVolume: (volume: number) => void;
 }
 
 // Audio utilities
@@ -81,17 +83,23 @@ const createWavFromPCM = (pcmData: Uint8Array): Uint8Array => {
   return wavArray;
 };
 
-// Audio Queue for sequential playback
+// Audio Queue for sequential playback with volume control
 class AudioQueue {
   private queue: Uint8Array[] = [];
   private isPlaying = false;
   private audioContext: AudioContext;
+  private gainNode: GainNode;
   private onPlayingChange: (playing: boolean) => void;
   private currentSource: AudioBufferSourceNode | null = null;
   private stopped = false;
 
-  constructor(audioContext: AudioContext, onPlayingChange: (playing: boolean) => void) {
+  constructor(
+    audioContext: AudioContext, 
+    gainNode: GainNode,
+    onPlayingChange: (playing: boolean) => void
+  ) {
     this.audioContext = audioContext;
+    this.gainNode = gainNode;
     this.onPlayingChange = onPlayingChange;
   }
 
@@ -121,7 +129,8 @@ class AudioQueue {
       const source = this.audioContext.createBufferSource();
       this.currentSource = source;
       source.buffer = audioBuffer;
-      source.connect(this.audioContext.destination);
+      // Connect through gain node for volume control
+      source.connect(this.gainNode);
       
       source.onended = () => {
         this.currentSource = null;
@@ -167,6 +176,7 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
   const [messages, setMessages] = useState<SimulationMessage[]>([]);
   const [duration, setDuration] = useState(0);
   const [partialTranscript, setPartialTranscript] = useState('');
+  const [volume, setVolumeState] = useState(1);
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -174,11 +184,13 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
   const streamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const currentAITranscriptRef = useRef<string>('');
   const currentUserTranscriptRef = useRef<string>('');
   const isMutedRef = useRef<boolean>(false);
+  const volumeRef = useRef<number>(1);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -224,9 +236,12 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
     console.log('Starting voice simulation connection...');
 
     try {
-      // Initialize audio context
+      // Initialize audio context with gain node for volume control
       audioContextRef.current = new AudioContext({ sampleRate: 24000 });
-      audioQueueRef.current = new AudioQueue(audioContextRef.current, setIsAISpeaking);
+      gainNodeRef.current = audioContextRef.current.createGain();
+      gainNodeRef.current.gain.value = volumeRef.current;
+      gainNodeRef.current.connect(audioContextRef.current.destination);
+      audioQueueRef.current = new AudioQueue(audioContextRef.current, gainNodeRef.current, setIsAISpeaking);
 
       // Get microphone access
       streamRef.current = await navigator.mediaDevices.getUserMedia({
@@ -440,6 +455,17 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
     setIsMuted(prev => !prev);
   }, []);
 
+  const setVolume = useCallback((newVolume: number) => {
+    const clampedVolume = Math.max(0, Math.min(1, newVolume));
+    setVolumeState(clampedVolume);
+    volumeRef.current = clampedVolume;
+    
+    // Update gain node if it exists
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = clampedVolume;
+    }
+  }, []);
+
   // Cleanup on unmount - use refs to avoid stale closure
   useEffect(() => {
     return () => {
@@ -481,8 +507,10 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
     messages,
     duration,
     partialTranscript,
+    volume,
     connect,
     disconnect,
     toggleMute,
+    setVolume,
   };
 }
