@@ -204,6 +204,79 @@ export function useAcademyTreinamentos() {
   });
 }
 
+// Hook for combined trainings + simulations for admin panel
+// This ensures ALL simulations appear, even if they don't have a linked academy_treinamentos record
+export function useAcademyTreinamentosAdmin() {
+  const { activeCompany } = useCompany();
+
+  return useQuery({
+    queryKey: ["academy-treinamentos-admin", activeCompany?.id],
+    queryFn: async () => {
+      // 1. Fetch all trainings
+      const { data: treinamentos, error: treinamentosError } = await supabase
+        .from("academy_treinamentos")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (treinamentosError) throw treinamentosError;
+
+      // 2. Fetch all simulations
+      const { data: simulacoes, error: simulacoesError } = await supabase
+        .from("academy_simulacoes")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (simulacoesError) throw simulacoesError;
+
+      // 3. Get IDs of simulations that already have linked treinamentos
+      const linkedSimulacaoIds = new Set(
+        (treinamentos || [])
+          .filter((t: any) => t.tipo === "simulacao" && t.conteudo?.simulacao_id)
+          .map((t: any) => t.conteudo.simulacao_id)
+      );
+
+      // Also check treinamento_id from simulations
+      const simulacoesWithTreinamento = new Set(
+        (simulacoes || [])
+          .filter((s: any) => s.treinamento_id)
+          .map((s: any) => s.id)
+      );
+
+      // 4. Create virtual treinamento entries for orphan simulations
+      const orphanSimulacoes = (simulacoes || []).filter(
+        (s: any) => !linkedSimulacaoIds.has(s.id) && !simulacoesWithTreinamento.has(s.id)
+      );
+
+      const virtualTreinamentos = orphanSimulacoes.map((sim: any) => {
+        // Parse cenario for additional info
+        const cenario = typeof sim.cenario === 'object' ? sim.cenario : {};
+        
+        return {
+          id: `sim-${sim.id}`, // Prefix to distinguish from real treinamentos
+          titulo: sim.titulo,
+          descricao: sim.descricao,
+          tipo: sim.tipo === "voz" ? "simulacao" : sim.tipo === "texto" ? "texto" : sim.tipo,
+          status: sim.ativo ? "publicado" : "rascunho",
+          nivel: cenario.dificuldade === "Fácil" ? "iniciante" : cenario.dificuldade === "Difícil" ? "avancado" : "intermediario",
+          obrigatorio: false,
+          duracao_estimada_minutos: null,
+          empresa_id: sim.empresa_id,
+          publico_alvo: cenario.departamento ? [cenario.departamento] : [],
+          tags: [],
+          conteudo: { simulacao_id: sim.id, ...cenario },
+          created_at: sim.created_at,
+          updated_at: sim.updated_at || sim.created_at,
+          _isVirtualFromSimulacao: true, // Flag to identify these
+          _originalSimulacao: sim, // Keep reference
+        } as AcademyTreinamento & { _isVirtualFromSimulacao?: boolean; _originalSimulacao?: any };
+      });
+
+      // 5. Combine and return
+      return [...(treinamentos || []), ...virtualTreinamentos] as (AcademyTreinamento & { _isVirtualFromSimulacao?: boolean; _originalSimulacao?: any })[];
+    },
+  });
+}
+
 // Hook for simulations
 export function useAcademySimulacoes(tipo?: string) {
   const { activeCompany } = useCompany();
