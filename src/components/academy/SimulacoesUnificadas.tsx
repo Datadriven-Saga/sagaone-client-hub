@@ -153,8 +153,8 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
     return tipo === "simulacao_voz" || tipo === "simulacao" || tipo === "voz";
   };
 
-  // Filter simulations
-  const filteredSimulacoes = simulacoes?.filter((sim: Simulacao) => {
+  // Filter simulations - only filter if we have data
+  const filteredSimulacoes = (simulacoes || []).filter((sim: Simulacao) => {
     const matchesSearch = sim.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sim.descricao?.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -167,7 +167,7 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
       (typeFilter === "texto" && !isVoiceType(sim.tipo));
     
     return matchesSearch && matchesDifficulty && matchesType;
-  }) || [];
+  });
 
   // Group by category/department
   const categorizedSimulacoes = filteredSimulacoes.reduce((acc: any, sim: Simulacao) => {
@@ -423,8 +423,8 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
     );
   }
 
-  // No simulations available
-  if (!filteredSimulacoes?.length && !hasFilters) {
+  // No simulations available - only show if we have no data AND no filters applied
+  if (filteredSimulacoes.length === 0 && !hasFilters && !loadingSimulacoes) {
     return (
       <div className="space-y-6">
         <AcademyPageHeader
