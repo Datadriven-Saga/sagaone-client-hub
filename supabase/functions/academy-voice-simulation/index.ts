@@ -42,8 +42,8 @@ serve(async (req) => {
   // Upgrade to WebSocket
   const { socket: clientSocket, response } = Deno.upgradeWebSocket(req);
 
-  // Connect to OpenAI Realtime API
-  const openaiWs = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01', [
+  // Connect to OpenAI Realtime API - using latest model
+  const openaiWs = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview', [
     'realtime',
     `openai-insecure-api-key.${OPENAI_API_KEY}`,
     'openai-beta.realtime-v1',
