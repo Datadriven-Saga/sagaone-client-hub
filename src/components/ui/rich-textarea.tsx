@@ -213,7 +213,13 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
     );
 
     return (
-      <div className="relative" ref={ref}>
+      <div
+        className={cn(
+          "relative w-full rounded-md border border-input bg-background ring-offset-background focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
+          className
+        )}
+        ref={ref}
+      >
         {/* Toolbar */}
         <div className="absolute top-2 right-2 z-20">
           <TooltipProvider>
@@ -222,9 +228,12 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
                 <Button
                   type="button"
                   size="icon"
-                  variant={boldActive ? "secondary" : "outline"}
+                  variant={boldActive ? "default" : "outline"}
                   aria-pressed={boldActive}
-                  className="h-7 w-7 bg-background/80 backdrop-blur-sm hover:bg-muted"
+                  className={cn(
+                    "h-7 w-7",
+                    boldActive ? "" : "bg-background/80 backdrop-blur-sm"
+                  )}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={applyBold}
                   tabIndex={-1}
@@ -247,8 +256,7 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
             ref={previewRef}
             aria-hidden="true"
             className={cn(
-              "w-full rounded-md border border-transparent bg-transparent px-3 py-2 pr-12 text-sm text-foreground pointer-events-none overflow-hidden whitespace-pre-wrap break-words",
-              className
+              "w-full px-3 py-2 pr-12 text-sm text-foreground pointer-events-none overflow-hidden whitespace-pre-wrap break-words"
             )}
             style={{
               minHeight,
@@ -279,9 +287,9 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
             onSelect={updateBoldActive}
             disabled={disabled}
             className={cn(
-              "w-full rounded-md border border-input bg-transparent px-3 py-2 pr-12 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none",
+              "w-full bg-transparent px-3 py-2 pr-12 text-sm resize-none disabled:cursor-not-allowed disabled:opacity-50",
               "text-transparent caret-foreground selection:bg-primary/20",
-              className
+              "focus-visible:outline-none"
             )}
             style={{
               minHeight,
