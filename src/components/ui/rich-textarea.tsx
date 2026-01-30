@@ -28,66 +28,42 @@ export interface RichTextareaProps {
 function renderFormattedPreview(text: string): React.ReactNode[] {
   if (!text) return [];
 
-  const result: React.ReactNode[] = [];
-  const regex = /(\*[^*]+\*)/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
+  const nodes: React.ReactNode[] = [];
+  let bold = false;
+  let buffer = "";
   let key = 0;
 
-  const pushPlain = (plain: string) => {
-    if (!plain) return;
-    result.push(
-      <span key={key++}>
-        {plain.split("\n").map((line, i, arr) => (
-          <React.Fragment key={i}>
-            {line}
-            {i < arr.length - 1 && <br />}
-          </React.Fragment>
-        ))}
-      </span>
-    );
+  const flush = () => {
+    if (!buffer) return;
+    if (bold) {
+      nodes.push(
+        <strong key={key++} className="font-bold">
+          {buffer}
+        </strong>
+      );
+    } else {
+      nodes.push(<span key={key++}>{buffer}</span>);
+    }
+    buffer = "";
   };
 
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      pushPlain(text.slice(lastIndex, match.index));
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "*") {
+      flush();
+      nodes.push(
+        <span key={key++} className="invisible">
+          *
+        </span>
+      );
+      bold = !bold;
+    } else {
+      buffer += ch;
     }
-
-    const fullMatch = match[0];
-    const innerText = fullMatch.slice(1, -1);
-
-    result.push(
-      <span key={key++}>
-        <span className="invisible">*</span>
-        <strong className="font-bold">{innerText}</strong>
-        <span className="invisible">*</span>
-      </span>
-    );
-
-    lastIndex = match.index + fullMatch.length;
   }
 
-  if (lastIndex < text.length) {
-    pushPlain(text.slice(lastIndex));
-  }
-
-  return result;
-}
-
-function computeBoldActive(value: string, start: number, end: number): boolean {
-  if (!value) return false;
-
-  // Seleção: ativa se estiver exatamente entre * e *
-  if (start !== end) {
-    const before = start > 0 ? value[start - 1] : "";
-    const after = end < value.length ? value[end] : "";
-    return before === "*" && after === "*";
-  }
-
-  // Cursor: ativa se estiver dentro de um par *...*
-  const left = value.lastIndexOf("*", Math.max(0, start - 1));
-  const right = value.indexOf("*", start);
-  return left !== -1 && right !== -1 && left < start && right >= start;
+  flush();
+  return nodes;
 }
 
 /**
@@ -113,17 +89,7 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
   ) => {
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
     const previewRef = React.useRef<HTMLDivElement>(null);
-    const [boldActive, setBoldActive] = React.useState(false);
-
-    const updateBoldActive = React.useCallback(() => {
-      const t = textareaRef.current;
-      if (!t) return;
-      setBoldActive(computeBoldActive(value, t.selectionStart ?? 0, t.selectionEnd ?? 0));
-    }, [value]);
-
-    React.useEffect(() => {
-      updateBoldActive();
-    }, [updateBoldActive]);
+    const [boldMode, setBoldMode] = React.useState(false);
 
     const handleScroll = React.useCallback(() => {
       if (textareaRef.current && previewRef.current) {
@@ -141,30 +107,30 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
       [onValueChange, maxLength]
     );
 
-    const applyBold = React.useCallback(() => {
+    const toggleBold = React.useCallback(() => {
       const textarea = textareaRef.current;
       if (!textarea) return;
 
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
-      const selectedText = value.substring(start, end);
+      const hasSelection = start !== end;
 
-      let newValue: string;
-      let newCursorPos: number;
-
-      if (selectedText) {
+      // 1) Com seleção: aplica/remove negrito na seleção (não muda o modo persistente)
+      if (hasSelection) {
+        const selectedText = value.substring(start, end);
         const beforeChar = start > 0 ? value[start - 1] : "";
         const afterChar = end < value.length ? value[end] : "";
 
+        let newValue: string;
+        let newCursorPos: number;
+
         if (beforeChar === "*" && afterChar === "*") {
-          // Remove bold
           newValue =
             value.substring(0, start - 1) +
             selectedText +
             value.substring(end + 1);
           newCursorPos = start - 1 + selectedText.length;
         } else {
-          // Apply bold
           newValue =
             value.substring(0, start) +
             "*" +
@@ -173,31 +139,35 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
             value.substring(end);
           newCursorPos = end + 2;
         }
-      } else {
-        // No selection - placeholder
-        newValue = value.substring(0, start) + "*texto*" + value.substring(end);
-        newCursorPos = start + 1;
+
+        if (maxLength && newValue.length > maxLength) return;
+        onValueChange(newValue);
+
+        setTimeout(() => {
+          const t = textareaRef.current;
+          if (!t) return;
+          t.focus();
+          t.setSelectionRange(newCursorPos, newCursorPos);
+        }, 0);
+        return;
       }
 
-      if (maxLength && newValue.length > maxLength) return;
+      // 2) Sem seleção: alterna modo persistente e insere apenas "*" (sem placeholder)
+      const nextMode = !boldMode;
+      const insertPos = start;
+      const nextValue = value.substring(0, insertPos) + "*" + value.substring(insertPos);
+      if (maxLength && nextValue.length > maxLength) return;
 
-      onValueChange(newValue);
+      onValueChange(nextValue);
+      setBoldMode(nextMode);
 
-      // Restore focus + selection after state update
       setTimeout(() => {
         const t = textareaRef.current;
         if (!t) return;
         t.focus();
-
-        if (!selectedText) {
-          // Select "texto" placeholder
-          t.setSelectionRange(start + 1, start + 6);
-        } else {
-          t.setSelectionRange(newCursorPos, newCursorPos);
-        }
-        updateBoldActive();
+        t.setSelectionRange(insertPos + 1, insertPos + 1);
       }, 0);
-    }, [maxLength, onValueChange, updateBoldActive, value]);
+    }, [boldMode, maxLength, onValueChange, value]);
 
     const handleKeyDownCapture = React.useCallback(
       (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -206,10 +176,10 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
           e.preventDefault();
           e.stopPropagation();
           e.nativeEvent?.stopImmediatePropagation?.();
-          applyBold();
+          toggleBold();
         }
       },
-      [applyBold]
+      [toggleBold]
     );
 
     return (
@@ -228,14 +198,16 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
                 <Button
                   type="button"
                   size="icon"
-                  variant={boldActive ? "default" : "outline"}
-                  aria-pressed={boldActive}
+                  variant="outline"
+                  aria-pressed={boldMode}
                   className={cn(
                     "h-7 w-7",
-                    boldActive ? "" : "bg-background/80 backdrop-blur-sm"
+                    boldMode
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90 border-transparent"
+                      : "bg-background/80 backdrop-blur-sm"
                   )}
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={applyBold}
+                  onClick={toggleBold}
                   tabIndex={-1}
                   disabled={disabled}
                 >
@@ -282,9 +254,6 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
             onChange={handleChange}
             onScroll={handleScroll}
             onKeyDownCapture={handleKeyDownCapture}
-            onMouseUp={updateBoldActive}
-            onKeyUp={updateBoldActive}
-            onSelect={updateBoldActive}
             disabled={disabled}
             className={cn(
               "w-full bg-transparent px-3 py-2 pr-12 text-sm resize-none disabled:cursor-not-allowed disabled:opacity-50",
