@@ -69,7 +69,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { useCompany } from "@/contexts/CompanyContext";
 import { 
-  useAcademyTreinamentos, 
+  useAcademyTreinamentosAdmin, 
   useCreateTreinamento, 
   useAssignTreinamento,
   useCreateSimulacao,
@@ -197,8 +197,8 @@ export function AcademyAdminPanel() {
   // Check if user has admin access
   const hasAdminAccess = isAdminOrTI || isGerente || isDiretor;
 
-  // Fetch trainings and simulations
-  const { data: trainings, isLoading: loadingTrainings } = useAcademyTreinamentos();
+  // Fetch trainings and simulations (combined for admin panel)
+  const { data: trainings, isLoading: loadingTrainings } = useAcademyTreinamentosAdmin();
   const { data: simulacoes, isLoading: loadingSimulacoes } = useAcademySimulacoes();
   const createTreinamento = useCreateTreinamento();
   const createSimulacao = useCreateSimulacao();
