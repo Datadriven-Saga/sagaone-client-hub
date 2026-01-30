@@ -70,7 +70,8 @@ function transformToScenario(simulacao: Simulacao): TrainingScenario {
     description: p.descricao || p.description || "",
     objective: p.objetivo || p.objective || "",
     avatar: p.avatar,
-    voice: configVoz.voice || p.voice || "shimmer",
+    voice: configVoz.voice || p.voice || "echo", // Default to male voice
+    gender: p.genero || p.gender || "masculino", // Default to male
   }));
 
   return {
@@ -200,6 +201,8 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
         difficulty: getDifficulty(simulacao),
         description: simulacao.descricao || "",
         objective: "Praticar habilidades de atendimento",
+        gender: "masculino",
+        voice: "echo",
       };
       onStartSimulation(scenario, defaultPersona);
     }
@@ -349,7 +352,8 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
                   description: persona.descricao || persona.description || "",
                   objective: persona.objetivo || persona.objective || "",
                   avatar: persona.avatar,
-                  voice: persona.voice || selectedSimulacao.config_voz?.voice || "shimmer",
+                  voice: persona.voice || selectedSimulacao.config_voz?.voice || "echo",
+                  gender: persona.genero || persona.gender || "masculino",
                 };
                 
                 return (

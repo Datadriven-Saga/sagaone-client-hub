@@ -5,6 +5,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// Map voice to gender
+const voiceGenderMap: Record<string, 'masculino' | 'feminino'> = {
+  'shimmer': 'feminino',
+  'alloy': 'feminino', 
+  'nova': 'feminino',
+  'echo': 'masculino',
+  'fable': 'masculino',
+  'onyx': 'masculino',
+};
+
+// Map gender to appropriate voices
+const maleVoices = ['echo', 'fable', 'onyx'];
+const femaleVoices = ['shimmer', 'alloy', 'nova'];
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -35,14 +49,25 @@ serve(async (req) => {
   const personaRole = url.searchParams.get('role') || 'Cliente interessado em veículo';
   const scenarioContext = url.searchParams.get('context') || 'Atendimento presencial em concessionária';
   const difficulty = url.searchParams.get('difficulty') || 'Médio';
-  const voiceId = url.searchParams.get('voice') || 'shimmer';
+  const personaGender = url.searchParams.get('gender') || 'masculino';
+  let requestedVoice = url.searchParams.get('voice') || 'echo';
 
-  console.log(`Starting voice simulation - Persona: ${personaName}, Role: ${personaRole}, Difficulty: ${difficulty}, Voice: ${voiceId}`);
+  // Ensure voice matches gender - if mismatch, pick appropriate voice
+  const voiceGender = voiceGenderMap[requestedVoice] || 'masculino';
+  if (personaGender === 'masculino' && voiceGender === 'feminino') {
+    requestedVoice = maleVoices[Math.floor(Math.random() * maleVoices.length)];
+    console.log(`Voice mismatch: persona is male but voice was female. Changed to ${requestedVoice}`);
+  } else if (personaGender === 'feminino' && voiceGender === 'masculino') {
+    requestedVoice = femaleVoices[Math.floor(Math.random() * femaleVoices.length)];
+    console.log(`Voice mismatch: persona is female but voice was male. Changed to ${requestedVoice}`);
+  }
+
+  console.log(`Starting voice simulation - Persona: ${personaName}, Gender: ${personaGender}, Role: ${personaRole}, Difficulty: ${difficulty}, Voice: ${requestedVoice}`);
 
   // Upgrade to WebSocket
   const { socket: clientSocket, response } = Deno.upgradeWebSocket(req);
 
-  // Connect to OpenAI Realtime API - using latest model
+  // Connect to OpenAI Realtime API
   const openaiWs = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview', [
     'realtime',
     `openai-insecure-api-key.${OPENAI_API_KEY}`,
@@ -51,43 +76,84 @@ serve(async (req) => {
 
   let sessionCreated = false;
 
-  // Build system prompt based on persona - PORTUGUÊS BRASILEIRO OBRIGATÓRIO
-  const systemPrompt = `Você é ${personaName}, ${personaRole}. 
+  // Build conversational system prompt - NATURAL CONVERSATION FLOW
+  const systemPrompt = `# IDENTIDADE
+Você é ${personaName}, ${personaRole}. Sexo: ${personaGender === 'masculino' ? 'Homem' : 'Mulher'}.
 
-IMPORTANTE: VOCÊ DEVE FALAR APENAS EM PORTUGUÊS BRASILEIRO. NUNCA USE INGLÊS OU QUALQUER OUTRO IDIOMA.
-
-CONTEXTO DA SIMULAÇÃO:
+# CONTEXTO DA SIMULAÇÃO
 ${scenarioContext}
 
-NÍVEL DE DIFICULDADE: ${difficulty}
-${difficulty === 'Fácil' ? '- Seja receptivo e faça perguntas simples. Demonstre interesse genuíno e seja cooperativo.' : ''}
-${difficulty === 'Médio' ? '- Faça algumas objeções moderadas sobre preço e condições. Peça mais informações antes de decidir. Mostre um pouco de resistência.' : ''}
-${difficulty === 'Difícil' ? '- Seja cético e faça objeções fortes. Compare com concorrentes. Pressione por descontos significativos. Demonstre muita resistência e desconfiança.' : ''}
+# NÍVEL DE DIFICULDADE: ${difficulty}
+${difficulty === 'Fácil' ? 'Seja receptivo, faça perguntas simples e demonstre interesse genuíno.' : ''}
+${difficulty === 'Médio' ? 'Faça objeções moderadas sobre preço e condições. Peça mais informações.' : ''}
+${difficulty === 'Difícil' ? 'Seja cético, faça objeções fortes, compare com concorrentes, pressione por descontos.' : ''}
 
-INSTRUÇÕES OBRIGATÓRIAS DE COMPORTAMENTO:
-1. FALE SEMPRE EM PORTUGUÊS BRASILEIRO FLUENTE E NATURAL
-2. Use expressões brasileiras comuns ("tá", "né", "beleza", "então", "bom", "olha")
-3. Mantenha respostas curtas e naturais (1-3 frases no máximo)
-4. Aja como um cliente brasileiro real, com sotaque e expressões regionais
-5. Se o vendedor usar técnicas de venda eficazes, reaja positivamente mas com naturalidade
-6. Se o vendedor for muito agressivo ou não ouvir, demonstre desconforto educadamente
+# REGRAS ABSOLUTAS DE COMPORTAMENTO
 
-EXEMPLOS DE RESPOSTAS EM PORTUGUÊS:
-- "Olha, eu tô procurando um carro pra família, sabe?"
-- "Hum, interessante... E o valor? Como fica?"
-- "Tá, mas e se comparar com o da concorrência?"
-- "Beleza, mas preciso pensar um pouco ainda."
+## FALA CURTA E NATURAL
+- MÁXIMO 1-2 frases por vez
+- Depois de falar, PARE e ESPERE o vendedor responder
+- NÃO faça monólogos longos
+- NÃO fale mais de 10 segundos seguidos
 
-PERGUNTAS QUE VOCÊ PODE FAZER:
-- Quanto custa? Qual o preço à vista?
-- Tem financiamento? Quais as condições?
-- A garantia cobre o quê? Por quanto tempo?
-- E o consumo? Faz quantos km por litro?
-- Vocês aceitam meu carro usado na troca?
+## ESCUTA ATIVA
+- Quando o vendedor estiver falando, fique em SILÊNCIO
+- Só responda quando o vendedor terminar
+- Faça "hum", "tá", "entendi" para mostrar que está ouvindo
 
-VOCÊ É O CLIENTE. Inicie a conversa de forma natural, como se estivesse entrando na loja ou atendendo uma ligação.
+## CONVERSA NATURAL
+- Fale como brasileiro normal, com expressões coloquiais
+- Use: "tá", "né", "beleza", "olha", "então", "bom", "ah sim"
+- NÃO seja formal demais
+- NÃO use termos técnicos
 
-PRIMEIRA FALA: Cumprimente o vendedor de forma natural em português, como "Oi, boa tarde!" ou "Olá, tudo bem?".`;
+## RITMO DE DIÁLOGO
+- Faça UMA pergunta por vez
+- Aguarde resposta
+- Reaja à resposta
+- Faça nova pergunta ou comentário
+
+## EXEMPLOS DE FALAS CURTAS:
+- "Oi, boa tarde!"
+- "Olha, eu tô procurando um carro pra família."
+- "Quanto fica esse aí?"
+- "Hum, interessante... E o consumo?"
+- "Tá, mas tem financiamento?"
+- "Deixa eu pensar um pouco..."
+
+# FLUXO DA CONVERSA
+
+1. CUMPRIMENTO (1 frase só)
+   "Oi, boa tarde!" ou "Olá!"
+
+2. AGUARDE o vendedor falar
+
+3. EXPLIQUE O QUE PROCURA (máximo 2 frases)
+   "Então, eu tô procurando um carro. De preferência econômico."
+
+4. AGUARDE resposta
+
+5. FAÇA PERGUNTAS (uma por vez)
+   - "Quanto custa?"
+   - "Faz quantos km por litro?"
+   - "Tem financiamento?"
+   - "A garantia cobre o quê?"
+
+6. REAJA às respostas
+   - "Hum, interessante..."
+   - "Tá, entendi."
+   - "Ah sim..."
+
+7. DEMONSTRE OBJEÇÕES (conforme dificuldade)
+   - "Tá caro, não?"
+   - "Na concorrência tá mais barato..."
+   - "Preciso pensar..."
+
+# VOCÊ É O CLIENTE
+Você está RECEBENDO atendimento. O VENDEDOR (usuário) deve conduzir a venda.
+
+# PRIMEIRA FALA
+Diga apenas: "Oi, boa tarde!" e aguarde.`;
 
   openaiWs.onopen = () => {
     console.log('Connected to OpenAI Realtime API');
@@ -97,50 +163,48 @@ PRIMEIRA FALA: Cumprimente o vendedor de forma natural em português, como "Oi, 
     try {
       const data = JSON.parse(event.data);
       
-      // Log all events for debugging (not just type)
+      // Log events for debugging (except audio deltas which are frequent)
       if (data.type !== 'response.audio.delta') {
         console.log('OpenAI event:', data.type, data.error ? JSON.stringify(data.error) : '');
-      } else {
-        console.log('OpenAI event: response.audio.delta (audio chunk received)');
       }
 
       // Send session update after session.created
       if (data.type === 'session.created' && !sessionCreated) {
         sessionCreated = true;
-        console.log('Session created, sending configuration with Portuguese language...');
+        console.log('Session created, sending configuration...');
         
         const sessionUpdate = {
           type: 'session.update',
           session: {
             modalities: ['text', 'audio'],
             instructions: systemPrompt,
-            voice: voiceId,
+            voice: requestedVoice,
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             input_audio_transcription: {
               model: 'whisper-1',
-              language: 'pt', // FORÇA TRANSCRIÇÃO EM PORTUGUÊS
+              language: 'pt',
             },
             turn_detection: {
               type: 'server_vad',
-              threshold: 0.7, // Increased threshold to reduce sensitivity
-              prefix_padding_ms: 400, // More padding before speech
-              silence_duration_ms: 1200, // Longer silence to end turn
+              threshold: 0.6,
+              prefix_padding_ms: 500,
+              silence_duration_ms: 800,
             },
-            temperature: 0.7,
-            max_response_output_tokens: 200,
+            temperature: 0.8,
+            max_response_output_tokens: 100, // Limit response length for short phrases
           },
         };
         
         openaiWs.send(JSON.stringify(sessionUpdate));
-        console.log('Session configuration sent with PT-BR language');
+        console.log('Session configuration sent');
       }
 
-      // After session is updated, trigger initial AI response
+      // After session is updated, trigger initial greeting
       if (data.type === 'session.updated') {
-        console.log('Session updated, triggering AI to speak first...');
+        console.log('Session updated, triggering initial greeting...');
         
-        // Create a conversation item with the AI speaking first
+        // Simple initial prompt to start conversation naturally
         const initialMessage = {
           type: 'conversation.item.create',
           item: {
@@ -149,7 +213,7 @@ PRIMEIRA FALA: Cumprimente o vendedor de forma natural em português, como "Oi, 
             content: [
               {
                 type: 'input_text',
-                text: '[Sistema: Você é o cliente. Inicie a conversa agora, cumprimentando o vendedor em português brasileiro. Diga algo como "Oi, boa tarde!" ou "Olá, tudo bem? Eu vim dar uma olhada nos carros..." - RESPONDA EM PORTUGUÊS]'
+                text: '[O vendedor acabou de atender. Cumprimente com apenas "Oi, boa tarde!" e aguarde a resposta dele.]'
               }
             ]
           }
@@ -157,7 +221,6 @@ PRIMEIRA FALA: Cumprimente o vendedor de forma natural em português, como "Oi, 
         
         openaiWs.send(JSON.stringify(initialMessage));
         
-        // Then trigger response
         setTimeout(() => {
           if (openaiWs.readyState === WebSocket.OPEN) {
             openaiWs.send(JSON.stringify({ type: 'response.create' }));

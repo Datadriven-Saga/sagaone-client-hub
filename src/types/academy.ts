@@ -4,6 +4,8 @@ export type SimulationType = 'voice' | 'text';
 export type DifficultyLevel = 'Fácil' | 'Médio' | 'Difícil';
 export type DepartmentType = 'Vendas Novos' | 'Vendas Usados' | 'Pós-Venda' | 'Oficina' | 'F&I' | 'Recepção';
 
+export type PersonaGender = 'masculino' | 'feminino';
+
 export interface Persona {
   id: string;
   name: string;
@@ -14,6 +16,7 @@ export interface Persona {
   description: string;
   objective: string;
   voice?: string; // OpenAI voice ID: shimmer, alloy, echo, fable, onyx, nova
+  gender?: PersonaGender; // Gender for voice matching
 }
 
 export interface TrainingScenario {

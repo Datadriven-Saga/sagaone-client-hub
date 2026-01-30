@@ -245,7 +245,8 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
       wsUrl.searchParams.set('role', persona.role);
       wsUrl.searchParams.set('context', scenario.description);
       wsUrl.searchParams.set('difficulty', persona.difficulty);
-      wsUrl.searchParams.set('voice', persona.voice || 'shimmer');
+      wsUrl.searchParams.set('gender', persona.gender || 'masculino');
+      wsUrl.searchParams.set('voice', persona.voice || 'echo'); // Default to male voice
 
       console.log('Connecting to:', wsUrl.toString());
       wsRef.current = new WebSocket(wsUrl.toString());

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Phone, PhoneOff, Mic, MicOff, Volume2, Loader2, Target, User, Clock } from "lucide-react";
 import { TrainingScenario, Persona } from "@/types/academy";
 import { cn } from "@/lib/utils";
@@ -130,36 +131,63 @@ export function VoiceSimulation({ scenario, persona, onEnd }: VoiceSimulationPro
 
         {/* Call Controls */}
         <div className="h-28 border-t border-border bg-card flex items-center justify-center gap-6">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={toggleMute}
-            disabled={!isConnected}
-            className={cn(
-              "h-14 w-14 rounded-full transition-all",
-              isMuted && "bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive"
-            )}
-          >
-            {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={toggleMute}
+                  disabled={!isConnected}
+                  className={cn(
+                    "h-14 w-14 rounded-full transition-all",
+                    isMuted && "bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive"
+                  )}
+                >
+                  {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>{isMuted ? "Ativar microfone" : "Desativar microfone (mutar)"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           
-          <Button
-            onClick={handleEndCall}
-            size="lg"
-            disabled={isConnecting}
-            className="h-14 px-10 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground gap-2"
-          >
-            <PhoneOff className="h-5 w-5" />
-            Encerrar
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleEndCall}
+                  size="lg"
+                  disabled={isConnecting}
+                  className="h-14 px-10 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground gap-2"
+                >
+                  <PhoneOff className="h-5 w-5" />
+                  Encerrar
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Encerrar a simulação de chamada</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-14 w-14 rounded-full"
-          >
-            <Volume2 className="h-6 w-6" />
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-14 w-14 rounded-full"
+                >
+                  <Volume2 className="h-6 w-6" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Volume do áudio da IA</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
