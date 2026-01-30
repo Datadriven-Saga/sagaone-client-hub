@@ -16,75 +16,12 @@ export interface RichTextareaProps {
 }
 
 /**
- * Renders text with bold formatting (hides asterisks, shows bold text)
- * Used in the visual preview layer
- */
-function renderFormattedPreview(text: string): React.ReactNode[] {
-  if (!text) return [];
-  
-  const result: React.ReactNode[] = [];
-  const regex = /(\*[^*]+\*)/g;
-  let lastIndex = 0;
-  let match;
-  let key = 0;
-  
-  while ((match = regex.exec(text)) !== null) {
-    // Add text before the match
-    if (match.index > lastIndex) {
-      const beforeText = text.slice(lastIndex, match.index);
-      result.push(
-        <span key={key++}>
-          {beforeText.split('\n').map((line, i, arr) => (
-            <React.Fragment key={i}>
-              {line}
-              {i < arr.length - 1 && <br />}
-            </React.Fragment>
-          ))}
-        </span>
-      );
-    }
-    
-    // Add the formatted bold section - hide asterisks visually but keep spacing
-    const fullMatch = match[0]; // e.g., "*bold text*"
-    const innerText = fullMatch.slice(1, -1); // e.g., "bold text"
-    
-    result.push(
-      <span key={key++}>
-        <span className="invisible">*</span>
-        <strong className="font-bold">{innerText}</strong>
-        <span className="invisible">*</span>
-      </span>
-    );
-    
-    lastIndex = match.index + fullMatch.length;
-  }
-  
-  // Add remaining text
-  if (lastIndex < text.length) {
-    const remaining = text.slice(lastIndex);
-    result.push(
-      <span key={key++}>
-        {remaining.split('\n').map((line, i, arr) => (
-          <React.Fragment key={i}>
-            {line}
-            {i < arr.length - 1 && <br />}
-          </React.Fragment>
-        ))}
-      </span>
-    );
-  }
-  
-  return result;
-}
-
-/**
- * Textarea rico com suporte a formatação em negrito visual para WhatsApp.
- * - Mostra texto em negrito visualmente (asteriscos ficam invisíveis)
- * - Armazena internamente com asteriscos (*texto*) para o payload
+ * Textarea simples com suporte a formatação em negrito para WhatsApp.
+ * - Armazena texto com asteriscos (*texto*) para o payload
  * - Botão "B" para aplicar negrito no texto selecionado
  * - Atalho Ctrl+B / Cmd+B
  */
-const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
+const RichTextarea = React.forwardRef<HTMLTextAreaElement, RichTextareaProps>(
   ({ 
     value, 
     onValueChange, 
@@ -96,15 +33,9 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
     id 
   }, ref) => {
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
-    const previewRef = React.useRef<HTMLDivElement>(null);
 
-    // Sync scroll between textarea and preview
-    const handleScroll = React.useCallback(() => {
-      if (textareaRef.current && previewRef.current) {
-        previewRef.current.scrollTop = textareaRef.current.scrollTop;
-        previewRef.current.scrollLeft = textareaRef.current.scrollLeft;
-      }
-    }, []);
+    // Use forwarded ref or local ref
+    React.useImperativeHandle(ref, () => textareaRef.current!);
 
     const handleChange = React.useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value;
@@ -176,10 +107,8 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
       [applyBold]
     );
 
-    const hasContent = value && value.length > 0;
-
     return (
-      <div className="relative" ref={ref}>
+      <div className="relative">
         {/* Toolbar */}
         <div className="absolute top-2 right-2 z-20">
           <TooltipProvider>
@@ -204,52 +133,21 @@ const RichTextarea = React.forwardRef<HTMLDivElement, RichTextareaProps>(
           </TooltipProvider>
         </div>
 
-        {/* Container for layered approach */}
-        <div className="relative">
-          {/* Preview layer - shows formatted text with visible bold */}
-          <div
-            ref={previewRef}
-            aria-hidden="true"
-            className={cn(
-              "w-full rounded-md border border-transparent bg-transparent px-3 py-2 pr-12 text-sm pointer-events-none overflow-hidden whitespace-pre-wrap break-words",
-              className
-            )}
-            style={{ 
-              minHeight,
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
-          >
-            {hasContent ? renderFormattedPreview(value) : (
-              <span className="text-muted-foreground">{placeholder}</span>
-            )}
-          </div>
-
-          {/* Textarea layer - transparent text, handles editing */}
-          <textarea
-            ref={textareaRef}
-            id={id}
-            value={value}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            onScroll={handleScroll}
-            disabled={disabled}
-            className={cn(
-              "w-full rounded-md border border-input bg-transparent px-3 py-2 pr-12 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none",
-              "text-transparent caret-foreground selection:bg-primary/20",
-              className
-            )}
-            style={{ 
-              minHeight,
-              position: 'relative',
-              zIndex: 10,
-            }}
-            placeholder=""
-          />
-        </div>
+        {/* Simple textarea */}
+        <textarea
+          ref={textareaRef}
+          id={id}
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          placeholder={placeholder}
+          className={cn(
+            "w-full rounded-md border border-input bg-background px-3 py-2 pr-12 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none",
+            className
+          )}
+          style={{ minHeight }}
+        />
       </div>
     );
   }
