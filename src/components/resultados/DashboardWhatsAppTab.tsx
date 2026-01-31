@@ -114,25 +114,36 @@ export const DashboardWhatsAppTab = ({
           return;
         }
         
-        // Filter agents that are active, have telefone, and nome contains "WhatsApp"
-        const whatsAppAgents = (agenteEmpresasData || [])
+        const allAgents = (agenteEmpresasData || [])
           .map((ae: any) => ae.agentes_ia)
+          .filter((ag: any) => !!ag);
+
+        // Prefer the explicit "Pri WhatsApp" agent for this store.
+        // This avoids picking the wrong WhatsApp agent when multiple are linked.
+        const priWhatsAppAgents = allAgents
           .filter((ag: any) => {
-            if (!ag || !ag.ativo || !ag.telefone) return false;
+            if (!ag.ativo || !ag.telefone) return false;
+            const nome = (ag.nome || '').toLowerCase();
+            const isWhatsApp = nome.includes('whatsapp') || nome.includes('wpp') || nome.includes('zap');
+            const isPri = nome.includes('pri');
+            return isWhatsApp && isPri;
+          })
+          .map((ag: any) => ({ id: ag.id, nome: ag.nome, telefone: ag.telefone }));
+
+        // Fallback: any WhatsApp agent (legacy behavior)
+        const whatsAppAgents = allAgents
+          .filter((ag: any) => {
+            if (!ag.ativo || !ag.telefone) return false;
             const nome = (ag.nome || '').toLowerCase();
             return nome.includes('whatsapp') || nome.includes('wpp') || nome.includes('zap');
           })
-          .map((ag: any) => ({
-            id: ag.id,
-            nome: ag.nome,
-            telefone: ag.telefone,
-          }));
+          .map((ag: any) => ({ id: ag.id, nome: ag.nome, telefone: ag.telefone }));
         
-        console.log('📱 Agentes WhatsApp encontrados:', whatsAppAgents);
-        
-        if (whatsAppAgents.length > 0) {
-          setAgent(whatsAppAgents[0]);
-        }
+        console.log('📱 Agentes Pri WhatsApp encontrados:', priWhatsAppAgents);
+        console.log('📱 Agentes WhatsApp encontrados (fallback):', whatsAppAgents);
+
+        const chosen = priWhatsAppAgents[0] ?? whatsAppAgents[0];
+        if (chosen) setAgent(chosen);
       } catch (error) {
         console.error('Error fetching WhatsApp agent:', error);
       }
