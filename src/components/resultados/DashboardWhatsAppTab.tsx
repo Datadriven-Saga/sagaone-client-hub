@@ -15,7 +15,8 @@ import {
   BarChart3,
   Check,
   ChevronsUpDown,
-  Phone
+  Phone,
+  Store
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,6 +41,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface DashboardWhatsAppTabProps {
   selectedEventId: string;
@@ -55,6 +57,8 @@ interface FunnelStatus {
 interface EventOption {
   id_evento: number;
   nome: string;
+  empresa_nome?: string;
+  prospeccao_id?: string;
   selected?: boolean;
 }
 
@@ -81,6 +85,7 @@ export const DashboardWhatsAppTab = ({
   onEventChange 
 }: DashboardWhatsAppTabProps) => {
   const { activeCompany } = useCompany();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [funnelData, setFunnelData] = useState<FunnelStatus[]>([]);
@@ -152,10 +157,10 @@ export const DashboardWhatsAppTab = ({
     fetchAgent();
   }, [activeCompany?.id]);
 
-  // Fetch events when agent is available - ALL events from that telefone_pri (no store filter)
+  // Fetch events when agent is available - ALL events from user's companies with same telefone_pri
   useEffect(() => {
     const fetchEvents = async () => {
-      if (!agent?.telefone) {
+      if (!agent?.telefone || !user?.id) {
         setEvents([]);
         return;
       }
@@ -163,49 +168,93 @@ export const DashboardWhatsAppTab = ({
       try {
         setLoadingEvents(true);
         
-        // Clean phone number
         const cleanPhone = agent.telefone.replace(/\D/g, '');
+        console.log('📊 Buscando eventos WhatsApp do banco local para telefone:', cleanPhone);
         
-        console.log('📊 Buscando TODOS eventos WhatsApp para telefone_pri:', cleanPhone);
-        
-        // Call external webhook to get all events for this PRI phone (global listing, no dealer_id)
-        const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
-          body: { 
-            endpoint: 'verifica-todos-eventos-pri', 
-            telefone_pri: cleanPhone
-          },
-        });
+        // 1. Buscar IDs das empresas do usuário
+        const { data: userEmpresas, error: userEmpresasError } = await supabase
+          .from('user_empresas')
+          .select('empresa_id')
+          .eq('user_id', user.id);
 
-        if (error) {
-          console.error('Error fetching events from webhook:', error);
+        if (userEmpresasError) {
+          console.error('Erro ao buscar user_empresas:', userEmpresasError);
+          return;
+        }
+
+        const empresaIds = userEmpresas?.map(ue => ue.empresa_id) || [];
+        
+        if (empresaIds.length === 0) {
+          console.log('📊 Usuário sem empresas vinculadas');
+          setEvents([]);
+          return;
+        }
+
+        console.log('📊 Empresas do usuário:', empresaIds);
+
+        // 2. Buscar agentes WhatsApp de todas as empresas do usuário
+        const { data: agentesEmpresas, error: agentesError } = await supabase
+          .from('agente_empresas')
+          .select('empresa_id, agentes_ia!inner(telefone, nome, ativo)')
+          .in('empresa_id', empresaIds);
+
+        if (agentesError) {
+          console.error('Erro ao buscar agente_empresas:', agentesError);
+        }
+
+        // 3. Filtrar empresas que têm o mesmo agente WhatsApp (por telefone)
+        const empresasComMesmoAgente = (agentesEmpresas || [])
+          .filter((ae: any) => {
+            const agentData = ae.agentes_ia;
+            if (!agentData) return false;
+            const nome = (agentData.nome || '').toLowerCase();
+            const isWhatsApp = nome.includes('whatsapp') || nome.includes('wpp') || nome.includes('zap');
+            const telefoneAgente = (agentData.telefone || '').replace(/\D/g, '');
+            const telefonesIguais = telefoneAgente === cleanPhone;
+            return isWhatsApp && telefonesIguais && agentData.ativo;
+          })
+          .map((ae: any) => ae.empresa_id);
+
+        console.log('📊 Empresas com mesmo agente WhatsApp:', empresasComMesmoAgente);
+
+        if (empresasComMesmoAgente.length === 0) {
+          console.log('📊 Nenhuma empresa com o mesmo agente WhatsApp');
+          setEvents([]);
+          return;
+        }
+
+        // 4. Buscar prospeccoes WhatsApp dessas empresas
+        const { data: prospeccoes, error: prospError } = await supabase
+          .from('prospeccoes')
+          .select(`
+            id, 
+            titulo, 
+            event_id_pri, 
+            data_inicio, 
+            data_fim,
+            empresa_id,
+            empresas!inner(nome_empresa)
+          `)
+          .eq('canal', 'Whatsapp')
+          .not('event_id_pri', 'is', null)
+          .in('empresa_id', empresasComMesmoAgente)
+          .order('data_inicio', { ascending: false });
+
+        if (prospError) {
+          console.error('Erro ao buscar prospeccoes:', prospError);
           toast.error('Erro ao buscar eventos');
           return;
         }
 
-        console.log('📱 Eventos WhatsApp da PRI:', data);
-        
-        // Parse response - expecting array of events
-        // (defensivo: descarta itens sem id_evento válido para evitar "Evento undefined / ID:0")
-        const rawList: any[] = Array.isArray(data)
-          ? data
-          : Array.isArray((data as any)?.data)
-            ? (data as any).data
-            : Array.isArray((data as any)?.eventos)
-              ? (data as any).eventos
-              : [];
+        console.log('📊 Prospeccoes WhatsApp encontradas:', prospeccoes);
 
-        const eventsList: EventOption[] = rawList
-          .map((evt: any) => {
-            const rawId = evt?.id_evento ?? evt?.idEvento ?? evt?.id ?? evt?.evento_id;
-            const id_evento = Number(String(rawId ?? '').replace(/\D/g, '')) || 0;
-            const nome = (evt?.nome ?? evt?.titulo ?? evt?.evento ?? '').toString().trim();
-            if (!id_evento) return null;
-            return {
-              id_evento,
-              nome: nome || `Evento ${id_evento}`,
-            };
-          })
-          .filter((e): e is EventOption => e !== null);
+        // 5. Mapear para EventOption
+        const eventsList: EventOption[] = (prospeccoes || []).map((p: any) => ({
+          id_evento: Number(p.event_id_pri),
+          nome: p.titulo || `Evento ${p.event_id_pri}`,
+          empresa_nome: p.empresas?.nome_empresa || '',
+          prospeccao_id: p.id,
+        }));
         
         setEvents(eventsList);
         
@@ -222,7 +271,7 @@ export const DashboardWhatsAppTab = ({
     };
 
     fetchEvents();
-  }, [agent?.telefone]);
+  }, [agent?.telefone, user?.id]);
 
   // Fetch dashboard data when selected events change
   useEffect(() => {
@@ -585,7 +634,16 @@ export const DashboardWhatsAppTab = ({
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{event.nome}</p>
-                          <p className="text-xs text-muted-foreground">ID: {event.id_evento}</p>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            {event.empresa_nome && (
+                              <>
+                                <Store className="h-3 w-3" />
+                                <span className="truncate">{event.empresa_nome}</span>
+                                <span>•</span>
+                              </>
+                            )}
+                            <span>ID: {event.id_evento}</span>
+                          </p>
                         </div>
                         {isSelected && (
                           <Check className="h-4 w-4 text-primary" />
