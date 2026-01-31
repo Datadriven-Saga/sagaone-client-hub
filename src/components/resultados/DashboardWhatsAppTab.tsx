@@ -310,13 +310,17 @@ export const DashboardWhatsAppTab = ({
       );
 
       // Aggregate all responses
+      // API returns { status_novo: string, total: string } format
       const aggregated: Record<string, number> = {};
       
       allResponses.forEach((response) => {
-        response.forEach((item: FunnelStatus) => {
-          const status = item.status;
+        response.forEach((item: any) => {
+          // API returns 'status_novo' not 'status'
+          const status = item.status_novo || item.status;
           const total = parseInt(item.total || '0', 10);
-          aggregated[status] = (aggregated[status] || 0) + total;
+          if (status) {
+            aggregated[status] = (aggregated[status] || 0) + total;
+          }
         });
       });
       
