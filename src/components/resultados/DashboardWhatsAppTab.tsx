@@ -152,7 +152,7 @@ export const DashboardWhatsAppTab = ({
     fetchAgent();
   }, [activeCompany?.id]);
 
-  // Fetch events when agent is available - ALL events from that telefone_pri (no store filter)
+  // Fetch events from local eventos_pri_voz table - filter by telefone_pri_whatsapp matching agent phone
   useEffect(() => {
     const fetchEvents = async () => {
       if (!agent?.telefone) {
@@ -163,49 +163,33 @@ export const DashboardWhatsAppTab = ({
       try {
         setLoadingEvents(true);
         
-        // Clean phone number
+        // Clean phone number (remove non-digits)
         const cleanPhone = agent.telefone.replace(/\D/g, '');
         
-        console.log('📊 Buscando TODOS eventos WhatsApp para telefone_pri:', cleanPhone);
+        console.log('📊 Buscando eventos WhatsApp no Supabase para telefone_pri:', cleanPhone);
         
-        // Call external webhook to get all events for this PRI phone (global listing, no dealer_id)
-        const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
-          body: { 
-            endpoint: 'verifica-todos-eventos-pri', 
-            telefone_pri: cleanPhone
-          },
-        });
+        // Query eventos_pri_voz filtering by telefone_pri_whatsapp OR telefone_pri
+        const { data, error } = await supabase
+          .from('eventos_pri_voz')
+          .select('id_evento, nome, telefone_pri, telefone_pri_whatsapp, evt_status')
+          .or(`telefone_pri_whatsapp.eq.${cleanPhone},telefone_pri.eq.${cleanPhone}`)
+          .order('id_evento', { ascending: false });
 
         if (error) {
-          console.error('Error fetching events from webhook:', error);
+          console.error('Error fetching events from Supabase:', error);
           toast.error('Erro ao buscar eventos');
           return;
         }
 
-        console.log('📱 Eventos WhatsApp da PRI:', data);
+        console.log('📱 Eventos WhatsApp encontrados:', data);
         
-        // Parse response - expecting array of events
-        // (defensivo: descarta itens sem id_evento válido para evitar "Evento undefined / ID:0")
-        const rawList: any[] = Array.isArray(data)
-          ? data
-          : Array.isArray((data as any)?.data)
-            ? (data as any).data
-            : Array.isArray((data as any)?.eventos)
-              ? (data as any).eventos
-              : [];
-
-        const eventsList: EventOption[] = rawList
-          .map((evt: any) => {
-            const rawId = evt?.id_evento ?? evt?.idEvento ?? evt?.id ?? evt?.evento_id;
-            const id_evento = Number(String(rawId ?? '').replace(/\D/g, '')) || 0;
-            const nome = (evt?.nome ?? evt?.titulo ?? evt?.evento ?? '').toString().trim();
-            if (!id_evento) return null;
-            return {
-              id_evento,
-              nome: nome || `Evento ${id_evento}`,
-            };
-          })
-          .filter((e): e is EventOption => e !== null);
+        // Map to EventOption format
+        const eventsList: EventOption[] = (data || [])
+          .filter((evt) => evt.id_evento && evt.id_evento > 0)
+          .map((evt) => ({
+            id_evento: evt.id_evento,
+            nome: evt.nome || `Evento ${evt.id_evento}`,
+          }));
         
         setEvents(eventsList);
         
