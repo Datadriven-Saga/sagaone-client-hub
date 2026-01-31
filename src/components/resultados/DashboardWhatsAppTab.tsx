@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Loader2, 
   RefreshCw, 
@@ -8,12 +8,14 @@ import {
   CalendarCheck,
   CheckCircle2,
   XCircle,
-  Users,
   Clock,
   DollarSign,
   Eye,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  Check,
+  ChevronsUpDown,
+  Phone
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,12 +24,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -36,7 +37,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
+import { useCompany } from '@/contexts/CompanyContext';
 
 interface DashboardWhatsAppTabProps {
   selectedEventId: string;
@@ -50,9 +53,15 @@ interface FunnelStatus {
 }
 
 interface EventOption {
+  id_evento: number;
+  nome: string;
+  selected?: boolean;
+}
+
+interface AgentWhatsApp {
   id: string;
-  titulo: string;
-  event_id_pri: string | null;
+  nome: string;
+  telefone: string;
 }
 
 interface ManualInputs {
@@ -71,10 +80,15 @@ export const DashboardWhatsAppTab = ({
   selectedEventIdPri,
   onEventChange 
 }: DashboardWhatsAppTabProps) => {
+  const { activeCompany } = useCompany();
   const [loading, setLoading] = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(false);
   const [funnelData, setFunnelData] = useState<FunnelStatus[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [events, setEvents] = useState<EventOption[]>([]);
+  const [selectedEventIds, setSelectedEventIds] = useState<number[]>([]);
+  const [agent, setAgent] = useState<AgentWhatsApp | null>(null);
+  const [eventsPopoverOpen, setEventsPopoverOpen] = useState(false);
   
   // Manual inputs (to be implemented with Meta API later)
   const [manualInputs, setManualInputs] = useState<ManualInputs>({
@@ -83,54 +97,163 @@ export const DashboardWhatsAppTab = ({
     valor_usado: 0,
   });
 
-  // Fetch events with event_id_pri from prospeccoes (for dropdown)
+  // Fetch WhatsApp agent for the company
+  useEffect(() => {
+    const fetchAgent = async () => {
+      if (!activeCompany?.id) return;
+
+      try {
+        // Get agents linked to this company via agente_empresas, filtering by nome containing "WhatsApp" or "Whatsapp"
+        const { data: agenteEmpresasData, error } = await supabase
+          .from('agente_empresas')
+          .select('agente_id, agentes_ia!inner(id, nome, telefone, ativo)')
+          .eq('empresa_id', activeCompany.id);
+        
+        if (error) {
+          console.error('Error fetching agente_empresas:', error);
+          return;
+        }
+        
+        // Filter agents that are active, have telefone, and nome contains "WhatsApp"
+        const whatsAppAgents = (agenteEmpresasData || [])
+          .map((ae: any) => ae.agentes_ia)
+          .filter((ag: any) => {
+            if (!ag || !ag.ativo || !ag.telefone) return false;
+            const nome = (ag.nome || '').toLowerCase();
+            return nome.includes('whatsapp') || nome.includes('wpp') || nome.includes('zap');
+          })
+          .map((ag: any) => ({
+            id: ag.id,
+            nome: ag.nome,
+            telefone: ag.telefone,
+          }));
+        
+        console.log('📱 Agentes WhatsApp encontrados:', whatsAppAgents);
+        
+        if (whatsAppAgents.length > 0) {
+          setAgent(whatsAppAgents[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching WhatsApp agent:', error);
+      }
+    };
+
+    fetchAgent();
+  }, [activeCompany?.id]);
+
+  // Fetch events when agent is available - ALL events from that telefone_pri (no store filter)
   useEffect(() => {
     const fetchEvents = async () => {
-      const { data, error } = await supabase
-        .from('prospeccoes')
-        .select('id, titulo, event_id_pri')
-        .eq('canal', 'Whatsapp')
-        .not('event_id_pri', 'is', null)
-        .order('data_inicio', { ascending: false });
+      if (!agent?.telefone) {
+        setEvents([]);
+        return;
+      }
 
-      if (!error && data) {
-        setEvents(data as EventOption[]);
+      try {
+        setLoadingEvents(true);
+        
+        // Clean phone number
+        const cleanPhone = agent.telefone.replace(/\D/g, '');
+        
+        console.log('📊 Buscando TODOS eventos WhatsApp para telefone_pri:', cleanPhone);
+        
+        // Call external webhook to get all events for this PRI phone (no dealer_id filter)
+        const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+          body: { 
+            endpoint: 'verifica-eventos', 
+            telefone_pri: cleanPhone
+            // Sem dealer_id para trazer TODOS eventos daquela PRI
+          },
+        });
+
+        if (error) {
+          console.error('Error fetching events from webhook:', error);
+          toast.error('Erro ao buscar eventos');
+          return;
+        }
+
+        console.log('📱 Eventos WhatsApp da PRI:', data);
+        
+        // Parse response - expecting array of events
+        const eventsList: EventOption[] = Array.isArray(data) 
+          ? data.map((evt: any) => ({
+              id_evento: parseInt(evt.id_evento || evt.id || '0', 10),
+              nome: evt.nome || evt.titulo || `Evento ${evt.id_evento}`,
+            }))
+          : [];
+        
+        setEvents(eventsList);
+        
+        // Auto-select first event if none selected
+        if (eventsList.length > 0 && selectedEventIds.length === 0) {
+          setSelectedEventIds([eventsList[0].id_evento]);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        toast.error('Erro ao carregar eventos');
+      } finally {
+        setLoadingEvents(false);
       }
     };
 
     fetchEvents();
-  }, []);
+  }, [agent?.telefone]);
 
-  // Fetch dashboard data when selectedEventIdPri changes
+  // Fetch dashboard data when selected events change
   useEffect(() => {
-    if (selectedEventIdPri) {
+    if (selectedEventIds.length > 0) {
       fetchDashboardData();
+    } else {
+      setFunnelData([]);
     }
-  }, [selectedEventIdPri]);
+  }, [selectedEventIds]);
 
-  const fetchDashboardData = async () => {
-    if (!selectedEventIdPri) return;
+  const fetchDashboardData = useCallback(async () => {
+    if (selectedEventIds.length === 0) return;
 
     try {
       setLoading(true);
       
-      console.log('📊 Fetching WhatsApp dashboard for event_id_pri:', selectedEventIdPri);
+      console.log('📊 Fetching WhatsApp dashboard for events:', selectedEventIds);
       
-      const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
-        body: { 
-          endpoint: 'dashboard-evento-pri-whats', 
-          id_evento: selectedEventIdPri 
-        },
+      // Fetch data for all selected events and aggregate
+      const allResponses = await Promise.all(
+        selectedEventIds.map(async (eventId) => {
+          const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+            body: { 
+              endpoint: 'dashboard-evento-pri-whats', 
+              id_evento: eventId 
+            },
+          });
+          
+          if (error) {
+            console.error(`Error fetching event ${eventId}:`, error);
+            return [];
+          }
+          
+          return Array.isArray(data) ? data : [];
+        })
+      );
+
+      // Aggregate all responses
+      const aggregated: Record<string, number> = {};
+      
+      allResponses.forEach((response) => {
+        response.forEach((item: FunnelStatus) => {
+          const status = item.status;
+          const total = parseInt(item.total || '0', 10);
+          aggregated[status] = (aggregated[status] || 0) + total;
+        });
       });
-
-      if (error) {
-        throw new Error('Erro ao buscar dados do dashboard');
-      }
-
-      console.log('📊 Dashboard WhatsApp response:', data);
       
-      // Data comes as array of status objects
-      const statusData = Array.isArray(data) ? data : [];
+      // Convert back to array format
+      const statusData: FunnelStatus[] = Object.entries(aggregated).map(([status, total]) => ({
+        status,
+        total: total.toString(),
+      }));
+
+      console.log('📊 Dashboard WhatsApp aggregated:', statusData);
+      
       setFunnelData(statusData);
       setLastUpdate(new Date());
 
@@ -140,12 +263,26 @@ export const DashboardWhatsAppTab = ({
     } finally {
       setLoading(false);
     }
+  }, [selectedEventIds]);
+
+  const toggleEventSelection = (eventId: number) => {
+    setSelectedEventIds(prev => {
+      if (prev.includes(eventId)) {
+        // Don't allow deselecting if it's the only one
+        if (prev.length === 1) return prev;
+        return prev.filter(id => id !== eventId);
+      }
+      return [...prev, eventId];
+    });
   };
 
-  const handleEventChange = (eventId: string) => {
-    const event = events.find(e => e.id === eventId);
-    if (event?.event_id_pri) {
-      onEventChange?.(eventId, event.event_id_pri);
+  const selectAllEvents = () => {
+    setSelectedEventIds(events.map(e => e.id_evento));
+  };
+
+  const selectNone = () => {
+    if (events.length > 0) {
+      setSelectedEventIds([events[0].id_evento]);
     }
   };
 
@@ -319,7 +456,20 @@ export const DashboardWhatsAppTab = ({
     ];
   }, [metrics]);
 
-  if (loading && funnelData.length === 0) {
+  // No agent configured
+  if (!agent && !loading) {
+    return (
+      <Card className="p-8 text-center">
+        <Phone className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
+        <h3 className="text-lg font-semibold mb-2">Nenhum Agente WhatsApp Configurado</h3>
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">
+          Configure um agente de IA com "WhatsApp" no nome e telefone válido para esta empresa.
+        </p>
+      </Card>
+    );
+  }
+
+  if (loading && funnelData.length === 0 && events.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -334,33 +484,109 @@ export const DashboardWhatsAppTab = ({
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2">
             <MessageSquare className="h-6 w-6 text-primary" />
-            Dashboard PRI — Evento
+            Dashboard PRI WhatsApp
           </h2>
           <p className="text-sm text-muted-foreground">
-            Insira os números e acompanhe os resultados do evento
+            {agent && (
+              <span className="flex items-center gap-1">
+                <Phone className="h-3 w-3" />
+                {agent.nome} • {agent.telefone}
+              </span>
+            )}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {events.length > 1 && (
-            <Select value={selectedEventId} onValueChange={handleEventChange}>
-              <SelectTrigger className="w-[250px]">
-                <SelectValue placeholder="Selecione o evento" />
-              </SelectTrigger>
-              <SelectContent>
-                {events.map(event => (
-                  <SelectItem key={event.id} value={event.id}>
-                    {event.titulo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Multi-select Events Popover */}
+          <Popover open={eventsPopoverOpen} onOpenChange={setEventsPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="min-w-[200px] justify-between"
+                disabled={loadingEvents || events.length === 0}
+              >
+                <span className="truncate">
+                  {loadingEvents 
+                    ? 'Carregando...' 
+                    : selectedEventIds.length === 0 
+                      ? 'Selecione eventos'
+                      : selectedEventIds.length === 1
+                        ? events.find(e => e.id_evento === selectedEventIds[0])?.nome || 'Evento'
+                        : `${selectedEventIds.length} eventos selecionados`
+                  }
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[320px] p-0" align="end">
+              <div className="p-3 border-b">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Eventos da PRI</span>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 text-xs"
+                      onClick={selectAllEvents}
+                    >
+                      Todos
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 text-xs"
+                      onClick={selectNone}
+                    >
+                      Limpar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <ScrollArea className="h-[300px]">
+                <div className="p-2 space-y-1">
+                  {events.map((event) => {
+                    const isSelected = selectedEventIds.includes(event.id_evento);
+                    return (
+                      <div
+                        key={event.id_evento}
+                        className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-muted/50 ${
+                          isSelected ? 'bg-primary/10' : ''
+                        }`}
+                        onClick={() => toggleEventSelection(event.id_evento)}
+                      >
+                        <Checkbox 
+                          checked={isSelected}
+                          onCheckedChange={() => toggleEventSelection(event.id_evento)}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{event.nome}</p>
+                          <p className="text-xs text-muted-foreground">ID: {event.id_evento}</p>
+                        </div>
+                        {isSelected && (
+                          <Check className="h-4 w-4 text-primary" />
+                        )}
+                      </div>
+                    );
+                  })}
+                  {events.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Nenhum evento encontrado para esta PRI
+                    </p>
+                  )}
+                </div>
+              </ScrollArea>
+              <div className="p-3 border-t bg-muted/30">
+                <p className="text-xs text-muted-foreground">
+                  {selectedEventIds.length} de {events.length} evento(s) selecionado(s)
+                </p>
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {lastUpdate && (
             <Badge variant="outline" className="text-xs">
               <Clock className="h-3 w-3 mr-1" />
-              Atualizado em {lastUpdate.toLocaleString('pt-BR')}
+              {lastUpdate.toLocaleString('pt-BR')}
             </Badge>
           )}
         </div>
@@ -426,11 +652,11 @@ export const DashboardWhatsAppTab = ({
               <Button 
                 variant="outline" 
                 onClick={fetchDashboardData}
-                disabled={loading}
+                disabled={loading || selectedEventIds.length === 0}
                 className="w-full"
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Atualizar dashboard
+                Atualizar
               </Button>
             </div>
           </div>
