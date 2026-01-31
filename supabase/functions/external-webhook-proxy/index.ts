@@ -9,6 +9,8 @@ const corsHeaders = {
 const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }> = {
   // Consultas - verifica-eventos usa POST com telefone_pri + dealer_id no body
   'verifica-eventos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', method: 'POST' },
+  // Listagem global - traz TODOS eventos associados ao telefone_pri (sem dealer_id)
+  'verifica-todos-eventos-pri': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-todos-eventos-pri', method: 'POST' },
   // sincroniza_sagaone para sincronizar contatos do PRI para Supabase
   'sincroniza_sagaone': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/sincroniza_sagaone', method: 'POST' },
   // metricas usa POST para enviar telefone_pri + id_evento no body (retorna dados agregados para tela de métricas)
@@ -84,6 +86,11 @@ Deno.serve(async (req: Request) => {
             }
             if (key === 'dealer_id' || key === 'dealerid') {
               postBody['dealer_id'] = value;
+            }
+          } else if (endpoint === 'verifica-todos-eventos-pri') {
+            // Para listagem global, apenas telefone_pri
+            if (key === 'telefone_pri') {
+              postBody['telefone_pri'] = value;
             }
           } else {
             postBody[key] = value;

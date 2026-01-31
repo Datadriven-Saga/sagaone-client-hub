@@ -168,12 +168,11 @@ export const DashboardWhatsAppTab = ({
         
         console.log('📊 Buscando TODOS eventos WhatsApp para telefone_pri:', cleanPhone);
         
-        // Call external webhook to get all events for this PRI phone (no dealer_id filter)
+        // Call external webhook to get all events for this PRI phone (global listing, no dealer_id)
         const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
           body: { 
-            endpoint: 'verifica-eventos', 
+            endpoint: 'verifica-todos-eventos-pri', 
             telefone_pri: cleanPhone
-            // Sem dealer_id para trazer TODOS eventos daquela PRI
           },
         });
 
@@ -186,12 +185,27 @@ export const DashboardWhatsAppTab = ({
         console.log('📱 Eventos WhatsApp da PRI:', data);
         
         // Parse response - expecting array of events
-        const eventsList: EventOption[] = Array.isArray(data) 
-          ? data.map((evt: any) => ({
-              id_evento: parseInt(evt.id_evento || evt.id || '0', 10),
-              nome: evt.nome || evt.titulo || `Evento ${evt.id_evento}`,
-            }))
-          : [];
+        // (defensivo: descarta itens sem id_evento válido para evitar "Evento undefined / ID:0")
+        const rawList: any[] = Array.isArray(data)
+          ? data
+          : Array.isArray((data as any)?.data)
+            ? (data as any).data
+            : Array.isArray((data as any)?.eventos)
+              ? (data as any).eventos
+              : [];
+
+        const eventsList: EventOption[] = rawList
+          .map((evt: any) => {
+            const rawId = evt?.id_evento ?? evt?.idEvento ?? evt?.id ?? evt?.evento_id;
+            const id_evento = Number(String(rawId ?? '').replace(/\D/g, '')) || 0;
+            const nome = (evt?.nome ?? evt?.titulo ?? evt?.evento ?? '').toString().trim();
+            if (!id_evento) return null;
+            return {
+              id_evento,
+              nome: nome || `Evento ${id_evento}`,
+            };
+          })
+          .filter((e): e is EventOption => e !== null);
         
         setEvents(eventsList);
         
