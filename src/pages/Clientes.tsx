@@ -58,30 +58,51 @@ const Clientes = () => {
   }, [activeCompany?.id]);
 
   const clientesFiltrados = useMemo(() => {
+    if (!clientesList || clientesList.length === 0) return [];
+    
+    const searchLower = searchTerm.toLowerCase().trim();
+    const searchDigits = searchTerm.replace(/\D/g, '');
+    
     return clientesList.filter(cliente => {
-      // Filtro de busca (nome, telefone, email)
-      const matchSearch = searchTerm === "" || 
-        cliente.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cliente.phone?.includes(searchTerm) ||
-        cliente.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      // Filtro de busca (nome, telefone, email) - mais robusto
+      let matchSearch = true;
+      if (searchTerm !== "") {
+        const nameMatch = cliente.name?.toLowerCase().includes(searchLower);
+        const phoneMatch = cliente.phone?.replace(/\D/g, '').includes(searchDigits);
+        const emailMatch = cliente.email?.toLowerCase().includes(searchLower);
+        matchSearch = nameMatch || phoneMatch || emailMatch;
+      }
 
-      // Filtro de tipo de documento (CPF/CNPJ)
-      const docDigits = cliente.document?.replace(/\D/g, '') || '';
-      const matchTipo = tipoCliente === "todos" || 
-        (tipoCliente === "cpf" && docDigits.length === 11) ||
-        (tipoCliente === "cnpj" && docDigits.length === 14);
+      // Filtro de tipo de documento (CPF/CNPJ) - ignorar se não houver dados
+      let matchTipo = true;
+      if (tipoCliente !== "todos") {
+        const docDigits = cliente.document?.replace(/\D/g, '') || '';
+        if (tipoCliente === "cpf") {
+          matchTipo = docDigits.length === 11;
+        } else if (tipoCliente === "cnpj") {
+          matchTipo = docDigits.length === 14;
+        }
+      }
 
-      // Filtro de sexo
-      const matchSexo = sexoFiltro === "todos" ||
-        cliente.gender?.toLowerCase() === sexoFiltro.toLowerCase();
+      // Filtro de sexo - ignorar "Não informado" se filtro específico
+      let matchSexo = true;
+      if (sexoFiltro !== "todos") {
+        const genderLower = cliente.gender?.toLowerCase() || '';
+        matchSexo = genderLower === sexoFiltro.toLowerCase() || 
+          (sexoFiltro === "outro" && !["masculino", "feminino", "não informado"].includes(genderLower));
+      }
 
       // Filtro de período (data de cadastro)
       let matchDate = true;
       if (dateRange?.from && cliente.createdAt) {
         const clienteDate = new Date(cliente.createdAt);
-        matchDate = clienteDate >= dateRange.from;
+        const fromDate = new Date(dateRange.from);
+        fromDate.setHours(0, 0, 0, 0);
+        matchDate = clienteDate >= fromDate;
         if (dateRange.to) {
-          matchDate = matchDate && clienteDate <= dateRange.to;
+          const toDate = new Date(dateRange.to);
+          toDate.setHours(23, 59, 59, 999);
+          matchDate = matchDate && clienteDate <= toDate;
         }
       }
 
