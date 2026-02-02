@@ -116,18 +116,28 @@ Deno.serve(async (req: Request) => {
       fetchOptions.body = JSON.stringify(postBody);
     }
 
-    // Para dispara-ligacao, fazer chamada assíncrona (fire-and-forget) para evitar timeout
+    // Para dispara-ligacao, fazer chamada assíncrona usando EdgeRuntime.waitUntil para evitar timeout
     if (endpoint === 'dispara-ligacao') {
-      // Disparar em background e retornar imediatamente
-      fetch(externalUrl.toString(), fetchOptions)
-        .then(async (response) => {
+      // Criar a promise da chamada externa
+      const backgroundTask = async () => {
+        try {
+          const response = await fetch(externalUrl.toString(), fetchOptions);
           const text = await response.text();
           console.log('✅ dispara-ligacao Response status:', response.status);
           console.log('📥 dispara-ligacao Response:', text.substring(0, 500));
-        })
-        .catch((err) => {
+        } catch (err) {
           console.error('❌ dispara-ligacao Error:', err);
-        });
+        }
+      };
+
+      // Usar EdgeRuntime.waitUntil para manter a função rodando em background
+      // @ts-ignore - EdgeRuntime é disponível no Supabase Edge Functions
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+        EdgeRuntime.waitUntil(backgroundTask());
+      } else {
+        // Fallback: executar sem aguardar (pode não completar)
+        backgroundTask();
+      }
 
       // Retornar imediatamente sem esperar a resposta
       return new Response(
