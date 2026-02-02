@@ -6,6 +6,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Voice gender mapping for OpenAI voices
+const voiceGenderMap: Record<string, string> = {
+  alloy: 'feminino',
+  echo: 'masculino',
+  fable: 'masculino',
+  onyx: 'masculino',
+  nova: 'feminino',
+  shimmer: 'feminino',
+  ash: 'masculino',
+  ballad: 'masculino',
+  coral: 'feminino',
+  sage: 'feminino',
+  verse: 'masculino',
+};
+
+const maleVoices = ['echo', 'fable', 'onyx', 'ash', 'ballad', 'verse'];
+const femaleVoices = ['alloy', 'nova', 'shimmer', 'coral', 'sage'];
+
 // Handle text chat action (for text simulations)
 async function handleTextChat(body: any, OPENAI_API_KEY: string): Promise<Response> {
   const { system_prompt, messages, user_message } = body;
