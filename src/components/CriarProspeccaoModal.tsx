@@ -1291,14 +1291,14 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           dadosProspeccao.data_envio_cadencia = null;
         }
       } else if (tipoEvento === 'IA Ligação') {
-        dadosProspeccao.template_prospeccao = null;
-        dadosProspeccao.template_agendado = null;
-        dadosProspeccao.template_nao_agendado = null;
+        dadosProspeccao.template_prospeccao_id = null;
+        dadosProspeccao.template_agendado_id = null;
+        dadosProspeccao.template_nao_agendado_id = null;
         dadosProspeccao.convite = convite.trim() || null;
       } else {
-        dadosProspeccao.template_prospeccao = null;
-        dadosProspeccao.template_agendado = null;
-        dadosProspeccao.template_nao_agendado = null;
+        dadosProspeccao.template_prospeccao_id = null;
+        dadosProspeccao.template_agendado_id = null;
+        dadosProspeccao.template_nao_agendado_id = null;
         dadosProspeccao.convite = null;
       }
 
