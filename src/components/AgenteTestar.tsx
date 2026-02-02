@@ -221,7 +221,7 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
       .filter(c => c.nome.trim() && c.telefone.trim())
       .map(c => ({ 
         nome: c.nome.trim(), 
-        telefone: normalizePhoneTo10Digits(c.telefone) 
+        telefone_lead: normalizePhoneTo10Digits(c.telefone) 
       }));
 
     if (contatosParaEnviar.length === 0) {
@@ -264,7 +264,7 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
     setDisparando(true);
 
     try {
-      // Chamar o webhook dispara-ligacao via proxy com o id_evento real
+      // Chamar o webhook dispara-ligacao via proxy com o id_evento real e telefone_lead
       const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
         body: {
           endpoint: 'dispara-ligacao',
