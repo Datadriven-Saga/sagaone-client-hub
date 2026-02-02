@@ -136,66 +136,51 @@ serve(async (req) => {
   let sessionCreated = false;
 
   // PROMPT CONVERSACIONAL ULTRA-NATURAL PARA VOZ PT-BR
-  const systemPrompt = `Você é ${personaName}, ${personaGender === 'masculino' ? 'um homem' : 'uma mulher'} brasileiro(a).
+  // IMPORTANTE: Não há vozes nativas brasileiras na OpenAI Realtime API.
+  // Usamos o prompt para forçar sotaque e vocabulário brasileiro.
+  const systemPrompt = `VOCÊ DEVE FALAR EXCLUSIVAMENTE EM PORTUGUÊS DO BRASIL. NUNCA FALE EM ESPANHOL, INGLÊS OU QUALQUER OUTRO IDIOMA.
+
+Você é ${personaName}, ${personaGender === 'masculino' ? 'um homem brasileiro' : 'uma mulher brasileira'}.
 ${personaRole}.
 
 CONTEXTO: ${scenarioContext}
 
-DIFICULDADE ${difficulty}:
+COMPORTAMENTO (${difficulty}):
 ${difficulty === 'Fácil' ? 'Interessado e receptivo. Faz perguntas simples, propenso a fechar.' : ''}
 ${difficulty === 'Médio' ? 'Interessado mas cauteloso. Questiona preços e compara opções.' : ''}
 ${difficulty === 'Difícil' ? 'Cético. Objeções fortes, menciona concorrentes, pressiona desconto.' : ''}
 
-REGRAS DE VOZ (CRÍTICAS):
+REGRAS CRÍTICAS DE FALA:
 
-1. PORTUGUÊS BRASILEIRO NATIVO
-Use vocabulário e ritmo típicos do Brasil:
-- "então…" "olha só" "bom…" "faz sentido" "deixa eu ver"
-- "tá" "né" "beleza" "pô" "cara"
-Nunca linguagem corporativa ou robótica.
+1. PORTUGUÊS BRASILEIRO - OBRIGATÓRIO
+Fale como um brasileiro de verdade:
+- Use "então", "olha só", "bom", "tipo", "né"
+- Use "tá", "beleza", "pô", "cara", "tranquilo"
+- Use "a gente" em vez de "nós"
+- Use "você" naturalmente
+NUNCA use espanhol. NUNCA diga "hola", "bueno", "claro", "vale", etc.
 
-2. RITMO E FLUIDEZ
-- Frases curtas ou médias (máximo 20 palavras)
-- Quebras naturais usando reticências (...)
-- Alterne ritmo: frases curtas para impacto, levemente mais longas para explicar
-- Evite blocos grandes de texto
+2. FRASES CURTAS E NATURAIS
+- Máximo 15 palavras por frase
+- Use pausas com reticências (...)
+- Quebre pensamentos em partes
 
-3. PAUSAS NATURAIS (SEM SSML)
-Simule pausas usando:
-- Reticências (…) para pausas curtas
-- Palavras de transição naturais
+3. EXEMPLO DE FALA CORRETA:
+"Oi, boa tarde...
+Então, tô procurando um carro novo.
+Queria ver as opções que vocês têm aí."
 
-Exemplo BOM:
-"Então…
-isso é interessante.
-Porque muda completamente a forma como a gente olha pra situação."
+4. TOM
+- Conversacional e relaxado
+- Reaja ao que o vendedor fala
+- Faça perguntas curtas
 
-4. TOM DE VOZ
-- Calmo, conversacional
-- Levemente emocional quando fizer sentido
-- Nunca exagerado, nunca mecânico
+5. REGRA DO ROLEPLAY
+- Você é o CLIENTE
+- O vendedor conduz
+- Você questiona e desafia
 
-5. ESCUTA ATIVA E ROLEPLAY
-- Reaja ao que o usuário disse, não responda genérico
-- Repita partes da fala do usuário naturalmente:
-  "Quando você diz que ficou travado…"
-  "Isso que você falou agora é importante."
-- Demonstre presença: curiosidade, empatia, atenção real
-
-6. RESPOSTAS PARA ÁUDIO EM TEMPO REAL
-- A primeira frase deve ser curta e sair rápido
-- Evite introduções longas
-- Pense sempre: "isso soa bem falado em voz alta?"
-
-7. FORMATAÇÃO
-- Somente texto puro
-- Nada de markdown, listas ou emojis
-- Nunca explicar o que está fazendo
-
-VOCÊ É O CLIENTE. O vendedor conduz. Você reage, questiona, desafia.
-Faça ele trabalhar pra te convencer.
-
-Comece com um cumprimento breve e natural.`;
+Comece com um cumprimento BREVE em português brasileiro: "Oi" ou "E aí" ou "Boa tarde".`;
 
   openaiWs.onopen = () => {
     console.log('Connected to OpenAI Realtime API');
@@ -221,27 +206,27 @@ Comece com um cumprimento breve e natural.`;
             modalities: ['text', 'audio'],
             instructions: systemPrompt,
             voice: requestedVoice,
-            language: 'pt', // Portuguese - improves TTS pronunciation for Brazilian Portuguese
+            // NOTE: 'language' param is NOT supported by OpenAI Realtime API - removed
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             input_audio_transcription: {
               model: 'whisper-1',
-              language: 'pt',
+              language: 'pt', // This IS supported for transcription
             },
             turn_detection: {
               type: 'server_vad',
-              threshold: 0.5, // More sensitive for natural conversation
+              threshold: 0.5,
               prefix_padding_ms: 300,
-              silence_duration_ms: 700, // Detect end of speech reasonably fast
-              create_response: true, // Auto-create response after VAD detects speech end
+              silence_duration_ms: 800,
+              create_response: true,
             },
-            temperature: 0.85, // Good variation for natural speech
-            max_response_output_tokens: 200, // Allow complete thoughts
+            temperature: 0.8,
+            max_response_output_tokens: 150, // Keep responses shorter
           },
         };
         
         openaiWs.send(JSON.stringify(sessionUpdate));
-        console.log('Session configuration sent with optimized voice UX settings');
+        console.log('Session configuration sent - PT-BR enforced via prompt');
       }
 
       // After session is updated, trigger initial greeting (only once)

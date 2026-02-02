@@ -372,8 +372,7 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
                 return (
                   <Card
                     key={persona.id || index}
-                    className="p-4 cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
-                    onClick={() => onStartSimulation(scenario, transformedPersona)}
+                    className="p-4 transition-all hover:shadow-md hover:border-primary/50"
                   >
                     <div className="flex items-start gap-3">
                       <Avatar className="h-12 w-12">
@@ -406,7 +405,17 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
                       </div>
                     )}
                     
-                    <Button className="w-full mt-4 gap-2" variant="outline">
+                    <Button 
+                      type="button"
+                      className="w-full mt-4 gap-2" 
+                      variant="outline"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Praticar com persona clicked', transformedPersona);
+                        onStartSimulation(scenario, transformedPersona);
+                      }}
+                    >
                       <Play className="h-4 w-4" />
                       Praticar com {persona.nome || persona.name || "Persona"}
                     </Button>
