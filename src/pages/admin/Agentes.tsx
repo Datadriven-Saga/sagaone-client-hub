@@ -68,6 +68,7 @@ import { AgenteIntegracao } from "@/components/AgenteIntegracao";
 import AgenteVariaveis from "@/components/AgenteVariaveis";
 import { AgenteCadenciasNova } from "@/components/AgenteCadenciasNova";
 import { AgenteEventos } from "@/components/AgenteEventos";
+import { AgenteTestar } from "@/components/AgenteTestar";
 
 interface AgenteWebhook {
   id?: string;
@@ -2047,6 +2048,10 @@ export default function AdminAgentes() {
                     {isPriLigacao() && agenteLocal && (
                       <TabsTrigger value="eventos">Eventos</TabsTrigger>
                     )}
+                    {/* Aba de Testar - apenas para agentes Pri(Ligação) */}
+                    {isPriLigacao() && agenteLocal && (
+                      <TabsTrigger value="testar">Testar</TabsTrigger>
+                    )}
                   </TabsList>
                 </div>
 
@@ -2893,6 +2898,22 @@ export default function AdminAgentes() {
                       agenteId={agenteLocal.id} 
                       agenteTelefone={formData.telefone}
                     />
+                  </TabsContent>
+                )}
+
+                {/* Testar Tab - apenas para agentes Pri(Ligação) */}
+                {isPriLigacao() && agenteLocal && (
+                  <TabsContent value="testar">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <AgenteTestar 
+                          telefonePri={formData.telefone}
+                          dealerId={formData.dealer_id}
+                          empresaId={selectedAgente?.empresa_id}
+                          agenteNome={formData.nome}
+                        />
+                      </CardContent>
+                    </Card>
                   </TabsContent>
                 )}
               </Tabs>
