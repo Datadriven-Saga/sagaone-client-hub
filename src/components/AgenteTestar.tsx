@@ -152,19 +152,24 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
 
     try {
       // Usar create-base-ligacao diretamente com o id_evento real do evento selecionado
+      const payload: Record<string, any> = {
+        contatos: contatosParaEnviar.map(c => ({
+          nome: c.nome,
+          telefone: c.telefone.replace(/\D/g, ''),
+        })),
+        id_evento: eventoEscolhido.id_evento,
+        telefone_pri: telefonePri.replace(/\D/g, ''),
+        loja: agenteNome || 'Teste Rápido',
+        sync_external: true, // Sincronizar com sistema externo usando evento real
+      };
+      
+      // Só incluir empresa_id se existir
+      if (empresaId) {
+        payload.empresa_id = empresaId;
+      }
+      
       const { data, error } = await supabase.functions.invoke('create-base-ligacao', {
-        body: {
-          contatos: contatosParaEnviar.map(c => ({
-            nome: c.nome,
-            telefone: c.telefone.replace(/\D/g, ''),
-          })),
-          id_evento: eventoEscolhido.id_evento,
-          telefone_pri: telefonePri.replace(/\D/g, ''),
-          empresa_id: empresaId || '',
-          prospeccao_id: '', // Não vinculado a prospecção
-          loja: agenteNome || 'Teste Rápido',
-          sync_external: true, // Sincronizar com sistema externo usando evento real
-        },
+        body: payload,
       });
 
       if (error) throw error;

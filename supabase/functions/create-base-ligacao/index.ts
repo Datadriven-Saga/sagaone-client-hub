@@ -124,12 +124,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (!empresa_id) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'empresa_id é obrigatório' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // empresa_id é opcional para testes rápidos (só sincroniza externamente)
+    const skipLocalSave = !empresa_id;
 
     console.log(`📥 [${requestId}] Dados recebidos:`);
     console.log(`   ├─ Total contatos: ${contatos.length}`);
@@ -163,8 +159,9 @@ Deno.serve(async (req: Request) => {
     // =====================================================
     // ETAPA 1: SALVAR NO SUPABASE (FONTE PRIMÁRIA)
     // =====================================================
-    console.log(`\n💾 [${requestId}] Salvando contatos no Supabase (fonte primária)...`);
-
+    let totalUpserted = 0;
+    let upsertErrors: string[] = [];
+    
     // 1a. Validar e normalizar telefones - filtrar inválidos
     const contatosValidados = contatos.map(contato => {
       const result = normalizePhoneTo10Digits(contato.telefone);
@@ -176,48 +173,53 @@ Deno.serve(async (req: Request) => {
     
     console.log(`📊 [${requestId}] Validação: ${contatosValidos.length} válidos, ${contatosInvalidos.length} inválidos`);
 
-    // 1b. Preparar dados para prospect_pri_voz (apenas válidos)
-    const prospectsToUpsert = contatosValidos.map(contato => ({
-      telefone_lead: contato.phoneResult.normalized,
-      id_evento: id_evento,
-      nome: contato.nome || null,
-      telefone_pri: normalizePhoneTo10Digits(telefone_pri).normalized || telefone_pri.replace(/\D/g, ''),
-      loja: nomeEmpresa,
-      empresa_id: empresa_id,
-      ligacao_atendida: false,
-      status_agendado: false,
-      enviado_whatsapp: false,
-      ligacao_erro: false,
-      criado_em: now,
-      atualizado_em: now,
-    }));
+    // Só salva localmente se empresa_id foi fornecido
+    if (!skipLocalSave) {
+      console.log(`\n💾 [${requestId}] Salvando contatos no Supabase (fonte primária)...`);
 
-    // 1b. Upsert em batches para prospect_pri_voz
-    const batchSize = 100;
-    let totalUpserted = 0;
-    let upsertErrors: string[] = [];
+      // 1b. Preparar dados para prospect_pri_voz (apenas válidos)
+      const prospectsToUpsert = contatosValidos.map(contato => ({
+        telefone_lead: contato.phoneResult.normalized,
+        id_evento: id_evento,
+        nome: contato.nome || null,
+        telefone_pri: normalizePhoneTo10Digits(telefone_pri).normalized || telefone_pri.replace(/\D/g, ''),
+        loja: nomeEmpresa,
+        empresa_id: empresa_id,
+        ligacao_atendida: false,
+        status_agendado: false,
+        enviado_whatsapp: false,
+        ligacao_erro: false,
+        criado_em: now,
+        atualizado_em: now,
+      }));
 
-    for (let i = 0; i < prospectsToUpsert.length; i += batchSize) {
-      const batch = prospectsToUpsert.slice(i, i + batchSize);
-      const { error: upsertError } = await supabase
-        .from('prospect_pri_voz')
-        .upsert(batch, { onConflict: 'telefone_lead,id_evento' });
+      // 1c. Upsert em batches para prospect_pri_voz
+      const batchSize = 100;
 
-      if (upsertError) {
-        console.error(`❌ [${requestId}] Erro no batch ${Math.floor(i / batchSize) + 1}:`, upsertError);
-        upsertErrors.push(upsertError.message);
-      } else {
-        totalUpserted += batch.length;
+      for (let i = 0; i < prospectsToUpsert.length; i += batchSize) {
+        const batch = prospectsToUpsert.slice(i, i + batchSize);
+        const { error: upsertError } = await supabase
+          .from('prospect_pri_voz')
+          .upsert(batch, { onConflict: 'telefone_lead,id_evento' });
+
+        if (upsertError) {
+          console.error(`❌ [${requestId}] Erro no batch ${Math.floor(i / batchSize) + 1}:`, upsertError);
+          upsertErrors.push(upsertError.message);
+        } else {
+          totalUpserted += batch.length;
+        }
       }
+
+      console.log(`✅ [${requestId}] ${totalUpserted}/${contatos.length} contatos salvos em prospect_pri_voz`);
+    } else {
+      console.log(`⏭️ [${requestId}] Pulando salvamento local (empresa_id não fornecido - modo teste)`);
     }
 
-    console.log(`✅ [${requestId}] ${totalUpserted}/${contatos.length} contatos salvos em prospect_pri_voz`);
-
-    // 1c. Criar/vincular contatos na tabela contatos + eventos_prospeccao
+    // 1d. Criar/vincular contatos na tabela contatos + eventos_prospeccao (só se tiver empresa_id e prospeccao_id)
     let contatosCriados = 0;
     let contatosVinculados = 0;
 
-    if (prospeccao_id) {
+    if (!skipLocalSave && prospeccao_id) {
       console.log(`\n📌 [${requestId}] Vinculando contatos à prospecção ${prospeccao_id}...`);
 
       for (const contato of contatos) {
