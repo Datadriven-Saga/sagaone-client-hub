@@ -724,6 +724,7 @@ export function useStartSessao() {
 
 export function useEndSessao() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -747,11 +748,23 @@ export function useEndSessao() {
     }) => {
       const dataFim = new Date().toISOString();
 
+      // Format avaliacoes with nota per dimension for the DB function
+      const formattedAvaliacoes: Record<string, { nota: number }> = {};
+      if (avaliacoes) {
+        Object.entries(avaliacoes).forEach(([key, value]) => {
+          if (typeof value === 'number') {
+            formattedAvaliacoes[key] = { nota: value };
+          } else if (typeof value === 'object' && value !== null && 'nota' in (value as any)) {
+            formattedAvaliacoes[key] = value as { nota: number };
+          }
+        });
+      }
+
       const payload: Record<string, unknown> = {
         status: "concluida",
         data_fim: dataFim,
         transcricao: (transcricao || []) as unknown as null,
-        avaliacoes: (avaliacoes || {}) as unknown as null,
+        avaliacoes: formattedAvaliacoes as unknown as null,
         nota_final: notaFinal,
         feedback_ia: feedbackIA,
         pontos_fortes: (pontosFortes || []) as unknown as null,
@@ -768,10 +781,22 @@ export function useEndSessao() {
         .eq("id", sessaoId);
 
       if (error) throw error;
+
+      // Recalculate user metrics after session ends
+      if (user?.id) {
+        const { error: rpcError } = await supabase.rpc(
+          'academy_recalcular_metricas_usuario',
+          { p_user_id: user.id }
+        );
+        if (rpcError) {
+          console.error('[useEndSessao] Error recalculating metrics:', rpcError);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["academy-sessoes"] });
       queryClient.invalidateQueries({ queryKey: ["academy-metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["academy-ranking"] });
     },
     onError: (error) => {
       toast.error("Erro ao finalizar sessão: " + error.message);
