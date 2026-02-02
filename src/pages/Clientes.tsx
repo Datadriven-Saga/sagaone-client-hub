@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DateRangePicker } from "@/components/DateRangePicker";
-import { Users, Phone, Mail, UserCheck, CalendarDays } from "lucide-react";
+import { Users, Phone, Mail, UserCheck, CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import { useClientesData } from "@/hooks/useClientesData";
@@ -33,8 +33,12 @@ const Clientes = () => {
   const [prospeccaoId, setProspeccaoId] = useState("todos");
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
   
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+  
   // Hook agora aceita prospeccaoId para filtrar
-  const { clientes: clientesList, kpis: kpisData, distribuicaoGenero, distribuicaoDocumento, loading } = useClientesData({ prospeccaoId });
+  const { clientes: clientesList, kpis: kpisData, distribuicaoGenero, distribuicaoDocumento, loading, refetch } = useClientesData({ prospeccaoId });
 
   // Carregar prospecções para o filtro
   useEffect(() => {
@@ -84,6 +88,18 @@ const Clientes = () => {
       return matchSearch && matchTipo && matchSexo && matchDate;
     });
   }, [clientesList, searchTerm, tipoCliente, sexoFiltro, dateRange]);
+
+  // Reset para página 1 quando filtros mudam
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, tipoCliente, sexoFiltro, dateRange, prospeccaoId]);
+
+  // Paginação
+  const totalPages = Math.ceil(clientesFiltrados.length / itemsPerPage);
+  const paginatedClientes = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return clientesFiltrados.slice(startIndex, startIndex + itemsPerPage);
+  }, [clientesFiltrados, currentPage, itemsPerPage]);
 
   const kpis = [
     { title: "Clientes", value: loading ? "..." : kpisData.total.toLocaleString('pt-BR'), icon: Users },
@@ -264,8 +280,24 @@ const Clientes = () => {
         {/* Clients Table */}
         <Card className="p-4">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-foreground">Lista de Clientes</h3>
-            <Button onClick={handleNewClient}>Novo Cliente</Button>
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-semibold text-foreground">Lista de Clientes</h3>
+              <span className="text-sm text-muted-foreground">
+                ({clientesFiltrados.length} {clientesFiltrados.length === 1 ? 'registro' : 'registros'})
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refetch()}
+                disabled={loading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Sincronizar
+              </Button>
+              <Button onClick={handleNewClient}>Novo Cliente</Button>
+            </div>
           </div>
 
           {loading ? (
@@ -284,36 +316,96 @@ const Clientes = () => {
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead className="text-center">Comprou</TableHead>
-                  <TableHead>Responsável</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {clientesFiltrados.map((client) => (
-                  <TableRow 
-                    key={client.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleClientRowClick(client)}
-                  >
-                    <TableCell className="font-medium">{client.name}</TableCell>
-                    <TableCell className="text-center">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        client.hasPurchased === 'Sim' 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                          : 'bg-muted text-muted-foreground'
-                      }`}>
-                        {client.hasPurchased}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{client.responsible}</TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead className="text-center">Comprou</TableHead>
+                    <TableHead>Responsável</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {paginatedClientes.map((client) => (
+                    <TableRow 
+                      key={client.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleClientRowClick(client)}
+                    >
+                      <TableCell className="font-medium">{client.name}</TableCell>
+                      <TableCell className="text-muted-foreground">{client.phone || '-'}</TableCell>
+                      <TableCell className="text-muted-foreground">{client.email || '-'}</TableCell>
+                      <TableCell className="text-center">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          client.hasPurchased === 'Sim' 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                            : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {client.hasPurchased}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{client.responsible}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {/* Paginação */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, clientesFiltrados.length)} de {clientesFiltrados.length}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Anterior
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            className="w-8 h-8 p-0"
+                            onClick={() => setCurrentPage(pageNum)}
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Próximo
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </Card>
 
