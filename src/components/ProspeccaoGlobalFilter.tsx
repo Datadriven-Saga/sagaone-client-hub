@@ -240,7 +240,7 @@ export function ProspeccaoGlobalFilter({
                   </Select>
                 </div>
 
-                {/* Vendedor/Responsável */}
+                {/* Vendedor/Responsável - Somente vinculados à loja */}
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-muted-foreground">Vendedor/Responsável</label>
                   <Select 
@@ -252,11 +252,14 @@ export function ProspeccaoGlobalFilter({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="todos">Todos</SelectItem>
-                      {responsaveis.map((r) => (
-                        <SelectItem key={r.id} value={r.id}>
-                          {r.nome_completo}
-                        </SelectItem>
-                      ))}
+                      {responsaveis
+                        .filter(r => r.nome_completo) // Apenas com nome preenchido
+                        .sort((a, b) => (a.nome_completo || '').localeCompare(b.nome_completo || ''))
+                        .map((r) => (
+                          <SelectItem key={r.id} value={r.id}>
+                            {r.nome_completo}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>

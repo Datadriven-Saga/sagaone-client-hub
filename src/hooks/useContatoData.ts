@@ -336,19 +336,13 @@ export const useContatoData = () => {
       return;
     }
 
-    // Se não tem empresa ativa mas o usuário está autenticado, aguardar um pouco
+    // Se não tem empresa ativa mas o usuário está autenticado, parar loading imediatamente
     if (!activeCompany?.id) {
-      console.log('⏳ No active company yet, waiting...');
+      console.log('⏳ No active company, stopping loading');
       setContatos([]);
       setProspeccoes([]);
-      
-      // Timeout para evitar loading infinito - após 3 segundos para de carregar
-      const timeout = setTimeout(() => {
-        console.log('⏰ Timeout reached, stopping loading without active company');
-        setLoading(false);
-      }, 3000);
-      
-      return () => clearTimeout(timeout);
+      setLoading(false);
+      return;
     }
 
     const loadData = async () => {
@@ -356,12 +350,21 @@ export const useContatoData = () => {
       setLoading(true);
       
       try {
-        // Carregar prospecções com showAllEvents=true por padrão
-        // A página pode sobrescrever chamando fetchProspeccoes com valor específico
-        await Promise.all([
-          fetchProspeccoes(true),
-          fetchContatos()
+        // Carregar prospecções primeiro (rápido) e contatos em paralelo
+        // Usar timeout para garantir que loading nunca fique infinito
+        const timeout = new Promise<void>((resolve) => setTimeout(() => {
+          console.log('⏰ Load timeout reached');
+          resolve();
+        }, 15000)); // 15 segundos máximo
+
+        await Promise.race([
+          Promise.all([
+            fetchProspeccoes(true),
+            fetchContatos()
+          ]),
+          timeout
         ]);
+        
         console.log('✅ Data loaded successfully');
       } catch (error) {
         console.error('❌ Error loading data:', error);

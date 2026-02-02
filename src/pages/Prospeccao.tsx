@@ -253,33 +253,55 @@ showAllEvents: true
   console.log('🔑 User from auth:', user);
   console.log('📊 Data from hooks - contatos:', contatos?.length, 'prospeccoes:', prospeccoes?.length, 'loading:', loading);
 
-  // Buscar profiles diretamente (sem chamar edge function para evitar timeout)
+  // Buscar profiles de vendedores vinculados à empresa ativa
+  // Filtro: apenas usuários com vínculo em user_empresas E tipo_acesso vendedor/similar
   useEffect(() => {
     const fetchProfiles = async () => {
-      // Buscar profiles com celular - query simples e rápida
-      const { data: profilesData, error } = await supabase
-        .from('profiles')
-        .select('id, nome_completo, tipo_acesso, celular, departamento')
-        .limit(200); // Limitar para performance
+      if (!activeCompany?.id) return;
       
-      if (error) {
-        console.error('Error fetching profiles:', error);
-        return;
-      }
-      
-      if (profilesData) {
-        // Usar os dados diretamente sem buscar emails via edge function
-        // O email pode ser obtido do próprio user context quando necessário
-        setProfiles(profilesData.map(p => ({
-          ...p,
-          email: undefined as string | undefined
-        })));
+      try {
+        // 1. Buscar IDs de usuários vinculados à empresa ativa
+        const { data: userEmpresasData, error: ueError } = await supabase
+          .from('user_empresas')
+          .select('user_id')
+          .eq('empresa_id', activeCompany.id);
+        
+        if (ueError) {
+          console.error('Error fetching user_empresas:', ueError);
+          return;
+        }
+
+        const userIds = (userEmpresasData || []).map(ue => ue.user_id).filter(Boolean);
+        
+        if (userIds.length === 0) {
+          setProfiles([]);
+          return;
+        }
+
+        // 2. Buscar profiles desses usuários, priorizando vendedores
+        const { data: profilesData, error } = await supabase
+          .from('profiles')
+          .select('id, nome_completo, tipo_acesso, celular, departamento')
+          .in('id', userIds)
+          .in('tipo_acesso', ['Vendedor', 'CRM', 'Gerente de Loja', 'Gerente de Leads', 'Administrador', 'TI', 'Diretor', 'Recepcionista']);
+        
+        if (error) {
+          console.error('Error fetching profiles:', error);
+          return;
+        }
+        
+        if (profilesData) {
+          setProfiles(profilesData.map(p => ({
+            ...p,
+            email: undefined as string | undefined
+          })));
+        }
+      } catch (error) {
+        console.error('Error in fetchProfiles:', error);
       }
     };
     
-    if (activeCompany?.id) {
-      fetchProfiles();
-    }
+    fetchProfiles();
   }, [activeCompany?.id]);
 
   // Recarregar eventos quando o filtro "mostrar todos" mudar
