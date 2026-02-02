@@ -255,7 +255,8 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
       });
 
       // Build WebSocket URL with params
-      const wsUrl = new URL(`wss://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/academy-voice-simulation`);
+      // IMPORTANT: WebSocket Edge Functions use the functions subdomain.
+      const wsUrl = new URL(`wss://karcxgnfiymlrkbzhewo.functions.supabase.co/functions/v1/academy-voice-simulation`);
       wsUrl.searchParams.set('persona', persona.name);
       wsUrl.searchParams.set('role', persona.role);
       wsUrl.searchParams.set('context', scenario.description);
@@ -288,7 +289,12 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
           };
 
           sourceRef.current.connect(processorRef.current);
-          processorRef.current.connect(audioContextRef.current.destination);
+          // Don't monitor mic audio to speakers (causes echo/ruído and breaks STT).
+          // ScriptProcessor needs an output connection to run, so we route through a muted gain.
+          const monitorGain = audioContextRef.current.createGain();
+          monitorGain.gain.value = 0;
+          processorRef.current.connect(monitorGain);
+          monitorGain.connect(audioContextRef.current.destination);
         }
 
         toast.success('Simulação iniciada! Fale com o cliente.');
@@ -322,8 +328,11 @@ export function useVoiceSimulation({ scenario, persona, onSessionEnd }: UseVoice
 
             case 'response.audio_transcript.done':
               // Finalize AI message with transcript
-              if (currentAITranscriptRef.current.trim()) {
-                addMessage('ai', currentAITranscriptRef.current.trim());
+              {
+                const finalTranscript = (data.transcript as string | undefined)?.trim() || currentAITranscriptRef.current.trim();
+                if (finalTranscript) {
+                  addMessage('ai', finalTranscript);
+                }
                 currentAITranscriptRef.current = '';
                 setPartialTranscript('');
               }
