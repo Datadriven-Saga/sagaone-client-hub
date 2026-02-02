@@ -142,6 +142,7 @@ showAllEvents: true
     prospeccoes,
     contatosProspeccoes,
     loading, 
+    loadingContatos,
     adicionarContatos,
     atualizarContato,
     atualizarStatusContato,
@@ -2046,13 +2047,22 @@ showAllEvents: true
 
         <TabsContent value="kanban" className="mt-0 w-full min-w-0 overflow-hidden">
           <div className="h-[calc(100vh-220px)] w-full min-w-0 overflow-hidden">
-            <KanbanBoard
-              columns={kanbanColumns}
-              onUpdateColumns={() => {}}
-              onCardClick={handleCardClick}
-              onStatusChange={handleStatusChange}
-              onSolicitarClientes={solicitarClientes}
-            />
+            {loadingContatos ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <p className="text-sm text-muted-foreground">Carregando leads...</p>
+                </div>
+              </div>
+            ) : (
+              <KanbanBoard
+                columns={kanbanColumns}
+                onUpdateColumns={() => {}}
+                onCardClick={handleCardClick}
+                onStatusChange={handleStatusChange}
+                onSolicitarClientes={solicitarClientes}
+              />
+            )}
           </div>
         </TabsContent>
 
@@ -2072,7 +2082,7 @@ showAllEvents: true
                   </div>
                 </div>
 
-                {loading ? (
+                {(loading || loadingContatos) ? (
                   <div className="flex items-center justify-center h-24">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                   </div>
