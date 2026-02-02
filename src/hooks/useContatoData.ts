@@ -324,6 +324,7 @@ export const useContatoData = () => {
 
   // Estado para controlar se contatos já foram carregados
   const [contatosLoaded, setContatosLoaded] = useState(false);
+  const [loadingContatos, setLoadingContatos] = useState(false);
 
   // Carregar prospecções quando empresa ativa muda (RÁPIDO - apenas eventos)
   useEffect(() => {
@@ -365,6 +366,7 @@ export const useContatoData = () => {
 
     // Reset contatos quando empresa muda
     setContatosLoaded(false);
+    setLoadingContatos(false);
     setContatos([]);
     setContatosProspeccoes(new Map());
     
@@ -373,12 +375,21 @@ export const useContatoData = () => {
 
   // Função para carregar contatos sob demanda (chamada apenas quando necessário)
   const loadContatos = useCallback(async () => {
-    if (contatosLoaded || !activeCompany?.id) return;
+    // Evitar chamadas duplicadas
+    if (contatosLoaded || loadingContatos || !activeCompany?.id) return;
     
     console.log('📥 Loading contatos on demand...');
-    await fetchContatos();
-    setContatosLoaded(true);
-  }, [contatosLoaded, activeCompany?.id, fetchContatos]);
+    setLoadingContatos(true);
+    
+    try {
+      await fetchContatos();
+      setContatosLoaded(true);
+    } catch (error) {
+      console.error('❌ Error loading contatos:', error);
+    } finally {
+      setLoadingContatos(false);
+    }
+  }, [contatosLoaded, loadingContatos, activeCompany?.id, fetchContatos]);
 
   // Normalizar telefone para comparação (remove caracteres especiais)
   // Usa os últimos 11 dígitos para evitar conflitos (DDD + número completo)
@@ -1807,6 +1818,7 @@ export const useContatoData = () => {
     prospeccoes,
     contatosProspeccoes, // Mapa contato_id -> Set<prospeccao_id> para filtrar por evento
     loading,
+    loadingContatos,
     adicionarContatos,
     atualizarContato,
     atualizarStatusContato,
