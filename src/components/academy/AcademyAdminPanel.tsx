@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -193,6 +193,41 @@ export function AcademyAdminPanel() {
       duracao_estimada_minutos: defaultDuracao,
     }));
   };
+
+  // Track previous persona name/cargo to detect changes and update prompt
+  const prevPersonaRef = useRef({ nome: "", cargo: "" });
+  
+  // Auto-update promptSistema when personaNome or personaCargo changes
+  useEffect(() => {
+    const { nome: prevNome, cargo: prevCargo } = prevPersonaRef.current;
+    const { personaNome, personaCargo, promptSistema } = formData;
+    
+    // Only update if we have a prompt and something changed
+    if (promptSistema && (prevNome || prevCargo)) {
+      let updatedPrompt = promptSistema;
+      
+      // Replace old name with new name if it changed
+      if (prevNome && personaNome && prevNome !== personaNome) {
+        // Replace the name throughout the prompt (case insensitive, word boundary)
+        const nameRegex = new RegExp(`\\b${prevNome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+        updatedPrompt = updatedPrompt.replace(nameRegex, personaNome);
+      }
+      
+      // Replace old cargo with new cargo if it changed
+      if (prevCargo && personaCargo && prevCargo !== personaCargo) {
+        const cargoRegex = new RegExp(`\\b${prevCargo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+        updatedPrompt = updatedPrompt.replace(cargoRegex, personaCargo);
+      }
+      
+      // Update prompt if it changed
+      if (updatedPrompt !== promptSistema) {
+        setFormData(prev => ({ ...prev, promptSistema: updatedPrompt }));
+      }
+    }
+    
+    // Update refs for next comparison
+    prevPersonaRef.current = { nome: personaNome, cargo: personaCargo };
+  }, [formData.personaNome, formData.personaCargo]);
 
   // Check if user has admin access
   const hasAdminAccess = isAdminOrTI || isGerente || isDiretor;
