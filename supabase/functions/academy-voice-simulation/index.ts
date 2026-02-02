@@ -221,6 +221,7 @@ Comece com um cumprimento breve e natural.`;
             modalities: ['text', 'audio'],
             instructions: systemPrompt,
             voice: requestedVoice,
+            language: 'pt', // Portuguese - improves TTS pronunciation for Brazilian Portuguese
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             input_audio_transcription: {
