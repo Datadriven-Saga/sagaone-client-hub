@@ -103,15 +103,29 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
         timestamp: m.timestamp,
       }));
 
+      // Calculate nota final (1-5 rating → 2-10 scale)
+      const notaFinal = rating * 2;
+
+      // Build avaliacoes with dimension notes for the metrics calculation
+      // The DB function expects format: { "Situação": { "nota": X }, ... }
+      // For now, distribute the rating across all dimensions until we have AI evaluation
+      const avaliacoes = {
+        user_rating: rating,
+        user_comment: comment,
+        // Add dimension scores (same as final score until AI provides detailed evaluation)
+        "Situação": { nota: notaFinal },
+        "Problema": { nota: notaFinal },
+        "Implicação": { nota: notaFinal },
+        "Negociação e Objeção": { nota: notaFinal },
+        "Fechamento e Próximos Passos": { nota: notaFinal },
+      };
+
       // End session in database with evaluation data
       await endSessaoMutation.mutateAsync({
         sessaoId: session.id,
         transcricao,
-        avaliacoes: {
-          user_rating: rating,
-          user_comment: comment,
-        },
-        notaFinal: rating * 2, // Convert 1-5 to 2-10 scale
+        avaliacoes,
+        notaFinal,
         feedbackIA: `Avaliação do usuário: ${rating}/5 estrelas. ${comment || "Sem comentário adicional."}`,
         pontosFortes: [],
         pontosMelhoria: [],
