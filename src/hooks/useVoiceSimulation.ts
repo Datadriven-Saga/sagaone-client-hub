@@ -84,14 +84,18 @@ const createWavFromPCM = (pcmData: Uint8Array): Uint8Array => {
 };
 
 // Audio Queue for sequential playback with volume control
+// Accumulates audio chunks to avoid choppy playback
 class AudioQueue {
-  private queue: Uint8Array[] = [];
+  private pendingChunks: Uint8Array[] = [];
   private isPlaying = false;
   private audioContext: AudioContext;
   private gainNode: GainNode;
   private onPlayingChange: (playing: boolean) => void;
   private currentSource: AudioBufferSourceNode | null = null;
   private stopped = false;
+  private flushTimeout: NodeJS.Timeout | null = null;
+  private readonly FLUSH_DELAY_MS = 150; // Accumulate for smoother playback
+  private readonly MIN_CHUNK_SIZE = 4800; // ~100ms at 24kHz
 
   constructor(
     audioContext: AudioContext, 
@@ -105,22 +109,57 @@ class AudioQueue {
 
   async addToQueue(audioData: Uint8Array) {
     if (this.stopped) return;
-    this.queue.push(audioData);
-    if (!this.isPlaying) {
-      await this.playNext();
+    
+    this.pendingChunks.push(audioData);
+    
+    // Clear existing timeout and set a new one
+    if (this.flushTimeout) {
+      clearTimeout(this.flushTimeout);
+    }
+    
+    // Check if we have enough data to play
+    const totalSize = this.pendingChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    
+    if (totalSize >= this.MIN_CHUNK_SIZE) {
+      // We have enough data, flush it
+      this.flushPendingChunks();
+    } else {
+      // Wait a bit for more data
+      this.flushTimeout = setTimeout(() => {
+        this.flushPendingChunks();
+      }, this.FLUSH_DELAY_MS);
     }
   }
 
-  private async playNext() {
-    if (this.stopped || this.queue.length === 0) {
-      this.isPlaying = false;
-      this.onPlayingChange(false);
+  private flushPendingChunks() {
+    if (this.stopped || this.pendingChunks.length === 0) return;
+    
+    // Combine all pending chunks into one
+    const totalLength = this.pendingChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const combined = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of this.pendingChunks) {
+      combined.set(chunk, offset);
+      offset += chunk.length;
+    }
+    this.pendingChunks = [];
+    
+    // Play the combined chunk
+    this.playAudio(combined);
+  }
+
+  private async playAudio(audioData: Uint8Array) {
+    if (this.stopped) return;
+    
+    // If already playing, queue this for later
+    if (this.isPlaying) {
+      // Re-add to pending and it will be picked up after current finishes
+      this.pendingChunks.push(audioData);
       return;
     }
 
     this.isPlaying = true;
     this.onPlayingChange(true);
-    const audioData = this.queue.shift()!;
 
     try {
       const wavData = createWavFromPCM(audioData);
@@ -129,28 +168,42 @@ class AudioQueue {
       const source = this.audioContext.createBufferSource();
       this.currentSource = source;
       source.buffer = audioBuffer;
-      // Connect through gain node for volume control
       source.connect(this.gainNode);
       
       source.onended = () => {
         this.currentSource = null;
+        this.isPlaying = false;
+        
         if (!this.stopped) {
-          this.playNext();
+          // Check if there's more pending data
+          if (this.pendingChunks.length > 0) {
+            this.flushPendingChunks();
+          } else {
+            this.onPlayingChange(false);
+          }
         }
       };
       source.start(0);
     } catch (error) {
       console.error('Error playing audio:', error);
       this.currentSource = null;
-      if (!this.stopped) {
-        this.playNext();
+      this.isPlaying = false;
+      
+      if (!this.stopped && this.pendingChunks.length > 0) {
+        this.flushPendingChunks();
+      } else {
+        this.onPlayingChange(false);
       }
     }
   }
 
   stop() {
     this.stopped = true;
-    this.queue = [];
+    this.pendingChunks = [];
+    if (this.flushTimeout) {
+      clearTimeout(this.flushTimeout);
+      this.flushTimeout = null;
+    }
     if (this.currentSource) {
       try {
         this.currentSource.stop();
@@ -164,7 +217,11 @@ class AudioQueue {
   }
 
   clear() {
-    this.queue = [];
+    this.pendingChunks = [];
+    if (this.flushTimeout) {
+      clearTimeout(this.flushTimeout);
+      this.flushTimeout = null;
+    }
   }
 }
 

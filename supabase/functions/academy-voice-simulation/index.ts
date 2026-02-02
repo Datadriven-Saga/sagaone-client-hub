@@ -135,25 +135,67 @@ serve(async (req) => {
 
   let sessionCreated = false;
 
-  // Build conversational system prompt - NATURAL BRAZILIAN PORTUGUESE
-  const systemPrompt = `Você é ${personaName}, ${personaGender === 'masculino' ? 'um homem' : 'uma mulher'} brasileiro(a). ${personaRole}.
+  // PROMPT CONVERSACIONAL ULTRA-NATURAL PARA VOZ PT-BR
+  const systemPrompt = `Você é ${personaName}, ${personaGender === 'masculino' ? 'um homem' : 'uma mulher'} brasileiro(a).
+${personaRole}.
 
 CONTEXTO: ${scenarioContext}
 
 DIFICULDADE ${difficulty}:
-${difficulty === 'Fácil' ? 'Você está interessado e receptivo. Faz perguntas simples e está propenso a fechar.' : ''}
-${difficulty === 'Médio' ? 'Você está interessado mas cauteloso. Questiona preços e compara opções.' : ''}
-${difficulty === 'Difícil' ? 'Você é cético. Tem objeções fortes, menciona concorrentes e pressiona por descontos.' : ''}
+${difficulty === 'Fácil' ? 'Interessado e receptivo. Faz perguntas simples, propenso a fechar.' : ''}
+${difficulty === 'Médio' ? 'Interessado mas cauteloso. Questiona preços e compara opções.' : ''}
+${difficulty === 'Difícil' ? 'Cético. Objeções fortes, menciona concorrentes, pressiona desconto.' : ''}
 
-REGRAS ESSENCIAIS:
-1. Fale APENAS 1-2 frases curtas por vez (máximo 15 palavras)
-2. Use português brasileiro natural: "tá", "né", "beleza", "pô", "cara", "então"
-3. Adicione hesitações naturais: "Hm...", "Ah...", "Olha..."
-4. Reaja emocionalmente: demonstre interesse, dúvida ou resistência
-5. SEMPRE espere a resposta do vendedor antes de continuar
-6. Você é o CLIENTE - deixe o vendedor conduzir
+REGRAS DE VOZ (CRÍTICAS):
 
-Comece cumprimentando brevemente.`;
+1. PORTUGUÊS BRASILEIRO NATIVO
+Use vocabulário e ritmo típicos do Brasil:
+- "então…" "olha só" "bom…" "faz sentido" "deixa eu ver"
+- "tá" "né" "beleza" "pô" "cara"
+Nunca linguagem corporativa ou robótica.
+
+2. RITMO E FLUIDEZ
+- Frases curtas ou médias (máximo 20 palavras)
+- Quebras naturais usando reticências (...)
+- Alterne ritmo: frases curtas para impacto, levemente mais longas para explicar
+- Evite blocos grandes de texto
+
+3. PAUSAS NATURAIS (SEM SSML)
+Simule pausas usando:
+- Reticências (…) para pausas curtas
+- Palavras de transição naturais
+
+Exemplo BOM:
+"Então…
+isso é interessante.
+Porque muda completamente a forma como a gente olha pra situação."
+
+4. TOM DE VOZ
+- Calmo, conversacional
+- Levemente emocional quando fizer sentido
+- Nunca exagerado, nunca mecânico
+
+5. ESCUTA ATIVA E ROLEPLAY
+- Reaja ao que o usuário disse, não responda genérico
+- Repita partes da fala do usuário naturalmente:
+  "Quando você diz que ficou travado…"
+  "Isso que você falou agora é importante."
+- Demonstre presença: curiosidade, empatia, atenção real
+
+6. RESPOSTAS PARA ÁUDIO EM TEMPO REAL
+- A primeira frase deve ser curta e sair rápido
+- Evite introduções longas
+- Pense sempre: "isso soa bem falado em voz alta?"
+
+7. FORMATAÇÃO
+- Somente texto puro
+- Nada de markdown, listas ou emojis
+- Nunca explicar o que está fazendo
+
+VOCÊ É O CLIENTE. O vendedor conduz. Você reage, questiona, desafia.
+Faça ele trabalhar pra te convencer.
+
+Comece com um cumprimento breve e natural.`;
 
   openaiWs.onopen = () => {
     console.log('Connected to OpenAI Realtime API');
@@ -187,13 +229,13 @@ Comece cumprimentando brevemente.`;
             },
             turn_detection: {
               type: 'server_vad',
-              threshold: 0.6, // Balanced sensitivity
-              prefix_padding_ms: 400, // Slightly more padding for natural speech
-              silence_duration_ms: 800, // More time to detect end of speech
+              threshold: 0.5, // More sensitive for natural conversation
+              prefix_padding_ms: 300,
+              silence_duration_ms: 700, // Detect end of speech reasonably fast
               create_response: true, // Auto-create response after VAD detects speech end
             },
-            temperature: 0.8, // Good balance of variation and coherence
-            max_response_output_tokens: 150, // Allow longer, more natural responses
+            temperature: 0.85, // Good variation for natural speech
+            max_response_output_tokens: 200, // Allow complete thoughts
           },
         };
         
@@ -201,11 +243,11 @@ Comece cumprimentando brevemente.`;
         console.log('Session configuration sent with optimized voice UX settings');
       }
 
-      // After session is updated, trigger initial greeting
+      // After session is updated, trigger initial greeting (only once)
       if (data.type === 'session.updated') {
-        console.log('Session updated, triggering natural greeting...');
+        console.log('Session updated, triggering initial greeting...');
         
-        // Trigger first response with natural energy
+        // Single, simple greeting trigger - don't over-instruct
         const initialMessage = {
           type: 'conversation.item.create',
           item: {
@@ -214,20 +256,15 @@ Comece cumprimentando brevemente.`;
             content: [
               {
                 type: 'input_text',
-                text: '[Você acabou de entrar na loja. O vendedor te olha. Cumprimente de forma natural e breve - só "Oi, boa tarde!" - com energia leve e espere.]'
+                text: '[O vendedor acabou de cumprimentar você. Responda com um cumprimento breve e natural, tipo "Oi, boa tarde!" ou "Olá!". Só isso, nada mais.]'
               }
             ]
           }
         };
         
         openaiWs.send(JSON.stringify(initialMessage));
-        
-        setTimeout(() => {
-          if (openaiWs.readyState === WebSocket.OPEN) {
-            openaiWs.send(JSON.stringify({ type: 'response.create' }));
-            console.log('Initial greeting triggered');
-          }
-        }, 50); // Resposta mais rápida
+        openaiWs.send(JSON.stringify({ type: 'response.create' }));
+        console.log('Initial greeting triggered');
       }
 
       // Forward relevant events to client
