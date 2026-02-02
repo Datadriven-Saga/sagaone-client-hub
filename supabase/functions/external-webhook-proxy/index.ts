@@ -116,6 +116,31 @@ Deno.serve(async (req: Request) => {
       fetchOptions.body = JSON.stringify(postBody);
     }
 
+    // Para dispara-ligacao, fazer chamada assíncrona (fire-and-forget) para evitar timeout
+    if (endpoint === 'dispara-ligacao') {
+      // Disparar em background e retornar imediatamente
+      fetch(externalUrl.toString(), fetchOptions)
+        .then(async (response) => {
+          const text = await response.text();
+          console.log('✅ dispara-ligacao Response status:', response.status);
+          console.log('📥 dispara-ligacao Response:', text.substring(0, 500));
+        })
+        .catch((err) => {
+          console.error('❌ dispara-ligacao Error:', err);
+        });
+
+      // Retornar imediatamente sem esperar a resposta
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Disparo iniciado com sucesso. A ligação será realizada em instantes.',
+          async: true 
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Para outros endpoints, aguardar resposta normalmente
     const response = await fetch(externalUrl.toString(), fetchOptions);
 
     const responseText = await response.text();

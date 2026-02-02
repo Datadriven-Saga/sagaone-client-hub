@@ -278,9 +278,10 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
 
       console.log("Resposta dispara-ligacao:", data);
 
+      // A resposta é assíncrona, então mostramos sucesso imediato
       toast({
-        title: "Ligações disparadas!",
-        description: `Iniciando ligação para ${contatosParaEnviar.length} contato(s)`,
+        title: "Disparo iniciado!",
+        description: data?.message || `Ligação para ${contatosParaEnviar.length} contato(s) será realizada em instantes`,
       });
 
     } catch (error: any) {
