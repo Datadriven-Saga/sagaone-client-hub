@@ -34,6 +34,7 @@ import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
 import { useContatoData, kanbanStatusMap, Contato } from "@/hooks/useContatoData";
+import { useAutoAtribuirLeads } from "@/hooks/useAutoAtribuirLeads";
 import { useRecepcaoData } from "@/hooks/useRecepcaoData";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -135,7 +136,7 @@ showAllEvents: true
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeCompany, loading: companyLoading, switchCompany } = useCompany();
-  const { canAddClientes, isAdminOrTI, canUploadBase, canCreateEventos, canManageEventos } = useUserAccessType();
+  const { canAddClientes, isAdminOrTI, canUploadBase, canCreateEventos, canManageEventos, isVendedor, isSDR } = useUserAccessType();
   const { registrarMovimentacao } = useProspeccaoLogs();
   const { 
     contatos, 
@@ -174,6 +175,14 @@ showAllEvents: true
     validarEvento
   } = useRecepcaoData();
   const { fetchMetricasLigacao } = useMetricasLigacao();
+  
+  // Hook para atribuição automática de leads (vendedores)
+  const { 
+    isLimitedUser, 
+    atribuirLeadsAutomaticamente, 
+    verificarEAtribuirSeNecessario,
+    loading: atribuindoLeads 
+  } = useAutoAtribuirLeads();
   
   // State para métricas externas de IA Ligação
   const [metricasLigacaoExternas, setMetricasLigacaoExternas] = useState<Record<string, MetricasLigacaoExternas>>({});
@@ -456,12 +465,24 @@ showAllEvents: true
   }, [activeCompany?.id, prospeccoes.length > 0]);
 
   // Carregar contatos apenas quando necessário (aba kanban, recepcao, ou vendas)
+  // Para vendedores: atribuir leads automaticamente quando entrar na aba de atendimentos
   useEffect(() => {
     if (activeTab !== 'eventos' && activeCompany?.id && !contatosLoaded) {
       console.log('📥 Loading contatos for tab:', activeTab);
       loadContatos();
     }
   }, [activeTab, activeCompany?.id, contatosLoaded, loadContatos]);
+
+  // Atribuir leads automaticamente para vendedores quando acessam a aba de atendimentos
+  useEffect(() => {
+    if (activeTab === 'kanban' && contatosLoaded && isLimitedUser) {
+      console.log('🎯 Vendedor acessou aba de atendimentos - verificando se precisa de leads...');
+      verificarEAtribuirSeNecessario().then(() => {
+        // Recarregar contatos após atribuição para mostrar os novos leads
+        refetch();
+      });
+    }
+  }, [activeTab, contatosLoaded, isLimitedUser, verificarEAtribuirSeNecessario, refetch]);
   useEffect(() => {
     sessionStorage.setItem('prospeccao_active_tab', activeTab);
   }, [activeTab]);
@@ -1493,6 +1514,18 @@ showAllEvents: true
     if (!user) return;
 
     try {
+      // Para vendedores/SDR: usar atribuição automática via RPC (máximo 30)
+      if (isLimitedUser) {
+        const leadsAtribuidos = await atribuirLeadsAutomaticamente(true);
+        
+        if (leadsAtribuidos > 0) {
+          // Recarregar contatos para mostrar os novos leads
+          await refetch();
+        }
+        return;
+      }
+
+      // Para gestores: manter comportamento antigo (manual)
       // Verificar se o usuário tem contatos na coluna "Atribuídos" (status 'Atribuído')
       const contatosAtribuidos = contatos.filter(
         contato => contato && contato.status === 'Atribuído' && contato.responsavel_email === user.email
@@ -1521,7 +1554,7 @@ showAllEvents: true
         return;
       }
 
-      // Atribuir até 5 clientes para o usuário
+      // Atribuir até 5 clientes para o usuário (gestores)
       const clientesParaAtribuir = contatosNovos.slice(0, 5);
       
       for (const contato of clientesParaAtribuir) {
@@ -2060,7 +2093,7 @@ showAllEvents: true
                 onUpdateColumns={() => {}}
                 onCardClick={handleCardClick}
                 onStatusChange={handleStatusChange}
-                onSolicitarClientes={solicitarClientes}
+                onSolicitarClientes={isLimitedUser ? solicitarClientes : undefined}
               />
             )}
           </div>

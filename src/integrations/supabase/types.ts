@@ -3915,6 +3915,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      auto_atribuir_leads_vendedor: {
+        Args: { user_id_param?: string }
+        Returns: number
+      }
       can_manage_users: { Args: { user_id?: string }; Returns: boolean }
       check_password_protection_status: { Args: never; Returns: string }
       check_user_email_exists: {
@@ -3924,6 +3928,10 @@ export type Database = {
       check_user_is_admin: {
         Args: { user_id_param?: string }
         Returns: boolean
+      }
+      count_vendedor_leads_pendentes: {
+        Args: { user_id_param?: string }
+        Returns: number
       }
       generate_optout_dedupe_key: {
         Args: {
@@ -4013,6 +4021,10 @@ export type Database = {
         Returns: boolean
       }
       validate_email_domain: { Args: { email_input: string }; Returns: boolean }
+      vendedor_precisa_leads: {
+        Args: { user_id_param?: string }
+        Returns: boolean
+      }
     }
     Enums: {
       canal_optout: "Whatsapp" | "Ligação" | "SMS" | "E-mail"
