@@ -1451,8 +1451,8 @@ export function AcademyAdminPanel() {
 
       {/* Training Details Modal */}
       <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <GraduationCap className="h-5 w-5" />
               Detalhes do Treinamento
@@ -1460,7 +1460,7 @@ export function AcademyAdminPanel() {
           </DialogHeader>
           
           {selectedTraining && (
-            <ScrollArea className="flex-1 pr-4">
+            <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: 'calc(90vh - 120px)' }}>
               <div className="space-y-6">
                 {/* Training Header */}
                 <div className="p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border">
@@ -1588,7 +1588,7 @@ export function AcademyAdminPanel() {
                   )}
                 </div>
               </div>
-            </ScrollArea>
+            </div>
           )}
         </DialogContent>
       </Dialog>
