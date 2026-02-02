@@ -128,8 +128,37 @@ export function useClientesData({ prospeccaoId = "todos" }: UseClientesDataProps
 
       const contatosComCompra = new Set((vendasData || []).map(v => v.contato_id));
 
-      // Formatar para exibição
-      const clientesFormatted = contatosList.map(contato => ({
+      // DEDUPLICAÇÃO: Normalizar telefone e remover duplicatas
+      // Mantém o registro mais recente (primeiro na lista ordenada por created_at desc)
+      const normalizePhone = (phone: string | null): string => {
+        if (!phone) return '';
+        // Remove todos os caracteres não numéricos
+        let digits = phone.replace(/\D/g, '');
+        // Remove DDI 55 se tiver mais de 11 dígitos
+        if (digits.length > 11 && digits.startsWith('55')) {
+          digits = digits.substring(2);
+        }
+        return digits;
+      };
+
+      const seenPhones = new Set<string>();
+      const uniqueContatos = contatosList.filter(contato => {
+        const normalizedPhone = normalizePhone(contato.telefone);
+        
+        // Se não tem telefone, incluir (não pode deduplicar sem telefone)
+        if (!normalizedPhone) return true;
+        
+        // Se já vimos esse telefone, pular (duplicata)
+        if (seenPhones.has(normalizedPhone)) {
+          return false;
+        }
+        
+        seenPhones.add(normalizedPhone);
+        return true;
+      });
+
+      // Formatar para exibição (usando lista deduplicada)
+      const clientesFormatted = uniqueContatos.map(contato => ({
         id: contato.id,
         name: contato.nome,
         phone: contato.telefone || '',
@@ -146,25 +175,25 @@ export function useClientesData({ prospeccaoId = "todos" }: UseClientesDataProps
 
       setClientes(clientesFormatted);
 
-      // Calcular KPIs
+      // Calcular KPIs (usando lista deduplicada)
       setKpis({
-        total: contatosList.length,
-        comTelefone: contatosList.filter(c => c.telefone).length,
-        comEmail: contatosList.filter(c => c.email).length,
-        realizaramCompra: contatosList.filter(c => contatosComCompra.has(c.id)).length
+        total: uniqueContatos.length,
+        comTelefone: uniqueContatos.filter(c => c.telefone).length,
+        comEmail: uniqueContatos.filter(c => c.email).length,
+        realizaramCompra: uniqueContatos.filter(c => contatosComCompra.has(c.id)).length
       });
 
-      // Distribuições (contatos não têm esses campos detalhados)
+      // Distribuições (usando lista deduplicada - contatos não têm esses campos detalhados)
       setDistribuicaoGenero({
         masculino: 0,
         feminino: 0,
-        naoInformado: contatosList.length
+        naoInformado: uniqueContatos.length
       });
 
       setDistribuicaoDocumento({
         cpf: 0,
         cnpj: 0,
-        naoInformado: contatosList.length
+        naoInformado: uniqueContatos.length
       });
 
     } catch (error) {
