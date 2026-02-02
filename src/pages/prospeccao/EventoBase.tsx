@@ -2028,7 +2028,7 @@ export default function EventoBase() {
                         {isIA && <TableHead className="w-[130px]">Disparo IA</TableHead>}
                         {isIALigacao && <TableHead className="w-[80px] text-center">Tent.</TableHead>}
                         <TableHead className="w-[100px]">Criação</TableHead>
-                        
+                        {isIA && <TableHead className="w-[100px] text-center">Ações</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2151,6 +2151,76 @@ export default function EventoBase() {
                           <TableCell className="text-xs text-muted-foreground">
                             {contato.created_at ? format(new Date(contato.created_at), 'dd/MM/yy') : '-'}
                           </TableCell>
+                          {/* Coluna Ações - disparo individual */}
+                          {isIA && (
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                {isIAWhatsApp && !contato.data_disparo_ia && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 w-7 p-0"
+                                          onClick={() => handleDispararContato(contato)}
+                                          disabled={disparandoContato === contato.id}
+                                        >
+                                          {disparandoContato === contato.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <MessageCircle className="h-4 w-4 text-green-600" />
+                                          )}
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Disparar WhatsApp</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                                {isIALigacao && (
+                                  (() => {
+                                    let telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
+                                    if (telefoneNormalizado.length > 11 && telefoneNormalizado.startsWith('55')) {
+                                      telefoneNormalizado = telefoneNormalizado.substring(2);
+                                    }
+                                    const dadosExternos = contatosExternos.get(telefoneNormalizado);
+                                    const isEncerrado = dadosExternos?.status_agendado || dadosExternos?.enviado_whatsapp || dadosExternos?.ligacao_atendida;
+                                    const numTentativas = dadosExternos?.num_tentativas || 0;
+                                    
+                                    // Só mostrar botão se elegível (não encerrado e < 2 tentativas)
+                                    if (!isEncerrado && numTentativas < 2) {
+                                      return (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 w-7 p-0"
+                                                onClick={() => handleDispararContato(contato)}
+                                                disabled={disparandoContato === contato.id}
+                                              >
+                                                {disparandoContato === contato.id ? (
+                                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                  <PhoneCall className="h-4 w-4 text-blue-600" />
+                                                )}
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Disparar Ligação</TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      );
+                                    }
+                                    return <span className="text-muted-foreground text-xs">-</span>;
+                                  })()
+                                )}
+                                {isIAWhatsApp && contato.data_disparo_ia && (
+                                  <span className="text-muted-foreground text-xs">-</span>
+                                )}
+                              </div>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
