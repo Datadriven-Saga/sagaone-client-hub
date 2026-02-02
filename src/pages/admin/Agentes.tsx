@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,8 @@ import {
   Upload,
   Power,
   PowerOff,
-  Trash2
+  Trash2,
+  ArrowLeft
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -1614,15 +1616,44 @@ export default function AdminAgentes() {
     );
   }
 
+  const navigate = useNavigate();
+
   return (
     <DashboardLayout title="Agentes - Administração">
       <ScrollIndicator className="flex-1 h-full">
         <div className="space-y-6 pb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Agentes</h1>
-            <p className="text-muted-foreground">
-              Gerencie agentes de IA e controle de implantação
-            </p>
+          {/* Header com seta de voltar e ações */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(-1)}
+                className="h-9 w-9 flex-shrink-0"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Agentes</h1>
+                <p className="text-sm text-muted-foreground">
+                  Gerencie agentes de IA e controle de implantação
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button onClick={handleCreateNewAgent} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Agente
+              </Button>
+              <Button onClick={carregarAgentes} disabled={loading} variant="outline" size="sm">
+                {loading ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Atualizar
+              </Button>
+            </div>
           </div>
 
           {/* Tabs Principais */}
@@ -1634,20 +1665,6 @@ export default function AdminAgentes() {
 
             {/* Tab Agentes de IA */}
             <TabsContent value="agentes" className="space-y-6 mt-6">
-              <div className="flex items-center justify-end gap-2">
-                <Button onClick={handleCreateNewAgent}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Criar Agente
-                </Button>
-                <Button onClick={carregarAgentes} disabled={loading} variant="outline">
-                  {loading ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                  )}
-                  Atualizar
-                </Button>
-              </div>
 
           {/* Filtros */}
           <Card className="border-muted">
