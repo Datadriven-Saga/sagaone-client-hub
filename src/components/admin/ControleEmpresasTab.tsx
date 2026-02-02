@@ -65,6 +65,7 @@ interface AgenteEmpresa {
   agente_id: string;
   empresa_id: string;
   status: string;
+  agentes_ia?: AgenteIA | null;
 }
 
 const ITEMS_PER_PAGE = 15;
@@ -142,14 +143,25 @@ export function ControleEmpresasTab() {
       if (visaoError) throw visaoError;
       setAgentesVisao(visaoData || []);
 
-      // Buscar agentes atribuídos à empresa
+      // Buscar agentes atribuídos à empresa - inclui dados do agente_ia
       const { data: atribuicoes, error: atribError } = await supabase
         .from("agente_empresas")
-        .select("id, agente_id, empresa_id, status")
+        .select(`
+          id, 
+          agente_id, 
+          empresa_id, 
+          status,
+          agentes_ia (
+            id,
+            nome,
+            telefone,
+            ativo
+          )
+        `)
         .eq("empresa_id", empresaId);
       
       if (atribError) throw atribError;
-      setAgentesEmpresa(atribuicoes || []);
+      setAgentesEmpresa((atribuicoes || []) as AgenteEmpresa[]);
     } catch (error) {
       console.error("Erro ao carregar agentes:", error);
       toast({ title: "Erro ao carregar agentes", variant: "destructive" });
@@ -258,20 +270,39 @@ export function ControleEmpresasTab() {
     }
   };
 
-  const getAgentesAtribuidos = () => {
-    return agentesVisao.filter(av => 
-      agentesEmpresa.some(ae => ae.agente_id === av.id)
-    );
+  // Retorna agentes IA realmente atribuídos à empresa (via agente_empresas)
+  const getAgentesAtribuidos = (): { id: string; nome: string; tipo: string; telefone?: string | null; atribuicaoId: string }[] => {
+    return agentesEmpresa
+      .filter(ae => ae.agentes_ia)
+      .map(ae => {
+        const agenteIA = ae.agentes_ia as AgenteIA;
+        // Tenta encontrar tipo no catálogo de visão pelo nome
+        const visaoMatch = agentesVisao.find(av => 
+          av.nome.toLowerCase().includes(agenteIA.nome?.toLowerCase() || '') ||
+          agenteIA.nome?.toLowerCase().includes(av.nome.toLowerCase())
+        );
+        return {
+          id: agenteIA.id,
+          nome: agenteIA.nome || 'Sem nome',
+          tipo: visaoMatch?.tipo || 'IA',
+          telefone: agenteIA.telefone,
+          atribuicaoId: ae.id
+        };
+      });
   };
 
+  // Agentes do catálogo que não têm nenhum agente_ia atribuído à empresa
   const getAgentesNaoAtribuidos = () => {
+    const nomesAtribuidos = getAgentesAtribuidos().map(a => a.nome.toLowerCase());
     return agentesVisao.filter(av => 
-      !agentesEmpresa.some(ae => ae.agente_id === av.id)
+      !nomesAtribuidos.some(nome => 
+        nome.includes(av.nome.toLowerCase()) || av.nome.toLowerCase().includes(nome)
+      )
     );
   };
 
-  const getAtribuicaoId = (agenteVisaoId: string) => {
-    return agentesEmpresa.find(ae => ae.agente_id === agenteVisaoId)?.id;
+  const getAtribuicaoId = (agenteId: string) => {
+    return agentesEmpresa.find(ae => ae.agente_id === agenteId)?.id;
   };
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
@@ -459,7 +490,7 @@ export function ControleEmpresasTab() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-green-500">{getAgentesAtribuidos().length}</p>
+                      <p className="text-2xl font-bold text-green-500">{agentesEmpresa.length}</p>
                       <p className="text-xs text-muted-foreground">Atribuídos</p>
                     </div>
                   </CardContent>
@@ -503,17 +534,25 @@ export function ControleEmpresasTab() {
                               <Bot className="h-4 w-4 text-green-500" />
                               <div>
                                 <p className="text-sm font-medium">{agente.nome}</p>
-                                <p className="text-xs text-muted-foreground">{agente.tipo}</p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <span>{agente.tipo}</span>
+                                  {agente.telefone && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="flex items-center gap-1">
+                                        <Phone className="h-3 w-3" />
+                                        {agente.telefone}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             </div>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-destructive hover:text-destructive"
-                              onClick={() => {
-                                const atribId = getAtribuicaoId(agente.id);
-                                if (atribId) handleRemoverAgente(atribId);
-                              }}
+                              onClick={() => handleRemoverAgente(agente.atribuicaoId)}
                             >
                               <X className="h-4 w-4" />
                             </Button>
