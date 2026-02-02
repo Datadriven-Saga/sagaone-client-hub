@@ -2029,7 +2029,7 @@ export default function EventoBase() {
                         {isIALigacao && <TableHead className="w-[80px] text-center">Ligação</TableHead>}
                         {isIALigacao && <TableHead className="w-[80px] text-center">Tent.</TableHead>}
                         <TableHead className="w-[100px]">Criação</TableHead>
-                        {isIA && <TableHead className="w-[100px]">Ações</TableHead>}
+                        
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2237,111 +2237,6 @@ export default function EventoBase() {
                           <TableCell className="text-xs text-muted-foreground">
                             {contato.created_at ? format(new Date(contato.created_at), 'dd/MM/yy') : '-'}
                           </TableCell>
-                          {isIA && (
-                            <TableCell>
-                              {(() => {
-                                // Para IA Ligação: verificar se o contato está bloqueado
-                                // Normalizar telefone removendo +55
-                                let telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
-                                if (telefoneNormalizado.length > 11 && telefoneNormalizado.startsWith('55')) {
-                                  telefoneNormalizado = telefoneNormalizado.substring(2);
-                                }
-                                const dadosExternos = isIALigacao ? contatosExternos.get(telefoneNormalizado) : null;
-                                const isBloqueado = dadosExternos && (
-                                  dadosExternos.status_agendado || 
-                                  dadosExternos.enviado_whatsapp || 
-                                  dadosExternos.ligacao_atendida
-                                );
-
-                                // Contato já disparado - mostrar botão de redisparo apenas para Admin
-                                if (contato.data_disparo_ia) {
-                                  return isAdmin ? (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleRedispararContato(contato)}
-                                      disabled={disparandoContato === contato.id}
-                                      className="h-8 px-2"
-                                      title="Disparar novamente (Admin)"
-                                    >
-                                      {disparandoContato === contato.id ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : (
-                                        <RotateCcw className="h-4 w-4 text-amber-600" />
-                                      )}
-                                    </Button>
-                                  ) : null;
-                                }
-
-                                // Contato bloqueado - mostrar ícone de bloqueio
-                                if (isBloqueado) {
-                                  return (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className="inline-flex items-center gap-1 text-red-500 text-xs">
-                                            <Lock className="h-3.5 w-3.5" />
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>
-                                            {dadosExternos?.status_agendado && 'Lead já agendado'}
-                                            {dadosExternos?.enviado_whatsapp && 'Lead recebeu WhatsApp'}
-                                            {dadosExternos?.ligacao_atendida && 'Ligação já atendida'}
-                                          </p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  );
-                                }
-
-                                // Contato pendente - verificar permissão
-                                if (loadingAccess) {
-                                  return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
-                                }
-
-                                if (canDispatch) {
-                                  return (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleDispararContato(contato)}
-                                      disabled={disparandoContato === contato.id}
-                                      className="h-8 px-2"
-                                      title={isIALigacao ? 'Disparar Ligação' : 'Disparar WhatsApp'}
-                                    >
-                                      {disparandoContato === contato.id ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : isIALigacao ? (
-                                        <PhoneCall className="h-4 w-4 text-orange-600" />
-                                      ) : (
-                                        <MessageCircle className="h-4 w-4 text-primary" />
-                                      )}
-                                    </Button>
-                                  );
-                                }
-
-                                return (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="inline-flex items-center gap-1 text-muted-foreground text-xs">
-                                          <Lock className="h-3 w-3" />
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>
-                                          {isIALigacao 
-                                            ? 'Apenas ADM/TI podem disparar' 
-                                            : 'Apenas ADM, TI, Gerente de Leads e CRM'}
-                                        </p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                );
-                              })()}
-                            </TableCell>
-                          )}
                         </TableRow>
                       ))}
                     </TableBody>
