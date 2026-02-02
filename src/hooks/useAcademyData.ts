@@ -207,12 +207,13 @@ export function useAcademyTreinamentos() {
 // Hook for combined trainings + simulations for admin panel
 // This ensures ALL simulations appear, even if they don't have a linked academy_treinamentos record
 export function useAcademyTreinamentosAdmin() {
-  const { activeCompany } = useCompany();
+  const { isAdminOrTI } = useUserAccessType();
 
   return useQuery({
-    queryKey: ["academy-treinamentos-admin", activeCompany?.id],
+    queryKey: ["academy-treinamentos-admin"],
     queryFn: async () => {
-      // 1. Fetch all trainings
+      // Admin/TI: Fetch ALL trainings WITHOUT empresa_id filter
+      // The RLS policy for gestores_full allows this for Admin/TI roles
       const { data: treinamentos, error: treinamentosError } = await supabase
         .from("academy_treinamentos")
         .select("*")
@@ -220,7 +221,7 @@ export function useAcademyTreinamentosAdmin() {
 
       if (treinamentosError) throw treinamentosError;
 
-      // 2. Fetch all simulations
+      // Fetch ALL simulations (active or not, for admin panel)
       const { data: simulacoes, error: simulacoesError } = await supabase
         .from("academy_simulacoes")
         .select("*")
@@ -274,6 +275,7 @@ export function useAcademyTreinamentosAdmin() {
       // 5. Combine and return
       return [...(treinamentos || []), ...virtualTreinamentos] as (AcademyTreinamento & { _isVirtualFromSimulacao?: boolean; _originalSimulacao?: any })[];
     },
+    enabled: isAdminOrTI, // Only fetch for admins
   });
 }
 
