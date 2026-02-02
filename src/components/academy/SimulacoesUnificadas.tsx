@@ -292,8 +292,14 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
             
             <Button 
               size="lg"
+              type="button"
               className="gap-2 bg-primary hover:bg-primary/90"
-              onClick={() => handleScenarioClick(selectedSimulacao)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Iniciar Prática clicked', selectedSimulacao);
+                handleScenarioClick(selectedSimulacao);
+              }}
             >
               <Play className="h-5 w-5" />
               Iniciar Prática
@@ -333,7 +339,13 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
               </p>
               <Button 
                 className="mt-4 gap-2"
-                onClick={() => handleScenarioClick(selectedSimulacao)}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Iniciar Prática (default) clicked', selectedSimulacao);
+                  handleScenarioClick(selectedSimulacao);
+                }}
               >
                 Iniciar Prática
                 <ChevronRight className="h-4 w-4" />
