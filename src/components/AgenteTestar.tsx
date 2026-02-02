@@ -178,9 +178,10 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
 
       // Verificar se houve sucesso
       if (data?.success) {
+        const syncStatus = data.external_sync?.success ? "e sincronizada externamente" : "(apenas local)";
         toast({
-          title: "Base criada localmente!",
-          description: `${data.summary?.supabase_salvos || contatosParaEnviar.length} contato(s) preparado(s) para teste`,
+          title: "Base criada com sucesso!",
+          description: `${data.summary?.supabase_salvos || contatosParaEnviar.length} contato(s) preparado(s) ${syncStatus}`,
         });
         setBaseConfirmada(true);
       } else {
@@ -198,10 +199,30 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
     }
   };
 
+  // Função para normalizar telefone para 10 dígitos (sem o 9 inicial)
+  const normalizePhoneTo10Digits = (phone: string): string => {
+    let digits = phone.replace(/\D/g, '');
+    
+    // Remove DDI 55 se existir
+    if (digits.startsWith('55') && digits.length > 11) {
+      digits = digits.slice(2);
+    }
+    
+    // Se tem 11 dígitos e o 3º é 9, remove o 9
+    if (digits.length === 11 && digits[2] === '9') {
+      digits = digits.slice(0, 2) + digits.slice(3);
+    }
+    
+    return digits;
+  };
+
   const handleDisparar = async () => {
     const contatosParaEnviar = contatos
       .filter(c => c.nome.trim() && c.telefone.trim())
-      .map(c => ({ nome: c.nome.trim(), telefone: c.telefone.replace(/\D/g, '') }));
+      .map(c => ({ 
+        nome: c.nome.trim(), 
+        telefone: normalizePhoneTo10Digits(c.telefone) 
+      }));
 
     if (contatosParaEnviar.length === 0) {
       toast({
