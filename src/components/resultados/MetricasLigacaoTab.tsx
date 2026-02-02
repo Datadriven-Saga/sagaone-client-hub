@@ -63,7 +63,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       
       const { data: eventsFromDb, error: eventsDbError } = await supabase
         .from('eventos_pri_voz')
-        .select('*')
+        .select('id_evento, nome, marca, uf, cidade, telefone_pri')
         .eq('telefone_pri', selectedAgentPhone)
         .order('data_inicio', { ascending: false });
       
@@ -73,7 +73,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       }
       
       const events = eventsFromDb || [];
-      console.log(`✅ Métricas - ${events.length} eventos encontrados para telefone_pri=${selectedAgentPhone}`);
+      console.log(`✅ Métricas - ${events.length} eventos encontrados`);
       
       if (events.length === 0) {
         setAllEventsData([]);
@@ -81,55 +81,27 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
         return;
       }
       
-      // SINCRONIZAR COM N8N PRIMEIRO para garantir dados atualizados
-      for (const event of events) {
+      // Buscar métricas de TODOS eventos em PARALELO (sem sincronização N8N bloqueante)
+      const metricsPromises = events.map(async (event) => {
         try {
-          console.log(`🔄 Sincronizando evento ${event.id_evento} com n8n antes de exibir...`);
-          await supabase.functions.invoke('sync-pri-dashboard', {
-            body: {
-              telefone_pri: selectedAgentPhone.replace(/\D/g, ''),
-              id_evento: event.id_evento,
-              empresa_id: activeCompany?.id,
-            }
-          });
-          console.log(`✅ Evento ${event.id_evento} sincronizado`);
-        } catch (syncError) {
-          console.warn(`⚠️ Falha ao sincronizar evento ${event.id_evento}:`, syncError);
-        }
-      }
-      
-      // AGORA buscar métricas do Supabase (dados já atualizados)
-      const allData: EventMetrics[] = [];
-      
-      for (const event of events) {
-        try {
-          const eventId = event.id_evento;
-          
-          // Usar get-base-ligacao com page_size=1 (só precisamos das métricas agregadas)
           const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
             body: { 
-              id_evento: eventId,
+              id_evento: event.id_evento,
               empresa_id: activeCompany?.id,
               telefone_pri: event.telefone_pri,
               page: 1,
-              page_size: 1, // Não precisamos dos leads, só métricas
+              page_size: 1, // Só métricas, não dados
             },
           });
           
-          if (error) {
-            console.error(`Erro ao buscar métricas para evento ${eventId}:`, error);
-            continue;
-          }
-          
-          if (!data?.success) {
-            console.warn(`⚠️ Evento ${eventId}: resposta inválida`, data);
-            continue;
+          if (error || !data?.success) {
+            return null;
           }
           
           const metricas = data.metricas || {};
           
-          allData.push({
-            eventId: String(eventId),
+          return {
+            eventId: String(event.id_evento),
             eventName: event.nome || 'Evento sem nome',
             marca: event.marca,
             estado: event.uf,
@@ -145,16 +117,30 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
               whatsappEnviado: metricas.whatsappEnviado || 0,
               atendidos: metricas.atendidos || 0,
             },
-          });
-          
-          console.log(`✅ Evento ${eventId}: total=${metricas.total}, atendidos=${metricas.atendidos}, agendados=${metricas.agendados}`);
+          } as EventMetrics;
         } catch (error) {
-          console.error(`Error fetching metrics for event ${event.id_evento}:`, error);
+          console.warn(`Error fetching metrics for event ${event.id_evento}:`, error);
+          return null;
         }
-      }
+      });
+      
+      const results = await Promise.all(metricsPromises);
+      const allData = results.filter((r): r is EventMetrics => r !== null);
       
       setAllEventsData(allData);
       setLastAppUpdate(new Date().toLocaleString('pt-BR'));
+      
+      // Sincronização N8N em background (não-bloqueante)
+      events.forEach(event => {
+        supabase.functions.invoke('sync-pri-dashboard', {
+          body: {
+            telefone_pri: selectedAgentPhone.replace(/\D/g, ''),
+            id_evento: event.id_evento,
+            empresa_id: activeCompany?.id,
+          }
+        }).catch(() => {}); // Ignorar erros de sync em background
+      });
+      
     } catch (error) {
       console.error('Error:', error);
       toast.error('Erro ao carregar métricas');
