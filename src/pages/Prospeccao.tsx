@@ -772,12 +772,22 @@ showAllEvents: true
 
   // ✅ TODOS OS USEMEMO DEVEM VIR ANTES DO EARLY RETURN
   // Função de filtragem global para contatos
+  // IMPORTANTE: Para sincronizar com o Funil, mostramos apenas contatos vinculados a eventos
   const filteredContatos = useMemo(() => {
     return contatos.filter(contato => {
-      // Filtro por prospecção/evento - usa o mapa de vínculos
+      // Regra de sincronização com Funil: contatos devem estar vinculados a pelo menos um evento
+      // Isso garante que os números do Kanban correspondam aos do Funil de Vendas
+      const prospeccaoIdsDoContato = contatosProspeccoes.get(contato.id);
+      
+      // Filtro por prospecção/evento específico
       if (globalFilters.prospeccaoId !== "todos") {
-        const prospeccaoIds = contatosProspeccoes.get(contato.id);
-        if (!prospeccaoIds || !prospeccaoIds.has(globalFilters.prospeccaoId)) {
+        if (!prospeccaoIdsDoContato || !prospeccaoIdsDoContato.has(globalFilters.prospeccaoId)) {
+          return false;
+        }
+      } else {
+        // Quando é "todos", mostrar apenas contatos vinculados a pelo menos um evento
+        // Isso sincroniza com a lógica do Funil que usa eventos_prospeccao
+        if (!prospeccaoIdsDoContato || prospeccaoIdsDoContato.size === 0) {
           return false;
         }
       }
