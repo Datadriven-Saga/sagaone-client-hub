@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Target, CheckCircle, Edit, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, ScanLine, Send, Loader2, Eye, Phone } from "lucide-react";
+import { Target, CheckCircle, Edit, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, ScanLine, Send, Loader2, Eye, Phone, Trash2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProspeccaoGlobalFilter, ProspeccaoGlobalFilters } from "@/components/ProspeccaoGlobalFilter";
@@ -131,6 +131,14 @@ showAllEvents: true
     isOpen: false,
     prospeccao: null
   });
+  const [deleteEventoModal, setDeleteEventoModal] = useState<{
+    isOpen: boolean;
+    prospeccao: any | null;
+  }>({
+    isOpen: false,
+    prospeccao: null
+  });
+  const [deletingEvento, setDeletingEvento] = useState(false);
   
   // === Custom Hooks e Context Hooks ===
   const { toast } = useToast();
@@ -154,6 +162,7 @@ showAllEvents: true
     getMetricas, 
     criarProspeccao,
     editarProspeccao,
+    excluirProspeccao,
     toggleEventoLigacaoAtivo,
     reenviarGatilhos,
     dispararParaIA,
@@ -1584,6 +1593,31 @@ showAllEvents: true
     setIsModalOpen(true);
   };
 
+  // Handler para excluir prospecção (apenas Grande Evento e Mensal, apenas Admin/TI)
+  const handleDeleteProspeccao = async () => {
+    if (!deleteEventoModal.prospeccao) return;
+    
+    setDeletingEvento(true);
+    try {
+      await excluirProspeccao(deleteEventoModal.prospeccao.id);
+      toast({
+        title: "Evento excluído",
+        description: `O evento "${deleteEventoModal.prospeccao.titulo}" foi excluído com sucesso.`,
+      });
+      setDeleteEventoModal({ isOpen: false, prospeccao: null });
+      refetch();
+    } catch (error: any) {
+      console.error('Erro ao excluir evento:', error);
+      toast({
+        title: "Erro ao excluir",
+        description: error.message || "Não foi possível excluir o evento",
+        variant: "destructive"
+      });
+    } finally {
+      setDeletingEvento(false);
+    }
+  };
+
 
   // Handler para disparar leads para IA
   const handleDispararParaIA = async (prospeccaoId: string, canal: string) => {
@@ -1991,6 +2025,26 @@ showAllEvents: true
                                               <Edit className="mr-2 h-4 w-4" />
                                               Editar
                                             </DropdownMenuItem>
+                                            {/* Botão Excluir - apenas para Grande Evento e Mensal, apenas Admin/TI */}
+                                            {(() => {
+                                              const canalStr = String(prospeccao.canal || '').toLowerCase();
+                                              const isGrandeEvento = canalStr === 'grande evento';
+                                              const isMensal = canalStr === 'mensal';
+                                              const canDelete = (isGrandeEvento || isMensal) && isAdminOrTI;
+                                              
+                                              if (canDelete) {
+                                                return (
+                                                  <DropdownMenuItem 
+                                                    onClick={() => setDeleteEventoModal({ isOpen: true, prospeccao })}
+                                                    className="text-destructive focus:text-destructive"
+                                                  >
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    Excluir Evento
+                                                  </DropdownMenuItem>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
                                           </DropdownMenuContent>
                                         </DropdownMenu>
                                       </div>
@@ -2512,6 +2566,40 @@ showAllEvents: true
         }}
         isDisparandoIA={disparandoIA === eventoBaseModal.prospeccao?.id}
       />
+
+      {/* Modal de Confirmação de Exclusão de Evento */}
+      <AlertDialog open={deleteEventoModal.isOpen} onOpenChange={(open) => !open && setDeleteEventoModal({ isOpen: false, prospeccao: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Evento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o evento <strong>"{deleteEventoModal.prospeccao?.titulo}"</strong>?
+              <br /><br />
+              Esta ação é irreversível e todos os dados associados serão perdidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingEvento}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProspeccao}
+              disabled={deletingEvento}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingEvento ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir Evento
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };
