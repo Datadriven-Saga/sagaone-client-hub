@@ -474,94 +474,111 @@ export function SimulationDetails() {
 
         {/* Right Panel - Recording & Transcription */}
         <div className="space-y-6">
-          {/* Recording Player */}
-          <Card className="p-6">
-            <h3 className="font-semibold mb-4">Gravação</h3>
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={togglePlayback}
-                disabled={!isVoice}
-              >
-                {isPlaying ? (
-                  <Pause className="h-5 w-5" />
-                ) : (
-                  <Play className="h-5 w-5" />
-                )}
-              </Button>
-              <div className="flex-1 space-y-1">
-                <Slider
-                  value={[audioProgress]}
-                  onValueChange={([val]) => setAudioProgress(val)}
-                  max={100}
-                  step={1}
-                  disabled={!isVoice}
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{formatDuration(Math.floor((audioProgress / 100) * (sessao.duracao_segundos || 0)))}</span>
-                  <span>/ {formatDuration(sessao.duracao_segundos)}</span>
-                </div>
+          {/* Recording Player - Only for voice simulations */}
+          {isVoice && (
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Mic className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold">Gravação de Áudio</h3>
               </div>
-              <Button variant="ghost" size="icon" disabled>
-                <Volume2 className="h-5 w-5" />
-              </Button>
-            </div>
-            {!isVoice && (
-              <p className="text-xs text-muted-foreground mt-3 text-center">
-                Gravação de áudio disponível apenas para simulações por voz.
-              </p>
-            )}
-            {isVoice && (
-              <p className="text-xs text-muted-foreground mt-3 text-center">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={togglePlayback}
+                  className="h-12 w-12 rounded-full"
+                >
+                  {isPlaying ? (
+                    <Pause className="h-5 w-5" />
+                  ) : (
+                    <Play className="h-5 w-5" />
+                  )}
+                </Button>
+                <div className="flex-1 space-y-2">
+                  <Slider
+                    value={[audioProgress]}
+                    onValueChange={([val]) => setAudioProgress(val)}
+                    max={100}
+                    step={1}
+                    className="cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{formatDuration(Math.floor((audioProgress / 100) * (sessao.duracao_segundos || 0)))}</span>
+                    <span>{formatDuration(sessao.duracao_segundos)}</span>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon">
+                  <Volume2 className="h-5 w-5" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-4 text-center bg-muted/50 rounded-lg py-2">
                 Gravação de áudio em desenvolvimento.
               </p>
-            )}
-          </Card>
+            </Card>
+          )}
 
-          {/* Transcription */}
+          {/* Transcription / Conversa */}
           <Card className="p-6">
-            <h3 className="font-semibold mb-4">Transcrição</h3>
-            <div className="space-y-4 max-h-[400px] overflow-y-auto">
+            <div className="flex items-center gap-2 mb-4">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold">
+                {isVoice ? "Transcrição" : "Conversa"}
+              </h3>
+              {transcription.length > 0 && (
+                <Badge variant="secondary" className="ml-auto">
+                  {transcription.length} mensagens
+                </Badge>
+              )}
+            </div>
+            
+            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
               {transcription.length > 0 ? (
-                transcription.map((message, index) => (
-                  <div
-                    key={index}
-                    className={`flex gap-3 ${
-                      message.role === "user" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    {message.role === "ai" && (
-                      <Avatar className="h-8 w-8 flex-shrink-0">
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                          {personaName.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
+                transcription.map((message, index) => {
+                  const isUser = message.role === "user";
+                  return (
                     <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
-                        message.role === "user"
-                          ? "bg-primary text-primary-foreground rounded-br-sm"
-                          : "bg-muted text-foreground rounded-bl-sm"
-                      }`}
+                      key={index}
+                      className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""}`}
                     >
-                      {message.content}
-                    </div>
-                    {message.role === "user" && (
-                      <Avatar className="h-8 w-8 flex-shrink-0">
-                        <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                          V
+                      <Avatar className="h-9 w-9 flex-shrink-0">
+                        <AvatarFallback 
+                          className={`text-xs font-medium ${
+                            isUser 
+                              ? "bg-primary text-primary-foreground" 
+                              : "bg-muted-foreground/20 text-foreground"
+                          }`}
+                        >
+                          {isUser ? "V" : personaName.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
-                    )}
-                  </div>
-                ))
+                      <div className={`flex flex-col gap-1 max-w-[75%] ${isUser ? "items-end" : ""}`}>
+                        <span className="text-xs text-muted-foreground px-1">
+                          {isUser ? "Você" : personaName}
+                        </span>
+                        <div
+                          className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                            isUser
+                              ? "bg-primary text-primary-foreground rounded-tr-sm"
+                              : "bg-muted text-foreground rounded-tl-sm"
+                          }`}
+                        >
+                          {message.content}
+                        </div>
+                        {message.timestamp && (
+                          <span className="text-[10px] text-muted-foreground px-1">
+                            {message.timestamp}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>Nenhuma transcrição disponível.</p>
-                  <p className="text-xs mt-1">
-                    A transcrição será salva automaticamente ao encerrar a simulação.
+                <div className="text-center py-12 text-muted-foreground">
+                  <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                  <p className="font-medium">Nenhuma mensagem registrada</p>
+                  <p className="text-xs mt-2">
+                    As mensagens são salvas automaticamente ao encerrar a simulação.
                   </p>
                 </div>
               )}
