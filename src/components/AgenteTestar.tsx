@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2, PhoneCall, UserPlus, RefreshCw, CheckCircle, Calendar } from "lucide-react";
+import { usePriLigacaoEventos } from "@/hooks/usePriLigacaoEventos";
 
 interface ContatoTeste {
   id: string;
@@ -39,59 +40,35 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
   const [confirmando, setConfirmando] = useState(false);
   const [disparando, setDisparando] = useState(false);
   const [baseConfirmada, setBaseConfirmada] = useState(false);
-  const [eventos, setEventos] = useState<EventoPriVoz[]>([]);
   const [eventoSelecionado, setEventoSelecionado] = useState<string>("");
-  const [loadingEventos, setLoadingEventos] = useState(false);
 
-  // Buscar eventos disponíveis para este telefone_pri via webhook externo
+  const {
+    data: eventosData = [],
+    isLoading: loadingEventos,
+  } = usePriLigacaoEventos(telefonePri);
+
+  const eventos = useMemo<EventoPriVoz[]>(() => {
+    return (eventosData || []).map((evt: any) => {
+      const rawStatus = evt?.evt_status ?? evt?.status;
+      const isAtivo = rawStatus === true || String(rawStatus).toLowerCase() === "ativo";
+      return {
+        id: String(evt.id_evento || evt.id),
+        id_evento: evt.id_evento || evt.id,
+        nome: evt.nome || evt.name || `Evento ${evt.id_evento}`,
+        data_inicio: evt.data_inicio || evt.start_date,
+        data_fim: evt.data_fim || evt.end_date,
+        evt_status: isAtivo ? "ativo" : "inativo",
+      };
+    });
+  }, [eventosData]);
+
   useEffect(() => {
-    const fetchEventos = async () => {
-      if (!telefonePri) return;
-      
-      setLoadingEventos(true);
-      try {
-        const { data, error } = await supabase.functions.invoke('eventos-ligacao-proxy', {
-          body: {
-            action: 'listar_todos',
-            telefone_pri: telefonePri.replace(/\D/g, ''),
-          },
-        });
+    if (eventoSelecionado) return;
+    if (eventos.length === 0) return;
 
-        if (error) throw error;
-        
-        console.log("Eventos do webhook:", data);
-        
-        // O webhook retorna array de eventos ou objeto com array
-        const eventosArray = Array.isArray(data) ? data : (data?.eventos || data?.data || []);
-        
-        // Mapear para o formato esperado
-        const eventosMapeados: EventoPriVoz[] = eventosArray.map((evt: any) => ({
-          id: String(evt.id_evento || evt.id),
-          id_evento: evt.id_evento || evt.id,
-          nome: evt.nome || evt.name || `Evento ${evt.id_evento}`,
-          data_inicio: evt.data_inicio || evt.start_date,
-          data_fim: evt.data_fim || evt.end_date,
-          evt_status: evt.evt_status || evt.status || 'ativo',
-        }));
-        
-        setEventos(eventosMapeados);
-        
-        // Auto-selecionar o primeiro evento ativo se houver
-        const eventoAtivo = eventosMapeados.find(e => e.evt_status === 'ativo');
-        if (eventoAtivo) {
-          setEventoSelecionado(eventoAtivo.id);
-        } else if (eventosMapeados.length > 0) {
-          setEventoSelecionado(eventosMapeados[0].id);
-        }
-      } catch (error) {
-        console.error("Erro ao buscar eventos:", error);
-      } finally {
-        setLoadingEventos(false);
-      }
-    };
-
-    fetchEventos();
-  }, [telefonePri]);
+    const eventoAtivo = eventos.find((e) => e.evt_status === "ativo");
+    setEventoSelecionado((eventoAtivo || eventos[0]).id);
+  }, [eventos, eventoSelecionado]);
 
   const adicionarContato = () => {
     setContatos(prev => [...prev, { id: crypto.randomUUID(), nome: "", telefone: "" }]);

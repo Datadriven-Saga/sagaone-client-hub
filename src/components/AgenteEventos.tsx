@@ -46,7 +46,7 @@ interface Evento {
 }
 
 interface AgenteEventosProps {
-  agenteId: string;
+  agenteId?: string;
   agenteTelefone?: string;
 }
 
@@ -64,11 +64,17 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
   const carregarEventos = async () => {
     try {
       setLoading(true);
+
+      const telefonePri = (agenteTelefone || "").replace(/\D/g, "");
+      if (!telefonePri) {
+        setEventos([]);
+        return;
+      }
       
       const { data, error } = await supabase.functions.invoke('eventos-ligacao-proxy', {
         body: {
           action: 'listar_todos',
-          telefone_pri: agenteTelefone
+          telefone_pri: telefonePri
         }
       });
 
@@ -195,10 +201,12 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
   };
 
   useEffect(() => {
-    if (agenteId) {
+    // Para eventos de Pri(Ligação), o identificador real é o telefone_pri.
+    // Não travar o carregamento aguardando agenteId/agentLocal.
+    if (agenteTelefone) {
       carregarEventos();
     }
-  }, [agenteId, agenteTelefone]);
+  }, [agenteTelefone]);
 
   return (
     <Card>
