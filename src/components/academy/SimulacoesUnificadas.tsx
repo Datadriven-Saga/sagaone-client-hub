@@ -60,6 +60,7 @@ interface SimulacoesUnificadasProps {
 function transformToScenario(simulacao: Simulacao): TrainingScenario {
   const cenario = simulacao.cenario || {};
   const configVoz = simulacao.config_voz || {};
+  const isVoice = simulacao.tipo === "simulacao_voz" || simulacao.tipo === "voz" || simulacao.tipo === "simulacao";
   
   const personas: Persona[] = (cenario.personas || []).map((p: any) => ({
     id: p.id || crypto.randomUUID(),
@@ -79,7 +80,7 @@ function transformToScenario(simulacao: Simulacao): TrainingScenario {
     title: simulacao.titulo,
     description: simulacao.descricao || "",
     department: cenario.departamento || "Vendas Novos",
-    type: simulacao.tipo === "simulacao_voz" || simulacao.tipo === "voz" ? "voice" : "text",
+    type: isVoice ? "voice" : "text",
     language: cenario.idioma || "Português",
     personas,
   };
