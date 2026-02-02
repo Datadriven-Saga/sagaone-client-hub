@@ -104,6 +104,7 @@ const Relatorios = () => {
   ];
 
   const fetchEventos = async () => {
+    // Buscar eventos/prospecções
     let query = supabase
       .from("prospeccoes")
       .select(`
@@ -112,7 +113,6 @@ const Relatorios = () => {
         data_inicio,
         data_fim,
         canal,
-        leads_gerados,
         created_at,
         responsavel:profiles!prospeccoes_responsavel_id_fkey(nome_completo)
       `)
@@ -131,15 +131,39 @@ const Relatorios = () => {
     const { data, error } = await query.order("created_at", { ascending: false });
     if (error) throw error;
 
-    return data?.map(item => ({
+    if (!data || data.length === 0) return [];
+
+    // Buscar contagem REAL de leads vinculados a cada evento via eventos_prospeccao
+    // Isso sincroniza com o Kanban e Funil que também usam essa tabela
+    const eventosIds = data.map(p => p.id);
+    
+    const { data: vinculosData, error: vinculosError } = await supabase
+      .from("eventos_prospeccao")
+      .select("prospeccao_id, contato_id")
+      .in("prospeccao_id", eventosIds);
+
+    if (vinculosError) throw vinculosError;
+
+    // Contar leads ÚNICOS por evento (um contato pode ter múltiplos eventos na mesma prospecção)
+    const leadsCountMap = new Map<string, Set<string>>();
+    (vinculosData || []).forEach(v => {
+      if (!leadsCountMap.has(v.prospeccao_id)) {
+        leadsCountMap.set(v.prospeccao_id, new Set());
+      }
+      if (v.contato_id) {
+        leadsCountMap.get(v.prospeccao_id)!.add(v.contato_id);
+      }
+    });
+
+    return data.map(item => ({
       titulo: item.titulo,
       data_inicio: item.data_inicio ? format(new Date(item.data_inicio), "dd/MM/yyyy") : "-",
       data_fim: item.data_fim ? format(new Date(item.data_fim), "dd/MM/yyyy") : "-",
       canal: item.canal || "-",
       responsavel: item.responsavel?.nome_completo || "-",
-      leads_gerados: item.leads_gerados || 0,
+      leads_gerados: leadsCountMap.get(item.id)?.size || 0,
       status: item.data_fim && new Date(item.data_fim) < new Date() ? "Encerrado" : "Ativo"
-    })) || [];
+    }));
   };
 
   const fetchAtendimentos = async () => {
