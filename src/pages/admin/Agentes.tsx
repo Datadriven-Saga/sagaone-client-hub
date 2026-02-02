@@ -2044,12 +2044,14 @@ export default function AdminAgentes() {
                     <TabsTrigger value="cadencia" disabled={!agenteLocal}>Cadência</TabsTrigger>
                     <TabsTrigger value="periodo" disabled={!agenteLocal}>Jornada da IA</TabsTrigger>
                     <TabsTrigger value="instancias">Instâncias</TabsTrigger>
-                    {/* Aba de Eventos - apenas para agentes Pri(Ligação) */}
-                    {isPriLigacao() && agenteLocal && (
+                    {/* Aba de Eventos - apenas para agentes Pri(Ligação)
+                        (não depende do agenteLocal para não aparecer "em partes") */}
+                    {isPriLigacao() && (
                       <TabsTrigger value="eventos">Eventos</TabsTrigger>
                     )}
-                    {/* Aba de Testar - apenas para agentes Pri(Ligação) */}
-                    {isPriLigacao() && agenteLocal && (
+                    {/* Aba de Testar - apenas para agentes Pri(Ligação)
+                        (não depende do agenteLocal para não aparecer "em partes") */}
+                    {isPriLigacao() && (
                       <TabsTrigger value="testar">Testar</TabsTrigger>
                     )}
                   </TabsList>
@@ -2891,19 +2893,21 @@ export default function AdminAgentes() {
                   </Card>
                 </TabsContent>
 
-                {/* Eventos Tab - apenas para agentes Pri(Ligação) */}
-                {isPriLigacao() && agenteLocal && (
-                  <TabsContent value="eventos">
+                {/* Eventos Tab - apenas para agentes Pri(Ligação)
+                    forceMount para começar a buscar em background e evitar sensação de "demora" ao clicar */}
+                {isPriLigacao() && (
+                  <TabsContent value="eventos" forceMount>
                     <AgenteEventos 
-                      agenteId={agenteLocal.id} 
+                      agenteId={agenteLocal?.id}
                       agenteTelefone={formData.telefone}
                     />
                   </TabsContent>
                 )}
 
-                {/* Testar Tab - apenas para agentes Pri(Ligação) */}
-                {isPriLigacao() && agenteLocal && (
-                  <TabsContent value="testar">
+                {/* Testar Tab - apenas para agentes Pri(Ligação)
+                    forceMount para começar a buscar em background e evitar sensação de "demora" ao clicar */}
+                {isPriLigacao() && (
+                  <TabsContent value="testar" forceMount>
                     <Card>
                       <CardContent className="pt-6">
                         <AgenteTestar 
