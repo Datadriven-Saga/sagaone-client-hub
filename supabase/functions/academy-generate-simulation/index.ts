@@ -134,7 +134,16 @@ serve(async (req) => {
     const dificuldade = dificuldadeMap[nivel] || "Médio";
 
     const system = `Você é um especialista em treinamento de vendas automotivas do Saga Academy.
-Sua tarefa é criar cenários de roleplay realistas para treinar vendedores de concessionárias.
+Sua tarefa é criar cenários de roleplay realistas para treinar colaboradores de CONCESSIONÁRIAS DE VEÍCULOS.
+
+CONTEXTO OBRIGATÓRIO: Esta plataforma é exclusivamente para concessionárias de automóveis. 
+Todos os cenários DEVEM estar relacionados ao setor automotivo:
+- Vendas Novos: Venda de veículos 0km
+- Vendas Usados: Venda de seminovos e usados
+- Pós-Venda: Revisões, garantias, recalls, pacotes de manutenção
+- Oficina/Serviços: Agendamento de serviços, orçamentos de reparos, peças e acessórios
+- F&I: Financiamento, seguros, proteção veicular, consórcios
+- Recepção: Atendimento inicial, direcionamento de clientes, agendamentos
 
 Retorne SOMENTE JSON válido (sem markdown) com a seguinte estrutura:
 {
@@ -161,11 +170,12 @@ Descrição do cenário desejado: ${prompt}
 
 Tipo de simulação: ${tipo === "voz" ? "Simulação por voz (conversa telefônica ou presencial)" : "Simulação por texto (chat/WhatsApp)"}
 
-Importante:
-- A persona deve ser realista e ter motivações claras
-- O prompt de sistema deve instruir a IA a agir de forma consistente
-- As objeções devem ser adequadas ao nível de dificuldade
-- O cenário deve refletir situações reais de concessionárias`;
+IMPORTANTE - CONTEXTO DE CONCESSIONÁRIA:
+- TODOS os cenários devem ser sobre veículos, peças, serviços automotivos ou processos de concessionária
+- A persona deve ser um cliente interessado em algo relacionado a automóveis
+- As objeções devem ser realistas para o mercado automotivo (preço, financiamento, troca, garantia, etc.)
+- O cenário deve refletir situações reais do dia-a-dia de uma concessionária de veículos
+- Mesmo que a descrição seja genérica, adapte para o contexto automotivo`;
 
     const openaiPayload = {
       model: "gpt-4o-mini",
