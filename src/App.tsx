@@ -8,6 +8,7 @@ import { CompanyProvider } from "@/contexts/CompanyContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { TIAdminProtectedRoute } from "@/components/TIAdminProtectedRoute";
+import { GestorProtectedRoute } from "@/components/GestorProtectedRoute";
 import { useUserColors } from "@/hooks/useUserColors";
 
 // Page imports
@@ -84,8 +85,8 @@ const AppRoutes = () => {
       <Route path="/administracao" element={<AdminProtectedRoute><Administracao /></AdminProtectedRoute>} />
       <Route path="/admin" element={<AdminProtectedRoute><Administracao /></AdminProtectedRoute>} />
       <Route path="/administracao/empresas" element={<AdminProtectedRoute><Empresas /></AdminProtectedRoute>} />
-      <Route path="/administracao/acessos" element={<AdminProtectedRoute><Acessos /></AdminProtectedRoute>} />
-      <Route path="/admin/acessos" element={<AdminProtectedRoute><Acessos /></AdminProtectedRoute>} />
+      <Route path="/administracao/acessos" element={<GestorProtectedRoute><Acessos /></GestorProtectedRoute>} />
+      <Route path="/admin/acessos" element={<GestorProtectedRoute><Acessos /></GestorProtectedRoute>} />
       <Route path="/administracao/agentes" element={<TIAdminProtectedRoute><AdminAgentes /></TIAdminProtectedRoute>} />
       <Route path="/administracao/agentes/controle" element={<TIAdminProtectedRoute><ControleAgentes /></TIAdminProtectedRoute>} />
       <Route path="/administracao/agentes/visao-geral" element={<TIAdminProtectedRoute><VisaoGeral /></TIAdminProtectedRoute>} />

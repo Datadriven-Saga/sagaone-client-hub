@@ -80,6 +80,11 @@ const Acessos = () => {
   const itemsPerPage = 20;
   const { user: authUser, session } = useAuth();
   const { toast } = useToast();
+  
+  // Role-based permissions from backend
+  const [isAdminUser, setIsAdminUser] = useState(true);
+  const [isGerenteUser, setIsGerenteUser] = useState(false);
+  const [gerenteCompanies, setGerenteCompanies] = useState<string[]>([]);
 
   const form = useForm<UserForm>({
     resolver: zodResolver(userSchema),
@@ -150,6 +155,23 @@ const Acessos = () => {
       if (data?.users) {
         console.log('Acessos: Found users from edge function:', data.users.length);
         setProfiles(data.users);
+        
+        // Set role-based state from backend
+        setIsAdminUser(data.isAdmin === true);
+        setIsGerenteUser(data.isGerente === true);
+        
+        // If user is a gerente, extract their company IDs for filtering
+        if (data.isGerente && !data.isAdmin) {
+          // Get current user's companies
+          const { data: userCompaniesData } = await supabase
+            .from('user_empresas')
+            .select('empresa_id')
+            .eq('user_id', authUser?.id);
+          
+          if (userCompaniesData) {
+            setGerenteCompanies(userCompaniesData.map(uc => uc.empresa_id));
+          }
+        }
       } else {
         console.warn('Acessos: No users found in response');
         setProfiles([]);
@@ -166,7 +188,7 @@ const Acessos = () => {
       setLoading(false);
       isFetchingRef.current = false;
     }
-  }, [toast]);
+  }, [toast, authUser?.id]);
 
   useEffect(() => {
     // Only fetch once when user is authenticated
@@ -374,7 +396,7 @@ const Acessos = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            <CleanupInvalidUsersButton />
+            {isAdminUser && <CleanupInvalidUsersButton />}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={handleNewUser}>
@@ -448,16 +470,21 @@ const Acessos = () => {
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
+                                    {/* Gerentes only see SDR and Vendedor */}
                                     <SelectItem value="SDR">SDR</SelectItem>
-                                    <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
                                     <SelectItem value="Vendedor">Vendedor</SelectItem>
-                                    <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
-                                    <SelectItem value="Diretor">Diretor</SelectItem>
-                                    <SelectItem value="TI">TI</SelectItem>
-                                    <SelectItem value="Administrador">Administrador</SelectItem>
-                                    <SelectItem value="Proprietário">Proprietário</SelectItem>
-                                    <SelectItem value="CRM">CRM</SelectItem>
-                                    <SelectItem value="Recepcionista">Recepcionista</SelectItem>
+                                    {isAdminUser && (
+                                      <>
+                                        <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
+                                        <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
+                                        <SelectItem value="Diretor">Diretor</SelectItem>
+                                        <SelectItem value="TI">TI</SelectItem>
+                                        <SelectItem value="Administrador">Administrador</SelectItem>
+                                        <SelectItem value="Proprietário">Proprietário</SelectItem>
+                                        <SelectItem value="CRM">CRM</SelectItem>
+                                        <SelectItem value="Recepcionista">Recepcionista</SelectItem>
+                                      </>
+                                    )}
                                   </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -539,7 +566,10 @@ const Acessos = () => {
                             <FormItem>
                               <FormControl>
                                 <EmpresasSelector
-                                  companies={companies}
+                                  companies={isGerenteUser && !isAdminUser 
+                                    ? companies.filter(c => gerenteCompanies.includes(c.id))
+                                    : companies
+                                  }
                                   selectedCompanies={field.value}
                                   onSelectionChange={field.onChange}
                                 />
@@ -633,16 +663,21 @@ const Acessos = () => {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
+                                {/* Gerentes only see SDR and Vendedor */}
                                 <SelectItem value="SDR">SDR</SelectItem>
-                                <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
                                 <SelectItem value="Vendedor">Vendedor</SelectItem>
-                                <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
-                                <SelectItem value="Diretor">Diretor</SelectItem>
-                                <SelectItem value="TI">TI</SelectItem>
-                                <SelectItem value="Administrador">Administrador</SelectItem>
-                                <SelectItem value="Proprietário">Proprietário</SelectItem>
-                                <SelectItem value="CRM">CRM</SelectItem>
-                                <SelectItem value="Recepcionista">Recepcionista</SelectItem>
+                                {isAdminUser && (
+                                  <>
+                                    <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
+                                    <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
+                                    <SelectItem value="Diretor">Diretor</SelectItem>
+                                    <SelectItem value="TI">TI</SelectItem>
+                                    <SelectItem value="Administrador">Administrador</SelectItem>
+                                    <SelectItem value="Proprietário">Proprietário</SelectItem>
+                                    <SelectItem value="CRM">CRM</SelectItem>
+                                    <SelectItem value="Recepcionista">Recepcionista</SelectItem>
+                                  </>
+                                )}
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -724,7 +759,10 @@ const Acessos = () => {
                         <FormItem>
                           <FormControl>
                             <EmpresasSelector
-                              companies={companies}
+                              companies={isGerenteUser && !isAdminUser 
+                                ? companies.filter(c => gerenteCompanies.includes(c.id))
+                                : companies
+                              }
                               selectedCompanies={field.value}
                               onSelectionChange={field.onChange}
                             />
@@ -848,6 +886,7 @@ const Acessos = () => {
                 setCurrentPage={setCurrentPage}
                 handleEdit={handleEdit}
                 handleDelete={handleDelete}
+                isAdmin={isAdminUser}
               />
             )}
           </CardContent>
@@ -870,6 +909,7 @@ interface FilteredUsersListProps {
   setCurrentPage: (page: number) => void;
   handleEdit: (profile: Profile) => void;
   handleDelete: (id: string) => void;
+  isAdmin: boolean;
 }
 
 const FilteredUsersList = ({
@@ -881,7 +921,8 @@ const FilteredUsersList = ({
   itemsPerPage,
   setCurrentPage,
   handleEdit,
-  handleDelete
+  handleDelete,
+  isAdmin
 }: FilteredUsersListProps) => {
   const filteredProfiles = useMemo(() => {
     return profiles.filter(profile => {
@@ -987,14 +1028,17 @@ const FilteredUsersList = ({
               >
                 <Edit className="h-4 w-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDelete(profile.id)}
-                className="text-destructive hover:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {/* Only admins can delete users */}
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDelete(profile.id)}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         ))}

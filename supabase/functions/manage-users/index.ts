@@ -69,35 +69,63 @@ serve(async (req) => {
       throw new Error('Invalid token');
     }
 
-    // Check if user can manage users or is a company owner
+    // Check if user can manage users or is a company owner or is a manager (Gerente)
     const { data: canManage, error: permError } = await supabase
       .rpc('can_manage_users', { user_id: user.id });
 
-    // If not admin/TI, check if user is a company owner (Proprietário)
-    let ownedCompanies = [];
+    // Get user profile to check role and permissions
+    const { data: userProfile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('tipo_acesso')
+      .eq('id', user.id)
+      .single();
+    
+    const userTipoAcesso = userProfile?.tipo_acesso || '';
+    const isAdmin = userTipoAcesso === 'Administrador';
+    const isGerente = userTipoAcesso === 'Gerente de Leads' || userTipoAcesso === 'Gerente de Loja';
+    
+    // If not admin/TI, check if user is a company owner (Proprietário) or manager (Gerente)
+    let ownedCompanies: string[] = [];
+    let gerenteCompanies: string[] = [];
+    
     if (permError || !canManage) {
-      const { data: userProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('tipo_acesso')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError || userProfile?.tipo_acesso !== 'Proprietário') {
-        throw new Error('Insufficient permissions to manage users');
+      if (profileError) {
+        throw new Error('Error retrieving user profile');
       }
-
-      // Get owned companies for the proprietário
-      const { data: ownedCompaniesData, error: ownedError } = await supabase
-        .rpc('get_owned_companies', { user_id: user.id });
-
-      if (ownedError) {
-        throw new Error('Error retrieving owned companies');
-      }
-
-      ownedCompanies = ownedCompaniesData?.map((row: any) => row.empresa_id) || [];
       
-      if (ownedCompanies.length === 0) {
-        throw new Error('No companies owned by this user');
+      // Allow Gerente de Leads and Gerente de Loja to access with restrictions
+      if (isGerente) {
+        // Get companies the manager has access to
+        const { data: gerenteCompaniesData, error: gerenteCompaniesError } = await supabaseAdmin
+          .from('user_empresas')
+          .select('empresa_id')
+          .eq('user_id', user.id);
+        
+        if (gerenteCompaniesError) {
+          throw new Error('Error retrieving manager companies');
+        }
+        
+        gerenteCompanies = gerenteCompaniesData?.map((row: any) => row.empresa_id) || [];
+        
+        if (gerenteCompanies.length === 0) {
+          throw new Error('Manager has no assigned companies');
+        }
+      } else if (userProfile?.tipo_acesso === 'Proprietário') {
+        // Get owned companies for the proprietário
+        const { data: ownedCompaniesData, error: ownedError } = await supabase
+          .rpc('get_owned_companies', { user_id: user.id });
+
+        if (ownedError) {
+          throw new Error('Error retrieving owned companies');
+        }
+
+        ownedCompanies = ownedCompaniesData?.map((row: any) => row.empresa_id) || [];
+        
+        if (ownedCompanies.length === 0) {
+          throw new Error('No companies owned by this user');
+        }
+      } else {
+        throw new Error('Insufficient permissions to manage users');
       }
     }
 
@@ -107,12 +135,19 @@ serve(async (req) => {
 
     switch (action) {
       case 'list_users': {
-        // Fetch profiles first with a limit and only essential fields to avoid timeout
-        const { data: profiles, error: profilesError } = await supabaseAdmin
+        // For Gerentes, we need to filter users
+        // They can only see: SDR without company, SDR and Vendedor from their companies
+        let profilesQuery = supabaseAdmin
           .from('profiles')
           .select('id, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresa_id, created_at')
-          .order('created_at', { ascending: false })
-          .limit(100); // Reduced limit for faster response
+          .order('created_at', { ascending: false });
+        
+        // If user is a manager (not admin), filter by allowed tipos_acesso
+        if (isGerente && !canManage) {
+          profilesQuery = profilesQuery.in('tipo_acesso', ['SDR', 'Vendedor']);
+        }
+        
+        const { data: profiles, error: profilesError } = await profilesQuery.limit(200);
 
         if (profilesError) {
           console.error('Error fetching profiles:', profilesError);
@@ -150,7 +185,7 @@ serve(async (req) => {
           const { data: userEmpresasData } = await supabaseAdmin
             .from('user_empresas')
             .select('user_id, empresa_id, is_ativa, empresas(id, nome_empresa)')
-            .in('user_id', profileIds.slice(0, 50)); // Limit to first 50 for speed
+            .in('user_id', profileIds.slice(0, 100));
 
           (userEmpresasData || []).forEach(ue => {
             if (!companiesByUser.has(ue.user_id)) {
@@ -165,16 +200,42 @@ serve(async (req) => {
         }
 
         // Combine profiles with emails and companies
-        const profilesWithDetails = profiles.map(profile => ({
+        let profilesWithDetails = profiles.map(profile => ({
           ...profile,
           email: emailsByUserId.get(profile.id) || 'Email não disponível',
           empresas: companiesByUser.get(profile.id) || []
         }));
+        
+        // For Gerentes, apply additional filtering:
+        // 1. SDR without any company assigned (empresas.length === 0)
+        // 2. SDR/Vendedor who have at least one company that the manager also has
+        if (isGerente && !canManage && gerenteCompanies.length > 0) {
+          profilesWithDetails = profilesWithDetails.filter(profile => {
+            // Allow SDR without companies (so manager can assign them)
+            if (profile.empresas.length === 0) {
+              return true;
+            }
+            
+            // Check if user has at least one company in common with the manager
+            const userCompanyIds = profile.empresas.map((e: any) => e.id);
+            const hasCommonCompany = userCompanyIds.some((companyId: string) => 
+              gerenteCompanies.includes(companyId)
+            );
+            
+            return hasCommonCompany;
+          });
+        }
 
-        console.log('Profiles with details:', profilesWithDetails.length);
+        console.log('Profiles with details after filtering:', profilesWithDetails.length);
 
         return new Response(
-          JSON.stringify({ users: profilesWithDetails }),
+          JSON.stringify({ 
+            users: profilesWithDetails,
+            // Include info about current user role for frontend restrictions
+            currentUserRole: userTipoAcesso,
+            isAdmin: isAdmin || canManage,
+            isGerente: isGerente
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -182,8 +243,21 @@ serve(async (req) => {
       case 'create_user': {
         const { email, password, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresas } = payload;
 
+        // Gerentes can only create SDR or Vendedor users in their companies
+        if (isGerente && !canManage) {
+          // Gerentes can only create SDR or Vendedor
+          if (!['SDR', 'Vendedor'].includes(tipo_acesso)) {
+            throw new Error('Gerentes só podem criar usuários SDR ou Vendedor');
+          }
+          
+          // Validate companies - must be in gerente's companies
+          const invalidCompanies = empresas.filter((empresaId: string) => !gerenteCompanies.includes(empresaId));
+          if (invalidCompanies.length > 0) {
+            throw new Error('Você só pode criar usuários nas suas lojas');
+          }
+        }
         // If user is not admin/TI, validate they can only create users in their owned companies
-        if (!canManage && ownedCompanies.length > 0) {
+        else if (!canManage && ownedCompanies.length > 0) {
           const invalidCompanies = empresas.filter((empresaId: string) => !ownedCompanies.includes(empresaId));
           if (invalidCompanies.length > 0) {
             throw new Error('You can only create users in companies you own');
@@ -311,6 +385,11 @@ serve(async (req) => {
         if (!user_id) {
           throw new Error('User ID is required');
         }
+        
+        // Gerentes cannot delete users
+        if (isGerente && !canManage) {
+          throw new Error('Gerentes não podem excluir usuários');
+        }
 
         // Delete user from auth (this will cascade to profiles table)
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user_id);
@@ -334,9 +413,62 @@ serve(async (req) => {
         if (!user_id) {
           throw new Error('User ID is required');
         }
+        
+        // Get the target user's current profile to check their tipo_acesso
+        const { data: targetProfile, error: targetProfileError } = await supabaseAdmin
+          .from('profiles')
+          .select('tipo_acesso')
+          .eq('id', user_id)
+          .single();
+        
+        if (targetProfileError) {
+          throw new Error('Error fetching target user profile');
+        }
+        
+        const targetTipoAcesso = targetProfile?.tipo_acesso || '';
+        
+        // Gerentes can only update SDR or Vendedor users in their companies
+        if (isGerente && !canManage) {
+          // Check if target user is SDR or Vendedor
+          if (!['SDR', 'Vendedor'].includes(targetTipoAcesso)) {
+            throw new Error('Gerentes só podem editar usuários SDR ou Vendedor');
+          }
+          
+          // Check if the user being updated belongs to gerente's companies OR has no companies
+          const { data: userCompanies, error: userCompaniesError } = await supabaseAdmin
+            .from('user_empresas')
+            .select('empresa_id')
+            .eq('user_id', user_id);
 
+          if (userCompaniesError) {
+            throw new Error('Error checking user companies');
+          }
+
+          const userCompanyIds = userCompanies?.map(uc => uc.empresa_id) || [];
+          
+          // Allow if user has no companies (unassigned) or has at least one common company
+          if (userCompanyIds.length > 0) {
+            const hasPermission = userCompanyIds.some(companyId => gerenteCompanies.includes(companyId));
+            if (!hasPermission) {
+              throw new Error('Você só pode editar usuários das suas lojas');
+            }
+          }
+          
+          // Gerentes can only set tipo_acesso to SDR or Vendedor
+          if (!['SDR', 'Vendedor'].includes(tipo_acesso)) {
+            throw new Error('Gerentes só podem definir tipo de acesso SDR ou Vendedor');
+          }
+          
+          // Validate new companies - must be in gerente's companies
+          if (empresas) {
+            const invalidCompanies = empresas.filter((empresaId: string) => !gerenteCompanies.includes(empresaId));
+            if (invalidCompanies.length > 0) {
+              throw new Error('Você só pode atribuir usuários às suas lojas');
+            }
+          }
+        }
         // If user is not admin/TI, validate they can only update users in their owned companies
-        if (!canManage && ownedCompanies.length > 0) {
+        else if (!canManage && ownedCompanies.length > 0) {
           // Check if the user being updated belongs to owned companies
           const { data: userCompanies, error: userCompaniesError } = await supabaseAdmin
             .from('user_empresas')
