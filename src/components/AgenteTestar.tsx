@@ -81,31 +81,37 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
       // Gerar um id_evento de teste (timestamp como número)
       const idEventoTeste = Date.now();
 
-      // Chamar o webhook cria-base via proxy
-      const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+      // Usar create-base-ligacao diretamente (não o proxy) com sync_external: false
+      // para evitar erros do workflow externo durante testes rápidos
+      const { data, error } = await supabase.functions.invoke('create-base-ligacao', {
         body: {
-          endpoint: 'cria-base-ligacao',
-          id_evento: idEventoTeste,
-          telefone_pri: telefonePri.replace(/\D/g, ''),
-          loja: 'Teste Rápido',
-          total_contatos: contatosParaEnviar.length,
           contatos: contatosParaEnviar.map(c => ({
             nome: c.nome,
             telefone: c.telefone.replace(/\D/g, ''),
           })),
+          id_evento: idEventoTeste,
+          telefone_pri: telefonePri.replace(/\D/g, ''),
+          empresa_id: empresaId || '',
+          prospeccao_id: '', // Não vinculado a prospecção
+          loja: 'Teste Rápido',
+          sync_external: false, // Não sincroniza com sistema externo para teste rápido
         },
       });
 
       if (error) throw error;
 
-      console.log("Resposta cria-base:", data);
+      console.log("Resposta create-base-ligacao:", data);
 
-      toast({
-        title: "Base criada com sucesso!",
-        description: `${contatosParaEnviar.length} contato(s) enviado(s) para a base de teste`,
-      });
-
-      setBaseConfirmada(true);
+      // Verificar se houve sucesso
+      if (data?.success) {
+        toast({
+          title: "Base criada localmente!",
+          description: `${data.summary?.supabase_salvos || contatosParaEnviar.length} contato(s) preparado(s) para teste`,
+        });
+        setBaseConfirmada(true);
+      } else {
+        throw new Error(data?.error || "Falha ao criar base");
+      }
     } catch (error: any) {
       console.error("Erro ao criar base:", error);
       toast({
