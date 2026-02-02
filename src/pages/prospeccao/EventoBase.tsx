@@ -2026,7 +2026,6 @@ export default function EventoBase() {
                         <TableHead className="w-[110px]">Status Lead</TableHead>
                         <TableHead className="w-[100px]">Origem</TableHead>
                         {isIA && <TableHead className="w-[130px]">Disparo IA</TableHead>}
-                        {isIALigacao && <TableHead className="w-[80px] text-center">Ligação</TableHead>}
                         {isIALigacao && <TableHead className="w-[80px] text-center">Tent.</TableHead>}
                         <TableHead className="w-[100px]">Criação</TableHead>
                         
@@ -2114,91 +2113,6 @@ export default function EventoBase() {
                                     <Clock className="h-3.5 w-3.5" />
                                     Pendente
                                   </span>
-                                );
-                              })()}
-                            </TableCell>
-                          )}
-                          {/* Coluna Ligação - ícones para IA Ligação */}
-                          {isIALigacao && (
-                            <TableCell className="text-center">
-                              {(() => {
-                                // Normalizar telefone removendo +55 e caracteres não numéricos
-                                let telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
-                                if (telefoneNormalizado.length > 11 && telefoneNormalizado.startsWith('55')) {
-                                  telefoneNormalizado = telefoneNormalizado.substring(2);
-                                }
-                                const dadosExternos = contatosExternos.get(telefoneNormalizado);
-                                
-                                if (!dadosExternos) {
-                                  return <span className="text-muted-foreground">-</span>;
-                                }
-                                
-                                // Verificar se está encerrado (objetivo cumprido)
-                                const isEncerrado = dadosExternos.status_agendado || dadosExternos.enviado_whatsapp || dadosExternos.ligacao_atendida;
-                                
-                                // Prioridade de ícones: Agendado > WhatsApp > Atendido > Em Fila > Elegível
-                                if (dadosExternos.status_agendado) {
-                                  return (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger>
-                                          <CalendarCheck className="h-5 w-5 text-purple-600 mx-auto" />
-                                        </TooltipTrigger>
-                                        <TooltipContent>Agendado</TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  );
-                                }
-                                if (dadosExternos.enviado_whatsapp) {
-                                  return (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger>
-                                          <MessageCircle className="h-5 w-5 text-green-600 mx-auto" />
-                                        </TooltipTrigger>
-                                        <TooltipContent>WhatsApp Enviado</TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  );
-                                }
-                                if (dadosExternos.ligacao_atendida) {
-                                  return (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger>
-                                          <PhoneCall className="h-5 w-5 text-teal-600 mx-auto" />
-                                        </TooltipTrigger>
-                                        <TooltipContent>Ligação Atendida</TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  );
-                                }
-                                
-                                // CORRIGIDO: Em fila = ligacao_erro E NÃO está encerrado
-                                // Se já agendou ou recebeu whatsapp, não está mais em fila
-                                if (dadosExternos.ligacao_erro && !isEncerrado) {
-                                  return (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger>
-                                          <PhoneMissed className="h-5 w-5 text-blue-600 mx-auto" />
-                                        </TooltipTrigger>
-                                        <TooltipContent>Em Fila (Aguardando Retry)</TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  );
-                                }
-                                
-                                // Elegível (sem status especial)
-                                return (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger>
-                                        <PhoneOutgoing className="h-5 w-5 text-amber-500 mx-auto" />
-                                      </TooltipTrigger>
-                                      <TooltipContent>Elegível para ligação</TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
                                 );
                               })()}
                             </TableCell>
