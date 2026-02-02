@@ -1,17 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, PhoneCall, UserPlus, RefreshCw, CheckCircle } from "lucide-react";
+import { Plus, Trash2, PhoneCall, UserPlus, RefreshCw, CheckCircle, Calendar } from "lucide-react";
 
 interface ContatoTeste {
   id: string;
   nome: string;
   telefone: string;
+}
+
+interface EventoPriVoz {
+  id: string;
+  id_evento: number;
+  nome: string;
+  data_inicio?: string;
+  data_fim?: string;
+  evt_status?: string;
 }
 
 interface AgenteTestarProps {
@@ -29,6 +39,43 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
   const [confirmando, setConfirmando] = useState(false);
   const [disparando, setDisparando] = useState(false);
   const [baseConfirmada, setBaseConfirmada] = useState(false);
+  const [eventos, setEventos] = useState<EventoPriVoz[]>([]);
+  const [eventoSelecionado, setEventoSelecionado] = useState<string>("");
+  const [loadingEventos, setLoadingEventos] = useState(false);
+
+  // Buscar eventos disponíveis para este telefone_pri
+  useEffect(() => {
+    const fetchEventos = async () => {
+      if (!empresaId) return;
+      
+      setLoadingEventos(true);
+      try {
+        const { data, error } = await supabase
+          .from('eventos_pri_voz')
+          .select('id, id_evento, nome, data_inicio, data_fim, evt_status')
+          .eq('empresa_id', empresaId)
+          .order('data_inicio', { ascending: false });
+
+        if (error) throw error;
+        
+        setEventos(data || []);
+        
+        // Auto-selecionar o primeiro evento ativo se houver
+        const eventoAtivo = data?.find(e => e.evt_status === 'ativo');
+        if (eventoAtivo) {
+          setEventoSelecionado(eventoAtivo.id);
+        } else if (data && data.length > 0) {
+          setEventoSelecionado(data[0].id);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar eventos:", error);
+      } finally {
+        setLoadingEventos(false);
+      }
+    };
+
+    fetchEventos();
+  }, [empresaId]);
 
   const adicionarContato = () => {
     setContatos(prev => [...prev, { id: crypto.randomUUID(), nome: "", telefone: "" }]);
@@ -66,10 +113,20 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
       .filter(c => c.nome.trim() && c.telefone.trim())
       .map(c => ({ nome: c.nome.trim(), telefone: c.telefone.trim() }));
 
-    if (!telefonePri) {
+    if (!eventoSelecionado) {
+      toast({
+        title: "Evento obrigatório",
+        description: "Selecione um evento para realizar o teste",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const eventoEscolhido = eventos.find(e => e.id === eventoSelecionado);
+    if (!eventoEscolhido) {
       toast({
         title: "Erro",
-        description: "Telefone PRI não configurado para este agente",
+        description: "Evento selecionado não encontrado",
         variant: "destructive"
       });
       return;
@@ -78,23 +135,19 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
     setConfirmando(true);
 
     try {
-      // Gerar um id_evento de teste (timestamp como número)
-      const idEventoTeste = Date.now();
-
-      // Usar create-base-ligacao diretamente (não o proxy) com sync_external: false
-      // para evitar erros do workflow externo durante testes rápidos
+      // Usar create-base-ligacao diretamente com o id_evento real do evento selecionado
       const { data, error } = await supabase.functions.invoke('create-base-ligacao', {
         body: {
           contatos: contatosParaEnviar.map(c => ({
             nome: c.nome,
             telefone: c.telefone.replace(/\D/g, ''),
           })),
-          id_evento: idEventoTeste,
+          id_evento: eventoEscolhido.id_evento,
           telefone_pri: telefonePri.replace(/\D/g, ''),
           empresa_id: empresaId || '',
           prospeccao_id: '', // Não vinculado a prospecção
-          loja: 'Teste Rápido',
-          sync_external: false, // Não sincroniza com sistema externo para teste rápido
+          loja: agenteNome || 'Teste Rápido',
+          sync_external: true, // Sincronizar com sistema externo usando evento real
         },
       });
 
@@ -147,14 +200,34 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
       return;
     }
 
+    if (!eventoSelecionado) {
+      toast({
+        title: "Evento obrigatório",
+        description: "Selecione um evento para disparar a ligação",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const eventoEscolhido = eventos.find(e => e.id === eventoSelecionado);
+    if (!eventoEscolhido) {
+      toast({
+        title: "Erro",
+        description: "Evento selecionado não encontrado",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setDisparando(true);
 
     try {
-      // Chamar o webhook dispara-ligacao via proxy
+      // Chamar o webhook dispara-ligacao via proxy com o id_evento real
       const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
         body: {
           endpoint: 'dispara-ligacao',
           telefone_pri: telefonePri.replace(/\D/g, ''),
+          id_evento: eventoEscolhido.id_evento,
           contatos: contatosParaEnviar,
         },
       });
@@ -206,10 +279,53 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
         </Button>
       </div>
 
+      {/* Seletor de Evento */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Evento para Teste
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingEventos ? (
+            <div className="text-sm text-muted-foreground">Carregando eventos...</div>
+          ) : eventos.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              Nenhum evento encontrado para esta empresa. Crie um evento de IA Ligação primeiro.
+            </div>
+          ) : (
+            <Select value={eventoSelecionado} onValueChange={setEventoSelecionado}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um evento" />
+              </SelectTrigger>
+              <SelectContent>
+                {eventos.map((evento) => (
+                  <SelectItem key={evento.id} value={evento.id}>
+                    <div className="flex items-center gap-2">
+                      <span>{evento.nome}</span>
+                      <Badge 
+                        variant={evento.evt_status === 'ativo' ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {evento.evt_status === 'ativo' ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        (ID: {evento.id_evento})
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Info do Agente */}
       <Card className="bg-muted/30 border-dashed">
         <CardContent className="py-4">
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-4 text-sm flex-wrap">
             <div>
               <span className="text-muted-foreground">Agente:</span>{" "}
               <span className="font-medium">{agenteNome || "Pri(Ligação)"}</span>
