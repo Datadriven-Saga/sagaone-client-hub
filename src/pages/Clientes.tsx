@@ -2,25 +2,56 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { KPICard } from "@/components/KPICard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DateRangePicker } from "@/components/DateRangePicker";
-import { Users, Phone, Mail, UserCheck } from "lucide-react";
-import { useState, useMemo } from "react";
+import { Users, Phone, Mail, UserCheck, CalendarDays } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import { useClientesData } from "@/hooks/useClientesData";
+import { useCompany } from "@/contexts/CompanyContext";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Prospeccao {
+  id: string;
+  titulo: string;
+}
 
 const Clientes = () => {
+  const { activeCompany } = useCompany();
   const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [searchTerm, setSearchTerm] = useState("");
   const [tipoCliente, setTipoCliente] = useState("todos");
   const [sexoFiltro, setSexoFiltro] = useState("todos");
-  const { clientes: clientesList, kpis: kpisData, distribuicaoGenero, distribuicaoDocumento, loading } = useClientesData();
+  
+  // SINCRONIZAÇÃO: Filtro por evento/prospecção (mesma lógica do Kanban e Funil)
+  const [prospeccaoId, setProspeccaoId] = useState("todos");
+  const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
+  
+  // Hook agora aceita prospeccaoId para filtrar
+  const { clientes: clientesList, kpis: kpisData, distribuicaoGenero, distribuicaoDocumento, loading } = useClientesData({ prospeccaoId });
+
+  // Carregar prospecções para o filtro
+  useEffect(() => {
+    const fetchProspeccoes = async () => {
+      if (!activeCompany?.id) return;
+      
+      const { data } = await supabase
+        .from("prospeccoes")
+        .select("id, titulo")
+        .eq("empresa_id", activeCompany.id)
+        .order("titulo");
+      
+      setProspeccoes(data || []);
+    };
+    
+    fetchProspeccoes();
+  }, [activeCompany?.id]);
 
   const clientesFiltrados = useMemo(() => {
     return clientesList.filter(cliente => {
@@ -55,22 +86,22 @@ const Clientes = () => {
   }, [clientesList, searchTerm, tipoCliente, sexoFiltro, dateRange]);
 
   const kpis = [
-    { title: "Clientes", value: loading ? "..." : kpisData.total.toString(), icon: Users },
+    { title: "Clientes", value: loading ? "..." : kpisData.total.toLocaleString('pt-BR'), icon: Users },
     { 
       title: "Com Telefone", 
-      value: loading ? "..." : kpisData.comTelefone.toString(), 
+      value: loading ? "..." : kpisData.comTelefone.toLocaleString('pt-BR'), 
       subtitle: kpisData.total > 0 ? `${((kpisData.comTelefone / kpisData.total) * 100).toFixed(0)}%` : "0%", 
       icon: Phone 
     },
     { 
       title: "Com E-mail", 
-      value: loading ? "..." : kpisData.comEmail.toString(), 
+      value: loading ? "..." : kpisData.comEmail.toLocaleString('pt-BR'), 
       subtitle: kpisData.total > 0 ? `${((kpisData.comEmail / kpisData.total) * 100).toFixed(0)}%` : "0%", 
       icon: Mail 
     },
     { 
       title: "Realizaram Compra", 
-      value: loading ? "..." : kpisData.realizaramCompra.toString(), 
+      value: loading ? "..." : kpisData.realizaramCompra.toLocaleString('pt-BR'), 
       subtitle: kpisData.total > 0 ? `${((kpisData.realizaramCompra / kpisData.total) * 100).toFixed(0)}%` : "0%", 
       icon: UserCheck 
     }
@@ -92,12 +123,30 @@ const Clientes = () => {
       <div className="space-y-3">
         {/* Filtros */}
         <Card className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Input 
-              placeholder="Buscar cliente por nome, telefone ou email..." 
+              placeholder="Buscar cliente por nome" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+
+            {/* NOVO: Filtro por Evento/Prospecção - sincronizado com Kanban e Funil */}
+            <Select value={prospeccaoId} onValueChange={setProspeccaoId}>
+              <SelectTrigger>
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="Todos os Eventos" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Eventos</SelectItem>
+                {prospeccoes.map((prosp) => (
+                  <SelectItem key={prosp.id} value={prosp.id}>
+                    {prosp.titulo}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             <Select value={tipoCliente} onValueChange={setTipoCliente}>
               <SelectTrigger>
@@ -228,7 +277,9 @@ const Clientes = () => {
               <Users className="mx-auto mb-2" size={32} />
               <p>
                 {clientesList.length === 0 
-                  ? "Nenhum cliente encontrado" 
+                  ? prospeccaoId === "todos" 
+                    ? "Nenhum cliente vinculado a eventos" 
+                    : "Nenhum cliente vinculado a este evento"
                   : "Nenhum cliente corresponde aos filtros aplicados"}
               </p>
             </div>
