@@ -322,9 +322,12 @@ export const useContatoData = () => {
     }
   }, [activeCompany?.id, toast]);
 
-  // Carregamento de dados quando empresa ativa muda  
+  // Estado para controlar se contatos já foram carregados
+  const [contatosLoaded, setContatosLoaded] = useState(false);
+
+  // Carregar prospecções quando empresa ativa muda (RÁPIDO - apenas eventos)
   useEffect(() => {
-    console.log('🔄 useContatoData useEffect triggered');
+    console.log('🔄 useContatoData - Loading prospeccoes only');
     console.log('👤 User ID:', user?.id);
     console.log('🏢 Active company ID:', activeCompany?.id);
 
@@ -345,36 +348,37 @@ export const useContatoData = () => {
       return;
     }
 
-    const loadData = async () => {
-      console.log('🔄 Loading data for company:', activeCompany.id);
+    const loadProspeccoes = async () => {
+      console.log('🔄 Loading prospeccoes for company:', activeCompany.id);
       setLoading(true);
       
       try {
-        // Carregar prospecções primeiro (rápido) e contatos em paralelo
-        // Usar timeout para garantir que loading nunca fique infinito
-        const timeout = new Promise<void>((resolve) => setTimeout(() => {
-          console.log('⏰ Load timeout reached');
-          resolve();
-        }, 15000)); // 15 segundos máximo
-
-        await Promise.race([
-          Promise.all([
-            fetchProspeccoes(true),
-            fetchContatos()
-          ]),
-          timeout
-        ]);
-        
-        console.log('✅ Data loaded successfully');
+        // Apenas carrega prospecções (rápido) - contatos serão carregados sob demanda
+        await fetchProspeccoes(true);
+        console.log('✅ Prospeccoes loaded successfully');
       } catch (error) {
-        console.error('❌ Error loading data:', error);
+        console.error('❌ Error loading prospeccoes:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadData();
-  }, [activeCompany?.id, user?.id]); // FIXED: usar user?.id em vez de user objeto
+    // Reset contatos quando empresa muda
+    setContatosLoaded(false);
+    setContatos([]);
+    setContatosProspeccoes(new Map());
+    
+    loadProspeccoes();
+  }, [activeCompany?.id, user?.id, fetchProspeccoes]);
+
+  // Função para carregar contatos sob demanda (chamada apenas quando necessário)
+  const loadContatos = useCallback(async () => {
+    if (contatosLoaded || !activeCompany?.id) return;
+    
+    console.log('📥 Loading contatos on demand...');
+    await fetchContatos();
+    setContatosLoaded(true);
+  }, [contatosLoaded, activeCompany?.id, fetchContatos]);
 
   // Normalizar telefone para comparação (remove caracteres especiais)
   // Usa os últimos 11 dígitos para evitar conflitos (DDD + número completo)
@@ -1847,9 +1851,14 @@ export const useContatoData = () => {
     dispararParaIA,
     contarContatosPendentesDisparo,
     fetchProspeccoes,
+    loadContatos,
+    contatosLoaded,
     refetch: async () => {
       console.log('🔄 Refetch triggered...');
-      await Promise.all([fetchProspeccoes(), fetchContatos()]);
+      await fetchProspeccoes();
+      if (contatosLoaded) {
+        await fetchContatos();
+      }
       console.log('✅ Refetch completed');
     }
   };

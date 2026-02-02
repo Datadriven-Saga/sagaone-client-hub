@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, Users, Search, Filter, Send, Loader2, CheckCircle, Phone, Mail, Calendar, Clock } from 'lucide-react';
+import { Download, Users, Search, Filter, Send, Loader2, CheckCircle, Phone, Mail, Calendar, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -75,21 +75,43 @@ export const EventoBaseModal = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos');
   const [disparoFilter, setDisparoFilter] = useState<DisparoFilter>('todos');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 50;
   const { toast } = useToast();
   const { activeCompany } = useCompany();
 
-  // Buscar contatos vinculados ao evento
+  // Buscar contatos vinculados ao evento com paginação server-side
   useEffect(() => {
     const fetchContatos = async () => {
       if (!isOpen || !prospeccao?.id || !activeCompany?.id) return;
 
       setLoading(true);
       try {
-        // Buscar IDs dos contatos via eventos_prospeccao
+        // Primeiro, contar total para métricas (rápido)
+        const { count: totalContatos, error: countError } = await supabase
+          .from('eventos_prospeccao')
+          .select('contato_id', { count: 'exact', head: true })
+          .eq('prospeccao_id', prospeccao.id)
+          .not('contato_id', 'is', null);
+
+        if (countError) throw countError;
+        setTotalCount(totalContatos || 0);
+
+        if (!totalContatos || totalContatos === 0) {
+          setContatos([]);
+          setLoading(false);
+          return;
+        }
+
+        // Buscar IDs da página atual via eventos_prospeccao
+        const offset = (currentPage - 1) * PAGE_SIZE;
         const { data: eventosData, error: eventosError } = await supabase
           .from('eventos_prospeccao')
           .select('contato_id')
-          .eq('prospeccao_id', prospeccao.id);
+          .eq('prospeccao_id', prospeccao.id)
+          .not('contato_id', 'is', null)
+          .range(offset, offset + PAGE_SIZE - 1);
 
         if (eventosError) throw eventosError;
 
@@ -103,25 +125,15 @@ export const EventoBaseModal = ({
           return;
         }
 
-        // Buscar dados dos contatos em lotes
-        const BATCH_SIZE = 500;
-        let allContatos: ContatoEvento[] = [];
+        // Buscar dados dos contatos da página
+        const { data: contatosData, error: contatosError } = await supabase
+          .from('contatos')
+          .select('id, nome, telefone, email, status, origem, created_at, updated_at, data_disparo_ia, responsavel_email, vendedor_nome')
+          .in('id', contatoIds)
+          .eq('empresa_id', activeCompany.id);
 
-        for (let i = 0; i < contatoIds.length; i += BATCH_SIZE) {
-          const batchIds = contatoIds.slice(i, i + BATCH_SIZE);
-          const { data: contatosData, error: contatosError } = await supabase
-            .from('contatos')
-            .select('id, nome, telefone, email, status, origem, created_at, updated_at, data_disparo_ia, responsavel_email, vendedor_nome')
-            .in('id', batchIds)
-            .eq('empresa_id', activeCompany.id);
-
-          if (contatosError) throw contatosError;
-          if (contatosData) {
-            allContatos = [...allContatos, ...contatosData];
-          }
-        }
-
-        setContatos(allContatos);
+        if (contatosError) throw contatosError;
+        setContatos(contatosData || []);
       } catch (error) {
         console.error('Erro ao buscar contatos:', error);
         toast({
@@ -135,7 +147,15 @@ export const EventoBaseModal = ({
     };
 
     fetchContatos();
-  }, [isOpen, prospeccao?.id, activeCompany?.id, toast]);
+  }, [isOpen, prospeccao?.id, activeCompany?.id, currentPage, toast]);
+
+  // Reset página quando modal abre/fecha ou evento muda
+  useEffect(() => {
+    setCurrentPage(1);
+    setSearchTerm('');
+    setStatusFilter('todos');
+    setDisparoFilter('todos');
+  }, [isOpen, prospeccao?.id]);
 
   // Filtrar contatos
   const filteredContatos = useMemo(() => {
@@ -159,11 +179,11 @@ export const EventoBaseModal = ({
     });
   }, [contatos, searchTerm, statusFilter, disparoFilter]);
 
-  // Calcular métricas
+  // Calcular métricas (usando total do servidor, não da página)
   const metricas = useMemo(() => {
-    const total = contatos.length;
-    const pendentes = contatos.filter(c => !c.data_disparo_ia).length;
-    const disparados = total - pendentes;
+    // Para métricas de disparo, usar dados da página atual (aproximação)
+    const pendentesNaPagina = contatos.filter(c => !c.data_disparo_ia).length;
+    const disparadosNaPagina = contatos.length - pendentesNaPagina;
     
     const porStatus: Record<string, number> = {};
     contatos.forEach(c => {
@@ -171,8 +191,16 @@ export const EventoBaseModal = ({
       porStatus[status] = (porStatus[status] || 0) + 1;
     });
 
-    return { total, pendentes, disparados, porStatus };
-  }, [contatos]);
+    return { 
+      total: totalCount, 
+      pendentes: pendentesNaPagina, 
+      disparados: disparadosNaPagina, 
+      porStatus 
+    };
+  }, [contatos, totalCount]);
+
+  // Calcular páginas
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   // Exportar dados
   const handleExport = () => {
@@ -424,14 +452,33 @@ export const EventoBaseModal = ({
           )}
         </ScrollIndicator>
 
-        {/* Rodapé com contagem */}
+        {/* Rodapé com paginação */}
         <div className="flex-shrink-0 flex items-center justify-between pt-4 border-t text-sm text-muted-foreground">
           <span>
-            Mostrando {filteredContatos.length} de {contatos.length} contatos
+            Página {currentPage} de {totalPages || 1} ({totalCount} contatos)
           </span>
-          <Button variant="outline" onClick={onClose}>
-            Fechar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage <= 1 || loading}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-xs px-2">{currentPage} / {totalPages || 1}</span>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages || loading}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" onClick={onClose}>
+              Fechar
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

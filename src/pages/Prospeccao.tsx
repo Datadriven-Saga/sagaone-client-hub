@@ -157,6 +157,8 @@ showAllEvents: true
     dispararParaIA,
     contarContatosPendentesDisparo,
     fetchProspeccoes,
+    loadContatos,
+    contatosLoaded,
     refetch
   } = useContatoData();
   const { vendas, criarVenda, refetch: refetchVendas } = useVendasProspeccao();
@@ -411,8 +413,8 @@ showAllEvents: true
           });
         }
         
-        // Atualizar lista de prospecções após sincronização
-        refetch();
+        // Atualizar apenas lista de prospecções (não contatos)
+        fetchProspeccoes(globalFilters.showAllEvents);
       }
       
       // Após sincronização, todos os eventos de ligação são válidos (os inválidos foram removidos)
@@ -446,12 +448,19 @@ showAllEvents: true
 
   // Sincronizar automaticamente ao carregar a página
   useEffect(() => {
-    if (activeCompany?.id && prospeccoes.length > 0) {
+    if (activeCompany?.id && prospeccoes.length > 0 && !sincronizandoLigacao) {
+      // Não bloquear - executar em background
       sincronizarEventosLigacao(false);
     }
   }, [activeCompany?.id, prospeccoes.length > 0]);
 
-  // Persistir aba ativa
+  // Carregar contatos apenas quando necessário (aba kanban, recepcao, ou vendas)
+  useEffect(() => {
+    if (activeTab !== 'eventos' && activeCompany?.id && !contatosLoaded) {
+      console.log('📥 Loading contatos for tab:', activeTab);
+      loadContatos();
+    }
+  }, [activeTab, activeCompany?.id, contatosLoaded, loadContatos]);
   useEffect(() => {
     sessionStorage.setItem('prospeccao_active_tab', activeTab);
   }, [activeTab]);
@@ -678,10 +687,13 @@ showAllEvents: true
     return true; // Permitir mover o card
   };
 
-  // Carregar contagens de pendentes para eventos IA (otimizado - uma única query)
-  // Para IA Ligação, usa webhook externo para obter contagem real de elegíveis
+  // Carregar contagens de pendentes para eventos IA (OTIMIZADO - sem webhooks externos)
+  // Métricas externas de Ligação são carregadas sob demanda via RPC
   useEffect(() => {
     const carregarContagens = async () => {
+      // Somente carregar se estiver na aba de eventos
+      if (activeTab !== 'eventos') return;
+      
       const eventosIA = prospeccoes.filter(p => {
         const canalStr = String(p.canal).toLowerCase();
         return canalStr === 'whatsapp' || canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
@@ -689,105 +701,56 @@ showAllEvents: true
 
       if (eventosIA.length === 0) return;
 
-      // Separar eventos WhatsApp e Ligação
-      const eventosWhatsApp = eventosIA.filter(e => String(e.canal).toLowerCase() === 'whatsapp');
-      const eventosLigacao = eventosIA.filter(e => {
-        const canalStr = String(e.canal).toLowerCase();
-        return canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
-      });
+      // Usar RPC get_prospeccao_metricas para todos os eventos (muito mais rápido)
+      // Carregar em paralelo, batches de 10 para não sobrecarregar
+      const batchSize = 10;
+      for (let i = 0; i < eventosIA.length; i += batchSize) {
+        const batch = eventosIA.slice(i, i + batchSize);
+        
+        const results = await Promise.all(
+          batch.map(async (evento) => {
+            try {
+              // Usar RPC para métricas rápidas (sem chamar webhooks externos)
+              const { data: metricasData } = await supabase
+                .rpc('get_prospeccao_metricas' as any, {
+                  p_prospeccao_id: evento.id,
+                  p_empresa_id: activeCompany?.id
+                });
 
-      // Carregar contagens de WhatsApp usando método local (RPC)
-      if (eventosWhatsApp.length > 0) {
-        const batchSize = 5;
-        for (let i = 0; i < eventosWhatsApp.length; i += batchSize) {
-          const batch = eventosWhatsApp.slice(i, i + batchSize);
-          const results = await Promise.all(
-            batch.map(async (evento) => {
-              const contagem = await contarContatosPendentesDisparo(evento.id);
-              return { id: evento.id, contagem };
-            })
-          );
-          
-          setContagemPendentes(prev => {
-            const newState = { ...prev };
-            results.forEach(r => {
-              newState[r.id] = r.contagem;
-            });
-            return newState;
-          });
-        }
-      }
-
-      // Carregar contagens de Ligação usando webhook externo (verifica-contatos)
-      // Isso retorna as métricas reais considerando encerrados, pendentes e em fila
-      if (eventosLigacao.length > 0) {
-        const batchSize = 3; // Menor batch para webhooks externos
-        for (let i = 0; i < eventosLigacao.length; i += batchSize) {
-          const batch = eventosLigacao.slice(i, i + batchSize);
-          const results = await Promise.all(
-            batch.map(async (evento) => {
-              try {
-                // Métricas externas de Ligação precisam do event_id_pri (numérico).
-                // Se não existir, não chamar webhook externo (evita 500 "Error in workflow").
-                if (!evento.event_id_pri) {
-                  console.log(`⚠️ Evento ${evento.id} sem event_id_pri; usando fallback local`);
-                  const contagem = await contarContatosPendentesDisparo(evento.id);
-                  return { id: evento.id, contagem, metricasExternas: null };
-                }
-
-                // Primeiro tenta métricas externas
-                const metricasExternas = await fetchMetricasLigacao(evento.id, evento.event_id_pri);
-                
-                if (metricasExternas) {
-                  // Usar apenas pendentes para disparo (não inclui em fila)
-                  return { 
-                    id: evento.id, 
-                    contagem: {
-                      total: metricasExternas.total,
-                      pendentes: metricasExternas.pendentes, // Apenas pendentes, não elegiveisDisparo
-                      disparados: metricasExternas.disparados1 + metricasExternas.disparados2
-                    },
-                    metricasExternas
-                  };
-                }
-                
-                // Fallback para método local se webhook falhar
-                const contagem = await contarContatosPendentesDisparo(evento.id);
-                return { id: evento.id, contagem, metricasExternas: null };
-              } catch (error) {
-                console.error(`Erro ao buscar métricas para evento ${evento.id}:`, error);
-                const contagem = await contarContatosPendentesDisparo(evento.id);
-                return { id: evento.id, contagem, metricasExternas: null };
+              if (metricasData && Array.isArray(metricasData) && metricasData.length > 0) {
+                const m = metricasData[0] as { total: number; pendentes: number; disparados: number; vendas: number };
+                return { 
+                  id: evento.id, 
+                  contagem: {
+                    total: Number(m.total) || 0,
+                    pendentes: Number(m.pendentes) || 0,
+                    disparados: Number(m.disparados) || 0
+                  }
+                };
               }
-            })
-          );
-          
-          setContagemPendentes(prev => {
-            const newState = { ...prev };
-            results.forEach(r => {
-              newState[r.id] = r.contagem;
-            });
-            return newState;
+              
+              return { id: evento.id, contagem: { total: 0, pendentes: 0, disparados: 0 } };
+            } catch (error) {
+              console.error(`Erro ao buscar métricas para evento ${evento.id}:`, error);
+              return { id: evento.id, contagem: { total: 0, pendentes: 0, disparados: 0 } };
+            }
+          })
+        );
+        
+        setContagemPendentes(prev => {
+          const newState = { ...prev };
+          results.forEach(r => {
+            newState[r.id] = r.contagem;
           });
-
-          // Salvar métricas externas para uso na UI
-          setMetricasLigacaoExternas(prev => {
-            const newState = { ...prev };
-            results.forEach(r => {
-              if (r.metricasExternas) {
-                newState[r.id] = r.metricasExternas;
-              }
-            });
-            return newState;
-          });
-        }
+          return newState;
+        });
       }
     };
 
-    if (prospeccoes.length > 0) {
+    if (prospeccoes.length > 0 && activeCompany?.id) {
       carregarContagens();
     }
-  }, [prospeccoes, fetchMetricasLigacao, contarContatosPendentesDisparo]);
+  }, [prospeccoes, activeCompany?.id, activeTab]);
 
   // Calcular métricas dos contatos (antes do early return para uso nos useMemo)
   const metricas = getMetricas();
