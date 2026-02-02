@@ -106,6 +106,105 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
       // Calculate nota final (1-5 rating → 2-10 scale)
       const notaFinal = rating * 2;
 
+      // Best-effort: keep academy_progresso in sync for simulations so the Dashboard tabs
+      // “Métricas de uso” and “Tabela de análises” update consistently.
+      const syncProgressoFromSimulacao = async (simulacaoId: string, duracaoSegundos: number, nota: number) => {
+        if (!user?.id) return;
+
+        // 1) Resolve treinamento_id for this simulacao
+        let treinamentoId: string | null = null;
+
+        const { data: simRow, error: simErr } = await supabase
+          .from("academy_simulacoes")
+          .select("treinamento_id")
+          .eq("id", simulacaoId)
+          .maybeSingle();
+
+        if (simErr) {
+          console.warn("[Treinamentos] Falha ao buscar treinamento_id da simulação:", simErr);
+        }
+
+        if (simRow?.treinamento_id) {
+          treinamentoId = simRow.treinamento_id;
+        } else {
+          const { data: tRow, error: tErr } = await supabase
+            .from("academy_treinamentos")
+            .select("id")
+            // JSON filter: conteudo.simulacao_id
+            .eq("conteudo->>simulacao_id", simulacaoId)
+            .limit(1)
+            .maybeSingle();
+
+          if (tErr) {
+            console.warn("[Treinamentos] Falha ao buscar treinamento via conteudo.simulacao_id:", tErr);
+          }
+
+          if (tRow?.id) treinamentoId = tRow.id;
+        }
+
+        if (!treinamentoId) return;
+
+        const minutosGastos = Math.max(0, Math.ceil((duracaoSegundos || 0) / 60));
+
+        // 2) Update existing (training-level) progress row if present (modulo_id IS NULL)
+        const { data: existing, error: existingErr } = await supabase
+          .from("academy_progresso")
+          .select("id, tentativas, tempo_gasto_minutos, data_inicio")
+          .eq("user_id", user.id)
+          .eq("treinamento_id", treinamentoId)
+          .is("modulo_id", null)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingErr) {
+          console.warn("[Treinamentos] Falha ao buscar progresso existente:", existingErr);
+        }
+
+        const now = new Date().toISOString();
+        const nextTentativas = (existing?.tentativas ?? 0) + 1;
+        const nextTempo = (existing?.tempo_gasto_minutos ?? 0) + minutosGastos;
+        const dataInicio = existing?.data_inicio ?? now;
+
+        if (existing?.id) {
+          const { error: updErr } = await supabase
+            .from("academy_progresso")
+            .update({
+              status: "concluido",
+              percentual_concluido: 100,
+              nota,
+              tentativas: nextTentativas,
+              tempo_gasto_minutos: nextTempo,
+              data_inicio: dataInicio,
+              data_conclusao: now,
+            })
+            .eq("id", existing.id);
+
+          if (updErr) {
+            console.warn("[Treinamentos] Falha ao atualizar academy_progresso:", updErr);
+          }
+        } else {
+          const { error: insErr } = await supabase
+            .from("academy_progresso")
+            .insert({
+              user_id: user.id,
+              treinamento_id: treinamentoId,
+              modulo_id: null,
+              status: "concluido",
+              percentual_concluido: 100,
+              nota,
+              tentativas: 1,
+              tempo_gasto_minutos: minutosGastos,
+              data_inicio: now,
+              data_conclusao: now,
+            });
+
+          if (insErr) {
+            console.warn("[Treinamentos] Falha ao inserir academy_progresso:", insErr);
+          }
+        }
+      };
+
       // Build avaliacoes with dimension notes for the metrics calculation
       // The DB function expects format: { "Situação": { "nota": X }, ... }
       // For now, distribute the rating across all dimensions until we have AI evaluation
@@ -131,6 +230,9 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
         pontosMelhoria: [],
         duracaoSegundos: finalDuration,
       });
+
+      // Update progress for the training linked to this simulation (best-effort)
+      await syncProgressoFromSimulacao(session.simulacaoId, finalDuration, notaFinal);
 
       // Recalculate user metrics
       if (user?.id) {
