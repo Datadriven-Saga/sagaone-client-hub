@@ -431,7 +431,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setCurrentStep(0);
   };
   
-  // Buscar usuários com acesso à empresa ativa
+  // Buscar usuários com acesso à empresa ativa (apenas SDR e Vendedor para equipes)
   useEffect(() => {
     const fetchUsersComAcesso = async () => {
       if (!activeCompany?.id || !isOpen) return;
@@ -454,12 +454,13 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         return;
       }
       
-      // Buscar profiles dos usuários com status ativo
+      // Buscar profiles dos usuários com status ativo e tipo_acesso SDR ou Vendedor
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('id, nome_completo, tipo_acesso, status')
         .in('id', userIds)
-        .eq('status', 'Ativo');
+        .eq('status', 'Ativo')
+        .in('tipo_acesso', ['SDR', 'Vendedor']);
       
       if (profilesError) {
         console.error('Erro ao buscar profiles:', profilesError);
