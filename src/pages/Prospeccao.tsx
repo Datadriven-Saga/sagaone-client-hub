@@ -1890,53 +1890,6 @@ showAllEvents: true
                                     
                                     return (
                                       <div className="flex items-center justify-end gap-2">
-                                        {/* Botão Disparar para IA - apenas para eventos IA com pendentes */}
-                                        {isIA && pendentes > 0 && (
-                                          <TooltipProvider>
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <span>
-                                                  <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleDispararParaIA(prospeccao.id, prospeccao.canal || '')}
-                                                    disabled={isDisparando || (isIALigacao && !ligacaoValidoNoWebhook)}
-                                                    className={`h-8 text-xs ${isIALigacao && !ligacaoValidoNoWebhook ? 'opacity-50' : ''}`}
-                                                  >
-                                                    {isDisparando ? (
-                                                      <>
-                                                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                                                        Enviando...
-                                                      </>
-                                                    ) : (
-                                                      <>
-                                                        {isIALigacao ? (
-                                                          <Phone className="mr-1.5 h-3.5 w-3.5" />
-                                                        ) : (
-                                                          <Send className="mr-1.5 h-3.5 w-3.5" />
-                                                        )}
-                                                        Disparar ({pendentes})
-                                                      </>
-                                                    )}
-                                                  </Button>
-                                                </span>
-                                              </TooltipTrigger>
-                                              {isIALigacao && !ligacaoValidoNoWebhook && (
-                                                <TooltipContent>
-                                                  <p>Este evento não está configurado no sistema de Ligação IA</p>
-                                                </TooltipContent>
-                                              )}
-                                            </Tooltip>
-                                          </TooltipProvider>
-                                        )}
-                                        
-                                        {/* Indicador de todos disparados */}
-                                        {isIA && pendentes === 0 && contagem?.total > 0 && (
-                                          <span className="text-xs text-green-600 flex items-center gap-1">
-                                            <CheckCircle className="h-3.5 w-3.5" />
-                                            {contagem.disparados} enviados
-                                          </span>
-                                        )}
 
                                         {/* Botão Ver Base */}
                                         <Button
