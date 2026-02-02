@@ -139,6 +139,7 @@ interface AgenteLocal {
 }
 
 export default function AdminAgentes() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const { isDepartamentoTI, isAdminOrTI, loading: accessLoading } = useUserAccessType();
@@ -1615,8 +1616,6 @@ export default function AdminAgentes() {
       </DashboardLayout>
     );
   }
-
-  const navigate = useNavigate();
 
   return (
     <DashboardLayout title="Agentes - Administração">
