@@ -43,29 +43,45 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
   const [eventoSelecionado, setEventoSelecionado] = useState<string>("");
   const [loadingEventos, setLoadingEventos] = useState(false);
 
-  // Buscar eventos disponíveis para este telefone_pri
+  // Buscar eventos disponíveis para este telefone_pri via webhook externo
   useEffect(() => {
     const fetchEventos = async () => {
-      if (!empresaId) return;
+      if (!telefonePri) return;
       
       setLoadingEventos(true);
       try {
-        const { data, error } = await supabase
-          .from('eventos_pri_voz')
-          .select('id, id_evento, nome, data_inicio, data_fim, evt_status')
-          .eq('empresa_id', empresaId)
-          .order('data_inicio', { ascending: false });
+        const { data, error } = await supabase.functions.invoke('eventos-ligacao-proxy', {
+          body: {
+            action: 'listar_todos',
+            telefone_pri: telefonePri.replace(/\D/g, ''),
+          },
+        });
 
         if (error) throw error;
         
-        setEventos(data || []);
+        console.log("Eventos do webhook:", data);
+        
+        // O webhook retorna array de eventos ou objeto com array
+        const eventosArray = Array.isArray(data) ? data : (data?.eventos || data?.data || []);
+        
+        // Mapear para o formato esperado
+        const eventosMapeados: EventoPriVoz[] = eventosArray.map((evt: any) => ({
+          id: String(evt.id_evento || evt.id),
+          id_evento: evt.id_evento || evt.id,
+          nome: evt.nome || evt.name || `Evento ${evt.id_evento}`,
+          data_inicio: evt.data_inicio || evt.start_date,
+          data_fim: evt.data_fim || evt.end_date,
+          evt_status: evt.evt_status || evt.status || 'ativo',
+        }));
+        
+        setEventos(eventosMapeados);
         
         // Auto-selecionar o primeiro evento ativo se houver
-        const eventoAtivo = data?.find(e => e.evt_status === 'ativo');
+        const eventoAtivo = eventosMapeados.find(e => e.evt_status === 'ativo');
         if (eventoAtivo) {
           setEventoSelecionado(eventoAtivo.id);
-        } else if (data && data.length > 0) {
-          setEventoSelecionado(data[0].id);
+        } else if (eventosMapeados.length > 0) {
+          setEventoSelecionado(eventosMapeados[0].id);
         }
       } catch (error) {
         console.error("Erro ao buscar eventos:", error);
@@ -75,7 +91,7 @@ export function AgenteTestar({ telefonePri, dealerId, empresaId, agenteNome }: A
     };
 
     fetchEventos();
-  }, [empresaId]);
+  }, [telefonePri]);
 
   const adicionarContato = () => {
     setContatos(prev => [...prev, { id: crypto.randomUUID(), nome: "", telefone: "" }]);
