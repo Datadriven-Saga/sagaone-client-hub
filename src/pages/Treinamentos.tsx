@@ -5,6 +5,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { AcademyDashboard } from "@/components/academy/AcademyDashboard";
 import { SimulacoesUnificadas } from "@/components/academy/SimulacoesUnificadas";
 import { VoiceSimulation } from "@/components/academy/VoiceSimulation";
+import { TextSimulation } from "@/components/academy/TextSimulation";
 import { SimulationHistory } from "@/components/academy/SimulationHistory";
 import { SimulationDetails } from "@/components/academy/SimulationDetails";
 import { SimulationFeedbackModal } from "@/components/academy/SimulationFeedbackModal";
@@ -182,15 +183,26 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
 
   // If there's an active simulation, render it full screen within DashboardLayout
   if (activeSimulation) {
+    const isVoiceSimulation = activeSimulation.scenario.type === "voice";
+    
     return (
       <DashboardLayout>
         <div className="h-[calc(100vh-4rem)]">
-          <VoiceSimulation
-            scenario={activeSimulation.scenario}
-            persona={activeSimulation.persona}
-            onEnd={handleEndSimulation}
-            onSessionData={handleSessionEnd}
-          />
+          {isVoiceSimulation ? (
+            <VoiceSimulation
+              scenario={activeSimulation.scenario}
+              persona={activeSimulation.persona}
+              onEnd={handleEndSimulation}
+              onSessionData={handleSessionEnd}
+            />
+          ) : (
+            <TextSimulation
+              scenario={activeSimulation.scenario}
+              persona={activeSimulation.persona}
+              onEnd={handleEndSimulation}
+              onSessionData={handleSessionEnd}
+            />
+          )}
         </div>
       </DashboardLayout>
     );

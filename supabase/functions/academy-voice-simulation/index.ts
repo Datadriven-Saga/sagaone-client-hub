@@ -1,23 +1,52 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Map voice to gender
-const voiceGenderMap: Record<string, 'masculino' | 'feminino'> = {
-  'shimmer': 'feminino',
-  'alloy': 'feminino', 
-  'nova': 'feminino',
-  'echo': 'masculino',
-  'fable': 'masculino',
-  'onyx': 'masculino',
-};
+// Handle text chat action (for text simulations)
+async function handleTextChat(body: any, OPENAI_API_KEY: string): Promise<Response> {
+  const { system_prompt, messages, user_message } = body;
 
-// Map gender to appropriate voices
-const maleVoices = ['echo', 'fable', 'onyx'];
-const femaleVoices = ['shimmer', 'alloy', 'nova'];
+  const chatMessages = [
+    { role: "system", content: system_prompt },
+    ...messages,
+    { role: "user", content: user_message },
+  ];
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: chatMessages,
+      max_tokens: 150,
+      temperature: 0.9,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("OpenAI Chat API error:", error);
+    return new Response(
+      JSON.stringify({ error: "Failed to get AI response" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  const data = await response.json();
+  const aiResponse = data.choices?.[0]?.message?.content || "...";
+
+  return new Response(
+    JSON.stringify({ response: aiResponse }),
+    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -34,10 +63,22 @@ serve(async (req) => {
     });
   }
 
-  // Check for WebSocket upgrade
+  // Check for text chat action (non-WebSocket POST request)
   const upgradeHeader = req.headers.get('upgrade') || '';
   if (upgradeHeader.toLowerCase() !== 'websocket') {
-    return new Response(JSON.stringify({ error: 'Expected WebSocket connection' }), {
+    // Handle text chat for text simulations
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        if (body.action === 'text_chat') {
+          return await handleTextChat(body, OPENAI_API_KEY);
+        }
+      } catch (e) {
+        // Not a JSON body, continue to WebSocket error
+      }
+    }
+    
+    return new Response(JSON.stringify({ error: 'Expected WebSocket connection or text_chat action' }), {
       status: 426,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
