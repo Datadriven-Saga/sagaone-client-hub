@@ -1580,8 +1580,19 @@ export function AcademyAdminPanel() {
                     <UserPlus className="h-4 w-4" />
                     Atribuir a Usuário
                   </Button>
-                  {selectedTraining.tipo === "simulacao" && (
-                    <Button variant="outline" className="gap-2">
+                  {(selectedTraining.tipo === "simulacao" || selectedTraining.tipo === "texto") && (
+                    <Button 
+                      variant="outline" 
+                      className="gap-2"
+                      onClick={() => {
+                        setIsDetailsModalOpen(false);
+                        // Get simulacao_id from training content or use training id
+                        const conteudo = selectedTraining.conteudo as Record<string, any> | null;
+                        const simulacaoId = conteudo?.simulacao_id || selectedTraining.id;
+                        // Navigate to simulation page with the correct id
+                        window.location.href = `/treinamentos/simulacoes?iniciar=${simulacaoId}`;
+                      }}
+                    >
                       <PlayCircle className="h-4 w-4" />
                       Testar Simulação
                     </Button>
