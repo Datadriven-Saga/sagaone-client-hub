@@ -72,7 +72,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [imagemDivulgacao, setImagemDivulgacao] = useState("");
   
   // Templates WhatsApp disponíveis
-  const [whatsappTemplates, setWhatsappTemplates] = useState<{ id: string; nome: string; template_id_pri: string | null; id_meta: string | null; agente_id: string | null; pri_telefone: string | null }[]>([]);
+  const [whatsappTemplates, setWhatsappTemplates] = useState<{ id: string; nome: string; template_id_pri: string | null; id_meta: string | null; agente_id: string | null; pri_telefone: string | null; variable_mapping: Record<string, any> | null }[]>([]);
 
   // Novos campos para IA Whatsapp
   const [eventoPrincipal, setEventoPrincipal] = useState(true);
@@ -518,7 +518,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     if (priTelefone) {
       const result = await supabase
         .from('whatsapp_templates')
-        .select('id, nome, template_id_pri, id_meta, agente_id, pri_telefone')
+        .select('id, nome, template_id_pri, id_meta, agente_id, pri_telefone, variable_mapping')
         .eq('pri_telefone', priTelefone)
         .eq('status_meta', 'APPROVED')
         .order('nome');
@@ -529,7 +529,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       // Fallback: buscar apenas templates da empresa (sem pri_telefone)
       const result = await supabase
         .from('whatsapp_templates')
-        .select('id, nome, template_id_pri, id_meta, agente_id, pri_telefone')
+        .select('id, nome, template_id_pri, id_meta, agente_id, pri_telefone, variable_mapping')
         .eq('empresa_id', activeCompany.id)
         .eq('status_meta', 'APPROVED')
         .order('nome');
@@ -545,6 +545,13 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     
     console.log('📋 Templates encontrados:', data?.length || 0);
     setWhatsappTemplates(data || []);
+  };
+
+  // Helper para verificar se um template tem variáveis configuradas
+  const templateHasVariables = (template: { variable_mapping: Record<string, any> | null }) => {
+    if (!template.variable_mapping) return false;
+    // Verifica se o objeto tem pelo menos uma chave/valor
+    return Object.keys(template.variable_mapping).length > 0;
   };
 
   // Buscar templates WhatsApp disponíveis (pendente ou aprovado)
@@ -2700,7 +2707,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                     </SelectTrigger>
                     <SelectContent>
                       {whatsappTemplates
-                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateNaoAgendadoId)
+                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateNaoAgendadoId && !templateHasVariables(t))
                         .map(template => (
                           <SelectItem key={template.id} value={template.id}>
                             {template.nome}
@@ -2742,7 +2749,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                     </SelectTrigger>
                     <SelectContent>
                       {whatsappTemplates
-                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendadoId)
+                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendadoId && !templateHasVariables(t))
                         .map(template => (
                           <SelectItem key={template.id} value={template.id}>
                             {template.nome}
