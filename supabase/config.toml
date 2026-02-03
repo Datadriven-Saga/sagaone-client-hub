@@ -79,3 +79,6 @@ verify_jwt = false
 
 [functions.academy-voice-preview]
 verify_jwt = false
+
+[functions.academy-generate-simulation]
+verify_jwt = false
