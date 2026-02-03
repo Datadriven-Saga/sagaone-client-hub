@@ -22,15 +22,6 @@ import {
 // Campos disponíveis para mapeamento de variáveis
 export const availableFields = [
   { value: "nome_cliente", label: "Nome do Cliente", example: "João Silva" },
-  { value: "empresa", label: "Empresa", example: "Empresa XYZ" },
-  { value: "marca", label: "Marca", example: "Toyota" },
-  { value: "data_atual", label: "Data Atual", example: "17/01/2026" },
-  { value: "nome_prospeccao", label: "Nome Prospecção", example: "Feirão Janeiro" },
-  { value: "data_inicio", label: "Data Início", example: "20/01/2026" },
-  { value: "data_fim", label: "Data Fim", example: "25/01/2026" },
-  { value: "telefone", label: "Telefone", example: "(11) 99999-9999" },
-  { value: "vendedor_nome", label: "Nome do Vendedor", example: "Carlos Santos" },
-  { value: "valor_potencial", label: "Valor Potencial", example: "R$ 50.000" },
 ];
 
 export interface VariableMapping {
