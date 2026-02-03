@@ -2707,7 +2707,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                     </SelectTrigger>
                     <SelectContent>
                       {whatsappTemplates
-                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateNaoAgendadoId && !templateHasVariables(t))
+                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateNaoAgendadoId)
                         .map(template => (
                           <SelectItem key={template.id} value={template.id}>
                             {template.nome}
@@ -2749,7 +2749,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                     </SelectTrigger>
                     <SelectContent>
                       {whatsappTemplates
-                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendadoId && !templateHasVariables(t))
+                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendadoId)
                         .map(template => (
                           <SelectItem key={template.id} value={template.id}>
                             {template.nome}
