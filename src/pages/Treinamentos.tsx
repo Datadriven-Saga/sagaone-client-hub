@@ -33,6 +33,7 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
     persona: Persona;
   } | null>(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [isTestMode, setIsTestMode] = useState(false);
   
   // Track current session
   const currentSessionRef = useRef<{
@@ -46,7 +47,15 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
   const startSessaoMutation = useStartSessao();
   const endSessaoMutation = useEndSessao();
 
-  const handleStartSimulation = async (scenario: TrainingScenario, persona: Persona) => {
+  const handleStartSimulation = async (scenario: TrainingScenario, persona: Persona, testMode: boolean = false) => {
+    // If test mode, skip session creation entirely
+    if (testMode) {
+      setIsTestMode(true);
+      currentSessionRef.current = null;
+      setActiveSimulation({ scenario, persona });
+      return;
+    }
+    
     try {
       // Find the simulacao_id from the scenario
       const simulacaoId = scenario.id;
@@ -63,6 +72,7 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
         startTime: Date.now(),
       };
       
+      setIsTestMode(false);
       setActiveSimulation({ scenario, persona });
     } catch (error) {
       console.error("Error starting session:", error);
@@ -71,8 +81,8 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
   };
 
   const handleSessionEnd = (messages: SimulationMessage[], duration: number) => {
-    // Update session ref with final data
-    if (currentSessionRef.current) {
+    // Update session ref with final data (skip in test mode)
+    if (currentSessionRef.current && !isTestMode) {
       currentSessionRef.current.messages = messages;
       currentSessionRef.current.duration = duration;
     }
@@ -80,6 +90,14 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
 
   const handleEndSimulation = () => {
     setActiveSimulation(null);
+    
+    // In test mode, skip feedback modal entirely
+    if (isTestMode) {
+      setIsTestMode(false);
+      toast.success("Teste finalizado! (sem registro)");
+      return;
+    }
+    
     setShowFeedbackModal(true);
   };
 
