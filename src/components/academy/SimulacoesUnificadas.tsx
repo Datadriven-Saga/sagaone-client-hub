@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -86,18 +87,85 @@ function transformToScenario(simulacao: Simulacao): TrainingScenario {
   };
 }
 
+// Get persona from cenario (utility function)
+function getPersonasFromSimulacao(simulacao: Simulacao) {
+  const cenario = simulacao.cenario || {};
+  return cenario.personas || [];
+}
+
+// Get difficulty from first persona or cenario (utility function)
+function getDifficultyFromSimulacao(simulacao: Simulacao) {
+  const personas = getPersonasFromSimulacao(simulacao);
+  if (personas.length > 0) {
+    return personas[0].dificuldade || personas[0].difficulty || "Médio";
+  }
+  return simulacao.cenario?.dificuldade || "Médio";
+}
+
 export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadasProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedSimulacao, setSelectedSimulacao] = useState<Simulacao | null>(null);
   const [selectedScenario, setSelectedScenario] = useState<TrainingScenario | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [autoStartProcessed, setAutoStartProcessed] = useState(false);
 
   // Fetch all simulations
   const { data: simulacoes, isLoading: loadingSimulacoes } = useAcademySimulacoes();
   const { data: sessoes } = useAcademySessoes();
   const { data: atribuicoes } = useAcademyAtribuicoes();
+
+  // Auto-start simulation if "iniciar" param is present
+  useEffect(() => {
+    const iniciarId = searchParams.get("iniciar");
+    if (iniciarId && simulacoes && !autoStartProcessed && !loadingSimulacoes) {
+      const targetSimulacao = simulacoes.find((s: Simulacao) => s.id === iniciarId);
+      if (targetSimulacao) {
+        setAutoStartProcessed(true);
+        // Clear the URL param to avoid re-triggering
+        setSearchParams({}, { replace: true });
+        
+        // Start the simulation directly
+        const scenario = transformToScenario(targetSimulacao);
+        const personas = getPersonasFromSimulacao(targetSimulacao);
+        
+        if (personas.length > 0) {
+          // Transform first persona and start
+          const firstPersona = personas[0] as Record<string, any>;
+          const configVoz = targetSimulacao.config_voz as Record<string, any> | null;
+          const transformedPersona: Persona = {
+            id: firstPersona.id || "persona-0",
+            name: firstPersona.nome || firstPersona.name || "Persona",
+            role: firstPersona.cargo || firstPersona.role || "Cliente",
+            company: firstPersona.empresa || firstPersona.company || "Empresa",
+            difficulty: firstPersona.dificuldade || firstPersona.difficulty || "Médio",
+            description: firstPersona.descricao || firstPersona.description || "",
+            objective: firstPersona.objetivo || firstPersona.objective || "",
+            avatar: firstPersona.avatar,
+            voice: firstPersona.voice || configVoz?.voice || "echo",
+            gender: firstPersona.genero || firstPersona.gender || "masculino",
+          };
+          onStartSimulation(scenario, transformedPersona);
+        } else {
+          // Create default persona if none exists
+          const defaultPersona: Persona = {
+            id: "default",
+            name: "Cliente Padrão",
+            role: "Cliente",
+            company: "Empresa",
+            difficulty: getDifficultyFromSimulacao(targetSimulacao),
+            description: targetSimulacao.descricao || "",
+            objective: "Praticar habilidades de atendimento",
+            gender: "masculino",
+            voice: "echo",
+          };
+          onStartSimulation(scenario, defaultPersona);
+        }
+      }
+    }
+  }, [simulacoes, searchParams, autoStartProcessed, loadingSimulacoes, onStartSimulation, setSearchParams]);
 
   // Get stats for a simulation
   const getSimulacaoStats = (simulacaoId: string) => {
