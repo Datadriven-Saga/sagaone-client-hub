@@ -54,7 +54,7 @@ interface Simulacao {
 }
 
 interface SimulacoesUnificadasProps {
-  onStartSimulation: (scenario: TrainingScenario, persona: Persona) => void;
+  onStartSimulation: (scenario: TrainingScenario, persona: Persona, isTestMode?: boolean) => void;
 }
 
 // Transform database simulacao to TrainingScenario format
@@ -120,6 +120,8 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
   // Auto-start simulation if "iniciar" param is present
   useEffect(() => {
     const iniciarId = searchParams.get("iniciar");
+    const isTestMode = searchParams.get("teste") === "true";
+    
     if (iniciarId && simulacoes && !autoStartProcessed && !loadingSimulacoes) {
       const targetSimulacao = simulacoes.find((s: Simulacao) => s.id === iniciarId);
       if (targetSimulacao) {
@@ -147,7 +149,7 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
             voice: firstPersona.voice || configVoz?.voice || "echo",
             gender: firstPersona.genero || firstPersona.gender || "masculino",
           };
-          onStartSimulation(scenario, transformedPersona);
+          onStartSimulation(scenario, transformedPersona, isTestMode);
         } else {
           // Create default persona if none exists
           const defaultPersona: Persona = {
@@ -161,7 +163,7 @@ export function SimulacoesUnificadas({ onStartSimulation }: SimulacoesUnificadas
             gender: "masculino",
             voice: "echo",
           };
-          onStartSimulation(scenario, defaultPersona);
+          onStartSimulation(scenario, defaultPersona, isTestMode);
         }
       }
     }

@@ -1589,8 +1589,8 @@ export function AcademyAdminPanel() {
                         // Get simulacao_id from training content or use training id
                         const conteudo = selectedTraining.conteudo as Record<string, any> | null;
                         const simulacaoId = conteudo?.simulacao_id || selectedTraining.id;
-                        // Navigate to simulation page with the correct id
-                        window.location.href = `/treinamentos/simulacoes?iniciar=${simulacaoId}`;
+                        // Navigate to simulation page with test mode (não contabiliza)
+                        window.location.href = `/treinamentos/simulacoes?iniciar=${simulacaoId}&teste=true`;
                       }}
                     >
                       <PlayCircle className="h-4 w-4" />
