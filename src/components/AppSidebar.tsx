@@ -88,7 +88,10 @@ export function AppSidebar() {
   // Check if user has admin access to show admin panel
   const hasAdminAccess = isAdminOrTI || isGerente || isDiretor;
 
-  const bottomMenuItems = isAdmin
+  // Gestores e admins podem ver o item Administração
+  const canSeeAdministracao = isAdmin || isGerente;
+  
+  const bottomMenuItems = canSeeAdministracao
     ? [...bottomMenuItemsPublic, ...bottomMenuItemsAdmin]
     : bottomMenuItemsPublic;
 
