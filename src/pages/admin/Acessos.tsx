@@ -470,9 +470,10 @@ const Acessos = () => {
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {/* Gerentes see SDR, Vendedor, and Recepcionista */}
+                                    {/* Gerentes see SDR, Vendedor, CRM and Recepcionista */}
                                     <SelectItem value="SDR">SDR</SelectItem>
                                     <SelectItem value="Vendedor">Vendedor</SelectItem>
+                                    <SelectItem value="CRM">CRM</SelectItem>
                                     <SelectItem value="Recepcionista">Recepcionista</SelectItem>
                                     {isAdminUser && (
                                       <>
@@ -482,7 +483,6 @@ const Acessos = () => {
                                         <SelectItem value="TI">TI</SelectItem>
                                         <SelectItem value="Administrador">Administrador</SelectItem>
                                         <SelectItem value="Proprietário">Proprietário</SelectItem>
-                                        <SelectItem value="CRM">CRM</SelectItem>
                                       </>
                                     )}
                                   </SelectContent>
@@ -663,9 +663,10 @@ const Acessos = () => {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {/* Gerentes see SDR, Vendedor, and Recepcionista */}
+                                {/* Gerentes see SDR, Vendedor, CRM and Recepcionista */}
                                 <SelectItem value="SDR">SDR</SelectItem>
                                 <SelectItem value="Vendedor">Vendedor</SelectItem>
+                                <SelectItem value="CRM">CRM</SelectItem>
                                 <SelectItem value="Recepcionista">Recepcionista</SelectItem>
                                 {isAdminUser && (
                                   <>
@@ -675,7 +676,6 @@ const Acessos = () => {
                                     <SelectItem value="TI">TI</SelectItem>
                                     <SelectItem value="Administrador">Administrador</SelectItem>
                                     <SelectItem value="Proprietário">Proprietário</SelectItem>
-                                    <SelectItem value="CRM">CRM</SelectItem>
                                   </>
                                 )}
                               </SelectContent>
