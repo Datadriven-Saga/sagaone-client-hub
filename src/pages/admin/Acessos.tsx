@@ -470,15 +470,15 @@ const Acessos = () => {
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {/* Gerentes see SDR, Vendedor, CRM and Recepcionista */}
+                                    {/* Gerentes can manage SDR, Vendedor, CRM, Recepcionista, and other Gerentes */}
                                     <SelectItem value="SDR">SDR</SelectItem>
                                     <SelectItem value="Vendedor">Vendedor</SelectItem>
                                     <SelectItem value="CRM">CRM</SelectItem>
                                     <SelectItem value="Recepcionista">Recepcionista</SelectItem>
+                                    <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
+                                    <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
                                     {isAdminUser && (
                                       <>
-                                        <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
-                                        <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
                                         <SelectItem value="Diretor">Diretor</SelectItem>
                                         <SelectItem value="TI">TI</SelectItem>
                                         <SelectItem value="Administrador">Administrador</SelectItem>
@@ -663,15 +663,15 @@ const Acessos = () => {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {/* Gerentes see SDR, Vendedor, CRM and Recepcionista */}
+                                {/* Gerentes can manage SDR, Vendedor, CRM, Recepcionista, and other Gerentes */}
                                 <SelectItem value="SDR">SDR</SelectItem>
                                 <SelectItem value="Vendedor">Vendedor</SelectItem>
                                 <SelectItem value="CRM">CRM</SelectItem>
                                 <SelectItem value="Recepcionista">Recepcionista</SelectItem>
+                                <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
+                                <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
                                 {isAdminUser && (
                                   <>
-                                    <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
-                                    <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
                                     <SelectItem value="Diretor">Diretor</SelectItem>
                                     <SelectItem value="TI">TI</SelectItem>
                                     <SelectItem value="Administrador">Administrador</SelectItem>
