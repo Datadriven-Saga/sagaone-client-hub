@@ -144,7 +144,7 @@ serve(async (req) => {
         
         // If user is a manager (not admin), filter by allowed tipos_acesso
         if (isGerente && !canManage) {
-          profilesQuery = profilesQuery.in('tipo_acesso', ['SDR', 'Vendedor', 'Recepcionista']);
+          profilesQuery = profilesQuery.in('tipo_acesso', ['SDR', 'Vendedor', 'Recepcionista', 'CRM']);
         }
         
         const { data: profiles, error: profilesError } = await profilesQuery.limit(200);
@@ -243,11 +243,11 @@ serve(async (req) => {
       case 'create_user': {
         const { email, password, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresas } = payload;
 
-        // Gerentes can only create SDR, Vendedor, or Recepcionista users in their companies
+        // Gerentes can only create SDR, Vendedor, CRM, or Recepcionista users in their companies
         if (isGerente && !canManage) {
-          // Gerentes can only create SDR, Vendedor, or Recepcionista
-          if (!['SDR', 'Vendedor', 'Recepcionista'].includes(tipo_acesso)) {
-            throw new Error('Gerentes só podem criar usuários SDR, Vendedor ou Recepcionista');
+          // Gerentes can only create SDR, Vendedor, CRM, or Recepcionista
+          if (!['SDR', 'Vendedor', 'Recepcionista', 'CRM'].includes(tipo_acesso)) {
+            throw new Error('Gerentes só podem criar usuários SDR, Vendedor, CRM ou Recepcionista');
           }
           
           // Validate companies - must be in gerente's companies
@@ -427,11 +427,11 @@ serve(async (req) => {
         
         const targetTipoAcesso = targetProfile?.tipo_acesso || '';
         
-        // Gerentes can only update SDR, Vendedor, or Recepcionista users in their companies
+        // Gerentes can only update SDR, Vendedor, CRM, or Recepcionista users in their companies
         if (isGerente && !canManage) {
-          // Check if target user is SDR, Vendedor, or Recepcionista
-          if (!['SDR', 'Vendedor', 'Recepcionista'].includes(targetTipoAcesso)) {
-            throw new Error('Gerentes só podem editar usuários SDR, Vendedor ou Recepcionista');
+          // Check if target user is SDR, Vendedor, CRM, or Recepcionista
+          if (!['SDR', 'Vendedor', 'Recepcionista', 'CRM'].includes(targetTipoAcesso)) {
+            throw new Error('Gerentes só podem editar usuários SDR, Vendedor, CRM ou Recepcionista');
           }
           
           // Check if the user being updated belongs to gerente's companies OR has no companies
@@ -454,9 +454,9 @@ serve(async (req) => {
             }
           }
           
-          // Gerentes can only set tipo_acesso to SDR, Vendedor, or Recepcionista
-          if (!['SDR', 'Vendedor', 'Recepcionista'].includes(tipo_acesso)) {
-            throw new Error('Gerentes só podem definir tipo de acesso SDR, Vendedor ou Recepcionista');
+          // Gerentes can only set tipo_acesso to SDR, Vendedor, CRM, or Recepcionista
+          if (!['SDR', 'Vendedor', 'Recepcionista', 'CRM'].includes(tipo_acesso)) {
+            throw new Error('Gerentes só podem definir tipo de acesso SDR, Vendedor, CRM ou Recepcionista');
           }
           
           // Validate new companies - must be in gerente's companies
