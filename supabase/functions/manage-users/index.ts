@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from "npm:@supabase/supabase-js@2.56.1";
+
 
 // Allowed origins for CORS
 const allowedOrigins = [
@@ -26,8 +26,7 @@ function getCorsHeaders(req: Request) {
     'Access-Control-Max-Age': '86400',
   };
 }
-
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
   
   // Handle CORS preflight requests
