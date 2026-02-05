@@ -470,9 +470,10 @@ const Acessos = () => {
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {/* Gerentes only see SDR and Vendedor */}
+                                    {/* Gerentes see SDR, Vendedor, and Recepcionista */}
                                     <SelectItem value="SDR">SDR</SelectItem>
                                     <SelectItem value="Vendedor">Vendedor</SelectItem>
+                                    <SelectItem value="Recepcionista">Recepcionista</SelectItem>
                                     {isAdminUser && (
                                       <>
                                         <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
@@ -482,7 +483,6 @@ const Acessos = () => {
                                         <SelectItem value="Administrador">Administrador</SelectItem>
                                         <SelectItem value="Proprietário">Proprietário</SelectItem>
                                         <SelectItem value="CRM">CRM</SelectItem>
-                                        <SelectItem value="Recepcionista">Recepcionista</SelectItem>
                                       </>
                                     )}
                                   </SelectContent>
@@ -663,9 +663,10 @@ const Acessos = () => {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {/* Gerentes only see SDR and Vendedor */}
+                                {/* Gerentes see SDR, Vendedor, and Recepcionista */}
                                 <SelectItem value="SDR">SDR</SelectItem>
                                 <SelectItem value="Vendedor">Vendedor</SelectItem>
+                                <SelectItem value="Recepcionista">Recepcionista</SelectItem>
                                 {isAdminUser && (
                                   <>
                                     <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
@@ -675,7 +676,6 @@ const Acessos = () => {
                                     <SelectItem value="Administrador">Administrador</SelectItem>
                                     <SelectItem value="Proprietário">Proprietário</SelectItem>
                                     <SelectItem value="CRM">CRM</SelectItem>
-                                    <SelectItem value="Recepcionista">Recepcionista</SelectItem>
                                   </>
                                 )}
                               </SelectContent>
