@@ -54,7 +54,8 @@ export function useUserAccessType() {
   const isDiretor = tipoAcesso === "Diretor";
   const isGerenteLeads = tipoAcesso === "Gerente de Leads";
   const isGerenteLoja = tipoAcesso === "Gerente de Loja";
-  const isGerente = isGerenteLeads || isGerenteLoja;
+  const isCoordenadoraLeads = tipoAcesso === "Coordenadora de Leads";
+  const isGerente = isGerenteLeads || isGerenteLoja || isCoordenadoraLeads;
   const isCRM = tipoAcesso === "CRM";
   const isRecepcionista = tipoAcesso === "Recepcionista";
   const isVendedor = tipoAcesso === "Vendedor";
@@ -94,31 +95,31 @@ export function useUserAccessType() {
   const canGenerateInvites = !isRecepcionista;
 
   // Permissões para criar templates: Administrador, TI, Gerente de Leads, CRM
-  const canCreateTemplates = isAdmin || isTI || isGerenteLeads || isCRM;
+  const canCreateTemplates = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
 
   // Permissão específica para área de TI (Agentes IA / Instâncias)
   const canAccessAgentesIA = isDepartamentoTI && isAdminOrTI;
 
-  // Permissão para criar eventos (incluindo ligação): Administrador, TI, Gerente de Leads, CRM
-  const canCreateEventos = isAdmin || isTI || isGerenteLeads || isCRM;
+  // Permissão para criar eventos (incluindo ligação): Administrador, TI, Gerente de Leads, Coordenadora de Leads, CRM
+  const canCreateEventos = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
 
-  // Permissão para criar eventos de IA Ligação: Administrador, TI, Gerente de Leads
-  const canCreateIALigacao = isAdmin || isTI || isGerenteLeads;
+  // Permissão para criar eventos de IA Ligação: Administrador, TI, Gerente de Leads, Coordenadora de Leads
+  const canCreateIALigacao = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads;
 
-  // Permissão para subir base de leads: Administrador, TI, CRM, Gerente de Leads, Gerente de Loja
-  const canUploadBase = isAdmin || isTI || isCRM || isGerenteLeads || isGerenteLoja;
+  // Permissão para subir base de leads: Administrador, TI, CRM, Gerente de Leads, Coordenadora de Leads, Gerente de Loja
+  const canUploadBase = isAdmin || isTI || isCRM || isGerenteLeads || isCoordenadoraLeads || isGerenteLoja;
 
   // Permissão para disparar eventos de IA Ligação: Administrador, TI
   const canDispararIALigacao = isAdminOrTI;
 
-  // Permissão para disparar outros eventos (Prospecção, Grande Evento, IA Whatsapp): Administrador, TI, Gerente de Leads, CRM
-  const canDispararEventos = isAdmin || isTI || isGerenteLeads || isCRM;
+  // Permissão para disparar outros eventos: Administrador, TI, Gerente de Leads, Coordenadora de Leads, CRM
+  const canDispararEventos = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
 
   // Permissão para gerenciar eventos (editar/excluir): Administrador, TI
   const canManageEventos = isAdminOrTI;
 
-  // Permissão para gerenciar equipes de prospecção (mesma de quem pode criar evento): Admin, TI, Gerente de Leads, CRM, Gerente de Loja
-  const canManageProspeccaoEquipes = isAdmin || isTI || isGerenteLeads || isCRM || isGerenteLoja;
+  // Permissão para gerenciar equipes de prospecção: Admin, TI, Gerente de Leads, Coordenadora de Leads, CRM, Gerente de Loja
+  const canManageProspeccaoEquipes = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM || isGerenteLoja;
 
   return {
     tipoAcesso,
@@ -130,6 +131,7 @@ export function useUserAccessType() {
     isDiretor,
     isGerente,
     isCRM,
+    isCoordenadoraLeads,
     isRecepcionista,
     isVendedor,
     isSDR,
