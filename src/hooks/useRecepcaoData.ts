@@ -35,6 +35,7 @@ export interface Prospeccao {
   data_inicio?: string | null;
   data_fim?: string | null;
   empresa_id?: string;
+  ativo?: boolean;
 }
 
 export interface ContatoEncontrado {
@@ -84,23 +85,85 @@ const phonesMatch = (phone1: string, phone2: string): boolean => {
 
 export const useRecepcaoData = () => {
   const [visitas, setVisitas] = useState<RecepcaoVisita[]>([]);
+  const [totalVisitas, setTotalVisitas] = useState(0);
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { activeCompany } = useCompany();
   const { toast } = useToast();
 
+  // Filter/pagination state
+  const [recepcaoEventoFilter, setRecepcaoEventoFilter] = useState<string>("none"); // "none" | "todos" | prospeccao_id
+  const [recepcaoStatusFilter, setRecepcaoStatusFilter] = useState<"ativos" | "inativos" | "todos">("ativos");
+  const [recepcaoPage, setRecepcaoPage] = useState(1);
+  const PAGE_SIZE = 20;
+
   const fetchVisitas = async () => {
     if (!activeCompany) return;
 
+    // If no event selected, don't fetch
+    if (recepcaoEventoFilter === "none") {
+      setVisitas([]);
+      setTotalVisitas(0);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const { data, error } = await supabase
+
+      // If filtering by specific event or all, determine which prospeccao_ids to use
+      let prospeccaoIds: string[] | null = null;
+
+      if (recepcaoEventoFilter !== "todos") {
+        // Specific event
+        prospeccaoIds = [recepcaoEventoFilter];
+      } else if (recepcaoStatusFilter !== "todos") {
+        // "todos" but filtered by active/inactive status
+        const { data: filteredProspeccoes } = await supabase
+          .from("prospeccoes")
+          .select("id")
+          .eq("empresa_id", activeCompany.id)
+          .eq("ativo", recepcaoStatusFilter === "ativos");
+        
+        prospeccaoIds = (filteredProspeccoes || []).map(p => p.id);
+        if (prospeccaoIds.length === 0) {
+          setVisitas([]);
+          setTotalVisitas(0);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Count total
+      let countQuery = supabase
+        .from("recepcao_visitas")
+        .select("id", { count: "exact", head: true })
+        .eq("empresa_id", activeCompany.id);
+
+      if (prospeccaoIds) {
+        countQuery = countQuery.in("prospeccao_id", prospeccaoIds);
+      }
+
+      const { count } = await countQuery;
+      setTotalVisitas(count || 0);
+
+      // Fetch page
+      const from = (recepcaoPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let dataQuery = supabase
         .from("recepcao_visitas")
         .select("*")
         .eq("empresa_id", activeCompany.id)
-        .order("data_hora_visita", { ascending: false });
+        .order("data_hora_visita", { ascending: false })
+        .range(from, to);
 
+      if (prospeccaoIds) {
+        dataQuery = dataQuery.in("prospeccao_id", prospeccaoIds);
+      }
+
+      const { data, error } = await dataQuery;
       if (error) throw error;
 
       setVisitas(data || []);
@@ -122,7 +185,7 @@ export const useRecepcaoData = () => {
     try {
       const { data, error } = await supabase
         .from("prospeccoes")
-        .select("id, titulo, data_inicio, data_fim, empresa_id")
+        .select("id, titulo, data_inicio, data_fim, empresa_id, ativo")
         .eq("empresa_id", activeCompany.id)
         .order("data_inicio", { ascending: false });
 
@@ -135,9 +198,17 @@ export const useRecepcaoData = () => {
   };
 
   useEffect(() => {
-    fetchVisitas();
     fetchProspeccoes();
   }, [activeCompany, user]);
+
+  useEffect(() => {
+    fetchVisitas();
+  }, [activeCompany, user, recepcaoEventoFilter, recepcaoStatusFilter, recepcaoPage]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setRecepcaoPage(1);
+  }, [recepcaoEventoFilter, recepcaoStatusFilter]);
 
   // Buscar contato por telefone dentro de um evento específico
   const buscarContatoPorTelefoneEvento = async (
@@ -485,6 +556,7 @@ export const useRecepcaoData = () => {
 
   return {
     visitas,
+    totalVisitas,
     prospeccoes,
     loading,
     adicionarVisita,
@@ -493,5 +565,13 @@ export const useRecepcaoData = () => {
     registrarCheckin,
     validarEvento,
     refetch: fetchVisitas,
+    // Filter/pagination
+    recepcaoEventoFilter,
+    setRecepcaoEventoFilter,
+    recepcaoStatusFilter,
+    setRecepcaoStatusFilter,
+    recepcaoPage,
+    setRecepcaoPage,
+    PAGE_SIZE,
   };
 };
