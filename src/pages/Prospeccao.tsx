@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard, KanbanColumnData, KanbanItem } from "@/components/KanbanBoard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Target, CheckCircle, Edit, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, ScanLine, Send, Loader2, Eye, Phone, Trash2 } from "lucide-react";
+import { Target, CheckCircle, Edit, MoreVertical, UserCheck, Plus, Users, ArrowLeft, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, ScanLine, Send, Loader2, Eye, Phone, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProspeccaoGlobalFilter, ProspeccaoGlobalFilters } from "@/components/ProspeccaoGlobalFilter";
@@ -175,13 +176,21 @@ showAllEvents: true
   const { vendas, criarVenda, refetch: refetchVendas } = useVendasProspeccao();
   const { 
     visitas, 
+    totalVisitas,
     prospeccoes: recepcaoProspeccoes,
     loading: loadingVisitas,
     adicionarVisita, 
     excluirVisita,
     buscarContatoPorTelefoneEvento,
     registrarCheckin,
-    validarEvento
+    validarEvento,
+    recepcaoEventoFilter,
+    setRecepcaoEventoFilter,
+    recepcaoStatusFilter,
+    setRecepcaoStatusFilter,
+    recepcaoPage,
+    setRecepcaoPage,
+    PAGE_SIZE: recepcaoPageSize,
   } = useRecepcaoData();
   const { fetchMetricasLigacao } = useMetricasLigacao();
   
@@ -902,30 +911,6 @@ showAllEvents: true
     });
   }, [prospeccoes, globalFilters]);
 
-  // Função de filtragem global para visitas (recepção)
-  const filteredVisitas = useMemo(() => {
-    return visitas.filter(visita => {
-      if (globalFilters.dataInicio) {
-        const dataInicio = new Date(globalFilters.dataInicio);
-        const visitaData = new Date(visita.data_hora_visita);
-        if (visitaData < dataInicio) return false;
-      }
-      if (globalFilters.dataFim) {
-        const dataFim = new Date(globalFilters.dataFim);
-        dataFim.setHours(23, 59, 59, 999);
-        const visitaData = new Date(visita.data_hora_visita);
-        if (visitaData > dataFim) return false;
-      }
-      // Filtro unificado: Dados do Lead (nome, telefone)
-      if (globalFilters.dadosLead) {
-        const search = globalFilters.dadosLead.toLowerCase();
-        const matchNome = visita.nome_cliente?.toLowerCase().includes(search);
-        const matchTelefone = visita.telefone_cliente?.replace(/\D/g, '').includes(search.replace(/\D/g, ''));
-        if (!matchNome && !matchTelefone) return false;
-      }
-      return true;
-    });
-  }, [visitas, globalFilters]);
 
   // ✅ AGORA EARLY RETURN PODE VIR APÓS TODOS OS HOOKS
   if (loading) {
@@ -2318,7 +2303,7 @@ showAllEvents: true
                   <div>
                     <h3 className="text-lg font-semibold text-foreground">Recepção</h3>
                     <p className="text-sm text-muted-foreground">
-                      {filteredVisitas.length} {filteredVisitas.length === 1 ? 'visita' : 'visitas'}
+                      {totalVisitas} {totalVisitas === 1 ? 'visita' : 'visitas'}
                     </p>
                   </div>
                 </div>
@@ -2346,21 +2331,91 @@ showAllEvents: true
                 </div>
               </div>
 
+              {/* Filtros de evento e status */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Select value={recepcaoEventoFilter} onValueChange={setRecepcaoEventoFilter}>
+                  <SelectTrigger className="w-full sm:w-[280px]">
+                    <SelectValue placeholder="Selecione um evento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum evento selecionado</SelectItem>
+                    <SelectItem value="todos">Todos os eventos</SelectItem>
+                    {(recepcaoStatusFilter === "todos"
+                      ? recepcaoProspeccoes
+                      : recepcaoProspeccoes.filter(p => 
+                          recepcaoStatusFilter === "ativos" ? p.ativo !== false : p.ativo === false
+                        )
+                    ).map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.titulo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={recepcaoStatusFilter} onValueChange={(v) => setRecepcaoStatusFilter(v as any)}>
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ativos">Eventos Ativos</SelectItem>
+                    <SelectItem value="inativos">Eventos Inativos</SelectItem>
+                    <SelectItem value="todos">Todos os Status</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Conteúdo */}
               <Card className="p-3 sm:p-4">
-                {loadingVisitas ? (
+                {recepcaoEventoFilter === "none" ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                      <Target className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground font-medium">Selecione um evento</p>
+                    <p className="text-sm text-muted-foreground mt-1">Use o filtro acima para visualizar as visitas</p>
+                  </div>
+                ) : loadingVisitas ? (
                   <div className="flex items-center justify-center h-32">
                     <Loader2 className="w-6 h-6 text-primary animate-spin" />
                   </div>
                 ) : (
                   <RecepcaoTable 
-                    visitas={filteredVisitas} 
+                    visitas={visitas} 
                     onDelete={async (visitaId) => {
                       await excluirVisita(visitaId);
                       await refetch();
                     }}
                     searchFilter=""
                   />
+                )}
+
+                {/* Paginação */}
+                {recepcaoEventoFilter !== "none" && totalVisitas > recepcaoPageSize && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      Mostrando {Math.min((recepcaoPage - 1) * recepcaoPageSize + 1, totalVisitas)}-{Math.min(recepcaoPage * recepcaoPageSize, totalVisitas)} de {totalVisitas}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={recepcaoPage <= 1}
+                        onClick={() => setRecepcaoPage(p => Math.max(1, p - 1))}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Página {recepcaoPage} de {Math.ceil(totalVisitas / recepcaoPageSize)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={recepcaoPage >= Math.ceil(totalVisitas / recepcaoPageSize)}
+                        onClick={() => setRecepcaoPage(p => p + 1)}
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </Card>
             </div>
