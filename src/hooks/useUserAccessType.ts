@@ -117,8 +117,8 @@ export function useUserAccessType() {
   // Permissão para gerenciar eventos (editar/excluir): Administrador, TI
   const canManageEventos = isAdminOrTI;
 
-  // Permissão para gerenciar equipes de prospecção (ver vendedores/SDR, definir integrantes): Admin, TI, Gerente de Leads, CRM
-  const canManageProspeccaoEquipes = isAdmin || isTI || isGerenteLeads || isCRM;
+  // Permissão para gerenciar equipes de prospecção (mesma de quem pode criar evento): Admin, TI, Gerente de Leads, CRM, Gerente de Loja
+  const canManageProspeccaoEquipes = isAdmin || isTI || isGerenteLeads || isCRM || isGerenteLoja;
 
   return {
     tipoAcesso,
