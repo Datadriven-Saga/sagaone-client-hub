@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, ArrowLeft, Plus, X } from "lucide-react";
+import { Loader2, ShieldCheck, ArrowLeft, Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   Popover,
@@ -170,37 +170,26 @@ function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean> {
   const isRecepcionista = tipo === "Recepcionista";
   const isProprietario = tipo === "Proprietário";
   const isGerente = isGerenteLeads || isGerenteLoja || isCoordenadoraLeads;
-  const isVendedor = tipo === "Vendedor";
-  const isSDR = tipo === "SDR";
 
   return {
-    // Templates
     canCreateTemplates: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
     canEditTemplates: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
     canDeleteTemplates: isAdminOrTI,
     canViewTemplates: !isRecepcionista,
-
-    // Eventos
     canCreateEventos: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
     canEditEventos: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
     canDeleteEventos: isAdminOrTI,
     canManageEvents: !isRecepcionista,
     canManageEventos: isAdminOrTI,
     canViewEventos: !isRecepcionista,
-
-    // IA
     canCreateIALigacao: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads,
     canDispararIALigacao: isAdminOrTI,
-    canAccessAgentesIA: false, // isDepartamentoTI && isAdminOrTI (requires department check)
+    canAccessAgentesIA: false,
     canEditAgentesIA: isAdminOrTI,
     canDeleteAgentesIA: isAdminOrTI,
     canToggleIALigacao: isAdminOrTI,
-
-    // Disparos
     canDispararEventos: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
     canRedispararEventos: isAdminOrTI,
-
-    // Base / Contatos
     canUploadBase: isAdmin || isTI || isCRM || isGerenteLeads || isCoordenadoraLeads || isGerenteLoja,
     canAddClientes: isAdmin || isCRM,
     canEditClientes: isAdmin || isCRM || isGerenteLeads || isCoordenadoraLeads,
@@ -209,27 +198,17 @@ function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean> {
     canViewClientes: true,
     canDeleteContatos: isAdminOrTI,
     canEditContatos: !isRecepcionista,
-
-    // Recepção
     canAccessRecepcao: isAdmin || isRecepcionista,
     canReadQRCode: isAdmin || isRecepcionista,
-
-    // Convites
     canGenerateInvites: !isRecepcionista,
-
-    // Kanban
     canAccessKanban: !isRecepcionista,
     canEditAtendimentos: !isRecepcionista,
     canDeleteAtendimentos: isAdminOrTI,
-
-    // Prospecção
     canManageProspeccaoEquipes: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM || isGerenteLoja,
     canCreateProspeccao: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
     canEditProspeccao: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
     canDeleteProspeccao: isAdminOrTI,
     canViewProspeccao: true,
-
-    // Administração
     canManageUsers: isAdminOrTI,
     canCreateUsers: isAdminOrTI,
     canEditUsers: isAdminOrTI || isGerente,
@@ -239,18 +218,12 @@ function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean> {
     canAccessControleAcessos: isAdmin,
     canManageEmpresas: isAdminOrTI,
     canEditEmpresas: isAdmin,
-
-    // Financeiro
     canAccessFinancialReports: isAdmin || isTI || isDiretor || isProprietario,
     canViewDashboard: true,
     canExportRelatorios: isAdmin || isTI || isDiretor || isProprietario,
-
-    // Resultados
     canAccessResultados: !isRecepcionista,
     canViewMetricas: !isRecepcionista,
     canSyncResultados: isAdminOrTI,
-
-    // Academy
     canAccessAcademy: isAdminOrTI,
     canManageAcademy: isAdminOrTI || isGerente || isDiretor,
     canCreateTreinamentos: isAdminOrTI,
@@ -258,8 +231,6 @@ function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean> {
     canDeleteTreinamentos: isAdminOrTI,
     canAssignTreinamentos: isAdminOrTI || isGerente || isDiretor,
     canViewProgressoEquipe: isAdminOrTI || isGerente || isDiretor,
-
-    // Configurações
     canAccessConfiguracoes: isAdminOrTI,
     canEditConfiguracoes: isAdminOrTI,
     canManageDepartamentos: isAdminOrTI,
@@ -269,26 +240,18 @@ function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean> {
     canManageWhatsApp: isAdminOrTI,
     canManageMensagens: isAdminOrTI,
     canManageDocumentos: isAdminOrTI,
-
-    // Navegação
     canAccessNotificacoes: true,
     canAccessMinhaConta: true,
     canAccessAjuda: true,
     canAccessRelatorios: !isRecepcionista,
-
-    // Vendas
     canCreateVendas: !isRecepcionista,
     canEditVendas: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
     canDeleteVendas: isAdminOrTI,
     canViewVendas: !isRecepcionista,
-
-    // Personas
     canAccessPersonas: isAdminOrTI,
     canCreatePersonas: isAdminOrTI,
     canEditPersonas: isAdminOrTI,
     canDeletePersonas: isAdminOrTI,
-
-    // Gatilhos
     canAccessGatilhos: isAdminOrTI,
     canCreateGatilhos: isAdminOrTI,
     canEditGatilhos: isAdminOrTI,
@@ -296,14 +259,9 @@ function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean> {
   };
 }
 
-function groupByCategoria(perms: PermissaoInfo[]) {
-  const grouped: Record<string, PermissaoInfo[]> = {};
-  for (const p of perms) {
-    if (!grouped[p.categoria]) grouped[p.categoria] = [];
-    grouped[p.categoria].push(p);
-  }
-  return grouped;
-}
+const CATEGORIAS = [...new Set(PERMISSOES_SISTEMA.map((p) => p.categoria))];
+const ITEMS_PER_PAGE = 3;
+const TOTAL_PAGES = Math.ceil(CATEGORIAS.length / ITEMS_PER_PAGE);
 
 function buildPermissaoTiposMap(
   overrides: Record<string, Record<string, boolean>>
@@ -325,11 +283,80 @@ function buildPermissaoTiposMap(
   return map;
 }
 
+const PermissaoRow = ({
+  perm,
+  activeTipos,
+  available,
+  saving,
+  onAdd,
+  onRemove,
+}: {
+  perm: PermissaoInfo;
+  activeTipos: string[];
+  available: string[];
+  saving: string | null;
+  onAdd: (permissao: string, tipo: string) => void;
+  onRemove: (permissao: string, tipo: string) => void;
+}) => (
+  <div className="border rounded-lg p-4 space-y-3">
+    <p className="text-sm font-medium text-foreground">{perm.label}</p>
+    <div className="flex flex-wrap items-center gap-2">
+      {activeTipos.length === 0 && (
+        <span className="text-xs text-muted-foreground italic">
+          Nenhum tipo de acesso atribuído
+        </span>
+      )}
+      {activeTipos.map((tipo) => (
+        <Badge key={tipo} variant="secondary" className="gap-1 pr-1">
+          {tipo}
+          <button
+            onClick={() => onRemove(perm.key, tipo)}
+            disabled={saving === `${perm.key}-${tipo}`}
+            className="ml-1 rounded-full hover:bg-destructive/20 p-0.5"
+          >
+            {saving === `${perm.key}-${tipo}` ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <X className="h-3 w-3" />
+            )}
+          </button>
+        </Badge>
+      ))}
+
+      {available.length > 0 && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
+              <Plus className="h-3 w-3" />
+              Adicionar
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-2" align="start">
+            <div className="space-y-1 max-h-60 overflow-y-auto">
+              {available.map((tipo) => (
+                <button
+                  key={tipo}
+                  onClick={() => onAdd(perm.key, tipo)}
+                  disabled={saving === `${perm.key}-${tipo}`}
+                  className="w-full text-left text-sm px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors disabled:opacity-50"
+                >
+                  {tipo}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  </div>
+);
+
 const ControleAcessos = () => {
   const [permTiposMap, setPermTiposMap] = useState<Record<string, Set<string>>>({});
   const [overrides, setOverrides] = useState<Record<string, Record<string, boolean>>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
   const navigate = useNavigate();
 
   const loadAllOverrides = useCallback(async () => {
@@ -360,76 +387,78 @@ const ControleAcessos = () => {
     loadAllOverrides();
   }, [loadAllOverrides]);
 
-  const handleAdd = async (permissao: string, tipo: string) => {
-    setSaving(`${permissao}-${tipo}`);
-    try {
-      const { error } = await supabase
-        .from("departamento_permissoes")
-        .upsert(
-          { departamento: tipo, permissao, ativo: true },
-          { onConflict: "departamento,permissao" }
-        );
-      if (error) throw error;
-
-      setOverrides((prev) => {
-        const next = { ...prev };
-        if (!next[tipo]) next[tipo] = {};
-        next[tipo][permissao] = true;
-        return next;
-      });
-      setPermTiposMap((prev) => {
-        const next = { ...prev };
-        next[permissao] = new Set(prev[permissao]);
+  // Optimistic update helper
+  const applyChange = useCallback((permissao: string, tipo: string, ativo: boolean) => {
+    setOverrides((prev) => {
+      const next = { ...prev };
+      if (!next[tipo]) next[tipo] = {};
+      next[tipo] = { ...next[tipo], [permissao]: ativo };
+      return next;
+    });
+    setPermTiposMap((prev) => {
+      const next = { ...prev };
+      next[permissao] = new Set(prev[permissao]);
+      if (ativo) {
         next[permissao].add(tipo);
-        return next;
-      });
-      toast.success(`${tipo} adicionado à permissão`);
-    } catch (err) {
-      console.error("Erro ao adicionar permissão:", err);
-      toast.error("Erro ao adicionar permissão");
-    } finally {
-      setSaving(null);
-    }
-  };
+      } else {
+        next[permissao].delete(tipo);
+      }
+      return next;
+    });
+  }, []);
 
-  const handleRemove = async (permissao: string, tipo: string) => {
-    setSaving(`${permissao}-${tipo}`);
+  const handleToggle = useCallback(async (permissao: string, tipo: string, ativo: boolean) => {
+    const key = `${permissao}-${tipo}`;
+    setSaving(key);
+
+    // Optimistic update immediately
+    applyChange(permissao, tipo, ativo);
+
     try {
       const { error } = await supabase
         .from("departamento_permissoes")
         .upsert(
-          { departamento: tipo, permissao, ativo: false },
+          { departamento: tipo, permissao, ativo },
           { onConflict: "departamento,permissao" }
         );
       if (error) throw error;
-
-      setOverrides((prev) => {
-        const next = { ...prev };
-        if (!next[tipo]) next[tipo] = {};
-        next[tipo][permissao] = false;
-        return next;
-      });
-      setPermTiposMap((prev) => {
-        const next = { ...prev };
-        next[permissao] = new Set(prev[permissao]);
-        next[permissao].delete(tipo);
-        return next;
-      });
-      toast.success(`${tipo} removido da permissão`);
+      toast.success(ativo ? `${tipo} adicionado` : `${tipo} removido`);
     } catch (err) {
-      console.error("Erro ao remover permissão:", err);
-      toast.error("Erro ao remover permissão");
+      // Revert on error
+      applyChange(permissao, tipo, !ativo);
+      console.error("Erro ao atualizar permissão:", err);
+      toast.error("Erro ao atualizar permissão");
     } finally {
       setSaving(null);
     }
-  };
+  }, [applyChange]);
 
-  const grouped = groupByCategoria(PERMISSOES_SISTEMA);
+  const visibleCategorias = useMemo(
+    () => CATEGORIAS.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE),
+    [currentPage]
+  );
 
-  const getAvailableTipos = (permissao: string) => {
-    const current = permTiposMap[permissao] || new Set();
-    return TIPOS_ACESSO.filter((t) => !current.has(t));
-  };
+  const visiblePerms = useMemo(() => {
+    const catSet = new Set(visibleCategorias);
+    return PERMISSOES_SISTEMA.filter((p) => catSet.has(p.categoria));
+  }, [visibleCategorias]);
+
+  const grouped = useMemo(() => {
+    const g: Record<string, PermissaoInfo[]> = {};
+    for (const p of visiblePerms) {
+      if (!g[p.categoria]) g[p.categoria] = [];
+      g[p.categoria].push(p);
+    }
+    return g;
+  }, [visiblePerms]);
+
+  const getAvailableTipos = useCallback(
+    (permissao: string) => {
+      const current = permTiposMap[permissao] || new Set();
+      return TIPOS_ACESSO.filter((t) => !current.has(t));
+    },
+    [permTiposMap]
+  );
 
   return (
     <DashboardLayout>
@@ -459,81 +488,74 @@ const ControleAcessos = () => {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="space-y-6">
-              {Object.entries(grouped).map(([categoria, perms]) => (
-                <Card key={categoria}>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                      {categoria}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {perms.map((perm) => {
-                      const activeTipos = Array.from(permTiposMap[perm.key] || []);
-                      const available = getAvailableTipos(perm.key);
+            <>
+              <div className="space-y-6">
+                {Object.entries(grouped).map(([categoria, perms]) => (
+                  <Card key={categoria}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                        {categoria}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {perms.map((perm) => (
+                        <PermissaoRow
+                          key={perm.key}
+                          perm={perm}
+                          activeTipos={Array.from(permTiposMap[perm.key] || [])}
+                          available={getAvailableTipos(perm.key)}
+                          saving={saving}
+                          onAdd={(p, t) => handleToggle(p, t, true)}
+                          onRemove={(p, t) => handleToggle(p, t, false)}
+                        />
+                      ))}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
 
-                      return (
-                        <div key={perm.key} className="border rounded-lg p-4 space-y-3">
-                          <p className="text-sm font-medium text-foreground">{perm.label}</p>
-                          <div className="flex flex-wrap items-center gap-2">
-                            {activeTipos.length === 0 && (
-                              <span className="text-xs text-muted-foreground italic">
-                                Nenhum tipo de acesso atribuído
-                              </span>
-                            )}
-                            {activeTipos.map((tipo) => (
-                              <Badge
-                                key={tipo}
-                                variant="secondary"
-                                className="gap-1 pr-1"
-                              >
-                                {tipo}
-                                <button
-                                  onClick={() => handleRemove(perm.key, tipo)}
-                                  disabled={saving === `${perm.key}-${tipo}`}
-                                  className="ml-1 rounded-full hover:bg-destructive/20 p-0.5"
-                                >
-                                  {saving === `${perm.key}-${tipo}` ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <X className="h-3 w-3" />
-                                  )}
-                                </button>
-                              </Badge>
-                            ))}
-
-                            {available.length > 0 && (
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
-                                    <Plus className="h-3 w-3" />
-                                    Adicionar
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-56 p-2" align="start">
-                                  <div className="space-y-1 max-h-60 overflow-y-auto">
-                                    {available.map((tipo) => (
-                                      <button
-                                        key={tipo}
-                                        onClick={() => handleAdd(perm.key, tipo)}
-                                        disabled={saving === `${perm.key}-${tipo}`}
-                                        className="w-full text-left text-sm px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors disabled:opacity-50"
-                                      >
-                                        {tipo}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+              {/* Pagination */}
+              <div className="flex items-center justify-between border-t pt-4">
+                <p className="text-sm text-muted-foreground">
+                  Categorias {currentPage * ITEMS_PER_PAGE + 1}–
+                  {Math.min((currentPage + 1) * ITEMS_PER_PAGE, CATEGORIAS.length)} de{" "}
+                  {CATEGORIAS.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === 0}
+                    onClick={() => setCurrentPage((p) => p - 1)}
+                    className="gap-1"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Anterior
+                  </Button>
+                  {Array.from({ length: TOTAL_PAGES }, (_, i) => (
+                    <Button
+                      key={i}
+                      variant={i === currentPage ? "default" : "outline"}
+                      size="sm"
+                      className="w-8 h-8 p-0"
+                      onClick={() => setCurrentPage(i)}
+                    >
+                      {i + 1}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === TOTAL_PAGES - 1}
+                    onClick={() => setCurrentPage((p) => p + 1)}
+                    className="gap-1"
+                  >
+                    Próximo
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </ScrollIndicator>
