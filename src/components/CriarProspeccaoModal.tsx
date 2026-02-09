@@ -1287,11 +1287,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         dadosProspeccao.evento_principal = eventoPrincipal;
         dadosProspeccao.qualificar_lead = qualificarLead;
         dadosProspeccao.data_envio_template_inicial = dataEnvioInicial ? new Date(dataEnvioInicial).toISOString() : new Date().toISOString();
-        // Calcular data_envio_cadencia: se não preenchida, 24h antes do evento
+        // Calcular data_envio_cadencia: se não preenchida, 24h antes da data final do evento
         if (dataEnvioCadencia) {
           dadosProspeccao.data_envio_cadencia = new Date(dataEnvioCadencia).toISOString();
-        } else if (dataInicio) {
-          const dataEvento = new Date(dataInicio + 'T11:00:00');
+        } else if (dataFim || dataInicio) {
+          const dataRef = dataFim || dataInicio;
+          const dataEvento = new Date(dataRef + 'T11:00:00');
           dataEvento.setHours(dataEvento.getHours() - 24);
           dadosProspeccao.data_envio_cadencia = dataEvento.toISOString();
         } else {
