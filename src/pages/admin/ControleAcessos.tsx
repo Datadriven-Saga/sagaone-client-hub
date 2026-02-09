@@ -37,25 +37,125 @@ interface PermissaoInfo {
 }
 
 const PERMISSOES_SISTEMA: PermissaoInfo[] = [
+  // ── Templates ──
   { key: "canCreateTemplates", label: "Criar templates", categoria: "Templates" },
+  { key: "canEditTemplates", label: "Editar templates", categoria: "Templates" },
+  { key: "canDeleteTemplates", label: "Excluir templates", categoria: "Templates" },
+  { key: "canViewTemplates", label: "Visualizar templates", categoria: "Templates" },
+
+  // ── Eventos / Prospecção ──
   { key: "canCreateEventos", label: "Criar eventos", categoria: "Eventos" },
+  { key: "canEditEventos", label: "Editar eventos", categoria: "Eventos" },
+  { key: "canDeleteEventos", label: "Excluir eventos", categoria: "Eventos" },
   { key: "canManageEvents", label: "Gerenciar eventos (editar/excluir geral)", categoria: "Eventos" },
   { key: "canManageEventos", label: "Gerenciar eventos (admin)", categoria: "Eventos" },
+  { key: "canViewEventos", label: "Visualizar eventos", categoria: "Eventos" },
+
+  // ── IA ──
   { key: "canCreateIALigacao", label: "Criar eventos IA Ligação", categoria: "IA" },
   { key: "canDispararIALigacao", label: "Disparar eventos IA Ligação", categoria: "IA" },
   { key: "canAccessAgentesIA", label: "Acessar Agentes IA", categoria: "IA" },
+  { key: "canEditAgentesIA", label: "Editar Agentes IA", categoria: "IA" },
+  { key: "canDeleteAgentesIA", label: "Excluir Agentes IA", categoria: "IA" },
+  { key: "canToggleIALigacao", label: "Ativar/Desativar IA Ligação", categoria: "IA" },
+
+  // ── Disparos ──
   { key: "canDispararEventos", label: "Disparar eventos", categoria: "Disparos" },
+  { key: "canRedispararEventos", label: "Redisparar eventos", categoria: "Disparos" },
+
+  // ── Base / Contatos ──
   { key: "canUploadBase", label: "Subir base de leads", categoria: "Base / Contatos" },
   { key: "canAddClientes", label: "Adicionar clientes", categoria: "Base / Contatos" },
+  { key: "canEditClientes", label: "Editar clientes", categoria: "Base / Contatos" },
+  { key: "canDeleteClientes", label: "Excluir clientes", categoria: "Base / Contatos" },
   { key: "canImportClientes", label: "Importar clientes", categoria: "Base / Contatos" },
+  { key: "canViewClientes", label: "Visualizar clientes", categoria: "Base / Contatos" },
+  { key: "canDeleteContatos", label: "Excluir contatos", categoria: "Base / Contatos" },
+  { key: "canEditContatos", label: "Editar contatos", categoria: "Base / Contatos" },
+
+  // ── Recepção ──
   { key: "canAccessRecepcao", label: "Acessar Recepção", categoria: "Recepção" },
   { key: "canReadQRCode", label: "Ler QR Code / Check-in", categoria: "Recepção" },
+
+  // ── Convites ──
   { key: "canGenerateInvites", label: "Gerar convites / QR Codes", categoria: "Convites" },
+
+  // ── Kanban ──
   { key: "canAccessKanban", label: "Acessar Kanban de atendimentos", categoria: "Kanban" },
+  { key: "canEditAtendimentos", label: "Editar atendimentos", categoria: "Kanban" },
+  { key: "canDeleteAtendimentos", label: "Excluir atendimentos", categoria: "Kanban" },
+
+  // ── Prospecção ──
+  { key: "canManageProspeccaoEquipes", label: "Gerenciar equipes de prospecção", categoria: "Prospecção" },
+  { key: "canCreateProspeccao", label: "Criar prospecção", categoria: "Prospecção" },
+  { key: "canEditProspeccao", label: "Editar prospecção", categoria: "Prospecção" },
+  { key: "canDeleteProspeccao", label: "Excluir prospecção", categoria: "Prospecção" },
+  { key: "canViewProspeccao", label: "Visualizar prospecção", categoria: "Prospecção" },
+
+  // ── Administração ──
   { key: "canManageUsers", label: "Gerenciar usuários", categoria: "Administração" },
+  { key: "canCreateUsers", label: "Criar usuários", categoria: "Administração" },
+  { key: "canEditUsers", label: "Editar usuários", categoria: "Administração" },
+  { key: "canDeleteUsers", label: "Excluir usuários", categoria: "Administração" },
   { key: "canAccessAdminConfig", label: "Acessar configurações administrativas", categoria: "Administração" },
-  { key: "canManageProspeccaoEquipes", label: "Gerenciar equipes de prospecção", categoria: "Administração" },
+  { key: "canAccessAdministracao", label: "Acessar menu Administração", categoria: "Administração" },
+  { key: "canAccessControleAcessos", label: "Acessar Controle de Acessos", categoria: "Administração" },
+  { key: "canManageEmpresas", label: "Gerenciar empresas", categoria: "Administração" },
+  { key: "canEditEmpresas", label: "Editar empresas", categoria: "Administração" },
+
+  // ── Financeiro ──
   { key: "canAccessFinancialReports", label: "Acessar relatórios financeiros", categoria: "Financeiro" },
+  { key: "canViewDashboard", label: "Visualizar dashboard", categoria: "Financeiro" },
+  { key: "canExportRelatorios", label: "Exportar relatórios", categoria: "Financeiro" },
+
+  // ── Resultados ──
+  { key: "canAccessResultados", label: "Acessar Resultados", categoria: "Resultados" },
+  { key: "canViewMetricas", label: "Visualizar métricas", categoria: "Resultados" },
+  { key: "canSyncResultados", label: "Sincronizar resultados", categoria: "Resultados" },
+
+  // ── Academy / Treinamentos ──
+  { key: "canAccessAcademy", label: "Acessar Academy / Treinamentos", categoria: "Academy" },
+  { key: "canManageAcademy", label: "Gerenciar treinamentos (admin)", categoria: "Academy" },
+  { key: "canCreateTreinamentos", label: "Criar treinamentos", categoria: "Academy" },
+  { key: "canEditTreinamentos", label: "Editar treinamentos", categoria: "Academy" },
+  { key: "canDeleteTreinamentos", label: "Excluir treinamentos", categoria: "Academy" },
+  { key: "canAssignTreinamentos", label: "Atribuir treinamentos", categoria: "Academy" },
+  { key: "canViewProgressoEquipe", label: "Visualizar progresso da equipe", categoria: "Academy" },
+
+  // ── Configurações ──
+  { key: "canAccessConfiguracoes", label: "Acessar configurações", categoria: "Configurações" },
+  { key: "canEditConfiguracoes", label: "Editar configurações", categoria: "Configurações" },
+  { key: "canManageDepartamentos", label: "Gerenciar departamentos", categoria: "Configurações" },
+  { key: "canManageMotivos", label: "Gerenciar motivos", categoria: "Configurações" },
+  { key: "canManageOrigens", label: "Gerenciar origens", categoria: "Configurações" },
+  { key: "canManageTemperaturas", label: "Gerenciar temperaturas", categoria: "Configurações" },
+  { key: "canManageWhatsApp", label: "Gerenciar configurações WhatsApp", categoria: "Configurações" },
+  { key: "canManageMensagens", label: "Gerenciar mensagens padrão", categoria: "Configurações" },
+  { key: "canManageDocumentos", label: "Gerenciar documentos", categoria: "Configurações" },
+
+  // ── Navegação / Menus ──
+  { key: "canAccessNotificacoes", label: "Acessar notificações", categoria: "Navegação" },
+  { key: "canAccessMinhaConta", label: "Acessar Minha Conta", categoria: "Navegação" },
+  { key: "canAccessAjuda", label: "Acessar Ajuda", categoria: "Navegação" },
+  { key: "canAccessRelatorios", label: "Acessar Relatórios", categoria: "Navegação" },
+
+  // ── Vendas ──
+  { key: "canCreateVendas", label: "Registrar vendas", categoria: "Vendas" },
+  { key: "canEditVendas", label: "Editar vendas", categoria: "Vendas" },
+  { key: "canDeleteVendas", label: "Excluir vendas", categoria: "Vendas" },
+  { key: "canViewVendas", label: "Visualizar vendas", categoria: "Vendas" },
+
+  // ── Personas ──
+  { key: "canAccessPersonas", label: "Acessar Personas", categoria: "Personas" },
+  { key: "canCreatePersonas", label: "Criar personas", categoria: "Personas" },
+  { key: "canEditPersonas", label: "Editar personas", categoria: "Personas" },
+  { key: "canDeletePersonas", label: "Excluir personas", categoria: "Personas" },
+
+  // ── Gatilhos ──
+  { key: "canAccessGatilhos", label: "Acessar Gatilhos", categoria: "Gatilhos" },
+  { key: "canCreateGatilhos", label: "Criar gatilhos", categoria: "Gatilhos" },
+  { key: "canEditGatilhos", label: "Editar gatilhos", categoria: "Gatilhos" },
+  { key: "canDeleteGatilhos", label: "Excluir gatilhos", categoria: "Gatilhos" },
 ];
 
 function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean> {
@@ -69,27 +169,130 @@ function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean> {
   const isCRM = tipo === "CRM";
   const isRecepcionista = tipo === "Recepcionista";
   const isProprietario = tipo === "Proprietário";
+  const isGerente = isGerenteLeads || isGerenteLoja || isCoordenadoraLeads;
+  const isVendedor = tipo === "Vendedor";
+  const isSDR = tipo === "SDR";
 
   return {
+    // Templates
     canCreateTemplates: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
+    canEditTemplates: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
+    canDeleteTemplates: isAdminOrTI,
+    canViewTemplates: !isRecepcionista,
+
+    // Eventos
     canCreateEventos: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
+    canEditEventos: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
+    canDeleteEventos: isAdminOrTI,
     canManageEvents: !isRecepcionista,
     canManageEventos: isAdminOrTI,
+    canViewEventos: !isRecepcionista,
+
+    // IA
     canCreateIALigacao: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads,
     canDispararIALigacao: isAdminOrTI,
-    canAccessAgentesIA: false,
+    canAccessAgentesIA: false, // isDepartamentoTI && isAdminOrTI (requires department check)
+    canEditAgentesIA: isAdminOrTI,
+    canDeleteAgentesIA: isAdminOrTI,
+    canToggleIALigacao: isAdminOrTI,
+
+    // Disparos
     canDispararEventos: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
+    canRedispararEventos: isAdminOrTI,
+
+    // Base / Contatos
     canUploadBase: isAdmin || isTI || isCRM || isGerenteLeads || isCoordenadoraLeads || isGerenteLoja,
     canAddClientes: isAdmin || isCRM,
+    canEditClientes: isAdmin || isCRM || isGerenteLeads || isCoordenadoraLeads,
+    canDeleteClientes: isAdminOrTI,
     canImportClientes: isAdmin || isTI || isCRM,
+    canViewClientes: true,
+    canDeleteContatos: isAdminOrTI,
+    canEditContatos: !isRecepcionista,
+
+    // Recepção
     canAccessRecepcao: isAdmin || isRecepcionista,
     canReadQRCode: isAdmin || isRecepcionista,
+
+    // Convites
     canGenerateInvites: !isRecepcionista,
+
+    // Kanban
     canAccessKanban: !isRecepcionista,
-    canManageUsers: isAdminOrTI,
-    canAccessAdminConfig: isAdminOrTI,
+    canEditAtendimentos: !isRecepcionista,
+    canDeleteAtendimentos: isAdminOrTI,
+
+    // Prospecção
     canManageProspeccaoEquipes: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM || isGerenteLoja,
+    canCreateProspeccao: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
+    canEditProspeccao: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
+    canDeleteProspeccao: isAdminOrTI,
+    canViewProspeccao: true,
+
+    // Administração
+    canManageUsers: isAdminOrTI,
+    canCreateUsers: isAdminOrTI,
+    canEditUsers: isAdminOrTI || isGerente,
+    canDeleteUsers: isAdminOrTI,
+    canAccessAdminConfig: isAdminOrTI,
+    canAccessAdministracao: isAdmin || isGerente,
+    canAccessControleAcessos: isAdmin,
+    canManageEmpresas: isAdminOrTI,
+    canEditEmpresas: isAdmin,
+
+    // Financeiro
     canAccessFinancialReports: isAdmin || isTI || isDiretor || isProprietario,
+    canViewDashboard: true,
+    canExportRelatorios: isAdmin || isTI || isDiretor || isProprietario,
+
+    // Resultados
+    canAccessResultados: !isRecepcionista,
+    canViewMetricas: !isRecepcionista,
+    canSyncResultados: isAdminOrTI,
+
+    // Academy
+    canAccessAcademy: isAdminOrTI,
+    canManageAcademy: isAdminOrTI || isGerente || isDiretor,
+    canCreateTreinamentos: isAdminOrTI,
+    canEditTreinamentos: isAdminOrTI,
+    canDeleteTreinamentos: isAdminOrTI,
+    canAssignTreinamentos: isAdminOrTI || isGerente || isDiretor,
+    canViewProgressoEquipe: isAdminOrTI || isGerente || isDiretor,
+
+    // Configurações
+    canAccessConfiguracoes: isAdminOrTI,
+    canEditConfiguracoes: isAdminOrTI,
+    canManageDepartamentos: isAdminOrTI,
+    canManageMotivos: isAdminOrTI,
+    canManageOrigens: isAdminOrTI,
+    canManageTemperaturas: isAdminOrTI,
+    canManageWhatsApp: isAdminOrTI,
+    canManageMensagens: isAdminOrTI,
+    canManageDocumentos: isAdminOrTI,
+
+    // Navegação
+    canAccessNotificacoes: true,
+    canAccessMinhaConta: true,
+    canAccessAjuda: true,
+    canAccessRelatorios: !isRecepcionista,
+
+    // Vendas
+    canCreateVendas: !isRecepcionista,
+    canEditVendas: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
+    canDeleteVendas: isAdminOrTI,
+    canViewVendas: !isRecepcionista,
+
+    // Personas
+    canAccessPersonas: isAdminOrTI,
+    canCreatePersonas: isAdminOrTI,
+    canEditPersonas: isAdminOrTI,
+    canDeletePersonas: isAdminOrTI,
+
+    // Gatilhos
+    canAccessGatilhos: isAdminOrTI,
+    canCreateGatilhos: isAdminOrTI,
+    canEditGatilhos: isAdminOrTI,
+    canDeleteGatilhos: isAdminOrTI,
   };
 }
 
@@ -102,7 +305,6 @@ function groupByCategoria(perms: PermissaoInfo[]) {
   return grouped;
 }
 
-// Build a map: permissao -> Set of tipos that have it active
 function buildPermissaoTiposMap(
   overrides: Record<string, Record<string, boolean>>
 ): Record<string, Set<string>> {
@@ -248,7 +450,7 @@ const ControleAcessos = () => {
               Controle de Acessos
             </h1>
             <p className="text-muted-foreground">
-              Gerencie quais tipos de acesso possuem cada permissão do sistema
+              Gerencie todas as permissões do sistema por tipo de acesso
             </p>
           </div>
 
