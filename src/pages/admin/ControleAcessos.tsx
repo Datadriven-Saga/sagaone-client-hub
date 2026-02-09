@@ -504,7 +504,7 @@ const ControleAcessos = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate(-1)}
+              onClick={() => navigate("/administracao")}
               className="mb-2 -ml-2 gap-1 text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
