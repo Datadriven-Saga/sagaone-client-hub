@@ -1,10 +1,14 @@
+import { useState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, ArrowLeft, Check, X } from "lucide-react";
-import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Loader2, ShieldCheck, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const TIPOS_ACESSO = [
@@ -51,8 +55,8 @@ const PERMISSOES_SISTEMA: PermissaoInfo[] = [
   { key: "canAccessFinancialReports", label: "Acessar relatórios financeiros", categoria: "Financeiro" },
 ];
 
-// Mirror the hardcoded logic from useUserAccessType.ts
-function getPermissoesForTipo(tipo: TipoAcesso): Record<string, boolean> {
+// Default permissions based on hardcoded logic in useUserAccessType
+function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean> {
   const isAdmin = tipo === "Administrador";
   const isTI = tipo === "TI";
   const isAdminOrTI = isAdmin || isTI;
@@ -71,7 +75,7 @@ function getPermissoesForTipo(tipo: TipoAcesso): Record<string, boolean> {
     canManageEventos: isAdminOrTI,
     canCreateIALigacao: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads,
     canDispararIALigacao: isAdminOrTI,
-    canAccessAgentesIA: false, // requires departamento TI + admin/TI
+    canAccessAgentesIA: false,
     canDispararEventos: isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM,
     canUploadBase: isAdmin || isTI || isCRM || isGerenteLeads || isCoordenadoraLeads || isGerenteLoja,
     canAddClientes: isAdmin || isCRM,
@@ -98,21 +102,83 @@ function groupByCategoria(perms: PermissaoInfo[]) {
 
 const ControleAcessos = () => {
   const [selectedTipo, setSelectedTipo] = useState<string>("");
+  const [permissoesAtivas, setPermissoesAtivas] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const permissoes = selectedTipo ? getPermissoesForTipo(selectedTipo as TipoAcesso) : null;
+  const loadPermissoes = useCallback(async (tipo: string) => {
+    if (!tipo) return;
+    setLoading(true);
+    try {
+      // Start with defaults for this tipo
+      const defaults = getDefaultPermissions(tipo as TipoAcesso);
+
+      // Load overrides from DB
+      const { data, error } = await supabase
+        .from("departamento_permissoes")
+        .select("permissao, ativo")
+        .eq("departamento", tipo);
+
+      if (error) throw error;
+
+      // Merge: DB overrides defaults
+      const merged = { ...defaults };
+      data?.forEach((row) => {
+        merged[row.permissao] = row.ativo;
+      });
+      setPermissoesAtivas(merged);
+    } catch (err) {
+      console.error("Erro ao carregar permissões:", err);
+      toast.error("Erro ao carregar permissões");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedTipo) loadPermissoes(selectedTipo);
+  }, [selectedTipo, loadPermissoes]);
+
+  const handleToggle = async (permissao: string, checked: boolean) => {
+    if (!selectedTipo) return;
+    setSaving(permissao);
+    try {
+      const { error } = await supabase
+        .from("departamento_permissoes")
+        .upsert(
+          {
+            departamento: selectedTipo,
+            permissao,
+            ativo: checked,
+          },
+          { onConflict: "departamento,permissao" }
+        );
+
+      if (error) throw error;
+
+      setPermissoesAtivas((prev) => ({ ...prev, [permissao]: checked }));
+      toast.success(`Permissão ${checked ? "concedida" : "removida"}`);
+    } catch (err) {
+      console.error("Erro ao salvar permissão:", err);
+      toast.error("Erro ao salvar permissão");
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const grouped = groupByCategoria(PERMISSOES_SISTEMA);
 
   return (
     <DashboardLayout>
       <ScrollIndicator className="h-full">
         <div className="space-y-6">
-          {/* Header with back button */}
+          {/* Header */}
           <div>
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate("/administracao")}
+              onClick={() => navigate(-1)}
               className="mb-2 -ml-2 gap-1 text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -123,7 +189,7 @@ const ControleAcessos = () => {
               Controle de Acessos
             </h1>
             <p className="text-muted-foreground">
-              Visualize quais permissões cada tipo de acesso possui no sistema
+              Defina quais permissões cada tipo de acesso possui no sistema
             </p>
           </div>
 
@@ -148,42 +214,56 @@ const ControleAcessos = () => {
             </CardContent>
           </Card>
 
-          {/* Permissions display */}
-          {selectedTipo && permissoes && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.entries(grouped).map(([categoria, perms]) => (
-                <Card key={categoria}>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                      {categoria}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {perms.map((perm) => {
-                      const ativo = permissoes[perm.key] ?? false;
-                      return (
-                        <div key={perm.key} className="flex items-center gap-3">
-                          {ativo ? (
-                            <Check className="h-4 w-4 text-primary shrink-0" />
-                          ) : (
-                            <X className="h-4 w-4 text-destructive/60 shrink-0" />
-                          )}
-                          <span className={`text-sm ${ativo ? "text-foreground" : "text-muted-foreground"}`}>
-                            {perm.label}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+          {/* Permissions */}
+          {selectedTipo && (
+            <>
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.entries(grouped).map(([categoria, perms]) => (
+                    <Card key={categoria}>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                          {categoria}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {perms.map((perm) => (
+                          <div key={perm.key} className="flex items-center gap-3">
+                            <Checkbox
+                              id={`${selectedTipo}-${perm.key}`}
+                              checked={permissoesAtivas[perm.key] ?? false}
+                              onCheckedChange={(checked) =>
+                                handleToggle(perm.key, checked === true)
+                              }
+                              disabled={saving === perm.key}
+                            />
+                            <Label
+                              htmlFor={`${selectedTipo}-${perm.key}`}
+                              className="text-sm cursor-pointer"
+                            >
+                              {perm.label}
+                            </Label>
+                            {saving === perm.key && (
+                              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                            )}
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           {!selectedTipo && (
             <div className="text-center py-12 text-muted-foreground">
               <ShieldCheck className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p>Selecione um tipo de acesso para visualizar suas permissões</p>
+              <p>Selecione um tipo de acesso para gerenciar suas permissões</p>
             </div>
           )}
         </div>
