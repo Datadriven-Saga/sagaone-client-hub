@@ -41,6 +41,7 @@ import TestAPIs from "./pages/admin/TestAPIs";
 import AdminAgentes from "./pages/admin/Agentes";
 import ControleAgentes from "./pages/admin/ControleAgentes";
 import VisaoGeral from "./pages/admin/VisaoGeral";
+import ControleAcessos from "./pages/admin/ControleAcessos";
 
 // Agentes IA page imports
 import Instancias from "./pages/agentes-ia/Instancias";
@@ -94,6 +95,7 @@ const AppRoutes = () => {
       <Route path="/administracao/apis" element={<AdminProtectedRoute><APIs /></AdminProtectedRoute>} />
       <Route path="/administracao/test-apis" element={<AdminProtectedRoute><TestAPIs /></AdminProtectedRoute>} />
       <Route path="/administracao/treinamentos" element={<TIAdminProtectedRoute><Treinamentos adminMode /></TIAdminProtectedRoute>} />
+      <Route path="/administracao/controle-acessos" element={<AdminProtectedRoute><ControleAcessos /></AdminProtectedRoute>} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
