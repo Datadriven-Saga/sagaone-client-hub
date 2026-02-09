@@ -6,7 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, ArrowLeft, Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, ShieldCheck, ArrowLeft, Plus, X, ChevronLeft, ChevronRight, Search, Filter } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import {
   Popover,
@@ -357,6 +365,9 @@ const ControleAcessos = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
+  const [searchText, setSearchText] = useState("");
+  const [filterCategoria, setFilterCategoria] = useState<string>("todas");
+  const [filterTipo, setFilterTipo] = useState<string>("todos");
   const navigate = useNavigate();
 
   const loadAllOverrides = useCallback(async () => {
@@ -433,24 +444,49 @@ const ControleAcessos = () => {
     }
   }, [applyChange]);
 
-  const visibleCategorias = useMemo(
-    () => CATEGORIAS.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE),
-    [currentPage]
+  // Filter permissions based on search, category, and role
+  const filteredPerms = useMemo(() => {
+    const q = searchText.toLowerCase().trim();
+    return PERMISSOES_SISTEMA.filter((p) => {
+      if (filterCategoria !== "todas" && p.categoria !== filterCategoria) return false;
+      if (q && !p.label.toLowerCase().includes(q) && !p.categoria.toLowerCase().includes(q)) return false;
+      if (filterTipo !== "todos") {
+        const tipos = permTiposMap[p.key];
+        if (!tipos || !tipos.has(filterTipo)) return false;
+      }
+      return true;
+    });
+  }, [searchText, filterCategoria, filterTipo, permTiposMap]);
+
+  const filteredCategorias = useMemo(
+    () => [...new Set(filteredPerms.map((p) => p.categoria))],
+    [filteredPerms]
   );
 
-  const visiblePerms = useMemo(() => {
-    const catSet = new Set(visibleCategorias);
-    return PERMISSOES_SISTEMA.filter((p) => catSet.has(p.categoria));
-  }, [visibleCategorias]);
+  const totalPages = Math.max(1, Math.ceil(filteredCategorias.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages - 1);
+
+  const visibleCategorias = useMemo(
+    () => filteredCategorias.slice(safePage * ITEMS_PER_PAGE, (safePage + 1) * ITEMS_PER_PAGE),
+    [filteredCategorias, safePage]
+  );
 
   const grouped = useMemo(() => {
+    const catSet = new Set(visibleCategorias);
     const g: Record<string, PermissaoInfo[]> = {};
-    for (const p of visiblePerms) {
-      if (!g[p.categoria]) g[p.categoria] = [];
-      g[p.categoria].push(p);
+    for (const p of filteredPerms) {
+      if (catSet.has(p.categoria)) {
+        if (!g[p.categoria]) g[p.categoria] = [];
+        g[p.categoria].push(p);
+      }
     }
     return g;
-  }, [visiblePerms]);
+  }, [filteredPerms, visibleCategorias]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchText, filterCategoria, filterTipo]);
 
   const getAvailableTipos = useCallback(
     (permissao: string) => {
@@ -483,9 +519,49 @@ const ControleAcessos = () => {
             </p>
           </div>
 
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar permissão..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={filterCategoria} onValueChange={setFilterCategoria}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas as categorias</SelectItem>
+                {CATEGORIAS.map((cat) => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterTipo} onValueChange={setFilterTipo}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Tipo de acesso" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os tipos</SelectItem>
+                {TIPOS_ACESSO.map((tipo) => (
+                  <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredPerms.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              Nenhuma permissão encontrada com os filtros aplicados.
             </div>
           ) : (
             <>
@@ -515,46 +591,48 @@ const ControleAcessos = () => {
               </div>
 
               {/* Pagination */}
-              <div className="flex items-center justify-between border-t pt-4">
-                <p className="text-sm text-muted-foreground">
-                  Categorias {currentPage * ITEMS_PER_PAGE + 1}–
-                  {Math.min((currentPage + 1) * ITEMS_PER_PAGE, CATEGORIAS.length)} de{" "}
-                  {CATEGORIAS.length}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={currentPage === 0}
-                    onClick={() => setCurrentPage((p) => p - 1)}
-                    className="gap-1"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Anterior
-                  </Button>
-                  {Array.from({ length: TOTAL_PAGES }, (_, i) => (
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t pt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Categorias {safePage * ITEMS_PER_PAGE + 1}–
+                    {Math.min((safePage + 1) * ITEMS_PER_PAGE, filteredCategorias.length)} de{" "}
+                    {filteredCategorias.length}
+                  </p>
+                  <div className="flex items-center gap-2">
                     <Button
-                      key={i}
-                      variant={i === currentPage ? "default" : "outline"}
+                      variant="outline"
                       size="sm"
-                      className="w-8 h-8 p-0"
-                      onClick={() => setCurrentPage(i)}
+                      disabled={safePage === 0}
+                      onClick={() => setCurrentPage((p) => p - 1)}
+                      className="gap-1"
                     >
-                      {i + 1}
+                      <ChevronLeft className="h-4 w-4" />
+                      Anterior
                     </Button>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={currentPage === TOTAL_PAGES - 1}
-                    onClick={() => setCurrentPage((p) => p + 1)}
-                    className="gap-1"
-                  >
-                    Próximo
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                    {Array.from({ length: totalPages }, (_, i) => (
+                      <Button
+                        key={i}
+                        variant={i === safePage ? "default" : "outline"}
+                        size="sm"
+                        className="w-8 h-8 p-0"
+                        onClick={() => setCurrentPage(i)}
+                      >
+                        {i + 1}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={safePage === totalPages - 1}
+                      onClick={() => setCurrentPage((p) => p + 1)}
+                      className="gap-1"
+                    >
+                      Próximo
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
         </div>
