@@ -1,15 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Loader2, ShieldCheck, ArrowLeft, Plus, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const TIPOS_ACESSO = [
   "SDR",
@@ -55,7 +58,6 @@ const PERMISSOES_SISTEMA: PermissaoInfo[] = [
   { key: "canAccessFinancialReports", label: "Acessar relatórios financeiros", categoria: "Financeiro" },
 ];
 
-// Default permissions based on hardcoded logic in useUserAccessType
 function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean> {
   const isAdmin = tipo === "Administrador";
   const isTI = tipo === "TI";
@@ -100,34 +102,50 @@ function groupByCategoria(perms: PermissaoInfo[]) {
   return grouped;
 }
 
+// Build a map: permissao -> Set of tipos that have it active
+function buildPermissaoTiposMap(
+  overrides: Record<string, Record<string, boolean>>
+): Record<string, Set<string>> {
+  const map: Record<string, Set<string>> = {};
+  for (const perm of PERMISSOES_SISTEMA) {
+    map[perm.key] = new Set<string>();
+  }
+  for (const tipo of TIPOS_ACESSO) {
+    const defaults = getDefaultPermissions(tipo);
+    const tipoOverrides = overrides[tipo] || {};
+    for (const perm of PERMISSOES_SISTEMA) {
+      const active = tipoOverrides[perm.key] ?? defaults[perm.key];
+      if (active) {
+        map[perm.key].add(tipo);
+      }
+    }
+  }
+  return map;
+}
+
 const ControleAcessos = () => {
-  const [selectedTipo, setSelectedTipo] = useState<string>("");
-  const [permissoesAtivas, setPermissoesAtivas] = useState<Record<string, boolean>>({});
-  const [loading, setLoading] = useState(false);
+  const [permTiposMap, setPermTiposMap] = useState<Record<string, Set<string>>>({});
+  const [overrides, setOverrides] = useState<Record<string, Record<string, boolean>>>({});
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const loadPermissoes = useCallback(async (tipo: string) => {
-    if (!tipo) return;
+  const loadAllOverrides = useCallback(async () => {
     setLoading(true);
     try {
-      // Start with defaults for this tipo
-      const defaults = getDefaultPermissions(tipo as TipoAcesso);
-
-      // Load overrides from DB
       const { data, error } = await supabase
         .from("departamento_permissoes")
-        .select("permissao, ativo")
-        .eq("departamento", tipo);
+        .select("departamento, permissao, ativo");
 
       if (error) throw error;
 
-      // Merge: DB overrides defaults
-      const merged = { ...defaults };
+      const ov: Record<string, Record<string, boolean>> = {};
       data?.forEach((row) => {
-        merged[row.permissao] = row.ativo;
+        if (!ov[row.departamento]) ov[row.departamento] = {};
+        ov[row.departamento][row.permissao] = row.ativo;
       });
-      setPermissoesAtivas(merged);
+      setOverrides(ov);
+      setPermTiposMap(buildPermissaoTiposMap(ov));
     } catch (err) {
       console.error("Erro ao carregar permissões:", err);
       toast.error("Erro ao carregar permissões");
@@ -137,31 +155,68 @@ const ControleAcessos = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedTipo) loadPermissoes(selectedTipo);
-  }, [selectedTipo, loadPermissoes]);
+    loadAllOverrides();
+  }, [loadAllOverrides]);
 
-  const handleToggle = async (permissao: string, checked: boolean) => {
-    if (!selectedTipo) return;
-    setSaving(permissao);
+  const handleAdd = async (permissao: string, tipo: string) => {
+    setSaving(`${permissao}-${tipo}`);
     try {
       const { error } = await supabase
         .from("departamento_permissoes")
         .upsert(
-          {
-            departamento: selectedTipo,
-            permissao,
-            ativo: checked,
-          },
+          { departamento: tipo, permissao, ativo: true },
           { onConflict: "departamento,permissao" }
         );
-
       if (error) throw error;
 
-      setPermissoesAtivas((prev) => ({ ...prev, [permissao]: checked }));
-      toast.success(`Permissão ${checked ? "concedida" : "removida"}`);
+      setOverrides((prev) => {
+        const next = { ...prev };
+        if (!next[tipo]) next[tipo] = {};
+        next[tipo][permissao] = true;
+        return next;
+      });
+      setPermTiposMap((prev) => {
+        const next = { ...prev };
+        next[permissao] = new Set(prev[permissao]);
+        next[permissao].add(tipo);
+        return next;
+      });
+      toast.success(`${tipo} adicionado à permissão`);
     } catch (err) {
-      console.error("Erro ao salvar permissão:", err);
-      toast.error("Erro ao salvar permissão");
+      console.error("Erro ao adicionar permissão:", err);
+      toast.error("Erro ao adicionar permissão");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleRemove = async (permissao: string, tipo: string) => {
+    setSaving(`${permissao}-${tipo}`);
+    try {
+      const { error } = await supabase
+        .from("departamento_permissoes")
+        .upsert(
+          { departamento: tipo, permissao, ativo: false },
+          { onConflict: "departamento,permissao" }
+        );
+      if (error) throw error;
+
+      setOverrides((prev) => {
+        const next = { ...prev };
+        if (!next[tipo]) next[tipo] = {};
+        next[tipo][permissao] = false;
+        return next;
+      });
+      setPermTiposMap((prev) => {
+        const next = { ...prev };
+        next[permissao] = new Set(prev[permissao]);
+        next[permissao].delete(tipo);
+        return next;
+      });
+      toast.success(`${tipo} removido da permissão`);
+    } catch (err) {
+      console.error("Erro ao remover permissão:", err);
+      toast.error("Erro ao remover permissão");
     } finally {
       setSaving(null);
     }
@@ -169,11 +224,15 @@ const ControleAcessos = () => {
 
   const grouped = groupByCategoria(PERMISSOES_SISTEMA);
 
+  const getAvailableTipos = (permissao: string) => {
+    const current = permTiposMap[permissao] || new Set();
+    return TIPOS_ACESSO.filter((t) => !current.has(t));
+  };
+
   return (
     <DashboardLayout>
       <ScrollIndicator className="h-full">
         <div className="space-y-6">
-          {/* Header */}
           <div>
             <Button
               variant="ghost"
@@ -189,81 +248,89 @@ const ControleAcessos = () => {
               Controle de Acessos
             </h1>
             <p className="text-muted-foreground">
-              Defina quais permissões cada tipo de acesso possui no sistema
+              Gerencie quais tipos de acesso possuem cada permissão do sistema
             </p>
           </div>
 
-          {/* Tipo de Acesso selector */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Selecione o Tipo de Acesso</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Select value={selectedTipo} onValueChange={setSelectedTipo}>
-                <SelectTrigger className="w-full md:w-80">
-                  <SelectValue placeholder="Escolha um tipo de acesso..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIPOS_ACESSO.map((tipo) => (
-                    <SelectItem key={tipo} value={tipo}>
-                      {tipo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {Object.entries(grouped).map(([categoria, perms]) => (
+                <Card key={categoria}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      {categoria}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {perms.map((perm) => {
+                      const activeTipos = Array.from(permTiposMap[perm.key] || []);
+                      const available = getAvailableTipos(perm.key);
 
-          {/* Permissions */}
-          {selectedTipo && (
-            <>
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(grouped).map(([categoria, perms]) => (
-                    <Card key={categoria}>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                          {categoria}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {perms.map((perm) => (
-                          <div key={perm.key} className="flex items-center gap-3">
-                            <Checkbox
-                              id={`${selectedTipo}-${perm.key}`}
-                              checked={permissoesAtivas[perm.key] ?? false}
-                              onCheckedChange={(checked) =>
-                                handleToggle(perm.key, checked === true)
-                              }
-                              disabled={saving === perm.key}
-                            />
-                            <Label
-                              htmlFor={`${selectedTipo}-${perm.key}`}
-                              className="text-sm cursor-pointer"
-                            >
-                              {perm.label}
-                            </Label>
-                            {saving === perm.key && (
-                              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                      return (
+                        <div key={perm.key} className="border rounded-lg p-4 space-y-3">
+                          <p className="text-sm font-medium text-foreground">{perm.label}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {activeTipos.length === 0 && (
+                              <span className="text-xs text-muted-foreground italic">
+                                Nenhum tipo de acesso atribuído
+                              </span>
+                            )}
+                            {activeTipos.map((tipo) => (
+                              <Badge
+                                key={tipo}
+                                variant="secondary"
+                                className="gap-1 pr-1"
+                              >
+                                {tipo}
+                                <button
+                                  onClick={() => handleRemove(perm.key, tipo)}
+                                  disabled={saving === `${perm.key}-${tipo}`}
+                                  className="ml-1 rounded-full hover:bg-destructive/20 p-0.5"
+                                >
+                                  {saving === `${perm.key}-${tipo}` ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <X className="h-3 w-3" />
+                                  )}
+                                </button>
+                              </Badge>
+                            ))}
+
+                            {available.length > 0 && (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
+                                    <Plus className="h-3 w-3" />
+                                    Adicionar
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-56 p-2" align="start">
+                                  <div className="space-y-1 max-h-60 overflow-y-auto">
+                                    {available.map((tipo) => (
+                                      <button
+                                        key={tipo}
+                                        onClick={() => handleAdd(perm.key, tipo)}
+                                        disabled={saving === `${perm.key}-${tipo}`}
+                                        className="w-full text-left text-sm px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors disabled:opacity-50"
+                                      >
+                                        {tipo}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
                             )}
                           </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {!selectedTipo && (
-            <div className="text-center py-12 text-muted-foreground">
-              <ShieldCheck className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p>Selecione um tipo de acesso para gerenciar suas permissões</p>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </div>
