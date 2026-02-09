@@ -1371,6 +1371,33 @@ export type Database = {
           },
         ]
       }
+      departamento_permissoes: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          departamento: string
+          id: string
+          permissao: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          departamento: string
+          id?: string
+          permissao: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          departamento?: string
+          id?: string
+          permissao?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       departamentos: {
         Row: {
           ativo: boolean

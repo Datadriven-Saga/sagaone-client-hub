@@ -10,7 +10,8 @@ import {
   FileText,
   AlertTriangle,
   Bot,
-  GraduationCap
+  GraduationCap,
+  ShieldCheck
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
@@ -110,6 +111,12 @@ const Administracao = () => {
       description: "Gerenciar treinamentos e simulações",
       icon: GraduationCap,
       route: "/administracao/treinamentos"
+    },
+    {
+      title: "Controle de Acessos",
+      description: "Gerenciar permissões por departamento",
+      icon: ShieldCheck,
+      route: "/administracao/controle-acessos"
     }
   ];
 
