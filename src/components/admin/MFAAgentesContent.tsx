@@ -1,10 +1,8 @@
-import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -22,631 +20,561 @@ import {
 } from "@/components/ui/select";
 import {
   ShieldCheck,
-  ShieldOff,
+  Plus,
+  Trash2,
   Copy,
   Eye,
   EyeOff,
-  Search,
-  Plus,
-  Trash2,
-  Key,
-  Smartphone,
-  QrCode,
-  CheckCircle2,
-  XCircle,
+  Camera,
+  KeyRound,
+  Clock,
+  MoreVertical,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import QRCode from "qrcode";
+import * as OTPAuth from "otpauth";
 
-interface MFAConfig {
+interface MFAAccount {
   id: string;
-  agente_nome: string;
-  tipo_agente: string;
-  marca: string;
-  loja: string;
-  mfa_habilitado: boolean;
-  mfa_secret: string;
-  mfa_uri: string;
-  verificado: boolean;
+  issuer: string;
+  label: string;
+  secret: string;
+  algorithm: string;
+  digits: number;
+  period: number;
   created_at: string;
 }
 
-// Initial demo data
-const INITIAL_MFA_DATA: MFAConfig[] = [
-  {
-    id: "mfa-maia-01",
-    agente_nome: "Maia",
-    tipo_agente: "WhatsApp",
-    marca: "Jeep",
-    loja: "Saga Jeep Brasília",
-    mfa_habilitado: true,
-    mfa_secret: "JBSWY3DPEHPK3PXP",
-    mfa_uri: "otpauth://totp/SagaOne:maia-jeep-bsb?secret=JBSWY3DPEHPK3PXP&issuer=SagaOne",
-    verificado: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "mfa-pri-01",
-    agente_nome: "Pri",
-    tipo_agente: "Ligação",
-    marca: "Fiat",
-    loja: "Saga Fiat Goiânia",
-    mfa_habilitado: true,
-    mfa_secret: "KRSXG5CTMVRXEZLUKN",
-    mfa_uri: "otpauth://totp/SagaOne:pri-fiat-gyn?secret=KRSXG5CTMVRXEZLUKN&issuer=SagaOne",
-    verificado: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "mfa-maia-02",
-    agente_nome: "Maia",
-    tipo_agente: "WhatsApp",
-    marca: "Volkswagen",
-    loja: "Saga VW Cuiabá",
-    mfa_habilitado: false,
-    mfa_secret: "GEZDGNBVGY3TQOJQ",
-    mfa_uri: "otpauth://totp/SagaOne:maia-vw-cba?secret=GEZDGNBVGY3TQOJQ&issuer=SagaOne",
-    verificado: false,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "mfa-pri-02",
-    agente_nome: "Pri",
-    tipo_agente: "Ligação",
-    marca: "Jeep",
-    loja: "Saga Jeep Porto Velho",
-    mfa_habilitado: true,
-    mfa_secret: "MFXHK3TJNZ2A",
-    mfa_uri: "otpauth://totp/SagaOne:pri-jeep-pvh?secret=MFXHK3TJNZ2A&issuer=SagaOne",
-    verificado: true,
-    created_at: new Date().toISOString(),
-  },
-];
+const STORAGE_KEY = "mfa_authenticator_accounts";
 
-function QRCodeImage({ uri }: { uri: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+function loadAccounts(): MFAAccount[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAccounts(accounts: MFAAccount[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
+}
+
+function generateTOTP(secret: string, period = 30, digits = 6, algorithm = "SHA1"): string {
+  try {
+    const totp = new OTPAuth.TOTP({
+      secret: OTPAuth.Secret.fromBase32(secret.replace(/\s/g, "").toUpperCase()),
+      digits,
+      period,
+      algorithm,
+    });
+    return totp.generate();
+  } catch {
+    return "------";
+  }
+}
+
+function parseOtpauthUri(uri: string): Partial<MFAAccount> | null {
+  try {
+    const parsed = OTPAuth.URI.parse(uri);
+    if (parsed instanceof OTPAuth.TOTP) {
+      return {
+        issuer: parsed.issuer || "Desconhecido",
+        label: parsed.label || parsed.issuer || "Conta",
+        secret: parsed.secret.base32,
+        algorithm: parsed.algorithm || "SHA1",
+        digits: parsed.digits || 6,
+        period: parsed.period || 30,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function TOTPCode({ account }: { account: MFAAccount }) {
+  const [code, setCode] = useState(() => generateTOTP(account.secret, account.period, account.digits, account.algorithm));
+  const [timeLeft, setTimeLeft] = useState(0);
 
   useEffect(() => {
-    if (canvasRef.current && uri) {
-      QRCode.toCanvas(canvasRef.current, uri, {
-        width: 180,
-        margin: 2,
-        color: { dark: "#1a1a2e", light: "#ffffff" },
-      }).catch(console.error);
-    }
-  }, [uri]);
+    const update = () => {
+      const now = Math.floor(Date.now() / 1000);
+      const remaining = account.period - (now % account.period);
+      setTimeLeft(remaining);
+      setCode(generateTOTP(account.secret, account.period, account.digits, account.algorithm));
+    };
 
-  return <canvas ref={canvasRef} className="mx-auto rounded-lg border border-muted" />;
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [account.secret, account.period, account.digits, account.algorithm]);
+
+  const progress = (timeLeft / account.period) * 100;
+  const isLow = timeLeft <= 5;
+  const formattedCode = code.length === 6
+    ? `${code.slice(0, 3)} ${code.slice(3)}`
+    : code;
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative h-10 w-10 flex items-center justify-center">
+        <svg className="h-10 w-10 -rotate-90" viewBox="0 0 36 36">
+          <circle
+            cx="18" cy="18" r="15.5"
+            fill="none"
+            stroke="hsl(var(--muted))"
+            strokeWidth="2"
+          />
+          <circle
+            cx="18" cy="18" r="15.5"
+            fill="none"
+            stroke={isLow ? "hsl(var(--destructive))" : "hsl(var(--primary))"}
+            strokeWidth="2"
+            strokeDasharray={`${progress} 100`}
+            strokeLinecap="round"
+            className="transition-all duration-1000 ease-linear"
+          />
+        </svg>
+        <span className={`absolute text-xs font-mono font-bold ${isLow ? "text-destructive" : "text-foreground"}`}>
+          {timeLeft}
+        </span>
+      </div>
+      <span className={`text-3xl font-mono font-bold tracking-wider ${isLow ? "text-destructive" : "text-foreground"}`}>
+        {formattedCode}
+      </span>
+    </div>
+  );
 }
 
 export function MFAAgentesContent() {
   const { toast } = useToast();
-  const [configs, setConfigs] = useState<MFAConfig[]>(INITIAL_MFA_DATA);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterAgente, setFilterAgente] = useState<string>("all");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterMarca, setFilterMarca] = useState<string>("all");
-  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
-  const [verificationCodes, setVerificationCodes] = useState<Record<string, string>>({});
+  const [accounts, setAccounts] = useState<MFAAccount[]>(loadAccounts);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showSetupModal, setShowSetupModal] = useState<string | null>(null);
-  const [setupCode, setSetupCode] = useState("");
-  const [newConfig, setNewConfig] = useState({
-    agente_nome: "",
-    tipo_agente: "WhatsApp",
-    marca: "",
-    loja: "",
-    mfa_secret: "",
-    mfa_uri: "",
-  });
+  const [addMode, setAddMode] = useState<"choose" | "scan" | "manual">("choose");
+  const [manualForm, setManualForm] = useState({ issuer: "", label: "", secret: "", keyType: "totp" });
+  const [scanning, setScanning] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Filter configs
-  const filteredConfigs = configs.filter((c) => {
-    if (searchTerm && !c.agente_nome.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !c.loja.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !c.marca.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-    if (filterAgente !== "all" && c.agente_nome !== filterAgente) return false;
-    if (filterStatus !== "all") {
-      if (filterStatus === "ativo" && !c.mfa_habilitado) return false;
-      if (filterStatus === "inativo" && c.mfa_habilitado) return false;
+  // Persist accounts
+  useEffect(() => {
+    saveAccounts(accounts);
+  }, [accounts]);
+
+  const stopCamera = useCallback(() => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
     }
-    if (filterMarca !== "all" && c.marca !== filterMarca) return false;
-    return true;
-  });
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setScanning(false);
+  }, []);
 
-  const uniqueAgentes = [...new Set(configs.map((c) => c.agente_nome))].sort();
-  const uniqueMarcas = [...new Set(configs.map((c) => c.marca))].sort();
+  const startCamera = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setScanning(true);
 
-  const totalAtivos = configs.filter((c) => c.mfa_habilitado).length;
-  const totalInativos = configs.filter((c) => !c.mfa_habilitado).length;
-  const totalVerificados = configs.filter((c) => c.verificado).length;
+      // Use BarcodeDetector API if available
+      if ("BarcodeDetector" in window) {
+        const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
+        scanIntervalRef.current = setInterval(async () => {
+          if (!videoRef.current || videoRef.current.readyState !== 4) return;
+          try {
+            const barcodes = await detector.detect(videoRef.current);
+            if (barcodes.length > 0) {
+              const value = barcodes[0].rawValue;
+              if (value && value.startsWith("otpauth://")) {
+                handleQRResult(value);
+              }
+            }
+          } catch {
+            // ignore detection errors
+          }
+        }, 500);
+      } else {
+        // Fallback: use canvas + manual checking (limited without a decoder lib)
+        toast({
+          title: "QR Scanner limitado",
+          description: "Seu navegador não suporta BarcodeDetector. Use a opção manual.",
+          variant: "destructive",
+        });
+        stopCamera();
+        setAddMode("manual");
+      }
+    } catch (err) {
+      toast({
+        title: "Câmera indisponível",
+        description: "Não foi possível acessar a câmera. Use a opção manual.",
+        variant: "destructive",
+      });
+      setAddMode("manual");
+    }
+  }, [toast, stopCamera]);
 
-  const handleCopy = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast({ title: "Copiado!", description: `${label} copiado para a área de transferência` });
+  const handleQRResult = (uri: string) => {
+    stopCamera();
+    const parsed = parseOtpauthUri(uri);
+    if (!parsed || !parsed.secret) {
+      toast({ title: "QR Code inválido", description: "O código não contém dados TOTP válidos", variant: "destructive" });
+      return;
+    }
+
+    const newAccount: MFAAccount = {
+      id: `mfa-${Date.now()}`,
+      issuer: parsed.issuer || "Desconhecido",
+      label: parsed.label || "",
+      secret: parsed.secret,
+      algorithm: parsed.algorithm || "SHA1",
+      digits: parsed.digits || 6,
+      period: parsed.period || 30,
+      created_at: new Date().toISOString(),
+    };
+
+    setAccounts((prev) => [...prev, newAccount]);
+    setShowAddModal(false);
+    setAddMode("choose");
+    toast({ title: "Conta adicionada!", description: `${newAccount.issuer} - ${newAccount.label}` });
   };
 
-  const toggleMFA = (id: string) => {
-    setConfigs((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, mfa_habilitado: !c.mfa_habilitado } : c
-      )
-    );
-    const config = configs.find((c) => c.id === id);
-    toast({
-      title: config?.mfa_habilitado ? "MFA Desativado" : "MFA Ativado",
-      description: `MFA ${config?.mfa_habilitado ? "desativado" : "ativado"} para ${config?.agente_nome} - ${config?.loja}`,
-    });
+  const handleManualAdd = () => {
+    const secret = manualForm.secret.replace(/\s/g, "").toUpperCase();
+    if (!secret) {
+      toast({ title: "Chave obrigatória", description: "Insira a chave secreta (setup key)", variant: "destructive" });
+      return;
+    }
+    if (!manualForm.issuer.trim()) {
+      toast({ title: "Nome obrigatório", description: "Insira o nome da conta", variant: "destructive" });
+      return;
+    }
+
+    // Validate base32
+    try {
+      OTPAuth.Secret.fromBase32(secret);
+    } catch {
+      toast({ title: "Chave inválida", description: "A chave não é um Base32 válido", variant: "destructive" });
+      return;
+    }
+
+    const newAccount: MFAAccount = {
+      id: `mfa-${Date.now()}`,
+      issuer: manualForm.issuer.trim(),
+      label: manualForm.label.trim() || manualForm.issuer.trim(),
+      secret,
+      algorithm: "SHA1",
+      digits: 6,
+      period: 30,
+      created_at: new Date().toISOString(),
+    };
+
+    setAccounts((prev) => [...prev, newAccount]);
+    setShowAddModal(false);
+    setAddMode("choose");
+    setManualForm({ issuer: "", label: "", secret: "", keyType: "totp" });
+    toast({ title: "Conta adicionada!", description: `${newAccount.issuer}` });
   };
 
   const handleDelete = (id: string) => {
-    const config = configs.find((c) => c.id === id);
-    setConfigs((prev) => prev.filter((c) => c.id !== id));
-    toast({
-      title: "Configuração removida",
-      description: `MFA removido para ${config?.agente_nome} - ${config?.loja}`,
-    });
+    const account = accounts.find((a) => a.id === id);
+    setAccounts((prev) => prev.filter((a) => a.id !== id));
+    toast({ title: "Conta removida", description: `${account?.issuer} removido` });
+    setExpandedId(null);
   };
 
-  const handleVerifyCode = (id: string) => {
-    const code = verificationCodes[id] || "";
-    if (code.length !== 6) {
-      toast({ title: "Código inválido", description: "O código deve ter 6 dígitos", variant: "destructive" });
-      return;
-    }
-    // In a real implementation, validate TOTP server-side
-    setConfigs((prev) =>
-      prev.map((c) => c.id === id ? { ...c, verificado: true, mfa_habilitado: true } : c)
-    );
-    setVerificationCodes((prev) => ({ ...prev, [id]: "" }));
-    toast({ title: "MFA Verificado!", description: "Autenticação configurada com sucesso" });
+  const handleCopy = (code: string) => {
+    navigator.clipboard.writeText(code.replace(/\s/g, ""));
+    toast({ title: "Código copiado!" });
   };
 
-  const handleAddConfig = () => {
-    if (!newConfig.agente_nome || !newConfig.marca || !newConfig.loja || !newConfig.mfa_secret) {
-      toast({ title: "Campos obrigatórios", description: "Preencha todos os campos obrigatórios", variant: "destructive" });
-      return;
-    }
-
-    const id = `mfa-${Date.now()}`;
-    const uri = newConfig.mfa_uri || `otpauth://totp/SagaOne:${newConfig.agente_nome.toLowerCase()}-${newConfig.marca.toLowerCase()}?secret=${newConfig.mfa_secret}&issuer=SagaOne`;
-
-    setConfigs((prev) => [
-      ...prev,
-      {
-        id,
-        agente_nome: newConfig.agente_nome,
-        tipo_agente: newConfig.tipo_agente,
-        marca: newConfig.marca,
-        loja: newConfig.loja,
-        mfa_habilitado: false,
-        mfa_secret: newConfig.mfa_secret,
-        mfa_uri: uri,
-        verificado: false,
-        created_at: new Date().toISOString(),
-      },
-    ]);
-
+  const closeModal = () => {
+    stopCamera();
     setShowAddModal(false);
-    setNewConfig({ agente_nome: "", tipo_agente: "WhatsApp", marca: "", loja: "", mfa_secret: "", mfa_uri: "" });
-    toast({ title: "MFA adicionado", description: "Agora escaneie o QR Code ou insira o código para ativar" });
+    setAddMode("choose");
+    setManualForm({ issuer: "", label: "", secret: "", keyType: "totp" });
   };
 
-  const handleSetupSubmit = () => {
-    if (setupCode.length !== 6) {
-      toast({ title: "Código inválido", description: "Insira o código de 6 dígitos do app authenticator", variant: "destructive" });
-      return;
-    }
-    if (showSetupModal) {
-      setConfigs((prev) =>
-        prev.map((c) => c.id === showSetupModal ? { ...c, verificado: true, mfa_habilitado: true } : c)
-      );
-      toast({ title: "MFA Configurado!", description: "Autenticação de dois fatores ativada com sucesso" });
-    }
-    setShowSetupModal(null);
-    setSetupCode("");
+  const getInitials = (issuer: string) => {
+    return issuer.slice(0, 2).toUpperCase();
   };
 
-  const setupConfig = showSetupModal ? configs.find((c) => c.id === showSetupModal) : null;
+  const getColorForIssuer = (issuer: string): string => {
+    const colors = [
+      "bg-blue-600", "bg-emerald-600", "bg-violet-600", "bg-amber-600",
+      "bg-rose-600", "bg-cyan-600", "bg-indigo-600", "bg-pink-600",
+    ];
+    let hash = 0;
+    for (let i = 0; i < issuer.length; i++) {
+      hash = issuer.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-muted">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Agentes</p>
-                <p className="text-2xl font-bold text-foreground">{configs.length}</p>
-              </div>
-              <Key className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-muted">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">MFA Ativo</p>
-                <p className="text-2xl font-bold text-primary">{totalAtivos}</p>
-              </div>
-              <ShieldCheck className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-muted">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">MFA Inativo</p>
-                <p className="text-2xl font-bold text-destructive">{totalInativos}</p>
-              </div>
-              <ShieldOff className="h-8 w-8 text-destructive" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-muted">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Verificados</p>
-                <p className="text-2xl font-bold text-primary">{totalVerificados}</p>
-              </div>
-              <CheckCircle2 className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-primary/10">
+            <ShieldCheck className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-foreground">Authenticator</h2>
+            <p className="text-sm text-muted-foreground">
+              {accounts.length} {accounts.length === 1 ? "conta" : "contas"} cadastradas
+            </p>
+          </div>
+        </div>
+        <Button onClick={() => setShowAddModal(true)} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Adicionar MFA
+        </Button>
       </div>
 
-      {/* Filters & Actions */}
-      <Card className="border-muted">
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="flex-1">
-              <Label className="text-xs text-muted-foreground">Buscar</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por agente, loja ou marca..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            <div className="w-40">
-              <Label className="text-xs text-muted-foreground">Agente</Label>
-              <Select value={filterAgente} onValueChange={setFilterAgente}>
-                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {uniqueAgentes.map((a) => (
-                    <SelectItem key={a} value={a}>{a}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-40">
-              <Label className="text-xs text-muted-foreground">Marca</Label>
-              <Select value={filterMarca} onValueChange={setFilterMarca}>
-                <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {uniqueMarcas.map((m) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-40">
-              <Label className="text-xs text-muted-foreground">Status</Label>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="ativo">Ativo</SelectItem>
-                  <SelectItem value="inativo">Inativo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Accounts List */}
+      {accounts.length === 0 ? (
+        <Card className="border-dashed border-2 border-muted">
+          <CardContent className="py-16 text-center">
+            <ShieldCheck className="h-16 w-16 mx-auto text-muted-foreground/40 mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-1">Nenhuma conta MFA</h3>
+            <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+              Adicione contas MFA escaneando QR Codes ou inserindo chaves manualmente de serviços como GitHub, Google, n8n, etc.
+            </p>
             <Button onClick={() => setShowAddModal(true)} className="gap-2">
               <Plus className="h-4 w-4" />
-              Novo MFA
+              Adicionar primeira conta
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {accounts.map((account) => (
+            <Card
+              key={account.id}
+              className="border-muted hover:border-primary/30 transition-colors cursor-pointer"
+              onClick={() => {
+                const code = generateTOTP(account.secret, account.period, account.digits, account.algorithm);
+                handleCopy(code);
+              }}
+            >
+              <CardContent className="py-4">
+                <div className="flex items-center gap-4">
+                  {/* Avatar */}
+                  <div className={`h-12 w-12 rounded-full ${getColorForIssuer(account.issuer)} flex items-center justify-center flex-shrink-0`}>
+                    <span className="text-white font-bold text-sm">{getInitials(account.issuer)}</span>
+                  </div>
 
-      {/* MFA Cards Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {filteredConfigs.map((config) => (
-          <Card key={config.id} className={`border-muted ${!config.mfa_habilitado ? "opacity-60" : ""}`}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${config.verificado ? "bg-primary/10" : "bg-muted"}`}>
-                    {config.verificado ? (
-                      <ShieldCheck className="h-5 w-5 text-primary" />
-                    ) : (
-                      <ShieldOff className="h-5 w-5 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div>
-                    <CardTitle className="text-base">{config.agente_nome}</CardTitle>
-                    <CardDescription className="text-xs">
-                      {config.marca} • {config.loja}
-                    </CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={config.tipo_agente === "WhatsApp" ? "default" : "secondary"} className="text-xs">
-                    {config.tipo_agente}
-                  </Badge>
-                  <Switch
-                    checked={config.mfa_habilitado}
-                    onCheckedChange={() => toggleMFA(config.id)}
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Status & Setup */}
-              <div className="bg-muted/50 rounded-lg p-4">
-                {config.verificado ? (
-                  <div className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-foreground">Authenticator configurado</p>
-                      <p className="text-xs text-muted-foreground">
-                        MFA ativo e verificado. O código é gerado pelo app authenticator.
-                      </p>
+                  {/* Info + Code */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold text-foreground truncate">{account.issuer}</span>
+                      {account.label && account.label !== account.issuer && (
+                        <span className="text-xs text-muted-foreground truncate">({account.label})</span>
+                      )}
                     </div>
+                    <TOTPCode account={account} />
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedId(expandedId === account.id ? null : account.id);
+                      }}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Expanded actions */}
+                {expandedId === account.id && (
+                  <div className="mt-3 pt-3 border-t border-muted flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
                     <Button
                       variant="outline"
                       size="sm"
+                      className="gap-1.5 text-xs"
                       onClick={() => {
-                        setShowSetupModal(config.id);
-                        setSetupCode("");
+                        navigator.clipboard.writeText(account.secret);
+                        toast({ title: "Chave copiada!" });
                       }}
                     >
-                      <QrCode className="h-4 w-4 mr-1" />
-                      Ver QR
+                      <Copy className="h-3 w-3" />
+                      Copiar chave
                     </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <XCircle className="h-5 w-5 text-destructive flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-foreground">Configuração pendente</p>
-                      <p className="text-xs text-muted-foreground">
-                        Escaneie o QR code ou insira o código para ativar o MFA.
-                      </p>
-                    </div>
                     <Button
+                      variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        setShowSetupModal(config.id);
-                        setSetupCode("");
-                      }}
+                      className="gap-1.5 text-xs text-destructive hover:text-destructive"
+                      onClick={() => handleDelete(account.id)}
                     >
-                      <QrCode className="h-4 w-4 mr-1" />
-                      Configurar
+                      <Trash2 className="h-3 w-3" />
+                      Remover
                     </Button>
+                    <span className="ml-auto text-[10px] text-muted-foreground font-mono">
+                      {account.algorithm} • {account.digits} dígitos • {account.period}s
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Add Account Modal */}
+      <Dialog open={showAddModal} onOpenChange={(open) => { if (!open) closeModal(); }}>
+        <DialogContent className="sm:max-w-md" hideCloseButton={addMode === "scan"}>
+          {addMode === "choose" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Adicionar nova MFA</DialogTitle>
+                <DialogDescription>
+                  Escolha como deseja adicionar a conta de autenticação
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-1 gap-3 py-4">
+                <Button
+                  variant="outline"
+                  className="h-auto py-6 flex flex-col items-center gap-3"
+                  onClick={() => {
+                    setAddMode("scan");
+                    setTimeout(() => startCamera(), 100);
+                  }}
+                >
+                  <Camera className="h-8 w-8 text-primary" />
+                  <div className="text-center">
+                    <p className="font-semibold">Escanear QR Code</p>
+                    <p className="text-xs text-muted-foreground">Use a câmera para ler o QR Code</p>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-auto py-6 flex flex-col items-center gap-3"
+                  onClick={() => setAddMode("manual")}
+                >
+                  <KeyRound className="h-8 w-8 text-primary" />
+                  <div className="text-center">
+                    <p className="font-semibold">Inserir chave manualmente</p>
+                    <p className="text-xs text-muted-foreground">Cole a setup key (Base32) do serviço</p>
+                  </div>
+                </Button>
+              </div>
+            </>
+          )}
+
+          {addMode === "scan" && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-center">Escanear QR Code</DialogTitle>
+              </DialogHeader>
+              <div className="relative aspect-square w-full max-w-sm mx-auto bg-black rounded-xl overflow-hidden">
+                <video
+                  ref={videoRef}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  playsInline
+                  muted
+                />
+                <canvas ref={canvasRef} className="hidden" />
+                {/* Scan frame overlay */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-56 h-56 relative">
+                    <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-blue-500 rounded-tl-lg" />
+                    <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-amber-500 rounded-tr-lg" />
+                    <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-emerald-500 rounded-bl-lg" />
+                    <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-rose-500 rounded-br-lg" />
+                  </div>
+                </div>
+                {!scanning && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                    <p className="text-white text-sm">Iniciando câmera...</p>
                   </div>
                 )}
               </div>
-
-              {/* Inline verification for pending configs */}
-              {!config.verificado && (
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Código do app authenticator</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={verificationCodes[config.id] || ""}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, "").slice(0, 6);
-                        setVerificationCodes((prev) => ({ ...prev, [config.id]: val }));
-                      }}
-                      placeholder="e.g. 123456"
-                      className="font-mono text-center tracking-widest"
-                      maxLength={6}
-                    />
-                    <Button
-                      onClick={() => handleVerifyCode(config.id)}
-                      disabled={!verificationCodes[config.id] || verificationCodes[config.id]?.length !== 6}
-                    >
-                      Verificar
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Secret Key (collapsed) */}
-              <div>
-                <Label className="text-xs text-muted-foreground">Chave Secreta (Secret)</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <code className="flex-1 text-sm bg-muted px-3 py-2 rounded-md font-mono truncate">
-                    {showSecrets[config.id] ? config.mfa_secret : "••••••••••••••••"}
-                  </code>
-                  <Button size="icon" variant="ghost" onClick={() => setShowSecrets((prev) => ({ ...prev, [config.id]: !prev[config.id] }))}>
-                    {showSecrets[config.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                  <Button size="icon" variant="ghost" onClick={() => handleCopy(config.mfa_secret, "Secret")}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between pt-2 border-t border-muted">
-                <span className="text-xs text-muted-foreground">
-                  Status: {config.verificado ? "Verificado ✓" : "Pendente"}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive h-7 text-xs"
-                  onClick={() => handleDelete(config.id)}
-                >
-                  <Trash2 className="h-3 w-3 mr-1" />
-                  Remover
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => { stopCamera(); setAddMode("choose"); }} className="flex-1">
+                  Voltar
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <Button variant="outline" onClick={() => { stopCamera(); setAddMode("manual"); }} className="flex-1">
+                  Inserir manualmente
+                </Button>
+              </DialogFooter>
+            </>
+          )}
 
-      {filteredConfigs.length === 0 && (
-        <Card className="border-muted">
-          <CardContent className="py-12 text-center">
-            <ShieldOff className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Nenhuma configuração MFA encontrada</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Use o botão "Novo MFA" para adicionar uma configuração
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Setup Authenticator Modal - like reference image */}
-      <Dialog open={!!showSetupModal} onOpenChange={(open) => { if (!open) { setShowSetupModal(null); setSetupCode(""); } }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl">
-              Setup Authenticator app {setupConfig?.verificado ? "" : "[1/2]"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6 py-2">
-            {/* Step 1: QR Code */}
-            <div className="space-y-2">
-              <p className="font-semibold text-foreground">1. Scan the QR code</p>
-              <p className="text-sm text-muted-foreground">
-                Use an authenticator app from your phone to scan. If you can't scan the QR code, enter{" "}
-                <button
-                  className="text-primary hover:underline font-medium"
-                  onClick={() => {
-                    if (setupConfig) {
-                      setShowSecrets((prev) => ({ ...prev, [setupConfig.id]: true }));
-                      handleCopy(setupConfig.mfa_secret, "Secret key");
-                    }
-                  }}
-                >
-                  this text code
-                </button>
-              </p>
-              {setupConfig && (
-                <div className="flex justify-center py-4">
-                  <QRCodeImage uri={setupConfig.mfa_uri} />
+          {addMode === "manual" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Inserir dados da conta</DialogTitle>
+                <DialogDescription>
+                  Insira as informações fornecidas pelo serviço
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div>
+                  <Label>Nome da conta *</Label>
+                  <Input
+                    value={manualForm.issuer}
+                    onChange={(e) => setManualForm({ ...manualForm, issuer: e.target.value })}
+                    placeholder="Ex: GitHub, Google, n8n"
+                  />
                 </div>
-              )}
-            </div>
-
-            {/* Step 2: Enter Code */}
-            {!setupConfig?.verificado && (
-              <div className="space-y-3">
-                <p className="font-semibold text-foreground">2. Enter the code from the app</p>
-                <p className="text-sm text-muted-foreground">Code from your authenticator app</p>
-                <Input
-                  value={setupCode}
-                  onChange={(e) => setSetupCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="e.g. 123456"
-                  className="font-mono text-center text-lg tracking-[0.3em]"
-                  maxLength={6}
-                />
+                <div>
+                  <Label>Usuário / E-mail (opcional)</Label>
+                  <Input
+                    value={manualForm.label}
+                    onChange={(e) => setManualForm({ ...manualForm, label: e.target.value })}
+                    placeholder="Ex: usuario@email.com"
+                  />
+                </div>
+                <div>
+                  <Label>Chave secreta (Setup Key) *</Label>
+                  <Input
+                    value={manualForm.secret}
+                    onChange={(e) => setManualForm({ ...manualForm, secret: e.target.value })}
+                    placeholder="Ex: JBSWY3DPEHPK3PXP"
+                    className="font-mono"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">Chave Base32 fornecida pelo serviço</p>
+                </div>
+                <div>
+                  <Label>Tipo de chave</Label>
+                  <Select value={manualForm.keyType} onValueChange={(v) => setManualForm({ ...manualForm, keyType: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="totp">Time based</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            )}
-          </div>
-          <DialogFooter>
-            {setupConfig?.verificado ? (
-              <Button variant="outline" onClick={() => { setShowSetupModal(null); setSetupCode(""); }}>
-                Fechar
-              </Button>
-            ) : (
-              <Button
-                onClick={handleSetupSubmit}
-                disabled={setupCode.length !== 6}
-                className="w-full"
-              >
-                Continue
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add MFA Modal */}
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Adicionar Configuração MFA</DialogTitle>
-            <DialogDescription>
-              Configure a autenticação de dois fatores para um agente
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Nome do Agente *</Label>
-              <Select value={newConfig.agente_nome} onValueChange={(v) => setNewConfig({ ...newConfig, agente_nome: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Maia">Maia</SelectItem>
-                  <SelectItem value="Pri">Pri</SelectItem>
-                  <SelectItem value="Gaia">Gaia</SelectItem>
-                  <SelectItem value="Outro">Outro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Tipo do Agente</Label>
-              <Select value={newConfig.tipo_agente} onValueChange={(v) => setNewConfig({ ...newConfig, tipo_agente: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                  <SelectItem value="Ligação">Ligação</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Marca *</Label>
-              <Input
-                value={newConfig.marca}
-                onChange={(e) => setNewConfig({ ...newConfig, marca: e.target.value })}
-                placeholder="Ex: Jeep, Fiat, VW"
-              />
-            </div>
-            <div>
-              <Label>Loja *</Label>
-              <Input
-                value={newConfig.loja}
-                onChange={(e) => setNewConfig({ ...newConfig, loja: e.target.value })}
-                placeholder="Ex: Saga Jeep Brasília"
-              />
-            </div>
-            <div>
-              <Label>Chave Secreta (Secret) *</Label>
-              <Input
-                value={newConfig.mfa_secret}
-                onChange={(e) => setNewConfig({ ...newConfig, mfa_secret: e.target.value })}
-                placeholder="Ex: JBSWY3DPEHPK3PXP"
-                className="font-mono"
-              />
-            </div>
-            <div>
-              <Label>URI (opcional)</Label>
-              <Input
-                value={newConfig.mfa_uri}
-                onChange={(e) => setNewConfig({ ...newConfig, mfa_uri: e.target.value })}
-                placeholder="otpauth://totp/..."
-                className="font-mono text-xs"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddModal(false)}>Cancelar</Button>
-            <Button onClick={handleAddConfig}>Adicionar</Button>
-          </DialogFooter>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setAddMode("choose")}>
+                  Voltar
+                </Button>
+                <Button onClick={handleManualAdd} className="flex-1">
+                  Adicionar
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
