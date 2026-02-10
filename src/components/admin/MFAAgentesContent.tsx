@@ -347,7 +347,13 @@ export function MFAAgentesContent() {
 
   const startCamera = useCallback(async () => {
     try {
-      await new Promise((r) => setTimeout(r, 200));
+      // Request camera permission directly in click handler context
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      // Stop the stream immediately - html5-qrcode will request its own
+      stream.getTracks().forEach(t => t.stop());
+
+      // Now wait for DOM container to be ready
+      await new Promise((r) => setTimeout(r, 150));
       const containerId = "mfa-qr-scanner";
       const container = document.getElementById(containerId);
       if (!container) return;
@@ -362,8 +368,12 @@ export function MFAAgentesContent() {
         () => {}
       );
       setScanning(true);
-    } catch {
-      toast({ title: "Câmera indisponível", description: "Use a opção manual.", variant: "destructive" });
+    } catch (err: any) {
+      console.error("[MFA] Camera error:", err);
+      const msg = err.name === "NotAllowedError"
+        ? "Permissão da câmera negada. Permita o acesso nas configurações do navegador."
+        : "Câmera indisponível. Use a opção manual.";
+      toast({ title: "Erro na câmera", description: msg, variant: "destructive" });
       setAddMode("manual");
     }
   }, [toast]);
@@ -596,7 +606,7 @@ export function MFAAgentesContent() {
               </DialogHeader>
               <div className="grid grid-cols-1 gap-3 py-4">
                 <Button variant="outline" className="h-auto py-6 flex flex-col items-center gap-3"
-                  onClick={() => { setAddMode("scan"); setTimeout(() => startCamera(), 100); }}>
+                  onClick={async () => { setAddMode("scan"); await startCamera(); }}>
                   <Camera className="h-8 w-8 text-primary" />
                   <div className="text-center">
                     <p className="font-semibold">Escanear QR Code</p>
