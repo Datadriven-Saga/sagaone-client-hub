@@ -46,22 +46,8 @@ interface MFAAccount {
   algorithm: string;
   digits: number;
   period: number;
+  created_by?: string;
   created_at: string;
-}
-
-const STORAGE_KEY = "mfa_authenticator_accounts";
-
-function loadAccounts(): MFAAccount[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveAccounts(accounts: MFAAccount[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
 }
 
 function generateTOTP(secret: string, period = 30, digits = 6, algorithm = "SHA1"): string {
@@ -139,13 +125,14 @@ function TOTPCode({ account }: { account: MFAAccount }) {
 export function MFAAgentesContent() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [accounts, setAccounts] = useState<MFAAccount[]>(loadAccounts);
+  const [accounts, setAccounts] = useState<MFAAccount[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMode, setAddMode] = useState<"choose" | "scan" | "manual">("choose");
   const [manualForm, setManualForm] = useState({ issuer: "", secret: "", keyType: "totp" });
   const [scanning, setScanning] = useState(false);
   const html5QrRef = useRef<Html5Qrcode | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
 
   // Recovery codes state
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
@@ -156,17 +143,34 @@ export function MFAAgentesContent() {
   const [loadingRecovery, setLoadingRecovery] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { saveAccounts(accounts); }, [accounts]);
+  // Load accounts from Supabase
+  const loadAccountsFromDB = useCallback(async () => {
+    setLoadingAccounts(true);
+    try {
+      const { data, error } = await supabase
+        .from("mfa_accounts" as any)
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setAccounts((data as any[]) || []);
+    } catch (err) {
+      console.error("Erro ao carregar contas MFA:", err);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAccountsFromDB();
+  }, [loadAccountsFromDB]);
 
   // Load recovery codes for an account
   const loadRecoveryCodes = useCallback(async (accountId: string) => {
-    if (!user) return;
     setLoadingRecovery(true);
     try {
       const { data, error } = await supabase
         .from("mfa_recovery_codes" as any)
         .select("codes")
-        .eq("user_id", user.id)
         .eq("account_id", accountId)
         .maybeSingle();
       if (error) throw error;
@@ -176,7 +180,7 @@ export function MFAAgentesContent() {
     } finally {
       setLoadingRecovery(false);
     }
-  }, [user]);
+  }, []);
 
   // Save recovery codes for an account
   const saveRecoveryCodes = useCallback(async (accountId: string, codes: string[]) => {
@@ -200,13 +204,11 @@ export function MFAAgentesContent() {
 
   // Delete recovery codes for an account
   const deleteRecoveryCodes = useCallback(async (accountId: string) => {
-    if (!user) return;
     await supabase
       .from("mfa_recovery_codes" as any)
       .delete()
-      .eq("user_id", user.id)
       .eq("account_id", accountId);
-  }, [user]);
+  }, []);
 
   const openRecoveryModal = (account: MFAAccount) => {
     setRecoveryAccount(account);
@@ -293,6 +295,27 @@ export function MFAAgentesContent() {
     }
   }, [toast]);
 
+  const saveAccountToDB = useCallback(async (account: MFAAccount) => {
+    try {
+      const { error } = await supabase
+        .from("mfa_accounts" as any)
+        .insert({
+          id: account.id,
+          issuer: account.issuer,
+          label: account.label,
+          secret: account.secret,
+          algorithm: account.algorithm,
+          digits: account.digits,
+          period: account.period,
+          created_by: user?.id,
+        });
+      if (error) throw error;
+      await loadAccountsFromDB();
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar conta", description: err.message, variant: "destructive" });
+    }
+  }, [user, loadAccountsFromDB, toast]);
+
   const handleQRResult = (uri: string) => {
     stopCamera();
     const parsed = parseOtpauthUri(uri);
@@ -310,7 +333,7 @@ export function MFAAgentesContent() {
       period: parsed.period || 30,
       created_at: new Date().toISOString(),
     };
-    setAccounts((prev) => [...prev, newAccount]);
+    saveAccountToDB(newAccount);
     setShowAddModal(false);
     setAddMode("choose");
     toast({ title: "Conta adicionada!", description: newAccount.issuer });
@@ -333,18 +356,23 @@ export function MFAAgentesContent() {
       period: 30,
       created_at: new Date().toISOString(),
     };
-    setAccounts((prev) => [...prev, newAccount]);
+    saveAccountToDB(newAccount);
     setShowAddModal(false);
     setAddMode("choose");
     setManualForm({ issuer: "", secret: "", keyType: "totp" });
     toast({ title: "Conta adicionada!", description: newAccount.issuer });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const account = accounts.find((a) => a.id === id);
-    setAccounts((prev) => prev.filter((a) => a.id !== id));
-    deleteRecoveryCodes(id);
-    toast({ title: "Conta removida", description: account?.issuer });
+    try {
+      await supabase.from("mfa_accounts" as any).delete().eq("id", id);
+      deleteRecoveryCodes(id);
+      await loadAccountsFromDB();
+      toast({ title: "Conta removida", description: account?.issuer });
+    } catch {
+      toast({ title: "Erro ao remover conta", variant: "destructive" });
+    }
     setExpandedId(null);
   };
 
@@ -390,7 +418,13 @@ export function MFAAgentesContent() {
       </div>
 
       {/* Accounts List */}
-      {accounts.length === 0 ? (
+      {loadingAccounts ? (
+        <Card className="border-muted">
+          <CardContent className="py-8 text-center">
+            <p className="text-sm text-muted-foreground">Carregando contas MFA...</p>
+          </CardContent>
+        </Card>
+      ) : accounts.length === 0 ? (
         <Card className="border-dashed border-2 border-muted">
           <CardContent className="py-16 text-center">
             <ShieldCheck className="h-16 w-16 mx-auto text-muted-foreground/40 mb-4" />
