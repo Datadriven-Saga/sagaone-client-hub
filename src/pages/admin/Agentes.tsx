@@ -70,6 +70,7 @@ import AgenteVariaveis from "@/components/AgenteVariaveis";
 import { AgenteCadenciasNova } from "@/components/AgenteCadenciasNova";
 import { AgenteEventos } from "@/components/AgenteEventos";
 import { AgenteTestar } from "@/components/AgenteTestar";
+import { AgenteLojas } from "@/components/AgenteLojas";
 
 interface AgenteWebhook {
   id?: string;
@@ -245,6 +246,23 @@ export default function AdminAgentes() {
     if (instanciaData?.agente) {
       const agente = instanciaData.agente.toLowerCase();
       if (agente.includes("pri") || agente.includes("ligação") || agente.includes("ligacao")) return true;
+    }
+    return false;
+  };
+
+  // Verificar se é agente Gaia
+  const isGaia = (): boolean => {
+    if (selectedAgente) {
+      const nome = (selectedAgente.nome || "").toLowerCase();
+      if (nome.includes("gaia")) return true;
+    }
+    if (agenteLocal) {
+      const nome = (agenteLocal.nome || "").toLowerCase();
+      if (nome.includes("gaia")) return true;
+    }
+    if (instanciaData?.agente) {
+      const agente = instanciaData.agente.toLowerCase();
+      if (agente.includes("gaia")) return true;
     }
     return false;
   };
@@ -2046,6 +2064,10 @@ export default function AdminAgentes() {
                     <TabsTrigger value="cadencia" disabled={!agenteLocal}>Cadência</TabsTrigger>
                     <TabsTrigger value="periodo" disabled={!agenteLocal}>Jornada da IA</TabsTrigger>
                     <TabsTrigger value="instancias">Instâncias</TabsTrigger>
+                    {/* Aba de Lojas - apenas para agentes Gaia */}
+                    {isGaia() && (
+                      <TabsTrigger value="lojas-gaia">Lojas</TabsTrigger>
+                    )}
                     {/* Aba de Eventos - apenas para agentes Pri(Ligação)
                         (não depende do agenteLocal para não aparecer "em partes") */}
                     {isPriLigacao() && (
@@ -2060,7 +2082,7 @@ export default function AdminAgentes() {
                 </div>
 
                 {/* Aviso para novo agente */}
-                {!agenteLocal && activeTab !== "dados-gerais" && activeTab !== "instancias" && (
+                {!agenteLocal && activeTab !== "dados-gerais" && activeTab !== "instancias" && activeTab !== "lojas-gaia" && (
                   <div className="flex items-center justify-center py-12 text-center">
                     <div className="space-y-2">
                       <Bot className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
@@ -2897,6 +2919,17 @@ export default function AdminAgentes() {
 
                 {/* Eventos Tab - apenas para agentes Pri(Ligação)
                     forceMount para começar a buscar em background e evitar sensação de "demora" ao clicar */}
+
+                {/* Tab Lojas Gaia */}
+                {isGaia() && (
+                  <TabsContent value="lojas-gaia">
+                    <AgenteLojas
+                      agenteNome={agenteLocal?.nome || selectedAgente?.nome}
+                      agenteTelefone={agenteLocal?.telefone || selectedAgente?.telefone}
+                    />
+                  </TabsContent>
+                )}
+
                 {isPriLigacao() && (
                   <TabsContent value="eventos" forceMount>
                     <AgenteEventos 

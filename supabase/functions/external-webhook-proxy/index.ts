@@ -27,6 +27,10 @@ const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }>
   'dispara-ligacao': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/dispara-ligacao', method: 'POST' },
   'apaga-template-meta': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/apaga-template-meta', method: 'POST' },
   'pri-config': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/pri-config', method: 'POST' },
+  // Gaia - Lojas
+  'insere-loja': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/insere-loja', method: 'POST' },
+  'verifca-lojas': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifca-lojas', method: 'GET' },
+  'update-lojas-gaia': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/update-lojas-gaia', method: 'POST' },
 };
 
 Deno.serve(async (req: Request) => {
@@ -113,7 +117,12 @@ Deno.serve(async (req: Request) => {
     };
 
     if (endpointConfig.method === 'POST') {
-      fetchOptions.body = JSON.stringify(postBody);
+      // For Gaia loja endpoints, wrap in array as expected by webhook
+      if (endpoint === 'insere-loja' || endpoint === 'update-lojas-gaia') {
+        fetchOptions.body = JSON.stringify([postBody]);
+      } else {
+        fetchOptions.body = JSON.stringify(postBody);
+      }
     }
 
     // Para dispara-ligacao, fazer chamada assíncrona usando EdgeRuntime.waitUntil para evitar timeout
