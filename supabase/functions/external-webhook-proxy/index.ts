@@ -29,7 +29,7 @@ const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }>
   'pri-config': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/pri-config', method: 'POST' },
   // Gaia - Lojas
   'insere-loja': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/insere-loja', method: 'POST' },
-  'verifca-lojas': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifca-lojas', method: 'POST' },
+  'verifca-lojas': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifca-lojas', method: 'GET' },
   'update-lojas-gaia': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/update-lojas-gaia', method: 'POST' },
 };
 
