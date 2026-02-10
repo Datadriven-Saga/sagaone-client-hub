@@ -42,7 +42,7 @@ interface MFAAccount {
   id: string;
   issuer: string;
   label: string;
-  secret: string; // decrypted, only in memory
+  secret: string;
   algorithm: string;
   digits: number;
   period: number;
@@ -121,33 +121,6 @@ function TOTPCode({ account }: { account: MFAAccount }) {
   );
 }
 
-async function callMfaApi(action: string, method: string, body?: any, params?: Record<string, string>) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error("Não autenticado");
-
-  const url = new URL(`https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/mfa-accounts`);
-  url.searchParams.set("action", action);
-  if (params) {
-    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  }
-
-  const res = await fetch(url.toString(), {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${session.access_token}`,
-    },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Erro desconhecido" }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-
-  return res.json();
-}
-
 export function MFAAgentesContent() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -173,14 +146,17 @@ export function MFAAgentesContent() {
   const [editingAccount, setEditingAccount] = useState<MFAAccount | null>(null);
   const [editName, setEditName] = useState("");
 
-  // Load accounts via edge function (secrets come decrypted)
+  // Load accounts from decrypted view (RLS filters by user_id = auth.uid())
   const loadAccounts = useCallback(async () => {
     setLoadingAccounts(true);
     try {
-      // First migrate any unencrypted secrets
-      await callMfaApi("migrate-encrypt", "POST").catch(() => {});
-      const data = await callMfaApi("list", "GET");
-      setAccounts(data || []);
+      const { data, error } = await supabase
+        .from("mfa_accounts_decrypted" as any)
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setAccounts((data as any[]) || []);
     } catch (err: any) {
       console.error("[MFA] Load error:", err);
       toast({ title: "Erro ao carregar contas MFA", description: err.message, variant: "destructive" });
@@ -191,8 +167,9 @@ export function MFAAgentesContent() {
 
   // Migrate localStorage accounts (one-time)
   const migrateLocalStorage = useCallback(async () => {
+    if (!user) return;
     const STORAGE_KEY = "mfa_authenticator_accounts";
-    const MIGRATED_KEY = "mfa_accounts_migrated_to_edge";
+    const MIGRATED_KEY = "mfa_accounts_migrated_v3";
     if (localStorage.getItem(MIGRATED_KEY)) return;
 
     try {
@@ -202,15 +179,20 @@ export function MFAAgentesContent() {
       if (!localAccounts.length) { localStorage.setItem(MIGRATED_KEY, "true"); return; }
 
       for (const acc of localAccounts) {
-        await callMfaApi("create", "POST", {
-          id: acc.id,
-          issuer: acc.issuer,
-          label: acc.label || acc.issuer,
-          secret: acc.secret,
-          algorithm: acc.algorithm || "SHA1",
-          digits: acc.digits || 6,
-          period: acc.period || 30,
-        }).catch(() => {}); // ignore duplicates
+        // Insert with plaintext secret — trigger auto-encrypts
+        await supabase
+          .from("mfa_accounts" as any)
+          .upsert({
+            id: acc.id,
+            issuer: acc.issuer,
+            label: acc.label || acc.issuer,
+            secret_encrypted: acc.secret, // trigger will encrypt
+            algorithm: acc.algorithm || "SHA1",
+            digits: acc.digits || 6,
+            period: acc.period || 30,
+            user_id: user.id,
+            created_by: user.id,
+          }, { onConflict: "id" });
       }
 
       localStorage.setItem(MIGRATED_KEY, "true");
@@ -218,7 +200,7 @@ export function MFAAgentesContent() {
     } catch (err) {
       console.error("[MFA] localStorage migration error:", err);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -229,7 +211,7 @@ export function MFAAgentesContent() {
     init();
   }, [user, migrateLocalStorage, loadAccounts]);
 
-  // Recovery codes - still via direct Supabase (they don't contain secrets)
+  // Recovery codes
   const loadRecoveryCodes = useCallback(async (accountId: string) => {
     setLoadingRecovery(true);
     try {
@@ -338,6 +320,29 @@ export function MFAAgentesContent() {
     }
   }, [toast]);
 
+  const saveAccount = useCallback(async (account: Omit<MFAAccount, 'created_at'>) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from("mfa_accounts" as any)
+        .insert({
+          id: account.id,
+          issuer: account.issuer,
+          label: account.label,
+          secret_encrypted: account.secret, // trigger auto-encrypts
+          algorithm: account.algorithm,
+          digits: account.digits,
+          period: account.period,
+          user_id: user.id,
+          created_by: user.id,
+        });
+      if (error) throw error;
+      await loadAccounts();
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar conta", description: err.message, variant: "destructive" });
+    }
+  }, [user, loadAccounts, toast]);
+
   const handleQRResult = async (uri: string) => {
     stopCamera();
     const parsed = parseOtpauthUri(uri);
@@ -345,23 +350,18 @@ export function MFAAgentesContent() {
       toast({ title: "QR Code inválido", variant: "destructive" });
       return;
     }
-    try {
-      await callMfaApi("create", "POST", {
-        id: `mfa-${Date.now()}`,
-        issuer: parsed.issuer || "Desconhecido",
-        label: parsed.label || "",
-        secret: parsed.secret, // sent to edge function which encrypts it
-        algorithm: parsed.algorithm || "SHA1",
-        digits: parsed.digits || 6,
-        period: parsed.period || 30,
-      });
-      await loadAccounts();
-      setShowAddModal(false);
-      setAddMode("choose");
-      toast({ title: "Conta adicionada!", description: parsed.issuer });
-    } catch (err: any) {
-      toast({ title: "Erro ao salvar conta", description: err.message, variant: "destructive" });
-    }
+    await saveAccount({
+      id: `mfa-${Date.now()}`,
+      issuer: parsed.issuer || "Desconhecido",
+      label: parsed.label || "",
+      secret: parsed.secret,
+      algorithm: parsed.algorithm || "SHA1",
+      digits: parsed.digits || 6,
+      period: parsed.period || 30,
+    });
+    setShowAddModal(false);
+    setAddMode("choose");
+    toast({ title: "Conta adicionada!", description: parsed.issuer });
   };
 
   const handleManualAdd = async () => {
@@ -371,30 +371,28 @@ export function MFAAgentesContent() {
     try { OTPAuth.Secret.fromBase32(secret); } catch {
       toast({ title: "Chave inválida", description: "Base32 inválido", variant: "destructive" }); return;
     }
-    try {
-      await callMfaApi("create", "POST", {
-        id: `mfa-${Date.now()}`,
-        issuer: manualForm.issuer.trim(),
-        label: manualForm.issuer.trim(),
-        secret, // sent to edge function which encrypts it
-        algorithm: "SHA1",
-        digits: 6,
-        period: 30,
-      });
-      await loadAccounts();
-      setShowAddModal(false);
-      setAddMode("choose");
-      setManualForm({ issuer: "", secret: "", keyType: "totp" });
-      toast({ title: "Conta adicionada!", description: manualForm.issuer.trim() });
-    } catch (err: any) {
-      toast({ title: "Erro ao salvar conta", description: err.message, variant: "destructive" });
-    }
+    await saveAccount({
+      id: `mfa-${Date.now()}`,
+      issuer: manualForm.issuer.trim(),
+      label: manualForm.issuer.trim(),
+      secret,
+      algorithm: "SHA1",
+      digits: 6,
+      period: 30,
+    });
+    setShowAddModal(false);
+    setAddMode("choose");
+    setManualForm({ issuer: "", secret: "", keyType: "totp" });
+    toast({ title: "Conta adicionada!", description: manualForm.issuer.trim() });
   };
 
   const handleDelete = async (id: string) => {
     const account = accounts.find((a) => a.id === id);
     try {
-      await callMfaApi("delete", "DELETE", undefined, { id });
+      // Delete recovery codes first
+      await supabase.from("mfa_recovery_codes" as any).delete().eq("account_id", id);
+      // Delete account
+      await supabase.from("mfa_accounts" as any).delete().eq("id", id);
       await loadAccounts();
       toast({ title: "Conta removida", description: account?.issuer });
     } catch {
@@ -411,7 +409,11 @@ export function MFAAgentesContent() {
   const handleRename = async () => {
     if (!editingAccount || !editName.trim()) return;
     try {
-      await callMfaApi("update", "PUT", { id: editingAccount.id, issuer: editName.trim(), label: editName.trim() });
+      const { error } = await supabase
+        .from("mfa_accounts" as any)
+        .update({ issuer: editName.trim(), label: editName.trim(), updated_at: new Date().toISOString() })
+        .eq("id", editingAccount.id);
+      if (error) throw error;
       await loadAccounts();
       toast({ title: "Nome atualizado!" });
     } catch (err: any) {
