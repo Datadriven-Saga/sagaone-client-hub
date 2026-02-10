@@ -1962,8 +1962,9 @@ export type Database = {
           issuer: string
           label: string | null
           period: number
-          secret: string
+          secret_encrypted: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           algorithm?: string
@@ -1974,8 +1975,9 @@ export type Database = {
           issuer: string
           label?: string | null
           period?: number
-          secret: string
+          secret_encrypted: string
           updated_at?: string
+          user_id: string
         }
         Update: {
           algorithm?: string
@@ -1986,8 +1988,9 @@ export type Database = {
           issuer?: string
           label?: string | null
           period?: number
-          secret?: string
+          secret_encrypted?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
