@@ -82,6 +82,122 @@ function parseOtpauthUri(uri: string): Partial<MFAAccount> | null {
   }
 }
 
+// Parse Google Authenticator migration QR codes (otpauth-migration://offline?data=...)
+function parseOtpauthMigration(uri: string): Partial<MFAAccount>[] {
+  try {
+    const url = new URL(uri);
+    const b64 = url.searchParams.get("data");
+    if (!b64) return [];
+
+    const raw = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const accounts: Partial<MFAAccount>[] = [];
+
+    const parseOtpParams = (data: Uint8Array): Partial<MFAAccount> | null => {
+      let p = 0;
+      let secret = "", name = "", issuer = "";
+      let algo = 1, digits = 6, otpType = 0;
+
+      const rv = (): number => {
+        let r = 0, s = 0;
+        while (p < data.length) {
+          const b = data[p++];
+          r |= (b & 0x7f) << s;
+          if ((b & 0x80) === 0) return r;
+          s += 7;
+        }
+        return r;
+      };
+
+      while (p < data.length) {
+        const tag = rv();
+        const fieldNum = tag >> 3;
+        const wireType = tag & 0x7;
+
+        if (wireType === 2) {
+          const len = rv();
+          const fieldData = data.slice(p, p + len);
+          p += len;
+          if (fieldNum === 1) {
+            const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+            let bits = 0, value = 0, b32 = "";
+            for (const byte of fieldData) {
+              value = (value << 8) | byte;
+              bits += 8;
+              while (bits >= 5) {
+                b32 += alphabet[(value >>> (bits - 5)) & 31];
+                bits -= 5;
+              }
+            }
+            if (bits > 0) b32 += alphabet[(value << (5 - bits)) & 31];
+            secret = b32;
+          } else if (fieldNum === 2) name = new TextDecoder().decode(fieldData);
+          else if (fieldNum === 3) issuer = new TextDecoder().decode(fieldData);
+        } else if (wireType === 0) {
+          const val = rv();
+          if (fieldNum === 4) algo = val;
+          else if (fieldNum === 5) digits = val === 2 ? 8 : 6;
+          else if (fieldNum === 6) otpType = val;
+        }
+      }
+
+      if (!secret || otpType === 1) return null;
+      const algoMap: Record<number, string> = { 0: "SHA1", 1: "SHA1", 2: "SHA256", 3: "SHA512", 4: "MD5" };
+      
+      let parsedIssuer = issuer;
+      let parsedLabel = name;
+      if (!parsedIssuer && name.includes(":")) {
+        const parts = name.split(":");
+        parsedIssuer = parts[0].trim();
+        parsedLabel = parts.slice(1).join(":").trim();
+      }
+
+      return {
+        issuer: parsedIssuer || "Importado",
+        label: parsedLabel || parsedIssuer || "Conta",
+        secret,
+        algorithm: algoMap[algo] || "SHA1",
+        digits,
+        period: 30,
+      };
+    };
+
+    // Parse outer MigrationPayload
+    let pos = 0;
+    const readVarint = (): number => {
+      let result = 0, shift = 0;
+      while (pos < raw.length) {
+        const byte = raw[pos++];
+        result |= (byte & 0x7f) << shift;
+        if ((byte & 0x80) === 0) return result;
+        shift += 7;
+      }
+      return result;
+    };
+
+    while (pos < raw.length) {
+      const tag = readVarint();
+      const fieldNum = tag >> 3;
+      const wireType = tag & 0x7;
+      if (wireType === 2) {
+        const len = readVarint();
+        const fieldData = raw.slice(pos, pos + len);
+        pos += len;
+        if (fieldNum === 1) {
+          const parsed = parseOtpParams(fieldData);
+          if (parsed) accounts.push(parsed);
+        }
+      } else if (wireType === 0) {
+        readVarint();
+      }
+    }
+
+    return accounts;
+  } catch (err) {
+    console.error("[MFA] Migration parse error:", err);
+    return [];
+  }
+}
+
 function TOTPCode({ account }: { account: MFAAccount }) {
   const [code, setCode] = useState(() => generateTOTP(account.secret, account.period, account.digits, account.algorithm));
   const [timeLeft, setTimeLeft] = useState(0);
@@ -361,9 +477,9 @@ export function MFAAgentesContent() {
       html5QrRef.current = html5Qr;
       await html5Qr.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 220, height: 220 } },
+        { fps: 15, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
-          if (decodedText?.startsWith("otpauth://")) handleQRResult(decodedText);
+          if (decodedText) handleQRResult(decodedText);
         },
         () => {}
       );
@@ -401,25 +517,58 @@ export function MFAAgentesContent() {
     }
   }, [user, loadAccounts, toast]);
 
-  const handleQRResult = async (uri: string) => {
+  const handleQRResult = async (decodedText: string) => {
     stopCamera();
-    const parsed = parseOtpauthUri(uri);
-    if (!parsed?.secret) {
-      toast({ title: "QR Code inválido", variant: "destructive" });
-      return;
+    
+    // 1. Try otpauth:// URI (standard single account)
+    if (decodedText.startsWith("otpauth://")) {
+      const parsed = parseOtpauthUri(decodedText);
+      if (parsed?.secret) {
+        await saveAccount({
+          id: `mfa-${Date.now()}`,
+          issuer: parsed.issuer || "Desconhecido",
+          label: parsed.label || "",
+          secret: parsed.secret,
+          algorithm: parsed.algorithm || "SHA1",
+          digits: parsed.digits || 6,
+          period: parsed.period || 30,
+        });
+        setShowAddModal(false);
+        setAddMode("choose");
+        toast({ title: "Conta adicionada!", description: parsed.issuer });
+        return;
+      }
     }
-    await saveAccount({
-      id: `mfa-${Date.now()}`,
-      issuer: parsed.issuer || "Desconhecido",
-      label: parsed.label || "",
-      secret: parsed.secret,
-      algorithm: parsed.algorithm || "SHA1",
-      digits: parsed.digits || 6,
-      period: parsed.period || 30,
-    });
-    setShowAddModal(false);
-    setAddMode("choose");
-    toast({ title: "Conta adicionada!", description: parsed.issuer });
+
+    // 2. Try otpauth-migration:// (Google Authenticator export)
+    if (decodedText.startsWith("otpauth-migration://")) {
+      const migrated = parseOtpauthMigration(decodedText);
+      if (migrated.length > 0) {
+        let added = 0;
+        for (const acc of migrated) {
+          if (acc.secret) {
+            await saveAccount({
+              id: `mfa-${Date.now()}-${added}`,
+              issuer: acc.issuer || "Importado",
+              label: acc.label || "",
+              secret: acc.secret,
+              algorithm: acc.algorithm || "SHA1",
+              digits: acc.digits || 6,
+              period: acc.period || 30,
+            });
+            added++;
+          }
+        }
+        setShowAddModal(false);
+        setAddMode("choose");
+        toast({ title: `${added} conta(s) importada(s)!`, description: "Transferência do Google Authenticator concluída" });
+        return;
+      }
+    }
+
+    toast({ title: "QR Code não reconhecido", description: "Use um QR Code de configuração MFA (otpauth://)", variant: "destructive" });
+    // Re-enable scanning to try again
+    setTimeout(() => startCamera(), 500);
   };
 
   const handleManualAdd = async () => {

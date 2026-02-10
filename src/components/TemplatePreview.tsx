@@ -84,11 +84,20 @@ export function TemplatePreview({
           <div className="space-y-2">
             {cardData?.imagemUrl ? (
               <div className="rounded-lg overflow-hidden">
-                <img 
+              <img 
                   src={cardData.imagemUrl} 
                   alt="Preview" 
                   className="w-full h-40 object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = 'none';
+                    const fallback = target.parentElement?.querySelector('.img-fallback') as HTMLElement;
+                    if (fallback) fallback.style.display = 'flex';
+                  }}
                 />
+                <div className="img-fallback w-full h-40 bg-muted/50 items-center justify-center hidden">
+                  <ImageIcon className="h-12 w-12 text-muted-foreground/40" />
+                </div>
               </div>
             ) : (
               <div className="w-full h-40 bg-muted/50 rounded-lg flex items-center justify-center">
@@ -165,7 +174,16 @@ export function TemplatePreview({
                   src={cardData.imagemUrl} 
                   alt="Preview" 
                   className="w-full h-32 object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = 'none';
+                    const fallback = target.parentElement?.querySelector('.img-fallback') as HTMLElement;
+                    if (fallback) fallback.style.display = 'flex';
+                  }}
                 />
+                <div className="img-fallback w-full h-32 bg-muted/50 items-center justify-center hidden">
+                  <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+                </div>
               </div>
             ) : (
               <div className="w-full h-32 bg-muted/50 rounded-lg -mx-3 -mt-3 flex items-center justify-center" style={{ width: 'calc(100% + 24px)' }}>
