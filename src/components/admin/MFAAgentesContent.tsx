@@ -165,9 +165,46 @@ export function MFAAgentesContent() {
     }
   }, []);
 
+  // Migrate localStorage accounts to Supabase (one-time)
+  const migrateLocalStorageAccounts = useCallback(async () => {
+    const STORAGE_KEY = "mfa_authenticator_accounts";
+    const MIGRATED_KEY = "mfa_accounts_migrated_to_db";
+    if (localStorage.getItem(MIGRATED_KEY)) return;
+
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) { localStorage.setItem(MIGRATED_KEY, "true"); return; }
+      const localAccounts: MFAAccount[] = JSON.parse(stored);
+      if (!localAccounts.length) { localStorage.setItem(MIGRATED_KEY, "true"); return; }
+
+      for (const acc of localAccounts) {
+        await supabase.from("mfa_accounts" as any).upsert({
+          id: acc.id,
+          issuer: acc.issuer,
+          label: acc.label || acc.issuer,
+          secret: acc.secret,
+          algorithm: acc.algorithm || "SHA1",
+          digits: acc.digits || 6,
+          period: acc.period || 30,
+          created_by: user?.id,
+          created_at: acc.created_at || new Date().toISOString(),
+        }, { onConflict: "id" });
+      }
+
+      localStorage.setItem(MIGRATED_KEY, "true");
+      console.log(`Migrated ${localAccounts.length} MFA accounts from localStorage to Supabase`);
+    } catch (err) {
+      console.error("Erro ao migrar contas do localStorage:", err);
+    }
+  }, [user]);
+
   useEffect(() => {
-    loadAccountsFromDB();
-  }, [loadAccountsFromDB]);
+    const init = async () => {
+      await migrateLocalStorageAccounts();
+      await loadAccountsFromDB();
+    };
+    init();
+  }, [migrateLocalStorageAccounts, loadAccountsFromDB]);
 
   // Load recovery codes for an account
   const loadRecoveryCodes = useCallback(async (accountId: string) => {
