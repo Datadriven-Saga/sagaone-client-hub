@@ -29,7 +29,6 @@ import {
   MoreVertical,
   FileKey,
   Upload,
-  FileText,
   X,
   Pencil,
 } from "lucide-react";
@@ -43,11 +42,10 @@ interface MFAAccount {
   id: string;
   issuer: string;
   label: string;
-  secret: string;
+  secret: string; // decrypted, only in memory
   algorithm: string;
   digits: number;
   period: number;
-  created_by?: string;
   created_at: string;
 }
 
@@ -123,6 +121,33 @@ function TOTPCode({ account }: { account: MFAAccount }) {
   );
 }
 
+async function callMfaApi(action: string, method: string, body?: any, params?: Record<string, string>) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Não autenticado");
+
+  const url = new URL(`https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/mfa-accounts`);
+  url.searchParams.set("action", action);
+  if (params) {
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  }
+
+  const res = await fetch(url.toString(), {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${session.access_token}`,
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Erro desconhecido" }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
 export function MFAAgentesContent() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -148,47 +173,36 @@ export function MFAAgentesContent() {
   const [editingAccount, setEditingAccount] = useState<MFAAccount | null>(null);
   const [editName, setEditName] = useState("");
 
-  // Load accounts from Supabase
-  const loadAccountsFromDB = useCallback(async () => {
+  // Load accounts via edge function (secrets come decrypted)
+  const loadAccounts = useCallback(async () => {
     setLoadingAccounts(true);
     try {
-      console.log("[MFA] Loading accounts from DB...");
-      const { data, error, status } = await supabase
-        .from("mfa_accounts" as any)
-        .select("*")
-        .order("created_at", { ascending: false });
-      console.log("[MFA] Load result:", { data, error, status, count: data?.length });
-      if (error) {
-        console.error("[MFA] Load error details:", JSON.stringify(error));
-        throw error;
-      }
-      setAccounts((data as any[]) || []);
-    } catch (err) {
-      console.error("[MFA] Erro ao carregar contas MFA:", err);
-      toast({
-        title: "Erro ao carregar contas MFA",
-        description: String(err),
-        variant: "destructive",
-      });
+      // First migrate any unencrypted secrets
+      await callMfaApi("migrate-encrypt", "POST").catch(() => {});
+      const data = await callMfaApi("list", "GET");
+      setAccounts(data || []);
+    } catch (err: any) {
+      console.error("[MFA] Load error:", err);
+      toast({ title: "Erro ao carregar contas MFA", description: err.message, variant: "destructive" });
     } finally {
       setLoadingAccounts(false);
     }
   }, [toast]);
 
-  // Migrate localStorage accounts to Supabase (one-time)
-  const migrateLocalStorageAccounts = useCallback(async () => {
+  // Migrate localStorage accounts (one-time)
+  const migrateLocalStorage = useCallback(async () => {
     const STORAGE_KEY = "mfa_authenticator_accounts";
-    const MIGRATED_KEY = "mfa_accounts_migrated_to_db";
+    const MIGRATED_KEY = "mfa_accounts_migrated_to_edge";
     if (localStorage.getItem(MIGRATED_KEY)) return;
 
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (!stored) { localStorage.setItem(MIGRATED_KEY, "true"); return; }
-      const localAccounts: MFAAccount[] = JSON.parse(stored);
+      const localAccounts = JSON.parse(stored);
       if (!localAccounts.length) { localStorage.setItem(MIGRATED_KEY, "true"); return; }
 
       for (const acc of localAccounts) {
-        await supabase.from("mfa_accounts" as any).upsert({
+        await callMfaApi("create", "POST", {
           id: acc.id,
           issuer: acc.issuer,
           label: acc.label || acc.issuer,
@@ -196,27 +210,26 @@ export function MFAAgentesContent() {
           algorithm: acc.algorithm || "SHA1",
           digits: acc.digits || 6,
           period: acc.period || 30,
-          created_by: user?.id,
-          created_at: acc.created_at || new Date().toISOString(),
-        }, { onConflict: "id" });
+        }).catch(() => {}); // ignore duplicates
       }
 
       localStorage.setItem(MIGRATED_KEY, "true");
-      console.log(`Migrated ${localAccounts.length} MFA accounts from localStorage to Supabase`);
+      console.log(`[MFA] Migrated ${localAccounts.length} accounts from localStorage`);
     } catch (err) {
-      console.error("Erro ao migrar contas do localStorage:", err);
+      console.error("[MFA] localStorage migration error:", err);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
+    if (!user) return;
     const init = async () => {
-      await migrateLocalStorageAccounts();
-      await loadAccountsFromDB();
+      await migrateLocalStorage();
+      await loadAccounts();
     };
     init();
-  }, [migrateLocalStorageAccounts, loadAccountsFromDB]);
+  }, [user, migrateLocalStorage, loadAccounts]);
 
-  // Load recovery codes for an account
+  // Recovery codes - still via direct Supabase (they don't contain secrets)
   const loadRecoveryCodes = useCallback(async (accountId: string) => {
     setLoadingRecovery(true);
     try {
@@ -234,12 +247,10 @@ export function MFAAgentesContent() {
     }
   }, []);
 
-  // Save recovery codes for an account
   const saveRecoveryCodes = useCallback(async (accountId: string, codes: string[]) => {
     if (!user) return;
     const cleanCodes = codes.map(c => c.trim()).filter(Boolean);
     try {
-      // Try upsert
       const { error } = await supabase
         .from("mfa_recovery_codes" as any)
         .upsert(
@@ -254,14 +265,6 @@ export function MFAAgentesContent() {
     }
   }, [user, toast]);
 
-  // Delete recovery codes for an account
-  const deleteRecoveryCodes = useCallback(async (accountId: string) => {
-    await supabase
-      .from("mfa_recovery_codes" as any)
-      .delete()
-      .eq("account_id", accountId);
-  }, []);
-
   const openRecoveryModal = (account: MFAAccount) => {
     setRecoveryAccount(account);
     setRecoveryAddMode("choose");
@@ -271,14 +274,8 @@ export function MFAAgentesContent() {
   };
 
   const handleAddRecoveryManual = () => {
-    const newCodes = recoveryInput
-      .split(/[\n,;]+/)
-      .map(c => c.trim())
-      .filter(Boolean);
-    if (newCodes.length === 0) {
-      toast({ title: "Insira ao menos um código", variant: "destructive" });
-      return;
-    }
+    const newCodes = recoveryInput.split(/[\n,;]+/).map(c => c.trim()).filter(Boolean);
+    if (newCodes.length === 0) { toast({ title: "Insira ao menos um código", variant: "destructive" }); return; }
     const merged = [...recoveryCodes, ...newCodes];
     if (recoveryAccount) saveRecoveryCodes(recoveryAccount.id, merged);
     setRecoveryInput("");
@@ -291,14 +288,8 @@ export function MFAAgentesContent() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      const newCodes = text
-        .split(/[\n,;]+/)
-        .map(c => c.trim())
-        .filter(Boolean);
-      if (newCodes.length === 0) {
-        toast({ title: "Nenhum código encontrado no arquivo", variant: "destructive" });
-        return;
-      }
+      const newCodes = text.split(/[\n,;]+/).map(c => c.trim()).filter(Boolean);
+      if (newCodes.length === 0) { toast({ title: "Nenhum código encontrado no arquivo", variant: "destructive" }); return; }
       const merged = [...recoveryCodes, ...newCodes];
       if (recoveryAccount) saveRecoveryCodes(recoveryAccount.id, merged);
       setRecoveryAddMode("choose");
@@ -347,80 +338,64 @@ export function MFAAgentesContent() {
     }
   }, [toast]);
 
-  const saveAccountToDB = useCallback(async (account: MFAAccount) => {
-    try {
-      const { error } = await supabase
-        .from("mfa_accounts" as any)
-        .insert({
-          id: account.id,
-          issuer: account.issuer,
-          label: account.label,
-          secret: account.secret,
-          algorithm: account.algorithm,
-          digits: account.digits,
-          period: account.period,
-          created_by: user?.id,
-        });
-      if (error) throw error;
-      await loadAccountsFromDB();
-    } catch (err: any) {
-      toast({ title: "Erro ao salvar conta", description: err.message, variant: "destructive" });
-    }
-  }, [user, loadAccountsFromDB, toast]);
-
-  const handleQRResult = (uri: string) => {
+  const handleQRResult = async (uri: string) => {
     stopCamera();
     const parsed = parseOtpauthUri(uri);
     if (!parsed?.secret) {
       toast({ title: "QR Code inválido", variant: "destructive" });
       return;
     }
-    const newAccount: MFAAccount = {
-      id: `mfa-${Date.now()}`,
-      issuer: parsed.issuer || "Desconhecido",
-      label: parsed.label || "",
-      secret: parsed.secret,
-      algorithm: parsed.algorithm || "SHA1",
-      digits: parsed.digits || 6,
-      period: parsed.period || 30,
-      created_at: new Date().toISOString(),
-    };
-    saveAccountToDB(newAccount);
-    setShowAddModal(false);
-    setAddMode("choose");
-    toast({ title: "Conta adicionada!", description: newAccount.issuer });
+    try {
+      await callMfaApi("create", "POST", {
+        id: `mfa-${Date.now()}`,
+        issuer: parsed.issuer || "Desconhecido",
+        label: parsed.label || "",
+        secret: parsed.secret, // sent to edge function which encrypts it
+        algorithm: parsed.algorithm || "SHA1",
+        digits: parsed.digits || 6,
+        period: parsed.period || 30,
+      });
+      await loadAccounts();
+      setShowAddModal(false);
+      setAddMode("choose");
+      toast({ title: "Conta adicionada!", description: parsed.issuer });
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar conta", description: err.message, variant: "destructive" });
+    }
   };
 
-  const handleManualAdd = () => {
+  const handleManualAdd = async () => {
     const secret = manualForm.secret.replace(/\s/g, "").toUpperCase();
     if (!secret) { toast({ title: "Chave obrigatória", variant: "destructive" }); return; }
     if (!manualForm.issuer.trim()) { toast({ title: "Nome obrigatório", variant: "destructive" }); return; }
     try { OTPAuth.Secret.fromBase32(secret); } catch {
       toast({ title: "Chave inválida", description: "Base32 inválido", variant: "destructive" }); return;
     }
-    const newAccount: MFAAccount = {
-      id: `mfa-${Date.now()}`,
-      issuer: manualForm.issuer.trim(),
-      label: manualForm.issuer.trim(),
-      secret,
-      algorithm: "SHA1",
-      digits: 6,
-      period: 30,
-      created_at: new Date().toISOString(),
-    };
-    saveAccountToDB(newAccount);
-    setShowAddModal(false);
-    setAddMode("choose");
-    setManualForm({ issuer: "", secret: "", keyType: "totp" });
-    toast({ title: "Conta adicionada!", description: newAccount.issuer });
+    try {
+      await callMfaApi("create", "POST", {
+        id: `mfa-${Date.now()}`,
+        issuer: manualForm.issuer.trim(),
+        label: manualForm.issuer.trim(),
+        secret, // sent to edge function which encrypts it
+        algorithm: "SHA1",
+        digits: 6,
+        period: 30,
+      });
+      await loadAccounts();
+      setShowAddModal(false);
+      setAddMode("choose");
+      setManualForm({ issuer: "", secret: "", keyType: "totp" });
+      toast({ title: "Conta adicionada!", description: manualForm.issuer.trim() });
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar conta", description: err.message, variant: "destructive" });
+    }
   };
 
   const handleDelete = async (id: string) => {
     const account = accounts.find((a) => a.id === id);
     try {
-      await supabase.from("mfa_accounts" as any).delete().eq("id", id);
-      deleteRecoveryCodes(id);
-      await loadAccountsFromDB();
+      await callMfaApi("delete", "DELETE", undefined, { id });
+      await loadAccounts();
       toast({ title: "Conta removida", description: account?.issuer });
     } catch {
       toast({ title: "Erro ao remover conta", variant: "destructive" });
@@ -436,12 +411,8 @@ export function MFAAgentesContent() {
   const handleRename = async () => {
     if (!editingAccount || !editName.trim()) return;
     try {
-      const { error } = await supabase
-        .from("mfa_accounts" as any)
-        .update({ issuer: editName.trim(), label: editName.trim(), updated_at: new Date().toISOString() })
-        .eq("id", editingAccount.id);
-      if (error) throw error;
-      await loadAccountsFromDB();
+      await callMfaApi("update", "PUT", { id: editingAccount.id, issuer: editName.trim(), label: editName.trim() });
+      await loadAccounts();
       toast({ title: "Nome atualizado!" });
     } catch (err: any) {
       toast({ title: "Erro ao renomear", description: err.message, variant: "destructive" });
@@ -544,10 +515,6 @@ export function MFAAgentesContent() {
                     <Button variant="outline" size="sm" className="gap-1.5 text-xs"
                       onClick={() => { setEditingAccount(account); setEditName(account.issuer); }}>
                       <Pencil className="h-3 w-3" /> Renomear
-                    </Button>
-                    <Button variant="outline" size="sm" className="gap-1.5 text-xs"
-                      onClick={() => { navigator.clipboard.writeText(account.secret); toast({ title: "Chave copiada!" }); }}>
-                      <Copy className="h-3 w-3" /> Copiar chave
                     </Button>
                     <Button variant="outline" size="sm" className="gap-1.5 text-xs"
                       onClick={() => openRecoveryModal(account)}>
@@ -658,13 +625,12 @@ export function MFAAgentesContent() {
               Recovery Codes — {recoveryAccount?.issuer}
             </DialogTitle>
             <DialogDescription>
-              Gerencie os códigos de recuperação desta conta. Eles são únicos e vinculados apenas a esta conta.
+              Gerencie os códigos de recuperação desta conta.
             </DialogDescription>
           </DialogHeader>
 
           {recoveryAddMode === "choose" && (
             <div className="space-y-4">
-              {/* Existing codes */}
               {loadingRecovery ? (
                 <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p>
               ) : recoveryCodes.length > 0 ? (
@@ -697,7 +663,6 @@ export function MFAAgentesContent() {
                 </div>
               )}
 
-              {/* Add options */}
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2"
                   onClick={() => setRecoveryAddMode("manual")}>
