@@ -82,6 +82,3 @@ verify_jwt = false
 
 [functions.academy-generate-simulation]
 verify_jwt = false
-
-[functions.mfa-accounts]
-verify_jwt = true
