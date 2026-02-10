@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as OTPAuth from "otpauth";
+import { Html5Qrcode } from "html5-qrcode";
 
 interface MFAAccount {
   id: string;
@@ -151,12 +152,10 @@ export function MFAAgentesContent() {
   const [accounts, setAccounts] = useState<MFAAccount[]>(loadAccounts);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMode, setAddMode] = useState<"choose" | "scan" | "manual">("choose");
-  const [manualForm, setManualForm] = useState({ issuer: "", label: "", secret: "", keyType: "totp" });
+  const [manualForm, setManualForm] = useState({ issuer: "", secret: "", keyType: "totp" });
   const [scanning, setScanning] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scannerContainerRef = useRef<HTMLDivElement>(null);
+  const html5QrRef = useRef<Html5Qrcode | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Persist accounts
@@ -164,57 +163,47 @@ export function MFAAgentesContent() {
     saveAccounts(accounts);
   }, [accounts]);
 
-  const stopCamera = useCallback(() => {
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
+  const stopCamera = useCallback(async () => {
+    if (html5QrRef.current) {
+      try {
+        const state = html5QrRef.current.getState();
+        if (state === 2) { // SCANNING
+          await html5QrRef.current.stop();
+        }
+      } catch {
+        // ignore
+      }
+      html5QrRef.current.clear();
+      html5QrRef.current = null;
     }
     setScanning(false);
   }, []);
 
   const startCamera = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setScanning(true);
+      // Small delay to ensure DOM is ready
+      await new Promise((r) => setTimeout(r, 200));
+      
+      const containerId = "mfa-qr-scanner";
+      const container = document.getElementById(containerId);
+      if (!container) return;
 
-      // Use BarcodeDetector API if available
-      if ("BarcodeDetector" in window) {
-        const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
-        scanIntervalRef.current = setInterval(async () => {
-          if (!videoRef.current || videoRef.current.readyState !== 4) return;
-          try {
-            const barcodes = await detector.detect(videoRef.current);
-            if (barcodes.length > 0) {
-              const value = barcodes[0].rawValue;
-              if (value && value.startsWith("otpauth://")) {
-                handleQRResult(value);
-              }
-            }
-          } catch {
-            // ignore detection errors
+      const html5Qr = new Html5Qrcode(containerId);
+      html5QrRef.current = html5Qr;
+
+      await html5Qr.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        (decodedText) => {
+          if (decodedText && decodedText.startsWith("otpauth://")) {
+            handleQRResult(decodedText);
           }
-        }, 500);
-      } else {
-        // Fallback: use canvas + manual checking (limited without a decoder lib)
-        toast({
-          title: "QR Scanner limitado",
-          description: "Seu navegador não suporta BarcodeDetector. Use a opção manual.",
-          variant: "destructive",
-        });
-        stopCamera();
-        setAddMode("manual");
-      }
+        },
+        () => {
+          // ignore scan failures
+        }
+      );
+      setScanning(true);
     } catch (err) {
       toast({
         title: "Câmera indisponível",
@@ -223,7 +212,7 @@ export function MFAAgentesContent() {
       });
       setAddMode("manual");
     }
-  }, [toast, stopCamera]);
+  }, [toast]);
 
   const handleQRResult = (uri: string) => {
     stopCamera();
@@ -272,7 +261,7 @@ export function MFAAgentesContent() {
     const newAccount: MFAAccount = {
       id: `mfa-${Date.now()}`,
       issuer: manualForm.issuer.trim(),
-      label: manualForm.label.trim() || manualForm.issuer.trim(),
+      label: manualForm.issuer.trim(),
       secret,
       algorithm: "SHA1",
       digits: 6,
@@ -283,7 +272,7 @@ export function MFAAgentesContent() {
     setAccounts((prev) => [...prev, newAccount]);
     setShowAddModal(false);
     setAddMode("choose");
-    setManualForm({ issuer: "", label: "", secret: "", keyType: "totp" });
+    setManualForm({ issuer: "", secret: "", keyType: "totp" });
     toast({ title: "Conta adicionada!", description: `${newAccount.issuer}` });
   };
 
@@ -303,7 +292,7 @@ export function MFAAgentesContent() {
     stopCamera();
     setShowAddModal(false);
     setAddMode("choose");
-    setManualForm({ issuer: "", label: "", secret: "", keyType: "totp" });
+    setManualForm({ issuer: "", secret: "", keyType: "totp" });
   };
 
   const getInitials = (issuer: string) => {
@@ -484,29 +473,12 @@ export function MFAAgentesContent() {
               <DialogHeader>
                 <DialogTitle className="text-center">Escanear QR Code</DialogTitle>
               </DialogHeader>
-              <div className="relative aspect-square w-full max-w-sm mx-auto bg-black rounded-xl overflow-hidden">
-                <video
-                  ref={videoRef}
-                  className="absolute inset-0 w-full h-full object-cover"
-                  playsInline
-                  muted
-                />
-                <canvas ref={canvasRef} className="hidden" />
-                {/* Scan frame overlay */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-56 h-56 relative">
-                    <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-blue-500 rounded-tl-lg" />
-                    <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-amber-500 rounded-tr-lg" />
-                    <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-emerald-500 rounded-bl-lg" />
-                    <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-rose-500 rounded-br-lg" />
-                  </div>
+              <div id="mfa-qr-scanner" className="w-full max-w-sm mx-auto rounded-xl overflow-hidden" style={{ minHeight: 300 }} />
+              {!scanning && (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground">Iniciando câmera...</p>
                 </div>
-                {!scanning && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                    <p className="text-white text-sm">Iniciando câmera...</p>
-                  </div>
-                )}
-              </div>
+              )}
               <DialogFooter className="gap-2">
                 <Button variant="outline" onClick={() => { stopCamera(); setAddMode("choose"); }} className="flex-1">
                   Voltar
@@ -533,14 +505,6 @@ export function MFAAgentesContent() {
                     value={manualForm.issuer}
                     onChange={(e) => setManualForm({ ...manualForm, issuer: e.target.value })}
                     placeholder="Ex: GitHub, Google, n8n"
-                  />
-                </div>
-                <div>
-                  <Label>Usuário / E-mail (opcional)</Label>
-                  <Input
-                    value={manualForm.label}
-                    onChange={(e) => setManualForm({ ...manualForm, label: e.target.value })}
-                    placeholder="Ex: usuario@email.com"
                   />
                 </div>
                 <div>
