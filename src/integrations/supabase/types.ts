@@ -3961,6 +3961,48 @@ export type Database = {
       }
     }
     Views: {
+      mfa_accounts_decrypted: {
+        Row: {
+          algorithm: string | null
+          created_at: string | null
+          created_by: string | null
+          digits: number | null
+          id: string | null
+          issuer: string | null
+          label: string | null
+          period: number | null
+          secret: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          algorithm?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          digits?: number | null
+          id?: string | null
+          issuer?: string | null
+          label?: string | null
+          period?: number | null
+          secret?: never
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          algorithm?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          digits?: number | null
+          id?: string | null
+          issuer?: string | null
+          label?: string | null
+          period?: number | null
+          secret?: never
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles_safe: {
         Row: {
           created_at: string | null
@@ -4029,6 +4071,11 @@ export type Database = {
         Args: { user_id_param?: string }
         Returns: number
       }
+      decrypt_mfa_secret: {
+        Args: { encrypted_secret: string }
+        Returns: string
+      }
+      encrypt_mfa_secret: { Args: { plain_secret: string }; Returns: string }
       generate_optout_dedupe_key: {
         Args: {
           canal_param?: Database["public"]["Enums"]["canal_optout"]
