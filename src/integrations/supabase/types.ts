@@ -1952,6 +1952,45 @@ export type Database = {
           },
         ]
       }
+      mfa_accounts: {
+        Row: {
+          algorithm: string
+          created_at: string
+          created_by: string | null
+          digits: number
+          id: string
+          issuer: string
+          label: string | null
+          period: number
+          secret: string
+          updated_at: string
+        }
+        Insert: {
+          algorithm?: string
+          created_at?: string
+          created_by?: string | null
+          digits?: number
+          id: string
+          issuer: string
+          label?: string | null
+          period?: number
+          secret: string
+          updated_at?: string
+        }
+        Update: {
+          algorithm?: string
+          created_at?: string
+          created_by?: string | null
+          digits?: number
+          id?: string
+          issuer?: string
+          label?: string | null
+          period?: number
+          secret?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       mfa_recovery_codes: {
         Row: {
           account_id: string
