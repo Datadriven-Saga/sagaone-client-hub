@@ -209,6 +209,54 @@ export function MFAAgentesContent() {
       await loadAccounts();
     };
     init();
+
+    // Realtime subscription for cross-device sync
+    const channel = supabase
+      .channel(`mfa-sync-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "mfa_accounts",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          loadAccounts();
+        }
+      )
+      .subscribe();
+
+    // Polling fallback with exponential backoff
+    let pollInterval = 5000;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let lastSync = new Date().toISOString();
+
+    const poll = async () => {
+      try {
+        const { data } = await supabase
+          .from("mfa_accounts" as any)
+          .select("id")
+          .eq("user_id", user.id)
+          .gt("updated_at", lastSync)
+          .limit(1);
+
+        if (data && data.length > 0) {
+          lastSync = new Date().toISOString();
+          pollInterval = 5000;
+          await loadAccounts();
+        } else {
+          pollInterval = Math.min(pollInterval * 1.5, 30000);
+        }
+      } catch { /* ignore */ }
+      timeoutId = setTimeout(poll, pollInterval);
+    };
+    timeoutId = setTimeout(poll, pollInterval);
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [user, migrateLocalStorage, loadAccounts]);
 
   // Recovery codes
