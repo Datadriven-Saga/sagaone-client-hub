@@ -152,18 +152,28 @@ export function MFAAgentesContent() {
   const loadAccountsFromDB = useCallback(async () => {
     setLoadingAccounts(true);
     try {
-      const { data, error } = await supabase
+      console.log("[MFA] Loading accounts from DB...");
+      const { data, error, status } = await supabase
         .from("mfa_accounts" as any)
         .select("*")
         .order("created_at", { ascending: false });
-      if (error) throw error;
+      console.log("[MFA] Load result:", { data, error, status, count: data?.length });
+      if (error) {
+        console.error("[MFA] Load error details:", JSON.stringify(error));
+        throw error;
+      }
       setAccounts((data as any[]) || []);
     } catch (err) {
-      console.error("Erro ao carregar contas MFA:", err);
+      console.error("[MFA] Erro ao carregar contas MFA:", err);
+      toast({
+        title: "Erro ao carregar contas MFA",
+        description: String(err),
+        variant: "destructive",
+      });
     } finally {
       setLoadingAccounts(false);
     }
-  }, []);
+  }, [toast]);
 
   // Migrate localStorage accounts to Supabase (one-time)
   const migrateLocalStorageAccounts = useCallback(async () => {
