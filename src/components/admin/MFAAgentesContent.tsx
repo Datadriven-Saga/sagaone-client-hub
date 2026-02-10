@@ -31,6 +31,7 @@ import {
   Upload,
   FileText,
   X,
+  Pencil,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as OTPAuth from "otpauth";
@@ -142,6 +143,10 @@ export function MFAAgentesContent() {
   const [recoveryAddMode, setRecoveryAddMode] = useState<"choose" | "manual" | "file">("choose");
   const [loadingRecovery, setLoadingRecovery] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Edit account state
+  const [editingAccount, setEditingAccount] = useState<MFAAccount | null>(null);
+  const [editName, setEditName] = useState("");
 
   // Load accounts from Supabase
   const loadAccountsFromDB = useCallback(async () => {
@@ -381,6 +386,23 @@ export function MFAAgentesContent() {
     toast({ title: "Código copiado!" });
   };
 
+  const handleRename = async () => {
+    if (!editingAccount || !editName.trim()) return;
+    try {
+      const { error } = await supabase
+        .from("mfa_accounts" as any)
+        .update({ issuer: editName.trim(), label: editName.trim(), updated_at: new Date().toISOString() })
+        .eq("id", editingAccount.id);
+      if (error) throw error;
+      await loadAccountsFromDB();
+      toast({ title: "Nome atualizado!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao renomear", description: err.message, variant: "destructive" });
+    }
+    setEditingAccount(null);
+    setEditName("");
+  };
+
   const closeModal = () => {
     stopCamera();
     setShowAddModal(false);
@@ -472,6 +494,10 @@ export function MFAAgentesContent() {
 
                 {expandedId === account.id && (
                   <div className="mt-3 pt-3 border-t border-muted flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs"
+                      onClick={() => { setEditingAccount(account); setEditName(account.issuer); }}>
+                      <Pencil className="h-3 w-3" /> Renomear
+                    </Button>
                     <Button variant="outline" size="sm" className="gap-1.5 text-xs"
                       onClick={() => { navigator.clipboard.writeText(account.secret); toast({ title: "Chave copiada!" }); }}>
                       <Copy className="h-3 w-3" /> Copiar chave
@@ -659,6 +685,27 @@ export function MFAAgentesContent() {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Account Name Modal */}
+      <Dialog open={!!editingAccount} onOpenChange={(open) => { if (!open) { setEditingAccount(null); setEditName(""); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-primary" />
+              Renomear conta
+            </DialogTitle>
+            <DialogDescription>Altere o nome da conta MFA</DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Label>Nome da conta</Label>
+            <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Ex: GitHub, Google, n8n" />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setEditingAccount(null); setEditName(""); }}>Cancelar</Button>
+            <Button onClick={handleRename} disabled={!editName.trim()}>Salvar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
