@@ -1,18 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -31,23 +23,20 @@ import {
 import {
   ShieldCheck,
   ShieldOff,
-  RefreshCw,
   Copy,
   Eye,
   EyeOff,
   Search,
   Plus,
   Trash2,
-  Edit,
-  Save,
-  X,
   Key,
   Smartphone,
-  Clock,
   QrCode,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import QRCode from "qrcode";
 
 interface MFAConfig {
   id: string;
@@ -58,26 +47,8 @@ interface MFAConfig {
   mfa_habilitado: boolean;
   mfa_secret: string;
   mfa_uri: string;
-  mfa_backup_codes: string[];
-  ultimo_verificado_em: string | null;
+  verificado: boolean;
   created_at: string;
-}
-
-// Simulated TOTP code generator (rotates every 30s based on secret)
-function generateTOTP(secret: string): string {
-  const epoch = Math.floor(Date.now() / 30000);
-  let hash = 0;
-  const combined = secret + epoch.toString();
-  for (let i = 0; i < combined.length; i++) {
-    const char = combined.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  return Math.abs(hash % 1000000).toString().padStart(6, "0");
-}
-
-function getTimeRemaining(): number {
-  return 30 - (Math.floor(Date.now() / 1000) % 30);
 }
 
 // Initial demo data
@@ -91,8 +62,7 @@ const INITIAL_MFA_DATA: MFAConfig[] = [
     mfa_habilitado: true,
     mfa_secret: "JBSWY3DPEHPK3PXP",
     mfa_uri: "otpauth://totp/SagaOne:maia-jeep-bsb?secret=JBSWY3DPEHPK3PXP&issuer=SagaOne",
-    mfa_backup_codes: ["123456", "789012", "345678", "901234"],
-    ultimo_verificado_em: new Date().toISOString(),
+    verificado: true,
     created_at: new Date().toISOString(),
   },
   {
@@ -104,8 +74,7 @@ const INITIAL_MFA_DATA: MFAConfig[] = [
     mfa_habilitado: true,
     mfa_secret: "KRSXG5CTMVRXEZLUKN",
     mfa_uri: "otpauth://totp/SagaOne:pri-fiat-gyn?secret=KRSXG5CTMVRXEZLUKN&issuer=SagaOne",
-    mfa_backup_codes: ["112233", "445566", "778899", "001122"],
-    ultimo_verificado_em: new Date(Date.now() - 3600000).toISOString(),
+    verificado: true,
     created_at: new Date().toISOString(),
   },
   {
@@ -117,8 +86,7 @@ const INITIAL_MFA_DATA: MFAConfig[] = [
     mfa_habilitado: false,
     mfa_secret: "GEZDGNBVGY3TQOJQ",
     mfa_uri: "otpauth://totp/SagaOne:maia-vw-cba?secret=GEZDGNBVGY3TQOJQ&issuer=SagaOne",
-    mfa_backup_codes: ["998877", "665544", "332211", "009988"],
-    ultimo_verificado_em: null,
+    verificado: false,
     created_at: new Date().toISOString(),
   },
   {
@@ -130,11 +98,26 @@ const INITIAL_MFA_DATA: MFAConfig[] = [
     mfa_habilitado: true,
     mfa_secret: "MFXHK3TJNZ2A",
     mfa_uri: "otpauth://totp/SagaOne:pri-jeep-pvh?secret=MFXHK3TJNZ2A&issuer=SagaOne",
-    mfa_backup_codes: ["554433", "221100", "887766", "443322"],
-    ultimo_verificado_em: new Date(Date.now() - 7200000).toISOString(),
+    verificado: true,
     created_at: new Date().toISOString(),
   },
 ];
+
+function QRCodeImage({ uri }: { uri: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (canvasRef.current && uri) {
+      QRCode.toCanvas(canvasRef.current, uri, {
+        width: 180,
+        margin: 2,
+        color: { dark: "#1a1a2e", light: "#ffffff" },
+      }).catch(console.error);
+    }
+  }, [uri]);
+
+  return <canvas ref={canvasRef} className="mx-auto rounded-lg border border-muted" />;
+}
 
 export function MFAAgentesContent() {
   const { toast } = useToast();
@@ -143,13 +126,11 @@ export function MFAAgentesContent() {
   const [filterAgente, setFilterAgente] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterMarca, setFilterMarca] = useState<string>("all");
-  const [totpCodes, setTotpCodes] = useState<Record<string, string>>({});
-  const [timeRemaining, setTimeRemaining] = useState(getTimeRemaining());
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
-  const [showBackupCodes, setShowBackupCodes] = useState<Record<string, boolean>>({});
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<Partial<MFAConfig>>({});
+  const [verificationCodes, setVerificationCodes] = useState<Record<string, string>>({});
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSetupModal, setShowSetupModal] = useState<string | null>(null);
+  const [setupCode, setSetupCode] = useState("");
   const [newConfig, setNewConfig] = useState({
     agente_nome: "",
     tipo_agente: "WhatsApp",
@@ -158,24 +139,6 @@ export function MFAAgentesContent() {
     mfa_secret: "",
     mfa_uri: "",
   });
-
-  // Generate TOTP codes and countdown
-  useEffect(() => {
-    const updateCodes = () => {
-      const codes: Record<string, string> = {};
-      configs.forEach((c) => {
-        if (c.mfa_habilitado && c.mfa_secret) {
-          codes[c.id] = generateTOTP(c.mfa_secret);
-        }
-      });
-      setTotpCodes(codes);
-      setTimeRemaining(getTimeRemaining());
-    };
-
-    updateCodes();
-    const interval = setInterval(updateCodes, 1000);
-    return () => clearInterval(interval);
-  }, [configs]);
 
   // Filter configs
   const filteredConfigs = configs.filter((c) => {
@@ -196,6 +159,7 @@ export function MFAAgentesContent() {
 
   const totalAtivos = configs.filter((c) => c.mfa_habilitado).length;
   const totalInativos = configs.filter((c) => !c.mfa_habilitado).length;
+  const totalVerificados = configs.filter((c) => c.verificado).length;
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -205,9 +169,7 @@ export function MFAAgentesContent() {
   const toggleMFA = (id: string) => {
     setConfigs((prev) =>
       prev.map((c) =>
-        c.id === id
-          ? { ...c, mfa_habilitado: !c.mfa_habilitado, ultimo_verificado_em: new Date().toISOString() }
-          : c
+        c.id === id ? { ...c, mfa_habilitado: !c.mfa_habilitado } : c
       )
     );
     const config = configs.find((c) => c.id === id);
@@ -224,6 +186,20 @@ export function MFAAgentesContent() {
       title: "Configuração removida",
       description: `MFA removido para ${config?.agente_nome} - ${config?.loja}`,
     });
+  };
+
+  const handleVerifyCode = (id: string) => {
+    const code = verificationCodes[id] || "";
+    if (code.length !== 6) {
+      toast({ title: "Código inválido", description: "O código deve ter 6 dígitos", variant: "destructive" });
+      return;
+    }
+    // In a real implementation, validate TOTP server-side
+    setConfigs((prev) =>
+      prev.map((c) => c.id === id ? { ...c, verificado: true, mfa_habilitado: true } : c)
+    );
+    setVerificationCodes((prev) => ({ ...prev, [id]: "" }));
+    toast({ title: "MFA Verificado!", description: "Autenticação configurada com sucesso" });
   };
 
   const handleAddConfig = () => {
@@ -243,40 +219,35 @@ export function MFAAgentesContent() {
         tipo_agente: newConfig.tipo_agente,
         marca: newConfig.marca,
         loja: newConfig.loja,
-        mfa_habilitado: true,
+        mfa_habilitado: false,
         mfa_secret: newConfig.mfa_secret,
         mfa_uri: uri,
-        mfa_backup_codes: [],
-        ultimo_verificado_em: new Date().toISOString(),
+        verificado: false,
         created_at: new Date().toISOString(),
       },
     ]);
 
     setShowAddModal(false);
     setNewConfig({ agente_nome: "", tipo_agente: "WhatsApp", marca: "", loja: "", mfa_secret: "", mfa_uri: "" });
-    toast({ title: "MFA adicionado", description: `Configuração MFA criada para ${newConfig.agente_nome}` });
+    toast({ title: "MFA adicionado", description: "Agora escaneie o QR Code ou insira o código para ativar" });
   };
 
-  const startEdit = (config: MFAConfig) => {
-    setEditingId(config.id);
-    setEditForm({ mfa_secret: config.mfa_secret, mfa_uri: config.mfa_uri });
+  const handleSetupSubmit = () => {
+    if (setupCode.length !== 6) {
+      toast({ title: "Código inválido", description: "Insira o código de 6 dígitos do app authenticator", variant: "destructive" });
+      return;
+    }
+    if (showSetupModal) {
+      setConfigs((prev) =>
+        prev.map((c) => c.id === showSetupModal ? { ...c, verificado: true, mfa_habilitado: true } : c)
+      );
+      toast({ title: "MFA Configurado!", description: "Autenticação de dois fatores ativada com sucesso" });
+    }
+    setShowSetupModal(null);
+    setSetupCode("");
   };
 
-  const saveEdit = (id: string) => {
-    setConfigs((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, ...editForm, ultimo_verificado_em: new Date().toISOString() } : c
-      )
-    );
-    setEditingId(null);
-    setEditForm({});
-    toast({ title: "Atualizado", description: "Configuração MFA atualizada com sucesso" });
-  };
-
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "Nunca";
-    return new Date(dateStr).toLocaleString("pt-BR");
-  };
+  const setupConfig = showSetupModal ? configs.find((c) => c.id === showSetupModal) : null;
 
   return (
     <div className="space-y-6">
@@ -319,16 +290,10 @@ export function MFAAgentesContent() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Próximo Código</p>
-                <p className="text-2xl font-bold text-foreground">{timeRemaining}s</p>
+                <p className="text-sm text-muted-foreground">Verificados</p>
+                <p className="text-2xl font-bold text-primary">{totalVerificados}</p>
               </div>
-              <Clock className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <div className="mt-2 w-full bg-muted rounded-full h-1.5">
-              <div
-                className="bg-primary h-1.5 rounded-full transition-all duration-1000"
-                style={{ width: `${(timeRemaining / 30) * 100}%` }}
-              />
+              <CheckCircle2 className="h-8 w-8 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -400,8 +365,8 @@ export function MFAAgentesContent() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${config.mfa_habilitado ? "bg-primary/10" : "bg-muted"}`}>
-                    {config.mfa_habilitado ? (
+                  <div className={`p-2 rounded-lg ${config.verificado ? "bg-primary/10" : "bg-muted"}`}>
+                    {config.verificado ? (
                       <ShieldCheck className="h-5 w-5 text-primary" />
                     ) : (
                       <ShieldOff className="h-5 w-5 text-muted-foreground" />
@@ -426,116 +391,97 @@ export function MFAAgentesContent() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* TOTP Code Display */}
-              {config.mfa_habilitado && totpCodes[config.id] && (
-                <div className="bg-muted/50 rounded-lg p-4 text-center">
-                  <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
-                    <Smartphone className="h-3 w-3" />
-                    Código Authenticator (TOTP)
-                  </p>
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-3xl font-mono font-bold tracking-[0.3em] text-foreground">
-                      {totpCodes[config.id]?.slice(0, 3)} {totpCodes[config.id]?.slice(3)}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleCopy(totpCodes[config.id], "Código TOTP")}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center justify-center gap-2 mt-2">
-                    <div className="w-24 bg-muted rounded-full h-1.5">
-                      <div
-                        className="bg-primary h-1.5 rounded-full transition-all duration-1000"
-                        style={{ width: `${(timeRemaining / 30) * 100}%` }}
-                      />
+              {/* Status & Setup */}
+              <div className="bg-muted/50 rounded-lg p-4">
+                {config.verificado ? (
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-foreground">Authenticator configurado</p>
+                      <p className="text-xs text-muted-foreground">
+                        MFA ativo e verificado. O código é gerado pelo app authenticator.
+                      </p>
                     </div>
-                    <span className="text-xs text-muted-foreground">{timeRemaining}s</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Secret Key */}
-              <div>
-                <Label className="text-xs text-muted-foreground">Chave Secreta (Secret)</Label>
-                {editingId === config.id ? (
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      value={editForm.mfa_secret || ""}
-                      onChange={(e) => setEditForm({ ...editForm, mfa_secret: e.target.value })}
-                      className="font-mono text-sm"
-                    />
-                    <Button size="icon" variant="ghost" onClick={() => saveEdit(config.id)}>
-                      <Save className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => setEditingId(null)}>
-                      <X className="h-4 w-4" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setShowSetupModal(config.id);
+                        setSetupCode("");
+                      }}
+                    >
+                      <QrCode className="h-4 w-4 mr-1" />
+                      Ver QR
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 mt-1">
-                    <code className="flex-1 text-sm bg-muted px-3 py-2 rounded-md font-mono truncate">
-                      {showSecrets[config.id] ? config.mfa_secret : "••••••••••••••••"}
-                    </code>
-                    <Button size="icon" variant="ghost" onClick={() => setShowSecrets((prev) => ({ ...prev, [config.id]: !prev[config.id] }))}>
-                      {showSecrets[config.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => handleCopy(config.mfa_secret, "Secret")}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => startEdit(config)}>
-                      <Edit className="h-4 w-4" />
+                  <div className="flex items-center gap-3">
+                    <XCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-foreground">Configuração pendente</p>
+                      <p className="text-xs text-muted-foreground">
+                        Escaneie o QR code ou insira o código para ativar o MFA.
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setShowSetupModal(config.id);
+                        setSetupCode("");
+                      }}
+                    >
+                      <QrCode className="h-4 w-4 mr-1" />
+                      Configurar
                     </Button>
                   </div>
                 )}
               </div>
 
-              {/* URI */}
+              {/* Inline verification for pending configs */}
+              {!config.verificado && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Código do app authenticator</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={verificationCodes[config.id] || ""}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                        setVerificationCodes((prev) => ({ ...prev, [config.id]: val }));
+                      }}
+                      placeholder="e.g. 123456"
+                      className="font-mono text-center tracking-widest"
+                      maxLength={6}
+                    />
+                    <Button
+                      onClick={() => handleVerifyCode(config.id)}
+                      disabled={!verificationCodes[config.id] || verificationCodes[config.id]?.length !== 6}
+                    >
+                      Verificar
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Secret Key (collapsed) */}
               <div>
-                <Label className="text-xs text-muted-foreground">URI (otpauth://)</Label>
+                <Label className="text-xs text-muted-foreground">Chave Secreta (Secret)</Label>
                 <div className="flex items-center gap-2 mt-1">
-                  <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md font-mono truncate text-muted-foreground">
-                    {config.mfa_uri}
+                  <code className="flex-1 text-sm bg-muted px-3 py-2 rounded-md font-mono truncate">
+                    {showSecrets[config.id] ? config.mfa_secret : "••••••••••••••••"}
                   </code>
-                  <Button size="icon" variant="ghost" onClick={() => handleCopy(config.mfa_uri, "URI")}>
+                  <Button size="icon" variant="ghost" onClick={() => setShowSecrets((prev) => ({ ...prev, [config.id]: !prev[config.id] }))}>
+                    {showSecrets[config.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={() => handleCopy(config.mfa_secret, "Secret")}>
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
-              {/* Backup Codes */}
-              {config.mfa_backup_codes.length > 0 && (
-                <div>
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground">Códigos de Backup</Label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-xs"
-                      onClick={() => setShowBackupCodes((prev) => ({ ...prev, [config.id]: !prev[config.id] }))}
-                    >
-                      {showBackupCodes[config.id] ? "Ocultar" : "Mostrar"}
-                    </Button>
-                  </div>
-                  {showBackupCodes[config.id] && (
-                    <div className="grid grid-cols-2 gap-1 mt-1">
-                      {config.mfa_backup_codes.map((code, i) => (
-                        <code key={i} className="text-xs bg-muted px-2 py-1 rounded font-mono text-center">
-                          {code}
-                        </code>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Footer */}
               <div className="flex items-center justify-between pt-2 border-t border-muted">
                 <span className="text-xs text-muted-foreground">
-                  Verificado: {formatDate(config.ultimo_verificado_em)}
+                  Status: {config.verificado ? "Verificado ✓" : "Pendente"}
                 </span>
                 <Button
                   variant="ghost"
@@ -564,50 +510,71 @@ export function MFAAgentesContent() {
         </Card>
       )}
 
-      {/* Explicação Authenticator */}
-      <Card className="border-muted bg-muted/30">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <QrCode className="h-5 w-5" />
-            Como funciona o Authenticator (TOTP)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>
-            O <strong className="text-foreground">TOTP (Time-based One-Time Password)</strong> gera códigos de 6 dígitos que mudam a cada 30 segundos.
-            É o mesmo mecanismo usado pelo Google Authenticator, Microsoft Authenticator e Authy.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-            <div className="bg-background rounded-lg p-4 border border-muted">
-              <div className="flex items-center gap-2 mb-2">
-                <Key className="h-4 w-4 text-primary" />
-                <strong className="text-foreground text-sm">1. Secret Key</strong>
-              </div>
-              <p className="text-xs">
-                Chave secreta compartilhada entre o servidor e o app authenticator. Nunca expor publicamente.
+      {/* Setup Authenticator Modal - like reference image */}
+      <Dialog open={!!showSetupModal} onOpenChange={(open) => { if (!open) { setShowSetupModal(null); setSetupCode(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">
+              Setup Authenticator app {setupConfig?.verificado ? "" : "[1/2]"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-2">
+            {/* Step 1: QR Code */}
+            <div className="space-y-2">
+              <p className="font-semibold text-foreground">1. Scan the QR code</p>
+              <p className="text-sm text-muted-foreground">
+                Use an authenticator app from your phone to scan. If you can't scan the QR code, enter{" "}
+                <button
+                  className="text-primary hover:underline font-medium"
+                  onClick={() => {
+                    if (setupConfig) {
+                      setShowSecrets((prev) => ({ ...prev, [setupConfig.id]: true }));
+                      handleCopy(setupConfig.mfa_secret, "Secret key");
+                    }
+                  }}
+                >
+                  this text code
+                </button>
               </p>
+              {setupConfig && (
+                <div className="flex justify-center py-4">
+                  <QRCodeImage uri={setupConfig.mfa_uri} />
+                </div>
+              )}
             </div>
-            <div className="bg-background rounded-lg p-4 border border-muted">
-              <div className="flex items-center gap-2 mb-2">
-                <Smartphone className="h-4 w-4 text-primary" />
-                <strong className="text-foreground text-sm">2. QR Code / URI</strong>
+
+            {/* Step 2: Enter Code */}
+            {!setupConfig?.verificado && (
+              <div className="space-y-3">
+                <p className="font-semibold text-foreground">2. Enter the code from the app</p>
+                <p className="text-sm text-muted-foreground">Code from your authenticator app</p>
+                <Input
+                  value={setupCode}
+                  onChange={(e) => setSetupCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="e.g. 123456"
+                  className="font-mono text-center text-lg tracking-[0.3em]"
+                  maxLength={6}
+                />
               </div>
-              <p className="text-xs">
-                A URI <code>otpauth://</code> pode ser escaneada pelo app authenticator para configuração automática.
-              </p>
-            </div>
-            <div className="bg-background rounded-lg p-4 border border-muted">
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="h-4 w-4 text-primary" />
-                <strong className="text-foreground text-sm">3. Código Rotativo</strong>
-              </div>
-              <p className="text-xs">
-                O código muda a cada 30 segundos. Use-o para autenticar nas plataformas dos agentes (Meta, Evolution, etc).
-              </p>
-            </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
+          <DialogFooter>
+            {setupConfig?.verificado ? (
+              <Button variant="outline" onClick={() => { setShowSetupModal(null); setSetupCode(""); }}>
+                Fechar
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSetupSubmit}
+                disabled={setupCode.length !== 6}
+                className="w-full"
+              >
+                Continue
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add MFA Modal */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
@@ -626,6 +593,7 @@ export function MFAAgentesContent() {
                 <SelectContent>
                   <SelectItem value="Maia">Maia</SelectItem>
                   <SelectItem value="Pri">Pri</SelectItem>
+                  <SelectItem value="Gaia">Gaia</SelectItem>
                   <SelectItem value="Outro">Outro</SelectItem>
                 </SelectContent>
               </Select>
