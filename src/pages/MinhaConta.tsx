@@ -6,7 +6,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,7 +21,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { AvatarBuilder } from "@/components/AvatarBuilder";
-import { ColorCustomizer } from "@/components/ColorCustomizer";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 
 const profileSchema = z.object({
@@ -42,7 +46,7 @@ const MinhaConta = () => {
       nome_completo: "",
       celular: "",
       departamento: "",
-    }
+    },
   });
 
   useEffect(() => {
@@ -53,11 +57,7 @@ const MinhaConta = () => {
 
   const fetchProfile = async () => {
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user?.id)
-        .single();
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", user?.id).single();
 
       if (error) throw error;
 
@@ -83,10 +83,7 @@ const MinhaConta = () => {
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ foto_url: avatarUrl })
-        .eq("id", user.id);
+      const { error } = await supabase.from("profiles").update({ foto_url: avatarUrl }).eq("id", user.id);
 
       if (error) throw error;
 
@@ -110,10 +107,7 @@ const MinhaConta = () => {
 
     setUpdating(true);
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update(values)
-        .eq("id", user.id);
+      const { error } = await supabase.from("profiles").update(values).eq("id", user.id);
 
       if (error) throw error;
 
@@ -150,189 +144,182 @@ const MinhaConta = () => {
         <div className="space-y-6 pb-6">
           {/* Profile Header */}
           <Card>
-          <CardHeader className="pb-4">
-            <div className="flex items-center space-x-4">
-              {/* Profile Image with Dropdown Menu */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <div className="relative group cursor-pointer">
-                    <Avatar className="h-20 w-20">
-                      <AvatarImage src={profile?.foto_url || undefined} alt={profile?.nome_completo} />
-                      <AvatarFallback className="text-lg">
-                        {profile?.nome_completo
-                          ?.split(" ")
-                          .map((n: string) => n[0])
-                          .join("")
-                          .toUpperCase()
-                          .slice(0, 2) || "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Camera className="h-6 w-6 text-white" />
+            <CardHeader className="pb-4">
+              <div className="flex items-center space-x-4">
+                {/* Profile Image with Dropdown Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="relative group cursor-pointer">
+                      <Avatar className="h-20 w-20">
+                        <AvatarImage src={profile?.foto_url || undefined} alt={profile?.nome_completo} />
+                        <AvatarFallback className="text-lg">
+                          {profile?.nome_completo
+                            ?.split(" ")
+                            .map((n: string) => n[0])
+                            .join("")
+                            .toUpperCase()
+                            .slice(0, 2) || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Camera className="h-6 w-6 text-white" />
+                      </div>
                     </div>
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  {profile?.foto_url && (
-                    <DropdownMenuItem onClick={() => setShowImagePreview(true)}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      Visualizar foto
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    {profile?.foto_url && (
+                      <DropdownMenuItem onClick={() => setShowImagePreview(true)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        Visualizar foto
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => setShowAvatarBuilder(true)}>
+                      <Camera className="h-4 w-4 mr-2" />
+                      Alterar foto
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={() => setShowAvatarBuilder(true)}>
-                    <Camera className="h-4 w-4 mr-2" />
-                    Alterar foto
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-              <div className="space-y-2">
-                <h2 className="text-2xl font-semibold">{profile?.nome_completo}</h2>
-                <div className="flex items-center space-x-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">{user?.email}</span>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-semibold">{profile?.nome_completo}</h2>
+                  <div className="flex items-center space-x-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">{user?.email}</span>
+                  </div>
+                  <Badge variant="outline">
+                    <Shield className="h-3 w-3 mr-1" />
+                    {profile?.tipo_acesso}
+                  </Badge>
                 </div>
-                <Badge variant="outline">
-                  <Shield className="h-3 w-3 mr-1" />
-                  {profile?.tipo_acesso}
-                </Badge>
               </div>
-            </div>
-          </CardHeader>
-
-          {/* Hidden AvatarBuilder that opens via state */}
-          {showAvatarBuilder && (
-            <AvatarBuilder
-              currentAvatar={profile?.foto_url}
-              userName={profile?.nome_completo}
-              onAvatarChange={(url) => {
-                handleAvatarChange(url);
-                setShowAvatarBuilder(false);
-              }}
-              triggerOpen={showAvatarBuilder}
-              onOpenChange={setShowAvatarBuilder}
-            />
-          )}
-        </Card>
-
-        {/* Profile Information */}
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Personal Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <User className="h-5 w-5 mr-2" />
-                Informações Pessoais
-              </CardTitle>
-              <CardDescription>
-                Atualize suas informações pessoais básicas
-              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="nome_completo"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome Completo</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
-                  <FormField
-                    control={form.control}
-                    name="celular"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Celular</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="(11) 99999-9999" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="departamento"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Departamento</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button type="submit" disabled={updating} className="w-full">
-                    {updating ? "Atualizando..." : "Atualizar Perfil"}
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
+            {/* Hidden AvatarBuilder that opens via state */}
+            {showAvatarBuilder && (
+              <AvatarBuilder
+                currentAvatar={profile?.foto_url}
+                userName={profile?.nome_completo}
+                onAvatarChange={(url) => {
+                  handleAvatarChange(url);
+                  setShowAvatarBuilder(false);
+                }}
+                triggerOpen={showAvatarBuilder}
+                onOpenChange={setShowAvatarBuilder}
+              />
+            )}
           </Card>
 
-          {/* Account Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Building className="h-5 w-5 mr-2" />
-                Detalhes da Conta
-              </CardTitle>
-              <CardDescription>
-                Informações da sua conta no sistema
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between">
-                <span className="text-sm font-medium">Status:</span>
-                <Badge 
-                  className={profile?.status === "Ativo" 
-                    ? "bg-green-500 hover:bg-green-600 text-white" 
-                    : "bg-red-500 hover:bg-red-600 text-white"
-                  }
-                >
-                  {profile?.status === "Ativo" ? "Ativo" : "Desativado"}
-                </Badge>
-              </div>
+          {/* Profile Information */}
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Personal Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <User className="h-5 w-5 mr-2" />
+                  Informações Pessoais
+                </CardTitle>
+                <CardDescription>Atualize suas informações pessoais básicas</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="nome_completo"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nome Completo</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-              <div className="flex justify-between">
-                <span className="text-sm font-medium">Tipo de Acesso:</span>
-                <span className="text-sm">{profile?.tipo_acesso}</span>
-              </div>
+                    <FormField
+                      control={form.control}
+                      name="celular"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Celular</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="(11) 99999-9999" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-              {profile?.cpf && (
+                    <FormField
+                      control={form.control}
+                      name="departamento"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Departamento</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button type="submit" disabled={updating} className="w-full">
+                      {updating ? "Atualizando..." : "Atualizar Perfil"}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+
+            {/* Account Details */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Building className="h-5 w-5 mr-2" />
+                  Detalhes da Conta
+                </CardTitle>
+                <CardDescription>Informações da sua conta no sistema</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="flex justify-between">
-                  <span className="text-sm font-medium">CPF:</span>
-                  <span className="text-sm">{profile.cpf}</span>
+                  <span className="text-sm font-medium">Status:</span>
+                  <Badge
+                    className={
+                      profile?.status === "Ativo"
+                        ? "bg-green-500 hover:bg-green-600 text-white"
+                        : "bg-red-500 hover:bg-red-600 text-white"
+                    }
+                  >
+                    {profile?.status === "Ativo" ? "Ativo" : "Desativado"}
+                  </Badge>
                 </div>
-              )}
 
-              <div className="flex justify-between">
-                <span className="text-sm font-medium">Membro desde:</span>
-                <div className="flex items-center text-sm">
-                  <Calendar className="h-4 w-4 mr-1" />
-                  {profile?.created_at ? 
-                    new Date(profile.created_at).toLocaleDateString('pt-BR') : 
-                    'Data não disponível'
-                  }
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">Tipo de Acesso:</span>
+                  <span className="text-sm">{profile?.tipo_acesso}</span>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
-          {/* Color Customization */}
-          <ColorCustomizer />
+                {profile?.cpf && (
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">CPF:</span>
+                    <span className="text-sm">{profile.cpf}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">Membro desde:</span>
+                  <div className="flex items-center text-sm">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    {profile?.created_at
+                      ? new Date(profile.created_at).toLocaleDateString("pt-BR")
+                      : "Data não disponível"}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </ScrollIndicator>
 
