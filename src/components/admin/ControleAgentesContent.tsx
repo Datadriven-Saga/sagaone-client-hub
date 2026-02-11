@@ -4,7 +4,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
   TableBody,
@@ -121,11 +120,13 @@ export function ControleAgentesContent() {
   const [selectedUf, setSelectedUf] = useState("todos");
   const [selectedStatus, setSelectedStatus] = useState("todos");
   const [selectedAtivo, setSelectedAtivo] = useState("todos");
+  const [selectedEstrategica, setSelectedEstrategica] = useState("todos");
   const [selectedItem, setSelectedItem] = useState<ControleAgente | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [novoOpen, setNovoOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [strategicAgents, setStrategicAgents] = useState<Set<string>>(new Set());
 
   const filterOptions = useMemo(() => {
     const agentes = [...new Set(data.map(d => d.nome_agente))].sort();
@@ -148,9 +149,11 @@ export function ControleAgentesContent() {
       if (selectedStatus !== "todos" && item.status !== selectedStatus) return false;
       if (selectedAtivo === "ativo" && !item.ativo) return false;
       if (selectedAtivo === "inativo" && item.ativo) return false;
+      if (selectedEstrategica === "sim" && !strategicAgents.has(item.nome_agente)) return false;
+      if (selectedEstrategica === "nao" && strategicAgents.has(item.nome_agente)) return false;
       return true;
     });
-  }, [data, searchTerm, selectedAgente, selectedMarca, selectedUf, selectedStatus, selectedAtivo]);
+  }, [data, searchTerm, selectedAgente, selectedMarca, selectedUf, selectedStatus, selectedAtivo, selectedEstrategica, strategicAgents]);
 
   // Paginação
   const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
@@ -162,7 +165,7 @@ export function ControleAgentesContent() {
   // Reset para página 1 quando filtros mudam
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedAgente, selectedMarca, selectedUf, selectedStatus, selectedAtivo]);
+  }, [searchTerm, selectedAgente, selectedMarca, selectedUf, selectedStatus, selectedAtivo, selectedEstrategica]);
 
   const stats = useMemo(() => ({
     total: data.length,
@@ -179,6 +182,7 @@ export function ControleAgentesContent() {
     setSelectedUf("todos");
     setSelectedStatus("todos");
     setSelectedAtivo("todos");
+    setSelectedEstrategica("todos");
     setCurrentPage(1);
   };
 
@@ -199,6 +203,20 @@ export function ControleAgentesContent() {
   }, [toast]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Fetch strategic agents from agentes_visao
+  useEffect(() => {
+    const fetchStrategic = async () => {
+      const { data: visaoData } = await supabase
+        .from("agentes_visao")
+        .select("nome, strategica")
+        .eq("strategica", true);
+      if (visaoData) {
+        setStrategicAgents(new Set(visaoData.map(v => v.nome)));
+      }
+    };
+    fetchStrategic();
+  }, []);
 
   const handleQuickStatusChange = async (id: string, newStatus: string) => {
     try {
@@ -257,12 +275,13 @@ export function ControleAgentesContent() {
       </div>
 
       <Card><CardContent className="p-4">
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="flex-1 relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" /></div>
+        <div className="flex flex-col md:flex-row gap-3 flex-wrap">
+          <div className="flex-1 relative min-w-[200px]"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" /></div>
           <Select value={selectedAgente} onValueChange={setSelectedAgente}><SelectTrigger className="w-[140px]"><SelectValue placeholder="Agente" /></SelectTrigger><SelectContent><SelectItem value="todos">Todos</SelectItem>{filterOptions.agentes.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent></Select>
           <Select value={selectedMarca} onValueChange={setSelectedMarca}><SelectTrigger className="w-[120px]"><SelectValue placeholder="Marca" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas</SelectItem>{filterOptions.marcas.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
           <Select value={selectedUf} onValueChange={setSelectedUf}><SelectTrigger className="w-[90px]"><SelectValue placeholder="UF" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas</SelectItem>{filterOptions.ufs.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select>
           <Select value={selectedStatus} onValueChange={setSelectedStatus}><SelectTrigger className="w-[130px]"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="todos">Todos</SelectItem>{statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent></Select>
+          <Select value={selectedEstrategica} onValueChange={setSelectedEstrategica}><SelectTrigger className="w-[130px]"><SelectValue placeholder="Estratégica" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas</SelectItem><SelectItem value="sim">Estratégica</SelectItem><SelectItem value="nao">Não Estratégica</SelectItem></SelectContent></Select>
         </div>
       </CardContent></Card>
 
@@ -273,18 +292,20 @@ export function ControleAgentesContent() {
       </div>
 
       <Card><CardContent className="p-0">
-        <ScrollArea className="h-[calc(100vh-580px)] min-h-[300px]">
-          <Table><TableHeader><TableRow className="bg-muted/50"><TableHead className="w-[50px]">Ativo</TableHead><TableHead>Agente</TableHead><TableHead>Local</TableHead><TableHead>Telefone</TableHead><TableHead>Status</TableHead><TableHead className="w-[60px]">Ações</TableHead></TableRow></TableHeader>
+        <div className="overflow-x-auto">
+          <Table><TableHeader><TableRow className="bg-muted/50"><TableHead className="w-[50px]">Ativo</TableHead><TableHead>Agente</TableHead><TableHead>Estratégica</TableHead><TableHead>Local</TableHead><TableHead>Telefone</TableHead><TableHead>Status</TableHead><TableHead className="w-[60px]">Ações</TableHead></TableRow></TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={6} className="text-center py-8"><RefreshCw className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow> :
-              paginatedData.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum agente encontrado</TableCell></TableRow> :
+              {loading ? <TableRow><TableCell colSpan={7} className="text-center py-8"><RefreshCw className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow> :
+              paginatedData.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum agente encontrado</TableCell></TableRow> :
               paginatedData.map(item => {
                 const statusConf = getStatusConfig(item.status);
                 const StatusIcon = statusConf.icon;
+                const isStrategic = strategicAgents.has(item.nome_agente);
                 return (
                   <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => { setSelectedItem(item); setDetailsOpen(true); }}>
                     <TableCell><Badge variant={isActiveStatus(item.status) ? "default" : "secondary"} className={isActiveStatus(item.status) ? "bg-green-500/10 text-green-600 border-green-500/20" : "bg-gray-500/10 text-gray-600 border-gray-500/20"}>{isActiveStatus(item.status) ? "Sim" : "Não"}</Badge></TableCell>
                     <TableCell><div className="flex items-center gap-2"><Bot className="h-4 w-4 text-primary" /><div><p className="font-medium">{item.nome_agente}</p><Badge variant="outline" className="font-normal text-xs">{item.tipo_agente}</Badge></div></div></TableCell>
+                    <TableCell><Badge variant={isStrategic ? "default" : "secondary"} className={isStrategic ? "bg-amber-500/10 text-amber-600 border-amber-500/20" : "bg-gray-500/10 text-gray-500 border-gray-500/20"}>{isStrategic ? "Sim" : "Não"}</Badge></TableCell>
                     <TableCell><span className="text-sm">{item.loja}</span><br/><span className="text-xs text-muted-foreground">{item.marca} • {item.uf}</span></TableCell>
                     <TableCell>{item.numero_telefone ? <span className="font-mono text-xs">{item.numero_telefone}</span> : '-'}</TableCell>
                     <TableCell onClick={e => e.stopPropagation()}><Select value={item.status || "pendente"} onValueChange={v => handleQuickStatusChange(item.id, v)}><SelectTrigger className="h-8 w-[120px]"><div className="flex items-center gap-1"><StatusIcon className="h-3 w-3" /><span className="text-xs">{statusConf.label}</span></div></SelectTrigger><SelectContent>{statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent></Select></TableCell>
@@ -294,7 +315,7 @@ export function ControleAgentesContent() {
               })}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </div>
       </CardContent></Card>
 
       {/* Paginação */}
