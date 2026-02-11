@@ -1952,6 +1952,36 @@ export type Database = {
           },
         ]
       }
+      mfa_account_access: {
+        Row: {
+          account_id: string
+          active: boolean
+          granted_at: string
+          granted_by: string | null
+          id: string
+          revoked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          active?: boolean
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          revoked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          active?: boolean
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          revoked_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       mfa_accounts: {
         Row: {
           algorithm: string
@@ -1990,6 +2020,99 @@ export type Database = {
           period?: number
           secret_encrypted?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mfa_audit_logs: {
+        Row: {
+          account_id: string | null
+          account_issuer: string | null
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          ip_address: string | null
+          target_user_email: string | null
+          target_user_id: string | null
+          user_email: string | null
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          account_issuer?: string | null
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          target_user_email?: string | null
+          target_user_id?: string | null
+          user_email?: string | null
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          account_issuer?: string | null
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          target_user_email?: string | null
+          target_user_id?: string | null
+          user_email?: string | null
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
+      mfa_feature_flags: {
+        Row: {
+          enabled: boolean
+          flag_key: string
+          flag_label: string
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          flag_key: string
+          flag_label: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          flag_key?: string
+          flag_label?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      mfa_master_users: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
           user_id?: string
         }
         Relationships: []
@@ -4140,6 +4263,7 @@ export type Database = {
         Args: { company_id: string; user_id?: string }
         Returns: boolean
       }
+      is_mfa_master: { Args: { check_user_id?: string }; Returns: boolean }
       mask_sensitive_data: {
         Args: {
           data_type: string
