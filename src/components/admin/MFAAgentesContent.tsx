@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +33,11 @@ import {
   Upload,
   X,
   Pencil,
+  ScrollText,
+  Users,
+  UserPlus,
+  UserMinus,
+  Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as OTPAuth from "otpauth";
@@ -38,6 +45,8 @@ import { Html5Qrcode } from "html5-qrcode";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMfaMaster } from "@/hooks/useMfaMaster";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface MFAAccount {
   id: string;
@@ -268,6 +277,19 @@ export function MFAAgentesContent() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
 
+  // Audit logs state
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [searchLogs, setSearchLogs] = useState("");
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
+  // Access assignment state
+  const [accessList, setAccessList] = useState<any[]>([]);
+  const [users, setUsers] = useState<{ id: string; nome_completo: string }[]>([]);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [loadingAccess, setLoadingAccess] = useState(false);
+
   // Recovery codes state
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [recoveryAccount, setRecoveryAccount] = useState<MFAAccount | null>(null);
@@ -300,7 +322,86 @@ export function MFAAgentesContent() {
     }
   }, [toast]);
 
-  // Migrate localStorage accounts (one-time)
+  // Load audit logs
+  const loadAuditLogs = useCallback(async () => {
+    if (!isMaster) return;
+    setLoadingLogs(true);
+    try {
+      const { data, error } = await supabase
+        .from("mfa_audit_logs" as any)
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      setAuditLogs(data || []);
+    } catch (err: any) {
+      console.error("[MFA] Logs error:", err);
+    } finally {
+      setLoadingLogs(false);
+    }
+  }, [isMaster]);
+
+  // Load access list and users
+  const loadAccessData = useCallback(async () => {
+    if (!isMaster) return;
+    setLoadingAccess(true);
+    try {
+      const [accessRes, usersRes] = await Promise.all([
+        supabase.from("mfa_account_access" as any).select("*").order("granted_at", { ascending: false }),
+        supabase.from("profiles").select("id, nome_completo").eq("status", "Ativo").order("nome_completo"),
+      ]);
+      setAccessList(accessRes.data || []);
+      setUsers(usersRes.data || []);
+    } catch (err: any) {
+      console.error("[MFA] Access data error:", err);
+    } finally {
+      setLoadingAccess(false);
+    }
+  }, [isMaster]);
+
+  // Grant access
+  const handleGrantAccess = async () => {
+    if (!selectedAccountId || !selectedUserId || !user) return;
+    try {
+      const { error } = await supabase.from("mfa_account_access" as any).insert({
+        account_id: selectedAccountId,
+        user_id: selectedUserId,
+        granted_by: user.id,
+        active: true,
+      });
+      if (error) throw error;
+      const targetUser = users.find(u => u.id === selectedUserId);
+      const account = accounts.find(a => a.id === selectedAccountId);
+      await logAction("grant_access", selectedAccountId, account?.issuer, selectedUserId, targetUser?.nome_completo);
+      toast({ title: "Acesso concedido!" });
+      setShowAssignModal(false);
+      setSelectedAccountId("");
+      setSelectedUserId("");
+      loadAccessData();
+    } catch (err: any) {
+      toast({ title: "Erro ao conceder acesso", description: err.message, variant: "destructive" });
+    }
+  };
+
+  // Revoke access
+  const handleRevokeAccess = async (accessId: string, acc: any) => {
+    try {
+      const { error } = await supabase
+        .from("mfa_account_access" as any)
+        .update({ active: false, revoked_at: new Date().toISOString() })
+        .eq("id", accessId);
+      if (error) throw error;
+      const account = accounts.find(a => a.id === acc.account_id);
+      const targetUser = users.find(u => u.id === acc.user_id);
+      await logAction("revoke_access", acc.account_id, account?.issuer, acc.user_id, targetUser?.nome_completo);
+      toast({ title: "Acesso revogado!" });
+      loadAccessData();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  };
+
+
   const migrateLocalStorage = useCallback(async () => {
     if (!user) return;
     const STORAGE_KEY = "mfa_authenticator_accounts";
@@ -670,6 +771,29 @@ export function MFAAgentesContent() {
     return colors[Math.abs(hash) % colors.length];
   };
 
+  const getUserName = (userId: string) => users.find(u => u.id === userId)?.nome_completo || userId.slice(0, 8);
+
+  const actionLabels: Record<string, string> = {
+    create: "Criou", view: "Visualizou", copy: "Copiou", delete: "Removeu",
+    grant_access: "Concedeu acesso", revoke_access: "Revogou acesso",
+    toggle_feature_flag: "Alterou flag", rename: "Renomeou",
+  };
+
+  const actionColors: Record<string, string> = {
+    create: "bg-emerald-500/10 text-emerald-600", view: "bg-blue-500/10 text-blue-600",
+    copy: "bg-amber-500/10 text-amber-600", delete: "bg-red-500/10 text-red-600",
+    grant_access: "bg-emerald-500/10 text-emerald-600", revoke_access: "bg-red-500/10 text-red-600",
+    rename: "bg-indigo-500/10 text-indigo-600",
+  };
+
+  const filteredLogs = auditLogs.filter(l =>
+    !searchLogs ||
+    l.user_email?.toLowerCase().includes(searchLogs.toLowerCase()) ||
+    l.user_name?.toLowerCase().includes(searchLogs.toLowerCase()) ||
+    l.action?.toLowerCase().includes(searchLogs.toLowerCase()) ||
+    l.account_issuer?.toLowerCase().includes(searchLogs.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -692,84 +816,270 @@ export function MFAAgentesContent() {
         )}
       </div>
 
-      {/* Accounts List */}
-      {loadingAccounts ? (
-        <Card className="border-muted">
-          <CardContent className="py-8 text-center">
-            <p className="text-sm text-muted-foreground">Carregando contas MFA...</p>
-          </CardContent>
-        </Card>
-      ) : accounts.length === 0 ? (
-        <Card className="border-dashed border-2 border-muted">
-          <CardContent className="py-16 text-center">
-            <ShieldCheck className="h-16 w-16 mx-auto text-muted-foreground/40 mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-1">Nenhuma conta MFA</h3>
-            <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-              Adicione contas MFA escaneando QR Codes ou inserindo chaves manualmente.
-            </p>
-            <Button onClick={() => setShowAddModal(true)} className="gap-2">
-              <Plus className="h-4 w-4" /> Adicionar primeira conta
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {accounts.map((account) => (
-            <Card
-              key={account.id}
-              className="border-muted hover:border-primary/30 transition-colors"
-            >
-              <CardContent className="py-4">
-                <div className="flex items-center gap-4">
-                  <div className={`h-12 w-12 rounded-full ${getColorForIssuer(account.issuer)} flex items-center justify-center flex-shrink-0`}>
-                    <span className="text-white font-bold text-sm">{getInitials(account.issuer)}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-foreground truncate">{account.issuer}</span>
-                      {account.label && account.label !== account.issuer && (
-                        <span className="text-xs text-muted-foreground truncate">({account.label})</span>
-                      )}
-                    </div>
-                    <TOTPCode account={account} onCopy={(code) => handleCopy(code, account)} />
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <Button variant="ghost" size="icon" className="h-8 w-8"
-                      onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === account.id ? null : account.id); }}>
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+      <Tabs defaultValue="authenticators" className="w-full" onValueChange={(v) => {
+        if (v === "logs" && auditLogs.length === 0) loadAuditLogs();
+        if (v === "access" && users.length === 0) loadAccessData();
+      }}>
+        <TabsList className={`grid w-full ${isMaster ? "grid-cols-3" : "grid-cols-1"} max-w-lg`}>
+          <TabsTrigger value="authenticators" className="gap-1.5">
+            <KeyRound className="h-4 w-4" /> Códigos
+          </TabsTrigger>
+          {isMaster && (
+            <>
+              <TabsTrigger value="access" className="gap-1.5">
+                <Users className="h-4 w-4" /> Acessos
+              </TabsTrigger>
+              <TabsTrigger value="logs" className="gap-1.5">
+                <ScrollText className="h-4 w-4" /> Logs
+              </TabsTrigger>
+            </>
+          )}
+        </TabsList>
 
-                {expandedId === account.id && (
-                  <div className="mt-3 pt-3 border-t border-muted flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-                    <Button variant="outline" size="sm" className="gap-1.5 text-xs"
-                      onClick={() => { setEditingAccount(account); setEditName(account.issuer); }}>
-                      <Pencil className="h-3 w-3" /> Renomear
-                    </Button>
-                    <Button variant="outline" size="sm" className="gap-1.5 text-xs"
-                      onClick={() => openRecoveryModal(account)}>
-                      <FileKey className="h-3 w-3" /> Recovery Codes
-                    </Button>
-                    {isMaster && (
-                      <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(account.id)}>
-                        <Trash2 className="h-3 w-3" /> Remover
-                      </Button>
-                    )}
-                    <span className="ml-auto text-[10px] text-muted-foreground font-mono">
-                      {account.algorithm} • {account.digits} dígitos • {account.period}s
-                    </span>
-                    
-                  </div>
-                )}
+        {/* AUTHENTICATORS TAB */}
+        <TabsContent value="authenticators" className="space-y-3 mt-4">
+          {loadingAccounts ? (
+            <Card className="border-muted">
+              <CardContent className="py-8 text-center">
+                <p className="text-sm text-muted-foreground">Carregando contas MFA...</p>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : accounts.length === 0 ? (
+            <Card className="border-dashed border-2 border-muted">
+              <CardContent className="py-16 text-center">
+                <ShieldCheck className="h-16 w-16 mx-auto text-muted-foreground/40 mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-1">Nenhuma conta MFA</h3>
+                <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+                  Adicione contas MFA escaneando QR Codes ou inserindo chaves manualmente.
+                </p>
+                <Button onClick={() => setShowAddModal(true)} className="gap-2">
+                  <Plus className="h-4 w-4" /> Adicionar primeira conta
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {accounts.map((account) => (
+                <Card key={account.id} className="border-muted hover:border-primary/30 transition-colors">
+                  <CardContent className="py-4">
+                    <div className="flex items-center gap-4">
+                      <div className={`h-12 w-12 rounded-full ${getColorForIssuer(account.issuer)} flex items-center justify-center flex-shrink-0`}>
+                        <span className="text-white font-bold text-sm">{getInitials(account.issuer)}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-semibold text-foreground truncate">{account.issuer}</span>
+                          {account.label && account.label !== account.issuer && (
+                            <span className="text-xs text-muted-foreground truncate">({account.label})</span>
+                          )}
+                        </div>
+                        <TOTPCode account={account} onCopy={(code) => handleCopy(code, account)} />
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Button variant="ghost" size="icon" className="h-8 w-8"
+                          onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === account.id ? null : account.id); }}>
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    {expandedId === account.id && (
+                      <div className="mt-3 pt-3 border-t border-muted flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="outline" size="sm" className="gap-1.5 text-xs"
+                          onClick={() => { setEditingAccount(account); setEditName(account.issuer); }}>
+                          <Pencil className="h-3 w-3" /> Renomear
+                        </Button>
+                        <Button variant="outline" size="sm" className="gap-1.5 text-xs"
+                          onClick={() => openRecoveryModal(account)}>
+                          <FileKey className="h-3 w-3" /> Recovery Codes
+                        </Button>
+                        {isMaster && (
+                          <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(account.id)}>
+                            <Trash2 className="h-3 w-3" /> Remover
+                          </Button>
+                        )}
+                        <span className="ml-auto text-[10px] text-muted-foreground font-mono">
+                          {account.algorithm} • {account.digits} dígitos • {account.period}s
+                        </span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
 
-      {/* Add Account Modal */}
+        {/* ACCESS TAB */}
+        {isMaster && (
+          <TabsContent value="access" className="space-y-4 mt-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-foreground">Atribuições de Acesso</h3>
+              <Button size="sm" className="gap-1.5" onClick={() => { loadAccessData(); setShowAssignModal(true); }}>
+                <UserPlus className="h-4 w-4" /> Nova Atribuição
+              </Button>
+            </div>
+
+            {loadingAccess ? (
+              <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+            ) : accessList.filter((a: any) => a.active).length === 0 ? (
+              <Card className="border-dashed border-2">
+                <CardContent className="py-12 text-center">
+                  <Users className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+                  <p className="text-muted-foreground">Nenhum acesso atribuído</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {accessList.filter((a: any) => a.active).map((acc: any) => {
+                  const account = accounts.find(a => a.id === acc.account_id);
+                  return (
+                    <Card key={acc.id}>
+                      <CardContent className="py-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary">{account?.issuer || acc.account_id.slice(0, 8)}</Badge>
+                              <span className="text-sm">→</span>
+                              <span className="text-sm font-medium">{getUserName(acc.user_id)}</span>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              Concedido por {getUserName(acc.granted_by)} em {format(new Date(acc.granted_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                            </span>
+                          </div>
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive gap-1"
+                            onClick={() => handleRevokeAccess(acc.id, acc)}>
+                            <UserMinus className="h-3.5 w-3.5" /> Revogar
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Revoked history */}
+            {accessList.filter((a: any) => !a.active).length > 0 && (
+              <div className="mt-6">
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">Acessos Revogados</h4>
+                <div className="space-y-2 opacity-60">
+                  {accessList.filter((a: any) => !a.active).map((acc: any) => {
+                    const account = accounts.find(a => a.id === acc.account_id);
+                    return (
+                      <Card key={acc.id}>
+                        <CardContent className="py-2">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Badge variant="outline" className="line-through">{account?.issuer || "?"}</Badge>
+                            <span>→</span>
+                            <span>{getUserName(acc.user_id)}</span>
+                            {acc.revoked_at && (
+                              <span className="text-xs text-muted-foreground ml-auto">
+                                Revogado em {format(new Date(acc.revoked_at), "dd/MM/yyyy", { locale: ptBR })}
+                              </span>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+        )}
+
+        {/* LOGS TAB */}
+        {isMaster && (
+          <TabsContent value="logs" className="space-y-4 mt-4">
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Buscar nos logs..." value={searchLogs} onChange={e => setSearchLogs(e.target.value)} className="pl-9" />
+              </div>
+              <Badge variant="secondary">{auditLogs.length} registros</Badge>
+            </div>
+
+            {loadingLogs ? (
+              <div className="text-center py-8 text-muted-foreground">Carregando logs...</div>
+            ) : filteredLogs.length === 0 ? (
+              <Card className="border-dashed border-2">
+                <CardContent className="py-12 text-center">
+                  <ScrollText className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+                  <p className="text-muted-foreground">Nenhum log encontrado</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {filteredLogs.map((log: any) => (
+                  <Card key={log.id}>
+                    <CardContent className="py-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <Badge className={`text-xs ${actionColors[log.action] || "bg-muted text-muted-foreground"}`}>
+                              {actionLabels[log.action] || log.action}
+                            </Badge>
+                            <span className="text-sm font-medium truncate">{log.user_name || log.user_email}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground space-x-2">
+                            {log.account_issuer && <span>Conta: <strong>{log.account_issuer}</strong></span>}
+                            {log.target_user_email && <span>→ {log.target_user_email}</span>}
+                          </div>
+                        </div>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {format(new Date(log.created_at), "dd/MM HH:mm:ss", { locale: ptBR })}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        )}
+      </Tabs>
+
+      {/* Assign Access Modal */}
+      <Dialog open={showAssignModal} onOpenChange={setShowAssignModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-primary" />
+              Atribuir Acesso
+            </DialogTitle>
+            <DialogDescription>Selecione um authenticator e um usuário para conceder acesso</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Authenticator</Label>
+              <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {accounts.map(a => (
+                    <SelectItem key={a.id} value={a.id}>{a.issuer}{a.label && a.label !== a.issuer ? ` (${a.label})` : ""}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Usuário</Label>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {users.map(u => (
+                    <SelectItem key={u.id} value={u.id}>{u.nome_completo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAssignModal(false)}>Cancelar</Button>
+            <Button onClick={handleGrantAccess} disabled={!selectedAccountId || !selectedUserId}>Conceder Acesso</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={showAddModal} onOpenChange={(open) => { if (!open) closeModal(); }}>
         <DialogContent className="sm:max-w-md" hideCloseButton={addMode === "scan"}>
           {addMode === "choose" && (
