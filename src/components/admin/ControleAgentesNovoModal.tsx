@@ -154,10 +154,12 @@ export function ControleAgentesNovoModal({ open, onOpenChange, onSave }: Props) 
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-primary" />
-            Novo Agente
+            Novo Agente - Controle de Implantação
           </DialogTitle>
           <DialogDescription>
-            Cadastre um novo agente no sistema de controle
+            Os agentes criados nesta tela são agentes em <strong>desenvolvimento</strong> ou em <strong>rollout</strong>.
+            <br />
+            Agentes ativos nas lojas devem ser criados na tela de <strong>Agentes IA (Instâncias)</strong>.
           </DialogDescription>
         </DialogHeader>
 
@@ -349,7 +351,7 @@ export function ControleAgentesNovoModal({ open, onOpenChange, onSave }: Props) 
           </div>
         </ScrollArea>
 
-        <DialogFooter className="flex-shrink-0 pt-4 border-t">
+        <DialogFooter className="flex-shrink-0 pt-4 border-t gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>

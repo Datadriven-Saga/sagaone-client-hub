@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -29,6 +30,11 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Search,
   RefreshCw,
   Bot,
@@ -41,6 +47,8 @@ import {
   Upload,
   Pencil,
   Eye,
+  SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -267,7 +275,7 @@ export function ControleAgentesContent() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={() => setNovoOpen(true)}><Plus className="h-4 w-4 mr-2" />Novo Agente</Button>
+        <Button size="sm" onClick={() => setNovoOpen(true)}><Plus className="h-4 w-4 mr-2" />Criar Agente</Button>
         <Button variant="outline" size="sm" onClick={() => navigate('/administracao/agentes/visao-geral')}><Eye className="h-4 w-4 mr-2" />Visão Geral</Button>
         <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 mr-2" />Importar</Button>
         <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm"><Download className="h-4 w-4 mr-2" />Exportar</Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onClick={() => exportData('csv')}>CSV</DropdownMenuItem><DropdownMenuItem onClick={() => exportData('xlsx')}>Excel (XLSX)</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
@@ -275,13 +283,49 @@ export function ControleAgentesContent() {
       </div>
 
       <Card><CardContent className="p-4">
-        <div className="flex flex-col md:flex-row gap-3 flex-wrap">
-          <div className="flex-1 relative min-w-[200px]"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" /></div>
-          <Select value={selectedAgente} onValueChange={setSelectedAgente}><SelectTrigger className="w-[140px]"><SelectValue placeholder="Agente" /></SelectTrigger><SelectContent><SelectItem value="todos">Todos</SelectItem>{filterOptions.agentes.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent></Select>
-          <Select value={selectedMarca} onValueChange={setSelectedMarca}><SelectTrigger className="w-[120px]"><SelectValue placeholder="Marca" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas</SelectItem>{filterOptions.marcas.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
-          <Select value={selectedUf} onValueChange={setSelectedUf}><SelectTrigger className="w-[90px]"><SelectValue placeholder="UF" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas</SelectItem>{filterOptions.ufs.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select>
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}><SelectTrigger className="w-[130px]"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="todos">Todos</SelectItem>{statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent></Select>
-          <Select value={selectedEstrategica} onValueChange={setSelectedEstrategica}><SelectTrigger className="w-[130px]"><SelectValue placeholder="Estratégica" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas</SelectItem><SelectItem value="sim">Estratégica</SelectItem><SelectItem value="nao">Não Estratégica</SelectItem></SelectContent></Select>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Buscar agentes, lojas, CNPJ..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <SlidersHorizontal className="h-4 w-4" />
+                Filtros
+                {(selectedAgente !== "todos" || selectedMarca !== "todos" || selectedUf !== "todos" || selectedStatus !== "todos" || selectedEstrategica !== "todos") && (
+                  <Badge variant="secondary" className="h-5 w-5 p-0 flex items-center justify-center text-[10px]">!</Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 space-y-4" align="end">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Agente</Label>
+                <Select value={selectedAgente} onValueChange={setSelectedAgente}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todos</SelectItem>{filterOptions.agentes.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent></Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Marca</Label>
+                <Select value={selectedMarca} onValueChange={setSelectedMarca}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todas</SelectItem>{filterOptions.marcas.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">UF</Label>
+                <Select value={selectedUf} onValueChange={setSelectedUf}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todas</SelectItem>{filterOptions.ufs.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Status</Label>
+                <Select value={selectedStatus} onValueChange={setSelectedStatus}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todos</SelectItem>{statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent></Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Estratégica</Label>
+                <Select value={selectedEstrategica} onValueChange={setSelectedEstrategica}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todas</SelectItem><SelectItem value="sim">Estratégica</SelectItem><SelectItem value="nao">Não Estratégica</SelectItem></SelectContent></Select>
+              </div>
+              {(selectedAgente !== "todos" || selectedMarca !== "todos" || selectedUf !== "todos" || selectedStatus !== "todos" || selectedEstrategica !== "todos") && (
+                <Button variant="ghost" size="sm" className="w-full text-xs" onClick={clearFilters}>
+                  <X className="h-3 w-3 mr-1" /> Limpar filtros
+                </Button>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
       </CardContent></Card>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -30,6 +30,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Eye,
   Calendar,
   Plus,
@@ -44,7 +49,9 @@ import {
   Users,
   Target,
   ArrowLeft,
-  Building2
+  Building2,
+  Search,
+  SlidersHorizontal
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -53,7 +60,6 @@ import { ptBR } from "date-fns/locale";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ControleEmpresasTab } from "@/components/admin/ControleEmpresasTab";
-
 interface AgenteVisao {
   id: string;
   nome: string;
@@ -104,6 +110,13 @@ export default function VisaoGeral() {
   const [loadingVisao, setLoadingVisao] = useState(false);
   const [editingVisao, setEditingVisao] = useState<AgenteVisao | null>(null);
   const [novoVisaoOpen, setNovoVisaoOpen] = useState(false);
+  
+  // Smart search & filters for Visão
+  const [visaoSearch, setVisaoSearch] = useState("");
+  const [visaoFilterAgente, setVisaoFilterAgente] = useState("todos");
+  const [visaoFilterLoja, setVisaoFilterLoja] = useState("todos");
+  const [visaoFilterCidade, setVisaoFilterCidade] = useState("todos");
+  const [visaoFilterUF, setVisaoFilterUF] = useState("todos");
   
   // Cronograma
   const [cronograma, setCronograma] = useState<CronogramaItem[]>([]);
@@ -189,6 +202,36 @@ export default function VisaoGeral() {
     fetchControleAgentes();
     fetchTIUsers();
   }, [fetchAgentesVisao, fetchCronograma, fetchControleAgentes, fetchTIUsers]);
+
+  // Filtered agentes visao based on smart search and filters
+  const filteredAgentesVisao = useMemo(() => {
+    return agentesVisao.filter(av => {
+      // Smart search - letters search text fields, numbers search numeric fields
+      if (visaoSearch) {
+        const term = visaoSearch.toLowerCase();
+        const matchesText = av.nome?.toLowerCase().includes(term) ||
+          av.tipo?.toLowerCase().includes(term) ||
+          av.criador?.toLowerCase().includes(term) ||
+          av.descricao?.toLowerCase().includes(term) ||
+          av.tipo_implantacao?.toLowerCase().includes(term);
+        if (!matchesText) return false;
+      }
+      if (visaoFilterAgente !== "todos" && av.nome !== visaoFilterAgente) return false;
+      if (visaoFilterUF !== "todos") {
+        // Check if any controle_agente with this agent name matches the UF
+        const hasUF = controlesAgentes.some(ca => ca.nome_agente === av.nome && ca.uf === visaoFilterUF);
+        if (!hasUF) return false;
+      }
+      if (visaoFilterLoja !== "todos") {
+        const hasLoja = controlesAgentes.some(ca => ca.nome_agente === av.nome && ca.loja === visaoFilterLoja);
+        if (!hasLoja) return false;
+      }
+      if (visaoFilterCidade !== "todos") {
+        // Cities aren't in controle_agentes directly, skip this filter for now
+      }
+      return true;
+    });
+  }, [agentesVisao, visaoSearch, visaoFilterAgente, visaoFilterUF, visaoFilterLoja, visaoFilterCidade, controlesAgentes]);
 
   const handleSaveVisao = async (item: Partial<AgenteVisao>) => {
     try {
@@ -390,31 +433,37 @@ export default function VisaoGeral() {
                       <CardTitle>Catálogo de Agentes</CardTitle>
                       <CardDescription>Tipos de agentes disponíveis no sistema</CardDescription>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={fetchAgentesVisao} disabled={loadingVisao}>
-                        <RefreshCw className={`h-4 w-4 mr-2 ${loadingVisao ? "animate-spin" : ""}`} />
-                        Atualizar
-                      </Button>
-                      <Button size="sm" onClick={() => { setEditingVisao(null); setNovoVisaoOpen(true); }}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Novo Agente
-                      </Button>
-                    </div>
+                    <Button variant="outline" size="sm" onClick={fetchAgentesVisao} disabled={loadingVisao}>
+                      <RefreshCw className={`h-4 w-4 mr-2 ${loadingVisao ? "animate-spin" : ""}`} />
+                      Atualizar
+                    </Button>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
+                  {/* Smart Search + Filter */}
+                  <VisaoSmartFilter
+                    agentesVisao={agentesVisao}
+                    controlesAgentes={controlesAgentes}
+                    searchTerm={visaoSearch}
+                    onSearchChange={setVisaoSearch}
+                    filterAgente={visaoFilterAgente}
+                    onFilterAgenteChange={setVisaoFilterAgente}
+                    filterLoja={visaoFilterLoja}
+                    onFilterLojaChange={setVisaoFilterLoja}
+                    filterCidade={visaoFilterCidade}
+                    onFilterCidadeChange={setVisaoFilterCidade}
+                    filterUF={visaoFilterUF}
+                    onFilterUFChange={setVisaoFilterUF}
+                  />
+
                   {loadingVisao ? (
                     <div className="flex justify-center py-12">
                       <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
-                  ) : agentesVisao.length === 0 ? (
+                  ) : filteredAgentesVisao.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
                       <Bot className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                      <p>Nenhum agente cadastrado</p>
-                      <Button className="mt-4" onClick={() => setNovoVisaoOpen(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Criar Primeiro Agente
-                      </Button>
+                      <p>Nenhum agente encontrado</p>
                     </div>
                   ) : (
                     <Table>
@@ -429,7 +478,7 @@ export default function VisaoGeral() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {agentesVisao.map((av) => (
+                        {filteredAgentesVisao.map((av) => (
                           <TableRow key={av.id}>
                             <TableCell>
                               <div className="flex items-center gap-2">
@@ -881,6 +930,109 @@ function CronogramaForm({
           Salvar
         </Button>
       </div>
+    </div>
+  );
+}
+
+// Smart Filter component for Visão Geral
+function VisaoSmartFilter({
+  agentesVisao,
+  controlesAgentes,
+  searchTerm,
+  onSearchChange,
+  filterAgente,
+  onFilterAgenteChange,
+  filterLoja,
+  onFilterLojaChange,
+  filterCidade,
+  onFilterCidadeChange,
+  filterUF,
+  onFilterUFChange,
+}: {
+  agentesVisao: AgenteVisao[];
+  controlesAgentes: ControleAgente[];
+  searchTerm: string;
+  onSearchChange: (v: string) => void;
+  filterAgente: string;
+  onFilterAgenteChange: (v: string) => void;
+  filterLoja: string;
+  onFilterLojaChange: (v: string) => void;
+  filterCidade: string;
+  onFilterCidadeChange: (v: string) => void;
+  filterUF: string;
+  onFilterUFChange: (v: string) => void;
+}) {
+  const agentes = [...new Set(agentesVisao.map(a => a.nome))].sort();
+  const lojas = [...new Set(controlesAgentes.map(a => a.loja))].sort();
+  const ufs = [...new Set(controlesAgentes.map(a => a.uf))].sort();
+  
+  const hasFilters = filterAgente !== "todos" || filterLoja !== "todos" || filterCidade !== "todos" || filterUF !== "todos";
+
+  const clearFilters = () => {
+    onFilterAgenteChange("todos");
+    onFilterLojaChange("todos");
+    onFilterCidadeChange("todos");
+    onFilterUFChange("todos");
+    onSearchChange("");
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar agentes, tipos, criadores..."
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-2">
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros
+            {hasFilters && <Badge variant="secondary" className="h-5 w-5 p-0 flex items-center justify-center text-[10px]">!</Badge>}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-72 space-y-4" align="end">
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Agente</Label>
+            <Select value={filterAgente} onValueChange={onFilterAgenteChange}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                {agentes.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Loja</Label>
+            <Select value={filterLoja} onValueChange={onFilterLojaChange}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas</SelectItem>
+                {lojas.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">UF</Label>
+            <Select value={filterUF} onValueChange={onFilterUFChange}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas</SelectItem>
+                {ufs.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {hasFilters && (
+            <Button variant="ghost" size="sm" className="w-full text-xs" onClick={clearFilters}>
+              <X className="h-3 w-3 mr-1" /> Limpar filtros
+            </Button>
+          )}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
