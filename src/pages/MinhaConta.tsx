@@ -210,116 +210,113 @@ const MinhaConta = () => {
           </Card>
 
           {/* Profile Information */}
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Personal Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <User className="h-5 w-5 mr-2" />
-                  Informações Pessoais
-                </CardTitle>
-                <CardDescription>Atualize suas informações pessoais básicas</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="nome_completo"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Nome Completo</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <User className="h-5 w-5 mr-2" />
+                Informações Pessoais
+              </CardTitle>
+              <CardDescription>Atualize suas informações pessoais básicas</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="nome_completo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome Completo</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <FormField
-                      control={form.control}
-                      name="celular"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Celular</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="(11) 99999-9999" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="celular"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Celular</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="(11) 99999-9999" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <FormField
-                      control={form.control}
-                      name="departamento"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Departamento</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="departamento"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Departamento</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <Button type="submit" disabled={updating} className="w-full">
-                      {updating ? "Atualizando..." : "Atualizar Perfil"}
-                    </Button>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
+                  <Button type="submit" disabled={updating} className="w-full">
+                    {updating ? "Atualizando..." : "Atualizar Perfil"}
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
 
-            {/* Account Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Building className="h-5 w-5 mr-2" />
-                  Detalhes da Conta
-                </CardTitle>
-                <CardDescription>Informações da sua conta no sistema</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          {/* Account Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Building className="h-5 w-5 mr-2" />
+                Detalhes da Conta
+              </CardTitle>
+              <CardDescription>Informações da sua conta no sistema</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Status:</span>
+                <Badge
+                  className={
+                    profile?.status === "Ativo"
+                      ? "bg-green-500 hover:bg-green-600 text-white"
+                      : "bg-red-500 hover:bg-red-600 text-white"
+                  }
+                >
+                  {profile?.status === "Ativo" ? "Ativo" : "Desativado"}
+                </Badge>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Tipo de Acesso:</span>
+                <span className="text-sm">{profile?.tipo_acesso}</span>
+              </div>
+
+              {profile?.cpf && (
                 <div className="flex justify-between">
-                  <span className="text-sm font-medium">Status:</span>
-                  <Badge
-                    className={
-                      profile?.status === "Ativo"
-                        ? "bg-green-500 hover:bg-green-600 text-white"
-                        : "bg-red-500 hover:bg-red-600 text-white"
-                    }
-                  >
-                    {profile?.status === "Ativo" ? "Ativo" : "Desativado"}
-                  </Badge>
+                  <span className="text-sm font-medium">CPF:</span>
+                  <span className="text-sm">{profile.cpf}</span>
                 </div>
+              )}
 
-                <div className="flex justify-between">
-                  <span className="text-sm font-medium">Tipo de Acesso:</span>
-                  <span className="text-sm">{profile?.tipo_acesso}</span>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Membro desde:</span>
+                <div className="flex items-center text-sm">
+                  <Calendar className="h-4 w-4 mr-1" />
+                  {profile?.created_at
+                    ? new Date(profile.created_at).toLocaleDateString("pt-BR")
+                    : "Data não disponível"}
                 </div>
-
-                {profile?.cpf && (
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">CPF:</span>
-                    <span className="text-sm">{profile.cpf}</span>
-                  </div>
-                )}
-
-                <div className="flex justify-between">
-                  <span className="text-sm font-medium">Membro desde:</span>
-                  <div className="flex items-center text-sm">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    {profile?.created_at
-                      ? new Date(profile.created_at).toLocaleDateString("pt-BR")
-                      : "Data não disponível"}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </ScrollIndicator>
 
