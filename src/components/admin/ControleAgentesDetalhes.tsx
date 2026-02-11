@@ -202,6 +202,88 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
     }
   };
 
+  const syncToAgentesIA = async (agenteControle: ControleAgente, telefone: string) => {
+    try {
+      // Check if agent already exists in agentes_ia with this name and phone
+      const { data: existingAgent } = await supabase
+        .from("agentes_ia")
+        .select("id")
+        .eq("nome", agenteControle.nome_agente)
+        .eq("telefone", telefone)
+        .maybeSingle();
+
+      let agenteIaId: string;
+
+      if (existingAgent) {
+        // Update existing
+        agenteIaId = existingAgent.id;
+        await supabase
+          .from("agentes_ia")
+          .update({ ativo: true, updated_at: new Date().toISOString() })
+          .eq("id", agenteIaId);
+        console.log("✅ Agente IA atualizado:", agenteIaId);
+      } else {
+        // Insert new
+        const { data: newAgent, error: insertErr } = await supabase
+          .from("agentes_ia")
+          .insert({
+            nome: agenteControle.nome_agente,
+            telefone: telefone,
+            ativo: true,
+          })
+          .select("id")
+          .single();
+
+        if (insertErr) throw insertErr;
+        agenteIaId = newAgent.id;
+        console.log("✅ Agente IA criado:", agenteIaId);
+      }
+
+      // Link to empresa if empresa_id exists
+      if (agenteControle.empresa_id) {
+        const { data: existingLink } = await supabase
+          .from("agente_empresas")
+          .select("id")
+          .eq("agente_id", agenteIaId)
+          .eq("empresa_id", agenteControle.empresa_id)
+          .maybeSingle();
+
+        if (!existingLink) {
+          await supabase.from("agente_empresas").insert({
+            agente_id: agenteIaId,
+            empresa_id: agenteControle.empresa_id,
+            status: "ativo",
+          });
+          console.log("✅ Vínculo agente-empresa criado");
+        }
+      }
+
+      return agenteIaId;
+    } catch (err) {
+      console.error("⚠️ Erro ao sincronizar com agentes_ia:", err);
+      return null;
+    }
+  };
+
+  const handleUpsertInstancia = async () => {
+    if (!formData.numero_telefone || !agente) {
+      toast({ title: "Telefone necessário", description: "Preencha o número do telefone primeiro", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const agenteIaId = await syncToAgentesIA(agente, formData.numero_telefone);
+      if (agenteIaId) {
+        toast({ title: "Sucesso", description: "Agente sincronizado com Agentes de IA e instância vinculada" });
+      } else {
+        toast({ title: "Erro", description: "Não foi possível sincronizar o agente", variant: "destructive" });
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!agente?.id) return;
 
@@ -241,6 +323,11 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
         .eq("id", agente.id);
 
       if (error) throw error;
+
+      // Auto-sync to agentes_ia when activating with a phone number
+      if (finalAtivo && formData.numero_telefone) {
+        await syncToAgentesIA(agente, formData.numero_telefone);
+      }
 
       toast({ title: "Sucesso", description: "Agente atualizado com sucesso!" });
       onSave();
@@ -401,11 +488,27 @@ export function ControleAgentesDetalhes({ agente, open, onOpenChange, onSave }: 
                   </div>
                   <div className="space-y-2">
                     <Label>Número de Telefone</Label>
-                    <Input
-                      value={formData.numero_telefone}
-                      onChange={(e) => setFormData({ ...formData, numero_telefone: e.target.value })}
-                      placeholder="+55 11 99999-9999"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        value={formData.numero_telefone}
+                        onChange={(e) => setFormData({ ...formData, numero_telefone: e.target.value })}
+                        placeholder="+55 11 99999-9999"
+                        className="flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleUpsertInstancia}
+                        disabled={saving || !formData.numero_telefone}
+                        title="Inserir ou atualizar este agente na tela de Agentes de IA"
+                      >
+                        <Server className="h-4 w-4 mr-1" />
+                        Sincronizar IA
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Ao sincronizar, o agente será inserido/atualizado na tela de Agentes de IA com este telefone
+                    </p>
                   </div>
                 </CardContent>
               </Card>
