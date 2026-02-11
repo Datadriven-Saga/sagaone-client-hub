@@ -199,7 +199,7 @@ function parseOtpauthMigration(uri: string): Partial<MFAAccount>[] {
   }
 }
 
-function TOTPCode({ account }: { account: MFAAccount }) {
+function TOTPCode({ account, onCopy }: { account: MFAAccount; onCopy?: (code: string) => void }) {
   const [code, setCode] = useState(() => generateTOTP(account.secret, account.period, account.digits, account.algorithm));
   const [timeLeft, setTimeLeft] = useState(0);
 
@@ -233,7 +233,24 @@ function TOTPCode({ account }: { account: MFAAccount }) {
         </svg>
         <span className={`absolute text-xs font-mono font-bold ${isLow ? "text-destructive" : "text-foreground"}`}>{timeLeft}</span>
       </div>
-      <span className={`text-3xl font-mono font-bold tracking-wider ${isLow ? "text-destructive" : "text-foreground"}`}>{formattedCode}</span>
+      <span
+        className={`text-3xl font-mono font-bold tracking-wider select-none ${isLow ? "text-destructive" : "text-foreground"}`}
+        style={{ filter: "blur(8px)", WebkitFilter: "blur(8px)" }}
+      >
+        {formattedCode}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9 flex-shrink-0"
+        onClick={(e) => {
+          e.stopPropagation();
+          onCopy?.(code);
+        }}
+        title="Copiar código"
+      >
+        <Copy className="h-4 w-4" />
+      </Button>
     </div>
   );
 }
@@ -700,11 +717,7 @@ export function MFAAgentesContent() {
           {accounts.map((account) => (
             <Card
               key={account.id}
-              className="border-muted hover:border-primary/30 transition-colors cursor-pointer"
-              onClick={() => {
-                const code = generateTOTP(account.secret, account.period, account.digits, account.algorithm);
-                handleCopy(code, account);
-              }}
+              className="border-muted hover:border-primary/30 transition-colors"
             >
               <CardContent className="py-4">
                 <div className="flex items-center gap-4">
@@ -718,7 +731,7 @@ export function MFAAgentesContent() {
                         <span className="text-xs text-muted-foreground truncate">({account.label})</span>
                       )}
                     </div>
-                    <TOTPCode account={account} />
+                    <TOTPCode account={account} onCopy={(code) => handleCopy(code, account)} />
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <Button variant="ghost" size="icon" className="h-8 w-8"
