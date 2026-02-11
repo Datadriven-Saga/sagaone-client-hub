@@ -280,6 +280,9 @@ export function MFAAgentesContent() {
   // Audit logs state
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [searchLogs, setSearchLogs] = useState("");
+  const [logActionFilter, setLogActionFilter] = useState("all");
+  const [logPage, setLogPage] = useState(1);
+  const LOGS_PER_PAGE = 20;
   const [loadingLogs, setLoadingLogs] = useState(false);
 
   // Access assignment state
@@ -341,17 +344,17 @@ export function MFAAgentesContent() {
     }
   }, [isMaster]);
 
-  // Load access list and users
+  // Load access list and users (only Administrador users for assignment)
   const loadAccessData = useCallback(async () => {
     if (!isMaster) return;
     setLoadingAccess(true);
     try {
       const [accessRes, usersRes] = await Promise.all([
         supabase.from("mfa_account_access" as any).select("*").order("granted_at", { ascending: false }),
-        supabase.from("profiles").select("id, nome_completo").eq("status", "Ativo").order("nome_completo"),
+        supabase.from("profiles").select("id, nome_completo, tipo_acesso").eq("status", "Ativo").eq("tipo_acesso", "Administrador").order("nome_completo"),
       ]);
       setAccessList(accessRes.data || []);
-      setUsers(usersRes.data || []);
+      setUsers((usersRes.data || []).map((u: any) => ({ id: u.id, nome_completo: u.nome_completo })));
     } catch (err: any) {
       console.error("[MFA] Access data error:", err);
     } finally {
@@ -786,13 +789,21 @@ export function MFAAgentesContent() {
     rename: "bg-indigo-500/10 text-indigo-600",
   };
 
-  const filteredLogs = auditLogs.filter(l =>
-    !searchLogs ||
-    l.user_email?.toLowerCase().includes(searchLogs.toLowerCase()) ||
-    l.user_name?.toLowerCase().includes(searchLogs.toLowerCase()) ||
-    l.action?.toLowerCase().includes(searchLogs.toLowerCase()) ||
-    l.account_issuer?.toLowerCase().includes(searchLogs.toLowerCase())
-  );
+  const filteredLogs = auditLogs.filter(l => {
+    const matchesSearch = !searchLogs ||
+      l.user_email?.toLowerCase().includes(searchLogs.toLowerCase()) ||
+      l.user_name?.toLowerCase().includes(searchLogs.toLowerCase()) ||
+      l.action?.toLowerCase().includes(searchLogs.toLowerCase()) ||
+      l.account_issuer?.toLowerCase().includes(searchLogs.toLowerCase());
+    const matchesAction = logActionFilter === "all" || l.action === logActionFilter;
+    return matchesSearch && matchesAction;
+  });
+
+  const totalLogPages = Math.max(1, Math.ceil(filteredLogs.length / LOGS_PER_PAGE));
+  const paginatedLogs = filteredLogs.slice((logPage - 1) * LOGS_PER_PAGE, logPage * LOGS_PER_PAGE);
+
+  // Unique actions for filter
+  const uniqueLogActions = Array.from(new Set(auditLogs.map(l => l.action))).filter(Boolean);
 
   return (
     <div className="space-y-6">
@@ -876,13 +887,15 @@ export function MFAAgentesContent() {
                         <TOTPCode account={account} onCopy={(code) => handleCopy(code, account)} />
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        <Button variant="ghost" size="icon" className="h-8 w-8"
-                          onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === account.id ? null : account.id); }}>
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
+                        {isMaster && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8"
+                            onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === account.id ? null : account.id); }}>
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    {expandedId === account.id && (
+                    {isMaster && expandedId === account.id && (
                       <div className="mt-3 pt-3 border-t border-muted flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
                         <Button variant="outline" size="sm" className="gap-1.5 text-xs"
                           onClick={() => { setEditingAccount(account); setEditName(account.issuer); }}>
@@ -892,12 +905,10 @@ export function MFAAgentesContent() {
                           onClick={() => openRecoveryModal(account)}>
                           <FileKey className="h-3 w-3" /> Recovery Codes
                         </Button>
-                        {isMaster && (
-                          <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-destructive hover:text-destructive"
-                            onClick={() => handleDelete(account.id)}>
-                            <Trash2 className="h-3 w-3" /> Remover
-                          </Button>
-                        )}
+                        <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(account.id)}>
+                          <Trash2 className="h-3 w-3" /> Remover
+                        </Button>
                         <span className="ml-auto text-[10px] text-muted-foreground font-mono">
                           {account.algorithm} • {account.digits} dígitos • {account.period}s
                         </span>
@@ -992,12 +1003,21 @@ export function MFAAgentesContent() {
         {/* LOGS TAB */}
         {isMaster && (
           <TabsContent value="logs" className="space-y-4 mt-4">
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1 max-w-md">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative flex-1 max-w-md min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Buscar nos logs..." value={searchLogs} onChange={e => setSearchLogs(e.target.value)} className="pl-9" />
+                <Input placeholder="Buscar nos logs..." value={searchLogs} onChange={e => { setSearchLogs(e.target.value); setLogPage(1); }} className="pl-9" />
               </div>
-              <Badge variant="secondary">{auditLogs.length} registros</Badge>
+              <Select value={logActionFilter} onValueChange={(v) => { setLogActionFilter(v); setLogPage(1); }}>
+                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filtrar ação" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as ações</SelectItem>
+                  {uniqueLogActions.map(a => (
+                    <SelectItem key={a} value={a}>{actionLabels[a] || a}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Badge variant="secondary">{filteredLogs.length} registros</Badge>
             </div>
 
             {loadingLogs ? (
@@ -1010,31 +1030,41 @@ export function MFAAgentesContent() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-2">
-                {filteredLogs.map((log: any) => (
-                  <Card key={log.id}>
-                    <CardContent className="py-3">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <Badge className={`text-xs ${actionColors[log.action] || "bg-muted text-muted-foreground"}`}>
-                              {actionLabels[log.action] || log.action}
-                            </Badge>
-                            <span className="text-sm font-medium truncate">{log.user_name || log.user_email}</span>
+              <>
+                <div className="space-y-2">
+                  {paginatedLogs.map((log: any) => (
+                    <Card key={log.id}>
+                      <CardContent className="py-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <Badge className={`text-xs ${actionColors[log.action] || "bg-muted text-muted-foreground"}`}>
+                                {actionLabels[log.action] || log.action}
+                              </Badge>
+                              <span className="text-sm font-medium truncate">{log.user_name || log.user_email}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground space-x-2">
+                              {log.account_issuer && <span>Conta: <strong>{log.account_issuer}</strong></span>}
+                              {log.target_user_email && <span>→ {log.target_user_email}</span>}
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground space-x-2">
-                            {log.account_issuer && <span>Conta: <strong>{log.account_issuer}</strong></span>}
-                            {log.target_user_email && <span>→ {log.target_user_email}</span>}
-                          </div>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(log.created_at), "dd/MM HH:mm:ss", { locale: ptBR })}
+                          </span>
                         </div>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {format(new Date(log.created_at), "dd/MM HH:mm:ss", { locale: ptBR })}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                {/* Pagination */}
+                {totalLogPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 pt-2">
+                    <Button variant="outline" size="sm" disabled={logPage <= 1} onClick={() => setLogPage(p => p - 1)}>Anterior</Button>
+                    <span className="text-sm text-muted-foreground">Página {logPage} de {totalLogPages}</span>
+                    <Button variant="outline" size="sm" disabled={logPage >= totalLogPages} onClick={() => setLogPage(p => p + 1)}>Próxima</Button>
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
         )}
