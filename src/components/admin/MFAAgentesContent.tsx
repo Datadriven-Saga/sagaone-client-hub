@@ -351,7 +351,7 @@ export function MFAAgentesContent() {
     try {
       const [accessRes, usersRes] = await Promise.all([
         supabase.from("mfa_account_access" as any).select("*").order("granted_at", { ascending: false }),
-        supabase.from("profiles").select("id, nome_completo, tipo_acesso").eq("status", "Ativo").eq("tipo_acesso", "Administrador").order("nome_completo"),
+        supabase.from("profiles").select("id, nome_completo, tipo_acesso").eq("status", "Ativo").in("tipo_acesso", ["Administrador", "Master"]).order("nome_completo"),
       ]);
       setAccessList(accessRes.data || []);
       setUsers((usersRes.data || []).map((u: any) => ({ id: u.id, nome_completo: u.nome_completo })));
@@ -365,14 +365,28 @@ export function MFAAgentesContent() {
   // Grant access
   const handleGrantAccess = async () => {
     if (!selectedAccountId || !selectedUserId || !user) return;
+    // Check if access already exists (active or revoked)
+    const existing = accessList.find((a: any) => a.account_id === selectedAccountId && a.user_id === selectedUserId);
     try {
-      const { error } = await supabase.from("mfa_account_access" as any).insert({
-        account_id: selectedAccountId,
-        user_id: selectedUserId,
-        granted_by: user.id,
-        active: true,
-      });
-      if (error) throw error;
+      if (existing && existing.active) {
+        toast({ title: "Usuário já possui acesso a este authenticator", variant: "destructive" });
+        return;
+      }
+      if (existing && !existing.active) {
+        // Reactivate revoked access
+        const { error } = await supabase.from("mfa_account_access" as any)
+          .update({ active: true, revoked_at: null, granted_by: user.id, granted_at: new Date().toISOString() })
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("mfa_account_access" as any).insert({
+          account_id: selectedAccountId,
+          user_id: selectedUserId,
+          granted_by: user.id,
+          active: true,
+        });
+        if (error) throw error;
+      }
       const targetUser = users.find(u => u.id === selectedUserId);
       const account = accounts.find(a => a.id === selectedAccountId);
       await logAction("grant_access", selectedAccountId, account?.issuer, selectedUserId, targetUser?.nome_completo);
@@ -440,6 +454,11 @@ export function MFAAgentesContent() {
       console.error("[MFA] localStorage migration error:", err);
     }
   }, [user]);
+
+  // Load access data on mount for Master users
+  useEffect(() => {
+    if (isMaster) loadAccessData();
+  }, [isMaster, loadAccessData]);
 
   useEffect(() => {
     if (!user) return;
@@ -874,53 +893,66 @@ export function MFAAgentesContent() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {accounts.map((account) => (
-                <Card key={account.id} className="border-muted hover:border-primary/30 transition-colors">
-                  <CardContent className="py-4">
-                    <div className="flex items-center gap-4">
-                      <div className={`h-12 w-12 rounded-full ${getColorForIssuer(account.issuer)} flex items-center justify-center flex-shrink-0`}>
-                        <span className="text-white font-bold text-sm">{getInitials(account.issuer)}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-semibold text-foreground truncate">{account.issuer}</span>
-                          {account.label && account.label !== account.issuer && (
-                            <span className="text-xs text-muted-foreground truncate">({account.label})</span>
+              {accounts.map((account) => {
+                const accountAccessUsers = accessList.filter((a: any) => a.account_id === account.id && a.active);
+                return (
+                  <Card key={account.id} className="border-muted hover:border-primary/30 transition-colors">
+                    <CardContent className="py-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`h-12 w-12 rounded-full ${getColorForIssuer(account.issuer)} flex items-center justify-center flex-shrink-0`}>
+                          <span className="text-white font-bold text-sm">{getInitials(account.issuer)}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-semibold text-foreground truncate">{account.issuer}</span>
+                            {account.label && account.label !== account.issuer && (
+                              <span className="text-xs text-muted-foreground truncate">({account.label})</span>
+                            )}
+                          </div>
+                          <TOTPCode account={account} onCopy={(code) => handleCopy(code, account)} />
+                          {isMaster && accountAccessUsers.length > 0 && (
+                            <div className="flex items-center gap-1 mt-2 flex-wrap">
+                              <span className="text-xs text-muted-foreground mr-1">Acesso:</span>
+                              {accountAccessUsers.map((au: any) => (
+                                <Badge key={au.id} variant="outline" className="text-xs">
+                                  {getUserName(au.user_id)}
+                                </Badge>
+                              ))}
+                            </div>
                           )}
                         </div>
-                        <TOTPCode account={account} onCopy={(code) => handleCopy(code, account)} />
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {isMaster && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8"
+                              onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === account.id ? null : account.id); }}>
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {isMaster && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8"
-                            onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === account.id ? null : account.id); }}>
-                            <MoreVertical className="h-4 w-4" />
+                      {isMaster && expandedId === account.id && (
+                        <div className="mt-3 pt-3 border-t border-muted flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="outline" size="sm" className="gap-1.5 text-xs"
+                            onClick={() => { setEditingAccount(account); setEditName(account.issuer); }}>
+                            <Pencil className="h-3 w-3" /> Renomear
                           </Button>
-                        )}
-                      </div>
-                    </div>
-                    {isMaster && expandedId === account.id && (
-                      <div className="mt-3 pt-3 border-t border-muted flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="outline" size="sm" className="gap-1.5 text-xs"
-                          onClick={() => { setEditingAccount(account); setEditName(account.issuer); }}>
-                          <Pencil className="h-3 w-3" /> Renomear
-                        </Button>
-                        <Button variant="outline" size="sm" className="gap-1.5 text-xs"
-                          onClick={() => openRecoveryModal(account)}>
-                          <FileKey className="h-3 w-3" /> Recovery Codes
-                        </Button>
-                        <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-destructive hover:text-destructive"
-                          onClick={() => handleDelete(account.id)}>
-                          <Trash2 className="h-3 w-3" /> Remover
-                        </Button>
-                        <span className="ml-auto text-[10px] text-muted-foreground font-mono">
-                          {account.algorithm} • {account.digits} dígitos • {account.period}s
-                        </span>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+                          <Button variant="outline" size="sm" className="gap-1.5 text-xs"
+                            onClick={() => openRecoveryModal(account)}>
+                            <FileKey className="h-3 w-3" /> Recovery Codes
+                          </Button>
+                          <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(account.id)}>
+                            <Trash2 className="h-3 w-3" /> Remover
+                          </Button>
+                          <span className="ml-auto text-[10px] text-muted-foreground font-mono">
+                            {account.algorithm} • {account.digits} dígitos • {account.period}s
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>

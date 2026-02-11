@@ -115,7 +115,7 @@ const MFAMasterDashboard = () => {
         supabase.from("mfa_account_access" as any).select("*").order("granted_at", { ascending: false }),
         supabase.from("mfa_audit_logs" as any).select("*").order("created_at", { ascending: false }).limit(200),
         supabase.from("mfa_feature_flags" as any).select("*"),
-        supabase.from("profiles").select("id, nome_completo").eq("status", "Ativo").order("nome_completo"),
+        supabase.from("profiles").select("id, nome_completo").eq("status", "Ativo").in("tipo_acesso", ["Administrador", "Master"] as any).order("nome_completo"),
       ]);
 
       setAccounts((accRes.data as any[]) || []);
@@ -139,14 +139,27 @@ const MFAMasterDashboard = () => {
 
   const handleGrantAccess = async () => {
     if (!selectedAccountId || !selectedUserId || !user) return;
+    // Check duplicate
+    const existing = accessList.find(a => a.account_id === selectedAccountId && a.user_id === selectedUserId);
     try {
-      const { error } = await supabase.from("mfa_account_access" as any).insert({
-        account_id: selectedAccountId,
-        user_id: selectedUserId,
-        granted_by: user.id,
-        active: true,
-      });
-      if (error) throw error;
+      if (existing && existing.active) {
+        toast({ title: "Usuário já possui acesso a este authenticator", variant: "destructive" });
+        return;
+      }
+      if (existing && !existing.active) {
+        const { error } = await (supabase.from("mfa_account_access" as any) as any)
+          .update({ active: true, revoked_at: null, granted_by: user.id, granted_at: new Date().toISOString() })
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("mfa_account_access" as any).insert({
+          account_id: selectedAccountId,
+          user_id: selectedUserId,
+          granted_by: user.id,
+          active: true,
+        });
+        if (error) throw error;
+      }
 
       const targetUser = users.find(u => u.id === selectedUserId);
       const account = accounts.find(a => a.id === selectedAccountId);
