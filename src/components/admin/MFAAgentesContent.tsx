@@ -37,6 +37,7 @@ import * as OTPAuth from "otpauth";
 import { Html5Qrcode } from "html5-qrcode";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMfaMaster } from "@/hooks/useMfaMaster";
 
 interface MFAAccount {
   id: string;
@@ -240,6 +241,7 @@ function TOTPCode({ account }: { account: MFAAccount }) {
 export function MFAAgentesContent() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isMaster, logAction } = useMfaMaster();
   const [accounts, setAccounts] = useState<MFAAccount[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMode, setAddMode] = useState<"choose" | "scan" | "manual">("choose");
@@ -511,11 +513,12 @@ export function MFAAgentesContent() {
           created_by: user.id,
         });
       if (error) throw error;
+      await logAction("create", account.id, account.issuer);
       await loadAccounts();
     } catch (err: any) {
       toast({ title: "Erro ao salvar conta", description: err.message, variant: "destructive" });
     }
-  }, [user, loadAccounts, toast]);
+  }, [user, loadAccounts, toast, logAction]);
 
   const handleQRResult = async (decodedText: string) => {
     stopCamera();
@@ -596,10 +599,13 @@ export function MFAAgentesContent() {
   const handleDelete = async (id: string) => {
     const account = accounts.find((a) => a.id === id);
     try {
-      // Delete recovery codes first
+      // Delete access assignments first
+      await supabase.from("mfa_account_access" as any).delete().eq("account_id", id);
+      // Delete recovery codes
       await supabase.from("mfa_recovery_codes" as any).delete().eq("account_id", id);
       // Delete account
       await supabase.from("mfa_accounts" as any).delete().eq("id", id);
+      await logAction("delete", id, account?.issuer);
       await loadAccounts();
       toast({ title: "Conta removida", description: account?.issuer });
     } catch {
@@ -608,8 +614,9 @@ export function MFAAgentesContent() {
     setExpandedId(null);
   };
 
-  const handleCopy = (code: string) => {
+  const handleCopy = (code: string, account?: MFAAccount) => {
     navigator.clipboard.writeText(code.replace(/\s/g, ""));
+    if (account) logAction("copy", account.id, account.issuer);
     toast({ title: "Código copiado!" });
   };
 
@@ -661,9 +668,11 @@ export function MFAAgentesContent() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setShowAddModal(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> Adicionar MFA
-        </Button>
+        {isMaster && (
+          <Button onClick={() => setShowAddModal(true)} className="gap-2">
+            <Plus className="h-4 w-4" /> Adicionar MFA
+          </Button>
+        )}
       </div>
 
       {/* Accounts List */}
@@ -694,7 +703,7 @@ export function MFAAgentesContent() {
               className="border-muted hover:border-primary/30 transition-colors cursor-pointer"
               onClick={() => {
                 const code = generateTOTP(account.secret, account.period, account.digits, account.algorithm);
-                handleCopy(code);
+                handleCopy(code, account);
               }}
             >
               <CardContent className="py-4">
@@ -729,13 +738,16 @@ export function MFAAgentesContent() {
                       onClick={() => openRecoveryModal(account)}>
                       <FileKey className="h-3 w-3" /> Recovery Codes
                     </Button>
-                    <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(account.id)}>
-                      <Trash2 className="h-3 w-3" /> Remover
-                    </Button>
+                    {isMaster && (
+                      <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-destructive hover:text-destructive"
+                        onClick={() => handleDelete(account.id)}>
+                        <Trash2 className="h-3 w-3" /> Remover
+                      </Button>
+                    )}
                     <span className="ml-auto text-[10px] text-muted-foreground font-mono">
                       {account.algorithm} • {account.digits} dígitos • {account.period}s
                     </span>
+                    
                   </div>
                 )}
               </CardContent>

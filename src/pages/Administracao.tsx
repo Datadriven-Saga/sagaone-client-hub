@@ -11,17 +11,20 @@ import {
   AlertTriangle,
   Bot,
   GraduationCap,
-  ShieldCheck
+  ShieldCheck,
+  KeyRound
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
+import { useMfaMaster } from "@/hooks/useMfaMaster";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Administracao = () => {
   const navigate = useNavigate();
   const { isAdmin, loading } = useAdminCheck();
   const { isGerente, loading: accessLoading } = useUserAccessType();
+  const { isMaster } = useMfaMaster();
 
   const isFullLoading = loading || accessLoading;
 
@@ -120,6 +123,16 @@ const Administracao = () => {
     }
   ];
 
+  // MFA Master module - only for Master users
+  const masterModules = isMaster ? [
+    {
+      title: "MFA Master",
+      description: "Controle centralizado de Authenticators, acessos e logs",
+      icon: KeyRound,
+      route: "/administracao/mfa-master"
+    }
+  ] : [];
+
   // Modules available for both Admins and Managers
   const sharedModules = [
     {
@@ -134,8 +147,8 @@ const Administracao = () => {
 
   // Combine modules based on user role
   const adminModules = isAdmin 
-    ? [...sharedModules, ...adminOnlyModules] 
-    : sharedModules;
+    ? [...sharedModules, ...adminOnlyModules, ...masterModules] 
+    : [...sharedModules, ...masterModules];
 
   return (
     <DashboardLayout>
