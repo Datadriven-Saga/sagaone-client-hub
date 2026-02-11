@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { User, Mail, Phone, Calendar, Building, Shield, Eye, Camera, X } from "lucide-react";
+import { User, Mail, Phone, Calendar, Building, Shield, Eye, Camera, X, Moon, Sun } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +40,17 @@ const MinhaConta = () => {
   const [updating, setUpdating] = useState(false);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [showAvatarBuilder, setShowAvatarBuilder] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // Verifica se há preferência salva no localStorage
+    const saved = localStorage.getItem("theme");
+    if (saved === "dark") {
+      return true;
+    } else if (saved === "light") {
+      return false;
+    }
+    // Se não houver preferência salva, usa o padrão claro
+    return false;
+  });
 
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -54,6 +66,17 @@ const MinhaConta = () => {
       fetchProfile();
     }
   }, [user]);
+
+  useEffect(() => {
+    // Aplica ou remove a classe 'dark' do elemento html
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  }, [isDarkMode]);
 
   const fetchProfile = async () => {
     try {
@@ -142,6 +165,28 @@ const MinhaConta = () => {
     <DashboardLayout title="Minha Conta">
       <ScrollIndicator className="h-full">
         <div className="space-y-6 pb-6">
+          {/* Dark Mode Toggle */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  {isDarkMode ? (
+                    <Moon className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <Sun className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <div>
+                    <p className="font-medium">Tema</p>
+                    <p className="text-sm text-muted-foreground">
+                      {isDarkMode ? "Modo Escuro" : "Modo Padrão (Claro)"}
+                    </p>
+                  </div>
+                </div>
+                <Switch checked={isDarkMode} onCheckedChange={setIsDarkMode} />
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Profile Header */}
           <Card>
             <CardHeader className="pb-4">
