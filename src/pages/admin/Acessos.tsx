@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { EmpresasSelector } from "@/components/EmpresasSelector";
 import { UserEmpresasManager } from "@/components/UserEmpresasManager";
+import { useMfaMaster } from "@/hooks/useMfaMaster";
 
 import { Database } from "@/integrations/supabase/types";
 
@@ -30,7 +31,7 @@ const userSchema = z.object({
   nome_completo: z.string().min(1, "Nome é obrigatório"),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").optional().or(z.literal("")),
-  tipo_acesso: z.enum(["SDR", "Gerente de Leads", "Vendedor", "Gerente de Loja", "Diretor", "TI", "Administrador", "Proprietário", "CRM", "Recepcionista"]),
+  tipo_acesso: z.enum(["SDR", "Gerente de Leads", "Vendedor", "Gerente de Loja", "Diretor", "TI", "Administrador", "Proprietário", "CRM", "Recepcionista", "Master", "Coordenadora de Leads"]),
   departamento: z.string().optional(),
   celular: z.string().optional(),
   cpf: z.string().optional(),
@@ -79,6 +80,7 @@ const Acessos = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const { user: authUser, session } = useAuth();
+  const { isMaster: isMasterUser } = useMfaMaster();
   const { toast } = useToast();
   
   // Role-based permissions from backend
@@ -477,6 +479,7 @@ const Acessos = () => {
                                     <SelectItem value="Recepcionista">Recepcionista</SelectItem>
                                     <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
                                     <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
+                                    <SelectItem value="Coordenadora de Leads">Coordenadora de Leads</SelectItem>
                                     {isAdminUser && (
                                       <>
                                         <SelectItem value="Diretor">Diretor</SelectItem>
@@ -484,6 +487,9 @@ const Acessos = () => {
                                         <SelectItem value="Administrador">Administrador</SelectItem>
                                         <SelectItem value="Proprietário">Proprietário</SelectItem>
                                       </>
+                                    )}
+                                    {isMasterUser && (
+                                      <SelectItem value="Master">Master</SelectItem>
                                     )}
                                   </SelectContent>
                                 </Select>
@@ -670,6 +676,7 @@ const Acessos = () => {
                                 <SelectItem value="Recepcionista">Recepcionista</SelectItem>
                                 <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
                                 <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
+                                <SelectItem value="Coordenadora de Leads">Coordenadora de Leads</SelectItem>
                                 {isAdminUser && (
                                   <>
                                     <SelectItem value="Diretor">Diretor</SelectItem>
@@ -677,6 +684,9 @@ const Acessos = () => {
                                     <SelectItem value="Administrador">Administrador</SelectItem>
                                     <SelectItem value="Proprietário">Proprietário</SelectItem>
                                   </>
+                                )}
+                                {isMasterUser && (
+                                  <SelectItem value="Master">Master</SelectItem>
                                 )}
                               </SelectContent>
                             </Select>

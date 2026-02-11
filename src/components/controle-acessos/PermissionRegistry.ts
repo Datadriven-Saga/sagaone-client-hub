@@ -244,6 +244,7 @@ export const TIPOS_ACESSO = [
   "TI",
   "Administrador",
   "Proprietário",
+  "Master",
 ] as const;
 
 export type TipoAcesso = (typeof TIPOS_ACESSO)[number];
@@ -253,7 +254,8 @@ export type TipoAcesso = (typeof TIPOS_ACESSO)[number];
  * These are the baseline permissions before any overrides from `departamento_permissoes`.
  */
 export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean> {
-  const isAdmin = tipo === "Administrador";
+  const isMasterRole = tipo === "Master";
+  const isAdmin = tipo === "Administrador" || isMasterRole;
   const isTI = tipo === "TI";
   const isAdminOrTI = isAdmin || isTI;
   const isDiretor = tipo === "Diretor";
