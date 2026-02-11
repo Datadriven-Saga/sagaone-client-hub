@@ -4363,6 +4363,7 @@ export type Database = {
         | "CRM"
         | "Recepcionista"
         | "Coordenadora de Leads"
+        | "Master"
       tipo_evento_prospeccao:
         | "Contato Inicial"
         | "Follow-up"
@@ -4574,6 +4575,7 @@ export const Constants = {
         "CRM",
         "Recepcionista",
         "Coordenadora de Leads",
+        "Master",
       ],
       tipo_evento_prospeccao: [
         "Contato Inicial",

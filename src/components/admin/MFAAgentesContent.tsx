@@ -861,11 +861,15 @@ export function MFAAgentesContent() {
                 <ShieldCheck className="h-16 w-16 mx-auto text-muted-foreground/40 mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-1">Nenhuma conta MFA</h3>
                 <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-                  Adicione contas MFA escaneando QR Codes ou inserindo chaves manualmente.
+                  {isMaster
+                    ? "Adicione contas MFA escaneando QR Codes ou inserindo chaves manualmente."
+                    : "Nenhuma conta MFA foi atribuída a você. Solicite ao Master."}
                 </p>
-                <Button onClick={() => setShowAddModal(true)} className="gap-2">
-                  <Plus className="h-4 w-4" /> Adicionar primeira conta
-                </Button>
+                {isMaster && (
+                  <Button onClick={() => setShowAddModal(true)} className="gap-2">
+                    <Plus className="h-4 w-4" /> Adicionar primeira conta
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (

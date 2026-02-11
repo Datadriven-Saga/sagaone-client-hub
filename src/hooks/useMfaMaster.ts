@@ -16,8 +16,19 @@ export function useMfaMaster() {
 
     const check = async () => {
       try {
+        // Check mfa_master_users table
         const { data, error } = await supabase.rpc("is_mfa_master", { check_user_id: user.id });
-        if (!error) setIsMaster(!!data);
+        if (!error && data) { setIsMaster(true); setLoading(false); return; }
+        
+        // Also check if tipo_acesso is 'Master'
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("tipo_acesso")
+          .eq("id", user.id)
+          .single();
+        if (profile?.tipo_acesso === "Master") { setIsMaster(true); setLoading(false); return; }
+        
+        setIsMaster(false);
       } catch {
         setIsMaster(false);
       } finally {

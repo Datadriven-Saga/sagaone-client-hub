@@ -47,7 +47,8 @@ export function useUserAccessType() {
     fetchTipoAcesso();
   }, [user]);
 
-  const isAdmin = tipoAcesso === "Administrador";
+  const isMasterRole = tipoAcesso === "Master";
+  const isAdmin = tipoAcesso === "Administrador" || isMasterRole;
   const isTI = tipoAcesso === "TI";
   const isAdminOrTI = isAdmin || isTI;
 
@@ -125,6 +126,7 @@ export function useUserAccessType() {
     tipoAcesso,
     departamento,
     loading,
+    isMasterRole,
     isAdmin,
     isTI,
     isAdminOrTI,
