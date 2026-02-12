@@ -82,3 +82,6 @@ verify_jwt = false
 
 [functions.academy-generate-simulation]
 verify_jwt = false
+
+[functions.create-lead]
+verify_jwt = false
