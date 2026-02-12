@@ -13,7 +13,7 @@ interface GestorProtectedRouteProps {
  */
 export function GestorProtectedRoute({ children }: GestorProtectedRouteProps) {
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, isGerente, isCRM, loading: accessLoading } = useUserAccessType();
+  const { isAdmin, isGerente, loading: accessLoading } = useUserAccessType();
 
   const loading = authLoading || accessLoading;
 
@@ -33,7 +33,7 @@ export function GestorProtectedRoute({ children }: GestorProtectedRouteProps) {
   }
 
   // Admin, Gerente de Leads/Loja, or CRM can access
-  if (!isAdmin && !isGerente && !isCRM) {
+  if (!isAdmin && !isGerente) {
     return <Navigate to="/" replace />;
   }
 
