@@ -36,6 +36,7 @@ import {
   Trash2,
   KeyRound,
 } from "lucide-react";
+import { MFAAccessManager } from "@/components/admin/MFAAccessManager";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -101,11 +102,7 @@ const MFAMasterDashboard = () => {
   const [searchAccounts, setSearchAccounts] = useState("");
   const [searchLogs, setSearchLogs] = useState("");
   const [loadingData, setLoadingData] = useState(true);
-
-  // Access assignment modal
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedAccountId, setSelectedAccountId] = useState("");
-  const [selectedUserId, setSelectedUserId] = useState("");
+  const [activeTab, setActiveTab] = useState("accounts");
 
   const loadAll = useCallback(async () => {
     setLoadingData(true);
@@ -137,62 +134,7 @@ const MFAMasterDashboard = () => {
     if (isMaster && !masterLoading) loadAll();
   }, [isMaster, masterLoading, loadAll]);
 
-  const handleGrantAccess = async () => {
-    if (!selectedAccountId || !selectedUserId || !user) return;
-    // Check duplicate
-    const existing = accessList.find(a => a.account_id === selectedAccountId && a.user_id === selectedUserId);
-    try {
-      if (existing && existing.active) {
-        toast({ title: "Usuário já possui acesso a este authenticator", variant: "destructive" });
-        return;
-      }
-      if (existing && !existing.active) {
-        const { error } = await (supabase.from("mfa_account_access" as any) as any)
-          .update({ active: true, revoked_at: null, granted_by: user.id, granted_at: new Date().toISOString() })
-          .eq("id", existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("mfa_account_access" as any).insert({
-          account_id: selectedAccountId,
-          user_id: selectedUserId,
-          granted_by: user.id,
-          active: true,
-        });
-        if (error) throw error;
-      }
-
-      const targetUser = users.find(u => u.id === selectedUserId);
-      const account = accounts.find(a => a.id === selectedAccountId);
-      await logAction("grant_access", selectedAccountId, account?.issuer, selectedUserId, targetUser?.nome_completo);
-
-      toast({ title: "Acesso concedido!" });
-      setShowAssignModal(false);
-      setSelectedAccountId("");
-      setSelectedUserId("");
-      loadAll();
-    } catch (err: any) {
-      toast({ title: "Erro ao conceder acesso", description: err.message, variant: "destructive" });
-    }
-  };
-
-  const handleRevokeAccess = async (accessId: string, accAccess: AccessRow) => {
-    try {
-      const { error } = await supabase
-        .from("mfa_account_access" as any)
-        .update({ active: false, revoked_at: new Date().toISOString() })
-        .eq("id", accessId);
-      if (error) throw error;
-
-      const account = accounts.find(a => a.id === accAccess.account_id);
-      const targetUser = users.find(u => u.id === accAccess.user_id);
-      await logAction("revoke_access", accAccess.account_id, account?.issuer, accAccess.user_id, targetUser?.nome_completo);
-
-      toast({ title: "Acesso revogado!" });
-      loadAll();
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    }
-  };
+  // Grant/Revoke access now handled by MFAAccessManager component
 
   const handleToggleFlag = async (flag: FeatureFlag) => {
     try {
@@ -280,7 +222,7 @@ const MFAMasterDashboard = () => {
             </div>
           </div>
 
-          <Tabs defaultValue="accounts" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4 max-w-2xl">
               <TabsTrigger value="accounts" className="gap-1.5">
                 <KeyRound className="h-4 w-4" /> Authenticators
@@ -346,8 +288,7 @@ const MFAMasterDashboard = () => {
                               )}
                             </div>
                             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => {
-                              setSelectedAccountId(acc.id);
-                              setShowAssignModal(true);
+                              setActiveTab("access");
                             }}>
                               <UserPlus className="h-3.5 w-3.5" /> Atribuir
                             </Button>
@@ -361,78 +302,8 @@ const MFAMasterDashboard = () => {
             </TabsContent>
 
             {/* ACCESS TAB */}
-            <TabsContent value="access" className="space-y-4 mt-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-foreground">Atribuições de Acesso</h3>
-                <Button size="sm" className="gap-1.5" onClick={() => setShowAssignModal(true)}>
-                  <UserPlus className="h-4 w-4" /> Nova Atribuição
-                </Button>
-              </div>
-
-              {accessList.filter(a => a.active).length === 0 ? (
-                <Card className="border-dashed border-2">
-                  <CardContent className="py-12 text-center">
-                    <Users className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
-                    <p className="text-muted-foreground">Nenhum acesso atribuído</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-2">
-                  {accessList.filter(a => a.active).map(acc => {
-                    const account = accounts.find(a => a.id === acc.account_id);
-                    return (
-                      <Card key={acc.id}>
-                        <CardContent className="py-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="secondary">{account?.issuer || acc.account_id.slice(0, 8)}</Badge>
-                                <span className="text-sm">→</span>
-                                <span className="text-sm font-medium">{getUserName(acc.user_id)}</span>
-                              </div>
-                              <span className="text-xs text-muted-foreground">
-                                Concedido por {getUserName(acc.granted_by)} em {format(new Date(acc.granted_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                              </span>
-                            </div>
-                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive gap-1"
-                              onClick={() => handleRevokeAccess(acc.id, acc)}>
-                              <UserMinus className="h-3.5 w-3.5" /> Revogar
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Revoked access history */}
-              {accessList.filter(a => !a.active).length > 0 && (
-                <div className="mt-6">
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Acessos Revogados</h4>
-                  <div className="space-y-2 opacity-60">
-                    {accessList.filter(a => !a.active).map(acc => {
-                      const account = accounts.find(a => a.id === acc.account_id);
-                      return (
-                        <Card key={acc.id}>
-                          <CardContent className="py-2">
-                            <div className="flex items-center gap-2 text-sm">
-                              <Badge variant="outline" className="line-through">{account?.issuer || "?"}</Badge>
-                              <span>→</span>
-                              <span>{getUserName(acc.user_id)}</span>
-                              {acc.revoked_at && (
-                                <span className="text-xs text-muted-foreground ml-auto">
-                                  Revogado em {format(new Date(acc.revoked_at), "dd/MM/yyyy", { locale: ptBR })}
-                                </span>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+            <TabsContent value="access" className="mt-4">
+              <MFAAccessManager accounts={accounts} onAccessChanged={loadAll} />
             </TabsContent>
 
             {/* LOGS TAB */}
@@ -509,46 +380,7 @@ const MFAMasterDashboard = () => {
           </Tabs>
         </div>
 
-        {/* Assign Access Modal */}
-        <Dialog open={showAssignModal} onOpenChange={setShowAssignModal}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <UserPlus className="h-5 w-5 text-primary" />
-                Atribuir Acesso
-              </DialogTitle>
-              <DialogDescription>Selecione um authenticator e um usuário para conceder acesso</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Authenticator</label>
-                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>
-                    {accounts.map(a => (
-                      <SelectItem key={a.id} value={a.id}>{a.issuer}{a.label && a.label !== a.issuer ? ` (${a.label})` : ""}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Usuário</label>
-                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>
-                    {users.map(u => (
-                      <SelectItem key={u.id} value={u.id}>{u.nome_completo}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAssignModal(false)}>Cancelar</Button>
-              <Button onClick={handleGrantAccess} disabled={!selectedAccountId || !selectedUserId}>Conceder Acesso</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {/* Assign modal moved to MFAAccessManager */}
       </ScrollIndicator>
     </DashboardLayout>
   );
