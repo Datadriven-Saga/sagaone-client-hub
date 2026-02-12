@@ -490,40 +490,30 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
         }
 
         try {
-          console.log(`Disparando webhook para gatilho: ${gatilho.nome}`);
+          console.log(`📤 Disparando webhook para gatilho: ${gatilho.nome}`);
 
-          // Adicionar timeout de 10 segundos para evitar travamento
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-          const response = await fetch(webhookUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-            signal: controller.signal,
+          const { data: proxyResponse, error: proxyError } = await supabase.functions.invoke('external-webhook-proxy', {
+            body: {
+              webhook_url: webhookUrl,
+              ...payload
+            }
           });
 
-          clearTimeout(timeoutId);
-
-          if (response.ok) {
-            console.log(`Webhook disparado com sucesso para: ${gatilho.nome}`);
+          if (proxyError) {
+            console.error(`❌ Erro ao disparar gatilho "${gatilho.nome}": ${proxyError.message}`);
+          } else {
+            console.log(`✅ Gatilho "${gatilho.nome}" disparado com sucesso:`, proxyResponse);
             await supabase
               .from("gatilhos")
               .update({ ultima_execucao: new Date().toISOString() })
               .eq("id", gatilho.id);
-          } else {
-            console.error(`Erro ao disparar webhook para ${gatilho.nome}:`, response.status);
           }
-        } catch (webhookError: any) {
-          if (webhookError.name === 'AbortError') {
-            console.error(`Timeout ao chamar webhook ${gatilho.nome}`);
-          } else {
-            console.error(`Erro ao chamar webhook ${gatilho.nome}:`, webhookError);
-          }
+        } catch (webhookError) {
+          console.error(`❌ Erro ao disparar gatilho "${gatilho.nome}": ${webhookError instanceof Error ? webhookError.message : 'Erro desconhecido'}`);
         }
       }
     } catch (err) {
-      console.error("Erro ao processar gatilhos:", err);
+      console.error(`❌ Erro ao processar gatilhos de "novo_template_whatsapp": ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
     }
   };
 

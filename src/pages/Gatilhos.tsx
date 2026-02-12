@@ -356,29 +356,30 @@ const Gatilhos = () => {
         return;
       }
 
-      // Enviar requisição diretamente para o webhook configurado
-      const response = await fetch(gatilho.webhook_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(bodyEnvio)
+      // Enviar requisição via proxy para evitar problemas de CSP
+      const { data: proxyResponse, error: proxyError } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: {
+          webhook_url: gatilho.webhook_url,
+          ...bodyEnvio
+        }
       });
 
-      if (response.ok) {
-        toast({
-          title: "Teste realizado com sucesso!",
-          description: `Webhook "${gatilho.nome}" foi chamado e respondeu com status ${response.status}`,
-        });
-      } else {
+      if (proxyError) {
+        console.error(`❌ Erro ao testar gatilho "${gatilho.nome}": ${proxyError.message}`);
         toast({
           title: "Teste falhou",
-          description: `O webhook respondeu com status ${response.status}. Verifique a configuração.`,
+          description: `Erro ao chamar webhook: ${proxyError.message}`,
           variant: "destructive"
+        });
+      } else {
+        console.log(`✅ Gatilho "${gatilho.nome}" testado com sucesso:`, proxyResponse);
+        toast({
+          title: "Teste realizado com sucesso!",
+          description: `Webhook "${gatilho.nome}" foi chamado com sucesso`,
         });
       }
     } catch (error) {
-      console.error('Erro ao testar gatilho:', error);
+      console.error(`❌ Erro ao testar gatilho "${gatilho.nome}": ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       toast({
         title: "Erro no teste",
         description: "Não foi possível conectar com o webhook. Verifique a URL e conexão.",
