@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, XCircle, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -33,6 +33,8 @@ interface ClienteData {
   base_id?: string;
   validationError?: string;
   validationErrorCode?: PhoneErrorCode;
+  emQuarentena?: boolean;
+  quarentenaInfo?: string;
 }
 
 interface Prospeccao {
@@ -59,6 +61,7 @@ interface ValidationSummary {
   valid: number;
   invalid: number;
   duplicates: number;
+  quarentena: number;
 }
 
 const ERROR_LABELS: Record<PhoneErrorCode, string> = {
@@ -82,6 +85,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
   const [previewData, setPreviewData] = useState<ClienteData[]>([]);
   const [invalidData, setInvalidData] = useState<ClienteData[]>([]);
   const [duplicateData, setDuplicateData] = useState<ClienteData[]>([]);
+  const [quarentenaData, setQuarentenaData] = useState<ClienteData[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [validationSummary, setValidationSummary] = useState<ValidationSummary | null>(null);
   const [activeTab, setActiveTab] = useState('valid');
@@ -297,29 +301,80 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
           });
         });
       
-      setPreviewData(validClientes);
+      // Verificar quarentena para contatos válidos
+      const quarentenaClientes: ClienteData[] = [];
+      const contatosLimpos: ClienteData[] = [];
+      
+      if (validClientes.length > 0 && activeCompany?.id) {
+        const telefones = validClientes.map(c => c.telefone);
+        const { data: quarentenaResult, error: quarentenaError } = await supabase
+          .rpc('check_quarentena', { 
+            p_telefones: telefones, 
+            p_empresa_id: activeCompany.id 
+          });
+        
+        if (!quarentenaError && quarentenaResult) {
+          const quarentenaMap = new Map<string, { em_quarentena: boolean; ultimo_impacto: string; evento: string }>();
+          quarentenaResult.forEach((r: any) => {
+            if (r.em_quarentena) {
+              quarentenaMap.set(r.telefone, r);
+            }
+          });
+          
+          for (const cliente of validClientes) {
+            const info = quarentenaMap.get(cliente.telefone);
+            if (info) {
+              const dataImpacto = new Date(info.ultimo_impacto).toLocaleDateString('pt-BR');
+              quarentenaClientes.push({
+                ...cliente,
+                emQuarentena: true,
+                quarentenaInfo: `Impactado em ${dataImpacto}${info.evento ? ` (${info.evento})` : ''}`,
+                validationError: `Em quarentena até ${new Date(new Date(info.ultimo_impacto).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR')}`
+              });
+            } else {
+              contatosLimpos.push(cliente);
+            }
+          }
+        } else {
+          // Se falhar a checagem, permitir todos
+          contatosLimpos.push(...validClientes);
+        }
+      } else {
+        contatosLimpos.push(...validClientes);
+      }
+      
+      setPreviewData(contatosLimpos);
       setInvalidData(invalidClientes);
       setDuplicateData(duplicateClientes);
+      setQuarentenaData(quarentenaClientes);
       setValidationSummary({
-        total: validClientes.length + invalidClientes.length + duplicateClientes.length,
-        valid: validClientes.length,
+        total: contatosLimpos.length + invalidClientes.length + duplicateClientes.length + quarentenaClientes.length,
+        valid: contatosLimpos.length,
         invalid: invalidClientes.length,
-        duplicates: duplicateClientes.length
+        duplicates: duplicateClientes.length,
+        quarentena: quarentenaClientes.length
       });
       
       setIsProcessing(false);
       
-      if (invalidClientes.length > 0 || duplicateClientes.length > 0) {
+      if (quarentenaClientes.length > 0) {
+        toast({
+          title: "Contatos em quarentena detectados",
+          description: `${quarentenaClientes.length} contato(s) bloqueado(s) por terem sido impactados nos últimos 30 dias`,
+          variant: "default",
+        });
+        setActiveTab('quarentena');
+      } else if (invalidClientes.length > 0 || duplicateClientes.length > 0) {
         toast({
           title: "Arquivo processado com ressalvas",
-          description: `${validClientes.length} válidos, ${invalidClientes.length} inválidos, ${duplicateClientes.length} duplicados`,
+          description: `${contatosLimpos.length} válidos, ${invalidClientes.length} inválidos, ${duplicateClientes.length} duplicados`,
           variant: "default",
         });
         setActiveTab(invalidClientes.length > 0 ? 'invalid' : 'duplicates');
       } else {
         toast({
           title: "Arquivo processado",
-          description: `${validClientes.length} registros válidos encontrados`,
+          description: `${contatosLimpos.length} registros válidos encontrados`,
         });
         setActiveTab('valid');
       }
@@ -387,6 +442,64 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       }));
       
       onClientesImported(selectedCampanha, clientesComDados);
+      
+      // Registrar quarentena para os contatos importados
+      if (activeCompany?.id && previewData.length > 0) {
+        const quarentenaRows = previewData.map(c => ({
+          telefone_normalizado: c.telefone,
+          empresa_id: activeCompany.id,
+          ultimo_impacto_at: new Date().toISOString(),
+          prospeccao_id: selectedCampanha,
+          evento_nome: selectedProspeccao?.titulo || '',
+          canal: selectedProspeccao?.canal || 'WhatsApp',
+        }));
+        
+        // Upsert em lote (atualiza data do ultimo impacto se já existir)
+        await supabase
+          .from('contato_quarentena')
+          .upsert(quarentenaRows, { onConflict: 'telefone_normalizado,empresa_id' });
+      }
+      
+      // Criar notificação de importação para CRM
+      if (activeCompany?.id) {
+        const { data: userData } = await supabase
+          .from('profiles')
+          .select('nome_completo')
+          .eq('id', (await supabase.auth.getUser()).data.user?.id || '')
+          .single();
+        
+        await supabase
+          .from('notificacoes_importacao')
+          .insert({
+            empresa_id: activeCompany.id,
+            solicitante_id: (await supabase.auth.getUser()).data.user?.id || '',
+            solicitante_nome: userData?.nome_completo || 'Usuário',
+            base_nome: baseNomeFinal,
+            total_contatos: previewData.length,
+            prospeccao_id: selectedCampanha,
+          });
+        
+        // Notificar CRM users da empresa via tabela de notificações
+        const { data: crmUsers } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('empresa_id', activeCompany.id)
+          .eq('tipo_acesso', 'CRM')
+          .eq('status', 'Ativo');
+        
+        if (crmUsers && crmUsers.length > 0) {
+          const notificacoes = crmUsers.map(crm => ({
+            destinatario_id: crm.id,
+            tipo: 'Push' as const,
+            titulo: `Nova importação de base: ${baseNomeFinal}`,
+            mensagem: `${userData?.nome_completo || 'Um usuário'} importou ${previewData.length} contatos para a campanha "${selectedProspeccao?.titulo || ''}"`,
+            status: 'Pendente' as const,
+          }));
+          
+          await supabase.from('notificacoes').insert(notificacoes);
+        }
+      }
+      
       setIsOpen(false);
       setSelectedCampanha('');
       setSelectedOrigem('');
@@ -395,6 +508,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       setPreviewData([]);
       setInvalidData([]);
       setDuplicateData([]);
+      setQuarentenaData([]);
       setValidationSummary(null);
       
       const rejectedCount = (validationSummary?.invalid || 0) + (validationSummary?.duplicates || 0);
@@ -420,6 +534,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
     setPreviewData([]);
     setInvalidData([]);
     setDuplicateData([]);
+    setQuarentenaData([]);
     setSelectedCampanha('');
     setSelectedOrigem('');
     setNomeBase('');
@@ -549,7 +664,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
                 </Button>
               </div>
               
-              <div className="grid grid-cols-4 gap-4 mb-4">
+              <div className="grid grid-cols-5 gap-3 mb-4">
                 <div className="text-center p-3 bg-muted rounded-lg">
                   <div className="text-2xl font-bold">{validationSummary.total}</div>
                   <div className="text-xs text-muted-foreground">Total</div>
@@ -566,21 +681,29 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
                   <div className="text-2xl font-bold text-yellow-700">{validationSummary.duplicates}</div>
                   <div className="text-xs text-yellow-600">Duplicados</div>
                 </div>
+                <div className="text-center p-3 bg-orange-50 rounded-lg border border-orange-200">
+                  <div className="text-2xl font-bold text-orange-700">{validationSummary.quarentena}</div>
+                  <div className="text-xs text-orange-600">Quarentena</div>
+                </div>
               </div>
 
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="valid" className="flex items-center gap-2">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="valid" className="flex items-center gap-1 text-xs">
                     <CheckCircle size={14} className="text-green-600" />
                     Válidos ({previewData.length})
                   </TabsTrigger>
-                  <TabsTrigger value="invalid" className="flex items-center gap-2">
+                  <TabsTrigger value="invalid" className="flex items-center gap-1 text-xs">
                     <XCircle size={14} className="text-red-600" />
                     Inválidos ({invalidData.length})
                   </TabsTrigger>
-                  <TabsTrigger value="duplicates" className="flex items-center gap-2">
+                  <TabsTrigger value="duplicates" className="flex items-center gap-1 text-xs">
                     <AlertTriangle size={14} className="text-yellow-600" />
                     Duplicados ({duplicateData.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="quarentena" className="flex items-center gap-1 text-xs">
+                    <ShieldAlert size={14} className="text-orange-600" />
+                    Quarentena ({quarentenaData.length})
                   </TabsTrigger>
                 </TabsList>
                 
@@ -690,6 +813,43 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
                           <TableRow>
                             <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
                               Nenhuma duplicata encontrada
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </TabsContent>
+                
+                <TabsContent value="quarentena" className="mt-4">
+                  <ScrollArea className="h-[280px] border rounded-lg">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background z-10">
+                        <TableRow>
+                          <TableHead className="w-[180px]">Nome</TableHead>
+                          <TableHead className="w-[160px]">Telefone</TableHead>
+                          <TableHead>Motivo do Bloqueio</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {quarentenaData.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{item.nome}</TableCell>
+                            <TableCell className="font-mono text-sm text-orange-600">
+                              {item.telefone}
+                            </TableCell>
+                            <TableCell className="text-orange-600 text-sm">
+                              <div className="flex items-center gap-2">
+                                <ShieldAlert size={14} />
+                                <span>{item.quarentenaInfo || item.validationError}</span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {quarentenaData.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                              Nenhum contato em quarentena
                             </TableCell>
                           </TableRow>
                         )}
