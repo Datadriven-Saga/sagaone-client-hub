@@ -57,7 +57,7 @@ const Login = () => {
             </div>
           </div>
 
-          <Card className="shadow-card border-0 bg-sagaone-login-card">
+          <Card className="shadow-card border-0 bg-sagaone-login-card dark:bg-card dark:border dark:border-border">
             <CardHeader className="space-y-1">
               <CardTitle className="text-2xl text-center font-medium">Faça seu login</CardTitle>
               <p className="text-center text-muted-foreground text-sm">
@@ -67,7 +67,7 @@ const Login = () => {
             <CardContent className="space-y-4">
               <Button
                 type="button"
-                className="w-full flex items-center justify-center gap-3 h-14 bg-sagaone-login-button hover:bg-sagaone-login-button/90 text-white text-base font-medium"
+                className="w-full flex items-center justify-center gap-3 h-14 bg-sagaone-login-button hover:bg-sagaone-login-button/90 text-white dark:text-primary-foreground text-base font-medium"
                 onClick={handleSSOLogin}
                 disabled={loading}
               >
