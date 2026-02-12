@@ -2,51 +2,78 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
+import {
+  getDefaultPermissions,
+  resolvePermissions,
+  type TipoAcesso,
+} from "@/components/controle-acessos/PermissionRegistry";
 
-type TipoAcesso = Database["public"]["Enums"]["tipo_acesso"];
+type TipoAcessoDB = Database["public"]["Enums"]["tipo_acesso"];
 
 export function useUserAccessType() {
   const { user } = useAuth();
-  const [tipoAcesso, setTipoAcesso] = useState<TipoAcesso | null>(null);
+  const [tipoAcesso, setTipoAcesso] = useState<TipoAcessoDB | null>(null);
   const [departamento, setDepartamento] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchTipoAcesso = async () => {
+    const fetchData = async () => {
       if (!user) {
         setTipoAcesso(null);
         setDepartamento(null);
+        setPermissions({});
         setLoading(false);
         return;
       }
 
       try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("tipo_acesso, departamento")
-          .eq("id", user.id)
-          .single();
+        // Fetch profile and permission overrides in parallel
+        const [profileRes, overridesRes] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("tipo_acesso, departamento")
+            .eq("id", user.id)
+            .single(),
+          supabase
+            .from("departamento_permissoes")
+            .select("departamento, permissao, ativo"),
+        ]);
 
-        if (error) {
-          console.error("Erro ao buscar tipo de acesso/departamento:", error);
-          setTipoAcesso(null);
-          setDepartamento(null);
+        const tipo = profileRes.data?.tipo_acesso ?? null;
+        const dept = profileRes.data?.departamento ?? null;
+
+        setTipoAcesso(tipo);
+        setDepartamento(dept);
+
+        if (tipo) {
+          // Build overrides map for this user's tipo_acesso
+          const allOverrides: Record<string, Record<string, boolean>> = {};
+          overridesRes.data?.forEach((row) => {
+            if (!allOverrides[row.departamento]) allOverrides[row.departamento] = {};
+            allOverrides[row.departamento][row.permissao] = row.ativo;
+          });
+
+          const myOverrides = allOverrides[tipo as string] || {};
+          const resolved = resolvePermissions(tipo as TipoAcesso, myOverrides);
+          setPermissions(resolved);
         } else {
-          setTipoAcesso(data?.tipo_acesso ?? null);
-          setDepartamento(data?.departamento ?? null);
+          setPermissions({});
         }
       } catch (err) {
-        console.error("Erro ao buscar tipo de acesso/departamento:", err);
+        console.error("Erro ao buscar tipo de acesso/permissões:", err);
         setTipoAcesso(null);
         setDepartamento(null);
+        setPermissions({});
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTipoAcesso();
+    fetchData();
   }, [user]);
 
+  // Derived role flags (kept for backward compatibility)
   const isMasterRole = tipoAcesso === "Master";
   const isAdmin = tipoAcesso === "Administrador" || isMasterRole;
   const isTI = tipoAcesso === "TI";
@@ -65,82 +92,14 @@ export function useUserAccessType() {
 
   const isDepartamentoTI = (departamento ?? "").trim().toUpperCase() === "TI";
 
-  // Permissões para adicionar clientes: Administrador, CRM
-  const canAddClientes = isAdmin || isCRM;
-
-  // Permissões para acessar Recepção: Administrador, Recepcionista
-  const canAccessRecepcao = isAdmin || isRecepcionista;
-
-  // Permissões para ler QR Code/check-in: Administrador, Recepcionista
-  const canReadQRCode = isAdmin || isRecepcionista;
-
-  // Permissões para gerenciar usuários: Administrador, TI
-  const canManageUsers = isAdminOrTI;
-
-  // Permissões para acessar configurações administrativas: Administrador, TI
-  const canAccessAdminConfig = isAdminOrTI;
-
-  // Permissões para acessar relatórios financeiros: Administrador, TI, Diretor, Proprietário
-  const canAccessFinancialReports = isAdmin || isTI || isDiretor || isProprietario;
-
-  // Permissões para acessar Kanban de atendimentos: todos EXCETO Recepcionista
-  const canAccessKanban = !isRecepcionista;
-
-  // Permissões para criar/editar/excluir eventos: todos EXCETO Recepcionista
-  const canManageEvents = !isRecepcionista;
-
-  // Permissões para adicionar clientes manualmente/importar: Administrador, TI, CRM
-  const canImportClientes = isAdmin || isTI || isCRM;
-
-  // Permissões para gerar convites/QR Codes: todos EXCETO Recepcionista
-  const canGenerateInvites = !isRecepcionista;
-
-  // Permissões para criar templates: Administrador, TI, Gerente de Leads, CRM
-  const canCreateTemplates = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
-
-  // Permissão específica para área de TI (Agentes IA / Instâncias)
-  const canAccessAgentesIA = isDepartamentoTI && isAdminOrTI;
-
-  // Permissão para criar eventos (incluindo ligação): Administrador, TI, Gerente de Leads, Coordenadora de Leads, CRM
-  const canCreateEventos = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
-
-  // Permissão para criar eventos de IA Ligação: Administrador, TI, Gerente de Leads, Coordenadora de Leads
-  const canCreateIALigacao = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads;
-
-  // Permissão para subir base de leads: Administrador, TI, CRM, Gerente de Leads, Coordenadora de Leads, Gerente de Loja
-  const canUploadBase = isAdmin || isTI || isCRM || isGerenteLeads || isCoordenadoraLeads || isGerenteLoja;
-
-  // Permissão para disparar eventos de IA Ligação: Administrador, TI
-  const canDispararIALigacao = isAdminOrTI;
-
-  // Permissão para disparar outros eventos: Administrador, TI, Gerente de Leads, Coordenadora de Leads, CRM
-  const canDispararEventos = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
-
-  // Permissão para gerenciar eventos (editar/excluir): Administrador, TI
-  const canManageEventos = isAdminOrTI;
-
-  // Permissão para gerenciar equipes de prospecção: Admin, TI, Gerente de Leads, Coordenadora de Leads, CRM, Gerente de Loja
-  const canManageProspeccaoEquipes = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM || isGerenteLoja;
-
-  // Permissão para aprovar/reprovar campanhas: Administrador, TI, CRM (NÃO Gestor de Leads)
-  const canAprovarCampanhas = isAdmin || isTI || isCRM;
-
-  // Permissão para validar importações de base: Administrador, TI, CRM
-  const canValidarImportacao = isAdmin || isTI || isCRM;
-
-  // Permissão para programar campanhas: Administrador, TI, Gerente de Leads, Coordenadora de Leads, CRM
-  const canProgramarCampanhas = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
-
-  // Permissão para governança de dados: Administrador, TI, CRM
-  const canGovernancaDados = isAdmin || isTI || isCRM;
-
-  // Permissão para criar usuários: Administrador, TI, Gerente de Leads, Coordenadora de Leads, CRM
-  const canCreateUsers = isAdminOrTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+  // Helper to get permission from resolved map with fallback
+  const p = (key: string): boolean => permissions[key] ?? false;
 
   return {
     tipoAcesso,
     departamento,
     loading,
+    // Role flags
     isMasterRole,
     isAdmin,
     isTI,
@@ -154,30 +113,36 @@ export function useUserAccessType() {
     isSDR,
     isProprietario,
     isDepartamentoTI,
-    canAccessAgentesIA,
-    canCreateIALigacao,
-    canCreateEventos,
-    canUploadBase,
-    canDispararIALigacao,
-    canDispararEventos,
-    canManageEventos,
-    canManageProspeccaoEquipes,
-    canAprovarCampanhas,
-    canValidarImportacao,
-    canProgramarCampanhas,
-    canGovernancaDados,
-    canCreateUsers,
-    // Permissões específicas
-    canAddClientes,
-    canAccessRecepcao,
-    canReadQRCode,
-    canManageUsers,
-    canAccessAdminConfig,
-    canAccessFinancialReports,
-    canAccessKanban,
-    canManageEvents,
-    canImportClientes,
-    canGenerateInvites,
-    canCreateTemplates,
+
+    // All permissions now driven by Permission Flags (departamento_permissoes)
+    canAccessAgentesIA: p("canAccessAgentesIA") || (isDepartamentoTI && isAdminOrTI),
+    canCreateIALigacao: p("canCreateIALigacao"),
+    canCreateEventos: p("canCreateEventos"),
+    canUploadBase: p("canUploadBase"),
+    canDispararIALigacao: p("canDispararIALigacao"),
+    canDispararEventos: p("canDispararEventos"),
+    canManageEventos: p("canManageEventos"),
+    canManageProspeccaoEquipes: p("canManageProspeccaoEquipes"),
+    canAprovarCampanhas: p("canAprovarCampanhas"),
+    canValidarImportacao: p("canValidarImportacao"),
+    canProgramarCampanhas: p("canProgramarCampanhas"),
+    canGovernancaDados: p("canGovernancaDados"),
+    canCreateUsers: p("canCreateUsers"),
+
+    // Specific permissions
+    canAddClientes: p("canAddClientes"),
+    canAccessRecepcao: p("canAccessRecepcao"),
+    canReadQRCode: p("canReadQRCode"),
+    canManageUsers: p("canManageUsers"),
+    canAccessAdminConfig: p("canAccessAdminConfig"),
+    canAccessFinancialReports: p("canAccessFinancialReports"),
+    canAccessKanban: p("canAccessKanban"),
+    canManageEvents: p("canManageEvents"),
+    canImportClientes: p("canImportClientes"),
+    canGenerateInvites: p("canGenerateInvites"),
+    canCreateTemplates: p("canCreateTemplates"),
+
+    // Full permissions map for granular checks
+    permissions,
   };
 }
