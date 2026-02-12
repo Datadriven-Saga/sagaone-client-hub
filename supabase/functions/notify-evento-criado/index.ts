@@ -15,6 +15,7 @@ interface EventoPayload {
   canal?: string;
   empresa_id: string;
   criado_por_id?: string;
+  tipo?: string; // 'evento_criado' | 'evento_editado'
 }
 
 Deno.serve(async (req) => {
@@ -60,6 +61,8 @@ Deno.serve(async (req) => {
       data_fim,
       empresa_id,
     } = payload;
+    const tipoNotificacao = payload.tipo || 'evento_criado';
+    const isEdicao = tipoNotificacao === 'evento_editado';
 
     if (!prospeccao_id || !empresa_id || !titulo) {
       return new Response(
@@ -159,19 +162,21 @@ Deno.serve(async (req) => {
     const enderecoEmpresa = empresa?.endereco || "";
     const responsavel = criador?.nome_completo || "Sistema";
 
-    const assunto = `Novo Evento Criado – Ação Necessária CRM`;
+    const assunto = isEdicao 
+      ? `Evento Editado – Ação Necessária CRM` 
+      : `Novo Evento Criado – Ação Necessária CRM`;
 
     const corpoHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: #1a1a2e; color: #ffffff; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
-          <h2 style="margin: 0; font-size: 20px;">📢 Novo Evento Criado</h2>
+          <h2 style="margin: 0; font-size: 20px;">${isEdicao ? '✏️ Evento Editado' : '📢 Novo Evento Criado'}</h2>
           <p style="margin: 5px 0 0; opacity: 0.8; font-size: 14px;">Ação Necessária – Equipe CRM</p>
         </div>
         
         <div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none;">
           <p style="color: #374151; font-size: 15px; line-height: 1.6;">
             Olá,<br><br>
-            Um novo evento foi criado no sistema e requer ação da equipe de CRM.
+            ${isEdicao ? 'Um evento foi editado no sistema e requer atenção da equipe de CRM.' : 'Um novo evento foi criado no sistema e requer ação da equipe de CRM.'}
           </p>
           
           <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin: 16px 0;">
@@ -274,7 +279,7 @@ Deno.serve(async (req) => {
         if (emailRes.ok) {
           enviados++;
           logs.push({
-            tipo: "evento_criado",
+            tipo: tipoNotificacao,
             referencia_id: prospeccao_id,
             referencia_tipo: "prospeccao",
             destinatario_email: dest.email,
@@ -288,7 +293,7 @@ Deno.serve(async (req) => {
         } else {
           erros++;
           logs.push({
-            tipo: "evento_criado",
+            tipo: tipoNotificacao,
             referencia_id: prospeccao_id,
             referencia_tipo: "prospeccao",
             destinatario_email: dest.email,
@@ -303,7 +308,7 @@ Deno.serve(async (req) => {
       } catch (emailErr) {
         erros++;
         logs.push({
-          tipo: "evento_criado",
+          tipo: tipoNotificacao,
           referencia_id: prospeccao_id,
           referencia_tipo: "prospeccao",
           destinatario_email: dest.email,
