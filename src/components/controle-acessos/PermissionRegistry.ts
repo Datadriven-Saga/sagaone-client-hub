@@ -128,6 +128,8 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   // ── Disparos ──
   { key: "canDispararEventos", label: "Disparar eventos", moduleId: "disparos", action: "executar" },
   { key: "canRedispararEventos", label: "Redisparar eventos", moduleId: "disparos", action: "executar" },
+  { key: "canAprovarCampanhas", label: "Aprovar/Reprovar campanhas", moduleId: "disparos", action: "administrar", description: "Validação e aprovação de campanhas antes do disparo" },
+  { key: "canProgramarCampanhas", label: "Programar campanhas", moduleId: "disparos", action: "executar", description: "Programar agendamento de campanhas" },
 
   // ── Base / Contatos ──
   { key: "canViewClientes", label: "Visualizar clientes", moduleId: "base_contatos", action: "visualizar" },
@@ -138,6 +140,8 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   { key: "canUploadBase", label: "Subir base de leads", moduleId: "base_contatos", action: "executar" },
   { key: "canEditContatos", label: "Editar contatos", moduleId: "base_contatos", action: "editar" },
   { key: "canDeleteContatos", label: "Excluir contatos", moduleId: "base_contatos", action: "excluir" },
+  { key: "canValidarImportacao", label: "Validar importações de base", moduleId: "base_contatos", action: "administrar", description: "Aprovar ou reprovar importações de base de contatos" },
+  { key: "canGovernancaDados", label: "Gerenciar governança de dados", moduleId: "base_contatos", action: "administrar", description: "Controle de qualidade e governança sobre dados de contatos" },
 
   // ── Recepção ──
   { key: "canAccessRecepcao", label: "Acessar Recepção", moduleId: "recepcao", action: "visualizar" },
@@ -319,6 +323,8 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   // ── Disparos ──
   defaults.canDispararEventos = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
   defaults.canRedispararEventos = isAdminOrTI;
+  defaults.canAprovarCampanhas = isAdmin || isTI || isCRM; // CRM valida campanhas; Gestor de Leads NÃO pode aprovar
+  defaults.canProgramarCampanhas = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
 
   // ── Base / Contatos ──
   defaults.canViewClientes = true;
@@ -329,6 +335,8 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canUploadBase = isAdmin || isTI || isCRM || isGerenteLeads || isCoordenadoraLeads || isGerenteLoja;
   defaults.canEditContatos = !isRecepcionista;
   defaults.canDeleteContatos = isAdminOrTI;
+  defaults.canValidarImportacao = isAdmin || isTI || isCRM; // CRM valida importações; Gestor de Leads NÃO pode validar
+  defaults.canGovernancaDados = isAdmin || isTI || isCRM; // CRM gerencia governança de dados
 
   // ── Recepção ──
   defaults.canAccessRecepcao = isAdmin || isRecepcionista;
@@ -357,11 +365,11 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
 
   // ── Usuários ──
   defaults.canManageUsers = isAdminOrTI;
-  defaults.canCreateUsers = isAdminOrTI;
+  defaults.canCreateUsers = isAdminOrTI || isGerenteLeads || isCoordenadoraLeads || isCRM; // Gestor de Leads e CRM podem cadastrar usuários
   defaults.canEditUsers = isAdminOrTI || isGerente;
   defaults.canDeleteUsers = isAdminOrTI;
   defaults.canAccessAdminConfig = isAdminOrTI;
-  defaults.canAccessAdministracao = isAdmin || isGerente;
+  defaults.canAccessAdministracao = isAdmin || isGerente || isCRM; // CRM acessa Administração
   defaults.canAccessControleAcessos = isAdmin;
 
   // ── Empresas ──
