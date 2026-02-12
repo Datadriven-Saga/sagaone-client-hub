@@ -2082,7 +2082,7 @@ export default function AdminAgentes() {
                 </div>
 
                 {/* Aviso para novo agente */}
-                {!agenteLocal && activeTab !== "dados-gerais" && activeTab !== "instancias" && activeTab !== "lojas-gaia" && (
+                {!agenteLocal && activeTab !== "dados-gerais" && activeTab !== "instancias" && activeTab !== "lojas-gaia" && activeTab !== "eventos" && activeTab !== "testar" && (
                   <div className="flex items-center justify-center py-12 text-center">
                     <div className="space-y-2">
                       <Bot className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
