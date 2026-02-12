@@ -12,7 +12,8 @@ import {
   Bot,
   GraduationCap,
   ShieldCheck,
-  KeyRound
+  KeyRound,
+  DollarSign
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
@@ -120,6 +121,12 @@ const Administracao = () => {
       description: "Gerenciar permissões por departamento",
       icon: ShieldCheck,
       route: "/administracao/controle-acessos"
+    },
+    {
+      title: "Logs de Disparos",
+      description: "Auditoria de todos os disparos de IA com custos",
+      icon: DollarSign,
+      route: "/administracao/logs-disparos"
     }
   ];
 

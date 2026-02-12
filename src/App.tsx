@@ -43,6 +43,7 @@ import ControleAgentes from "./pages/admin/ControleAgentes";
 import VisaoGeral from "./pages/admin/VisaoGeral";
 import ControleAcessos from "./pages/admin/ControleAcessos";
 import MFAMasterDashboard from "./pages/admin/MFAMasterDashboard";
+import LogsDisparos from "./pages/admin/LogsDisparos";
 
 // Agentes IA page imports
 import Instancias from "./pages/agentes-ia/Instancias";
@@ -98,6 +99,7 @@ const AppRoutes = () => {
       <Route path="/administracao/treinamentos" element={<TIAdminProtectedRoute><Treinamentos adminMode /></TIAdminProtectedRoute>} />
       <Route path="/administracao/controle-acessos" element={<AdminProtectedRoute><ControleAcessos /></AdminProtectedRoute>} />
       <Route path="/administracao/mfa-master" element={<ProtectedRoute><MFAMasterDashboard /></ProtectedRoute>} />
+      <Route path="/administracao/logs-disparos" element={<AdminProtectedRoute><LogsDisparos /></AdminProtectedRoute>} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

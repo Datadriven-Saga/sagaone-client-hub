@@ -88,3 +88,6 @@ verify_jwt = false
 
 [functions.search-lead]
 verify_jwt = false
+
+[functions.cotacao-dolar]
+verify_jwt = true

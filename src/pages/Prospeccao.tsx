@@ -29,6 +29,7 @@ import { DescarteLeadModal } from "@/components/DescarteLeadModal";
 import { ClientesImportadosList } from "@/components/ClientesImportadosList";
 import { VendasProspeccaoTab } from "@/components/VendasProspeccaoTab";
 import { EventoBaseModal } from "@/components/EventoBaseModal";
+import DispararCustoModal from "@/components/DispararCustoModal";
 import { useVendasProspeccao } from "@/hooks/useVendasProspeccao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
@@ -140,6 +141,19 @@ showAllEvents: true
     prospeccao: null
   });
   const [deletingEvento, setDeletingEvento] = useState(false);
+  const [custoModal, setCustoModal] = useState<{
+    isOpen: boolean;
+    prospeccaoId: string;
+    eventoNome: string;
+    canal: string;
+    totalContatos: number;
+  }>({
+    isOpen: false,
+    prospeccaoId: '',
+    eventoNome: '',
+    canal: '',
+    totalContatos: 0,
+  });
   
   // === Custom Hooks e Context Hooks ===
   const { toast } = useToast();
@@ -1604,7 +1618,7 @@ showAllEvents: true
   };
 
 
-  // Handler para disparar leads para IA
+  // Handler para disparar leads para IA - agora abre modal de custo primeiro
   const handleDispararParaIA = async (prospeccaoId: string, canal: string) => {
     const canalStr = String(canal).toLowerCase();
     const isIA = canalStr === 'whatsapp' || canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
@@ -1618,10 +1632,27 @@ showAllEvents: true
       return;
     }
 
+    // Buscar contagem de pendentes para exibir no modal de custo
+    const contagem = contagemPendentes[prospeccaoId] || await contarContatosPendentesDisparo(prospeccaoId);
+    const prospeccaoObj = prospeccoes.find(p => p.id === prospeccaoId);
+    
+    setCustoModal({
+      isOpen: true,
+      prospeccaoId,
+      eventoNome: prospeccaoObj?.titulo || 'Evento',
+      canal: canal,
+      totalContatos: contagem.pendentes || 0,
+    });
+  };
+
+  // Executar disparo real após confirmação no modal de custo
+  const executarDisparo = async () => {
+    const { prospeccaoId } = custoModal;
+    setCustoModal(prev => ({ ...prev, isOpen: false }));
+    
     setDisparandoIA(prospeccaoId);
     try {
       const resultado = await dispararParaIA(prospeccaoId);
-      // Atualizar contagem após disparo
       setContagemPendentes(prev => ({
         ...prev,
         [prospeccaoId]: { total: resultado.total, pendentes: 0, disparados: resultado.total }
@@ -2608,6 +2639,17 @@ showAllEvents: true
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal de Simulação de Custos */}
+      <DispararCustoModal
+        isOpen={custoModal.isOpen}
+        onClose={() => setCustoModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={executarDisparo}
+        prospeccaoId={custoModal.prospeccaoId}
+        eventoNome={custoModal.eventoNome}
+        canal={custoModal.canal}
+        totalContatos={custoModal.totalContatos}
+      />
     </DashboardLayout>
   );
 };
