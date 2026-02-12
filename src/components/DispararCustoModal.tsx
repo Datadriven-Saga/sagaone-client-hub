@@ -31,7 +31,8 @@ interface CotacaoData {
   error: string | null;
 }
 
-const VALOR_UNITARIO_USD = 0.06;
+const VALOR_UNITARIO_WHATSAPP_USD = 0.06;
+const VALOR_UNITARIO_LIGACAO_USD = 1.15;
 
 const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
   isOpen,
@@ -80,6 +81,8 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
     }
   }, [isOpen]);
 
+  const isLigacao = String(canal).toLowerCase().includes('liga') || canal === 'Ligação' || canal === 'ligacao';
+  const VALOR_UNITARIO_USD = isLigacao ? VALOR_UNITARIO_LIGACAO_USD : VALOR_UNITARIO_WHATSAPP_USD;
   const custoTotalUSD = totalContatos * VALOR_UNITARIO_USD;
   const custoPorPessoaBRL = VALOR_UNITARIO_USD * cotacao.cotacao;
   const custoTotalBRL = custoTotalUSD * cotacao.cotacao;
@@ -212,7 +215,7 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
               {/* Detalhamento de custos */}
               <div className="border rounded-lg divide-y">
                 <div className="flex items-center justify-between p-3">
-                  <span className="text-sm text-muted-foreground">Valor unitário por envio</span>
+                  <span className="text-sm text-muted-foreground">Valor unitário por {isLigacao ? 'ligação' : 'envio'}</span>
                   <span className="text-sm font-medium">{formatUSD(VALOR_UNITARIO_USD)}</span>
                 </div>
                 <div className="flex items-center justify-between p-3">

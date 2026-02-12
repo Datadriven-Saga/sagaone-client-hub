@@ -22,6 +22,7 @@ import { useUserAccessType } from '@/hooks/useUserAccessType';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DispararProgressModal from '@/components/DispararProgressModal';
+import DispararCustoModal from '@/components/DispararCustoModal';
 import { EventoBaseSkeleton } from '@/components/EventoBaseSkeleton';
 
 interface ContatoEvento {
@@ -139,6 +140,12 @@ export default function EventoBase() {
   
   // Estado para disparo personalizado
   const [customDispatchCount, setCustomDispatchCount] = useState<string>('');
+  
+  // Estado para modal de custo
+  const [custoModal, setCustoModal] = useState<{
+    isOpen: boolean;
+    quantidade?: number;
+  }>({ isOpen: false });
   
   // Cache do telefone do agente Pri(Ligação) 
   const [telefonePriLigacao, setTelefonePriLigacao] = useState<string | null>(null);
@@ -1251,17 +1258,25 @@ export default function EventoBase() {
     }
   };
 
-  // Função wrapper para disparar todos (até o limite de 5000)
-  const handleDispararTodos = () => handleDispararIA();
+  // Função wrapper para disparar todos - abre modal de custo primeiro
+  const handleDispararTodos = () => {
+    setCustoModal({ isOpen: true, quantidade: undefined });
+  };
 
-  // Função para disparar quantidade personalizada
+  // Função para disparar quantidade personalizada - abre modal de custo primeiro
   const handleDispararPersonalizado = () => {
     const quantidade = parseInt(customDispatchCount, 10);
     if (isNaN(quantidade) || quantidade <= 0) {
       toast({ title: "Atenção", description: "Digite uma quantidade válida maior que zero" });
       return;
     }
-    handleDispararIA(quantidade);
+    setCustoModal({ isOpen: true, quantidade });
+  };
+
+  // Executar disparo real após confirmação no modal de custo
+  const executarDisparoConfirmado = () => {
+    setCustoModal({ isOpen: false });
+    handleDispararIA(custoModal.quantidade);
   };
 
   // Disparar IA para contato individual
@@ -2270,6 +2285,17 @@ export default function EventoBase() {
         isProcessing={isDisparandoIA}
         currentBatch={currentBatch}
         totalBatches={totalBatches}
+      />
+
+      {/* Modal de Custo do Disparo */}
+      <DispararCustoModal
+        isOpen={custoModal.isOpen}
+        onClose={() => setCustoModal({ isOpen: false })}
+        onConfirm={executarDisparoConfirmado}
+        prospeccaoId={prospeccao?.id || ''}
+        eventoNome={prospeccao?.titulo || 'Evento'}
+        canal={prospeccao?.canal || ''}
+        totalContatos={custoModal.quantidade || (isIALigacaoLocal && metricasLigacao ? metricasLigacao.pendentes : metricas.pendentes)}
       />
     </DashboardLayout>
   );
