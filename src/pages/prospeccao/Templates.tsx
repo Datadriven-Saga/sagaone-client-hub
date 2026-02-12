@@ -1099,108 +1099,98 @@ export default function Templates() {
         if (!webhookUrl) continue;
 
         try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-          const response = await fetch(webhookUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-            signal: controller.signal,
+          // Route through edge function proxy to avoid CSP violations
+          const { data: proxyResponse, error: proxyError } = await supabase.functions.invoke('external-webhook-proxy', {
+            body: {
+              endpoint: webhookUrl.split('/webhook/').pop() || '',
+              ...payload,
+            },
           });
 
-          clearTimeout(timeoutId);
+          if (proxyError) {
+            console.error("Erro ao chamar webhook via proxy:", proxyError);
+            continue;
+          }
 
-          if (response.ok) {
-            const responseData = await response.json();
-            console.log("Resposta do webhook de status:", responseData);
+          const responseData = proxyResponse;
+          console.log("Resposta do webhook de status:", responseData);
 
-            // O retorno pode estar em responseData.data ou ser diretamente um array
-            const templatesArray = responseData.data || responseData;
+          // O retorno pode estar em responseData.data ou ser diretamente um array
+          const templatesArray = responseData?.data || responseData;
 
-            if (Array.isArray(templatesArray)) {
-              let updatedCount = 0;
-              for (const item of templatesArray) {
-                // O retorno usa "id", "name", "status" e "category" da Meta
-                const metaId = item.id || item.id_meta;
-                const metaStatus = item.status || item.status_meta;
-                const metaName = item.name; // nome do template na Meta (formato snake_case)
-                const metaCategory = item.category;
+          if (Array.isArray(templatesArray)) {
+            let updatedCount = 0;
+            for (const item of templatesArray) {
+              const metaId = item.id || item.id_meta;
+              const metaStatus = item.status || item.status_meta;
+              const metaName = item.name;
+              const metaCategory = item.category;
 
-                if (!metaId || !metaStatus) continue;
+              if (!metaId || !metaStatus) continue;
 
-                // Primeiro tenta atualizar pelo id_meta
-                const { data: updatedById, error: updateByIdErr } = await supabase
+              const { data: updatedById, error: updateByIdErr } = await supabase
+                .from("whatsapp_templates")
+                .update({
+                  status_meta: metaStatus,
+                  category_meta: metaCategory || null,
+                })
+                .eq("id_meta", metaId)
+                .eq("empresa_id", activeCompany.id)
+                .select("id");
+
+              if (!updateByIdErr && updatedById && updatedById.length > 0) {
+                updatedCount++;
+                continue;
+              }
+
+              if (metaName) {
+                const { data: localTemplates } = await supabase
                   .from("whatsapp_templates")
-                  .update({
-                    status_meta: metaStatus,
-                    category_meta: metaCategory || null,
-                  })
-                  .eq("id_meta", metaId)
+                  .select("id, nome")
                   .eq("empresa_id", activeCompany.id)
-                  .select("id");
+                  .is("id_meta", null);
 
-                if (!updateByIdErr && updatedById && updatedById.length > 0) {
-                  updatedCount++;
-                  continue;
-                }
+                if (localTemplates) {
+                  const matchingTemplate = localTemplates.find((t) => {
+                    const normalizedLocalName = formatNameForMeta(t.nome);
+                    return normalizedLocalName === metaName;
+                  });
 
-                // Se não encontrou pelo id_meta, tenta pelo nome normalizado
-                if (metaName) {
-                  // Buscar templates da empresa que ainda não têm id_meta
-                  const { data: localTemplates } = await supabase
-                    .from("whatsapp_templates")
-                    .select("id, nome")
-                    .eq("empresa_id", activeCompany.id)
-                    .is("id_meta", null);
+                  if (matchingTemplate) {
+                    const { error: updateByNameErr } = await supabase
+                      .from("whatsapp_templates")
+                      .update({
+                        id_meta: metaId,
+                        status_meta: metaStatus,
+                        category_meta: metaCategory || null,
+                      })
+                      .eq("id", matchingTemplate.id)
+                      .eq("empresa_id", activeCompany.id);
 
-                  if (localTemplates) {
-                    // Procurar template cujo nome normalizado corresponda ao nome da Meta
-                    const matchingTemplate = localTemplates.find((t) => {
-                      const normalizedLocalName = formatNameForMeta(t.nome);
-                      return normalizedLocalName === metaName;
-                    });
-
-                    if (matchingTemplate) {
-                      const { error: updateByNameErr } = await supabase
-                        .from("whatsapp_templates")
-                        .update({
-                          id_meta: metaId,
-                          status_meta: metaStatus,
-                          category_meta: metaCategory || null,
-                        })
-                        .eq("id", matchingTemplate.id)
-                        .eq("empresa_id", activeCompany.id);
-
-                      if (!updateByNameErr) updatedCount++;
-                    }
+                    if (!updateByNameErr) updatedCount++;
                   }
                 }
               }
-              if (showToasts) toast.success(`Status atualizado para ${updatedCount} templates`);
-            } else if (templatesArray.id_meta && templatesArray.status_meta) {
-              await supabase
-                .from("whatsapp_templates")
-                .update({
-                  status_meta: templatesArray.status_meta,
-                  category_meta: templatesArray.category || null,
-                })
-                .eq("id_meta", templatesArray.id_meta)
-                .eq("empresa_id", activeCompany.id);
-              if (showToasts) toast.success("Status atualizado com sucesso");
             }
-
+            if (showToasts) toast.success(`Status atualizado para ${updatedCount} templates`);
+          } else if (templatesArray?.id_meta && templatesArray?.status_meta) {
             await supabase
-              .from("gatilhos")
-              .update({ ultima_execucao: new Date().toISOString() })
-              .eq("id", gatilho.id);
-
-            refetchTemplates();
-          } else {
-            const errorBody = await response.text();
-            console.error("Erro no webhook:", response.status, errorBody);
-            if (showToasts) toast.error(`Erro ao atualizar status: ${response.status}`);
+              .from("whatsapp_templates")
+              .update({
+                status_meta: templatesArray.status_meta,
+                category_meta: templatesArray.category || null,
+              })
+              .eq("id_meta", templatesArray.id_meta)
+              .eq("empresa_id", activeCompany.id);
+            if (showToasts) toast.success("Status atualizado com sucesso");
           }
+
+          await supabase
+            .from("gatilhos")
+            .update({ ultima_execucao: new Date().toISOString() })
+            .eq("id", gatilho.id);
+
+          refetchTemplates();
         } catch (err: any) {
           console.error("Erro ao chamar webhook:", err);
           if (showToasts) toast.error("Erro ao conectar com o webhook");

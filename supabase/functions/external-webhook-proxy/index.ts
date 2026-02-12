@@ -26,6 +26,7 @@ const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }>
   'cria-base-ligacao': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-base-ligacao', method: 'POST' },
   'dispara-ligacao': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/dispara-ligacao', method: 'POST' },
   'apaga-template-meta': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/apaga-template-meta', method: 'POST' },
+  'verifica-templates': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-templates', method: 'POST' },
   'pri-config': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/pri-config', method: 'POST' },
   // Gaia - Lojas
   'insere-loja': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/insere-loja', method: 'POST' },

@@ -133,15 +133,6 @@ const ControleAcessos = () => {
         <div className="space-y-6">
           {/* Header */}
           <div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/administracao")}
-              className="mb-2 -ml-2 gap-1 text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar
-            </Button>
             <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-2">
               <ShieldCheck className="h-8 w-8" />
               Permission Flags

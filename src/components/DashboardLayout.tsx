@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { UserMenu } from "./UserMenu";
@@ -7,7 +8,8 @@ import { NovoLeadModal } from "./NovoLeadModal";
 import { ContatoModal } from "./ContatoModal";
 import { CheckinConfirmModal } from "./CheckinConfirmModal";
 import { RecepcaoModal } from "./RecepcaoModal";
-import { PanelLeft } from "lucide-react";
+import { PanelLeft, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,9 +19,14 @@ import { useRecepcaoData, CheckinData } from "@/hooks/useRecepcaoData";
 interface DashboardLayoutProps {
   children: ReactNode;
   title?: string;
+  showBackButton?: boolean;
 }
 
-export function DashboardLayout({ children, title }: DashboardLayoutProps) {
+export function DashboardLayout({ children, title, showBackButton }: DashboardLayoutProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isHomePage = location.pathname === "/" || location.pathname === "/dashboard";
+  const shouldShowBack = showBackButton !== undefined ? showBackButton : !isHomePage;
   const [isNovoLeadModalOpen, setIsNovoLeadModalOpen] = useState(false);
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [checkinConfirmData, setCheckinConfirmData] = useState<{
@@ -158,11 +165,22 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Header - Fixed */}
           <header className="h-16 flex-shrink-0 border-b border-border bg-card flex items-center justify-between px-6">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <SidebarTrigger className="h-9 w-9 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-muted transition-colors">
                 <PanelLeft className="h-5 w-5" />
               </SidebarTrigger>
               
+              {shouldShowBack && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate(-1)}
+                  className="h-9 w-9 flex-shrink-0"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              )}
+
               {title && (
                 <h1 className="text-xl font-semibold text-foreground">{title}</h1>
               )}
