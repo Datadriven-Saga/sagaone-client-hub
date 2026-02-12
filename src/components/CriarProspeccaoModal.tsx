@@ -1533,12 +1533,14 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       });
 
       if (error) {
-        console.error('Erro na resposta do webhook pri-config:', error);
+        console.warn('⚠️ Webhook pri-config retornou erro (não bloqueia o fluxo):', error?.message || error);
+      } else if (response?.code === 404) {
+        console.warn('⚠️ Webhook pri-config: workflow não está ativo no n8n (404). Fluxo continua normalmente.');
       } else {
         console.log('✅ Webhook pri-config enviado com sucesso');
       }
     } catch (error) {
-      console.error('Erro ao enviar webhook pri-config:', error);
+      console.warn(`⚠️ Erro ao disparar gatilho "pri-config": ${error instanceof Error ? error.message : String(error)}`);
       // Não mostramos erro ao usuário para não interromper o fluxo
     }
   };
