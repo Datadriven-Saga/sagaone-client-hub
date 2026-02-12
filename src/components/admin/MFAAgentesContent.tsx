@@ -39,6 +39,7 @@ import {
   UserMinus,
   Search,
 } from "lucide-react";
+import { MFAAccessManager } from "@/components/admin/MFAAccessManager";
 import { useToast } from "@/hooks/use-toast";
 import * as OTPAuth from "otpauth";
 import { Html5Qrcode } from "html5-qrcode";
@@ -959,80 +960,8 @@ export function MFAAgentesContent() {
 
         {/* ACCESS TAB */}
         {isMaster && (
-          <TabsContent value="access" className="space-y-4 mt-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-foreground">Atribuições de Acesso</h3>
-              <Button size="sm" className="gap-1.5" onClick={() => { loadAccessData(); setShowAssignModal(true); }}>
-                <UserPlus className="h-4 w-4" /> Nova Atribuição
-              </Button>
-            </div>
-
-            {loadingAccess ? (
-              <div className="text-center py-8 text-muted-foreground">Carregando...</div>
-            ) : accessList.filter((a: any) => a.active).length === 0 ? (
-              <Card className="border-dashed border-2">
-                <CardContent className="py-12 text-center">
-                  <Users className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
-                  <p className="text-muted-foreground">Nenhum acesso atribuído</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-2">
-                {accessList.filter((a: any) => a.active).map((acc: any) => {
-                  const account = accounts.find(a => a.id === acc.account_id);
-                  return (
-                    <Card key={acc.id}>
-                      <CardContent className="py-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="secondary">{account?.issuer || acc.account_id.slice(0, 8)}</Badge>
-                              <span className="text-sm">→</span>
-                              <span className="text-sm font-medium">{getUserName(acc.user_id)}</span>
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              Concedido por {getUserName(acc.granted_by)} em {format(new Date(acc.granted_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                            </span>
-                          </div>
-                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive gap-1"
-                            onClick={() => handleRevokeAccess(acc.id, acc)}>
-                            <UserMinus className="h-3.5 w-3.5" /> Revogar
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Revoked history */}
-            {accessList.filter((a: any) => !a.active).length > 0 && (
-              <div className="mt-6">
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">Acessos Revogados</h4>
-                <div className="space-y-2 opacity-60">
-                  {accessList.filter((a: any) => !a.active).map((acc: any) => {
-                    const account = accounts.find(a => a.id === acc.account_id);
-                    return (
-                      <Card key={acc.id}>
-                        <CardContent className="py-2">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Badge variant="outline" className="line-through">{account?.issuer || "?"}</Badge>
-                            <span>→</span>
-                            <span>{getUserName(acc.user_id)}</span>
-                            {acc.revoked_at && (
-                              <span className="text-xs text-muted-foreground ml-auto">
-                                Revogado em {format(new Date(acc.revoked_at), "dd/MM/yyyy", { locale: ptBR })}
-                              </span>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+          <TabsContent value="access" className="mt-4">
+            <MFAAccessManager accounts={accounts} onAccessChanged={() => { loadAccounts(); loadAccessData(); }} />
           </TabsContent>
         )}
 
@@ -1106,46 +1035,7 @@ export function MFAAgentesContent() {
         )}
       </Tabs>
 
-      {/* Assign Access Modal */}
-      <Dialog open={showAssignModal} onOpenChange={setShowAssignModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-primary" />
-              Atribuir Acesso
-            </DialogTitle>
-            <DialogDescription>Selecione um authenticator e um usuário para conceder acesso</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <Label className="text-sm font-medium mb-1 block">Authenticator</Label>
-              <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>
-                  {accounts.map(a => (
-                    <SelectItem key={a.id} value={a.id}>{a.issuer}{a.label && a.label !== a.issuer ? ` (${a.label})` : ""}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-sm font-medium mb-1 block">Usuário</Label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>
-                  {users.map(u => (
-                    <SelectItem key={u.id} value={u.id}>{u.nome_completo}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAssignModal(false)}>Cancelar</Button>
-            <Button onClick={handleGrantAccess} disabled={!selectedAccountId || !selectedUserId}>Conceder Acesso</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Old assign modal removed - now handled by MFAAccessManager */}
       <Dialog open={showAddModal} onOpenChange={(open) => { if (!open) closeModal(); }}>
         <DialogContent className="sm:max-w-md" hideCloseButton={addMode === "scan"}>
           {addMode === "choose" && (
