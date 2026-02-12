@@ -85,41 +85,39 @@ Deno.serve(async (req) => {
       .eq("id", claimsData.user.id)
       .single();
 
-    // Buscar usuários CRM ativos da empresa
+    // Buscar usuários CRM (tipo_acesso = CRM) vinculados à empresa via user_empresas
     const { data: usuariosCRM } = await supabase
+      .from("user_empresas")
+      .select("user_id, profiles!inner(id, nome_completo, email, tipo_acesso)")
+      .eq("empresa_id", empresa_id);
+
+    let destinatarios: { id: string; nome_completo: string; email: string }[] = [];
+
+    if (usuariosCRM) {
+      for (const ue of usuariosCRM) {
+        const profile = ue.profiles as any;
+        if (profile && profile.tipo_acesso === "CRM" && profile.email) {
+          destinatarios.push({
+            id: profile.id,
+            nome_completo: profile.nome_completo || "",
+            email: profile.email,
+          });
+        }
+      }
+    }
+
+    // Também buscar CRMs pela empresa_id do profile (fallback)
+    const { data: crmProfiles } = await supabase
       .from("profiles")
       .select("id, nome_completo, email")
       .eq("empresa_id", empresa_id)
-      .eq("status", "Ativo")
       .eq("tipo_acesso", "CRM");
 
-    // Buscar também usuários com permissão de CRM via departamento_permissoes
-    const { data: permissoesCRM } = await supabase
-      .from("departamento_permissoes")
-      .select("departamento")
-      .eq("permissao", "modulo_crm")
-      .eq("ativo", true);
-
-    let destinatarios: { id: string; nome_completo: string; email: string }[] =
-      [...(usuariosCRM || [])];
-
-    // Se há departamentos com permissão CRM, buscar usuários desses departamentos
-    if (permissoesCRM && permissoesCRM.length > 0) {
-      const departamentos = permissoesCRM.map((p) => p.departamento);
-      const { data: usuariosDept } = await supabase
-        .from("profiles")
-        .select("id, nome_completo, email")
-        .eq("empresa_id", empresa_id)
-        .eq("status", "Ativo")
-        .in("departamento", departamentos);
-
-      if (usuariosDept) {
-        // Merge sem duplicar
-        const idsExistentes = new Set(destinatarios.map((d) => d.id));
-        for (const u of usuariosDept) {
-          if (!idsExistentes.has(u.id)) {
-            destinatarios.push(u);
-          }
+    if (crmProfiles) {
+      const idsExistentes = new Set(destinatarios.map((d) => d.id));
+      for (const p of crmProfiles) {
+        if (p.email && !idsExistentes.has(p.id)) {
+          destinatarios.push(p);
         }
       }
     }
