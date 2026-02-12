@@ -1874,7 +1874,7 @@ export default function EventoBase() {
             </div>
 
             {/* Seção de Disparo IA */}
-            {isIA && metricas.pendentes > 0 && (
+            {isIA && ((isIALigacaoLocal && metricasLigacao ? metricasLigacao.pendentes : metricas.pendentes) > 0) && (
               <div className="border-t pt-4 space-y-3">
                 {/* Observação sobre lotes */}
                 <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg text-sm">

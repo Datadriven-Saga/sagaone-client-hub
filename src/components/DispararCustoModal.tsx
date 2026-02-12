@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, DollarSign, Users, Send, X, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Loader2, DollarSign, Users, Send, X, AlertTriangle, RefreshCw, TrendingUp, PhoneCall, MessageCircle } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
@@ -94,7 +94,6 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
     if (!user) return;
     setConfirmando(true);
     try {
-      // Buscar nome e email do usuário
       const { data: profileData } = await supabase
         .from('profiles')
         .select('nome_completo, tipo_acesso')
@@ -105,7 +104,6 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
       const userName = profileData?.nome_completo || userEmail;
       const userPerfil = profileData?.tipo_acesso || tipoAcesso || '';
 
-      // Registrar log de disparo
       const { error: logError } = await supabase
         .from('logs_disparos')
         .insert({
@@ -135,7 +133,6 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
         return;
       }
 
-      // Log registrado com sucesso, prosseguir com disparo
       onConfirm();
     } catch (err) {
       console.error('Erro ao confirmar disparo:', err);
@@ -149,61 +146,68 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
     }
   };
 
-  const canalDisplay = String(canal).toLowerCase().includes('liga') || canal === 'Ligação' || canal === 'ligacao'
-    ? 'IA Ligação'
-    : 'IA WhatsApp';
+  const canalDisplay = isLigacao ? 'IA Ligação' : 'IA WhatsApp';
+  const CanalIcon = isLigacao ? PhoneCall : MessageCircle;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open && !confirmando) onClose(); }}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl md:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <DollarSign className="w-5 h-5 text-primary" />
+          <DialogTitle className="flex items-center gap-3 text-xl">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+              <DollarSign className="w-5 h-5 text-primary" />
+            </div>
             Simulação de Custos do Disparo
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-5 py-3">
           {/* Info do evento */}
-          <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+          <div className="bg-muted/50 rounded-xl p-5 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Evento</span>
-              <span className="text-sm font-medium truncate max-w-[200px]">{eventoNome}</span>
+              <span className="text-sm font-semibold truncate max-w-[280px]">{eventoNome}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Canal</span>
-              <Badge variant="outline">{canalDisplay}</Badge>
+              <Badge variant="outline" className="gap-1.5 px-3 py-1 text-sm">
+                <CanalIcon className="w-3.5 h-3.5" />
+                {canalDisplay}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Total de Pessoas</span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" />
-                <span className="text-sm font-bold">{totalContatos.toLocaleString('pt-BR')}</span>
+                <span className="text-lg font-bold">{totalContatos.toLocaleString('pt-BR')}</span>
               </div>
             </div>
           </div>
 
           {/* Cotação */}
           {cotacao.loading ? (
-            <div className="flex items-center justify-center py-6 gap-2">
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              <span className="text-sm text-muted-foreground">Buscando cotação do dólar...</span>
+            <div className="flex items-center justify-center py-8 gap-3">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              <span className="text-muted-foreground">Buscando cotação do dólar...</span>
             </div>
           ) : cotacao.error ? (
-            <div className="bg-destructive/10 rounded-lg p-4 text-center space-y-2">
-              <AlertTriangle className="w-6 h-6 text-destructive mx-auto" />
-              <p className="text-sm text-destructive">{cotacao.error}</p>
+            <div className="bg-destructive/10 rounded-xl p-6 text-center space-y-3">
+              <AlertTriangle className="w-8 h-8 text-destructive mx-auto" />
+              <p className="text-sm text-destructive font-medium">{cotacao.error}</p>
               <Button variant="outline" size="sm" onClick={fetchCotacao}>
-                <RefreshCw className="w-4 h-4 mr-1" /> Tentar novamente
+                <RefreshCw className="w-4 h-4 mr-2" /> Tentar novamente
               </Button>
             </div>
           ) : (
             <>
               {/* Cotação do dólar */}
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 space-y-1">
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Cotação USD/BRL</span>
-                  <span className="text-lg font-bold text-primary">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold">Cotação USD/BRL</span>
+                  </div>
+                  <span className="text-xl font-bold text-primary">
                     {formatBRL(cotacao.cotacao)}
                   </span>
                 </div>
@@ -213,47 +217,49 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
               </div>
 
               {/* Detalhamento de custos */}
-              <div className="border rounded-lg divide-y">
-                <div className="flex items-center justify-between p-3">
-                  <span className="text-sm text-muted-foreground">Valor unitário por {isLigacao ? 'ligação' : 'envio'}</span>
-                  <span className="text-sm font-medium">{formatUSD(VALOR_UNITARIO_USD)}</span>
+              <div className="border rounded-xl overflow-hidden divide-y">
+                <div className="flex items-center justify-between p-4">
+                  <span className="text-sm text-muted-foreground">
+                    Valor unitário por {isLigacao ? 'ligação' : 'envio'}
+                  </span>
+                  <span className="text-sm font-semibold">{formatUSD(VALOR_UNITARIO_USD)}</span>
                 </div>
-                <div className="flex items-center justify-between p-3">
+                <div className="flex items-center justify-between p-4">
                   <span className="text-sm text-muted-foreground">Custo por pessoa (BRL)</span>
-                  <span className="text-sm font-medium">{formatBRL(custoPorPessoaBRL)}</span>
+                  <span className="text-sm font-semibold">{formatBRL(custoPorPessoaBRL)}</span>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-muted/30">
-                  <span className="text-sm font-semibold">Custo Total (USD)</span>
-                  <span className="text-base font-bold">{formatUSD(custoTotalUSD)}</span>
+                <div className="flex items-center justify-between p-4 bg-muted/40">
+                  <span className="font-semibold">Custo Total (USD)</span>
+                  <span className="text-lg font-bold">{formatUSD(custoTotalUSD)}</span>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-primary/5">
-                  <span className="text-sm font-semibold text-primary">Custo Total (BRL)</span>
-                  <span className="text-lg font-bold text-primary">{formatBRL(custoTotalBRL)}</span>
+                <div className="flex items-center justify-between p-4 bg-primary/10">
+                  <span className="font-semibold text-primary">Custo Total (BRL)</span>
+                  <span className="text-2xl font-bold text-primary">{formatBRL(custoTotalBRL)}</span>
                 </div>
               </div>
             </>
           )}
         </div>
 
-        <DialogFooter className="flex gap-2 sm:gap-2">
+        <DialogFooter className="flex gap-3 sm:gap-3 pt-2">
           <Button
             variant="outline"
             onClick={onClose}
             disabled={confirmando}
-            className="flex-1"
+            className="flex-1 h-12 text-base"
           >
-            <X className="w-4 h-4 mr-1" />
+            <X className="w-5 h-5 mr-2" />
             Cancelar Disparo
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={cotacao.loading || !!cotacao.error || confirmando}
-            className="flex-1"
+            className="flex-1 h-12 text-base"
           >
             {confirmando ? (
-              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
             ) : (
-              <Send className="w-4 h-4 mr-1" />
+              <Send className="w-5 h-5 mr-2" />
             )}
             Confirmar Disparo
           </Button>
