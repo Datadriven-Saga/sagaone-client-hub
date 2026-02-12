@@ -111,9 +111,10 @@ Deno.serve(async (req: Request) => {
         responseData = { raw: responseText };
       }
 
+      // Sempre retorna 200 para o cliente, encapsulando o status original
       return new Response(
-        JSON.stringify(responseData),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ data: responseData, upstream_status: response.status }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -207,9 +208,10 @@ Deno.serve(async (req: Request) => {
       responseData = { raw: responseText };
     }
 
+    // Sempre retorna 200 para o cliente, encapsulando o status original
     return new Response(
-      JSON.stringify(responseData),
-      { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ data: responseData, upstream_status: response.status }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
