@@ -111,9 +111,9 @@ Deno.serve(async (req: Request) => {
         responseData = { raw: responseText };
       }
 
-      // Sempre retorna 200 para o cliente, encapsulando o status original
+      // Sempre retorna 200 para o cliente (evita FunctionsHttpError no SDK)
       return new Response(
-        JSON.stringify({ data: responseData, upstream_status: response.status }),
+        JSON.stringify(responseData),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -208,9 +208,9 @@ Deno.serve(async (req: Request) => {
       responseData = { raw: responseText };
     }
 
-    // Sempre retorna 200 para o cliente, encapsulando o status original
+    // Sempre retorna 200 para o cliente (evita FunctionsHttpError no SDK)
     return new Response(
-      JSON.stringify({ data: responseData, upstream_status: response.status }),
+      JSON.stringify(responseData),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
