@@ -61,33 +61,42 @@
   }
 
   .dark {
-    --background: 240 55% 12%;
-    --foreground: 0 0% 100%;
-    --card: 240 50% 15%;
-    --card-foreground: 0 0% 100%;
-    --popover: 240 50% 15%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 210 64% 16%; /* #0f2a45 */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 50% 18%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 240 50% 18%;
-    --muted-foreground: 0 0% 65%;
-    --accent: 240 50% 18%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84.2% 60.2%;
+    --background: 222 47% 11%; /* Deep navy-gray for main bg */
+    --foreground: 210 40% 96%; /* Soft white for readability */
+    --card: 222 47% 14%; /* Slightly lighter card bg */
+    --card-foreground: 210 40% 96%;
+    --popover: 222 47% 14%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 199 89% 48%; /* Bright cyan for primary actions */
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 33% 18%; /* Muted blue-gray */
+    --secondary-foreground: 210 40% 90%;
+    --muted: 217 33% 18%;
+    --muted-foreground: 215 20% 60%; /* Better contrast for muted text */
+    --accent: 199 89% 48%; /* Matching primary for consistency */
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 50% 20%;
-    --input: 240 50% 18%;
-    --ring: 210 64% 16%; /* #0f2a45 */
-    --sidebar-background: 210 67% 16%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 210 64% 16%; /* #0f2a45 */
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 50% 18%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 240 50% 15%;
-    --sidebar-ring: 210 64% 16%; /* #0f2a45 */
+    --border: 217 33% 22%; /* Visible but subtle borders */
+    --input: 217 33% 22%;
+    --ring: 199 89% 48%;
+    --sidebar-background: 222 47% 9%; /* Darker sidebar */
+    --sidebar-foreground: 210 40% 92%;
+    --sidebar-primary: 199 89% 48%;
+    --sidebar-primary-foreground: 222 47% 11%;
+    --sidebar-accent: 217 33% 18%;
+    --sidebar-accent-foreground: 210 40% 92%;
+    --sidebar-border: 217 33% 16%;
+    --sidebar-ring: 199 89% 48%;
+
+    /* Dark mode specific tokens */
+    --sagaone-primary: 199 89% 48%;
+    --sagaone-dark: 222 47% 9%;
+    --sagaone-light: 222 47% 14%;
+    --sagaone-bg: 222 47% 11%;
+    --sagaone-login-bg: 222 47% 11%;
+    --sagaone-login-card: 199 89% 48%;
+    --sagaone-login-button: 199 89% 48%;
   }
 }
 

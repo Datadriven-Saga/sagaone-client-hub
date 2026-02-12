@@ -9,7 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { TIAdminProtectedRoute } from "@/components/TIAdminProtectedRoute";
 import { GestorProtectedRoute } from "@/components/GestorProtectedRoute";
-import { useUserColors } from "@/hooks/useUserColors";
+
 
 // Page imports
 import Index from "./pages/Index";
@@ -105,9 +105,21 @@ const AppRoutes = () => {
 };
 
 const AppContent = () => {
-  // Load user color preferences on app start
-  useUserColors();
-  
+  // Clear any custom color overrides on app start
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('userColorConfig');
+    // Remove any inline style overrides on :root
+    const root = document.documentElement;
+    const cssVarsToClean = [
+      '--foreground', '--card-foreground', '--popover-foreground', '--primary',
+      '--secondary-foreground', '--ring', '--sidebar-background', '--sidebar-primary',
+      '--sidebar-ring', '--sagaone-primary', '--sagaone-dark', '--sagaone-login-button',
+      '--accent', '--sagaone-login-card', '--background', '--secondary', '--muted',
+      '--sagaone-bg', '--sagaone-login-bg', '--card', '--popover', '--sagaone-light'
+    ];
+    cssVarsToClean.forEach(v => root.style.removeProperty(v));
+  }
+
   return (
     <TooltipProvider>
       <Toaster />
