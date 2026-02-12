@@ -215,49 +215,41 @@ export function AgenteIntegracao({ agenteId }: AgenteIntegracaoProps) {
         return;
       }
 
-      // Configurar opções da requisição baseado no método
-      let requestOptions: RequestInit = {
-        method: formData.webhook_metodo,
-        headers: {
-          'Content-Type': 'application/json',
+      // Enviar requisição via proxy para evitar problemas de CSP
+      const { data: proxyResponse, error: proxyError } = await supabase.functions.invoke('external-webhook-proxy', {
+        body: {
+          webhook_url: formData.webhook_url,
+          webhook_method: formData.webhook_metodo,
+          ...webhookBody
         }
-      };
-
-      if (formData.webhook_metodo === 'POST' || formData.webhook_metodo === 'PUT') {
-        requestOptions.body = JSON.stringify(webhookBody);
-      }
-
-      // Fazer a requisição para o webhook
-      const response = await fetch(formData.webhook_url, requestOptions);
-      
-      let responseData;
-      try {
-        responseData = await response.json();
-      } catch {
-        responseData = await response.text();
-      }
-
-      setWebhookResult({
-        success: response.ok,
-        status: response.status,
-        response: responseData
       });
 
-      if (response.ok) {
-        toast({
-          title: "Webhook testado com sucesso!",
-          description: `Webhook respondeu com status ${response.status}`,
+      if (proxyError) {
+        console.error(`❌ Erro ao testar webhook da integração: ${proxyError.message}`);
+        setWebhookResult({
+          success: false,
+          error: proxyError.message
         });
-      } else {
         toast({
           title: "Teste do webhook falhou",
-          description: `Webhook respondeu com status ${response.status}`,
+          description: `Erro: ${proxyError.message}`,
           variant: "destructive"
+        });
+      } else {
+        console.log(`✅ Webhook da integração testado com sucesso:`, proxyResponse);
+        setWebhookResult({
+          success: true,
+          status: 200,
+          response: proxyResponse
+        });
+        toast({
+          title: "Webhook testado com sucesso!",
+          description: "Webhook respondeu com sucesso",
         });
       }
 
     } catch (error) {
-      console.error('Erro ao testar webhook:', error);
+      console.error(`❌ Erro ao testar webhook da integração: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       
       setWebhookResult({
         success: false,
