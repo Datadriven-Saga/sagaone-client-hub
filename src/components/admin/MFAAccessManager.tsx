@@ -109,6 +109,13 @@ export function MFAAccessManager({ accounts, onAccessChanged }: MFAAccessManager
   const [bulkSearchUsers, setBulkSearchUsers] = useState("");
   const [bulkAssigning, setBulkAssigning] = useState(false);
 
+  // Bulk revoke modal
+  const [showBulkRevoke, setShowBulkRevoke] = useState(false);
+  const [bulkRevokeAccount, setBulkRevokeAccount] = useState("");
+  const [bulkRevokeUsers, setBulkRevokeUsers] = useState<string[]>([]);
+  const [bulkRevokeSearch, setBulkRevokeSearch] = useState("");
+  const [bulkRevoking, setBulkRevoking] = useState(false);
+
   // User detail view
   const [selectedUser, setSelectedUser] = useState<ProfileRow | null>(null);
   const [userLogSearch, setUserLogSearch] = useState("");
@@ -193,6 +200,48 @@ export function MFAAccessManager({ accounts, onAccessChanged }: MFAAccessManager
       setBulkAssigning(false);
     }
   };
+
+  const handleBulkRevoke = async () => {
+    if (!bulkRevokeAccount || bulkRevokeUsers.length === 0) return;
+    setBulkRevoking(true);
+    try {
+      let revoked = 0;
+      for (const userId of bulkRevokeUsers) {
+        const access = accessList.find(a => a.account_id === bulkRevokeAccount && a.user_id === userId && a.active);
+        if (!access) continue;
+        const { error } = await supabase
+          .from("mfa_account_access" as any)
+          .update({ active: false, revoked_at: new Date().toISOString() })
+          .eq("id", access.id);
+        if (error) throw error;
+        const account = accounts.find(a => a.id === bulkRevokeAccount);
+        const targetUser = users.find(u => u.id === userId);
+        await logAction("revoke_access", bulkRevokeAccount, account?.issuer, userId, targetUser?.nome_completo);
+        revoked++;
+      }
+      toast({ title: `${revoked} acesso(s) revogado(s)!` });
+      setShowBulkRevoke(false);
+      setBulkRevokeAccount("");
+      setBulkRevokeUsers([]);
+      setBulkRevokeSearch("");
+      loadData();
+      onAccessChanged?.();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setBulkRevoking(false);
+    }
+  };
+
+  // Bulk revoke filtered users
+  const bulkRevokeFilteredUsers = bulkRevokeAccount
+    ? users.filter(u => {
+        const hasAccess = accessList.some(a => a.account_id === bulkRevokeAccount && a.user_id === u.id && a.active);
+        if (!hasAccess) return false;
+        if (!bulkRevokeSearch) return true;
+        return u.nome_completo.toLowerCase().includes(bulkRevokeSearch.toLowerCase());
+      })
+    : [];
 
   const handleGrantSingleAccess = async (accountId: string, userId: string) => {
     if (!user) return;
@@ -431,9 +480,14 @@ export function MFAAccessManager({ accounts, onAccessChanged }: MFAAccessManager
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="font-semibold text-foreground">Gestão de Acessos</h3>
-        <Button size="sm" className="gap-1.5" onClick={() => setShowBulkAssign(true)}>
-          <UserPlus className="h-4 w-4" /> Atribuir Acesso
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => setShowBulkRevoke(true)}>
+            <UserMinus className="h-4 w-4" /> Revogar em Lote
+          </Button>
+          <Button size="sm" className="gap-1.5" onClick={() => setShowBulkAssign(true)}>
+            <UserPlus className="h-4 w-4" /> Atribuir Acesso
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="by-authenticator" className="w-full">
@@ -670,6 +724,98 @@ export function MFAAccessManager({ accounts, onAccessChanged }: MFAAccessManager
             <Button onClick={handleBulkAssign}
               disabled={!bulkSelectedAccount || bulkSelectedUsers.length === 0 || bulkAssigning}>
               {bulkAssigning ? "Concedendo..." : `Conceder Acesso (${bulkSelectedUsers.length})`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Revoke Modal */}
+      <Dialog open={showBulkRevoke} onOpenChange={(open) => {
+        if (!open) { setShowBulkRevoke(false); setBulkRevokeAccount(""); setBulkRevokeUsers([]); setBulkRevokeSearch(""); }
+      }}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserMinus className="h-5 w-5 text-destructive" />
+              Revogar Acesso em Lote
+            </DialogTitle>
+            <DialogDescription>Selecione um authenticator e os usuários para revogar</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Authenticator</label>
+              <Select value={bulkRevokeAccount} onValueChange={(v) => { setBulkRevokeAccount(v); setBulkRevokeUsers([]); }}>
+                <SelectTrigger><SelectValue placeholder="Selecione o authenticator..." /></SelectTrigger>
+                <SelectContent>
+                  {accounts.filter(a => activeAccess.some(ac => ac.account_id === a.id)).map(a => (
+                    <SelectItem key={a.id} value={a.id}>{a.issuer}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {bulkRevokeAccount && (
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">Usuários com acesso</label>
+                  {bulkRevokeUsers.length > 0 && (
+                    <Badge variant="secondary">{bulkRevokeUsers.length} selecionado(s)</Badge>
+                  )}
+                </div>
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Buscar usuário..." value={bulkRevokeSearch}
+                    onChange={e => setBulkRevokeSearch(e.target.value)} className="pl-9" />
+                </div>
+
+                <div className="flex items-center gap-2 mb-2">
+                  <Button variant="ghost" size="sm" className="text-xs h-7"
+                    onClick={() => setBulkRevokeUsers(bulkRevokeFilteredUsers.map(u => u.id))}>
+                    Selecionar todos
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-xs h-7"
+                    onClick={() => setBulkRevokeUsers([])}>
+                    Limpar seleção
+                  </Button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-1 max-h-[280px] pr-1">
+                  {bulkRevokeFilteredUsers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhum usuário com acesso a este authenticator</p>
+                  ) : (
+                    bulkRevokeFilteredUsers.map(u => {
+                      const isSelected = bulkRevokeUsers.includes(u.id);
+                      return (
+                        <label key={u.id}
+                          className={`flex items-center gap-3 py-2 px-3 rounded-md transition-colors cursor-pointer hover:bg-muted/40
+                            ${isSelected ? "bg-destructive/5 border border-destructive/20" : ""}
+                          `}>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => {
+                              setBulkRevokeUsers(prev =>
+                                checked ? [...prev, u.id] : prev.filter(id => id !== u.id)
+                              );
+                            }}
+                          />
+                          <span className="text-sm text-foreground">{u.nome_completo}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => { setShowBulkRevoke(false); setBulkRevokeAccount(""); setBulkRevokeUsers([]); setBulkRevokeSearch(""); }}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleBulkRevoke}
+              disabled={!bulkRevokeAccount || bulkRevokeUsers.length === 0 || bulkRevoking}>
+              {bulkRevoking ? "Revogando..." : `Revogar Acesso (${bulkRevokeUsers.length})`}
             </Button>
           </DialogFooter>
         </DialogContent>

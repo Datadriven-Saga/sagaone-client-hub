@@ -911,16 +911,6 @@ export function MFAAgentesContent() {
                             )}
                           </div>
                           <TOTPCode account={account} onCopy={(code) => handleCopy(code, account)} />
-                          {isMaster && accountAccessUsers.length > 0 && (
-                            <div className="flex items-center gap-1 mt-2 flex-wrap">
-                              <span className="text-xs text-muted-foreground mr-1">Acesso:</span>
-                              {accountAccessUsers.map((au: any) => (
-                                <Badge key={au.id} variant="outline" className="text-xs">
-                                  {getUserName(au.user_id)}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {isMaster && (
