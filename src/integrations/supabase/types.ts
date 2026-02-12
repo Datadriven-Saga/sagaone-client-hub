@@ -1884,6 +1884,63 @@ export type Database = {
           },
         ]
       }
+      logs_disparos: {
+        Row: {
+          canal: string
+          cotacao_data: string
+          cotacao_dolar: number
+          created_at: string
+          custo_total_brl: number
+          custo_total_usd: number
+          disparo_id: string
+          evento_nome: string
+          id: string
+          prospeccao_id: string
+          total_contatos: number
+          usuario_email: string
+          usuario_id: string
+          usuario_nome: string
+          usuario_perfil: string
+          valor_unitario_usd: number
+        }
+        Insert: {
+          canal: string
+          cotacao_data: string
+          cotacao_dolar: number
+          created_at?: string
+          custo_total_brl: number
+          custo_total_usd: number
+          disparo_id?: string
+          evento_nome: string
+          id?: string
+          prospeccao_id: string
+          total_contatos?: number
+          usuario_email: string
+          usuario_id: string
+          usuario_nome: string
+          usuario_perfil: string
+          valor_unitario_usd?: number
+        }
+        Update: {
+          canal?: string
+          cotacao_data?: string
+          cotacao_dolar?: number
+          created_at?: string
+          custo_total_brl?: number
+          custo_total_usd?: number
+          disparo_id?: string
+          evento_nome?: string
+          id?: string
+          prospeccao_id?: string
+          total_contatos?: number
+          usuario_email?: string
+          usuario_id?: string
+          usuario_nome?: string
+          usuario_perfil?: string
+          valor_unitario_usd?: number
+        }
+        Relationships: []
+      }
       logs_movimentacao_contatos: {
         Row: {
           contato_id: string
