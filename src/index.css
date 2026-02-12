@@ -61,42 +61,57 @@
   }
 
   .dark {
-    --background: 222 47% 11%; /* Deep navy-gray for main bg */
-    --foreground: 210 40% 96%; /* Soft white for readability */
-    --card: 222 47% 14%; /* Slightly lighter card bg */
-    --card-foreground: 210 40% 96%;
-    --popover: 222 47% 14%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 199 89% 48%; /* Bright cyan for primary actions */
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 18%; /* Muted blue-gray */
-    --secondary-foreground: 210 40% 90%;
-    --muted: 217 33% 18%;
-    --muted-foreground: 215 20% 60%; /* Better contrast for muted text */
-    --accent: 199 89% 48%; /* Matching primary for consistency */
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 217 33% 22%; /* Visible but subtle borders */
-    --input: 217 33% 22%;
-    --ring: 199 89% 48%;
-    --sidebar-background: 222 47% 9%; /* Darker sidebar */
-    --sidebar-foreground: 210 40% 92%;
-    --sidebar-primary: 199 89% 48%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 217 33% 18%;
-    --sidebar-accent-foreground: 210 40% 92%;
-    --sidebar-border: 217 33% 16%;
-    --sidebar-ring: 199 89% 48%;
+    /* Core palette - deep navy base with proper layering */
+    --background: 220 20% 10%;       /* #15181e - deep but not pure black */
+    --foreground: 210 20% 93%;       /* #e8ecf0 - warm white, easy on eyes */
+    --card: 220 18% 13%;             /* #1c1f26 - elevated surface */
+    --card-foreground: 210 20% 93%;
+    --popover: 220 18% 15%;          /* #22262e - popover slightly lighter */
+    --popover-foreground: 210 20% 93%;
 
-    /* Dark mode specific tokens */
-    --sagaone-primary: 199 89% 48%;
-    --sagaone-dark: 222 47% 9%;
-    --sagaone-light: 222 47% 14%;
-    --sagaone-bg: 222 47% 11%;
-    --sagaone-login-bg: 222 47% 11%;
-    --sagaone-login-card: 199 89% 48%;
-    --sagaone-login-button: 199 89% 48%;
+    /* Primary - cyan accent, bold but not neon */
+    --primary: 195 80% 50%;          /* #1aa3cc - vibrant but controlled */
+    --primary-foreground: 220 20% 10%;
+
+    /* Secondary - subtle elevated surface */
+    --secondary: 220 16% 18%;        /* #272b33 */
+    --secondary-foreground: 210 15% 85%;
+
+    /* Muted - for subtle backgrounds and secondary text */
+    --muted: 220 16% 18%;
+    --muted-foreground: 215 12% 55%; /* #7d8694 - WCAG AA on dark bg */
+
+    /* Accent - matches primary for interactive highlights */
+    --accent: 220 16% 22%;           /* #2f3540 - subtle highlight bg */
+    --accent-foreground: 210 20% 93%;
+
+    /* Destructive */
+    --destructive: 0 65% 55%;        /* softer red for dark bg */
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders & inputs - clearly visible but not harsh */
+    --border: 220 14% 24%;           /* #353a44 */
+    --input: 220 14% 24%;
+    --ring: 195 80% 50%;
+
+    /* Sidebar - darker than main bg for depth */
+    --sidebar-background: 220 22% 8%;  /* #101318 */
+    --sidebar-foreground: 210 15% 85%;
+    --sidebar-primary: 195 80% 50%;
+    --sidebar-primary-foreground: 220 20% 10%;
+    --sidebar-accent: 220 16% 16%;
+    --sidebar-accent-foreground: 210 15% 90%;
+    --sidebar-border: 220 16% 15%;
+    --sidebar-ring: 195 80% 50%;
+
+    /* Saga One tokens */
+    --sagaone-primary: 195 80% 50%;
+    --sagaone-dark: 220 22% 8%;
+    --sagaone-light: 220 18% 13%;
+    --sagaone-bg: 220 20% 10%;
+    --sagaone-login-bg: 220 20% 10%;
+    --sagaone-login-card: 195 80% 50%;
+    --sagaone-login-button: 195 80% 50%;
   }
 }
 
@@ -192,4 +207,110 @@
   .scrollbar-sidebar::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--sidebar-background) / 0.8);
   }
+}
+
+/* ============================================
+   Dark Mode Overrides for Hardcoded Colors
+   Ensures status/semantic colors adapt properly
+   ============================================ */
+
+/* Status: Success (green) */
+.dark .bg-green-50 { background-color: hsl(145 30% 14%) !important; }
+.dark .bg-green-100 { background-color: hsl(145 28% 18%) !important; }
+.dark .border-green-200 { border-color: hsl(145 25% 25%) !important; }
+.dark .border-green-300 { border-color: hsl(145 25% 30%) !important; }
+.dark .text-green-600,
+.dark .text-green-700 { color: hsl(145 60% 55%) !important; }
+.dark .text-green-800 { color: hsl(145 50% 65%) !important; }
+
+/* Status: Error (red) */
+.dark .bg-red-50 { background-color: hsl(0 30% 14%) !important; }
+.dark .bg-red-100 { background-color: hsl(0 28% 18%) !important; }
+.dark .border-red-200 { border-color: hsl(0 25% 25%) !important; }
+.dark .border-red-300 { border-color: hsl(0 25% 30%) !important; }
+.dark .text-red-600,
+.dark .text-red-700 { color: hsl(0 60% 60%) !important; }
+.dark .text-red-800 { color: hsl(0 50% 65%) !important; }
+
+/* Status: Warning (yellow/amber) */
+.dark .bg-yellow-50,
+.dark .bg-amber-50 { background-color: hsl(40 30% 14%) !important; }
+.dark .bg-yellow-100,
+.dark .bg-amber-100 { background-color: hsl(40 28% 18%) !important; }
+.dark .border-yellow-200,
+.dark .border-amber-200 { border-color: hsl(40 25% 25%) !important; }
+.dark .text-yellow-600,
+.dark .text-yellow-700,
+.dark .text-amber-600,
+.dark .text-amber-700 { color: hsl(40 70% 55%) !important; }
+.dark .text-yellow-800,
+.dark .text-amber-800 { color: hsl(40 60% 65%) !important; }
+
+/* Status: Info (blue) */
+.dark .bg-blue-50 { background-color: hsl(210 30% 14%) !important; }
+.dark .bg-blue-100 { background-color: hsl(210 28% 18%) !important; }
+.dark .border-blue-200 { border-color: hsl(210 25% 25%) !important; }
+.dark .border-blue-300 { border-color: hsl(210 25% 30%) !important; }
+.dark .text-blue-600,
+.dark .text-blue-700 { color: hsl(210 70% 60%) !important; }
+.dark .text-blue-800 { color: hsl(210 60% 70%) !important; }
+
+/* Status: Purple/Violet */
+.dark .bg-purple-50,
+.dark .bg-violet-50 { background-color: hsl(270 30% 14%) !important; }
+.dark .bg-purple-100,
+.dark .bg-violet-100 { background-color: hsl(270 28% 18%) !important; }
+.dark .border-purple-200,
+.dark .border-violet-200 { border-color: hsl(270 25% 25%) !important; }
+.dark .text-purple-600,
+.dark .text-purple-700,
+.dark .text-violet-600,
+.dark .text-violet-700 { color: hsl(270 60% 65%) !important; }
+
+/* Status: Orange */
+.dark .bg-orange-50 { background-color: hsl(25 30% 14%) !important; }
+.dark .bg-orange-100 { background-color: hsl(25 28% 18%) !important; }
+.dark .border-orange-200 { border-color: hsl(25 25% 25%) !important; }
+.dark .text-orange-600,
+.dark .text-orange-700 { color: hsl(25 70% 55%) !important; }
+
+/* Neutral overrides for dark mode */
+.dark .bg-gray-50,
+.dark .bg-slate-50 { background-color: hsl(220 16% 16%) !important; }
+.dark .bg-gray-100,
+.dark .bg-slate-100 { background-color: hsl(220 16% 18%) !important; }
+.dark .bg-gray-200,
+.dark .bg-slate-200 { background-color: hsl(220 14% 22%) !important; }
+.dark .border-gray-200,
+.dark .border-slate-200 { border-color: hsl(220 14% 24%) !important; }
+.dark .border-gray-300,
+.dark .border-slate-300 { border-color: hsl(220 14% 28%) !important; }
+.dark .text-gray-500,
+.dark .text-slate-500 { color: hsl(215 12% 55%) !important; }
+.dark .text-gray-600,
+.dark .text-slate-600 { color: hsl(215 12% 60%) !important; }
+.dark .text-gray-700,
+.dark .text-slate-700 { color: hsl(215 12% 70%) !important; }
+.dark .text-gray-800,
+.dark .text-slate-800 { color: hsl(215 12% 80%) !important; }
+.dark .text-gray-900,
+.dark .text-slate-900 { color: hsl(215 12% 88%) !important; }
+
+/* White/black backgrounds in dark mode */
+.dark .bg-white { background-color: hsl(220 18% 13%) !important; }
+.dark .text-white { color: hsl(210 20% 93%) !important; }
+
+/* Ensure inline styles with hardcoded green gradient adapt */
+.dark [style*="background: linear-gradient"] {
+  opacity: 0.9;
+}
+
+/* Table row alternation for dark mode */
+.dark table tbody tr:nth-child(even) {
+  background-color: hsl(220 16% 12%);
+}
+
+/* Focus ring visibility in dark mode */
+.dark *:focus-visible {
+  outline-color: hsl(195 80% 50%);
 }
