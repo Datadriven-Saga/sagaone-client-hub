@@ -1977,6 +1977,59 @@ export type Database = {
         }
         Relationships: []
       }
+      logs_notificacoes_email: {
+        Row: {
+          assunto: string
+          created_at: string
+          destinatario_email: string
+          destinatario_nome: string | null
+          empresa_id: string | null
+          enviado_por: string | null
+          erro: string | null
+          id: string
+          referencia_id: string | null
+          referencia_tipo: string | null
+          status: string
+          tipo: string
+        }
+        Insert: {
+          assunto: string
+          created_at?: string
+          destinatario_email: string
+          destinatario_nome?: string | null
+          empresa_id?: string | null
+          enviado_por?: string | null
+          erro?: string | null
+          id?: string
+          referencia_id?: string | null
+          referencia_tipo?: string | null
+          status?: string
+          tipo?: string
+        }
+        Update: {
+          assunto?: string
+          created_at?: string
+          destinatario_email?: string
+          destinatario_nome?: string | null
+          empresa_id?: string | null
+          enviado_por?: string | null
+          erro?: string | null
+          id?: string
+          referencia_id?: string | null
+          referencia_tipo?: string | null
+          status?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logs_notificacoes_email_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       logs_prospeccoes: {
         Row: {
           acao: string

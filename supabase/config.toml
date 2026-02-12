@@ -91,3 +91,6 @@ verify_jwt = false
 
 [functions.cotacao-dolar]
 verify_jwt = true
+
+[functions.notify-evento-criado]
+verify_jwt = false
