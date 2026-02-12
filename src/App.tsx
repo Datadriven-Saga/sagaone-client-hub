@@ -120,6 +120,14 @@ const AppContent = () => {
       '--sagaone-bg', '--sagaone-login-bg', '--card', '--popover', '--sagaone-light'
     ];
     cssVarsToClean.forEach(v => root.style.removeProperty(v));
+
+    // Restore saved theme preference
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
   }
 
   return (
