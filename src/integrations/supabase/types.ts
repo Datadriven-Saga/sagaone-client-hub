@@ -1137,6 +1137,57 @@ export type Database = {
           },
         ]
       }
+      contato_quarentena: {
+        Row: {
+          canal: string | null
+          created_at: string
+          empresa_id: string | null
+          evento_nome: string | null
+          id: string
+          prospeccao_id: string | null
+          telefone_normalizado: string
+          ultimo_impacto_at: string
+          updated_at: string
+        }
+        Insert: {
+          canal?: string | null
+          created_at?: string
+          empresa_id?: string | null
+          evento_nome?: string | null
+          id?: string
+          prospeccao_id?: string | null
+          telefone_normalizado: string
+          ultimo_impacto_at?: string
+          updated_at?: string
+        }
+        Update: {
+          canal?: string | null
+          created_at?: string
+          empresa_id?: string | null
+          evento_nome?: string | null
+          id?: string
+          prospeccao_id?: string | null
+          telefone_normalizado?: string
+          ultimo_impacto_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contato_quarentena_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contato_quarentena_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contatos: {
         Row: {
           base_id: string | null
@@ -2314,6 +2365,69 @@ export type Database = {
             columns: ["tipo_notificacao_id"]
             isOneToOne: false
             referencedRelation: "tipos_notificacao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notificacoes_importacao: {
+        Row: {
+          base_nome: string
+          created_at: string
+          empresa_id: string
+          id: string
+          observacoes: string | null
+          prospeccao_id: string | null
+          revisado_at: string | null
+          revisado_por: string | null
+          solicitante_id: string
+          solicitante_nome: string
+          status: string
+          total_contatos: number | null
+          updated_at: string
+        }
+        Insert: {
+          base_nome: string
+          created_at?: string
+          empresa_id: string
+          id?: string
+          observacoes?: string | null
+          prospeccao_id?: string | null
+          revisado_at?: string | null
+          revisado_por?: string | null
+          solicitante_id: string
+          solicitante_nome: string
+          status?: string
+          total_contatos?: number | null
+          updated_at?: string
+        }
+        Update: {
+          base_nome?: string
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          observacoes?: string | null
+          prospeccao_id?: string | null
+          revisado_at?: string | null
+          revisado_por?: string | null
+          solicitante_id?: string
+          solicitante_nome?: string
+          status?: string
+          total_contatos?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacoes_importacao_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_importacao_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
             referencedColumns: ["id"]
           },
         ]
@@ -4182,6 +4296,15 @@ export type Database = {
       }
       can_manage_users: { Args: { user_id?: string }; Returns: boolean }
       check_password_protection_status: { Args: never; Returns: string }
+      check_quarentena: {
+        Args: { p_empresa_id: string; p_telefones: string[] }
+        Returns: {
+          em_quarentena: boolean
+          evento: string
+          telefone: string
+          ultimo_impacto: string
+        }[]
+      }
       check_user_email_exists: {
         Args: { email_to_check: string }
         Returns: boolean

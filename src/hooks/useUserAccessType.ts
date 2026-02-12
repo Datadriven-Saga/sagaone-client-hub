@@ -122,6 +122,21 @@ export function useUserAccessType() {
   // Permissão para gerenciar equipes de prospecção: Admin, TI, Gerente de Leads, Coordenadora de Leads, CRM, Gerente de Loja
   const canManageProspeccaoEquipes = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM || isGerenteLoja;
 
+  // Permissão para aprovar/reprovar campanhas: Administrador, TI, CRM (NÃO Gestor de Leads)
+  const canAprovarCampanhas = isAdmin || isTI || isCRM;
+
+  // Permissão para validar importações de base: Administrador, TI, CRM
+  const canValidarImportacao = isAdmin || isTI || isCRM;
+
+  // Permissão para programar campanhas: Administrador, TI, Gerente de Leads, Coordenadora de Leads, CRM
+  const canProgramarCampanhas = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+
+  // Permissão para governança de dados: Administrador, TI, CRM
+  const canGovernancaDados = isAdmin || isTI || isCRM;
+
+  // Permissão para criar usuários: Administrador, TI, Gerente de Leads, Coordenadora de Leads, CRM
+  const canCreateUsers = isAdminOrTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+
   return {
     tipoAcesso,
     departamento,
@@ -147,6 +162,11 @@ export function useUserAccessType() {
     canDispararEventos,
     canManageEventos,
     canManageProspeccaoEquipes,
+    canAprovarCampanhas,
+    canValidarImportacao,
+    canProgramarCampanhas,
+    canGovernancaDados,
+    canCreateUsers,
     // Permissões específicas
     canAddClientes,
     canAccessRecepcao,
