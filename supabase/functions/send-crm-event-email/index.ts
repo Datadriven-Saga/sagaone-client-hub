@@ -96,20 +96,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Montar payload enriquecido para n8n
+    // 4. Formatar data como DDMMAAAA
+    let dataFormatada = "";
+    if (evento.data_inicio) {
+      const d = new Date(evento.data_inicio);
+      const dd = String(d.getUTCDate()).padStart(2, "0");
+      const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const aaaa = String(d.getUTCFullYear());
+      dataFormatada = `${dd}${mm}${aaaa}`;
+    }
+
+    // 5. Montar payload enriquecido para n8n
     const payload = {
       evento: {
-        id: evento.id || "",
         nome: evento.titulo || "",
-        data: evento.data_inicio || "",
-        data_fim: evento.data_fim || "",
+        data: dataFormatada,
         descricao: evento.descricao || "",
       },
       empresa: {
-        id: evento.empresa_id || "",
+        dealer_id: empresa?.crm_id || "",
         nome: empresa?.nome_empresa || "",
         cnpj: empresa?.cnpj || "",
-        codigo: empresa?.crm_id || "",
         marca: empresa?.marca || "",
         cidade: empresa?.cidade || "",
         uf: empresa?.uf || "",
