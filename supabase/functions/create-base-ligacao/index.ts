@@ -140,86 +140,156 @@ Deno.serve(async (req: Request) => {
     console.log(`📊 [${requestId}] Validação: ${contatosValidos.length} válidos, ${contatosInvalidos.length} inválidos`);
 
     // =====================================================
-    // ETAPA 1: CRIAR/BUSCAR CONTATOS NO SUPABASE (contatos table)
+    // ETAPA 1: CRIAR/BUSCAR CONTATOS EM LOTE (contatos table)
     // Gerar lead_id ANTES de enviar ao webhook externo
     // =====================================================
-    // Map: telefone normalizado -> { contato_id, lead_id }
     const leadIdMap = new Map<string, { contato_id: string; lead_id: number | null }>();
     let contatosCriados = 0;
     let contatosVinculados = 0;
 
     if (!skipLocalSave && prospeccao_id) {
-      console.log(`\n📌 [${requestId}] ETAPA 1: Criando/buscando contatos na tabela 'contatos' para obter lead_id...`);
+      console.log(`\n📌 [${requestId}] ETAPA 1: Criando/buscando contatos em LOTE...`);
+
+      // 1a) Buscar todos os contatos existentes da empresa de uma vez
+      const allPhones = contatos
+        .map(c => normalizePhone(c.telefone))
+        .filter(Boolean);
+
+      // Buscar contatos existentes em lotes de 500
+      const existingMap = new Map<string, { id: string; lead_id: number | null }>();
+      const FETCH_BATCH = 500;
+      
+      for (let i = 0; i < allPhones.length; i += FETCH_BATCH) {
+        const phoneBatch = allPhones.slice(i, i + FETCH_BATCH);
+        // Build OR filter for phone suffix matching
+        const suffixes = [...new Set(phoneBatch.map(p => p.slice(-9)))];
+        
+        for (const suffix of suffixes) {
+          const { data: existing } = await supabase
+            .from('contatos')
+            .select('id, telefone, lead_id')
+            .eq('empresa_id', empresa_id)
+            .ilike('telefone', `%${suffix}`)
+            .limit(100);
+          
+          if (existing) {
+            for (const row of existing) {
+              if (row.telefone) {
+                const norm = normalizePhone(row.telefone);
+                const phone10 = normalizePhoneTo10Digits(row.telefone);
+                if (phone10.valid) {
+                  existingMap.set(phone10.normalized, { id: row.id, lead_id: row.lead_id });
+                }
+                if (norm) {
+                  existingMap.set(norm, { id: row.id, lead_id: row.lead_id });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      console.log(`📊 [${requestId}] Contatos existentes encontrados: ${existingMap.size}`);
+
+      // 1b) Separar novos vs existentes
+      const contatosParaCriar: ContatoInput[] = [];
+      const contatosExistentes: { input: ContatoInput; contato_id: string; lead_id: number | null }[] = [];
 
       for (const contato of contatos) {
         const telefoneNormalizado = normalizePhone(contato.telefone);
         if (!telefoneNormalizado) continue;
 
-        // Verificar se já existe contato com esse telefone na empresa
-        const { data: contatoExistente } = await supabase
-          .from('contatos')
-          .select('id, lead_id')
-          .eq('empresa_id', empresa_id)
-          .or(`telefone.ilike.%${telefoneNormalizado.slice(-9)}%`)
-          .limit(1)
-          .maybeSingle();
+        const phone10 = normalizePhoneTo10Digits(contato.telefone);
+        const existing = existingMap.get(phone10.valid ? phone10.normalized : telefoneNormalizado);
 
-        let contatoId: string;
-        let leadId: number | null = null;
-
-        if (contatoExistente) {
-          contatoId = contatoExistente.id;
-          leadId = contatoExistente.lead_id;
+        if (existing) {
+          contatosExistentes.push({ input: contato, contato_id: existing.id, lead_id: existing.lead_id });
+          if (phone10.valid) {
+            leadIdMap.set(phone10.normalized, { contato_id: existing.id, lead_id: existing.lead_id });
+          }
         } else {
-          // Criar novo contato
-          const { data: novoContato, error: createError } = await supabase
-            .from('contatos')
-            .insert({
-              nome: contato.nome || `Contato ${telefoneNormalizado}`,
-              telefone: contato.telefone,
-              email: contato.email || null,
-              status: 'Novo',
-              origem: 'Ligação',
-              empresa_id: empresa_id,
-            })
-            .select('id, lead_id')
-            .single();
+          contatosParaCriar.push(contato);
+        }
+      }
 
-          if (createError || !novoContato) {
-            console.error(`⚠️ [${requestId}] Erro ao criar contato ${telefoneNormalizado}:`, createError);
-            continue;
+      console.log(`📊 [${requestId}] Para criar: ${contatosParaCriar.length}, Existentes: ${contatosExistentes.length}`);
+
+      // 1c) Criar novos contatos em lotes de 500
+      const INSERT_BATCH = 500;
+      for (let i = 0; i < contatosParaCriar.length; i += INSERT_BATCH) {
+        const batch = contatosParaCriar.slice(i, i + INSERT_BATCH).map(c => ({
+          nome: c.nome || `Contato ${normalizePhone(c.telefone)}`,
+          telefone: c.telefone,
+          email: c.email || null,
+          status: 'Novo',
+          origem: 'Ligação',
+          empresa_id: empresa_id,
+        }));
+
+        const { data: created, error: createError } = await supabase
+          .from('contatos')
+          .insert(batch)
+          .select('id, telefone, lead_id');
+
+        if (createError) {
+          console.error(`⚠️ [${requestId}] Erro ao criar lote ${Math.floor(i / INSERT_BATCH) + 1}:`, createError);
+          continue;
+        }
+
+        if (created) {
+          contatosCriados += created.length;
+          for (const row of created) {
+            if (row.telefone) {
+              const phone10 = normalizePhoneTo10Digits(row.telefone);
+              if (phone10.valid) {
+                leadIdMap.set(phone10.normalized, { contato_id: row.id, lead_id: row.lead_id });
+              }
+            }
           }
-          contatoId = novoContato.id;
-          leadId = novoContato.lead_id;
-          contatosCriados++;
         }
+      }
 
-        // Guardar o mapeamento telefone -> lead_id
-        const phoneKey = normalizePhoneTo10Digits(contato.telefone);
-        if (phoneKey.valid) {
-          leadIdMap.set(phoneKey.normalized, { contato_id: contatoId, lead_id: leadId });
-        }
+      // 1d) Vincular todos ao evento em lotes de 500
+      const allContatoIds = [
+        ...contatosExistentes.map(c => c.contato_id),
+        ...[...leadIdMap.values()].map(v => v.contato_id),
+      ];
+      const uniqueContatoIds = [...new Set(allContatoIds)];
 
-        // Criar vínculo com a prospecção se não existir
-        const { data: vinculoExistente } = await supabase
+      // Buscar vínculos existentes em lote
+      const existingVinculos = new Set<string>();
+      for (let i = 0; i < uniqueContatoIds.length; i += 1000) {
+        const idBatch = uniqueContatoIds.slice(i, i + 1000);
+        const { data: vinculos } = await supabase
           .from('eventos_prospeccao')
-          .select('id')
-          .eq('contato_id', contatoId)
+          .select('contato_id')
           .eq('prospeccao_id', prospeccao_id)
-          .maybeSingle();
+          .in('contato_id', idBatch);
+        
+        if (vinculos) {
+          vinculos.forEach(v => existingVinculos.add(v.contato_id));
+        }
+      }
 
-        if (!vinculoExistente) {
-          const { error: linkError } = await supabase
-            .from('eventos_prospeccao')
-            .insert({
-              contato_id: contatoId,
-              prospeccao_id: prospeccao_id,
-              tipo_evento: 'Contato Inicial',
-            });
+      // Inserir vínculos faltantes em lotes
+      const vinculosParaCriar = uniqueContatoIds
+        .filter(id => !existingVinculos.has(id))
+        .map(id => ({
+          contato_id: id,
+          prospeccao_id: prospeccao_id,
+          tipo_evento: 'Contato Inicial',
+        }));
 
-          if (!linkError) {
-            contatosVinculados++;
-          }
+      for (let i = 0; i < vinculosParaCriar.length; i += INSERT_BATCH) {
+        const batch = vinculosParaCriar.slice(i, i + INSERT_BATCH);
+        const { error: linkError } = await supabase
+          .from('eventos_prospeccao')
+          .insert(batch);
+
+        if (!linkError) {
+          contatosVinculados += batch.length;
+        } else {
+          console.error(`⚠️ [${requestId}] Erro ao vincular lote:`, linkError);
         }
       }
 
@@ -256,7 +326,7 @@ Deno.serve(async (req: Request) => {
         };
       });
 
-      const batchSize = 100;
+      const batchSize = 500;
       for (let i = 0; i < prospectsToUpsert.length; i += batchSize) {
         const batch = prospectsToUpsert.slice(i, i + batchSize);
         const { error: upsertError } = await supabase
@@ -299,10 +369,7 @@ Deno.serve(async (req: Request) => {
         contatos: externalContatos,
       };
 
-      console.log(`📤 [${requestId}] Payload externo (amostra):`, JSON.stringify({
-        ...externalPayload,
-        contatos: externalContatos.slice(0, 3).concat(externalContatos.length > 3 ? [{ nome: '...', telefone: '...', lead_id: null }] : []),
-      }));
+      console.log(`📤 [${requestId}] Payload externo: ${externalContatos.length} contatos`);
 
       try {
         const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
