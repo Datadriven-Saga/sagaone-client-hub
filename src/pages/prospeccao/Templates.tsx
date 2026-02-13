@@ -1357,19 +1357,6 @@ export default function Templates() {
           </p>
         </div>
       )}
-      <div className="flex items-start gap-4">
-        <Label htmlFor="template_id_pri" className="w-40 shrink-0 text-right pt-2">ID PRI</Label>
-        <div className="flex-1 space-y-1">
-          <Input
-            id="template_id_pri"
-            value={formData.template_id_pri}
-            onChange={(e) => setFormData(prev => ({ ...prev, template_id_pri: e.target.value }))}
-            placeholder="Preenchido automaticamente pelo webhook"
-            className="bg-white"
-          />
-          <p className="text-xs text-muted-foreground">Será preenchido automaticamente ao criar o template externamente</p>
-        </div>
-      </div>
     </div>
   );
 
