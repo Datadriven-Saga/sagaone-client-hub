@@ -1251,8 +1251,8 @@ showAllEvents: true
 
             console.log('🚀 Chamando Edge Function create-base-ligacao com', contatosPayload.length, 'contatos');
 
-            // Enviar em lotes de 5000 para evitar timeout e limite de payload
-            const SYNC_BATCH = 5000;
+            // Enviar em lotes de 1000 para evitar timeout da Edge Function
+            const SYNC_BATCH = 1000;
             let totalSalvos = 0;
             let syncHadError = false;
 
