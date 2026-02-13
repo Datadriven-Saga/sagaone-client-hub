@@ -206,6 +206,13 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
     const file = e.target.files?.[0];
     if (!file) return;
     
+    // Validação de 5MB para imagens
+    if (mediaType === 'image' && file.size > 5 * 1024 * 1024) {
+      toast.error("Imagem deve ter no máximo 5MB");
+      e.target.value = "";
+      return;
+    }
+    
     let fileToUpload = file;
     
     // Compressão automática para vídeos maiores que 12MB
