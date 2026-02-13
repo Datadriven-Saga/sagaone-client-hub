@@ -1148,28 +1148,33 @@ export const useContatoData = () => {
         throw new Error(`event_id_pri inválido: ${prospeccaoData.event_id_pri}`);
       }
 
-      console.log(`📞 ${novoAtivo ? 'Ativando' : 'Desativando'} evento no webhook (IA Ligação):`, prospeccaoData.titulo);
+      // Buscar telefone_pri do agente Pri(Ligação) vinculado à empresa
+      const { data: agentesVinculados } = await supabase
+        .from('agente_empresas')
+        .select('agentes_ia(nome, telefone, ativo)')
+        .eq('empresa_id', prospeccaoData.empresa_id);
 
-      // Chamar edge function ia-ligacao-webhook com acao 'ativar' ou 'desativar' para mudar status
-      const { data: webhookData, error: webhookError } = await supabase.functions.invoke('ia-ligacao-webhook', {
+      const agentes = (agentesVinculados || [])
+        .map((ae: any) => ae.agentes_ia)
+        .filter((a: any) => a && a.ativo && a.telefone);
+
+      const searchPatterns = ['pri(ligação)', 'pri(ligacao)', 'pri - ligação', 'pri - ligacao', 'pri ligação', 'pri ligacao'];
+      const agentePri = agentes.find((a: any) => {
+        const nome = String(a?.nome || '').toLowerCase();
+        return searchPatterns.some(p => nome.includes(p));
+      });
+
+      const telefonePri = agentePri?.telefone?.replace(/\D/g, '') || '';
+
+      console.log(`📞 ${novoAtivo ? 'Ativando' : 'Desativando'} evento via eventos-ligacao-proxy:`, prospeccaoData.titulo, '| id_evento:', idEventoNum, '| telefone_pri:', telefonePri);
+
+      // Usar eventos-ligacao-proxy com action mudar_status (endpoints ativa-evento/desativa-evento)
+      const { data: webhookData, error: webhookError } = await supabase.functions.invoke('eventos-ligacao-proxy', {
         body: {
-          evento: {
-            id: prospeccaoId,
-            titulo: prospeccaoData.titulo,
-            descricao: prospeccaoData.descricao,
-            data_inicio: prospeccaoData.data_inicio,
-            data_fim: prospeccaoData.data_fim,
-            canal: prospeccaoData.canal,
-            evento_principal: false,
-            qualificar_lead: false,
-            imagem_divulgacao_url: null,
-            id_evento: idEventoNum,
-            uf: null,
-            cidade: null,
-            endereco: null,
-          },
-          empresa_id: prospeccaoData.empresa_id,
-          acao: novoAtivo ? 'ativar' : 'desativar',
+          action: 'mudar_status',
+          id_evento: idEventoNum,
+          telefone_pri: telefonePri,
+          evt_status: novoAtivo,
         },
       });
 
@@ -1179,7 +1184,7 @@ export const useContatoData = () => {
       }
 
       const result: any = webhookData;
-      if (result?.success === false || result?.error) {
+      if (result?.error || result?.message === 'Error in workflow') {
         console.error('❌ Webhook retornou erro:', result);
         throw new Error(result?.error || `Falha ao ${novoAtivo ? 'ativar' : 'desativar'} o evento.`);
       }
