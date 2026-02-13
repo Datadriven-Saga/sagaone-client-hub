@@ -79,44 +79,25 @@ Deno.serve(async (req) => {
       if (criador?.nome_completo) responsavelNome = criador.nome_completo;
     }
 
-    // Buscar destinatários CRM
-    const { data: usuariosCRM } = await supabase
-      .from("user_empresas")
-      .select("user_id, profiles!inner(id, nome_completo, email, tipo_acesso)")
-      .eq("empresa_id", evento.empresa_id);
+    // Buscar TODOS os usuários com tipo_acesso = 'CRM' (global, sem filtro de empresa)
+    const { data: crmProfiles } = await supabase
+      .from("profiles")
+      .select("id, nome_completo, email")
+      .eq("tipo_acesso", "CRM");
 
     let destinatarios: { id: string; nome_completo: string; email: string }[] = [];
 
-    if (usuariosCRM) {
-      for (const ue of usuariosCRM) {
-        const profile = ue.profiles as any;
-        if (profile && profile.tipo_acesso === "CRM" && profile.email) {
+    if (crmProfiles) {
+      for (const p of crmProfiles) {
+        if (p.email && p.email.trim() !== "") {
           destinatarios.push({
-            id: profile.id,
-            nome_completo: profile.nome_completo || "",
-            email: profile.email,
+            id: p.id,
+            nome_completo: p.nome_completo || "",
+            email: p.email,
           });
         }
       }
     }
-
-    // Fallback: buscar CRMs pelo profile.empresa_id
-    const { data: crmProfiles } = await supabase
-      .from("profiles")
-      .select("id, nome_completo, email")
-      .eq("empresa_id", evento.empresa_id)
-      .eq("tipo_acesso", "CRM");
-
-    if (crmProfiles) {
-      const idsExistentes = new Set(destinatarios.map((d) => d.id));
-      for (const p of crmProfiles) {
-        if (p.email && !idsExistentes.has(p.id)) {
-          destinatarios.push(p);
-        }
-      }
-    }
-
-    destinatarios = destinatarios.filter((d) => d.email && d.email.trim() !== "");
     console.log(`👥 CRMs encontrados: ${destinatarios.length}`);
 
     if (destinatarios.length === 0) {
