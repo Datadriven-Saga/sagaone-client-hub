@@ -44,7 +44,7 @@ async function callEdgeFunction(eventId: string): Promise<CrmEmailResult> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event_id: eventId }),
     },
-    5000
+    30000
   );
 
   const data = await response.json();
