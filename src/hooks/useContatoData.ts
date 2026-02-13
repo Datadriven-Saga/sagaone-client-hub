@@ -986,8 +986,33 @@ export const useContatoData = () => {
         // 🔔 notify-evento-criado DESATIVADO - usando exclusivamente send-crm-event-email
         // supabase.functions.invoke('notify-evento-criado', { ... });
 
-        // 📧 Disparar send-crm-event-email (fire-and-forget com retry)
-        sendCrmEventEmail(data.id);
+        // 📧 Disparar send-crm-event-email e exibir resultado
+        sendCrmEventEmail(data.id).then(result => {
+          if (result.success && result.enviados > 0) {
+            toast({
+              title: "📧 Email CRM enviado",
+              description: `Notificação enviada para ${result.enviados} destinatário(s) CRM.`,
+            });
+          } else if (result.success && result.total_destinatarios === 0) {
+            toast({
+              title: "⚠️ Nenhum CRM encontrado",
+              description: "Nenhum usuário CRM vinculado a esta loja para receber a notificação.",
+              variant: "destructive",
+            });
+          } else if (!result.success) {
+            toast({
+              title: "❌ Falha no envio de email CRM",
+              description: result.error || "Erro ao enviar notificação por email.",
+              variant: "destructive",
+            });
+          } else if (result.erros > 0) {
+            toast({
+              title: "⚠️ Envio parcial de email CRM",
+              description: `${result.enviados} enviado(s), ${result.erros} falha(s) de ${result.total_destinatarios} destinatário(s).`,
+              variant: "destructive",
+            });
+          }
+        });
         
         setProspeccoes(prev => [prospeccaoFormatada, ...prev]);
         toast({ 

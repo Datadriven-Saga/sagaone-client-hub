@@ -2,7 +2,7 @@
  * Utilitário para disparar email CRM via Edge Function send-crm-event-email.
  * 
  * Características:
- * - Fire-and-forget (não bloqueia fluxo principal)
+ * - Retorna resultado para exibição de alertas na UI
  * - Retry automático (1 tentativa extra)
  * - Timeout de 5 segundos
  * - Proteção contra envios duplicados
@@ -12,7 +12,16 @@
 const EDGE_FUNCTION_URL = 'https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/send-crm-event-email';
 
 // Set para evitar envios duplicados na mesma sessão
-const enviados = new Set<string>();
+const enviadosSet = new Set<string>();
+
+export interface CrmEmailResult {
+  success: boolean;
+  enviados: number;
+  erros: number;
+  total_destinatarios: number;
+  message?: string;
+  error?: string;
+}
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
@@ -25,7 +34,7 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
   }
 }
 
-async function callEdgeFunction(eventId: string): Promise<{ success: boolean; data?: any; error?: string }> {
+async function callEdgeFunction(eventId: string): Promise<CrmEmailResult> {
   console.log(`📧 [send-crm-event-email] Iniciando envio para event_id: ${eventId}`);
 
   const response = await fetchWithTimeout(
@@ -45,42 +54,47 @@ async function callEdgeFunction(eventId: string): Promise<{ success: boolean; da
   }
 
   console.log(`✅ [send-crm-event-email] Sucesso para event_id: ${eventId}`, data);
-  return { success: true, data };
+  return {
+    success: true,
+    enviados: data.enviados ?? 0,
+    erros: data.erros ?? 0,
+    total_destinatarios: data.total_destinatarios ?? 0,
+    message: data.message,
+  };
 }
 
 /**
- * Dispara email CRM de forma resiliente (fire-and-forget com retry).
- * Não lança exceções - apenas loga erros.
+ * Dispara email CRM com retry e retorna o resultado para exibição de alertas.
  */
-export async function sendCrmEventEmail(eventId: string): Promise<void> {
+export async function sendCrmEventEmail(eventId: string): Promise<CrmEmailResult> {
   // Validação
   if (!eventId || eventId === 'undefined') {
     console.error('❌ [send-crm-event-email] event_id inválido:', eventId);
-    return;
+    return { success: false, enviados: 0, erros: 0, total_destinatarios: 0, error: 'event_id inválido' };
   }
 
   // Proteção contra duplicados
-  if (enviados.has(eventId)) {
+  if (enviadosSet.has(eventId)) {
     console.warn(`⚠️ [send-crm-event-email] Envio duplicado bloqueado para event_id: ${eventId}`);
-    return;
+    return { success: true, enviados: 0, erros: 0, total_destinatarios: 0, message: 'Envio já realizado' };
   }
 
-  enviados.add(eventId);
+  enviadosSet.add(eventId);
 
   try {
-    await callEdgeFunction(eventId);
+    return await callEdgeFunction(eventId);
   } catch (firstError: any) {
     console.warn(`⚠️ [send-crm-event-email] Primeira tentativa falhou: ${firstError.message}. Retentando...`);
 
     try {
-      await callEdgeFunction(eventId);
+      return await callEdgeFunction(eventId);
     } catch (retryError: any) {
       console.error(`❌ [send-crm-event-email] Retry também falhou para event_id ${eventId}:`, {
         erro: retryError.message,
         timestamp: new Date().toISOString(),
       });
-      // Remover do set para permitir nova tentativa manual
-      enviados.delete(eventId);
+      enviadosSet.delete(eventId);
+      return { success: false, enviados: 0, erros: 0, total_destinatarios: 0, error: retryError.message };
     }
   }
 }
