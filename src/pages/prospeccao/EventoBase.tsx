@@ -377,7 +377,7 @@ export default function EventoBase() {
 
   // Buscar contatos paginados - para IA Ligação usa prospect_pri_voz (Supabase)
   const fetchContatos = useCallback(async () => {
-    if (!eventoId || !activeCompany?.id) {
+    if (!eventoId || !activeCompany?.id || !prospeccao) {
       setContatos([]);
       setLoadingPage(false);
       return;
