@@ -427,24 +427,10 @@ serve(async (req) => {
         }
         // Para novo_template_whatsapp, enviar os dados diretamente no body
         else if (gatilho === 'novo_template_whatsapp' && dados) {
-          // Clonar dados e remover media_base64 dos components para evitar payload gigante
-          // que causa erro 500 no n8n. O webhook externo deve baixar a mídia via media_url.
-          const dadosLimpos = { ...dados };
-          if (dadosLimpos.payload?.components && Array.isArray(dadosLimpos.payload.components)) {
-            dadosLimpos.payload = {
-              ...dadosLimpos.payload,
-              components: dadosLimpos.payload.components.map((comp: any) => {
-                if (comp?.media_base64) {
-                  const { media_base64, ...rest } = comp;
-                  return rest;
-                }
-                return comp;
-              }),
-            };
-          }
+          // Enviar dados completos incluindo media_base64 para o webhook externo
           webhookBody = {
             ...webhookBody,
-            ...dadosLimpos
+            ...dados
           };
         }
         // Para outros gatilhos, incluir dados completos
