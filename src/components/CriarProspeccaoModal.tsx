@@ -1906,11 +1906,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const triggerNovoEventoCriadoWebhooks = async (prospeccaoData: any, isEditing: boolean) => {
     if (!activeCompany?.id) return;
     
-    // Só disparar webhook para eventos IA Whatsapp
-    if (tipoEvento !== 'IA Whatsapp') {
-      console.log('⏭️ Webhook não disparado: tipo de evento não é IA Whatsapp');
-      return;
-    }
+    // Disparar webhook para todos os tipos de evento
 
     console.log('🔔 Verificando gatilhos para evento tipo:', tipoEvento);
 
