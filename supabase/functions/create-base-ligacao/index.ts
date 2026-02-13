@@ -117,7 +117,6 @@ Deno.serve(async (req: Request) => {
         .single();
       nomeEmpresa = empresaData?.nome_empresa || '';
     }
-    // Fallback: usar parâmetro loja apenas se não encontrou no banco
     if (!nomeEmpresa) {
       nomeEmpresa = loja || '';
     }
@@ -140,56 +139,55 @@ Deno.serve(async (req: Request) => {
     console.log(`📊 [${requestId}] Validação: ${contatosValidos.length} válidos, ${contatosInvalidos.length} inválidos`);
 
     // =====================================================
-    // ETAPA 1: CRIAR/BUSCAR CONTATOS EM LOTE (contatos table)
-    // Gerar lead_id ANTES de enviar ao webhook externo
+    // ETAPA 1: BUSCAR TODOS OS CONTATOS DA EMPRESA EM BULK
+    // e mapear lead_id por telefone normalizado
     // =====================================================
     const leadIdMap = new Map<string, { contato_id: string; lead_id: number | null }>();
     let contatosCriados = 0;
     let contatosVinculados = 0;
 
     if (!skipLocalSave && prospeccao_id) {
-      console.log(`\n📌 [${requestId}] ETAPA 1: Criando/buscando contatos em LOTE...`);
+      console.log(`\n📌 [${requestId}] ETAPA 1: Buscando contatos existentes em BULK...`);
 
-      // 1a) Buscar todos os contatos existentes da empresa de uma vez
-      const allPhones = contatos
-        .map(c => normalizePhone(c.telefone))
-        .filter(Boolean);
-
-      // Buscar contatos existentes em lotes de 500
+      // 1a) Buscar TODOS os contatos da empresa de uma vez (em batches de 1000)
       const existingMap = new Map<string, { id: string; lead_id: number | null }>();
-      const FETCH_BATCH = 500;
+      let offset = 0;
+      const BULK_LIMIT = 1000;
       
-      for (let i = 0; i < allPhones.length; i += FETCH_BATCH) {
-        const phoneBatch = allPhones.slice(i, i + FETCH_BATCH);
-        // Build OR filter for phone suffix matching
-        const suffixes = [...new Set(phoneBatch.map(p => p.slice(-9)))];
+      while (true) {
+        const { data: rows, error: fetchErr } = await supabase
+          .from('contatos')
+          .select('id, telefone, lead_id')
+          .eq('empresa_id', empresa_id)
+          .not('telefone', 'is', null)
+          .range(offset, offset + BULK_LIMIT - 1);
         
-        for (const suffix of suffixes) {
-          const { data: existing } = await supabase
-            .from('contatos')
-            .select('id, telefone, lead_id')
-            .eq('empresa_id', empresa_id)
-            .ilike('telefone', `%${suffix}`)
-            .limit(100);
-          
-          if (existing) {
-            for (const row of existing) {
-              if (row.telefone) {
-                const norm = normalizePhone(row.telefone);
-                const phone10 = normalizePhoneTo10Digits(row.telefone);
-                if (phone10.valid) {
-                  existingMap.set(phone10.normalized, { id: row.id, lead_id: row.lead_id });
-                }
-                if (norm) {
-                  existingMap.set(norm, { id: row.id, lead_id: row.lead_id });
-                }
-              }
+        if (fetchErr) {
+          console.error(`⚠️ [${requestId}] Erro ao buscar contatos bulk offset ${offset}:`, fetchErr);
+          break;
+        }
+        
+        if (!rows || rows.length === 0) break;
+        
+        for (const row of rows) {
+          if (row.telefone) {
+            const phone10 = normalizePhoneTo10Digits(row.telefone);
+            if (phone10.valid) {
+              existingMap.set(phone10.normalized, { id: row.id, lead_id: row.lead_id });
+            }
+            // Also map by raw normalized digits
+            const norm = normalizePhone(row.telefone);
+            if (norm) {
+              existingMap.set(norm, { id: row.id, lead_id: row.lead_id });
             }
           }
         }
+        
+        if (rows.length < BULK_LIMIT) break;
+        offset += BULK_LIMIT;
       }
 
-      console.log(`📊 [${requestId}] Contatos existentes encontrados: ${existingMap.size}`);
+      console.log(`📊 [${requestId}] Contatos existentes na empresa: ${existingMap.size} mapeamentos`);
 
       // 1b) Separar novos vs existentes
       const contatosParaCriar: ContatoInput[] = [];
@@ -200,7 +198,8 @@ Deno.serve(async (req: Request) => {
         if (!telefoneNormalizado) continue;
 
         const phone10 = normalizePhoneTo10Digits(contato.telefone);
-        const existing = existingMap.get(phone10.valid ? phone10.normalized : telefoneNormalizado);
+        const lookupKey = phone10.valid ? phone10.normalized : telefoneNormalizado;
+        const existing = existingMap.get(lookupKey);
 
         if (existing) {
           contatosExistentes.push({ input: contato, contato_id: existing.id, lead_id: existing.lead_id });
@@ -222,7 +221,7 @@ Deno.serve(async (req: Request) => {
           telefone: c.telefone,
           email: c.email || null,
           status: 'Novo',
-          origem: 'Ligação',
+          origem: 'ligacao',
           empresa_id: empresa_id,
         }));
 
