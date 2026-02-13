@@ -304,49 +304,9 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
           });
         });
       
-      // Verificar quarentena para contatos válidos
+      // Quarentena desabilitada - todos os contatos válidos são aceitos
+      const contatosLimpos: ClienteData[] = [...validClientes];
       const quarentenaClientes: ClienteData[] = [];
-      const contatosLimpos: ClienteData[] = [];
-      
-      // Admin/Master bypassa quarentena (considerado teste)
-      if (isAdminOrMaster) {
-        contatosLimpos.push(...validClientes);
-      } else if (validClientes.length > 0 && activeCompany?.id) {
-        const telefones = validClientes.map(c => c.telefone);
-        const { data: quarentenaResult, error: quarentenaError } = await supabase
-          .rpc('check_quarentena', { 
-            p_telefones: telefones, 
-            p_empresa_id: activeCompany.id 
-          });
-        
-        if (!quarentenaError && quarentenaResult) {
-          const quarentenaMap = new Map<string, { em_quarentena: boolean; ultimo_impacto: string; evento: string }>();
-          quarentenaResult.forEach((r: any) => {
-            if (r.em_quarentena) {
-              quarentenaMap.set(r.telefone, r);
-            }
-          });
-          
-          for (const cliente of validClientes) {
-            const info = quarentenaMap.get(cliente.telefone);
-            if (info) {
-              const dataImpacto = new Date(info.ultimo_impacto).toLocaleDateString('pt-BR');
-              quarentenaClientes.push({
-                ...cliente,
-                emQuarentena: true,
-                quarentenaInfo: `Impactado em ${dataImpacto}${info.evento ? ` (${info.evento})` : ''}`,
-                validationError: `Em quarentena até ${new Date(new Date(info.ultimo_impacto).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR')}`
-              });
-            } else {
-              contatosLimpos.push(cliente);
-            }
-          }
-        } else {
-          contatosLimpos.push(...validClientes);
-        }
-      } else {
-        contatosLimpos.push(...validClientes);
-      }
       
       setPreviewData(contatosLimpos);
       setInvalidData(invalidClientes);
