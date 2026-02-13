@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,16 +13,18 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     const SMTP_USER = Deno.env.get("SMTP_USER");
-    const SMTP_PASS = Deno.env.get("SMTP_PASS");
 
-    if (!SMTP_USER || !SMTP_PASS) {
-      console.error("❌ SMTP_USER ou SMTP_PASS não configurados");
+    if (!RESEND_API_KEY) {
+      console.error("❌ RESEND_API_KEY não configurada");
       return new Response(
-        JSON.stringify({ error: "Credenciais SMTP não configuradas" }),
+        JSON.stringify({ error: "RESEND_API_KEY não configurada" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const fromEmail = SMTP_USER || "onboarding@resend.dev";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -169,34 +170,34 @@ Deno.serve(async (req) => {
         </div>
       </div>`;
 
-    // Enviar via SMTP (Outlook/Microsoft 365)
+    // Enviar via Resend API (HTTP - compatível com Edge Functions)
     let enviados = 0;
     let erros = 0;
     const logs: Array<any> = [];
 
-    const client = new SMTPClient({
-      connection: {
-        hostname: "smtp.office365.com",
-        port: 587,
-        tls: false,
-        auth: {
-          username: SMTP_USER,
-          password: SMTP_PASS,
-        },
-      },
-    });
-
     for (const dest of destinatarios) {
       try {
-        console.log(`📤 Enviando email SMTP para: ${dest.email}`);
+        console.log(`📤 Enviando email para: ${dest.email}`);
 
-        await client.send({
-          from: SMTP_USER,
-          to: dest.email,
-          subject: assunto,
-          content: "Visualize este email em um cliente que suporte HTML.",
-          html: corpoHtml,
+        const resendRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: `Saga One <${fromEmail}>`,
+            to: [dest.email],
+            subject: assunto,
+            html: corpoHtml,
+          }),
         });
+
+        const resendData = await resendRes.json();
+
+        if (!resendRes.ok) {
+          throw new Error(resendData?.message || `HTTP ${resendRes.status}`);
+        }
 
         console.log(`✅ Email enviado com sucesso para ${dest.email}`);
         enviados++;
@@ -214,7 +215,7 @@ Deno.serve(async (req) => {
       } catch (emailErr) {
         erros++;
         const errMsg = (emailErr as Error).message;
-        console.error(`❌ Falha SMTP para ${dest.email}: ${errMsg}`);
+        console.error(`❌ Falha para ${dest.email}: ${errMsg}`);
         logs.push({
           tipo: "send_crm_event_email",
           referencia_id: event_id,
@@ -229,15 +230,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    await client.close();
-
     if (logs.length > 0) {
       const { error: logError } = await supabase.from("logs_notificacoes_email").insert(logs);
       if (logError) console.error("❌ Erro ao salvar logs:", logError.message);
       else console.log(`✅ ${logs.length} log(s) salvos`);
     }
 
-    console.log(`📧 Resultado SMTP: ${enviados} enviados, ${erros} erros de ${destinatarios.length} destinatários`);
+    console.log(`📧 Resultado: ${enviados} enviados, ${erros} erros de ${destinatarios.length} destinatários`);
 
     return new Response(
       JSON.stringify({ success: true, enviados, erros, total_destinatarios: destinatarios.length }),
