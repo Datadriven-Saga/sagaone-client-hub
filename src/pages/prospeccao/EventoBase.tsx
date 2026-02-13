@@ -308,12 +308,15 @@ export default function EventoBase() {
       
       if (isLigacao) {
         const metricasExternas = await fetchMetricasLigacao();
-        if (metricasExternas) {
+        if (metricasExternas && metricasExternas.total > 0) {
           console.log('✅ Usando métricas externas (classificação completa)');
           setMetricasLigacao(metricasExternas);
           baseMetricas.pendentes = metricasExternas.pendentes;
           baseMetricas.disparados = metricasExternas.disparados1 + metricasExternas.disparados2;
           baseMetricas.total = metricasExternas.total;
+        } else if (metricasExternas && metricasExternas.total === 0 && baseMetricas.total > 0) {
+          console.log('⚠️ Métricas externas retornaram 0 mas existem contatos locais, mantendo métricas base');
+          // Não sobrescrever métricas base com zeros quando temos dados locais
         }
       }
 
@@ -1750,7 +1753,7 @@ export default function EventoBase() {
             </div>
 
             {/* Seção de Disparo IA */}
-            {isIA && (isIALigacaoLocal ? (metricasLigacao ? metricasLigacao.total > 0 : metricas.total > 0) : metricas.pendentes > 0) && (
+            {isIA && (isIALigacaoLocal ? (metricasLigacao ? metricasLigacao.total > 0 : (metricas.total > 0 || contatos.length > 0)) : metricas.pendentes > 0) && (
               <div className="border-t pt-4 space-y-3">
                 {/* Observação sobre lotes */}
                 <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg text-sm">
