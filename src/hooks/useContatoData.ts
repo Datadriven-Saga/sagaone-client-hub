@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { normalizePhone } from '@/lib/utils';
+import { sendCrmEventEmail } from '@/lib/sendCrmEventEmail';
 
 export interface Contato {
   id: string;
@@ -1002,6 +1003,9 @@ export const useContatoData = () => {
         }).catch(err => {
           console.error('⚠️ Falha ao disparar notificação CRM:', err);
         });
+
+        // 📧 Disparar send-crm-event-email (fire-and-forget com retry)
+        sendCrmEventEmail(data.id);
         
         setProspeccoes(prev => [prospeccaoFormatada, ...prev]);
         toast({ 
