@@ -71,6 +71,7 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterUF, setFilterUF] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
 
   // Add/Edit modal
   const [showModal, setShowModal] = useState(false);
@@ -221,6 +222,11 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
         return false;
     }
     if (filterUF !== "all" && loja.uf?.toUpperCase() !== filterUF.toUpperCase()) return false;
+    if (filterStatus !== "all") {
+      const ativo = isStatusAtivo(loja.ativa);
+      if (filterStatus === "ativo" && !ativo) return false;
+      if (filterStatus === "inativo" && ativo) return false;
+    }
     return true;
   });
 
@@ -272,6 +278,16 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
               {uniqueUFs.map((uf) => (
                 <SelectItem key={uf} value={uf}>{uf}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="ativo">Ativo</SelectItem>
+              <SelectItem value="inativo">Inativo</SelectItem>
             </SelectContent>
           </Select>
         </div>
