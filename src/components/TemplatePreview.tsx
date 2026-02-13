@@ -34,6 +34,12 @@ export function TemplatePreview({
   conteudo, 
   cardData 
 }: TemplatePreviewProps) {
+  // Check if a URL is valid (not a blob URL, which are temporary and break on reload)
+  const isValidImageUrl = (url?: string) => {
+    if (!url) return false;
+    if (url.startsWith('blob:')) return false;
+    return true;
+  };
   // Função para renderizar texto com negrito (*texto* → <strong>texto</strong>)
   const renderBoldText = (text: string) => {
     if (!text) return null;
@@ -82,10 +88,10 @@ export function TemplatePreview({
       case "imagem":
         return (
           <div className="space-y-2">
-            {cardData?.imagemUrl ? (
+            {isValidImageUrl(cardData?.imagemUrl) ? (
               <div className="rounded-lg overflow-hidden">
               <img 
-                  src={cardData.imagemUrl} 
+                  src={cardData!.imagemUrl} 
                   alt="Preview" 
                   className="w-full h-40 object-cover"
                   onError={(e) => {
@@ -100,8 +106,11 @@ export function TemplatePreview({
                 </div>
               </div>
             ) : (
-              <div className="w-full h-40 bg-muted/50 rounded-lg flex items-center justify-center">
+              <div className="w-full h-40 bg-muted/50 rounded-lg flex flex-col items-center justify-center gap-1">
                 <ImageIcon className="h-12 w-12 text-muted-foreground/40" />
+                {cardData?.imagemUrl?.startsWith('blob:') && (
+                  <p className="text-[10px] text-muted-foreground/60">Imagem expirada - edite o template para re-enviar</p>
+                )}
               </div>
             )}
             {conteudo && (
@@ -168,10 +177,10 @@ export function TemplatePreview({
         return (
           <div className="space-y-2">
             {/* Imagem do Card */}
-            {cardData?.imagemUrl ? (
+            {isValidImageUrl(cardData?.imagemUrl) ? (
               <div className="rounded-lg overflow-hidden -mx-3 -mt-3">
                 <img 
-                  src={cardData.imagemUrl} 
+                  src={cardData!.imagemUrl} 
                   alt="Preview" 
                   className="w-full h-32 object-cover"
                   onError={(e) => {
@@ -186,8 +195,11 @@ export function TemplatePreview({
                 </div>
               </div>
             ) : (
-              <div className="w-full h-32 bg-muted/50 rounded-lg -mx-3 -mt-3 flex items-center justify-center" style={{ width: 'calc(100% + 24px)' }}>
+              <div className="w-full h-32 bg-muted/50 rounded-lg -mx-3 -mt-3 flex flex-col items-center justify-center" style={{ width: 'calc(100% + 24px)' }}>
                 <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+                {cardData?.imagemUrl?.startsWith('blob:') && (
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">Imagem expirada</p>
+                )}
               </div>
             )}
             

@@ -161,7 +161,8 @@ export default function Templates() {
         .from('whatsapp-templates')
         .upload(fileName, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: false,
+          contentType: file.type,
         });
       
       if (error) {
