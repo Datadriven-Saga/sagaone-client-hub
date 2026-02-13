@@ -1157,24 +1157,8 @@ showAllEvents: true
       console.log('Novos contatos a serem adicionados:', novosContatos);
       console.log('Prospeccao selecionada ID:', prospeccaoSelecionada.id);
 
-      // Usar a função do hook que já trata empresa_id automaticamente e vincula na eventos_prospeccao
-      let resultado;
-      try {
-        resultado = await adicionarContatos(novosContatos, prospeccaoSelecionada.id);
-      } catch (adicionarError) {
-        console.error('❌ Erro ao adicionar contatos:', adicionarError);
-        // Não retornar - continuar com os dados originais para eventos de ligação
-      }
-
-      console.log('📊 Resultado do adicionarContatos:', {
-        temResultado: !!resultado,
-        todosContatosProcessados: resultado?.todosContatosProcessados?.length || 0,
-        novosContatosCriados: resultado?.novosContatosCriados?.length || 0,
-        contatosVinculados: resultado?.contatosVinculados?.length || 0
-      });
-
-      // Para eventos de Ligação, salvar no Supabase (prospect_pri_voz) e enviar ao webhook externo
-      // A Edge Function create-base-ligacao faz AMBOS: salva no Supabase E envia para o n8n/PRI
+      // Para eventos de Ligação, disparar a sincronização externa EM PARALELO com adicionarContatos
+      // Isso garante que o webhook é chamado mesmo se adicionarContatos travar ou falhar
       const isLigacaoEvent = prospeccaoSelecionada.canal === 'Ligação';
       console.log('📞 Verificando se é evento de Ligação:', { 
         canal: prospeccaoSelecionada.canal, 
@@ -1182,129 +1166,146 @@ showAllEvents: true
         totalClientesImportados: clientes.length
       });
 
-      // SEMPRE chamar a Edge Function para eventos de Ligação, mesmo que resultado seja parcial
-      // Usar os clientes originais se o resultado estiver vazio
-      if (isLigacaoEvent) {
-        try {
-          console.log('📞 Criando base de ligação no Supabase e sincronizando com webhook externo...');
-          
-          // Buscar agente de ligação (Pri) ativo da empresa para obter telefone_pri
-          // IMPORTANTE: Usar maybeSingle() para evitar crash quando não há agente configurado
-          const { data: agenteData, error: agenteError } = await supabase
-            .from('agente_empresas')
-            .select(`
-              agente_id,
-              agentes_ia (
-                id,
-                nome,
-                telefone,
-                ativo
-              )
-            `)
-            .eq('empresa_id', activeCompany?.id)
-            .limit(10);
-          
-          // Filtrar agente ativo no código (evita problemas com RLS e inner join)
-          const agenteAtivo = agenteData?.find(a => a.agentes_ia?.ativo === true && a.agentes_ia?.telefone);
+      // Função que chama a Edge Function create-base-ligacao
+      const syncLigacaoExterna = async () => {
+        if (!isLigacaoEvent) return;
+        
+        console.log('📞 [SYNC] Iniciando sincronização com sistema externo de ligação...');
+        
+        // Buscar agente de ligação (Pri) ativo da empresa para obter telefone_pri
+        const { data: agenteData, error: agenteError } = await supabase
+          .from('agente_empresas')
+          .select(`
+            agente_id,
+            agentes_ia (
+              id,
+              nome,
+              telefone,
+              ativo
+            )
+          `)
+          .eq('empresa_id', activeCompany?.id)
+          .limit(10);
+        
+        const agenteAtivo = agenteData?.find(a => a.agentes_ia?.ativo === true && a.agentes_ia?.telefone);
 
-          console.log('🔍 Busca de agente:', { 
-            agentesEncontrados: agenteData?.length || 0,
-            agenteAtivo: agenteAtivo ? 'encontrado' : 'não encontrado', 
-            agenteError: agenteError?.message,
-            telefonePri: agenteAtivo?.agentes_ia?.telefone 
+        console.log('🔍 [SYNC] Busca de agente:', { 
+          agentesEncontrados: agenteData?.length || 0,
+          agenteAtivo: agenteAtivo ? 'encontrado' : 'não encontrado', 
+          agenteError: agenteError?.message,
+          telefonePri: agenteAtivo?.agentes_ia?.telefone 
+        });
+
+        if (agenteError || !agenteAtivo?.agentes_ia?.telefone) {
+          console.warn('⚠️ [SYNC] Nenhum agente Pri encontrado para criar base de ligação');
+          toast({
+            title: "Aviso",
+            description: "Agente Pri não encontrado. Contatos importados localmente, mas não sincronizados com o sistema de ligação.",
+            variant: "destructive"
           });
-
-          if (!agenteError && agenteAtivo?.agentes_ia?.telefone) {
-            const telefonePri = agenteAtivo.agentes_ia.telefone.replace(/\D/g, '');
-            const lojaNome = activeCompany?.nome_empresa || '';
-            const idEvento = prospeccaoSelecionada.event_id_pri ? Number(prospeccaoSelecionada.event_id_pri) : null;
-
-            console.log('📦 Dados para create-base-ligacao:', { 
-              telefonePri, 
-              lojaNome, 
-              idEvento,
-              empresaId: activeCompany?.id,
-              prospeccaoId: prospeccaoSelecionada.id
-            });
-
-            const normalizeTelefoneForPri = (digits: string) => {
-              if (digits.length > 11 && digits.startsWith('55')) return digits.slice(2);
-              return digits;
-            };
-
-            // IMPORTANTE: Usar os contatos processados OU os clientes originais como fallback
-            const contatosParaEnviar = (resultado?.todosContatosProcessados && resultado.todosContatosProcessados.length > 0)
-              ? resultado.todosContatosProcessados
-              : clientes.map(c => ({ nome: c.nome, telefone: c.telefone }));
-
-            console.log('📋 Contatos para enviar à Edge Function:', contatosParaEnviar.length);
-
-            const contatosPayload = contatosParaEnviar.map((c) => {
-              const telefoneDigitsRaw = c.telefone?.replace(/\D/g, '') || '';
-              const telefoneDigits = normalizeTelefoneForPri(telefoneDigitsRaw);
-
-              return {
-                nome: c.nome || '',
-                telefone: telefoneDigits,
-              };
-            });
-
-            console.log('🚀 Chamando Edge Function create-base-ligacao com', contatosPayload.length, 'contatos');
-
-            // Enviar em lotes de 1000 para evitar timeout da Edge Function
-            const SYNC_BATCH = 1000;
-            let totalSalvos = 0;
-            let syncHadError = false;
-
-            for (let i = 0; i < contatosPayload.length; i += SYNC_BATCH) {
-              const batch = contatosPayload.slice(i, i + SYNC_BATCH);
-              console.log(`📦 Lote ${Math.floor(i / SYNC_BATCH) + 1}/${Math.ceil(contatosPayload.length / SYNC_BATCH)} (${batch.length} contatos)`);
-
-              const { data: createBaseData, error: createBaseError } = await supabase.functions.invoke('create-base-ligacao', {
-                body: {
-                  contatos: batch,
-                  id_evento: idEvento || 0,
-                  telefone_pri: telefonePri,
-                  empresa_id: activeCompany?.id,
-                  prospeccao_id: prospeccaoSelecionada.id,
-                  loja: lojaNome,
-                  sync_external: !!idEvento,
-                },
-              });
-
-              if (createBaseError) {
-                console.error(`❌ Erro no lote ${Math.floor(i / SYNC_BATCH) + 1}:`, createBaseError);
-                syncHadError = true;
-              } else {
-                totalSalvos += createBaseData?.summary?.supabase_salvos || batch.length;
-                console.log(`✅ Lote ${Math.floor(i / SYNC_BATCH) + 1} concluído:`, createBaseData?.summary);
-                
-                if (createBaseData?.external_sync?.success) {
-                  console.log('✅ Webhook externo cria-base-ligacao chamado com sucesso');
-                }
-              }
-            }
-
-            if (!syncHadError) {
-              toast({
-                title: "Sincronização concluída",
-                description: `${totalSalvos} contatos enviados para o sistema de ligação`,
-              });
-            } else {
-              console.warn('⚠️ Alguns lotes falharam durante sincronização');
-            }
-          } else {
-            console.warn('⚠️ Nenhum agente Pri encontrado para criar base de ligação');
-            toast({
-              title: "Aviso",
-              description: "Agente Pri não encontrado. Contatos importados localmente, mas não sincronizados com o sistema de ligação.",
-              variant: "destructive"
-            });
-          }
-        } catch (createBaseError) {
-          console.error('❌ Erro ao criar base de ligação:', createBaseError);
+          return;
         }
-      }
+
+        const telefonePri = agenteAtivo.agentes_ia.telefone.replace(/\D/g, '');
+        const lojaNome = activeCompany?.nome_empresa || '';
+        const idEvento = prospeccaoSelecionada.event_id_pri ? Number(prospeccaoSelecionada.event_id_pri) : null;
+
+        console.log('📦 [SYNC] Dados para create-base-ligacao:', { 
+          telefonePri, lojaNome, idEvento,
+          empresaId: activeCompany?.id,
+          prospeccaoId: prospeccaoSelecionada.id
+        });
+
+        const normalizeTelefoneForPri = (digits: string) => {
+          if (digits.length > 11 && digits.startsWith('55')) return digits.slice(2);
+          return digits;
+        };
+
+        // SEMPRE usar os clientes originais da planilha - fonte mais confiável
+        const contatosPayload = clientes.map((c) => {
+          const telefoneDigitsRaw = c.telefone?.replace(/\D/g, '') || '';
+          const telefoneDigits = normalizeTelefoneForPri(telefoneDigitsRaw);
+          return {
+            nome: c.nome || '',
+            telefone: telefoneDigits,
+          };
+        });
+
+        console.log('🚀 [SYNC] Chamando Edge Function create-base-ligacao com', contatosPayload.length, 'contatos');
+
+        // Enviar em lotes de 1000 para evitar timeout da Edge Function
+        const SYNC_BATCH = 1000;
+        let totalSalvos = 0;
+        let syncHadError = false;
+
+        for (let i = 0; i < contatosPayload.length; i += SYNC_BATCH) {
+          const batch = contatosPayload.slice(i, i + SYNC_BATCH);
+          const batchNum = Math.floor(i / SYNC_BATCH) + 1;
+          const totalBatches = Math.ceil(contatosPayload.length / SYNC_BATCH);
+          console.log(`📦 [SYNC] Lote ${batchNum}/${totalBatches} (${batch.length} contatos)`);
+
+          try {
+            const { data: createBaseData, error: createBaseError } = await supabase.functions.invoke('create-base-ligacao', {
+              body: {
+                contatos: batch,
+                id_evento: idEvento || 0,
+                telefone_pri: telefonePri,
+                empresa_id: activeCompany?.id,
+                prospeccao_id: prospeccaoSelecionada.id,
+                loja: lojaNome,
+                sync_external: !!idEvento,
+              },
+            });
+
+            if (createBaseError) {
+              console.error(`❌ [SYNC] Erro no lote ${batchNum}:`, createBaseError);
+              syncHadError = true;
+            } else {
+              totalSalvos += createBaseData?.summary?.supabase_salvos || batch.length;
+              console.log(`✅ [SYNC] Lote ${batchNum} concluído:`, createBaseData?.summary);
+            }
+          } catch (batchError) {
+            console.error(`❌ [SYNC] Exceção no lote ${batchNum}:`, batchError);
+            syncHadError = true;
+          }
+        }
+
+        if (!syncHadError) {
+          toast({
+            title: "Sincronização concluída",
+            description: `${totalSalvos} contatos enviados para o sistema de ligação`,
+          });
+        } else {
+          toast({
+            title: "Sincronização parcial",
+            description: `${totalSalvos} contatos sincronizados. Alguns lotes falharam.`,
+            variant: "destructive"
+          });
+        }
+      };
+
+      // Executar adicionarContatos e syncLigacaoExterna em PARALELO
+      // Isso garante que o webhook externo é chamado mesmo se adicionarContatos travar
+      const adicionarContatosPromise = adicionarContatos(novosContatos, prospeccaoSelecionada.id)
+        .catch(adicionarError => {
+          console.error('❌ Erro ao adicionar contatos:', adicionarError);
+          return undefined;
+        });
+
+      const syncLigacaoPromise = syncLigacaoExterna()
+        .catch(syncError => {
+          console.error('❌ Erro na sincronização de ligação:', syncError);
+        });
+
+      // Aguardar ambas terminarem
+      const [resultado] = await Promise.all([adicionarContatosPromise, syncLigacaoPromise]);
+
+      console.log('📊 Resultado do adicionarContatos:', {
+        temResultado: !!resultado,
+        todosContatosProcessados: resultado?.todosContatosProcessados?.length || 0,
+        novosContatosCriados: resultado?.novosContatosCriados?.length || 0,
+        contatosVinculados: resultado?.contatosVinculados?.length || 0
+      });
 
       toast({
         title: "Base importada",
