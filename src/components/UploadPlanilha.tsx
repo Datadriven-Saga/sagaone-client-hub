@@ -467,89 +467,9 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
         }
       }
 
-      // =====================================================
-      // SYNC COM BASE EXTERNA (create-base-ligacao) para eventos de Ligação
-      // =====================================================
-      if (isLigacaoEvent && activeCompany?.id && selectedProspeccao?.event_id_pri) {
-        try {
-          console.log('📞 Evento de Ligação detectado, sincronizando com base externa...');
-          
-          // Buscar telefone_pri do agente Pri da empresa
-          const { data: agenteData } = await supabase
-            .from('agentes_ia')
-            .select('telefone')
-            .eq('empresa_id', activeCompany.id)
-            .ilike('nome', '%Pri%')
-            .not('telefone', 'is', null)
-            .limit(1)
-            .single();
-          
-          const telefonePri = agenteData?.telefone?.replace(/\D/g, '') || '';
-          
-          if (telefonePri) {
-            const contatosParaSync = previewData.map(c => ({
-              nome: c.nome || `Contato ${c.telefone}`,
-              telefone: c.telefone,
-              email: c.email || undefined,
-              cpf: c.cpf || undefined,
-            }));
-
-            const eventIdPri = parseInt(selectedProspeccao.event_id_pri, 10);
-            
-            if (!isNaN(eventIdPri)) {
-              console.log(`🚀 Enviando ${contatosParaSync.length} contatos para create-base-ligacao (evento ${eventIdPri})`);
-              
-              // Enviar em lotes de 5000 para evitar timeout e limite de payload
-              const SYNC_BATCH = 5000;
-              let totalSyncSalvos = 0;
-              let syncHadError = false;
-
-              for (let i = 0; i < contatosParaSync.length; i += SYNC_BATCH) {
-                const batch = contatosParaSync.slice(i, i + SYNC_BATCH);
-                console.log(`📦 Enviando lote ${Math.floor(i / SYNC_BATCH) + 1}/${Math.ceil(contatosParaSync.length / SYNC_BATCH)} (${batch.length} contatos)`);
-                
-                const { data: syncResult, error: syncError } = await supabase.functions.invoke('create-base-ligacao', {
-                  body: {
-                    contatos: batch,
-                    id_evento: eventIdPri,
-                    telefone_pri: telefonePri,
-                    empresa_id: activeCompany.id,
-                    prospeccao_id: selectedCampanha,
-                    sync_external: true,
-                  },
-                });
-
-                if (syncError) {
-                  console.error(`⚠️ Erro no lote ${Math.floor(i / SYNC_BATCH) + 1}:`, syncError);
-                  syncHadError = true;
-                } else {
-                  totalSyncSalvos += syncResult?.summary?.supabase_salvos || batch.length;
-                }
-              }
-
-              if (syncHadError) {
-                toast({
-                  title: "Aviso",
-                  description: `Parte dos contatos sincronizados (${totalSyncSalvos}/${contatosParaSync.length}). Alguns lotes tiveram erro.`,
-                  variant: "default",
-                });
-              } else {
-                console.log('✅ Sincronização com base externa concluída:', totalSyncSalvos);
-                toast({
-                  title: "Base externa criada",
-                  description: `${totalSyncSalvos} contatos sincronizados com o sistema de ligação.`,
-                });
-              }
-            } else {
-              console.warn('⚠️ event_id_pri não é numérico:', selectedProspeccao.event_id_pri);
-            }
-          } else {
-            console.warn('⚠️ Nenhum agente Pri encontrado para a empresa, pulando sync externo');
-          }
-        } catch (syncErr) {
-          console.error('⚠️ Erro na sincronização externa (não crítico):', syncErr);
-        }
-      }
+      // NOTA: A sincronização com o sistema externo de ligação (create-base-ligacao)
+      // é feita pelo handleClientesImported em Prospeccao.tsx via onClientesImported.
+      // Não duplicar a chamada aqui.
       
       setIsOpen(false);
       setSelectedCampanha('');
