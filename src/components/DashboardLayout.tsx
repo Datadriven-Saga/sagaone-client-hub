@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect } from "react";
+import ActiveCampaignJobIndicator from "./ActiveCampaignJobIndicator";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
@@ -186,7 +187,10 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
               )}
             </div>
             
-            <UserMenu />
+            <div className="flex items-center gap-3">
+              <ActiveCampaignJobIndicator />
+              <UserMenu />
+            </div>
           </header>
 
           {/* Main Content - Scrollable area */}
