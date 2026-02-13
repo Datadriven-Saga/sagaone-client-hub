@@ -548,10 +548,6 @@ export default function Templates() {
         toast.error("Já existe um template com este nome");
         return;
       }
-      if (!formData.template_id_pri.trim()) {
-        toast.error("ID PRI é obrigatório");
-        return;
-      }
     }
     if (currentStep === 2) {
       if (!formData.formato) {
@@ -863,12 +859,6 @@ export default function Templates() {
     
     if (duplicateExists) {
       toast.error("Já existe um template com este nome");
-      return;
-    }
-
-    // Validação ID PRI obrigatório
-    if (!formData.template_id_pri.trim()) {
-      toast.error("ID PRI é obrigatório");
       return;
     }
 
@@ -1368,18 +1358,16 @@ export default function Templates() {
         </div>
       )}
       <div className="flex items-start gap-4">
-        <Label htmlFor="template_id_pri" className="w-40 shrink-0 text-right pt-2">ID PRI *</Label>
+        <Label htmlFor="template_id_pri" className="w-40 shrink-0 text-right pt-2">ID PRI</Label>
         <div className="flex-1 space-y-1">
           <Input
             id="template_id_pri"
             value={formData.template_id_pri}
             onChange={(e) => setFormData(prev => ({ ...prev, template_id_pri: e.target.value }))}
-            placeholder="Ex: 12345"
-            className={`bg-white ${!formData.template_id_pri.trim() && formData.nome.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
+            placeholder="Preenchido automaticamente pelo webhook"
+            className="bg-white"
           />
-          {!formData.template_id_pri.trim() && formData.nome.trim() && (
-            <p className="text-xs text-destructive">ID PRI é obrigatório</p>
-          )}
+          <p className="text-xs text-muted-foreground">Será preenchido automaticamente ao criar o template externamente</p>
         </div>
       </div>
     </div>
