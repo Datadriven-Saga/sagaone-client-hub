@@ -687,16 +687,15 @@ export default function Templates() {
         media_length: mediaData?.size || null,
       });
     } else if (savedData.formato === "video" && savedData.cardData?.videoUrl) {
-      // Para vídeos, enviar em base64 (limite de 12MB garante que o payload não fica muito grande)
-      const mediaData = await fetchMediaAsBase64(savedData.cardData.videoUrl);
+      // Para vídeos, NÃO converter em base64 no frontend (pode causar OOM/timeout).
+      // O webhook externo deve baixar o vídeo via media_url.
       components.push({
         type: "HEADER",
         format: "VIDEO",
         media_url: savedData.cardData.videoUrl,
-        media_base64: mediaData?.base64 || null,
-        media_mime_type: mediaData?.mimeType || savedData.cardData.videoMimeType || "video/mp4",
+        media_mime_type: savedData.cardData.videoMimeType || "video/mp4",
         media_type: "video",
-        media_length: mediaData?.size || savedData.cardData.videoSizeBytes || null,
+        media_length: savedData.cardData.videoSizeBytes || null,
       });
     }
 
@@ -774,7 +773,8 @@ export default function Templates() {
       }
 
       if (!agenteData) {
-        console.error("Agente não encontrado para o template");
+        console.error("❌ Agente não encontrado para o template - webhook não será disparado");
+        toast.error("Agente não encontrado. Webhook não disparado.");
         return null;
       }
 
@@ -828,7 +828,8 @@ export default function Templates() {
 
       return null;
     } catch (error) {
-      console.error("Erro ao disparar webhooks:", error);
+      console.error("❌ Erro ao disparar webhooks:", error);
+      toast.error("Erro ao disparar webhook externo. Verifique os logs.");
       return null;
     }
   };
