@@ -80,10 +80,17 @@ export function useDashboardData() {
             .select('id, prospeccao_id, data_evento, resultado')
             .in('prospeccao_id', (await supabase.from('prospeccoes').select('id').eq('empresa_id', activeCompany.id)).data?.map(p => p.id) || []),
           
-          // Agentes IA
+          // Agentes IA (via agente_empresas, same logic as AgentesIA page)
           supabase
-            .from('agentes_ia')
-            .select('id, ativo')
+            .from('agente_empresas')
+            .select(`
+              agente_id,
+              agentes_ia (
+                id,
+                telefone,
+                ativo
+              )
+            `)
             .eq('empresa_id', activeCompany.id),
           
           // Follow-ups/Automações
@@ -117,7 +124,27 @@ export function useDashboardData() {
         const contatos = contatosResult.data || [];
         const vendas = vendasResult.data || [];
         const eventos = eventosResult.data || [];
-        const agentes = agentesResult.data || [];
+        // Extract unique webhook agents (same filter as AgentesIA page)
+        const agentesRaw = agentesResult.data || [];
+        const uniqueAgentIds = new Set<string>();
+        const uniquePhones = new Set<string>();
+        const agentes: { id: string; ativo: boolean }[] = [];
+        
+        for (const item of agentesRaw) {
+          const agente = (item as any).agentes_ia;
+          if (!agente || uniqueAgentIds.has(agente.id)) continue;
+          
+          // Same isWebhookAgent filter: must have 10+ digit phone, no parenthesis prefix
+          const tel = agente.telefone || '';
+          if (tel.startsWith('(')) continue;
+          const digits = tel.replace(/\D/g, '');
+          if (digits.length < 10) continue;
+          if (uniquePhones.has(digits)) continue;
+          
+          uniqueAgentIds.add(agente.id);
+          uniquePhones.add(digits);
+          agentes.push({ id: agente.id, ativo: agente.ativo });
+        }
         const followups = followupsResult.data || [];
         const relatorios = relatoriosResult.data || [];
         const treinamentos = treinamentosResult.data || [];
