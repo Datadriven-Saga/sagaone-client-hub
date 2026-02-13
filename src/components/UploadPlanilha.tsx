@@ -16,6 +16,7 @@ import {
   normalizeToLocalPhone,
   PhoneErrorCode 
 } from '@/lib/phoneUtils';
+import { useUserAccessType } from '@/hooks/useUserAccessType';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -76,6 +77,8 @@ const ERROR_LABELS: Record<PhoneErrorCode, string> = {
 
 export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanilhaProps) => {
   const { activeCompany } = useCompany();
+  const { tipoAcesso } = useUserAccessType();
+  const isAdminOrMaster = tipoAcesso === 'Administrador' || tipoAcesso === 'Master';
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCampanha, setSelectedCampanha] = useState<string>('');
   const [selectedOrigem, setSelectedOrigem] = useState<string>('');
@@ -305,7 +308,10 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       const quarentenaClientes: ClienteData[] = [];
       const contatosLimpos: ClienteData[] = [];
       
-      if (validClientes.length > 0 && activeCompany?.id) {
+      // Admin/Master bypassa quarentena (considerado teste)
+      if (isAdminOrMaster) {
+        contatosLimpos.push(...validClientes);
+      } else if (validClientes.length > 0 && activeCompany?.id) {
         const telefones = validClientes.map(c => c.telefone);
         const { data: quarentenaResult, error: quarentenaError } = await supabase
           .rpc('check_quarentena', { 
@@ -336,7 +342,6 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
             }
           }
         } else {
-          // Se falhar a checagem, permitir todos
           contatosLimpos.push(...validClientes);
         }
       } else {
