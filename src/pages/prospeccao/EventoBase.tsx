@@ -390,90 +390,105 @@ export default function EventoBase() {
       const isLigacao = canalAtual.includes('liga');
 
       // Para IA Ligação, buscar de prospect_pri_voz via edge function
+      // Se retornar 0 resultados, faz fallback para contatos locais (eventos_prospeccao)
       if (isLigacao && prospeccao?.event_id_pri) {
         console.log('📞 Buscando contatos de IA Ligação do Supabase (prospect_pri_voz)...');
         
-        const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
-          body: {
-            id_evento: parseInt(String(prospeccao.event_id_pri), 10),
-            empresa_id: activeCompany.id,
-            prospeccao_id: eventoId,
-            page: currentPage,
-            page_size: PAGE_SIZE,
-            filters: {
-              search: searchTerm || undefined,
-              status: disparoFilter !== 'todos' ? disparoFilter : undefined,
-              status_ligacao: statusLigacaoFilter !== 'todos' ? statusLigacaoFilter : undefined,
-              tentativas: tentativasFilter !== 'todos' ? tentativasFilter : undefined,
-            }
-          }
-        });
-
-        if (error) throw error;
-
-        if (data?.success && data?.contatos) {
-          // Mapear dados do prospect_pri_voz para o formato ContatoEvento
-          const mappedContatos: ContatoEvento[] = (data.contatos || []).map((p: any) => ({
-            id: p.id,
-            lead_id: p.lead_id ? parseInt(p.lead_id, 10) : null,
-            nome: p.nome || '',
-            telefone: p.telefone_lead || '',
-            email: null,
-            status: p.status_calculado === 'encerrado' 
-              ? (p.status_agendado ? 'Agendado' : p.ligacao_atendida ? 'Atendido' : 'Encerrado')
-              : 'Novo',
-            origem: 'Ligação',
-            created_at: p.criado_em,
-            updated_at: p.atualizado_em,
-            data_disparo_ia: p.num_tentativas > 0 ? p.atualizado_em : null,
-            responsavel_email: null,
-            vendedor_nome: null,
-            // Campos específicos de IA Ligação
-            status_agendado: p.status_agendado,
-            enviado_whatsapp: p.enviado_whatsapp,
-            ligacao_atendida: p.ligacao_atendida,
-            ligacao_erro: p.ligacao_erro,
-            num_tentativas: p.num_tentativas,
-          }));
-
-          setContatos(mappedContatos);
-          setTotalCount(data.pagination?.total || mappedContatos.length);
-          
-          // Também criar mapa de contatos externos para compatibilidade
-          const externalMap = new Map<string, any>();
-          mappedContatos.forEach(c => {
-            const telefone = (c.telefone || '').replace(/\D/g, '');
-            if (telefone) {
-              externalMap.set(telefone, {
-                status_agendado: c.status_agendado,
-                enviado_whatsapp: c.enviado_whatsapp,
-                ligacao_atendida: c.ligacao_atendida,
-                ligacao_erro: c.ligacao_erro,
-                num_tentativas: c.num_tentativas || 0
-              });
+        let usedFallback = false;
+        
+        try {
+          const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
+            body: {
+              id_evento: parseInt(String(prospeccao.event_id_pri), 10),
+              empresa_id: activeCompany.id,
+              prospeccao_id: eventoId,
+              page: currentPage,
+              page_size: PAGE_SIZE,
+              filters: {
+                search: searchTerm || undefined,
+                status: disparoFilter !== 'todos' ? disparoFilter : undefined,
+                status_ligacao: statusLigacaoFilter !== 'todos' ? statusLigacaoFilter : undefined,
+                tentativas: tentativasFilter !== 'todos' ? tentativasFilter : undefined,
+              }
             }
           });
-          setContatosExternos(externalMap);
-          
-          // Atualizar métricas com dados filtrados do servidor
-          if (data.metricas) {
-            setMetricasLigacao({
-              total: data.metricas.total || 0,
-              pendentes: data.metricas.pendentes || 0,
-              disparados1: data.metricas.disparados1 || 0,
-              disparados2: data.metricas.disparados2 || 0,
-              emFila: data.metricas.emFila || 0,
-              encerrados: data.metricas.encerrados || 0,
-              agendados: data.metricas.agendados || 0,
-              whatsappEnviado: data.metricas.whatsappEnviado || 0,
-              atendidos: data.metricas.atendidos || 0,
-              elegiveisDisparo: data.metricas.elegiveisDisparo || 0
+
+          if (error) throw error;
+
+          if (data?.success && data?.contatos && (data.contatos.length > 0 || data.pagination?.total > 0)) {
+            // Dados encontrados em prospect_pri_voz
+            const mappedContatos: ContatoEvento[] = (data.contatos || []).map((p: any) => ({
+              id: p.id,
+              lead_id: p.lead_id ? parseInt(p.lead_id, 10) : null,
+              nome: p.nome || '',
+              telefone: p.telefone_lead || '',
+              email: null,
+              status: p.status_calculado === 'encerrado' 
+                ? (p.status_agendado ? 'Agendado' : p.ligacao_atendida ? 'Atendido' : 'Encerrado')
+                : 'Novo',
+              origem: 'Ligação',
+              created_at: p.criado_em,
+              updated_at: p.atualizado_em,
+              data_disparo_ia: p.num_tentativas > 0 ? p.atualizado_em : null,
+              responsavel_email: null,
+              vendedor_nome: null,
+              status_agendado: p.status_agendado,
+              enviado_whatsapp: p.enviado_whatsapp,
+              ligacao_atendida: p.ligacao_atendida,
+              ligacao_erro: p.ligacao_erro,
+              num_tentativas: p.num_tentativas,
+            }));
+
+            setContatos(mappedContatos);
+            setTotalCount(data.pagination?.total || mappedContatos.length);
+            
+            const externalMap = new Map<string, any>();
+            mappedContatos.forEach(c => {
+              const telefone = (c.telefone || '').replace(/\D/g, '');
+              if (telefone) {
+                externalMap.set(telefone, {
+                  status_agendado: c.status_agendado,
+                  enviado_whatsapp: c.enviado_whatsapp,
+                  ligacao_atendida: c.ligacao_atendida,
+                  ligacao_erro: c.ligacao_erro,
+                  num_tentativas: c.num_tentativas || 0
+                });
+              }
             });
+            setContatosExternos(externalMap);
+            
+            if (data.metricas) {
+              setMetricasLigacao({
+                total: data.metricas.total || 0,
+                pendentes: data.metricas.pendentes || 0,
+                disparados1: data.metricas.disparados1 || 0,
+                disparados2: data.metricas.disparados2 || 0,
+                emFila: data.metricas.emFila || 0,
+                encerrados: data.metricas.encerrados || 0,
+                agendados: data.metricas.agendados || 0,
+                whatsappEnviado: data.metricas.whatsappEnviado || 0,
+                atendidos: data.metricas.atendidos || 0,
+                elegiveisDisparo: data.metricas.elegiveisDisparo || 0
+              });
+            }
+
+            setLoadingPage(false);
+            return;
+          } else {
+            // prospect_pri_voz retornou 0 - fazer fallback para contatos locais
+            console.log('⚠️ prospect_pri_voz retornou 0 contatos, usando fallback para contatos locais...');
+            usedFallback = true;
           }
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar prospect_pri_voz, usando fallback local:', err);
+          usedFallback = true;
         }
 
-        setLoadingPage(false);
-        return;
+        // Fallback: se prospect_pri_voz está vazio, cai no fluxo padrão abaixo
+        if (!usedFallback) {
+          setLoadingPage(false);
+          return;
+        }
       }
 
       // Para outros tipos de evento, usar query tradicional (contatos + eventos_prospeccao)
