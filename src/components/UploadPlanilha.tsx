@@ -504,6 +504,74 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
           await supabase.from('notificacoes').insert(notificacoes);
         }
       }
+
+      // =====================================================
+      // SYNC COM BASE EXTERNA (create-base-ligacao) para eventos de Ligação
+      // =====================================================
+      if (isLigacaoEvent && activeCompany?.id && selectedProspeccao?.event_id_pri) {
+        try {
+          console.log('📞 Evento de Ligação detectado, sincronizando com base externa...');
+          
+          // Buscar telefone_pri do agente Pri da empresa
+          const { data: agenteData } = await supabase
+            .from('agentes_ia')
+            .select('telefone')
+            .eq('empresa_id', activeCompany.id)
+            .ilike('nome', '%Pri%')
+            .not('telefone', 'is', null)
+            .limit(1)
+            .single();
+          
+          const telefonePri = agenteData?.telefone?.replace(/\D/g, '') || '';
+          
+          if (telefonePri) {
+            const contatosParaSync = previewData.map(c => ({
+              nome: c.nome || `Contato ${c.telefone}`,
+              telefone: c.telefone,
+              email: c.email || undefined,
+              cpf: c.cpf || undefined,
+            }));
+
+            const eventIdPri = parseInt(selectedProspeccao.event_id_pri, 10);
+            
+            if (!isNaN(eventIdPri)) {
+              console.log(`🚀 Enviando ${contatosParaSync.length} contatos para create-base-ligacao (evento ${eventIdPri})`);
+              
+              const { data: syncResult, error: syncError } = await supabase.functions.invoke('create-base-ligacao', {
+                body: {
+                  contatos: contatosParaSync,
+                  id_evento: eventIdPri,
+                  telefone_pri: telefonePri,
+                  empresa_id: activeCompany.id,
+                  prospeccao_id: selectedCampanha,
+                  sync_external: true,
+                },
+              });
+
+              if (syncError) {
+                console.error('⚠️ Erro ao sincronizar com base externa (não crítico):', syncError);
+                toast({
+                  title: "Aviso",
+                  description: "Contatos importados localmente, mas houve erro ao sincronizar com sistema externo de ligação.",
+                  variant: "default",
+                });
+              } else {
+                console.log('✅ Sincronização com base externa concluída:', syncResult);
+                toast({
+                  title: "Base externa criada",
+                  description: `${syncResult?.summary?.supabase_salvos || contatosParaSync.length} contatos sincronizados com o sistema de ligação.`,
+                });
+              }
+            } else {
+              console.warn('⚠️ event_id_pri não é numérico:', selectedProspeccao.event_id_pri);
+            }
+          } else {
+            console.warn('⚠️ Nenhum agente Pri encontrado para a empresa, pulando sync externo');
+          }
+        } catch (syncErr) {
+          console.error('⚠️ Erro na sincronização externa (não crítico):', syncErr);
+        }
+      }
       
       setIsOpen(false);
       setSelectedCampanha('');
