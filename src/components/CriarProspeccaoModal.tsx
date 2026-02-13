@@ -22,6 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { validatePhoneBatchForIALigacao } from "@/lib/phoneUtils";
+import { sendCrmEventEmail } from "@/lib/sendCrmEventEmail";
 
 
 interface CriarProspeccaoModalProps {
@@ -1382,6 +1383,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         }).catch(err => {
           console.error('⚠️ Falha ao disparar notificação CRM (edição):', err);
         });
+
+        // 📧 Disparar send-crm-event-email (fire-and-forget com retry)
+        sendCrmEventEmail(data.id);
       } else {
         // Criando nova prospecção
         if (!activeCompany?.id) {
@@ -1485,6 +1489,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         }).catch(err => {
           console.error('⚠️ Falha ao disparar notificação CRM:', err);
         });
+
+        // 📧 Disparar send-crm-event-email (fire-and-forget com retry)
+        sendCrmEventEmail(data.id);
       }
 
       // Limpar form e fechar modal
