@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
       connection: {
         hostname: "smtp.office365.com",
         port: 587,
-        tls: true,
+        tls: false,
         auth: {
           username: SMTP_USER,
           password: SMTP_PASS,
