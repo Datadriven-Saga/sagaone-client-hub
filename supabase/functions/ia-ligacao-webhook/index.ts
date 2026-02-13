@@ -407,6 +407,33 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // =====================================================
+    // CHAMAR verifica_eventos_id após criação bem-sucedida
+    // =====================================================
+    if (response.ok && idEvento && operacao === 'criar') {
+      try {
+        const VERIFICA_EVENTOS_ID_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica_eventos_id';
+        console.log('📡 Chamando verifica_eventos_id com:', { telefone_pri: telefonePriLigacao, id_evento: idEvento });
+
+        const verificaResponse = await fetch(VERIFICA_EVENTOS_ID_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+          },
+          body: JSON.stringify({
+            telefone_pri: telefonePriLigacao,
+            id_evento: idEvento,
+          }),
+        });
+
+        const verificaText = await verificaResponse.text();
+        console.log(`✅ verifica_eventos_id resposta (${verificaResponse.status}):`, verificaText.substring(0, 500));
+      } catch (verificaError) {
+        console.error('⚠️ Erro ao chamar verifica_eventos_id (não crítico):', verificaError);
+      }
+    }
+
     // Se a criação foi bem-sucedida, retornar o id_evento para ser salvo
     return new Response(
       JSON.stringify({
