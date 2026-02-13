@@ -5,6 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Upload, UserCircle, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { validateImageFile } from "@/lib/storageUtils";
+import { toast } from "sonner";
 
 // Import male avatars
 import male01 from "@/assets/avatars/male-01.png";
@@ -49,6 +51,12 @@ export const AvatarSelector = ({ currentAvatar, userName, onAvatarChange, disabl
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const validation = validateImageFile(file);
+      if (!validation.valid) {
+        toast.error(validation.error);
+        e.target.value = "";
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
@@ -165,7 +173,7 @@ export const AvatarSelector = ({ currentAvatar, userName, onAvatarChange, disabl
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept="image/*"
+                accept="image/jpeg,image/png,image/gif,image/webp"
                 className="hidden"
               />
               

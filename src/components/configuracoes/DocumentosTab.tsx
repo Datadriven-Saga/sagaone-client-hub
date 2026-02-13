@@ -87,16 +87,22 @@ export function DocumentosTab() {
   const handleUpload = async (documentoId: string, file: File) => {
     if (!activeCompany?.id) return;
 
+    // Validate file size (max 10MB for documents)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'Erro', description: 'Arquivo muito grande. Máximo 10MB.', variant: 'destructive' });
+      return;
+    }
+
     try {
       setUploading(documentoId);
 
       const fileExt = file.name.split('.').pop();
       const fileName = `${activeCompany.id}/${documentoId}-${Date.now()}.${fileExt}`;
 
-      // Upload file to storage
+      // Upload file to storage with explicit content type
       const { error: uploadError } = await supabase.storage
         .from('documentos-configuracao')
-        .upload(fileName, file);
+        .upload(fileName, file, { contentType: file.type });
 
       if (uploadError) throw uploadError;
 

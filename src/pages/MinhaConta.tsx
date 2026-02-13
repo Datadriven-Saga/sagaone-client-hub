@@ -17,12 +17,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { User, Mail, Phone, Calendar, Building, Shield, Eye, Camera, X, Moon, Sun } from "lucide-react";
+import { User, Mail, Phone, Calendar, Building, Shield, Eye, Camera, X, Moon, Sun, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { AvatarBuilder } from "@/components/AvatarBuilder";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
+import { uploadImageUrlToStorage, deleteFromStorage } from "@/lib/storageUtils";
 
 const profileSchema = z.object({
   nome_completo: z.string().min(1, "Nome é obrigatório"),
@@ -106,11 +107,28 @@ const MinhaConta = () => {
     if (!user) return;
 
     try {
-      const { error } = await supabase.from("profiles").update({ foto_url: avatarUrl }).eq("id", user.id);
+      // Delete old avatar from storage if it exists in our bucket
+      if (profile?.foto_url && profile.foto_url.includes("/avatars/")) {
+        await deleteFromStorage(profile.foto_url, "avatars");
+      }
+
+      // Upload to storage (handles both base64 and remote URLs)
+      let finalUrl = avatarUrl;
+      if (avatarUrl.startsWith("data:") || avatarUrl.startsWith("http")) {
+        const result = await uploadImageUrlToStorage(
+          avatarUrl,
+          "avatars",
+          user.id,
+          `avatar-${Date.now()}`
+        );
+        finalUrl = result.url;
+      }
+
+      const { error } = await supabase.from("profiles").update({ foto_url: finalUrl }).eq("id", user.id);
 
       if (error) throw error;
 
-      setProfile({ ...profile, foto_url: avatarUrl });
+      setProfile({ ...profile, foto_url: finalUrl });
       toast({
         title: "Sucesso",
         description: "Foto de perfil atualizada com sucesso!",
@@ -119,7 +137,7 @@ const MinhaConta = () => {
       console.error("Error updating avatar:", error);
       toast({
         title: "Erro",
-        description: "Não foi possível atualizar a foto de perfil.",
+        description: error instanceof Error ? error.message : "Não foi possível atualizar a foto de perfil.",
         variant: "destructive",
       });
     }
@@ -196,7 +214,13 @@ const MinhaConta = () => {
                   <DropdownMenuTrigger asChild>
                     <div className="relative group cursor-pointer">
                       <Avatar className="h-20 w-20">
-                        <AvatarImage src={profile?.foto_url || undefined} alt={profile?.nome_completo} />
+                        <AvatarImage
+                          src={profile?.foto_url || undefined}
+                          alt={profile?.nome_completo}
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                          }}
+                        />
                         <AvatarFallback className="text-lg">
                           {profile?.nome_completo
                             ?.split(" ")

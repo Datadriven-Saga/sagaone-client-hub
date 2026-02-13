@@ -11,6 +11,7 @@ import { Camera, Loader2, Sparkles, User, Palette, Scissors, Eye, CircleUser, Up
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { validateImageFile } from "@/lib/storageUtils";
 
 interface AvatarBuilderProps {
   currentAvatar?: string | null;
@@ -154,8 +155,11 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("Arquivo muito grande. Máximo 5MB.");
+      // Validate file type and size
+      const validation = validateImageFile(file);
+      if (!validation.valid) {
+        toast.error(validation.error);
+        e.target.value = "";
         return;
       }
       const reader = new FileReader();
@@ -584,7 +588,7 @@ export const AvatarBuilder = ({ currentAvatar, userName, onAvatarChange, disable
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept="image/*"
+                accept="image/jpeg,image/png,image/gif,image/webp"
                 className="hidden"
               />
               
