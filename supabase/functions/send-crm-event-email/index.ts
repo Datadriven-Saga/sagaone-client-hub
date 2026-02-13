@@ -48,15 +48,14 @@ Deno.serve(async (req) => {
 
     console.log(`✅ Evento: "${evento.titulo}" (empresa: ${evento.empresa_id})`);
 
-    // 2. Buscar empresa
+    // 2. Buscar empresa com dados completos
     const { data: empresa } = await supabase
       .from("empresas")
-      .select("nome_empresa")
+      .select("nome_empresa, cnpj, crm_id, marca, cidade, uf")
       .eq("id", evento.empresa_id)
       .single();
 
-    console.log(`🏢 Empresa: ${empresa?.nome_empresa || "não encontrada"}`);
-
+    console.log(`🏢 Empresa: ${empresa?.nome_empresa || "não encontrada"} (${empresa?.cnpj || "sem CNPJ"})`);
     // 3. Buscar todos os perfis CRM e seus emails via auth.admin
     const { data: crmProfiles } = await supabase
       .from("profiles")
@@ -97,17 +96,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Montar payload para n8n
+    // 4. Montar payload enriquecido para n8n
     const payload = {
       evento: {
         id: evento.id || "",
         nome: evento.titulo || "",
         data: evento.data_inicio || "",
+        data_fim: evento.data_fim || "",
         descricao: evento.descricao || "",
       },
       empresa: {
         id: evento.empresa_id || "",
         nome: empresa?.nome_empresa || "",
+        cnpj: empresa?.cnpj || "",
+        codigo: empresa?.crm_id || "",
+        marca: empresa?.marca || "",
+        cidade: empresa?.cidade || "",
+        uf: empresa?.uf || "",
       },
       crms: emails,
     };
