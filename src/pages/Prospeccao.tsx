@@ -1251,38 +1251,47 @@ showAllEvents: true
 
             console.log('🚀 Chamando Edge Function create-base-ligacao com', contatosPayload.length, 'contatos');
 
-            // Usar Edge Function create-base-ligacao que:
-            // 1. Salva no Supabase (prospect_pri_voz) - fonte primária
-            // 2. Envia para webhook externo n8n/PRI - sincronização
-            const { data: createBaseData, error: createBaseError } = await supabase.functions.invoke('create-base-ligacao', {
-              body: {
-                contatos: contatosPayload,
-                id_evento: idEvento || 0, // Se não tem event_id_pri, ainda salva no Supabase
-                telefone_pri: telefonePri,
-                empresa_id: activeCompany?.id,
-                prospeccao_id: prospeccaoSelecionada.id,
-                loja: lojaNome,
-                sync_external: !!idEvento, // Só sincroniza com webhook externo se tiver event_id_pri
-              },
-            });
+            // Enviar em lotes de 5000 para evitar timeout e limite de payload
+            const SYNC_BATCH = 5000;
+            let totalSalvos = 0;
+            let syncHadError = false;
 
-            console.log('📥 Resposta da Edge Function:', { createBaseData, createBaseError });
+            for (let i = 0; i < contatosPayload.length; i += SYNC_BATCH) {
+              const batch = contatosPayload.slice(i, i + SYNC_BATCH);
+              console.log(`📦 Lote ${Math.floor(i / SYNC_BATCH) + 1}/${Math.ceil(contatosPayload.length / SYNC_BATCH)} (${batch.length} contatos)`);
 
-            if (!createBaseError) {
-              console.log('✅ Base de ligação criada:', createBaseData?.summary);
-              
-              // Se sincronizou com sucesso com o sistema externo, mostrar feedback
-              if (createBaseData?.external_sync?.success) {
-                console.log('✅ Webhook externo cria-base-ligacao chamado com sucesso');
-                toast({
-                  title: "Sincronização concluída",
-                  description: `${contatosPayload.length} contatos enviados para o sistema de ligação`,
-                });
-              } else if (idEvento) {
-                console.warn('⚠️ Base salva localmente, mas sincronização externa falhou:', createBaseData?.external_sync?.message);
+              const { data: createBaseData, error: createBaseError } = await supabase.functions.invoke('create-base-ligacao', {
+                body: {
+                  contatos: batch,
+                  id_evento: idEvento || 0,
+                  telefone_pri: telefonePri,
+                  empresa_id: activeCompany?.id,
+                  prospeccao_id: prospeccaoSelecionada.id,
+                  loja: lojaNome,
+                  sync_external: !!idEvento,
+                },
+              });
+
+              if (createBaseError) {
+                console.error(`❌ Erro no lote ${Math.floor(i / SYNC_BATCH) + 1}:`, createBaseError);
+                syncHadError = true;
+              } else {
+                totalSalvos += createBaseData?.summary?.supabase_salvos || batch.length;
+                console.log(`✅ Lote ${Math.floor(i / SYNC_BATCH) + 1} concluído:`, createBaseData?.summary);
+                
+                if (createBaseData?.external_sync?.success) {
+                  console.log('✅ Webhook externo cria-base-ligacao chamado com sucesso');
+                }
               }
+            }
+
+            if (!syncHadError) {
+              toast({
+                title: "Sincronização concluída",
+                description: `${totalSalvos} contatos enviados para o sistema de ligação`,
+              });
             } else {
-              console.error('❌ Erro ao chamar Edge Function create-base-ligacao:', createBaseError);
+              console.warn('⚠️ Alguns lotes falharam durante sincronização');
             }
           } else {
             console.warn('⚠️ Nenhum agente Pri encontrado para criar base de ligação');
