@@ -408,21 +408,23 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       
       onClientesImported(selectedCampanha, clientesComDados);
       
-      // Registrar quarentena para os contatos importados
+      // Registrar quarentena para os contatos importados (em lotes de 500)
       if (activeCompany?.id && previewData.length > 0) {
-        const quarentenaRows = previewData.map(c => ({
-          telefone_normalizado: c.telefone,
-          empresa_id: activeCompany.id,
-          ultimo_impacto_at: new Date().toISOString(),
-          prospeccao_id: selectedCampanha,
-          evento_nome: selectedProspeccao?.titulo || '',
-          canal: selectedProspeccao?.canal || 'WhatsApp',
-        }));
-        
-        // Upsert em lote (atualiza data do ultimo impacto se já existir)
-        await supabase
-          .from('contato_quarentena')
-          .upsert(quarentenaRows, { onConflict: 'telefone_normalizado,empresa_id' });
+        const QUARENTENA_BATCH = 500;
+        for (let i = 0; i < previewData.length; i += QUARENTENA_BATCH) {
+          const batch = previewData.slice(i, i + QUARENTENA_BATCH).map(c => ({
+            telefone_normalizado: c.telefone,
+            empresa_id: activeCompany.id,
+            ultimo_impacto_at: new Date().toISOString(),
+            prospeccao_id: selectedCampanha,
+            evento_nome: selectedProspeccao?.titulo || '',
+            canal: selectedProspeccao?.canal || 'WhatsApp',
+          }));
+          
+          await supabase
+            .from('contato_quarentena')
+            .upsert(batch, { onConflict: 'telefone_normalizado,empresa_id' });
+        }
       }
       
       // Criar notificação de importação para CRM
@@ -497,29 +499,45 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
             if (!isNaN(eventIdPri)) {
               console.log(`🚀 Enviando ${contatosParaSync.length} contatos para create-base-ligacao (evento ${eventIdPri})`);
               
-              const { data: syncResult, error: syncError } = await supabase.functions.invoke('create-base-ligacao', {
-                body: {
-                  contatos: contatosParaSync,
-                  id_evento: eventIdPri,
-                  telefone_pri: telefonePri,
-                  empresa_id: activeCompany.id,
-                  prospeccao_id: selectedCampanha,
-                  sync_external: true,
-                },
-              });
+              // Enviar em lotes de 5000 para evitar timeout e limite de payload
+              const SYNC_BATCH = 5000;
+              let totalSyncSalvos = 0;
+              let syncHadError = false;
 
-              if (syncError) {
-                console.error('⚠️ Erro ao sincronizar com base externa (não crítico):', syncError);
+              for (let i = 0; i < contatosParaSync.length; i += SYNC_BATCH) {
+                const batch = contatosParaSync.slice(i, i + SYNC_BATCH);
+                console.log(`📦 Enviando lote ${Math.floor(i / SYNC_BATCH) + 1}/${Math.ceil(contatosParaSync.length / SYNC_BATCH)} (${batch.length} contatos)`);
+                
+                const { data: syncResult, error: syncError } = await supabase.functions.invoke('create-base-ligacao', {
+                  body: {
+                    contatos: batch,
+                    id_evento: eventIdPri,
+                    telefone_pri: telefonePri,
+                    empresa_id: activeCompany.id,
+                    prospeccao_id: selectedCampanha,
+                    sync_external: true,
+                  },
+                });
+
+                if (syncError) {
+                  console.error(`⚠️ Erro no lote ${Math.floor(i / SYNC_BATCH) + 1}:`, syncError);
+                  syncHadError = true;
+                } else {
+                  totalSyncSalvos += syncResult?.summary?.supabase_salvos || batch.length;
+                }
+              }
+
+              if (syncHadError) {
                 toast({
                   title: "Aviso",
-                  description: "Contatos importados localmente, mas houve erro ao sincronizar com sistema externo de ligação.",
+                  description: `Parte dos contatos sincronizados (${totalSyncSalvos}/${contatosParaSync.length}). Alguns lotes tiveram erro.`,
                   variant: "default",
                 });
               } else {
-                console.log('✅ Sincronização com base externa concluída:', syncResult);
+                console.log('✅ Sincronização com base externa concluída:', totalSyncSalvos);
                 toast({
                   title: "Base externa criada",
-                  description: `${syncResult?.summary?.supabase_salvos || contatosParaSync.length} contatos sincronizados com o sistema de ligação.`,
+                  description: `${totalSyncSalvos} contatos sincronizados com o sistema de ligação.`,
                 });
               }
             } else {
