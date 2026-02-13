@@ -157,7 +157,7 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
         dealerid: formData.dealerid,
         loja_nome: formData.loja_nome,
         uf: formData.uf,
-        "status ": formData.status,
+        status: formData.status,
         tb_histories: formData.tb_histories,
         maia_id: formData.maia_id,
         chatwoot: formData.chatwoot,
@@ -201,9 +201,9 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       if (
-        !loja.loja_nome?.toLowerCase().includes(term) &&
-        !loja.dealerid?.toLowerCase().includes(term) &&
-        !loja.maia_id?.toLowerCase().includes(term)
+        !String(loja.loja_nome || "").toLowerCase().includes(term) &&
+        !String(loja.dealerid || "").toLowerCase().includes(term) &&
+        !String(loja.maia_id || "").toLowerCase().includes(term)
       )
         return false;
     }
