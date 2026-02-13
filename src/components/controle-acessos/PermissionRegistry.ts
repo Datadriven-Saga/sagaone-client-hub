@@ -315,8 +315,8 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canManageEventos = isAdminOrTI;
 
   // ── IA Ligação ──
-  defaults.canCreateIALigacao = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads;
-  defaults.canDispararIALigacao = isAdminOrTI;
+  defaults.canCreateIALigacao = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads;
+  defaults.canDispararIALigacao = isAdminOrTI || isGerenteLeads;
   defaults.canToggleIALigacao = isAdminOrTI;
   defaults.canViewIALigacaoLogs = isAdminOrTI;
 
