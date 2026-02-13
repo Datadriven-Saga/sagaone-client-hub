@@ -1061,6 +1061,131 @@ export type Database = {
           },
         ]
       }
+      campaign_batches: {
+        Row: {
+          batch_index: number
+          completed_at: string | null
+          created_at: string
+          error_log: string | null
+          id: string
+          job_id: string
+          lead_ids: Json
+          processed_leads: number
+          retry_count: number
+          started_at: string | null
+          status: string
+          total_leads: number
+          updated_at: string
+        }
+        Insert: {
+          batch_index: number
+          completed_at?: string | null
+          created_at?: string
+          error_log?: string | null
+          id?: string
+          job_id: string
+          lead_ids?: Json
+          processed_leads?: number
+          retry_count?: number
+          started_at?: string | null
+          status?: string
+          total_leads?: number
+          updated_at?: string
+        }
+        Update: {
+          batch_index?: number
+          completed_at?: string | null
+          created_at?: string
+          error_log?: string | null
+          id?: string
+          job_id?: string
+          lead_ids?: Json
+          processed_leads?: number
+          retry_count?: number
+          started_at?: string | null
+          status?: string
+          total_leads?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_batches_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_jobs: {
+        Row: {
+          canal: string
+          completed_at: string | null
+          created_at: string
+          empresa_id: string
+          error_message: string | null
+          failed_records: number
+          id: string
+          processed_records: number
+          prospeccao_id: string
+          quantidade_solicitada: number | null
+          started_at: string | null
+          status: string
+          total_records: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          canal: string
+          completed_at?: string | null
+          created_at?: string
+          empresa_id: string
+          error_message?: string | null
+          failed_records?: number
+          id?: string
+          processed_records?: number
+          prospeccao_id: string
+          quantidade_solicitada?: number | null
+          started_at?: string | null
+          status?: string
+          total_records?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          canal?: string
+          completed_at?: string | null
+          created_at?: string
+          empresa_id?: string
+          error_message?: string | null
+          failed_records?: number
+          id?: string
+          processed_records?: number
+          prospeccao_id?: string
+          quantidade_solicitada?: number | null
+          started_at?: string | null
+          status?: string
+          total_records?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_jobs_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_jobs_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           cep: string | null

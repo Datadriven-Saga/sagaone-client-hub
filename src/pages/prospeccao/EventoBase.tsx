@@ -129,14 +129,9 @@ export default function EventoBase() {
   const [isSyncingContatos, setIsSyncingContatos] = useState(false);
   const [isLoadingExternalMetrics, setIsLoadingExternalMetrics] = useState(false);
   
-  // Estados do modal de progresso
+  // Estados do modal de progresso (server-side jobs)
   const [showProgressModal, setShowProgressModal] = useState(false);
-  const [progressTotal, setProgressTotal] = useState(0);
-  const [progressCount, setProgressCount] = useState(0);
-  const [progressCompleted, setProgressCompleted] = useState(false);
-  const [currentBatch, setCurrentBatch] = useState(0);
-  const [totalBatches, setTotalBatches] = useState(0);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   
   // Estado para disparo personalizado
   const [customDispatchCount, setCustomDispatchCount] = useState<string>('');
@@ -844,27 +839,6 @@ export default function EventoBase() {
     }
   };
 
-  // Função para buscar contagem atualizada de disparados (para polling)
-  const fetchDisparadosCount = useCallback(async (): Promise<number> => {
-    if (!activeCompany?.id || !eventoId) return 0;
-    
-    try {
-      const { data } = await supabase
-        .rpc('get_prospeccao_metricas' as any, {
-          p_prospeccao_id: eventoId,
-          p_empresa_id: activeCompany.id
-        });
-      
-      if (data && Array.isArray(data) && data.length > 0) {
-        const result = data[0] as { total: number; pendentes: number; disparados: number; vendas: number };
-        return Number(result.disparados) || 0;
-      }
-    } catch (error) {
-      console.error('Erro ao buscar contagem de disparados:', error);
-    }
-    return 0;
-  }, [activeCompany?.id, eventoId]);
-
   // Buscar contatos PENDENTES para disparo (apenas pendentes, não Em Fila)
   // Pendentes: data_disparo_ia IS NULL e não encerrados (nunca disparados)
   const fetchContatosPendentes = async (): Promise<ContatoEvento[]> => {
@@ -980,63 +954,36 @@ export default function EventoBase() {
     return allContatos;
   };
 
-  // Iniciar polling para atualizar progresso
-  const startProgressPolling = useCallback((totalToDispatch: number) => {
-    // Limpar polling anterior se existir
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-    }
-
-    pollingRef.current = setInterval(async () => {
-      const currentDisparados = await fetchDisparadosCount();
-      setProgressCount(currentDisparados);
-      
-      // Verificar se completou
-      if (currentDisparados >= metricas.total) {
-        setProgressCompleted(true);
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
-        // Atualizar métricas locais
-        setMetricas(prev => ({
-          ...prev,
-          pendentes: 0,
-          disparados: prev.total
-        }));
-        // Recarregar lista
-        fetchContatos();
-      }
-    }, 5000); // A cada 5 segundos
-  }, [fetchDisparadosCount, metricas.total, fetchContatos]);
-
-  // Cleanup do polling
-  useEffect(() => {
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
-    };
-  }, []);
-
   // Fechar modal de progresso
   const handleCloseProgressModal = () => {
     setShowProgressModal(false);
-    // Não para o polling - continua em segundo plano
     // Atualizar dados e métricas quando fechar
     fetchMetricas();
     fetchContatos();
   };
 
-  // Disparar IA com quantidade customizada ou todos - em batches de 1000 para evitar timeout
+  // Retry job: reprocessar batches pendentes/falhos
+  const handleRetryJob = async (jobId: string) => {
+    try {
+      toast({ title: "Retomando...", description: "Reprocessando lotes com falha" });
+      await supabase.functions.invoke('process-campaign-job', {
+        body: { job_id: jobId }
+      });
+    } catch (error) {
+      console.error('Erro ao retomar job:', error);
+      toast({ title: "Erro", description: "Erro ao retomar processamento", variant: "destructive" });
+    }
+  };
+
+  // Disparar IA com quantidade customizada ou todos - AGORA VIA SERVER-SIDE JOB
   const handleDispararIA = async (quantidade?: number) => {
     if (!prospeccao || !activeCompany?.id) return;
 
     setIsDisparandoIA(true);
     try {
-      console.log('🚀 Iniciando disparo em massa...');
+      console.log('🚀 Iniciando disparo em massa (server-side)...');
       
-      // Para IA Ligação: sincronizar com n8n ANTES de disparar para garantir dados atualizados
+      // Para IA Ligação: sincronizar com n8n ANTES de disparar
       const canalAtual = prospeccao.canal?.toLowerCase() || '';
       const isLigacao = canalAtual.includes('liga');
       
@@ -1047,25 +994,17 @@ export default function EventoBase() {
         try {
           const telefonePri = await fetchTelefonePriLigacao();
           if (telefonePri) {
-            const { data: syncData, error: syncError } = await supabase.functions.invoke('sync-pri-dashboard', {
+            await supabase.functions.invoke('sync-pri-dashboard', {
               body: {
                 telefone_pri: telefonePri.replace(/\D/g, ''),
                 id_evento: parseInt(String(prospeccao.event_id_pri || eventoId), 10),
                 empresa_id: activeCompany.id,
               }
             });
-            
-            if (syncError) {
-              console.warn('⚠️ Erro na sincronização pré-disparo:', syncError);
-            } else {
-              console.log('✅ Sincronização pré-disparo concluída:', syncData);
-              // Recarregar métricas após sincronização
-              await fetchMetricas();
-            }
+            await fetchMetricas();
           }
         } catch (syncErr) {
           console.warn('⚠️ Erro ao sincronizar antes do disparo:', syncErr);
-          // Continua mesmo com erro de sync
         }
       }
       
@@ -1078,34 +1017,18 @@ export default function EventoBase() {
         return;
       }
 
-      // Para IA Ligação: filtrar leads encerrados baseado nos dados externos (já sincronizados)
+      // Para IA Ligação: filtrar leads encerrados
       if (isLigacao && contatosExternos.size > 0) {
         const totalAntes = contatosPendentes.length;
         contatosPendentes = contatosPendentes.filter(contato => {
           const telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
           const dadosExternos = contatosExternos.get(telefoneNormalizado);
-          
-          if (!dadosExternos) return true; // Sem dados externos, permitir disparo
-          
-          // Encerrado se: status_agendado || enviado_whatsapp || ligacao_atendida
-          const isEncerrado = dadosExternos.status_agendado || 
-                              dadosExternos.enviado_whatsapp || 
-                              dadosExternos.ligacao_atendida;
-          
-          if (isEncerrado) {
-            console.log(`🚫 Lead encerrado: ${contato.nome} (${telefoneNormalizado}) - agendado:${dadosExternos.status_agendado}, whatsapp:${dadosExternos.enviado_whatsapp}, atendida:${dadosExternos.ligacao_atendida}`);
-          }
-          
-          return !isEncerrado;
+          if (!dadosExternos) return true;
+          return !(dadosExternos.status_agendado || dadosExternos.enviado_whatsapp || dadosExternos.ligacao_atendida);
         });
-        
         const encerrados = totalAntes - contatosPendentes.length;
         if (encerrados > 0) {
-          console.log(`🚫 ${encerrados} leads encerrados removidos do disparo (agendados/whatsapp/atendidos)`);
-          toast({ 
-            title: "Leads filtrados", 
-            description: `${encerrados} leads encerrados foram removidos (já agendados, com whatsapp ou atendidos)` 
-          });
+          toast({ title: "Leads filtrados", description: `${encerrados} leads encerrados removidos` });
         }
       }
 
@@ -1115,144 +1038,97 @@ export default function EventoBase() {
         return;
       }
 
-      // Aplicar limite de quantidade se especificado
+      // Aplicar limite de quantidade
       let leadsParaDisparar = contatosPendentes;
       if (quantidade && quantidade > 0) {
-        const limitedQuantidade = Math.min(quantidade, contatosPendentes.length);
-        leadsParaDisparar = contatosPendentes.slice(0, limitedQuantidade);
-        console.log(`📊 Quantidade customizada: ${limitedQuantidade} de ${contatosPendentes.length} pendentes`);
+        leadsParaDisparar = contatosPendentes.slice(0, Math.min(quantidade, contatosPendentes.length));
       }
-      // Sem limite máximo - dispara todos os pendentes
 
       console.log(`📊 Total para disparar: ${leadsParaDisparar.length}`);
 
-      // Configurar modal de progresso
+      // CRIAR JOB NO BANCO (server-side processing)
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session?.session?.user?.id;
+      
+      if (!userId) {
+        toast({ title: "Erro", description: "Sessão expirada. Faça login novamente.", variant: "destructive" });
+        setIsDisparandoIA(false);
+        return;
+      }
+
+      // Dividir leads em batches de 1000
       const batchCount = Math.ceil(leadsParaDisparar.length / BATCH_SIZE);
-      setProgressTotal(leadsParaDisparar.length);
-      setProgressCount(0);
-      setProgressCompleted(false);
-      setCurrentBatch(0);
-      setTotalBatches(batchCount);
+
+      // 1. Criar o job
+      const { data: jobData, error: jobError } = await supabase
+        .from('campaign_jobs')
+        .insert({
+          prospeccao_id: prospeccao.id,
+          empresa_id: activeCompany.id,
+          user_id: userId,
+          canal: prospeccao.canal || '',
+          total_records: leadsParaDisparar.length,
+          quantidade_solicitada: quantidade || null,
+          status: 'pending',
+        })
+        .select('id')
+        .single();
+
+      if (jobError || !jobData) {
+        console.error('Erro ao criar job:', jobError);
+        toast({ title: "Erro", description: "Erro ao criar job de disparo", variant: "destructive" });
+        setIsDisparandoIA(false);
+        return;
+      }
+
+      const jobId = jobData.id;
+      console.log(`✅ Job criado: ${jobId}`);
+
+      // 2. Criar batches com lead_ids
+      const batchInserts = [];
+      for (let i = 0; i < batchCount; i++) {
+        const batchLeads = leadsParaDisparar.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+        batchInserts.push({
+          job_id: jobId,
+          batch_index: i,
+          total_leads: batchLeads.length,
+          lead_ids: batchLeads.map(l => l.id),
+          status: 'pending',
+        });
+      }
+
+      const { error: batchError } = await supabase
+        .from('campaign_batches')
+        .insert(batchInserts);
+
+      if (batchError) {
+        console.error('Erro ao criar batches:', batchError);
+        await supabase.from('campaign_jobs').update({ status: 'failed', error_message: 'Erro ao criar batches' }).eq('id', jobId);
+        toast({ title: "Erro", description: "Erro ao preparar lotes", variant: "destructive" });
+        setIsDisparandoIA(false);
+        return;
+      }
+
+      console.log(`✅ ${batchCount} batches criados`);
+
+      // 3. Abrir modal de progresso e acionar Edge Function ASSÍNCRONAMENTE
+      setActiveJobId(jobId);
       setShowProgressModal(true);
 
-      // Formatar leads no formato esperado pela edge function
-      const allLeads = leadsParaDisparar.map(c => ({
-        id: c.id,
-        lead_id: c.lead_id,
-        nome: c.nome,
-        telefone: c.telefone,
-        email: c.email,
-        status: c.status,
-        origem: c.origem
-      }));
-
-      console.log('🚀 Disparando para IA:', { 
-        total: allLeads.length, 
-        empresa_id: activeCompany.id, 
-        prospeccao_id: prospeccao.id,
-        canal: prospeccao.canal 
+      // Fire-and-forget: a Edge Function processa em background
+      supabase.functions.invoke('process-campaign-job', {
+        body: { job_id: jobId }
+      }).catch(err => {
+        console.error('Erro ao invocar process-campaign-job:', err);
       });
 
-      // DIVIDIR EM BATCHES DE 1000 PARA EVITAR TIMEOUT DA EDGE FUNCTION
-      let totalErros = 0;
-      let totalSucessos = 0;
-
-      console.log(`📦 Dividindo em ${batchCount} batches de até ${BATCH_SIZE} leads cada`);
-
-      for (let batchIndex = 0; batchIndex < batchCount; batchIndex++) {
-        const batchStart = batchIndex * BATCH_SIZE;
-        const leads = allLeads.slice(batchStart, batchStart + BATCH_SIZE);
-        const batchNum = batchIndex + 1;
-
-        setCurrentBatch(batchNum);
-        console.log(`📤 Enviando batch ${batchNum}/${batchCount} (${leads.length} leads)`);
-
-        try {
-          const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
-            body: {
-              leads,
-              empresa_id: activeCompany.id,
-              prospeccao_id: prospeccao.id,
-              prospeccao_data: {
-                titulo: prospeccao.titulo,
-                canal: prospeccao.canal,
-                event_id_pri: prospeccao.event_id_pri || null,
-                data_inicio: prospeccao.data_inicio || null,
-                data_fim: prospeccao.data_fim || null,
-                template_prospeccao_id: (prospeccao as any).template_prospeccao_id || null
-              }
-            }
-          });
-
-          if (error) {
-            console.error(`❌ Erro no batch ${batchNum}:`, error);
-            totalErros += leads.length;
-          } else {
-            console.log(`✅ Batch ${batchNum} concluído:`, data);
-            totalSucessos += data?.estatisticas?.sucessos || leads.length;
-            
-            // Marcar contatos como disparados na tabela eventos_prospeccao
-            const leadIds = leads.map(l => l.id);
-            const { error: updateError } = await supabase
-              .from('eventos_prospeccao')
-              .update({ data_disparo_ia: new Date().toISOString() })
-              .eq('prospeccao_id', prospeccao.id)
-              .in('contato_id', leadIds);
-
-            if (updateError) {
-              console.error(`Erro ao marcar batch ${batchNum} como disparados:`, updateError);
-            }
-          }
-
-          // Atualizar contagem após cada batch
-          setProgressCount(batchStart + leads.length);
-
-        } catch (batchError) {
-          console.error(`❌ Exceção no batch ${batchNum}:`, batchError);
-          totalErros += leads.length;
-        }
-      }
-
-      console.log(`📊 Disparo concluído: ${totalSucessos} sucessos, ${totalErros} erros`);
-
-      // Marcar como completo após todos os batches
-      setProgressCount(leadsParaDisparar.length);
-      setProgressCompleted(true);
-      
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-
-      // Atualizar métricas do banco
-      await fetchMetricas();
-
-      // Recarregar dados
-      fetchContatos();
-
-      // Limpar campo de quantidade personalizada
+      toast({ title: "Disparo iniciado!", description: `${leadsParaDisparar.length} contatos sendo processados no servidor` });
       setCustomDispatchCount('');
 
-      if (totalErros > 0) {
-        toast({ 
-          title: "Parcialmente concluído", 
-          description: `${totalSucessos} disparados, ${totalErros} erros`,
-          variant: "destructive" 
-        });
-      } else {
-        toast({ 
-          title: "Sucesso", 
-          description: `${totalSucessos} contatos disparados com sucesso!`
-        });
-      }
     } catch (error) {
       console.error('Erro ao disparar IA:', error);
       toast({ title: "Erro", description: "Erro ao iniciar disparo: " + (error as Error).message, variant: "destructive" });
       setShowProgressModal(false);
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
     } finally {
       setIsDisparandoIA(false);
     }
@@ -1914,7 +1790,7 @@ export default function EventoBase() {
                               {isDisparandoIA ? (
                                 <>
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Enviando lote {currentBatch}/{totalBatches}...
+                                  Preparando disparo...
                                 </>
                               ) : (
                                 <>
@@ -2279,12 +2155,8 @@ export default function EventoBase() {
       <DispararProgressModal
         isOpen={showProgressModal}
         onClose={handleCloseProgressModal}
-        totalContatos={progressTotal}
-        disparadosCount={progressCount}
-        isCompleted={progressCompleted}
-        isProcessing={isDisparandoIA}
-        currentBatch={currentBatch}
-        totalBatches={totalBatches}
+        jobId={activeJobId}
+        onRetry={handleRetryJob}
       />
 
       {/* Modal de Custo do Disparo */}
