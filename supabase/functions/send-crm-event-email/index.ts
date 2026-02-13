@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,11 +14,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-    if (!RESEND_API_KEY) {
-      console.error("❌ RESEND_API_KEY não configurada");
+    const SMTP_USER = Deno.env.get("SMTP_USER");
+    const SMTP_PASS = Deno.env.get("SMTP_PASS");
+
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.error("❌ SMTP_USER ou SMTP_PASS não configurados");
       return new Response(
-        JSON.stringify({ error: "RESEND_API_KEY não configurada" }),
+        JSON.stringify({ error: "Credenciais SMTP não configuradas" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -26,7 +29,6 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse body
     const body = await req.json();
     const { event_id } = body;
 
@@ -40,7 +42,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Buscar dados do evento (prospeccao)
+    // Buscar dados do evento
     const { data: evento, error: eventoError } = await supabase
       .from("prospeccoes")
       .select("id, titulo, descricao, data_inicio, data_fim, canal, empresa_id, responsavel_id")
@@ -77,7 +79,7 @@ Deno.serve(async (req) => {
       if (criador?.nome_completo) responsavelNome = criador.nome_completo;
     }
 
-    // Buscar destinatários CRM vinculados à empresa
+    // Buscar destinatários CRM
     const { data: usuariosCRM } = await supabase
       .from("user_empresas")
       .select("user_id, profiles!inner(id, nome_completo, email, tipo_acesso)")
@@ -137,7 +139,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Montar email
+    // Montar HTML do email
     const formatDate = (d?: string) => {
       if (!d) return "Não informada";
       try { return new Date(d).toLocaleDateString("pt-BR"); } catch { return d; }
@@ -182,63 +184,52 @@ Deno.serve(async (req) => {
         </div>
       </div>`;
 
+    // Enviar via SMTP (Outlook/Microsoft 365)
     let enviados = 0;
     let erros = 0;
     const logs: Array<any> = [];
 
+    const client = new SMTPClient({
+      connection: {
+        hostname: "smtp.office365.com",
+        port: 587,
+        tls: true,
+        auth: {
+          username: SMTP_USER,
+          password: SMTP_PASS,
+        },
+      },
+    });
+
     for (const dest of destinatarios) {
       try {
-        console.log(`📤 Enviando email para: ${dest.email}`);
-        const emailRes = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: "Saga One <onboarding@resend.dev>",
-            to: [dest.email],
-            subject: assunto,
-            html: corpoHtml,
-          }),
+        console.log(`📤 Enviando email SMTP para: ${dest.email}`);
+
+        await client.send({
+          from: SMTP_USER,
+          to: dest.email,
+          subject: assunto,
+          content: "Visualize este email em um cliente que suporte HTML.",
+          html: corpoHtml,
         });
 
-        const emailResult = await emailRes.json();
-        console.log(`📨 Resposta Resend para ${dest.email}: status=${emailRes.status}`, JSON.stringify(emailResult));
-
-        if (emailRes.ok && emailResult.id) {
-          enviados++;
-          logs.push({
-            tipo: "send_crm_event_email",
-            referencia_id: event_id,
-            referencia_tipo: "prospeccao",
-            destinatario_email: dest.email,
-            destinatario_nome: dest.nome_completo || "",
-            assunto,
-            status: "enviado",
-            erro: null,
-            empresa_id: evento.empresa_id,
-          });
-        } else {
-          erros++;
-          const erroMsg = `Resend [${emailRes.status}]: ${emailResult.message || JSON.stringify(emailResult)}`;
-          console.error(`❌ Falha: ${erroMsg}`);
-          logs.push({
-            tipo: "send_crm_event_email",
-            referencia_id: event_id,
-            referencia_tipo: "prospeccao",
-            destinatario_email: dest.email,
-            destinatario_nome: dest.nome_completo || "",
-            assunto,
-            status: "erro",
-            erro: erroMsg,
-            empresa_id: evento.empresa_id,
-          });
-        }
+        console.log(`✅ Email enviado com sucesso para ${dest.email}`);
+        enviados++;
+        logs.push({
+          tipo: "send_crm_event_email",
+          referencia_id: event_id,
+          referencia_tipo: "prospeccao",
+          destinatario_email: dest.email,
+          destinatario_nome: dest.nome_completo || "",
+          assunto,
+          status: "enviado",
+          erro: null,
+          empresa_id: evento.empresa_id,
+        });
       } catch (emailErr) {
         erros++;
         const errMsg = (emailErr as Error).message;
-        console.error(`❌ Exceção: ${errMsg}`);
+        console.error(`❌ Falha SMTP para ${dest.email}: ${errMsg}`);
         logs.push({
           tipo: "send_crm_event_email",
           referencia_id: event_id,
@@ -253,13 +244,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    await client.close();
+
     if (logs.length > 0) {
       const { error: logError } = await supabase.from("logs_notificacoes_email").insert(logs);
       if (logError) console.error("❌ Erro ao salvar logs:", logError.message);
       else console.log(`✅ ${logs.length} log(s) salvos`);
     }
 
-    console.log(`📧 Resultado: ${enviados} enviados, ${erros} erros de ${destinatarios.length} destinatários`);
+    console.log(`📧 Resultado SMTP: ${enviados} enviados, ${erros} erros de ${destinatarios.length} destinatários`);
 
     return new Response(
       JSON.stringify({ success: true, enviados, erros, total_destinatarios: destinatarios.length }),
