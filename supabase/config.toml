@@ -100,3 +100,6 @@ verify_jwt = false
 
 [functions.process-campaign-job]
 verify_jwt = false
+
+[functions.resync-lead-ids]
+verify_jwt = true
