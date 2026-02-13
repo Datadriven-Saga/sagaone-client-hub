@@ -59,6 +59,12 @@ interface AgenteLojaProps {
 
 const UF_OPTIONS = ["DF", "GO", "MG", "MT", "RO"];
 
+function isStatusAtivo(status: any): boolean {
+  if (typeof status === "boolean") return status;
+  const s = String(status ?? "").toLowerCase().trim();
+  return s === "true" || s === "ativo" || s === "1";
+}
+
 export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
   const { toast } = useToast();
   const [lojas, setLojas] = useState<LojaGaia[]>([]);
@@ -129,7 +135,7 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
       dealerid: loja.dealerid || "",
       loja_nome: loja.loja_nome || "",
       uf: loja.uf || "",
-      status: String(loja.status ?? "true"),
+      status: isStatusAtivo(loja.status) ? "true" : "false",
       tb_histories: loja.tb_histories || "tb_gaia_histories",
       maia_id: loja.maia_id || agenteTelefone || "",
       chatwoot: loja.chatwoot || "",
@@ -299,8 +305,8 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
                       <Badge variant="secondary">{loja.uf}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={String(loja.status) === "true" ? "default" : "outline"}>
-                        {String(loja.status) === "true" ? "Ativo" : "Inativo"}
+                      <Badge variant={isStatusAtivo(loja.status) ? "default" : "outline"}>
+                        {isStatusAtivo(loja.status) ? "Ativo" : "Inativo"}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-mono text-xs">{loja.maia_id}</TableCell>
