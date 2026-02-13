@@ -45,7 +45,7 @@ interface LojaGaia {
   dealerid: string;
   loja_nome: string;
   uf: string;
-  status: string;
+  ativa: boolean;
   tb_histories: string;
   maia_id: string;
   chatwoot: string;
@@ -80,6 +80,7 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
     dealerid: "",
     loja_nome: "",
     uf: "",
+    ativa: true,
     status: "true",
     tb_histories: "tb_gaia_histories",
     maia_id: agenteTelefone || "",
@@ -121,6 +122,7 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
       dealerid: "",
       loja_nome: "",
       uf: "",
+      ativa: true,
       status: "true",
       tb_histories: "tb_gaia_histories",
       maia_id: agenteTelefone || "",
@@ -135,7 +137,8 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
       dealerid: loja.dealerid || "",
       loja_nome: loja.loja_nome || "",
       uf: loja.uf || "",
-      status: isStatusAtivo(loja.status) ? "true" : "false",
+      ativa: isStatusAtivo(loja.ativa),
+      status: isStatusAtivo(loja.ativa) ? "true" : "false",
       tb_histories: loja.tb_histories || "tb_gaia_histories",
       maia_id: loja.maia_id || agenteTelefone || "",
       chatwoot: loja.chatwoot || "",
@@ -163,7 +166,7 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
         dealerid: formData.dealerid,
         loja_nome: formData.loja_nome,
         uf: formData.uf,
-        status: formData.status,
+        ativa: formData.status === "true",
         tb_histories: formData.tb_histories,
         maia_id: formData.maia_id,
         chatwoot: formData.chatwoot,
@@ -305,8 +308,8 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
                       <Badge variant="secondary">{loja.uf}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={isStatusAtivo(loja.status) ? "default" : "outline"}>
-                        {isStatusAtivo(loja.status) ? "Ativo" : "Inativo"}
+                      <Badge variant={isStatusAtivo(loja.ativa) ? "default" : "outline"}>
+                        {isStatusAtivo(loja.ativa) ? "Ativo" : "Inativo"}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-mono text-xs">{loja.maia_id}</TableCell>
