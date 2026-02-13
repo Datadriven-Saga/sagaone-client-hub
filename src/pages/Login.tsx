@@ -49,15 +49,15 @@ const Login = () => {
   // Renderiza login SSO - apenas Microsoft
   if (USE_SSO_LOGIN) {
     return (
-      <div className="min-h-screen bg-gradient-login flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-login dark:bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <div className="text-center mb-4">
-            <div className="inline-block mb-1 bg-sagaone-login-bg p-0 rounded-lg">
-              <img src={sagaOneLogo} alt="SAGA One Logo" className="max-w-md w-full h-auto" />
+          <div className="text-center mb-6">
+            <div className="inline-block mb-1 bg-sagaone-login-bg dark:bg-transparent p-0 rounded-lg">
+              <img src={sagaOneLogo} alt="SAGA One Logo" className="max-w-md w-full h-auto dark:drop-shadow-[0_0_20px_hsl(195_80%_50%/0.15)]" />
             </div>
           </div>
 
-          <Card className="shadow-card border-0 bg-sagaone-login-card dark:bg-card dark:border dark:border-border">
+          <Card className="shadow-card border-0 bg-sagaone-login-card dark:bg-card dark:border dark:border-border/50 dark:shadow-none">
             <CardHeader className="space-y-1">
               <CardTitle className="text-2xl text-center font-medium">Faça seu login</CardTitle>
               <p className="text-center text-muted-foreground text-sm">
@@ -67,26 +67,11 @@ const Login = () => {
             <CardContent className="space-y-4">
               <Button
                 type="button"
-                className="w-full flex items-center justify-center gap-3 h-14 bg-sagaone-login-button hover:bg-sagaone-login-button/90 text-white dark:text-primary-foreground text-base font-medium"
+                className="w-full flex items-center justify-center gap-3 h-14 bg-sagaone-login-button hover:bg-sagaone-login-button/90 text-white dark:bg-primary dark:hover:bg-primary/90 dark:text-primary-foreground text-base font-medium"
                 onClick={handleSSOLogin}
                 disabled={loading}
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Conectando...
-                  </>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 23 23">
-                      <path fill="#f35325" d="M1 1h10v10H1z" />
-                      <path fill="#81bc06" d="M12 1h10v10H12z" />
-                      <path fill="#05a6f0" d="M1 12h10v10H1z" />
-                      <path fill="#ffba08" d="M12 12h10v10H12z" />
-                    </svg>
-                    Entrar com Microsoft
-                  </>
-                )}
+...
               </Button>
 
               <div className="text-center pt-2">
