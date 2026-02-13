@@ -56,23 +56,16 @@ Deno.serve(async (req) => {
       .single();
 
     console.log(`🏢 Empresa: ${empresa?.nome_empresa || "não encontrada"} (${empresa?.cnpj || "sem CNPJ"})`);
-    // 3. Buscar todos os perfis CRM e seus emails via auth.admin
-    const { data: crmProfiles } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("tipo_acesso", "CRM");
-
-    const emails: string[] = [];
-
-    if (crmProfiles && crmProfiles.length > 0) {
-      for (const p of crmProfiles) {
-        const { data: userData } = await supabase.auth.admin.getUserById(p.id);
-        const email = userData?.user?.email;
-        if (email && email.trim() !== "" && email.includes("@")) {
-          emails.push(email);
-        }
-      }
-    }
+    // 3. Lista fixa de destinatários CRM para notificações de eventos
+    const emails: string[] = [
+      "maria.frezende@gruposaga.com.br",
+      "sabrina.mqueiroz@gruposaga.com.br",
+      "victor.hferreira@gruposaga.com.br",
+      "moises.salves@gruposaga.com.br",
+      "ellen.pdias@gruposaga.com.br",
+      "rainny.emachado@gruposaga.com.br",
+      "mayara.salmeida@gruposaga.com.br",
+    ];
 
     console.log(`👥 CRMs com email válido: ${emails.length}`);
 
