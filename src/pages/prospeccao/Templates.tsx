@@ -465,55 +465,7 @@ export default function Templates() {
     }
 
     try {
-      // Buscar dados do agente selecionado para enviar no webhook
-      let agenteData: { telefone: string | null; dealer_id: string | null; ativo: boolean; nome: string } | null = null;
-      
-      if (selectedAgenteId) {
-        const { data } = await supabase
-          .from("agentes_ia")
-          .select("telefone, dealer_id, ativo, nome")
-          .eq("id", selectedAgenteId)
-          .single();
-        agenteData = data;
-      }
-
-      // Chamar webhook para apagar template na Meta
-      if (template.template_id_pri || template.nome) {
-        try {
-          const deletePayload = {
-            template_id_pri: template.template_id_pri || null,
-            template_name: template.nome,
-            id_meta: template.id_meta || null,
-            empresa_id: activeCompany?.id,
-            agente_id: selectedAgenteId,
-            agente_nome: agenteData?.nome || null,
-            pri_telefone: agenteData?.telefone ? normalizePhone(agenteData.telefone) : null,
-            pri_dealer_id: agenteData?.dealer_id || null,
-            pri_status: agenteData?.ativo ? "Ativo" : "Inativo",
-            data: new Date().toISOString(),
-          };
-
-          console.log("Chamando webhook para apagar template na Meta:", deletePayload);
-
-          // Usar edge function para apagar template com token SAGA_ONE
-          const { error: webhookError } = await supabase.functions.invoke('external-webhook-proxy', {
-            body: {
-              endpoint: 'apaga-template-meta',
-              ...deletePayload,
-            },
-          });
-
-          if (webhookError) {
-            console.warn("Aviso: Falha ao apagar template na Meta, mas continuando com exclusão local");
-          } else {
-            console.log("Template apagado na Meta com sucesso");
-          }
-        } catch (webhookError) {
-          console.warn("Aviso: Erro ao chamar webhook da Meta, continuando com exclusão local:", webhookError);
-        }
-      }
-
-      // Excluir do banco local
+      // 1) Excluir do banco local PRIMEIRO (rápido e confiável)
       const { error } = await supabase
         .from("whatsapp_templates")
         .delete()
@@ -523,6 +475,53 @@ export default function Templates() {
 
       toast.success("Template excluído com sucesso!");
       refetchTemplates();
+
+      // 2) Chamar webhook para apagar na Meta em background (não bloqueia UI)
+      if (template.template_id_pri || template.nome) {
+        (async () => {
+          try {
+            let agenteData: { telefone: string | null; dealer_id: string | null; ativo: boolean; nome: string } | null = null;
+            if (selectedAgenteId) {
+              const { data } = await supabase
+                .from("agentes_ia")
+                .select("telefone, dealer_id, ativo, nome")
+                .eq("id", selectedAgenteId)
+                .single();
+              agenteData = data;
+            }
+
+            const deletePayload = {
+              template_id_pri: template.template_id_pri || null,
+              template_name: template.nome,
+              id_meta: template.id_meta || null,
+              empresa_id: activeCompany?.id,
+              agente_id: selectedAgenteId,
+              agente_nome: agenteData?.nome || null,
+              pri_telefone: agenteData?.telefone ? normalizePhone(agenteData.telefone) : null,
+              pri_dealer_id: agenteData?.dealer_id || null,
+              pri_status: agenteData?.ativo ? "Ativo" : "Inativo",
+              data: new Date().toISOString(),
+            };
+
+            console.log("Chamando webhook para apagar template na Meta:", deletePayload);
+
+            const { error: webhookError } = await supabase.functions.invoke('external-webhook-proxy', {
+              body: {
+                endpoint: 'apaga-template-meta',
+                ...deletePayload,
+              },
+            });
+
+            if (webhookError) {
+              console.warn("Aviso: Falha ao apagar template na Meta (já removido localmente):", webhookError);
+            } else {
+              console.log("Template apagado na Meta com sucesso");
+            }
+          } catch (webhookError) {
+            console.warn("Aviso: Erro ao chamar webhook da Meta (já removido localmente):", webhookError);
+          }
+        })();
+      }
     } catch (error: any) {
       console.error("Erro ao excluir template:", error);
       toast.error("Erro ao excluir template: " + error.message);
