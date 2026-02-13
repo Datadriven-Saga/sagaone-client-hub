@@ -1533,12 +1533,14 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         .eq('id', activeCompany?.id)
         .single();
 
-      // Buscar telefone do agente IA (Pri) da empresa
+      // Buscar telefone do agente IA WhatsApp da empresa
       const { data: agenteData } = await supabase
         .from('agentes_ia')
         .select('telefone')
         .eq('empresa_id', activeCompany?.id)
-        .eq('nome', 'Pri')
+        .ilike('nome', '%whatsapp%')
+        .eq('ativo', true)
+        .limit(1)
         .single();
 
       // Formatar telefone: remover +55 e o 9 adicional, deixar apenas DD + número
@@ -1562,10 +1564,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         return new Date(data + 'T11:00:00.000Z').toISOString();
       };
 
-      // Buscar IDs dos templates selecionados
-      const templateDescobertaData = whatsappTemplates.find(t => t.nome === prospeccaoData.template_prospeccao);
-      const templateAgendadoData = whatsappTemplates.find(t => t.nome === prospeccaoData.template_agendado);
-      const templateNaoAgendadoData = whatsappTemplates.find(t => t.nome === prospeccaoData.template_nao_agendado);
+      // Buscar IDs dos templates selecionados (por UUID)
+      const templateDescobertaData = whatsappTemplates.find(t => t.id === prospeccaoData.template_prospeccao_id);
+      const templateAgendadoData = whatsappTemplates.find(t => t.id === prospeccaoData.template_agendado_id);
+      const templateNaoAgendadoData = whatsappTemplates.find(t => t.id === prospeccaoData.template_nao_agendado_id);
 
       const webhookPayload = {
         maia_id: formatarTelefone(agenteData?.telefone || ""),
@@ -1574,13 +1576,13 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         data_fim: formatarDataISO(prospeccaoData.data_fim || ""),
         descricao: prospeccaoData.descricao || "",
         dealerid: empresaData?.crm_id || "",
-        template_descoberta: prospeccaoData.template_prospeccao || "",
+        template_descoberta: templateDescobertaData?.nome || "",
         template_descoberta_id_pri: templateDescobertaData?.template_id_pri || "",
         template_descoberta_id_meta: templateDescobertaData?.id_meta || "",
-        template_conf_agendado: prospeccaoData.template_agendado || "",
+        template_conf_agendado: templateAgendadoData?.nome || "",
         template_conf_agendado_id_pri: templateAgendadoData?.template_id_pri || "",
         template_conf_agendado_id_meta: templateAgendadoData?.id_meta || "",
-        template_conf_nao_agendado: prospeccaoData.template_nao_agendado || "",
+        template_conf_nao_agendado: templateNaoAgendadoData?.nome || "",
         template_conf_nao_agendado_id_pri: templateNaoAgendadoData?.template_id_pri || "",
         template_conf_nao_agendado_id_meta: templateNaoAgendadoData?.id_meta || ""
       };
