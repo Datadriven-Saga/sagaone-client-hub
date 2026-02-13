@@ -1994,26 +1994,16 @@ showAllEvents: true
                                               <Edit className="mr-2 h-4 w-4" />
                                               Editar
                                             </DropdownMenuItem>
-                                            {/* Botão Excluir - apenas para Grande Evento e Mensal, apenas Admin/TI */}
-                                            {(() => {
-                                              const canalStr = String(prospeccao.canal || '').toLowerCase();
-                                              const isGrandeEvento = canalStr === 'grande evento';
-                                              const isMensal = canalStr === 'mensal';
-                                              const canDelete = (isGrandeEvento || isMensal) && isAdminOrTI;
-                                              
-                                              if (canDelete) {
-                                                return (
-                                                  <DropdownMenuItem 
-                                                    onClick={() => setDeleteEventoModal({ isOpen: true, prospeccao })}
-                                                    className="text-destructive focus:text-destructive"
-                                                  >
-                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                    Excluir Evento
-                                                  </DropdownMenuItem>
-                                                );
-                                              }
-                                              return null;
-                                            })()}
+                                            {/* Botão Excluir - apenas Admin/TI/Master */}
+                                            {isAdminOrTI && (
+                                              <DropdownMenuItem 
+                                                onClick={() => setDeleteEventoModal({ isOpen: true, prospeccao })}
+                                                className="text-destructive focus:text-destructive"
+                                              >
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                Excluir Evento
+                                              </DropdownMenuItem>
+                                            )}
                                           </DropdownMenuContent>
                                         </DropdownMenu>
                                       </div>

@@ -805,7 +805,19 @@ export default function Templates() {
         variable_mapping: varMapping, // Mapeamento para resolução de variáveis no disparo
       };
 
-      console.log("Chamando Edge Function trigger-webhook com payload:", JSON.stringify(payloadWithAgente, null, 2));
+      // Remover media_base64 dos componentes para evitar payload gigante que causa erro 500 no n8n
+      // O webhook externo deve baixar a mídia via media_url
+      if (payloadWithAgente.payload?.components) {
+        payloadWithAgente.payload.components = payloadWithAgente.payload.components.map((comp: any) => {
+          if (comp?.media_base64) {
+            const { media_base64, ...rest } = comp;
+            return rest;
+          }
+          return comp;
+        });
+      }
+
+      console.log("Chamando Edge Function trigger-webhook com payload (sem base64)");
 
       // Chamar Edge Function que serve como proxy para os webhooks
       const { data: webhookResult, error: webhookError } = await supabase.functions.invoke('trigger-webhook', {
