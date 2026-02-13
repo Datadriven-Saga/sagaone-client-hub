@@ -427,12 +427,24 @@ serve(async (req) => {
         }
         // Para novo_template_whatsapp, enviar os dados diretamente no body
         else if (gatilho === 'novo_template_whatsapp' && dados) {
-          // IMPORTANTE (vídeo): NÃO baixar/transformar vídeo em base64 aqui.
-          // Isso pode causar OOM/timeout no Edge Function e impedir o disparo do webhook.
-          // O webhook externo deve baixar o vídeo via media_url.
+          // Clonar dados e remover media_base64 dos components para evitar payload gigante
+          // que causa erro 500 no n8n. O webhook externo deve baixar a mídia via media_url.
+          const dadosLimpos = { ...dados };
+          if (dadosLimpos.payload?.components && Array.isArray(dadosLimpos.payload.components)) {
+            dadosLimpos.payload = {
+              ...dadosLimpos.payload,
+              components: dadosLimpos.payload.components.map((comp: any) => {
+                if (comp?.media_base64) {
+                  const { media_base64, ...rest } = comp;
+                  return rest;
+                }
+                return comp;
+              }),
+            };
+          }
           webhookBody = {
             ...webhookBody,
-            ...dados
+            ...dadosLimpos
           };
         }
         // Para outros gatilhos, incluir dados completos
@@ -443,7 +455,7 @@ serve(async (req) => {
           };
         }
 
-        console.log('Webhook body:', JSON.stringify(webhookBody, null, 2));
+        console.log('Webhook body (truncated):', JSON.stringify(webhookBody, null, 2).substring(0, 2000));
         
         // Obter token de autorização para chamadas externas
         const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
