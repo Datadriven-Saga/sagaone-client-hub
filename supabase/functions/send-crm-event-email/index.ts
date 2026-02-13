@@ -80,20 +80,24 @@ Deno.serve(async (req) => {
     }
 
     // Buscar TODOS os usuários com tipo_acesso = 'CRM' (global, sem filtro de empresa)
+    // profiles não tem coluna email, então buscamos de auth.users via admin API
     const { data: crmProfiles } = await supabase
       .from("profiles")
-      .select("id, nome_completo, email")
+      .select("id, nome_completo")
       .eq("tipo_acesso", "CRM");
 
     let destinatarios: { id: string; nome_completo: string; email: string }[] = [];
 
-    if (crmProfiles) {
+    if (crmProfiles && crmProfiles.length > 0) {
+      // Buscar emails de auth.users para cada CRM profile
       for (const p of crmProfiles) {
-        if (p.email && p.email.trim() !== "") {
+        const { data: userData } = await supabase.auth.admin.getUserById(p.id);
+        const email = userData?.user?.email;
+        if (email && email.trim() !== "") {
           destinatarios.push({
             id: p.id,
             nome_completo: p.nome_completo || "",
-            email: p.email,
+            email,
           });
         }
       }
