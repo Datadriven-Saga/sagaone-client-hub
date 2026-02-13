@@ -32,7 +32,7 @@ interface CotacaoData {
 }
 
 const VALOR_UNITARIO_WHATSAPP_USD = 0.06;
-const VALOR_UNITARIO_LIGACAO_USD = 1.15;
+const VALOR_UNITARIO_LIGACAO_BRL = 1.15; // R$ 1,15 por minuto ligado
 
 const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
   isOpen,
@@ -82,10 +82,19 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
   }, [isOpen]);
 
   const isLigacao = String(canal).toLowerCase().includes('liga') || canal === 'Ligação' || canal === 'ligacao';
-  const VALOR_UNITARIO_USD = isLigacao ? VALOR_UNITARIO_LIGACAO_USD : VALOR_UNITARIO_WHATSAPP_USD;
-  const custoTotalUSD = totalContatos * VALOR_UNITARIO_USD;
-  const custoPorPessoaBRL = VALOR_UNITARIO_USD * cotacao.cotacao;
-  const custoTotalBRL = custoTotalUSD * cotacao.cotacao;
+
+  // Ligação: R$ 1,15/min (BRL direto, sem dólar)
+  // WhatsApp: US$ 0,06/envio (convertido via cotação)
+  const custoTotalBRL = isLigacao
+    ? totalContatos * VALOR_UNITARIO_LIGACAO_BRL
+    : totalContatos * VALOR_UNITARIO_WHATSAPP_USD * cotacao.cotacao;
+  const custoTotalUSD = isLigacao
+    ? custoTotalBRL / (cotacao.cotacao || 1)
+    : totalContatos * VALOR_UNITARIO_WHATSAPP_USD;
+  const custoPorPessoaBRL = isLigacao
+    ? VALOR_UNITARIO_LIGACAO_BRL
+    : VALOR_UNITARIO_WHATSAPP_USD * cotacao.cotacao;
+  const VALOR_UNITARIO_USD = isLigacao ? VALOR_UNITARIO_LIGACAO_BRL / (cotacao.cotacao || 1) : VALOR_UNITARIO_WHATSAPP_USD;
 
   const formatUSD = (v: number) => v.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
   const formatBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
@@ -184,13 +193,13 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
             </div>
           </div>
 
-          {/* Cotação */}
-          {cotacao.loading ? (
+          {/* Cotação - só carrega para WhatsApp */}
+          {!isLigacao && cotacao.loading ? (
             <div className="flex items-center justify-center py-8 gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
               <span className="text-muted-foreground">Buscando cotação do dólar...</span>
             </div>
-          ) : cotacao.error ? (
+          ) : !isLigacao && cotacao.error ? (
             <div className="bg-destructive/10 rounded-xl p-6 text-center space-y-3">
               <AlertTriangle className="w-8 h-8 text-destructive mx-auto" />
               <p className="text-sm text-destructive font-medium">{cotacao.error}</p>
@@ -200,38 +209,44 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
             </div>
           ) : (
             <>
-              {/* Cotação do dólar */}
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-semibold">Cotação USD/BRL</span>
+              {/* Cotação do dólar - só para WhatsApp */}
+              {!isLigacao && (
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-semibold">Cotação USD/BRL</span>
+                    </div>
+                    <span className="text-xl font-bold text-primary">
+                      {formatBRL(cotacao.cotacao)}
+                    </span>
                   </div>
-                  <span className="text-xl font-bold text-primary">
-                    {formatBRL(cotacao.cotacao)}
-                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    Obtida em: {new Date(cotacao.data_cotacao).toLocaleString('pt-BR')}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Obtida em: {new Date(cotacao.data_cotacao).toLocaleString('pt-BR')}
-                </p>
-              </div>
+              )}
 
               {/* Detalhamento de custos */}
               <div className="border rounded-xl overflow-hidden divide-y">
                 <div className="flex items-center justify-between p-4">
                   <span className="text-sm text-muted-foreground">
-                    Valor unitário por {isLigacao ? 'ligação' : 'envio'}
+                    Valor unitário por {isLigacao ? 'minuto ligado' : 'envio'}
                   </span>
-                  <span className="text-sm font-semibold">{formatUSD(VALOR_UNITARIO_USD)}</span>
+                  <span className="text-sm font-semibold">
+                    {isLigacao ? formatBRL(VALOR_UNITARIO_LIGACAO_BRL) : formatUSD(VALOR_UNITARIO_WHATSAPP_USD)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between p-4">
                   <span className="text-sm text-muted-foreground">Custo por pessoa (BRL)</span>
                   <span className="text-sm font-semibold">{formatBRL(custoPorPessoaBRL)}</span>
                 </div>
-                <div className="flex items-center justify-between p-4 bg-muted/40">
-                  <span className="font-semibold">Custo Total (USD)</span>
-                  <span className="text-lg font-bold">{formatUSD(custoTotalUSD)}</span>
-                </div>
+                {!isLigacao && (
+                  <div className="flex items-center justify-between p-4 bg-muted/40">
+                    <span className="font-semibold">Custo Total (USD)</span>
+                    <span className="text-lg font-bold">{formatUSD(custoTotalUSD)}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between p-4 bg-primary/10">
                   <span className="font-semibold text-primary">Custo Total (BRL)</span>
                   <span className="text-2xl font-bold text-primary">{formatBRL(custoTotalBRL)}</span>
@@ -253,7 +268,7 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={cotacao.loading || !!cotacao.error || confirmando}
+            disabled={(!isLigacao && (cotacao.loading || !!cotacao.error)) || confirmando}
             className="flex-1 h-12 text-base"
           >
             {confirmando ? (
