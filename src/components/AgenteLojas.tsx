@@ -85,6 +85,7 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
     tb_histories: "tb_gaia_histories",
     maia_id: agenteTelefone || "",
     chatwoot: "",
+    id_gestor: "",
   });
 
   const fetchLojas = useCallback(async () => {
@@ -127,6 +128,7 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
       tb_histories: "tb_gaia_histories",
       maia_id: agenteTelefone || "",
       chatwoot: "",
+      id_gestor: "",
     });
     setShowModal(true);
   };
@@ -142,6 +144,7 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
       tb_histories: loja.tb_histories || "tb_gaia_histories",
       maia_id: loja.maia_id || agenteTelefone || "",
       chatwoot: loja.chatwoot || "",
+      id_gestor: loja.idgestor || loja.id_gestor || "",
     });
     setShowModal(true);
   };
@@ -170,6 +173,7 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
         tb_histories: formData.tb_histories,
         maia_id: formData.maia_id,
         chatwoot: formData.chatwoot,
+        id_gestor: formData.id_gestor || null,
       };
 
       // Include id only for update
@@ -400,6 +404,16 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
                   placeholder="tb_gaia_histories"
                 />
               </div>
+              <div>
+                <Label>ID Gestor</Label>
+                <Input
+                  value={formData.id_gestor || ""}
+                  onChange={(e) => setFormData({ ...formData, id_gestor: e.target.value })}
+                  placeholder="Ex: 123"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Status</Label>
                 <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v })}>
