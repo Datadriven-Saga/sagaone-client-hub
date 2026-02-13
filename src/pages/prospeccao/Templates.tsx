@@ -96,6 +96,7 @@ interface TemplateFormData {
   conteudo: string;
   variaveis: string[];
   cardData: CardData;
+  template_id_pri: string;
 }
 
 const formatOptions = [
@@ -210,6 +211,7 @@ export default function Templates() {
     conteudo: "",
     variaveis: [],
     cardData: initialCardData,
+    template_id_pri: "",
   });
 
   // Estado para mapeamento de variáveis dinâmicas {{1}}, {{2}}, etc.
@@ -400,13 +402,14 @@ export default function Templates() {
     setVariableMappings([]); // Resetar mapeamento de variáveis
     setFormData({
       nome: "",
-      categoria: "marketing", // Categoria padrão: Marketing
+      categoria: "marketing",
       departamento_id: "",
       agente_id: selectedAgenteId || "",
       formato: "",
       conteudo: "",
       variaveis: [],
       cardData: initialCardData,
+      template_id_pri: "",
     });
     // Selecionar "Pri - Whatsapp" como padrão ao abrir modal
     const priWhatsapp = agentesIAWhatsapp.find((a: any) => 
@@ -432,6 +435,7 @@ export default function Templates() {
       formato: template.formato as TemplateFormat,
       conteudo: template.formato === "texto" ? template.conteudo : "",
       variaveis: [],
+      template_id_pri: template.template_id_pri || "",
       cardData: {
         imagemCampanha: null,
         imagemPreviewUrl: cardData.imagemUrl || "",
@@ -543,6 +547,10 @@ export default function Templates() {
       }
       if (nomeDuplicado) {
         toast.error("Já existe um template com este nome");
+        return;
+      }
+      if (!formData.template_id_pri.trim()) {
+        toast.error("ID PRI é obrigatório");
         return;
       }
     }
@@ -847,6 +855,12 @@ export default function Templates() {
       return;
     }
 
+    // Validação ID PRI obrigatório
+    if (!formData.template_id_pri.trim()) {
+      toast.error("ID PRI é obrigatório");
+      return;
+    }
+
     // Validações específicas por formato
     if (formData.formato === "texto" && !formData.conteudo) {
       toast.error("Preencha o conteúdo do template");
@@ -960,9 +974,10 @@ export default function Templates() {
         formato: formData.formato,
         conteudo: conteudo,
         card_data: cardData,
-        agente_id: selectedAgenteId, // Vincula ao agente selecionado
-        pri_telefone: telefoneAgente, // Chave principal de compartilhamento (telefone do agente)
-        variable_mapping: varMappingForDB, // Mapeamento de variáveis para disparo
+        agente_id: selectedAgenteId,
+        pri_telefone: telefoneAgente,
+        variable_mapping: varMappingForDB,
+        template_id_pri: formData.template_id_pri.trim() || null,
       };
 
       let error;
@@ -1009,7 +1024,7 @@ export default function Templates() {
           .update({
             template_id_pri: webhookResponse?.template_id_pri || null,
             id_meta: webhookResponse?.id_meta || null,
-            status_meta: hasValidIds ? (webhookResponse?.status_meta || null) : 'INTEGRATION_ERROR',
+            status_meta: hasValidIds ? (webhookResponse?.status_meta || null) : 'REJECTED',
             category_meta: webhookResponse?.category_meta || null,
           })
           .eq("id", insertedTemplateId);
@@ -1019,7 +1034,7 @@ export default function Templates() {
         } else {
           console.log("Dados do Meta salvos com sucesso:", webhookResponse);
           if (!hasValidIds) {
-            console.warn("Template criado sem IDs da PRI/Meta - marcado como INTEGRATION_ERROR");
+            console.warn("Template criado sem IDs da PRI/Meta - marcado como REJECTED");
           }
         }
       }
@@ -1341,6 +1356,21 @@ export default function Templates() {
           </p>
         </div>
       )}
+      <div className="flex items-start gap-4">
+        <Label htmlFor="template_id_pri" className="w-40 shrink-0 text-right pt-2">ID PRI *</Label>
+        <div className="flex-1 space-y-1">
+          <Input
+            id="template_id_pri"
+            value={formData.template_id_pri}
+            onChange={(e) => setFormData(prev => ({ ...prev, template_id_pri: e.target.value }))}
+            placeholder="Ex: 12345"
+            className={`bg-white ${!formData.template_id_pri.trim() && formData.nome.trim() ? "border-destructive focus-visible:ring-destructive" : ""}`}
+          />
+          {!formData.template_id_pri.trim() && formData.nome.trim() && (
+            <p className="text-xs text-destructive">ID PRI é obrigatório</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 
@@ -1429,6 +1459,11 @@ export default function Templates() {
       const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+          if (file.size > 5 * 1024 * 1024) {
+            toast.error("Imagem deve ter no máximo 5MB");
+            e.target.value = "";
+            return;
+          }
           const publicUrl = await uploadMediaToStorage(file, 'image');
           if (publicUrl) {
             setFormData(prev => ({
@@ -1526,6 +1561,7 @@ export default function Templates() {
                 <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary transition-colors">
                   <Upload className="h-6 w-6 text-muted-foreground mb-1" />
                   <span className="text-sm text-muted-foreground">Clique para enviar imagem</span>
+                  <span className="text-xs text-muted-foreground">(máximo 5MB)</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -1796,6 +1832,11 @@ export default function Templates() {
       const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+          if (file.size > 5 * 1024 * 1024) {
+            toast.error("Imagem deve ter no máximo 5MB");
+            e.target.value = "";
+            return;
+          }
           const publicUrl = await uploadMediaToStorage(file, 'image');
           if (publicUrl) {
             setFormData(prev => ({
@@ -1856,6 +1897,7 @@ export default function Templates() {
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary transition-colors">
                   <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                   <span className="text-sm text-muted-foreground">Clique para enviar imagem</span>
+                  <span className="text-xs text-muted-foreground">(máximo 5MB)</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -2201,7 +2243,11 @@ export default function Templates() {
                                   : "bg-red-500 text-white hover:bg-red-600"
                             }
                           >
-                            {template.status_meta}
+                            {template.status_meta === "APPROVED" ? "Aprovado" 
+                              : template.status_meta === "PENDING" ? "Pendente"
+                              : template.status_meta === "REJECTED" ? "Reprovado"
+                              : template.status_meta === "INTEGRATION_ERROR" ? "Reprovado"
+                              : template.status_meta}
                           </Badge>
                         ) : "-"}
                       </TableCell>
