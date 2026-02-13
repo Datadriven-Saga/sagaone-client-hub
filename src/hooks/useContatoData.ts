@@ -983,26 +983,8 @@ export const useContatoData = () => {
           `Evento "${data.titulo}" criado`
         );
 
-        // 🔔 Disparar notificação por email para CRMs (fire-and-forget, não bloqueia)
-        supabase.functions.invoke('notify-evento-criado', {
-          body: {
-            prospeccao_id: data.id,
-            titulo: data.titulo,
-            descricao: (data as any).descricao || '',
-            data_inicio: data.data_inicio,
-            data_fim: data.data_fim,
-            canal: data.canal,
-            empresa_id: activeCompany.id,
-          }
-        }).then(res => {
-          if (res.error) {
-            console.error('⚠️ Erro ao notificar CRMs:', res.error);
-          } else {
-            console.log('📧 Notificação CRM disparada:', res.data);
-          }
-        }).catch(err => {
-          console.error('⚠️ Falha ao disparar notificação CRM:', err);
-        });
+        // 🔔 notify-evento-criado DESATIVADO - usando exclusivamente send-crm-event-email
+        // supabase.functions.invoke('notify-evento-criado', { ... });
 
         // 📧 Disparar send-crm-event-email (fire-and-forget com retry)
         sendCrmEventEmail(data.id);
