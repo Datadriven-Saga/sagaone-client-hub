@@ -361,7 +361,9 @@ Deno.serve(async (req: Request) => {
         };
       });
 
-      console.log(`📤 [${requestId}] Total contatos para webhook externo: ${externalContatos.length}`);
+      const contatosComLeadId = externalContatos.filter(c => c.lead_id !== null).length;
+      const contatosSemLeadId = externalContatos.filter(c => c.lead_id === null).length;
+      console.log(`📤 [${requestId}] Total contatos para webhook externo: ${externalContatos.length} (com lead_id: ${contatosComLeadId}, sem lead_id: ${contatosSemLeadId})`);
 
       try {
         const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
