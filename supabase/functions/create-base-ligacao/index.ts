@@ -361,42 +361,55 @@ Deno.serve(async (req: Request) => {
         };
       });
 
-      const externalPayload = {
-        id_evento: id_evento,
-        telefone_pri: telefonePriNormalizado,
-        loja: nomeEmpresa,
-        total_contatos: contatosValidos.length,
-        contatos: externalContatos,
-      };
-
-      console.log(`📤 [${requestId}] Payload externo: ${externalContatos.length} contatos`);
+      console.log(`📤 [${requestId}] Total contatos para webhook externo: ${externalContatos.length}`);
 
       try {
         const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
-        
-        const response = await fetch(WEBHOOK_CRIA_BASE, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
-          },
-          body: JSON.stringify(externalPayload),
-        });
+        const EXTERNAL_BATCH = 500;
+        let externalSuccessCount = 0;
+        let externalErrorCount = 0;
 
-        const responseText = await response.text();
-        console.log(`📥 [${requestId}] Resposta externa (status ${response.status}):`, responseText.substring(0, 300));
+        for (let i = 0; i < externalContatos.length; i += EXTERNAL_BATCH) {
+          const batch = externalContatos.slice(i, i + EXTERNAL_BATCH);
+          const batchNum = Math.floor(i / EXTERNAL_BATCH) + 1;
+          const totalBatches = Math.ceil(externalContatos.length / EXTERNAL_BATCH);
+
+          const externalPayload = {
+            id_evento: id_evento,
+            telefone_pri: telefonePriNormalizado,
+            loja: nomeEmpresa,
+            total_contatos: batch.length,
+            contatos: batch,
+          };
+
+          console.log(`📤 [${requestId}] Webhook externo lote ${batchNum}/${totalBatches} (${batch.length} contatos)`);
+
+          const response = await fetch(WEBHOOK_CRIA_BASE, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+            },
+            body: JSON.stringify(externalPayload),
+          });
+
+          const responseText = await response.text();
+
+          if (response.ok) {
+            externalSuccessCount += batch.length;
+            console.log(`✅ [${requestId}] Lote externo ${batchNum} OK (status ${response.status})`);
+          } else {
+            externalErrorCount += batch.length;
+            console.warn(`⚠️ [${requestId}] Lote externo ${batchNum} falhou (status ${response.status}): ${responseText.substring(0, 200)}`);
+          }
+        }
 
         externalSyncResult = {
-          success: response.ok,
-          status: response.status,
-          message: responseText.substring(0, 200),
+          success: externalErrorCount === 0,
+          message: `${externalSuccessCount} enviados, ${externalErrorCount} falhas`,
         };
 
-        if (response.ok) {
-          console.log(`✅ [${requestId}] Sincronização externa concluída com sucesso`);
-        } else {
-          console.warn(`⚠️ [${requestId}] Sincronização externa falhou (não crítico)`);
-        }
+        console.log(`✅ [${requestId}] Sincronização externa: ${externalSuccessCount} OK, ${externalErrorCount} erros`);
       } catch (externalError) {
         console.error(`❌ [${requestId}] Erro na sincronização externa (não crítico):`, externalError);
         externalSyncResult = {
