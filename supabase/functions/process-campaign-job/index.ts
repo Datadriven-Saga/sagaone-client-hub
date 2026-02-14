@@ -239,24 +239,30 @@ serve(async (req) => {
         started_at: new Date().toISOString() 
       }).eq('id', batch.id);
 
-      const leadIds: string[] = batch.lead_ids as string[];
+      const leadIds: string[] = Array.isArray(batch.lead_ids) ? batch.lead_ids : JSON.parse(String(batch.lead_ids));
 
       try {
-        // Buscar dados dos leads
+        // Buscar dados dos leads em sub-batches menores (100 para evitar limite de URL do PostgREST)
         const leads: any[] = [];
-        for (let i = 0; i < leadIds.length; i += 500) {
-          const batchIds = leadIds.slice(i, i + 500);
-          const { data: leadsData } = await supabase
+        const SUB_BATCH = 100;
+        for (let i = 0; i < leadIds.length; i += SUB_BATCH) {
+          const batchIds = leadIds.slice(i, i + SUB_BATCH);
+          const { data: leadsData, error: leadsError } = await supabase
             .from('contatos')
             .select('id, lead_id, nome, telefone, email, status, origem, vendedor_nome')
             .in('id', batchIds);
+          if (leadsError) {
+            console.error(`⚠️ Erro ao buscar leads sub-batch ${Math.floor(i / SUB_BATCH)}:`, leadsError.message);
+          }
           if (leadsData) leads.push(...leadsData);
         }
 
         if (leads.length === 0) {
+          console.warn(`⚠️ Batch ${batch.batch_index}: 0 leads encontrados de ${leadIds.length} IDs`);
           await supabase.from('campaign_batches').update({ 
             status: 'completed', 
             processed_leads: 0,
+            error_log: `0 leads found from ${leadIds.length} IDs`,
             completed_at: new Date().toISOString() 
           }).eq('id', batch.id);
           continue;
@@ -272,6 +278,7 @@ serve(async (req) => {
           const contatosArray = leads.map(lead => ({
             telefone_lead: normalizePhone(lead.telefone),
             nome: lead.nome,
+            lead_id: lead.lead_id || null,
           }));
 
           const payloadLigacao = {
