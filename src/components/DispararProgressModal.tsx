@@ -113,11 +113,9 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
   const hasRetryable = isFailed && failedCount > 0;
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent
         className="sm:max-w-md"
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle className="text-center text-lg font-semibold">
