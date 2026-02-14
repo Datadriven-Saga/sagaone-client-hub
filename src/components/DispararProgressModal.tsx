@@ -19,6 +19,7 @@ interface CampaignJob {
   error_message: string | null;
   started_at: string | null;
   completed_at: string | null;
+  updated_at: string | null;
 }
 
 interface DispararProgressModalProps {
@@ -45,7 +46,7 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
     const fetchJob = async () => {
       const { data } = await supabase
         .from('campaign_jobs')
-        .select('id, total_records, processed_records, failed_records, status, error_message, started_at, completed_at')
+        .select('id, total_records, processed_records, failed_records, status, error_message, started_at, completed_at, updated_at')
         .eq('id', jobId)
         .single();
       if (data) setJob(data as CampaignJob);
@@ -116,8 +117,8 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
   const hasRetryable = isFailed && failedCount > 0;
 
   // Detect stuck jobs: processing for 10+ minutes without completing
-  const isStuck = isProcessing && job?.started_at && 
-    (Date.now() - new Date(job.started_at).getTime()) > 10 * 60 * 1000;
+  const isStuck = isProcessing && (job?.updated_at || job?.started_at) && 
+    (Date.now() - new Date(job?.updated_at || job?.started_at || '').getTime()) > 10 * 60 * 1000;
 
   const handleForceComplete = async () => {
     if (!jobId) return;
