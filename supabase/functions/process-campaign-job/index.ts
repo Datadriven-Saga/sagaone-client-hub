@@ -274,42 +274,55 @@ serve(async (req) => {
         let batchError = '';
 
         if (isIALigacao) {
-          // IA Ligação: enviar todos em uma chamada
+          // IA Ligação: enviar em sub-lotes de 100 contatos para evitar erro 500 do n8n
           const contatosArray = leads.map(lead => ({
             telefone_lead: normalizePhone(lead.telefone),
             nome: lead.nome,
             lead_id: lead.lead_id || null,
           }));
 
-          const payloadLigacao = {
-            id_evento: eventIdPri,
-            telefone_pri: telefonePri,
-            loja: empresaData?.nome_empresa || '',
-            contatos: contatosArray
-          };
+          const LIGACAO_SUB_BATCH = 100;
+          let ligacaoSucessos = 0;
+          let ligacaoFalhas = 0;
 
-          try {
-            const response = await fetch(webhookUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
-              },
-              body: JSON.stringify(payloadLigacao)
-            });
+          for (let i = 0; i < contatosArray.length; i += LIGACAO_SUB_BATCH) {
+            const subContatos = contatosArray.slice(i, i + LIGACAO_SUB_BATCH);
+            const payloadLigacao = {
+              id_evento: eventIdPri,
+              telefone_pri: telefonePri,
+              loja: empresaData?.nome_empresa || '',
+              contatos: subContatos
+            };
 
-            if (response.ok) {
-              batchSuccess = true;
-              console.log(`✅ Batch ${batch.batch_index}: webhook OK (${response.status})`);
-            } else {
-              const body = await response.text().catch(() => '');
-              batchError = `HTTP ${response.status}: ${body.substring(0, 200)}`;
-              console.error(`❌ Batch ${batch.batch_index}: ${batchError}`);
+            try {
+              const response = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+                },
+                body: JSON.stringify(payloadLigacao)
+              });
+
+              if (response.ok) {
+                ligacaoSucessos += subContatos.length;
+                console.log(`✅ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: webhook OK (${subContatos.length} contatos)`);
+              } else {
+                const body = await response.text().catch(() => '');
+                ligacaoFalhas += subContatos.length;
+                console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: HTTP ${response.status}: ${body.substring(0, 200)}`);
+              }
+            } catch (err: any) {
+              ligacaoFalhas += subContatos.length;
+              console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: Network error: ${err.message}`);
             }
-          } catch (err: any) {
-            batchError = `Network error: ${err.message}`;
-            console.error(`❌ Batch ${batch.batch_index}: ${batchError}`);
           }
+
+          batchSuccess = ligacaoFalhas === 0;
+          if (ligacaoFalhas > 0) {
+            batchError = `${ligacaoFalhas} contatos falharam de ${contatosArray.length}`;
+          }
+          console.log(`📊 Batch ${batch.batch_index} Ligação: ${ligacaoSucessos} ok, ${ligacaoFalhas} falhas`);
         } else {
           // IA WhatsApp: processar leads individualmente em paralelo (batches de 50)
           const WA_BATCH_SIZE = 50;
