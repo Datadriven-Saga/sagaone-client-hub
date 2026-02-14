@@ -103,14 +103,41 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
     }
   }, [isOpen]);
 
+  const [forceCompleting, setForceCompleting] = useState(false);
+
   const totalContatos = job?.total_records || 0;
   const displayedCount = job?.processed_records || 0;
   const failedCount = job?.failed_records || 0;
   const isCompleted = job?.status === 'completed';
   const isFailed = job?.status === 'failed';
+  const isCancelled = job?.status === 'cancelled';
   const isProcessing = job?.status === 'processing' || job?.status === 'pending';
   const progress = totalContatos > 0 ? (displayedCount / totalContatos) * 100 : 0;
   const hasRetryable = isFailed && failedCount > 0;
+
+  // Detect stuck jobs: processing for 10+ minutes without completing
+  const isStuck = isProcessing && job?.started_at && 
+    (Date.now() - new Date(job.started_at).getTime()) > 10 * 60 * 1000;
+
+  const handleForceComplete = async () => {
+    if (!jobId) return;
+    setForceCompleting(true);
+    try {
+      await supabase.from('campaign_jobs').update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        error_message: 'Finalizado manualmente (timeout do servidor)',
+      }).eq('id', jobId);
+      
+      // Also mark any stuck batches
+      await supabase.from('campaign_batches').update({
+        status: 'failed',
+        error_log: 'Job finalizado manualmente',
+      }).eq('job_id', jobId).in('status', ['pending', 'processing']);
+    } finally {
+      setForceCompleting(false);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -119,7 +146,7 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
       >
         <DialogHeader>
           <DialogTitle className="text-center text-lg font-semibold">
-            {isCompleted ? 'Disparo Concluído!' : isFailed ? 'Disparo com Erros' : 'Disparando Mensagens'}
+            {isCompleted || isCancelled ? 'Disparo Concluído!' : isFailed ? 'Disparo com Erros' : isStuck ? 'Disparo Travado' : 'Disparando Mensagens'}
           </DialogTitle>
         </DialogHeader>
 
@@ -133,10 +160,12 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
                 ? "bg-destructive/10"
                 : "bg-primary/10"
           )}>
-            {isCompleted ? (
+            {isCompleted || isCancelled ? (
               <Check className="w-12 h-12 text-green-600 dark:text-green-400 animate-scale-in" />
             ) : isFailed ? (
               <AlertTriangle className="w-12 h-12 text-destructive" />
+            ) : isStuck ? (
+              <AlertTriangle className="w-12 h-12 text-amber-500" />
             ) : (
               <>
                 <Send className="w-10 h-10 text-primary animate-pulse" />
@@ -156,7 +185,7 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
 
           {/* Status text */}
           <div className="text-center space-y-2">
-            {isCompleted ? (
+            {isCompleted || isCancelled ? (
               <p className="text-xl font-semibold text-green-600 dark:text-green-400">
                 {failedCount > 0 
                   ? `Concluído com ${failedCount} falha(s)`
@@ -167,6 +196,15 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
               <p className="text-lg font-semibold text-destructive">
                 {job?.error_message || `${failedCount} registros falharam`}
               </p>
+            ) : isStuck ? (
+              <>
+                <p className="text-lg font-semibold text-amber-500">
+                  O servidor parou de responder
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  O disparo pode ter sido concluído parcialmente. Você pode forçar a finalização.
+                </p>
+              </>
             ) : (
               <>
                 <p className="text-muted-foreground">
@@ -216,6 +254,12 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
 
           {/* Botões */}
           <div className="flex gap-3">
+            {isStuck && (
+              <Button variant="destructive" onClick={handleForceComplete} disabled={forceCompleting}>
+                {forceCompleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <AlertTriangle className="w-4 h-4 mr-2" />}
+                Forçar Finalização
+              </Button>
+            )}
             {hasRetryable && onRetry && jobId && (
               <Button variant="default" onClick={() => onRetry(jobId)}>
                 <RotateCcw className="w-4 h-4 mr-2" />
@@ -224,7 +268,7 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
             )}
             <Button variant="outline" onClick={onClose}>
               <X className="w-4 h-4 mr-2" />
-              {isCompleted || isFailed ? 'Fechar' : 'Deixar em segundo plano'}
+              {isCompleted || isCancelled || isFailed ? 'Fechar' : 'Deixar em segundo plano'}
             </Button>
           </div>
 

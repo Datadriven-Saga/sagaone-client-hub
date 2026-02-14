@@ -58,7 +58,7 @@ const ActiveCampaignJobIndicator: React.FC = () => {
             const newJob = payload.new as ActiveJob;
             if (newJob.status === 'pending' || newJob.status === 'processing') {
               setActiveJob(newJob);
-            } else if (newJob.status === 'completed') {
+            } else if (newJob.status === 'completed' || newJob.status === 'cancelled') {
               setActiveJob(null);
               toast({
                 title: '✅ Disparo concluído!',
