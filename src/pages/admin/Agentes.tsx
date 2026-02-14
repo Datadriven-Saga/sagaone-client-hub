@@ -1557,10 +1557,15 @@ export default function AdminAgentes() {
       }
 
       // Remover todas as atribuições atuais
-      await supabase
+      const { error: deleteError } = await supabase
         .from('agente_empresas')
         .delete()
         .eq('agente_id', agenteId);
+      
+      if (deleteError) {
+        console.error('Erro ao remover atribuições:', deleteError);
+        throw deleteError;
+      }
 
       // Adicionar novas atribuições
       if (selectedEmpresaIds.length > 0) {
@@ -1586,11 +1591,11 @@ export default function AdminAgentes() {
       setAgenteToAssign(null);
       setSelectedEmpresaIds([]);
       carregarAgentes();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao atribuir agente:', error);
       toast({
         title: "Erro ao atribuir",
-        description: "Não foi possível atribuir o agente às empresas",
+        description: error?.message || "Não foi possível atribuir o agente às empresas",
         variant: "destructive"
       });
     }
