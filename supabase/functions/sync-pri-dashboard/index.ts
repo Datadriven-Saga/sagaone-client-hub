@@ -150,59 +150,52 @@ Deno.serve(async (req: Request) => {
       errors: [],
     };
 
-    // 3. Preparar dados para prospect_pri_voz (filtrar registros válidos)
-    const prospectRecords = leadsSync
-      .map((lead) => {
-        const telefoneLead = String(lead.telefone_lead || '').replace(/\D/g, '');
-        const telefonePri = String(lead.telefone_pri || telefone_pri || '').replace(/\D/g, '');
-        
-        // Ignorar registros sem telefone_lead válido (mínimo 10 dígitos)
-        if (!telefoneLead || telefoneLead.length < 10) {
-          return null;
-        }
-        
-        return {
-          telefone_lead: telefoneLead,
-          id_evento: Number(lead.id_evento || idEventoNum),
-          nome: lead.nome || null,
-          telefone_pri: telefonePri,
-          proposal_id: lead.proposal_id || null,
-          loja: lead.loja || null,
-          ligacao_atendida: lead.ligacao_atendida ?? false,
-          status_agendado: lead.status_agendado ?? false,
-          enviado_whatsapp: lead.enviado_whatsapp ?? false,
-          ligacao_erro: lead.ligacao_erro ?? false,
-          lead_id: lead.lead_id || null,
-          empresa_id: empresa_id,
-          criado_em: lead.criado_em || new Date().toISOString(),
-          atualizado_em: lead.atualizado_em || new Date().toISOString(),
-        };
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null);
-
-    // 4. Preparar dados para cadencia_pri_voz
-    const cadenciaRecords = leadsSync
-      .map((lead) => {
-        const telefoneLead = String(lead.telefone_lead || '').replace(/\D/g, '');
-        const telefonePri = String(lead.telefone_pri || telefone_pri || '').replace(/\D/g, '');
-        
-        // Ignorar registros sem telefone_lead válido
-        if (!telefoneLead || telefoneLead.length < 10) {
-          return null;
-        }
-        
-        return {
-          telefone_lead: telefoneLead,
-          telefone_pri: telefonePri,
-          id_evento: Number(lead.id_evento || idEventoNum),
-          num_tentativas: lead.num_tentativas ?? lead.tentativas ?? 0,
-          hora_primeira_tentativa: lead.hora_primeira_tentativa || null,
-          hora_ultima_tentativa: lead.hora_ultima_tentativa || null,
-          empresa_id: empresa_id,
-          atualizado_em: new Date().toISOString(),
-        };
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null);
+    // 3. Preparar dados deduplicados para prospect_pri_voz e cadencia_pri_voz
+    // CRÍTICO: O n8n pode retornar telefones duplicados no mesmo payload.
+    // PostgreSQL rejeita upsert quando o mesmo batch contém chaves duplicadas.
+    const prospectMap = new Map<string, any>();
+    const cadenciaMap = new Map<string, any>();
+    
+    for (const lead of leadsSync) {
+      const telefoneLead = String(lead.telefone_lead || '').replace(/\D/g, '');
+      const telefonePri = String(lead.telefone_pri || telefone_pri || '').replace(/\D/g, '');
+      
+      if (!telefoneLead || telefoneLead.length < 10) continue;
+      
+      const eventId = Number(lead.id_evento || idEventoNum);
+      const dedupeKey = `${telefoneLead}_${eventId}`;
+      
+      prospectMap.set(dedupeKey, {
+        telefone_lead: telefoneLead,
+        id_evento: eventId,
+        nome: lead.nome || null,
+        telefone_pri: telefonePri,
+        proposal_id: lead.proposal_id || null,
+        loja: lead.loja || null,
+        ligacao_atendida: lead.ligacao_atendida ?? false,
+        status_agendado: lead.status_agendado ?? false,
+        enviado_whatsapp: lead.enviado_whatsapp ?? false,
+        ligacao_erro: lead.ligacao_erro ?? false,
+        lead_id: lead.lead_id || null,
+        empresa_id: empresa_id,
+        criado_em: lead.criado_em || new Date().toISOString(),
+        atualizado_em: lead.atualizado_em || new Date().toISOString(),
+      });
+      
+      cadenciaMap.set(dedupeKey, {
+        telefone_lead: telefoneLead,
+        telefone_pri: telefonePri,
+        id_evento: eventId,
+        num_tentativas: lead.num_tentativas ?? lead.tentativas ?? 0,
+        hora_primeira_tentativa: lead.hora_primeira_tentativa || null,
+        hora_ultima_tentativa: lead.hora_ultima_tentativa || null,
+        empresa_id: empresa_id,
+        atualizado_em: new Date().toISOString(),
+      });
+    }
+    
+    const prospectRecords = Array.from(prospectMap.values());
+    const cadenciaRecords = Array.from(cadenciaMap.values());
 
     const invalidCount = leadsSync.length - prospectRecords.length;
     if (invalidCount > 0) {
