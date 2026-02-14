@@ -870,20 +870,28 @@ export default function EventoBase() {
     console.log('   ├─ prospeccao_id:', eventoId);
     console.log('   └─ canal:', prospeccao?.canal, '(isLigação:', isLigacao, ')');
     
-    // ETAPA 1: Buscar TODOS os contato_ids pendentes da tabela eventos_prospeccao
-    // Essa abordagem evita o problema de limit com joins
+    // ETAPA 1: Buscar contato_ids da tabela eventos_prospeccao
+    // Para IA Ligação: buscar TODOS os contatos (a filtragem real é feita com dados externos na ETAPA 3)
+    // Para WhatsApp: buscar apenas pendentes (data_disparo_ia IS NULL)
     const BATCH_SIZE = 1000;
     let allContatoIds: string[] = [];
     let offset = 0;
     let hasMore = true;
 
     while (hasMore) {
-      const { data: eventosData, error: eventosError } = await supabase
+      let query = supabase
         .from('eventos_prospeccao')
         .select('contato_id')
         .eq('prospeccao_id', eventoId)
-        .is('data_disparo_ia', null)
-        .not('contato_id', 'is', null)
+        .not('contato_id', 'is', null);
+      
+      // Para WhatsApp, filtrar por data_disparo_ia IS NULL (fonte de verdade local)
+      // Para IA Ligação, NÃO filtrar aqui - a fonte de verdade são os dados externos
+      if (!isLigacao) {
+        query = query.is('data_disparo_ia', null);
+      }
+      
+      const { data: eventosData, error: eventosError } = await query
         .range(offset, offset + BATCH_SIZE - 1);
 
       if (eventosError) {
