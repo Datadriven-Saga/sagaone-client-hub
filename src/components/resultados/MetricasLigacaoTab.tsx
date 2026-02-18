@@ -52,7 +52,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
     }
   }, [selectedAgentPhone, activeCompany?.id]);
 
-  const fetchAllMetrics = async () => {
+  const fetchAllMetrics = async (skipSync = false) => {
     if (!selectedAgentPhone) return;
     
     try {
@@ -80,8 +80,35 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
         setLastAppUpdate(new Date().toLocaleString('pt-BR'));
         return;
       }
+
+      // =====================================================
+      // SYNC PRIMEIRO: Sincroniza o Supabase com o banco externo
+      // antes de ler as métricas, para garantir dados atualizados
+      // =====================================================
+      if (!skipSync) {
+        console.log('🔄 Métricas - Sincronizando dados externos antes de buscar métricas...');
+        
+        // Sync em paralelo para todos eventos (com limite de 3 simultâneos)
+        const syncBatchSize = 3;
+        for (let i = 0; i < events.length; i += syncBatchSize) {
+          const batch = events.slice(i, i + syncBatchSize);
+          await Promise.allSettled(
+            batch.map(event =>
+              supabase.functions.invoke('sync-pri-dashboard', {
+                body: {
+                  telefone_pri: selectedAgentPhone.replace(/\D/g, ''),
+                  id_evento: event.id_evento,
+                  empresa_id: activeCompany?.id,
+                },
+              })
+            )
+          );
+        }
+        
+        console.log('✅ Métricas - Sincronização concluída, buscando dados atualizados...');
+      }
       
-      // Buscar métricas de TODOS eventos em PARALELO (sem sincronização N8N bloqueante)
+      // Buscar métricas de TODOS eventos em PARALELO (após sync)
       const metricsPromises = events.map(async (event) => {
         try {
           const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
@@ -110,7 +137,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
             metricas: {
               total: metricas.total || 0,
               pendentes: metricas.pendentes || 0,
-              disparados: metricas.disparados || 0,
+              disparados: metricas.disparados1 || 0,
               emFila: metricas.emFila || 0,
               encerrados: metricas.encerrados || 0,
               agendados: metricas.agendados || 0,
@@ -129,17 +156,6 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       
       setAllEventsData(allData);
       setLastAppUpdate(new Date().toLocaleString('pt-BR'));
-      
-      // Sincronização N8N em background (não-bloqueante)
-      events.forEach(event => {
-        supabase.functions.invoke('sync-pri-dashboard', {
-          body: {
-            telefone_pri: selectedAgentPhone.replace(/\D/g, ''),
-            id_evento: event.id_evento,
-            empresa_id: activeCompany?.id,
-          }
-        }).catch(() => {}); // Ignorar erros de sync em background
-      });
       
     } catch (error) {
       console.error('Error:', error);
@@ -241,7 +257,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
             </Select>
           )}
           
-          <Button variant="outline" size="sm" onClick={fetchAllMetrics}>
+          <Button variant="outline" size="sm" onClick={() => fetchAllMetrics(false)}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Atualizar
           </Button>
