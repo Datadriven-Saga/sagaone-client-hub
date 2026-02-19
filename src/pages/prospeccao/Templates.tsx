@@ -690,15 +690,15 @@ export default function Templates() {
         media_length: mediaData?.size || null,
       });
     } else if (savedData.formato === "video" && savedData.cardData?.videoUrl) {
-      // Para vídeos, NÃO converter em base64 no frontend (pode causar OOM/timeout).
-      // O webhook externo deve baixar o vídeo via media_url.
+      const mediaData = await fetchMediaAsBase64(savedData.cardData.videoUrl);
       components.push({
         type: "HEADER",
         format: "VIDEO",
         media_url: savedData.cardData.videoUrl,
-        media_mime_type: savedData.cardData.videoMimeType || "video/mp4",
+        media_base64: mediaData?.base64 || null,
+        media_mime_type: mediaData?.mimeType || savedData.cardData.videoMimeType || "video/mp4",
         media_type: "video",
-        media_length: savedData.cardData.videoSizeBytes || null,
+        media_length: mediaData?.size || savedData.cardData.videoSizeBytes || null,
       });
     }
 
