@@ -332,7 +332,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canEditClientes = isAdmin || isCRM || isGerenteLeads || isCoordenadoraLeads;
   defaults.canDeleteClientes = isAdminOrTI;
   defaults.canImportClientes = isAdmin || isTI || isCRM;
-  defaults.canUploadBase = isAdmin || isTI || isCRM || isGerenteLeads || isCoordenadoraLeads || isGerenteLoja;
+  defaults.canUploadBase = isMasterRole || isCRM;
   defaults.canEditContatos = !isRecepcionista;
   defaults.canDeleteContatos = isAdminOrTI;
   defaults.canValidarImportacao = isAdmin || isTI || isCRM; // CRM valida importações; Gestor de Leads NÃO pode validar
