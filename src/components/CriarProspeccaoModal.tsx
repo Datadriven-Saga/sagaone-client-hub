@@ -286,7 +286,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         if (!isoString) return "";
         try {
           const date = new Date(isoString);
-          return date.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+          // Ajustar para horário local antes de formatar para datetime-local
+          const offset = date.getTimezoneOffset();
+          const localDate = new Date(date.getTime() - offset * 60000);
+          return localDate.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM em horário local
         } catch {
           return "";
         }
