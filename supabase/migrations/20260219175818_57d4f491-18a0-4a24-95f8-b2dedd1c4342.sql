@@ -1,0 +1,1 @@
+DELETE FROM public.departamento_permissoes WHERE permissao = 'canImportClientes';
