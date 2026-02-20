@@ -109,9 +109,9 @@
     --sagaone-dark: 220 22% 8%;
     --sagaone-light: 220 18% 13%;
     --sagaone-bg: 220 20% 10%;
-    --sagaone-login-bg: 220 20% 10%;
-    --sagaone-login-card: 195 80% 50%;
-    --sagaone-login-button: 195 80% 50%;
+    --sagaone-login-bg: 220 15% 25%;
+    --sagaone-login-card: 220 20% 15%;
+    --sagaone-login-button: 190 90% 50%;
   }
 }
 
