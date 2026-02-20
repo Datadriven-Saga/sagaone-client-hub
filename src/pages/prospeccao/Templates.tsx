@@ -81,6 +81,7 @@ interface CardData {
   videoPreviewUrl: string;
   videoMimeType?: string;
   videoSizeBytes?: number;
+  cardMediaType?: "imagem" | "video";
   textoCabecalho: string;
   corpoTexto: string;
   rodape: string;
@@ -642,8 +643,19 @@ export default function Templates() {
 
     // HEADER (opcional) - para formatos com cabeçalho
     if (savedData.formato === "card") {
-      // Card pode ter imagem + texto de cabeçalho
-      if (savedData.cardData?.imagemUrl) {
+      // Card pode ter vídeo ou imagem como mídia de cabeçalho
+      if (savedData.cardData?.videoUrl) {
+        const mediaData = await fetchMediaAsBase64(savedData.cardData.videoUrl);
+        components.push({
+          type: "HEADER",
+          format: "VIDEO",
+          media_url: savedData.cardData.videoUrl,
+          media_base64: mediaData?.base64 || null,
+          media_mime_type: (savedData.cardData as any).videoMimeType || mediaData?.mimeType || "video/mp4",
+          media_type: "video",
+          media_length: (savedData.cardData as any).videoSizeBytes || mediaData?.size || null,
+        });
+      } else if (savedData.cardData?.imagemUrl) {
         const mediaData = await fetchMediaAsBase64(savedData.cardData.imagemUrl);
         components.push({
           type: "HEADER",
@@ -655,17 +667,13 @@ export default function Templates() {
           media_length: mediaData?.size || null,
         });
       }
-      // Texto do cabeçalho vai separado se houver
-      if (savedData.cardData?.textoCabecalho) {
-        // Se já tem imagem, o texto vai no próprio header como exemplo
-        // Se não tem imagem, é header de texto
-        if (!savedData.cardData?.imagemUrl) {
-          components.push({
-            type: "HEADER",
-            format: "TEXT",
-            text: savedData.cardData.textoCabecalho,
-          });
-        }
+      // Texto do cabeçalho só como header de texto se não houver mídia
+      if (savedData.cardData?.textoCabecalho && !savedData.cardData?.imagemUrl && !savedData.cardData?.videoUrl) {
+        components.push({
+          type: "HEADER",
+          format: "TEXT",
+          text: savedData.cardData.textoCabecalho,
+        });
       }
     } else if (savedData.formato === "imagem" && savedData.cardData?.imagemUrl) {
       const mediaData = await fetchMediaAsBase64(savedData.cardData.imagemUrl);
@@ -929,10 +937,13 @@ export default function Templates() {
           break;
 
         case "card":
-          // Card: imagem + cabeçalho + corpo + rodapé + botões
+          // Card: imagem ou vídeo + cabeçalho + corpo + rodapé + botões
           conteudo = formData.cardData.corpoTexto;
           cardData = {
-            imagemUrl: formData.cardData.imagemPreviewUrl,
+            imagemUrl: formData.cardData.imagemPreviewUrl || undefined,
+            videoUrl: formData.cardData.videoPreviewUrl || undefined,
+            videoMimeType: formData.cardData.videoMimeType || undefined,
+            videoSizeBytes: formData.cardData.videoSizeBytes || undefined,
             textoCabecalho: formData.cardData.textoCabecalho,
             rodape: formData.cardData.rodape,
             botoes: formData.cardData.botoes.map(b => ({ 
@@ -1430,6 +1441,11 @@ export default function Templates() {
     }
 
     if (formData.formato === "card") {
+      const cardMediaType = formData.cardData.cardMediaType || (formData.cardData.videoPreviewUrl ? "video" : "imagem");
+      const setCardMediaType = (type: "imagem" | "video") => {
+        setFormData(prev => ({ ...prev, cardData: { ...prev.cardData, cardMediaType: type } }));
+      };
+
       const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -1446,6 +1462,8 @@ export default function Templates() {
                 ...prev.cardData,
                 imagemCampanha: file,
                 imagemPreviewUrl: publicUrl,
+                videoCampanha: null,
+                videoPreviewUrl: "",
               }
             }));
           }
@@ -1459,6 +1477,55 @@ export default function Templates() {
             ...prev.cardData,
             imagemCampanha: null,
             imagemPreviewUrl: "",
+          }
+        }));
+      };
+
+      const handleCardVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        let fileToUpload = file;
+        if (file.size > MAX_VIDEO_SIZE_BYTES) {
+          const sizeInMB = (file.size / 1024 / 1024).toFixed(2);
+          toast.info(`O vídeo tem ${sizeInMB}MB. Iniciando compressão automática...`);
+          const compressedFile = await compressVideo(file);
+          if (!compressedFile) {
+            toast.error('Não foi possível comprimir o vídeo para menos de 12MB. Tente um vídeo mais curto.');
+            e.target.value = "";
+            return;
+          }
+          toast.success(`Vídeo comprimido com sucesso! Novo tamanho: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
+          fileToUpload = compressedFile;
+        }
+
+        const publicUrl = await uploadMediaToStorage(fileToUpload, 'video');
+        if (publicUrl) {
+          setFormData(prev => ({
+            ...prev,
+            cardData: {
+              ...prev.cardData,
+              videoCampanha: fileToUpload,
+              videoPreviewUrl: publicUrl,
+              videoMimeType: fileToUpload.type || "video/mp4",
+              videoSizeBytes: fileToUpload.size,
+              imagemCampanha: null,
+              imagemPreviewUrl: "",
+            }
+          }));
+        }
+      };
+
+      const handleRemoveCardVideo = () => {
+        cancelCompression();
+        setFormData(prev => ({
+          ...prev,
+          cardData: {
+            ...prev.cardData,
+            videoCampanha: null,
+            videoPreviewUrl: "",
+            videoMimeType: undefined,
+            videoSizeBytes: undefined,
           }
         }));
       };
@@ -1502,47 +1569,112 @@ export default function Templates() {
 
       return (
         <div className="space-y-4">
-          {/* Imagem da Campanha */}
+          {/* Mídia da Campanha */}
           <div>
-            <Label>Imagem da Campanha</Label>
+            <Label>Mídia da Campanha</Label>
             <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
               <Check className="h-3 w-3" />
               A URL da mídia é pública e permanente
             </p>
+            {/* Seletor de tipo de mídia */}
+            <div className="flex gap-2 mt-2 mb-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={cardMediaType === "imagem" ? "default" : "outline"}
+                onClick={() => {
+                  setCardMediaType("imagem");
+                  if (cardMediaType !== "imagem") handleRemoveCardVideo();
+                }}
+              >
+                Imagem
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={cardMediaType === "video" ? "default" : "outline"}
+                onClick={() => {
+                  setCardMediaType("video");
+                  if (cardMediaType !== "video") handleRemoveImage();
+                }}
+              >
+                Vídeo
+              </Button>
+            </div>
+
             <div className="mt-2">
-              {isUploading ? (
-                <div className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-primary rounded-lg">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mb-1"></div>
-                  <span className="text-sm text-muted-foreground">Enviando...</span>
-                </div>
-              ) : formData.cardData.imagemPreviewUrl ? (
-                <div className="relative w-full h-32 bg-muted rounded-lg overflow-hidden">
-                  <img 
-                    src={formData.cardData.imagemPreviewUrl} 
-                    alt="Preview" 
-                    className="w-full h-full object-cover"
-                  />
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2 h-6 w-6"
-                    onClick={handleRemoveImage}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
+              {cardMediaType === "imagem" ? (
+                isUploading ? (
+                  <div className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-primary rounded-lg">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mb-1"></div>
+                    <span className="text-sm text-muted-foreground">Enviando...</span>
+                  </div>
+                ) : formData.cardData.imagemPreviewUrl ? (
+                  <div className="relative w-full h-32 bg-muted rounded-lg overflow-hidden">
+                    <img 
+                      src={formData.cardData.imagemPreviewUrl} 
+                      alt="Preview" 
+                      className="w-full h-full object-cover"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-6 w-6"
+                      onClick={handleRemoveImage}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary transition-colors">
+                    <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                    <span className="text-sm text-muted-foreground">Clique para enviar imagem</span>
+                    <span className="text-xs text-muted-foreground">(máximo 5MB)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
+                  </label>
+                )
               ) : (
-                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary transition-colors">
-                  <Upload className="h-6 w-6 text-muted-foreground mb-1" />
-                  <span className="text-sm text-muted-foreground">Clique para enviar imagem</span>
-                  <span className="text-xs text-muted-foreground">(máximo 5MB)</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageUpload}
-                  />
-                </label>
+                isUploading || isCompressing ? (
+                  <div className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-primary rounded-lg">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mb-1"></div>
+                    <span className="text-sm text-muted-foreground">
+                      {isCompressing ? (compressionProgress?.message || "Comprimindo...") : "Enviando..."}
+                    </span>
+                  </div>
+                ) : formData.cardData.videoPreviewUrl ? (
+                  <div className="relative w-full bg-muted rounded-lg overflow-hidden">
+                    <video
+                      src={formData.cardData.videoPreviewUrl}
+                      controls
+                      className="w-full h-32 object-cover"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-6 w-6"
+                      onClick={handleRemoveCardVideo}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary transition-colors">
+                    <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                    <span className="text-sm text-muted-foreground">Clique para enviar vídeo</span>
+                    <span className="text-xs text-muted-foreground">(máx. 12MB, compressão automática)</span>
+                    <input
+                      type="file"
+                      accept="video/*"
+                      className="hidden"
+                      onChange={handleCardVideoUpload}
+                    />
+                  </label>
+                )
               )}
             </div>
           </div>
