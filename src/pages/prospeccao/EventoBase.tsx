@@ -99,8 +99,9 @@ export default function EventoBase() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { activeCompany } = useCompany();
-  const { isAdminOrTI, isAdmin, isTI, isCRM, loading: loadingAccess } = useUserAccessType();
+  const { isAdminOrTI, isAdmin, isMasterRole, isTI, isCRM, loading: loadingAccess } = useUserAccessType();
   const isGerenteLeads = useUserAccessType().tipoAcesso === "Gerente de Leads";
+  const canRedispatch = isAdmin || isMasterRole; // Admin/Master podem redisparar
 
   // Constantes de configuração de disparo
   const BATCH_SIZE = 1000; // Tamanho do lote por chamada ao webhook
@@ -1165,6 +1166,26 @@ export default function EventoBase() {
     setCustoModal({ isOpen: true, quantidade: undefined });
   };
 
+  // Função para redisparar todos (Admin/Master) - reseta data_disparo_ia dos já disparados
+  const handleRedisparoEmMassa = async () => {
+    if (!prospeccao || !activeCompany?.id || !canRedispatch) return;
+    
+    // Resetar data_disparo_ia de todos os contatos do evento para torná-los "pendentes" novamente
+    const { error } = await supabase
+      .from('eventos_prospeccao')
+      .update({ data_disparo_ia: null })
+      .eq('prospeccao_id', prospeccao.id);
+    
+    if (error) {
+      toast({ title: "Erro", description: "Erro ao resetar disparos", variant: "destructive" });
+      return;
+    }
+    
+    toast({ title: "Disparos resetados", description: "Todos os contatos estão pendentes novamente. Clique em Disparar." });
+    await fetchMetricas();
+    await fetchContatos();
+  };
+
   // Função para disparar quantidade personalizada - abre modal de custo primeiro
   const handleDispararPersonalizado = () => {
     const quantidade = parseInt(customDispatchCount, 10);
@@ -1776,7 +1797,7 @@ export default function EventoBase() {
             </div>
 
             {/* Seção de Disparo IA */}
-            {isIA && (isIALigacaoLocal ? (metricasLigacao ? metricasLigacao.total > 0 : (metricas.total > 0 || contatos.length > 0)) : metricas.pendentes > 0) && (
+            {isIA && (isIALigacaoLocal ? (metricasLigacao ? metricasLigacao.total > 0 : (metricas.total > 0 || contatos.length > 0)) : (metricas.pendentes > 0 || canRedispatch)) && (
               <div className="border-t pt-4 space-y-3">
                 {/* Observação sobre lotes */}
                 <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg text-sm">
@@ -1873,6 +1894,32 @@ export default function EventoBase() {
                           Disparar {customDispatchCount ? parseInt(customDispatchCount, 10).toLocaleString() : 'X'}
                         </Button>
                       </div>
+
+                      {/* Botão Redisparar Todos - apenas Admin/Master */}
+                      {canRedispatch && metricas.disparados > 0 && (
+                        <>
+                          <div className="h-8 w-px bg-border" />
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleRedisparoEmMassa}
+                                  disabled={isDisparandoIA}
+                                  className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                                >
+                                  <RotateCcw className="mr-2 h-4 w-4" />
+                                  Redisparar Todos ({metricas.disparados.toLocaleString()})
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Reseta todos os contatos já disparados para pendente e permite redisparar</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </>
+                      )}
                     </>
                   ) : (
                     <TooltipProvider>
@@ -2105,7 +2152,8 @@ export default function EventoBase() {
                                     const numTentativas = dadosExternos?.num_tentativas || 0;
                                     
                                     // Só mostrar botão se elegível (não encerrado e < 2 tentativas)
-                                    if (!isEncerrado && numTentativas < 2) {
+                                    // Admin/Master podem redisparar mesmo com tentativas >= 2
+                                    if (!isEncerrado && (numTentativas < 2 || canRedispatch)) {
                                       return (
                                         <TooltipProvider>
                                           <Tooltip>
@@ -2133,7 +2181,30 @@ export default function EventoBase() {
                                   })()
                                 )}
                                 {isIAWhatsApp && contato.data_disparo_ia && (
-                                  <span className="text-muted-foreground text-xs">-</span>
+                                  canRedispatch ? (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 w-7 p-0"
+                                            onClick={() => handleRedispararContato(contato)}
+                                            disabled={disparandoContato === contato.id}
+                                          >
+                                            {disparandoContato === contato.id ? (
+                                              <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                              <RotateCcw className="h-4 w-4 text-orange-600" />
+                                            )}
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Redisparar WhatsApp</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">-</span>
+                                  )
                                 )}
                               </div>
                             </TableCell>
