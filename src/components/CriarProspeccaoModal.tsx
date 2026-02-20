@@ -2835,29 +2835,26 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
               <div className="border-t pt-4 mt-4">
                 <h4 className="text-sm font-medium mb-4">Configurações de Disparo</h4>
                 
-                {/* Data/Hora Envio Inicial */}
+                {/* Aviso sobre Disparo Inicial */}
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="data_envio_inicial">Data/Hora do Envio Inicial</Label>
+                    <Label>Disparo Inicial</Label>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs">
-                          <p>Define quando o template inicial de prospecção será enviado. Por padrão é agora (momento da criação do evento).</p>
+                          <p>O disparo inicial é realizado manualmente pelo botão "Disparar" na tela do evento.</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
-                  <Input
-                    id="data_envio_inicial"
-                    type="datetime-local"
-                    value={dataEnvioInicial}
-                    onChange={(e) => setDataEnvioInicial(e.target.value)}
-                    placeholder="Agora (padrão)"
-                  />
-                  <p className="text-xs text-muted-foreground">Deixe em branco para enviar imediatamente</p>
+                  <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3">
+                    <p className="text-sm text-amber-700 dark:text-amber-400">
+                      O disparo inicial é feito no momento em que você clica no botão de disparo na tela do evento. Apenas a cadência pode ser configurada com data/hora.
+                    </p>
+                  </div>
                 </div>
 
                 {/* Data/Hora Cadência */}
