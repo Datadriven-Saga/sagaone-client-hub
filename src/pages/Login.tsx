@@ -52,8 +52,8 @@ const Login = () => {
       <div className="min-h-screen bg-gradient-login dark:bg-gradient-to-br dark:from-[hsl(220,20%,18%)] dark:via-[hsl(220,15%,28%)] dark:to-[hsl(220,20%,18%)] flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-6">
-            <div className="inline-block mb-1 bg-white dark:bg-white/95 p-6 rounded-xl shadow-lg">
-              <img src={sagaOneLogo} alt="SAGA One Logo" className="max-w-xs w-full h-auto" />
+            <div className="inline-block mb-1 bg-white dark:bg-white/95 p-6 rounded-2xl shadow-lg">
+              <img src={sagaOneLogo} alt="SAGA One Logo" className="max-w-xs w-full h-auto rounded-xl" />
             </div>
           </div>
 
