@@ -49,25 +49,25 @@ const Login = () => {
   // Renderiza login SSO - apenas Microsoft
   if (USE_SSO_LOGIN) {
     return (
-      <div className="min-h-screen bg-gradient-login dark:bg-background flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-login dark:bg-gradient-to-br dark:from-[hsl(220,20%,18%)] dark:via-[hsl(220,15%,28%)] dark:to-[hsl(220,20%,18%)] flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-6">
-            <div className="inline-block mb-1 bg-sagaone-login-bg dark:bg-transparent p-0 rounded-lg">
-              <img src={sagaOneLogo} alt="SAGA One Logo" className="max-w-md w-full h-auto dark:drop-shadow-[0_0_20px_hsl(195_80%_50%/0.15)]" />
+            <div className="inline-block mb-1 bg-white dark:bg-white/95 p-6 rounded-xl shadow-lg">
+              <img src={sagaOneLogo} alt="SAGA One Logo" className="max-w-xs w-full h-auto" />
             </div>
           </div>
 
-          <Card className="shadow-card border-0 bg-sagaone-login-card dark:bg-card dark:border dark:border-border/50 dark:shadow-none">
+          <Card className="shadow-xl border-0 bg-sagaone-login-card dark:bg-[hsl(220,20%,14%)] dark:border dark:border-white/10 dark:shadow-2xl">
             <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl text-center font-medium">Faça seu login</CardTitle>
-              <p className="text-center text-muted-foreground text-sm">
+              <CardTitle className="text-2xl text-center font-semibold dark:text-white">Faça seu login</CardTitle>
+              <p className="text-center text-muted-foreground text-sm dark:text-white/60">
                 Use sua conta corporativa Microsoft
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
               <Button
                 type="button"
-                className="w-full flex items-center justify-center gap-3 h-14 bg-sagaone-login-button hover:bg-sagaone-login-button/90 text-white dark:bg-primary dark:hover:bg-primary/90 dark:text-primary-foreground text-base font-medium"
+                className="w-full flex items-center justify-center gap-3 h-14 bg-sagaone-login-button hover:bg-sagaone-login-button/90 text-white dark:bg-[hsl(190,90%,50%)] dark:hover:bg-[hsl(190,90%,45%)] dark:text-[hsl(220,20%,10%)] text-base font-medium rounded-lg"
                 onClick={handleSSOLogin}
                 disabled={loading}
               >
@@ -75,7 +75,7 @@ const Login = () => {
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 21 21" fill="none">
+                    <svg width="21" height="21" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
                       <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
                       <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
                       <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
@@ -87,14 +87,14 @@ const Login = () => {
               </Button>
 
               <div className="text-center pt-2">
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground dark:text-white/50">
                   Ao entrar, você concorda com nossos termos de uso e política de privacidade.
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          <p className="text-center text-foreground/60 text-sm mt-6">© 2025 SAGA One. Todos os direitos reservados.</p>
+          <p className="text-center text-foreground/60 dark:text-white/40 text-sm mt-6">© 2025 SAGA One. Todos os direitos reservados.</p>
         </div>
       </div>
     );
