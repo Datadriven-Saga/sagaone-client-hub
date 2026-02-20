@@ -1,0 +1,1 @@
+INSERT INTO empresas (nome_empresa, marca, uf, grupo_empresarial, crm_id, cnpj) VALUES ('TI - EMPRESA TESTE', 'TI', 'DF', 'SAGA', 'TI-TESTE', '00000000000000');
