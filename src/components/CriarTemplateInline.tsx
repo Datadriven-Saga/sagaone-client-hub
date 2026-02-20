@@ -78,6 +78,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
   const [mediaUrl, setMediaUrl] = useState("");
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [cardMediaType, setCardMediaType] = useState<'image' | 'video'>('image');
   const [nomeDuplicado, setNomeDuplicado] = useState(false);
   const [verificandoNome, setVerificandoNome] = useState(false);
   const [priTelefone, setPriTelefone] = useState<string | null>(null);
@@ -362,7 +363,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
         case "card":
           conteudoFinal = corpoTexto;
           cardData = {
-            imagemUrl: mediaUrl,
+            ...(cardMediaType === 'video' ? { videoUrl: mediaUrl } : { imagemUrl: mediaUrl }),
             textoCabecalho,
             rodape,
             botoes: botoes.map(b => ({ id: b.id, nome: b.nome, buttonId: b.buttonId })),
@@ -737,11 +738,52 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
         return (
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label>Imagem do Card (opcional)</Label>
+              <Label>Mídia do Card (opcional)</Label>
+              <div className="flex gap-2 mb-2">
+                <Button
+                  type="button"
+                  variant={cardMediaType === 'image' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setCardMediaType('image'); setMediaUrl(''); setMediaFile(null); }}
+                >
+                  <Image className="w-4 h-4 mr-1" /> Imagem
+                </Button>
+                <Button
+                  type="button"
+                  variant={cardMediaType === 'video' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setCardMediaType('video'); setMediaUrl(''); setMediaFile(null); }}
+                >
+                  <Video className="w-4 h-4 mr-1" /> Vídeo
+                </Button>
+              </div>
+              {cardMediaType === 'video' && (
+                <p className="text-xs text-muted-foreground">
+                  Vídeos maiores que 12MB serão comprimidos automaticamente
+                </p>
+              )}
               <div className="border-2 border-dashed rounded-lg p-3 text-center">
-                {mediaUrl ? (
+                {isCompressing && cardMediaType === 'video' ? (
                   <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Imagem carregada</p>
+                    <Loader2 className="w-8 h-8 mx-auto text-primary animate-spin" />
+                    <p className="text-sm text-muted-foreground">
+                      {compressionProgress?.message || 'Comprimindo vídeo...'}
+                    </p>
+                    {compressionProgress && compressionProgress.stage === 'compressing' && (
+                      <div className="w-full max-w-xs mx-auto">
+                        <Progress value={compressionProgress.progress} className="h-2" />
+                        <span className="text-xs text-muted-foreground">{compressionProgress.progress}%</span>
+                      </div>
+                    )}
+                    <Button type="button" variant="outline" size="sm" onClick={cancelCompression}>
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : mediaUrl ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      {cardMediaType === 'image' ? 'Imagem' : 'Vídeo'} carregado
+                    </p>
                     <Button type="button" variant="outline" size="sm" onClick={() => setMediaUrl("")}>
                       Remover
                     </Button>
@@ -750,14 +792,14 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
                   <label className="cursor-pointer">
                     <Upload className="w-6 h-6 mx-auto mb-1 text-muted-foreground" />
                     <span className="text-xs text-muted-foreground">
-                      {isUploading ? "Enviando..." : "Upload imagem"}
+                      {isUploading ? "Enviando..." : `Upload ${cardMediaType === 'image' ? 'imagem' : 'vídeo'}`}
                     </span>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept={cardMediaType === 'image' ? 'image/*' : 'video/*'}
                       className="hidden"
-                      onChange={(e) => handleMediaUpload(e, 'image')}
-                      disabled={isUploading}
+                      onChange={(e) => handleMediaUpload(e, cardMediaType)}
+                      disabled={isUploading || isCompressing}
                     />
                   </label>
                 )}

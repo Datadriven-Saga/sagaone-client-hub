@@ -17,6 +17,12 @@ interface CardData {
   botoes?: CardButton[];
 }
 
+const isValidMediaUrl = (url?: string) => {
+  if (!url) return false;
+  if (url.startsWith('blob:')) return false;
+  return true;
+};
+
 interface TemplatePreviewProps {
   isOpen: boolean;
   onClose: () => void;
@@ -176,8 +182,16 @@ export function TemplatePreview({
       case "card":
         return (
           <div className="space-y-2">
-            {/* Imagem do Card */}
-            {isValidImageUrl(cardData?.imagemUrl) ? (
+            {/* Mídia do Card (Imagem ou Vídeo) */}
+            {isValidMediaUrl(cardData?.videoUrl) ? (
+              <div className="rounded-lg overflow-hidden -mx-3 -mt-3">
+                <video 
+                  src={cardData!.videoUrl} 
+                  className="w-full h-32 object-cover"
+                  controls
+                />
+              </div>
+            ) : isValidImageUrl(cardData?.imagemUrl) ? (
               <div className="rounded-lg overflow-hidden -mx-3 -mt-3">
                 <img 
                   src={cardData!.imagemUrl} 
@@ -197,8 +211,8 @@ export function TemplatePreview({
             ) : (
               <div className="w-full h-32 bg-muted/50 rounded-lg -mx-3 -mt-3 flex flex-col items-center justify-center" style={{ width: 'calc(100% + 24px)' }}>
                 <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
-                {cardData?.imagemUrl?.startsWith('blob:') && (
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">Imagem expirada</p>
+                {(cardData?.imagemUrl?.startsWith('blob:') || cardData?.videoUrl?.startsWith('blob:')) && (
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">Mídia expirada</p>
                 )}
               </div>
             )}
