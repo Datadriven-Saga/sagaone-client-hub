@@ -391,7 +391,7 @@ export const useRecepcaoData = () => {
           .insert([{
             contato_id: contatoId,
             prospeccao_id: data.evento_id,
-            tipo_evento: "Outro" as any,
+            tipo_evento: "Contato Inicial" as any,
             descricao: "Check-in via Recepção"
           }]);
       }
