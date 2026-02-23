@@ -219,11 +219,34 @@ async function fetchVapiCalls(phone: string, startDate: string, endDate: string)
   const apiKey = Deno.env.get("VAPI_API_KEY");
   if (!apiKey) throw new Error("VAPI_API_KEY not configured");
 
-  const startIso = new Date(startDate).toISOString();
-  const endIso = new Date(endDate + "T23:59:59").toISOString();
+  // Vapi limits history to 14 days - auto-clamp start date
+  const VAPI_RETENTION_DAYS = 14;
+  const minAllowedDate = new Date();
+  minAllowedDate.setDate(minAllowedDate.getDate() - VAPI_RETENTION_DAYS);
+  minAllowedDate.setHours(0, 0, 0, 0);
+
+  let effectiveStartDate = new Date(startDate);
+  const warnings: string[] = [];
+
+  if (effectiveStartDate < minAllowedDate) {
+    effectiveStartDate = minAllowedDate;
+    console.log(`Vapi: start date clamped from ${startDate} to ${effectiveStartDate.toISOString().split("T")[0]} (14-day retention limit)`);
+    warnings.push(`Vapi: dados limitados aos últimos 14 dias (a partir de ${effectiveStartDate.toISOString().split("T")[0]}). Período anterior não disponível no plano atual.`);
+  }
+
+  // If clamped start is after end date, no Vapi data possible
+  const endDateObj = new Date(endDate + "T23:59:59");
+  if (effectiveStartDate > endDateObj) {
+    console.log("Vapi: entire date range is outside retention window, skipping");
+    warnings.push("Vapi: período selecionado está fora da janela de retenção de 14 dias.");
+    return { calls: [], warnings };
+  }
+
+  const startIso = effectiveStartDate.toISOString();
+  const endIso = endDateObj.toISOString();
   const phoneDigits = normalizeDigits(phone);
   const deadline = Date.now() + 25_000; // 25s budget to leave room for response
-  const warnings: string[] = [];
+  // warnings already initialized above with possible clamp message
 
   if (phoneDigits) {
     const phoneIds = await resolveVapiPhoneNumberIds(apiKey, phoneDigits);
