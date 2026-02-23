@@ -15,7 +15,7 @@ import { cn, formatPhone } from "@/lib/utils";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  CalendarIcon, Search, Download, Phone, DollarSign, Clock, BarChart3, Loader2
+  CalendarIcon, Search, Download, Phone, DollarSign, Clock, BarChart3, Loader2, Filter, X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -48,6 +48,11 @@ const ControleGastosLigacao = () => {
   const [fetched, setFetched] = useState(false);
   const [page, setPage] = useState(0);
   const [agentPhones, setAgentPhones] = useState<{ telefone: string; nome: string; display: string }[]>([]);
+  // Table filters
+  const [filterCallId, setFilterCallId] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "success" | "error">("all");
+  const [filterMinCost, setFilterMinCost] = useState("");
+  const [filterMaxCost, setFilterMaxCost] = useState("");
 
   // Carregar telefones dos agentes Pri/Ligação
   useEffect(() => {
@@ -163,9 +168,23 @@ const ControleGastosLigacao = () => {
 
   const PIE_COLORS = ["hsl(var(--primary))", "hsl(var(--accent))"];
 
+  // Filtered calls for table
+  const filteredCalls = useMemo(() => {
+    return calls.filter(c => {
+      if (filterCallId && !c.id.toLowerCase().includes(filterCallId.toLowerCase())) return false;
+      if (filterStatus === "error" && !c.status?.startsWith("erro")) return false;
+      if (filterStatus === "success" && c.status?.startsWith("erro")) return false;
+      const minC = parseFloat(filterMinCost);
+      const maxC = parseFloat(filterMaxCost);
+      if (!isNaN(minC) && c.cost < minC) return false;
+      if (!isNaN(maxC) && c.cost > maxC) return false;
+      return true;
+    });
+  }, [calls, filterCallId, filterStatus, filterMinCost, filterMaxCost]);
+
   // Pagination
-  const paginatedCalls = calls.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
-  const totalPages = Math.ceil(calls.length / ITEMS_PER_PAGE);
+  const paginatedCalls = filteredCalls.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredCalls.length / ITEMS_PER_PAGE);
 
   // Export CSV
   const exportCSV = () => {
@@ -368,13 +387,75 @@ const ControleGastosLigacao = () => {
           {fetched && !loading && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Chamadas ({calls.length})</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2">
+                  Chamadas
+                  <Badge variant="secondary" className="text-xs">{filteredCalls.length === calls.length ? calls.length.toLocaleString("pt-BR") : `${filteredCalls.length.toLocaleString("pt-BR")} de ${calls.length.toLocaleString("pt-BR")}`}</Badge>
+                </CardTitle>
                 <Button variant="outline" size="sm" onClick={exportCSV} disabled={!calls.length} className="gap-1">
                   <Download className="h-4 w-4" /> Exportar CSV
                 </Button>
               </CardHeader>
-              <CardContent>
-                {calls.length === 0 ? (
+              <CardContent className="space-y-4">
+                {/* Table Filters */}
+                <div className="flex flex-wrap items-end gap-3 p-3 rounded-lg border border-border/50 bg-muted/30">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+                    <Filter className="h-3.5 w-3.5" /> Filtros:
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Call ID</Label>
+                    <Input
+                      placeholder="Buscar por ID..."
+                      value={filterCallId}
+                      onChange={e => { setFilterCallId(e.target.value); setPage(0); }}
+                      className="h-8 w-44 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Status</Label>
+                    <Select value={filterStatus} onValueChange={(v: any) => { setFilterStatus(v); setPage(0); }}>
+                      <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="success">Sucesso</SelectItem>
+                        <SelectItem value="error">Erro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Custo mín (USD)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={filterMinCost}
+                      onChange={e => { setFilterMinCost(e.target.value); setPage(0); }}
+                      className="h-8 w-28 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Custo máx (USD)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={filterMaxCost}
+                      onChange={e => { setFilterMaxCost(e.target.value); setPage(0); }}
+                      className="h-8 w-28 text-xs"
+                    />
+                  </div>
+                  {(filterCallId || filterStatus !== "all" || filterMinCost || filterMaxCost) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1 text-xs"
+                      onClick={() => { setFilterCallId(""); setFilterStatus("all"); setFilterMinCost(""); setFilterMaxCost(""); setPage(0); }}
+                    >
+                      <X className="h-3.5 w-3.5" /> Limpar
+                    </Button>
+                  )}
+                </div>
+
+                {filteredCalls.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Phone className="h-12 w-12 mx-auto mb-3 opacity-30" />
                     <p>Nenhuma chamada encontrada para os filtros selecionados.</p>
@@ -384,16 +465,16 @@ const ControleGastosLigacao = () => {
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
-                           <TableRow>
-                             <TableHead>Data</TableHead>
-                             <TableHead>Origem</TableHead>
-                             <TableHead>Status</TableHead>
-                             <TableHead>Telefone Origem</TableHead>
-                             <TableHead>Telefone Destino</TableHead>
-                             <TableHead>Duração</TableHead>
-                             <TableHead>Custo</TableHead>
-                             <TableHead>ID</TableHead>
-                           </TableRow>
+                          <TableRow>
+                            <TableHead>Data</TableHead>
+                            <TableHead>Origem</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Telefone Origem</TableHead>
+                            <TableHead>Telefone Destino</TableHead>
+                            <TableHead>Duração</TableHead>
+                            <TableHead>Custo</TableHead>
+                            <TableHead>ID</TableHead>
+                          </TableRow>
                         </TableHeader>
                         <TableBody>
                           {paginatedCalls.map(call => (
@@ -401,21 +482,21 @@ const ControleGastosLigacao = () => {
                               <TableCell className="whitespace-nowrap">
                                 {call.date ? format(new Date(call.date), "dd/MM/yy HH:mm") : "—"}
                               </TableCell>
-                               <TableCell>
-                                 <Badge variant={call.source === "twilio" ? "default" : "secondary"}>
-                                   {call.source === "twilio" ? "Twilio" : "Vapi"}
-                                 </Badge>
-                               </TableCell>
-                               <TableCell>
-                                 <Badge variant={call.status?.startsWith("erro") ? "destructive" : "outline"} className="text-xs">
-                                   {call.status?.startsWith("erro") ? "Erro" : (call.status || "OK")}
-                                 </Badge>
-                               </TableCell>
-                               <TableCell className="font-mono text-xs">{call.phoneFrom || "—"}</TableCell>
-                               <TableCell className="font-mono text-xs">{call.phoneTo || "—"}</TableCell>
-                               <TableCell>{fmtDuration(call.duration)}</TableCell>
-                               <TableCell className="font-mono">{fmtUSD(call.cost)}</TableCell>
-                               <TableCell className="font-mono text-xs max-w-[120px] truncate" title={call.id}>{call.id}</TableCell>
+                              <TableCell>
+                                <Badge variant={call.source === "twilio" ? "default" : "secondary"}>
+                                  {call.source === "twilio" ? "Twilio" : "Vapi"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={call.status?.startsWith("erro") ? "destructive" : "outline"} className="text-xs">
+                                  {call.status?.startsWith("erro") ? "Erro" : (call.status || "OK")}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="font-mono text-xs">{call.phoneFrom || "—"}</TableCell>
+                              <TableCell className="font-mono text-xs">{call.phoneTo || "—"}</TableCell>
+                              <TableCell>{fmtDuration(call.duration)}</TableCell>
+                              <TableCell className="font-mono">{fmtUSD(call.cost)}</TableCell>
+                              <TableCell className="font-mono text-xs max-w-[120px] truncate" title={call.id}>{call.id}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
