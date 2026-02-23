@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { cn, formatPhone } from "@/lib/utils";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -45,7 +45,7 @@ const ControleGastosLigacao = () => {
   const [calls, setCalls] = useState<CallRecord[]>([]);
   const [fetched, setFetched] = useState(false);
   const [page, setPage] = useState(0);
-  const [agentPhones, setAgentPhones] = useState<{ telefone: string; nome: string }[]>([]);
+  const [agentPhones, setAgentPhones] = useState<{ telefone: string; nome: string; display: string }[]>([]);
 
   // Carregar telefones dos agentes Pri/Ligação
   useEffect(() => {
@@ -56,9 +56,15 @@ const ControleGastosLigacao = () => {
         .ilike("nome", "%Ligação%")
         .not("telefone", "is", null);
       if (!error && data) {
-        const unique = data
-          .filter(a => a.telefone && a.telefone.replace(/\D/g, "").length >= 10)
-          .map(a => ({ telefone: a.telefone!, nome: a.nome }));
+        const seen = new Set<string>();
+        const unique: { telefone: string; nome: string; display: string }[] = [];
+        for (const a of data) {
+          if (!a.telefone) continue;
+          const digits = a.telefone.replace(/\D/g, "");
+          if (digits.length < 10 || seen.has(digits)) continue;
+          seen.add(digits);
+          unique.push({ telefone: digits, nome: a.nome, display: formatPhone(a.telefone) || a.telefone });
+        }
         setAgentPhones(unique);
       }
     };
@@ -187,7 +193,7 @@ const ControleGastosLigacao = () => {
                       <SelectItem value="all">Todos os agentes</SelectItem>
                       {agentPhones.map((a, i) => (
                         <SelectItem key={i} value={a.telefone}>
-                          {a.nome} — {a.telefone}
+                          {a.nome} — {a.display}
                         </SelectItem>
                       ))}
                     </SelectContent>
