@@ -77,26 +77,40 @@ async function tryTwilioWithCredentials(
   return calls;
 }
 
+function validateTwilioSid(sid: string): boolean {
+  return /^AC[0-9a-fA-F]{32}$/.test(sid);
+}
+
 async function fetchTwilioCalls(phone: string, startDate: string, endDate: string): Promise<CallRecord[]> {
   // Try primary credentials
-  const sid1 = Deno.env.get("TWILIO_ACCOUNT_SID");
-  const token1 = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const sid1 = Deno.env.get("TWILIO_ACCOUNT_SID")?.trim();
+  const token1 = Deno.env.get("TWILIO_AUTH_TOKEN")?.trim();
   
   if (sid1 && token1) {
-    try {
-      const result = await tryTwilioWithCredentials(sid1, token1, phone, startDate, endDate);
-      console.log(`Twilio primary: ${result.length} calls found`);
-      return result;
-    } catch (e) {
-      console.error("Twilio primary failed:", e.message);
+    if (!validateTwilioSid(sid1)) {
+      console.error(`Twilio primary SID invalid format: "${sid1.substring(0, 4)}..." (length: ${sid1.length}). Must start with AC + 32 hex chars.`);
+    } else {
+      try {
+        const result = await tryTwilioWithCredentials(sid1, token1, phone, startDate, endDate);
+        console.log(`Twilio primary: ${result.length} calls found`);
+        return result;
+      } catch (e) {
+        console.error("Twilio primary failed:", e.message);
+      }
     }
+  } else {
+    console.warn("Twilio primary credentials not configured:", sid1 ? "SID ok" : "SID missing", token1 ? "Token ok" : "Token missing");
   }
 
   // Fallback to secondary credentials
-  const sid2 = Deno.env.get("TWILIO_ACCOUNT_SID_2");
-  const token2 = Deno.env.get("TWILIO_AUTH_TOKEN_2");
+  const sid2 = Deno.env.get("TWILIO_ACCOUNT_SID_2")?.trim();
+  const token2 = Deno.env.get("TWILIO_AUTH_TOKEN_2")?.trim();
   
   if (sid2 && token2) {
+    if (!validateTwilioSid(sid2)) {
+      console.error(`Twilio secondary SID invalid format: "${sid2.substring(0, 4)}..." (length: ${sid2.length}). Must start with AC + 32 hex chars.`);
+      throw new Error("Twilio credentials not configured correctly - SID must start with 'AC' followed by 32 hex characters");
+    }
     try {
       const result = await tryTwilioWithCredentials(sid2, token2, phone, startDate, endDate);
       console.log(`Twilio secondary: ${result.length} calls found`);
@@ -107,7 +121,7 @@ async function fetchTwilioCalls(phone: string, startDate: string, endDate: strin
     }
   }
 
-  throw new Error("No valid Twilio credentials configured");
+  throw new Error("Twilio credentials not configured - set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN");
 }
 
 async function fetchVapiPage(apiKey: string, params: URLSearchParams, signal?: AbortSignal): Promise<any[]> {
