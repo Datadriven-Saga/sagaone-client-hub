@@ -37,8 +37,8 @@ async function tryTwilioWithCredentials(
   const maxPages = 20;
 
   const params = new URLSearchParams();
-  params.set("StartTimeAfter", startDate);
-  params.set("StartTimeBefore", endDate);
+  params.set("StartTime>", startDate);
+  params.set("StartTime<", endDate);
   params.set("PageSize", "100");
   nextPageUrl = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json?${params.toString()}`;
 
