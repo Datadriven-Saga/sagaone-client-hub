@@ -44,6 +44,7 @@ const ControleGastosLigacao = () => {
   const [source, setSource] = useState<"twilio" | "vapi" | "unified">("unified");
   const [loading, setLoading] = useState(false);
   const [calls, setCalls] = useState<CallRecord[]>([]);
+  const [serverSummary, setServerSummary] = useState<any>(null);
   const [fetched, setFetched] = useState(false);
   const [page, setPage] = useState(0);
   const [agentPhones, setAgentPhones] = useState<{ telefone: string; nome: string; display: string }[]>([]);
@@ -86,6 +87,7 @@ const ControleGastosLigacao = () => {
       });
       if (error) throw error;
       setCalls(data?.calls || []);
+      setServerSummary(data?.summary || null);
       setFetched(true);
       // Show warnings from partial API failures
       if (data?.warnings?.length) {
@@ -100,8 +102,18 @@ const ControleGastosLigacao = () => {
     }
   };
 
-  // KPIs
+  // KPIs - use server summary when available (covers all records, not just displayed ones)
   const kpis = useMemo(() => {
+    if (serverSummary) {
+      return {
+        totalCost: serverSummary.totalCost || 0,
+        totalCalls: serverSummary.totalCalls || 0,
+        totalDuration: serverSummary.totalDuration || 0,
+        avgCost: serverSummary.totalCalls ? serverSummary.totalCost / serverSummary.totalCalls : 0,
+        twilioCost: serverSummary.twilioCost || 0,
+        vapiCost: serverSummary.vapiCost || 0,
+      };
+    }
     const totalCost = calls.reduce((s, c) => s + c.cost, 0);
     const totalDuration = calls.reduce((s, c) => s + c.duration, 0);
     const twilioCost = calls.filter(c => c.source === "twilio").reduce((s, c) => s + c.cost, 0);
@@ -114,7 +126,7 @@ const ControleGastosLigacao = () => {
       twilioCost,
       vapiCost,
     };
-  }, [calls]);
+  }, [calls, serverSummary]);
 
   // Chart data
   const costPerDay = useMemo(() => {
