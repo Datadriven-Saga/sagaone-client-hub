@@ -184,8 +184,14 @@ const ControleGastosLigacao = () => {
     URL.revokeObjectURL(url);
   };
 
-  const fmtMoney = (v: number) => `$ ${v.toFixed(4)}`;
-  const fmtDuration = (s: number) => `${Math.floor(s / 60)}m ${s % 60}s`;
+  const fmtUSD = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtDuration = (s: number) => {
+    if (s < 60) return `${s}s`;
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (h > 0) return `${h}h ${m}min`;
+    return `${m}min`;
+  };
 
   return (
     <DashboardLayout>
@@ -280,12 +286,12 @@ const ControleGastosLigacao = () => {
           {fetched && !loading && (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {[
-                { label: "Custo Total", value: fmtMoney(kpis.totalCost), icon: DollarSign },
-                { label: "Total Chamadas", value: kpis.totalCalls.toString(), icon: Phone },
-                { label: "Duração Total", value: `${Math.round(kpis.totalDuration / 60)} min`, icon: Clock },
-                { label: "Ticket Médio", value: fmtMoney(kpis.avgCost), icon: BarChart3 },
-                { label: "Custo Twilio", value: fmtMoney(kpis.twilioCost), icon: DollarSign },
-                { label: "Custo Vapi", value: fmtMoney(kpis.vapiCost), icon: DollarSign },
+                { label: "Custo Total (USD)", value: fmtUSD(kpis.totalCost), icon: DollarSign },
+                { label: "Total Chamadas", value: kpis.totalCalls.toLocaleString("pt-BR"), icon: Phone },
+                { label: "Duração Total", value: fmtDuration(kpis.totalDuration), icon: Clock },
+                { label: "Ticket Médio (USD)", value: fmtUSD(kpis.avgCost), icon: BarChart3 },
+                { label: "Custo Twilio (USD)", value: fmtUSD(kpis.twilioCost), icon: DollarSign },
+                { label: "Custo Vapi (USD)", value: fmtUSD(kpis.vapiCost), icon: DollarSign },
               ].map(kpi => (
                 <Card key={kpi.label}>
                   <CardHeader className="pb-2 pt-4 px-4">
@@ -313,7 +319,7 @@ const ControleGastosLigacao = () => {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="day" fontSize={12} />
                       <YAxis fontSize={12} />
-                      <Tooltip formatter={(v: number) => `$ ${v.toFixed(4)}`} />
+                      <Tooltip formatter={(v: number) => fmtUSD(v)} />
                       <Legend />
                       <Line type="monotone" dataKey="total" name="Total" stroke="hsl(var(--primary))" strokeWidth={2} />
                     </LineChart>
@@ -328,10 +334,10 @@ const ControleGastosLigacao = () => {
                   {pieData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
-                        <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, value }) => `${name}: $${value}`}>
+                        <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, value }) => `${name}: ${fmtUSD(value)}`}>
                           {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                         </Pie>
-                        <Tooltip formatter={(v: number) => `$ ${v.toFixed(4)}`} />
+                        <Tooltip formatter={(v: number) => fmtUSD(v)} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -408,7 +414,7 @@ const ControleGastosLigacao = () => {
                                <TableCell className="font-mono text-xs">{call.phoneFrom || "—"}</TableCell>
                                <TableCell className="font-mono text-xs">{call.phoneTo || "—"}</TableCell>
                                <TableCell>{fmtDuration(call.duration)}</TableCell>
-                               <TableCell className="font-mono">{fmtMoney(call.cost)}</TableCell>
+                               <TableCell className="font-mono">{fmtUSD(call.cost)}</TableCell>
                                <TableCell className="font-mono text-xs max-w-[120px] truncate" title={call.id}>{call.id}</TableCell>
                             </TableRow>
                           ))}
