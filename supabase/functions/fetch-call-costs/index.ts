@@ -124,6 +124,7 @@ serve(async (req) => {
     }
 
     let results: CallRecord[] = [];
+    const warnings: string[] = [];
 
     if (source === "twilio" || source === "unified") {
       try {
@@ -131,7 +132,7 @@ serve(async (req) => {
         results = results.concat(twilioCalls);
       } catch (e) {
         console.error("Twilio fetch error:", e);
-        if (source === "twilio") throw e;
+        warnings.push(`Twilio: ${e.message}`);
       }
     }
 
@@ -141,14 +142,14 @@ serve(async (req) => {
         results = results.concat(vapiCalls);
       } catch (e) {
         console.error("Vapi fetch error:", e);
-        if (source === "vapi") throw e;
+        warnings.push(`Vapi: ${e.message}`);
       }
     }
 
     // Sort by date desc
     results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    return new Response(JSON.stringify({ calls: results }), {
+    return new Response(JSON.stringify({ calls: results, warnings }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
