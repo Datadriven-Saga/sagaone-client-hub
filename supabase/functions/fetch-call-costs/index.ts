@@ -321,12 +321,23 @@ serve(async (req) => {
     // Sort by date desc
     results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // Compute summary from ALL results
-    const totalCost = results.reduce((s, c) => s + c.cost, 0);
-    const totalDuration = results.reduce((s, c) => s + c.duration, 0);
-    const twilioCost = results.filter(c => c.source === "twilio").reduce((s, c) => s + c.cost, 0);
-    const vapiCost = results.filter(c => c.source === "vapi").reduce((s, c) => s + c.cost, 0);
+    // Compute summary from ALL results (before any truncation) with safe numeric conversion
+    const totalCost = results.reduce((s, c) => s + (Number(c.cost) || 0), 0);
+    const totalDuration = results.reduce((s, c) => s + (Number(c.duration) || 0), 0);
+    const twilioCost = results.filter(c => c.source === "twilio").reduce((s, c) => s + (Number(c.cost) || 0), 0);
+    const vapiCost = results.filter(c => c.source === "vapi").reduce((s, c) => s + (Number(c.cost) || 0), 0);
+    const twilioCount = results.filter(c => c.source === "twilio").length;
+    const vapiCount = results.filter(c => c.source === "vapi").length;
     const errorCount = results.filter(c => c.status?.startsWith("erro")).length;
+
+    // Audit logs - computed from full dataset BEFORE truncation
+    console.log("DEBUG total results:", results.length);
+    console.log("DEBUG twilio calls:", twilioCount, "| vapi calls:", vapiCount);
+    console.log("DEBUG total cost:", totalCost.toFixed(4));
+    console.log("DEBUG twilio cost:", twilioCost.toFixed(4));
+    console.log("DEBUG vapi cost:", vapiCost.toFixed(4));
+    console.log("DEBUG total duration (sec):", totalDuration);
+    console.log("DEBUG error count:", errorCount);
     
     const summary = {
       totalCalls: results.length,
@@ -334,10 +345,12 @@ serve(async (req) => {
       totalDuration,
       twilioCost,
       vapiCost,
+      twilioCount,
+      vapiCount,
       errorCount,
     };
 
-    // Limit returned records to keep response size manageable
+    // Truncation for response size ONLY - summary already reflects full dataset
     const MAX_RECORDS = 500;
     const truncatedCalls = results.slice(0, MAX_RECORDS);
     if (results.length > MAX_RECORDS) {
