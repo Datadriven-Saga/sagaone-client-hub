@@ -20,19 +20,26 @@ function normalizeDigits(phone: string): string {
   return phone.replace(/\D/g, "");
 }
 
+function encodeBasicAuth(username: string, password: string): string {
+  const data = new TextEncoder().encode(`${username}:${password}`);
+  let binary = "";
+  data.forEach((b) => (binary += String.fromCharCode(b)));
+  return btoa(binary);
+}
+
 async function tryTwilioWithCredentials(
   sid: string, token: string, phone: string, startDate: string, endDate: string
 ): Promise<CallRecord[]> {
-  const auth = btoa(`${sid}:${token}`);
+  const auth = encodeBasicAuth(sid, token);
   const phoneDigits = normalizeDigits(phone);
   const calls: CallRecord[] = [];
   let nextPageUrl: string | null = null;
   const maxPages = 20;
 
   const params = new URLSearchParams();
-  params.set("StartTime>", startDate);
-  params.set("EndTime<", endDate);
-  params.set("PageSize", "1000");
+  params.set("StartTimeAfter", startDate);
+  params.set("StartTimeBefore", endDate);
+  params.set("PageSize", "100");
   nextPageUrl = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json?${params.toString()}`;
 
   for (let pageNum = 0; pageNum < maxPages && nextPageUrl; pageNum++) {
