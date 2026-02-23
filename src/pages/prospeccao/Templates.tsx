@@ -1065,9 +1065,29 @@ export default function Templates() {
 
     if (!activeCompany?.id || isUpdatingStatus) return;
 
-    // Usa o agente selecionado ou o primeiro disponível
+    // Usa o agente selecionado ou o primeiro disponível (WhatsApp ou qualquer outro)
     const agenteId = selectedAgenteId || agentesIAWhatsapp[0]?.id;
-    const agente = agenteId ? agentesIAWhatsapp.find((a: any) => a.id === agenteId) : null;
+    let agente = agenteId ? agentesIAWhatsapp.find((a: any) => a.id === agenteId) : null;
+
+    // Fallback: se não há agente WhatsApp, buscar qualquer agente ativo vinculado à empresa
+    if (!agente) {
+      try {
+        const { data: fallbackData } = await supabase
+          .from("agente_empresas")
+          .select(`agentes_ia (id, nome, telefone, dealer_id, ativo)`)
+          .eq("empresa_id", activeCompany.id);
+
+        const fallbackAgente = (fallbackData || [])
+          .map((ae: any) => ae.agentes_ia)
+          .filter((a: any) => a && a.ativo)?.[0];
+
+        if (fallbackAgente) {
+          agente = fallbackAgente;
+        }
+      } catch (err) {
+        console.error("Erro ao buscar agente fallback:", err);
+      }
+    }
 
     if (!agente) {
       if (showToasts) toast.error("Nenhum agente IA ativo encontrado para esta empresa.");
