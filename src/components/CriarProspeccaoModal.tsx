@@ -3883,6 +3883,13 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 Etapa {currentStep + 1} de {steps.length}
               </span>
             </DialogTitle>
+            {!editingProspeccao && (
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed max-w-2xl">
+                Nesta tela, o gestor deve cadastrar os KVs das ofertas vigentes. Essas informações serão utilizadas pelos vendedores como referência para entender quais campanhas, condições e comunicações estão ativas no momento.
+                <br />
+                <span className="text-muted-foreground/80 italic">O KV é apenas para identificação interna do evento e não será enviado ao cliente em nenhum momento.</span>
+              </p>
+            )}
           </DialogHeader>
           
           {/* Step indicator */}
