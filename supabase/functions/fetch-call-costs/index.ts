@@ -15,18 +15,20 @@ interface CallRecord {
   date: string;
 }
 
-async function fetchTwilioCalls(phone: string, startDate: string, endDate: string): Promise<CallRecord[]> {
-  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
-  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-  if (!accountSid || !authToken) throw new Error("Twilio credentials not configured");
+function normalizeDigits(phone: string): string {
+  return phone.replace(/\D/g, "");
+}
 
+async function tryTwilioWithCredentials(
+  sid: string, token: string, phone: string, startDate: string, endDate: string
+): Promise<CallRecord[]> {
   const params = new URLSearchParams();
   params.set("StartTime>", startDate);
   params.set("EndTime<", endDate);
   params.set("PageSize", "1000");
 
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json?${params.toString()}`;
-  const auth = btoa(`${accountSid}:${authToken}`);
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json?${params.toString()}`;
+  const auth = btoa(`${sid}:${token}`);
 
   const res = await fetch(url, {
     headers: { Authorization: `Basic ${auth}` },
@@ -38,12 +40,15 @@ async function fetchTwilioCalls(phone: string, startDate: string, endDate: strin
   }
 
   const data = await res.json();
+  const phoneDigits = normalizeDigits(phone);
   const calls: CallRecord[] = [];
 
   for (const call of data.calls || []) {
     const from = call.from || "";
     const to = call.to || "";
-    const matchesPhone = !phone || from.includes(phone) || to.includes(phone);
+    const matchesPhone = !phoneDigits || 
+      normalizeDigits(from).includes(phoneDigits) || 
+      normalizeDigits(to).includes(phoneDigits);
     if (!matchesPhone) continue;
 
     calls.push({
@@ -60,16 +65,51 @@ async function fetchTwilioCalls(phone: string, startDate: string, endDate: strin
   return calls;
 }
 
+async function fetchTwilioCalls(phone: string, startDate: string, endDate: string): Promise<CallRecord[]> {
+  // Try primary credentials
+  const sid1 = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const token1 = Deno.env.get("TWILIO_AUTH_TOKEN");
+  
+  if (sid1 && token1) {
+    try {
+      const result = await tryTwilioWithCredentials(sid1, token1, phone, startDate, endDate);
+      console.log(`Twilio primary: ${result.length} calls found`);
+      return result;
+    } catch (e) {
+      console.error("Twilio primary failed:", e.message);
+    }
+  }
+
+  // Fallback to secondary credentials
+  const sid2 = Deno.env.get("TWILIO_ACCOUNT_SID_2");
+  const token2 = Deno.env.get("TWILIO_AUTH_TOKEN_2");
+  
+  if (sid2 && token2) {
+    try {
+      const result = await tryTwilioWithCredentials(sid2, token2, phone, startDate, endDate);
+      console.log(`Twilio secondary: ${result.length} calls found`);
+      return result;
+    } catch (e) {
+      console.error("Twilio secondary failed:", e.message);
+      throw e;
+    }
+  }
+
+  throw new Error("No valid Twilio credentials configured");
+}
+
 async function fetchVapiCalls(phone: string, startDate: string, endDate: string): Promise<CallRecord[]> {
   const apiKey = Deno.env.get("VAPI_API_KEY");
   if (!apiKey) throw new Error("VAPI_API_KEY not configured");
 
   const params = new URLSearchParams();
   params.set("createdAtGe", new Date(startDate).toISOString());
-  params.set("createdAtLe", new Date(endDate).toISOString());
+  params.set("createdAtLe", new Date(endDate + "T23:59:59").toISOString());
   params.set("limit", "1000");
 
   const url = `https://api.vapi.ai/call?${params.toString()}`;
+  console.log("Vapi request URL:", url);
+  
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
@@ -81,13 +121,32 @@ async function fetchVapiCalls(phone: string, startDate: string, endDate: string)
 
   const data = await res.json();
   const rawCalls = Array.isArray(data) ? data : data.results || data.data || [];
+  console.log(`Vapi raw calls returned: ${rawCalls.length}`);
+  
+  const phoneDigits = normalizeDigits(phone);
   const calls: CallRecord[] = [];
 
   for (const call of rawCalls) {
     const phoneNumber = call.phoneNumber?.number || call.phoneNumberId || "";
     const customerNumber = call.customer?.number || "";
-    const matchesPhone = !phone || phoneNumber.includes(phone) || customerNumber.includes(phone);
-    if (!matchesPhone) continue;
+    
+    // Normalize all for comparison
+    const phoneNumDigits = normalizeDigits(phoneNumber);
+    const customerDigits = normalizeDigits(customerNumber);
+    
+    const matchesPhone = !phoneDigits || 
+      phoneNumDigits.includes(phoneDigits) || 
+      customerDigits.includes(phoneDigits) ||
+      phoneDigits.includes(phoneNumDigits) ||
+      phoneDigits.includes(customerDigits);
+    
+    if (!matchesPhone) {
+      // Log first few skipped for debug
+      if (calls.length === 0 && rawCalls.indexOf(call) < 3) {
+        console.log(`Vapi skip: phoneNumber=${phoneNumber}, customer=${customerNumber}, filter=${phoneDigits}`);
+      }
+      continue;
+    }
 
     const costVal = call.cost || call.costBreakdown?.total || 0;
     const durationSec = call.endedAt && call.startedAt
@@ -105,6 +164,7 @@ async function fetchVapiCalls(phone: string, startDate: string, endDate: string)
     });
   }
 
+  console.log(`Vapi matched calls: ${calls.length} (filter: "${phoneDigits}")`);
   return calls;
 }
 
@@ -154,8 +214,8 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("fetch-call-costs error:", error);
-    return new Response(JSON.stringify({ error: error.message || "Internal error" }), {
-      status: 500,
+    return new Response(JSON.stringify({ error: error.message || "Internal error", calls: [], warnings: [error.message] }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
