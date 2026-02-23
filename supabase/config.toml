@@ -103,3 +103,6 @@ verify_jwt = false
 
 [functions.resync-lead-ids]
 verify_jwt = true
+
+[functions.fetch-call-costs]
+verify_jwt = false
