@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +45,25 @@ const ControleGastosLigacao = () => {
   const [calls, setCalls] = useState<CallRecord[]>([]);
   const [fetched, setFetched] = useState(false);
   const [page, setPage] = useState(0);
+  const [agentPhones, setAgentPhones] = useState<{ telefone: string; nome: string }[]>([]);
+
+  // Carregar telefones dos agentes Pri/Ligação
+  useEffect(() => {
+    const loadAgentPhones = async () => {
+      const { data, error } = await supabase
+        .from("agentes_ia")
+        .select("telefone, nome")
+        .or("nome.ilike.%Pri%,nome.ilike.%Ligação%")
+        .not("telefone", "is", null);
+      if (!error && data) {
+        const unique = data
+          .filter(a => a.telefone && a.telefone.replace(/\D/g, "").length >= 10)
+          .map(a => ({ telefone: a.telefone!, nome: a.nome }));
+        setAgentPhones(unique);
+      }
+    };
+    loadAgentPhones();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -52,7 +71,7 @@ const ControleGastosLigacao = () => {
     try {
       const { data, error } = await supabase.functions.invoke("fetch-call-costs", {
         body: {
-          phone,
+          phone: phone === "all" ? "" : phone,
           startDate: format(startDate, "yyyy-MM-dd"),
           endDate: format(endDate, "yyyy-MM-dd"),
           source,
@@ -160,11 +179,19 @@ const ControleGastosLigacao = () => {
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                 <div className="space-y-1.5">
                   <Label>Telefone</Label>
-                  <Input
-                    placeholder="+5511999... ou parcial"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                  />
+                  <Select value={phone} onValueChange={setPhone}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um agente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os agentes</SelectItem>
+                      {agentPhones.map((a, i) => (
+                        <SelectItem key={i} value={a.telefone}>
+                          {a.nome} — {a.telefone}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-1.5">
