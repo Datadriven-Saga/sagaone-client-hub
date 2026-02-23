@@ -7,7 +7,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const N8N_WEBHOOK_URL = "https://automatemaiawh.sagadatadriven.com.br/webhook/evento-crm-email";
+// n8n desativado - agora usando Resend diretamente
+// const N8N_WEBHOOK_URL = "https://automatemaiawh.sagadatadriven.com.br/webhook/evento-crm-email";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -15,6 +16,12 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    if (!RESEND_API_KEY) {
+      console.error("❌ RESEND_API_KEY não configurada");
+      throw new Error("RESEND_API_KEY não configurada");
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -48,15 +55,16 @@ Deno.serve(async (req) => {
 
     console.log(`✅ Evento: "${evento.titulo}" (empresa: ${evento.empresa_id})`);
 
-    // 2. Buscar empresa com dados completos
+    // 2. Buscar empresa
     const { data: empresa } = await supabase
       .from("empresas")
-      .select("nome_empresa, cnpj, crm_id, marca, cidade, uf")
+      .select("nome_empresa, cnpj, crm_id, marca, cidade, uf, endereco")
       .eq("id", evento.empresa_id)
       .single();
 
     console.log(`🏢 Empresa: ${empresa?.nome_empresa || "não encontrada"} (${empresa?.cnpj || "sem CNPJ"})`);
-    // 3. Lista fixa de destinatários CRM para notificações de eventos
+
+    // 3. Lista fixa de destinatários CRM
     const emails: string[] = [
       "maria.frezende@gruposaga.com.br",
       "sabrina.mqueiroz@gruposaga.com.br",
@@ -89,68 +97,148 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Formatar data como DDMMAAAA
-    let dataFormatada = "";
-    if (evento.data_inicio) {
-      const d = new Date(evento.data_inicio);
-      const dd = String(d.getUTCDate()).padStart(2, "0");
-      const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-      const aaaa = String(d.getUTCFullYear());
-      dataFormatada = `${dd}${mm}${aaaa}`;
-    }
-
-    // 5. Montar payload enriquecido para n8n
-    const payload = {
-      evento: {
-        nome: evento.titulo || "",
-        data: dataFormatada,
-        descricao: evento.descricao || "",
-      },
-      empresa: {
-        dealer_id: empresa?.crm_id || "",
-        nome: empresa?.nome_empresa || "",
-        cnpj: empresa?.cnpj || "",
-        marca: empresa?.marca || "",
-        cidade: empresa?.cidade || "",
-        uf: empresa?.uf || "",
-      },
-      crms: emails,
+    // 4. Formatar datas
+    const formatDate = (d?: string) => {
+      if (!d) return "Não informada";
+      try {
+        return new Date(d).toLocaleDateString("pt-BR");
+      } catch {
+        return d;
+      }
     };
 
-    console.log(`📤 Enviando para n8n: ${emails.length} CRMs`);
+    const nomeEmpresa = empresa?.nome_empresa || "Não informada";
+    const cnpjEmpresa = empresa?.cnpj || "";
+    const cidadeEmpresa = empresa?.cidade || "";
+    const ufEmpresa = empresa?.uf || "";
+    const enderecoEmpresa = empresa?.endereco || "";
 
-    // 5. Chamar webhook n8n
-    const webhookRes = await fetch(N8N_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const assunto = `Novo Evento Criado – Ação Necessária CRM`;
 
-    const webhookBody = await webhookRes.text();
-    console.log(`📨 n8n response status: ${webhookRes.status}, body: ${webhookBody}`);
+    // 5. Montar HTML do email
+    const corpoHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: #1a1a2e; color: #ffffff; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+          <h2 style="margin: 0; font-size: 20px;">📢 Novo Evento Criado</h2>
+          <p style="margin: 5px 0 0; opacity: 0.8; font-size: 14px;">Ação Necessária – Equipe CRM</p>
+        </div>
+        <div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none;">
+          <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+            Olá,<br><br>
+            Um novo evento foi criado no sistema e requer ação da equipe de CRM.
+          </p>
+          <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin: 16px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px 0; color: #6b7280; font-size: 13px; width: 140px;">Código da Loja:</td><td style="padding: 8px 0; color: #111827; font-size: 13px; font-weight: 600;">${cnpjEmpresa}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280; font-size: 13px;">Nome da Loja:</td><td style="padding: 8px 0; color: #111827; font-size: 13px; font-weight: 600;">${nomeEmpresa}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280; font-size: 13px;">Evento:</td><td style="padding: 8px 0; color: #111827; font-size: 13px; font-weight: 600;">${evento.titulo}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280; font-size: 13px;">Data Início:</td><td style="padding: 8px 0; color: #111827; font-size: 13px;">${formatDate(evento.data_inicio)}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280; font-size: 13px;">Data Fim:</td><td style="padding: 8px 0; color: #111827; font-size: 13px;">${formatDate(evento.data_fim)}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280; font-size: 13px;">Local:</td><td style="padding: 8px 0; color: #111827; font-size: 13px;">${enderecoEmpresa}${cidadeEmpresa ? ` - ${cidadeEmpresa}` : ""}${ufEmpresa ? `/${ufEmpresa}` : ""}</td></tr>
+            </table>
+          </div>
+          ${evento.descricao ? `<div style="margin: 16px 0;"><p style="color: #6b7280; font-size: 13px; margin-bottom: 4px;">Descrição:</p><p style="color: #374151; font-size: 14px; line-height: 1.5; background: #f9fafb; padding: 12px; border-radius: 6px;">${evento.descricao}</p></div>` : ""}
+          <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 20px 0; border-radius: 0 6px 6px 0;">
+            <p style="color: #92400e; font-size: 13px; margin: 0;">⚠️ Solicitamos que a equipe de CRM realize a <strong>subida da base</strong> correspondente a este evento o mais breve possível.</p>
+          </div>
+        </div>
+        <div style="background: #f3f4f6; padding: 16px; border-radius: 0 0 8px 8px; text-align: center;">
+          <p style="color: #9ca3af; font-size: 12px; margin: 0;">Saga One – Sistema de Prospecção e CRM</p>
+        </div>
+      </div>`;
 
-    const sucesso = webhookRes.ok;
+    // 6. Enviar via Resend para cada destinatário
+    let enviados = 0;
+    let erros = 0;
+    const logs: Array<any> = [];
 
-    // 6. Logar resultado
-    await supabase.from("logs_notificacoes_email").insert({
-      tipo: "send_crm_event_email",
-      referencia_id: event_id,
-      referencia_tipo: "prospeccao",
-      destinatario_email: emails.join(", "),
-      destinatario_nome: `${emails.length} CRM(s)`,
-      assunto: `Novo Evento - ${evento.titulo}`,
-      status: sucesso ? "enviado" : "erro",
-      erro: sucesso ? null : `n8n HTTP ${webhookRes.status}: ${webhookBody.substring(0, 500)}`,
-      empresa_id: evento.empresa_id,
-    });
+    for (const email of emails) {
+      try {
+        console.log(`📤 Enviando email via Resend para: ${email}`);
+
+        const emailRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "Saga One <onboarding@resend.dev>",
+            to: [email],
+            subject: assunto,
+            html: corpoHtml,
+          }),
+        });
+
+        const emailResult = await emailRes.json();
+        console.log(`📨 Resposta Resend para ${email}: status=${emailRes.status}`, JSON.stringify(emailResult));
+
+        if (emailRes.ok && emailResult.id) {
+          enviados++;
+          logs.push({
+            tipo: "send_crm_event_email",
+            referencia_id: event_id,
+            referencia_tipo: "prospeccao",
+            destinatario_email: email,
+            destinatario_nome: email,
+            assunto,
+            status: "enviado",
+            erro: null,
+            empresa_id: evento.empresa_id,
+          });
+        } else {
+          erros++;
+          const erroMsg = emailResult.message || JSON.stringify(emailResult);
+          console.error(`❌ Falha ao enviar para ${email}: ${erroMsg}`);
+          logs.push({
+            tipo: "send_crm_event_email",
+            referencia_id: event_id,
+            referencia_tipo: "prospeccao",
+            destinatario_email: email,
+            destinatario_nome: email,
+            assunto,
+            status: "erro",
+            erro: erroMsg,
+            empresa_id: evento.empresa_id,
+          });
+        }
+      } catch (emailErr) {
+        erros++;
+        const errMsg = (emailErr as Error).message;
+        console.error(`❌ Exceção ao enviar para ${email}: ${errMsg}`);
+        logs.push({
+          tipo: "send_crm_event_email",
+          referencia_id: event_id,
+          referencia_tipo: "prospeccao",
+          destinatario_email: email,
+          destinatario_nome: email,
+          assunto,
+          status: "erro",
+          erro: errMsg,
+          empresa_id: evento.empresa_id,
+        });
+      }
+    }
+
+    // 7. Salvar logs
+    if (logs.length > 0) {
+      const { error: logError } = await supabase.from("logs_notificacoes_email").insert(logs);
+      if (logError) {
+        console.error("❌ Erro ao salvar logs:", logError.message);
+      } else {
+        console.log(`✅ ${logs.length} log(s) salvos`);
+      }
+    }
+
+    console.log(`📧 Resultado: ${enviados} enviados, ${erros} erros de ${emails.length} destinatários`);
 
     return new Response(
       JSON.stringify({
-        success: sucesso,
-        enviados: sucesso ? emails.length : 0,
-        erros: sucesso ? 0 : emails.length,
+        success: true,
+        enviados,
+        erros,
         total_destinatarios: emails.length,
-        message: sucesso ? `Webhook enviado com ${emails.length} CRM(s)` : `Webhook falhou: HTTP ${webhookRes.status}`,
+        message: `Resend: ${enviados} enviado(s), ${erros} erro(s)`,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
