@@ -351,10 +351,10 @@ serve(async (req) => {
     };
 
     // Truncation for response size ONLY - summary already reflects full dataset
-    const MAX_RECORDS = 500;
-    const truncatedCalls = results.slice(0, MAX_RECORDS);
-    if (results.length > MAX_RECORDS) {
-      warnings.push(`Mostrando ${MAX_RECORDS} de ${results.length} chamadas. Reduza o período para ver todas.`);
+    const MAX_DISPLAY = 50;
+    const truncatedCalls = results.slice(0, MAX_DISPLAY);
+    if (results.length > MAX_DISPLAY) {
+      warnings.push(`Exibindo ${MAX_DISPLAY} de ${results.length} chamadas. As métricas refletem o total completo.`);
     }
 
     return new Response(JSON.stringify({ calls: truncatedCalls, warnings, summary }), {
