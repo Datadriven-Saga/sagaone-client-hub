@@ -32,6 +32,7 @@ interface CallRecord {
   cost: number;
   source: "twilio" | "vapi";
   date: string;
+  status?: string;
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -365,15 +366,16 @@ const ControleGastosLigacao = () => {
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
-                          <TableRow>
-                            <TableHead>Data</TableHead>
-                            <TableHead>Origem</TableHead>
-                            <TableHead>Telefone Origem</TableHead>
-                            <TableHead>Telefone Destino</TableHead>
-                            <TableHead>Duração</TableHead>
-                            <TableHead>Custo</TableHead>
-                            <TableHead>ID</TableHead>
-                          </TableRow>
+                           <TableRow>
+                             <TableHead>Data</TableHead>
+                             <TableHead>Origem</TableHead>
+                             <TableHead>Status</TableHead>
+                             <TableHead>Telefone Origem</TableHead>
+                             <TableHead>Telefone Destino</TableHead>
+                             <TableHead>Duração</TableHead>
+                             <TableHead>Custo</TableHead>
+                             <TableHead>ID</TableHead>
+                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {paginatedCalls.map(call => (
@@ -381,16 +383,21 @@ const ControleGastosLigacao = () => {
                               <TableCell className="whitespace-nowrap">
                                 {call.date ? format(new Date(call.date), "dd/MM/yy HH:mm") : "—"}
                               </TableCell>
-                              <TableCell>
-                                <Badge variant={call.source === "twilio" ? "default" : "secondary"}>
-                                  {call.source === "twilio" ? "Twilio" : "Vapi"}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="font-mono text-xs">{call.phoneFrom || "—"}</TableCell>
-                              <TableCell className="font-mono text-xs">{call.phoneTo || "—"}</TableCell>
-                              <TableCell>{fmtDuration(call.duration)}</TableCell>
-                              <TableCell className="font-mono">{fmtMoney(call.cost)}</TableCell>
-                              <TableCell className="font-mono text-xs max-w-[120px] truncate" title={call.id}>{call.id}</TableCell>
+                               <TableCell>
+                                 <Badge variant={call.source === "twilio" ? "default" : "secondary"}>
+                                   {call.source === "twilio" ? "Twilio" : "Vapi"}
+                                 </Badge>
+                               </TableCell>
+                               <TableCell>
+                                 <Badge variant={call.status?.startsWith("erro") ? "destructive" : "outline"} className="text-xs">
+                                   {call.status?.startsWith("erro") ? "Erro" : (call.status || "OK")}
+                                 </Badge>
+                               </TableCell>
+                               <TableCell className="font-mono text-xs">{call.phoneFrom || "—"}</TableCell>
+                               <TableCell className="font-mono text-xs">{call.phoneTo || "—"}</TableCell>
+                               <TableCell>{fmtDuration(call.duration)}</TableCell>
+                               <TableCell className="font-mono">{fmtMoney(call.cost)}</TableCell>
+                               <TableCell className="font-mono text-xs max-w-[120px] truncate" title={call.id}>{call.id}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>

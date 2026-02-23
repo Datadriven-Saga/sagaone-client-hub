@@ -13,6 +13,7 @@ interface CallRecord {
   cost: number;
   source: "twilio" | "vapi";
   date: string;
+  status?: string;
 }
 
 function normalizeDigits(phone: string): string {
@@ -125,46 +126,51 @@ async function fetchVapiCalls(phone: string, startDate: string, endDate: string)
   
   const phoneDigits = normalizeDigits(phone);
   const calls: CallRecord[] = [];
+  let skippedErrors = 0;
 
   for (const call of rawCalls) {
-    const phoneNumber = call.phoneNumber?.number || call.phoneNumberId || "";
+    const endedReason = call.endedReason || "";
+    const isFailed = endedReason.includes("error") || endedReason.includes("failed");
+
+    // Extract phone numbers - phoneNumber can be object or just phoneNumberId (UUID)
+    const fromNumber = call.phoneNumber?.number || call.phoneNumber?.twilioPhoneNumber || "";
     const customerNumber = call.customer?.number || "";
     
-    // Normalize all for comparison
-    const phoneNumDigits = normalizeDigits(phoneNumber);
+    // For filtering, use actual phone numbers (not UUIDs)
+    const fromDigits = normalizeDigits(fromNumber);
     const customerDigits = normalizeDigits(customerNumber);
     
     const matchesPhone = !phoneDigits || 
-      phoneNumDigits.includes(phoneDigits) || 
+      fromDigits.includes(phoneDigits) || 
       customerDigits.includes(phoneDigits) ||
-      phoneDigits.includes(phoneNumDigits) ||
-      phoneDigits.includes(customerDigits);
+      (fromDigits && phoneDigits.includes(fromDigits)) ||
+      (customerDigits && phoneDigits.includes(customerDigits));
     
-    if (!matchesPhone) {
-      // Log first few skipped for debug
-      if (calls.length === 0 && rawCalls.indexOf(call) < 3) {
-        console.log(`Vapi skip: phoneNumber=${phoneNumber}, customer=${customerNumber}, filter=${phoneDigits}`);
-      }
-      continue;
-    }
+    if (!matchesPhone) continue;
 
-    const costVal = call.cost || call.costBreakdown?.total || 0;
+    // Calculate duration from startedAt/endedAt
     const durationSec = call.endedAt && call.startedAt
       ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000)
       : call.duration || 0;
 
+    // Extract cost from various possible fields
+    const costVal = call.cost ?? call.costBreakdown?.total ?? 0;
+
+    if (isFailed) skippedErrors++;
+
     calls.push({
       id: call.id,
-      phoneFrom: phoneNumber,
+      phoneFrom: fromNumber || call.phoneNumberId || "",
       phoneTo: customerNumber,
       duration: durationSec,
       cost: typeof costVal === "number" ? costVal : parseFloat(costVal || "0"),
       source: "vapi",
-      date: call.createdAt || call.startedAt,
+      date: call.startedAt || call.createdAt,
+      status: isFailed ? `erro: ${endedReason}` : (call.status || "completed"),
     });
   }
 
-  console.log(`Vapi matched calls: ${calls.length} (filter: "${phoneDigits}")`);
+  console.log(`Vapi matched: ${calls.length}, skipped errors: ${skippedErrors} (filter: "${phoneDigits}")`);
   return calls;
 }
 
