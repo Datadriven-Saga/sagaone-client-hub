@@ -86,7 +86,11 @@ const ControleGastosLigacao = () => {
       if (error) throw error;
       setCalls(data?.calls || []);
       setFetched(true);
-      if (!data?.calls?.length) toast.info("Nenhuma chamada encontrada no período");
+      // Show warnings from partial API failures
+      if (data?.warnings?.length) {
+        data.warnings.forEach((w: string) => toast.warning(w, { duration: 8000 }));
+      }
+      if (!data?.calls?.length && !data?.warnings?.length) toast.info("Nenhuma chamada encontrada no período");
     } catch (e: any) {
       console.error(e);
       toast.error("Erro ao buscar dados: " + (e.message || "Erro desconhecido"));
