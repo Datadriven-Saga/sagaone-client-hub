@@ -1774,12 +1774,6 @@ export default function Templates() {
                       placeholder="Nome do botão"
                       className="flex-1 h-8 text-sm bg-white"
                     />
-                    <Input
-                      value={btn.buttonId}
-                      onChange={(e) => handleUpdateButton(btn.id, "buttonId", e.target.value)}
-                      placeholder="ID do botão"
-                      className="flex-1 h-8 text-sm bg-white"
-                    />
                     <Button
                       type="button"
                       variant="ghost"
@@ -1908,12 +1902,6 @@ export default function Templates() {
                       value={btn.nome}
                       onChange={(e) => handleUpdateButton(btn.id, "nome", e.target.value)}
                       placeholder="Nome do botão"
-                      className="flex-1 h-8 text-sm bg-white"
-                    />
-                    <Input
-                      value={btn.buttonId}
-                      onChange={(e) => handleUpdateButton(btn.id, "buttonId", e.target.value)}
-                      placeholder="ID do botão"
                       className="flex-1 h-8 text-sm bg-white"
                     />
                     <Button
