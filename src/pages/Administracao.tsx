@@ -13,7 +13,8 @@ import {
   GraduationCap,
   ShieldCheck,
   KeyRound,
-  DollarSign
+  DollarSign,
+  PhoneCall
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
@@ -127,6 +128,12 @@ const Administracao = () => {
       description: "Auditoria de todos os disparos de IA com custos",
       icon: DollarSign,
       route: "/administracao/logs-disparos"
+    },
+    {
+      title: "Controle Gastos Ligação",
+      description: "Dashboard de custos e métricas Twilio / Vapi em tempo real",
+      icon: PhoneCall,
+      route: "/administracao/gastos-ligacao"
     }
   ];
 
