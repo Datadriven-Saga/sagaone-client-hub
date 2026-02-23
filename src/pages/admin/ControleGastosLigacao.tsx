@@ -53,7 +53,7 @@ const ControleGastosLigacao = () => {
       const { data, error } = await supabase
         .from("agentes_ia")
         .select("telefone, nome")
-        .or("nome.ilike.%Pri%,nome.ilike.%Ligação%")
+        .ilike("nome", "%Ligação%")
         .not("telefone", "is", null);
       if (!error && data) {
         const unique = data
