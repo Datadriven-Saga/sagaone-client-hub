@@ -89,8 +89,10 @@ async function fetchTwilioCalls(phone: string, startDate: string, endDate: strin
     throw new Error("Twilio credentials not configured - set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN");
   }
 
+  console.log(`Twilio DEBUG: SID starts="${sid.substring(0, 4)}", len=${sid.length}, token_len=${token.length}`);
+
   if (!validateTwilioSid(sid)) {
-    throw new Error(`Twilio SID invalid format: must start with 'AC' followed by 32 hex characters`);
+    throw new Error(`Twilio SID invalid format: starts with "${sid.substring(0, 4)}", length=${sid.length}. Must start with 'AC' followed by 32 hex characters`);
   }
 
   const result = await tryTwilioWithCredentials(sid, token, phone, startDate, endDate);
