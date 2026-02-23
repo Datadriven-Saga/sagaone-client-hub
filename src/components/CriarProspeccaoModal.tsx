@@ -3728,6 +3728,11 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
       case 'Convite':
         return (
           <div className="space-y-4">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Nesta tela, o gestor deve cadastrar os KVs das ofertas vigentes. Essas informações serão utilizadas pelos vendedores como referência para entender quais campanhas, condições e comunicações estão ativas no momento.
+              <br />
+              <span className="italic opacity-80">O KV é apenas para identificação interna do evento e não será enviado ao cliente em nenhum momento.</span>
+            </p>
             <Card className="p-4 bg-gradient-to-r from-purple-500/80 to-purple-600 text-white">
               <div className="flex items-center gap-2 mb-2">
                 <Image className="h-4 w-4" />
@@ -3883,13 +3888,6 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 Etapa {currentStep + 1} de {steps.length}
               </span>
             </DialogTitle>
-            {!editingProspeccao && (
-              <p className="text-xs text-muted-foreground mt-2 leading-relaxed max-w-2xl">
-                Nesta tela, o gestor deve cadastrar os KVs das ofertas vigentes. Essas informações serão utilizadas pelos vendedores como referência para entender quais campanhas, condições e comunicações estão ativas no momento.
-                <br />
-                <span className="text-muted-foreground/80 italic">O KV é apenas para identificação interna do evento e não será enviado ao cliente em nenhum momento.</span>
-              </p>
-            )}
           </DialogHeader>
           
           {/* Step indicator */}
