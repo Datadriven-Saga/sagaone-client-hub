@@ -303,7 +303,7 @@ const ControleGastosLigacao = () => {
 
           {/* KPIs */}
           {fetched && !loading && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               {[
                 { label: "Custo Total (USD)", value: fmtUSD(kpis.totalCost), icon: DollarSign },
                 { label: "Total Chamadas", value: kpis.totalCalls.toLocaleString("pt-BR"), icon: Phone },
@@ -312,14 +312,14 @@ const ControleGastosLigacao = () => {
                 { label: "Custo Twilio (USD)", value: fmtUSD(kpis.twilioCost), icon: DollarSign },
                 { label: "Custo Vapi (USD)", value: fmtUSD(kpis.vapiCost), icon: DollarSign },
               ].map(kpi => (
-                <Card key={kpi.label}>
-                  <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                      <kpi.icon className="h-3.5 w-3.5" /> {kpi.label}
+                <Card key={kpi.label} className="overflow-hidden">
+                  <CardHeader className="pb-1 pt-3 px-3">
+                    <CardTitle className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 truncate">
+                      <kpi.icon className="h-3 w-3 shrink-0" /> <span className="truncate">{kpi.label}</span>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="px-4 pb-4">
-                    <p className="text-xl font-bold">{kpi.value}</p>
+                  <CardContent className="px-3 pb-3">
+                    <p className="text-lg font-bold truncate">{kpi.value}</p>
                   </CardContent>
                 </Card>
               ))}
