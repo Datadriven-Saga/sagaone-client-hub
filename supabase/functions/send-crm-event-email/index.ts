@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
       console.log(`📤 Enviando email via Resend Batch para ${emails.length} destinatários`);
 
       const batchPayload = emails.map((email) => ({
-        from: "Saga One <noreply@email.sagadatadriven.com.br>",
+        from: "Saga One <admin@sagadatadriven.com.br>",
         to: [email],
         subject: assunto,
         html: corpoHtml,
