@@ -646,31 +646,21 @@ export const DashboardWhatsAppTab = ({
                 const prevText = prev === null ? '—' : pctFmt(safeDiv(step.count, prev));
                 const totalPct = safeDiv(step.count, leadBase);
 
-                // Special styling for "agendado"
-                const isAgendado = step.key === 'agendado';
-                const isGood = isAgendado && totalPct > 0.03;
-                const isBad = isAgendado && totalPct <= 0.03;
-
-                let borderClass = 'border-border/50';
-                let bgClass = 'bg-background/30';
-                if (isGood) { borderClass = 'border-emerald-500/40'; bgClass = 'bg-emerald-500/5'; }
-                if (isBad) { borderClass = 'border-destructive/40'; bgClass = 'bg-destructive/5'; }
-
                 return (
-                  <div key={step.key} className={`border rounded-xl p-3 ${borderClass} ${bgClass}`}>
+                  <div key={step.key} className="border rounded-xl p-3 border-border/50 bg-background/30">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div>
                         <span className="font-extrabold text-sm">{idx + 1}. {step.name}</span>
                         <p className="text-xs text-muted-foreground">{step.desc}</p>
                       </div>
                       <div className="flex gap-2 flex-wrap">
-                        <Badge variant="outline" className={`text-xs font-bold ${isGood ? 'border-emerald-500/40 text-emerald-500' : isBad ? 'border-destructive/40 text-destructive' : ''}`}>
+                        <Badge variant="outline" className="text-xs font-bold">
                           {numFmt(step.count)}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
                           Δ ant: {prevText}
                         </Badge>
-                        <Badge variant="outline" className={`text-xs ${isGood ? 'border-emerald-500/40 text-emerald-500' : isBad ? 'border-destructive/40 text-destructive' : ''}`}>
+                        <Badge variant="outline" className="text-xs">
                           {pctFmt(totalPct)} da base
                         </Badge>
                       </div>
