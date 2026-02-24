@@ -114,7 +114,7 @@ export const DashboardWhatsAppTab = ({
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [events, setEvents] = useState<EventOption[]>([]);
-  const [selectedEventIds, setSelectedEventIds] = useState<number[]>([]);
+  const [selectedEventIds, setSelectedEventIds] = useState<number[]>([Number(selectedEventIdPri)]);
   const [agent, setAgent] = useState<AgentWhatsApp | null>(null);
   const [eventsPopoverOpen, setEventsPopoverOpen] = useState(false);
 
@@ -252,9 +252,7 @@ export const DashboardWhatsAppTab = ({
         
         setEvents(eventsList);
         
-        if (eventsList.length > 0 && selectedEventIds.length === 0) {
-          setSelectedEventIds([eventsList[0].id_evento]);
-        }
+        // Don't auto-select - respect the prop-initialized value
       } catch (error) {
         console.error('Error:', error);
         toast.error('Erro ao carregar eventos');
