@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ResponsiveTable, ColumnDef } from "@/components/ui/responsive-table";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { Users, Phone, Mail, UserCheck, CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
@@ -159,8 +159,8 @@ const Clientes = () => {
     <DashboardLayout title="Carteira de Clientes">
       <div className="space-y-3">
         {/* Filtros */}
-        <Card className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <Card className="p-3 sm:p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
             <Input 
               placeholder="Buscar cliente por nome" 
               value={searchTerm}
@@ -299,25 +299,26 @@ const Clientes = () => {
         </div>
 
         {/* Clients Table */}
-        <Card className="p-4">
-          <div className="flex justify-between items-center mb-4">
+        <Card className="p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
             <div className="flex items-center gap-3">
-              <h3 className="text-lg font-semibold text-foreground">Lista de Clientes</h3>
-              <span className="text-sm text-muted-foreground">
+              <h3 className="text-base sm:text-lg font-semibold text-foreground">Lista de Clientes</h3>
+              <span className="text-xs sm:text-sm text-muted-foreground">
                 ({clientesFiltrados.length} {clientesFiltrados.length === 1 ? 'registro' : 'registros'})
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={() => refetch()}
                 disabled={loading}
+                className="flex-1 sm:flex-none"
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 Sincronizar
               </Button>
-              <Button onClick={handleNewClient}>Novo Cliente</Button>
+              <Button onClick={handleNewClient} className="flex-1 sm:flex-none">Novo Cliente</Button>
             </div>
           </div>
 
@@ -338,56 +339,49 @@ const Clientes = () => {
             </div>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="text-center">Comprou</TableHead>
-                    <TableHead>Responsável</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedClientes.map((client) => (
-                    <TableRow 
-                      key={client.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleClientRowClick(client)}
-                    >
-                      <TableCell className="font-medium">{client.name}</TableCell>
-                      <TableCell className="text-muted-foreground">{client.phone || '-'}</TableCell>
-                      <TableCell className="text-muted-foreground">{client.email || '-'}</TableCell>
-                      <TableCell className="text-center">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          client.hasPurchased === 'Sim' 
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                            : 'bg-muted text-muted-foreground'
-                        }`}>
-                          {client.hasPurchased}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{client.responsible}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <ResponsiveTable
+                data={paginatedClientes}
+                keyExtractor={(client) => client.id}
+                onRowClick={handleClientRowClick}
+                columns={[
+                  { header: "Nome", accessor: (c) => c.name, className: "font-medium" },
+                  { header: "Telefone", accessor: (c) => c.phone || "-", className: "text-muted-foreground" },
+                  { header: "Email", accessor: (c) => c.email || "-", className: "text-muted-foreground", hideOnMobile: true },
+                  { 
+                    header: "Comprou", 
+                    accessor: (c) => (
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        c.hasPurchased === 'Sim' 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {c.hasPurchased}
+                      </span>
+                    ), 
+                    className: "text-center" 
+                  },
+                  { header: "Responsável", accessor: (c) => c.responsible, className: "text-muted-foreground", hideOnMobile: true },
+                ] as ColumnDef<any>[]}
+                emptyMessage="Nenhum cliente encontrado"
+                emptyIcon={<Users className="w-8 h-8 text-muted-foreground" />}
+              />
 
               {/* Paginação */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                  <div className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t">
+                  <div className="text-xs sm:text-sm text-muted-foreground">
                     Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, clientesFiltrados.length)} de {clientesFiltrados.length}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
+                      className="h-9 min-h-[44px] sm:min-h-0"
                     >
                       <ChevronLeft className="h-4 w-4" />
-                      Anterior
+                      <span className="hidden sm:inline ml-1">Anterior</span>
                     </Button>
                     <div className="flex items-center gap-1">
                       {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -406,7 +400,7 @@ const Clientes = () => {
                             key={pageNum}
                             variant={currentPage === pageNum ? "default" : "outline"}
                             size="sm"
-                            className="w-8 h-8 p-0"
+                            className="w-9 h-9 p-0 min-h-[44px] sm:min-h-0 sm:w-8 sm:h-8"
                             onClick={() => setCurrentPage(pageNum)}
                           >
                             {pageNum}
@@ -419,8 +413,9 @@ const Clientes = () => {
                       size="sm"
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                       disabled={currentPage === totalPages}
+                      className="h-9 min-h-[44px] sm:min-h-0"
                     >
-                      Próximo
+                      <span className="hidden sm:inline mr-1">Próximo</span>
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
