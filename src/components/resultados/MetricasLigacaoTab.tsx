@@ -116,7 +116,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
               empresa_id: activeCompany?.id,
               telefone_pri: event.telefone_pri,
               page: 1,
-              page_size: 1, // Só métricas, não dados
+              page_size: 10000, // Buscar todos para somar tentativas
             },
           });
           
