@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     // 2. Buscar empresa
     const { data: empresa } = await supabase
       .from("empresas")
-      .select("nome_empresa, cnpj, crm_id, marca, cidade, uf, endereco")
+      .select("nome_empresa, cnpj, crm_id, marca, cidade, uf, endereco, grupo_empresarial")
       .eq("id", evento.empresa_id)
       .single();
 
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
     };
 
     const nomeEmpresa = empresa?.nome_empresa || "Não informada";
-    const cnpjEmpresa = empresa?.cnpj || "";
+    const codigoLoja = empresa?.crm_id || empresa?.cnpj || "Não informado";
     const cidadeEmpresa = empresa?.cidade || "";
     const ufEmpresa = empresa?.uf || "";
     const enderecoEmpresa = empresa?.endereco || "";
@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
           </p>
           <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin: 16px 0;">
             <table style="width: 100%; border-collapse: collapse;">
-              <tr><td style="padding: 8px 0; color: #6b7280; font-size: 13px; width: 140px;">Código da Loja:</td><td style="padding: 8px 0; color: #111827; font-size: 13px; font-weight: 600;">${cnpjEmpresa}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280; font-size: 13px; width: 140px;">Código da Loja:</td><td style="padding: 8px 0; color: #111827; font-size: 13px; font-weight: 600;">${codigoLoja}</td></tr>
               <tr><td style="padding: 8px 0; color: #6b7280; font-size: 13px;">Nome da Loja:</td><td style="padding: 8px 0; color: #111827; font-size: 13px; font-weight: 600;">${nomeEmpresa}</td></tr>
               <tr><td style="padding: 8px 0; color: #6b7280; font-size: 13px;">Evento:</td><td style="padding: 8px 0; color: #111827; font-size: 13px; font-weight: 600;">${evento.titulo}</td></tr>
               <tr><td style="padding: 8px 0; color: #6b7280; font-size: 13px;">Data Início:</td><td style="padding: 8px 0; color: #111827; font-size: 13px;">${formatDate(evento.data_inicio)}</td></tr>
@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
           </div>
           ${evento.descricao ? `<div style="margin: 16px 0;"><p style="color: #6b7280; font-size: 13px; margin-bottom: 4px;">Descrição:</p><p style="color: #374151; font-size: 14px; line-height: 1.5; background: #f9fafb; padding: 12px; border-radius: 6px;">${evento.descricao}</p></div>` : ""}
           <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 20px 0; border-radius: 0 6px 6px 0;">
-            <p style="color: #92400e; font-size: 13px; margin: 0;">⚠️ Solicitamos que a equipe de CRM realize a <strong>subida da base</strong> correspondente a este evento o mais breve possível.</p>
+            <p style="color: #92400e; font-size: 13px; margin: 0;">⚠️ Um novo evento foi registrado no sistema. Solicitamos que a equipe de CRM providencie a <strong>subida da base de clientes</strong> referente a este evento com a maior brevidade possível, garantindo que os leads estejam disponíveis para a equipe de prospecção dentro do prazo estabelecido.</p>
           </div>
         </div>
         <div style="background: #f3f4f6; padding: 16px; border-radius: 0 0 8px 8px; text-align: center;">
