@@ -289,7 +289,7 @@ export const DashboardWhatsAppTab = ({
           const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
             body: { 
               endpoint: 'dashboard-evento-pri-whats', 
-              body: { id_evento: eventId }
+              id_evento: eventId
             },
           });
           
