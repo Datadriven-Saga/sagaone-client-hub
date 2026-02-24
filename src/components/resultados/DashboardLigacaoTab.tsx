@@ -83,7 +83,7 @@ const metricsConfig = [
   },
   { 
     key: 'totalLigacoes' as const, 
-    label: 'Total de Ligações', 
+    label: 'Leads Contatados', 
     icon: Phone,
     borderColor: 'border-l-blue-500',
     iconColor: 'text-blue-600'
@@ -343,13 +343,13 @@ export const DashboardLigacaoTab = ({
       setLeads(processedLeads);
       
       // Usar métricas já calculadas pela edge function (considera JOIN + filtro de loja)
-      // Total de ligações = soma de todas as tentativas
-      const totalLigacoes = processedLeads.reduce((sum: number, l: LeadData) => sum + (l.num_tentativas || 0), 0);
+      // Leads contatados = leads que receberam pelo menos 1 ligação
+      const leadsContatados = processedLeads.filter((l: LeadData) => (l.num_tentativas || 0) > 0).length;
       
       if (data.metricas) {
         setMetricas({
           totalLeads: data.metricas.total,
-          totalLigacoes: totalLigacoes,
+          totalLigacoes: leadsContatados,
           leadsAtendidos: data.metricas.atendidos,
           leadsAgendados: data.metricas.agendados,
           mensagensEnviadas: data.metricas.whatsappEnviado,
@@ -358,7 +358,7 @@ export const DashboardLigacaoTab = ({
         // Fallback
         setMetricas({
           totalLeads: processedLeads.length,
-          totalLigacoes: totalLigacoes,
+          totalLigacoes: leadsContatados,
           leadsAtendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
           leadsAgendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
           mensagensEnviadas: processedLeads.filter((l: LeadData) => l.enviado_whatsapp).length,
@@ -479,10 +479,10 @@ export const DashboardLigacaoTab = ({
   const displayMetrics = useMemo(() => {
     // Se há filtro de busca por texto local, recalcular métricas dos resultados filtrados
     if (filters.search || (filters.status && filters.status !== '__all__')) {
-      const totalLigacoes = filteredLeads.reduce((sum, l) => sum + (l.num_tentativas || 0), 0);
+      const leadsContatados = filteredLeads.filter(l => (l.num_tentativas || 0) > 0).length;
       return {
         totalLeads: filteredLeads.length,
-        totalLigacoes: totalLigacoes,
+        totalLigacoes: leadsContatados,
         leadsAtendidos: filteredLeads.filter(l => l.ligacao_atendida).length,
         leadsAgendados: filteredLeads.filter(l => l.status_agendado).length,
         mensagensEnviadas: filteredLeads.filter(l => l.enviado_whatsapp).length,
