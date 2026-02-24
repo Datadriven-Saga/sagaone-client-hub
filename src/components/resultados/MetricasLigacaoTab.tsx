@@ -126,9 +126,9 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
           
           const metricas = data.metricas || {};
           
-          // totalLigacoes = soma de todas as tentativas de ligação dos leads
+          // totalLigacoes = leads que receberam pelo menos 1 ligação
           const contatos = data.contatos || [];
-          const totalLigacoes = contatos.reduce((sum: number, c: any) => sum + (c.num_tentativas || 0), 0) || (metricas.disparados1 || 0);
+          const totalLigacoes = contatos.filter((c: any) => (c.num_tentativas || 0) > 0).length || (metricas.disparados1 || 0);
           
           return {
             eventId: String(event.id_evento),
@@ -284,14 +284,14 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 sm:p-6 sm:pb-2">
             <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
-              Total de Ligações
+              Leads Contatados
             </CardTitle>
             <Phone className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
             <p className="text-2xl sm:text-3xl font-bold text-blue-600">{aggregatedMetrics.totalLigacoes.toLocaleString('pt-BR')}</p>
             <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-              Soma de tentativas
+              {calculatePercentage(aggregatedMetrics.totalLigacoes, aggregatedMetrics.total)} do total
             </p>
           </CardContent>
         </Card>
