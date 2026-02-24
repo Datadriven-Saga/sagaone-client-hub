@@ -392,7 +392,7 @@ export const DashboardWhatsAppTab = ({
 
     const taxaEntrega = safeDiv(d.msg_entregue, d.msg_enviada);
     const taxaResposta = safeDiv(d.msg_respondida, d.msg_lida);
-    const taxaLeituraBase = safeDiv(d.msg_lida, d.total_base);
+    const taxaLeituraBase = safeDiv(d.msg_lida, d.msg_entregue);
     const taxaAgendBase = safeDiv(d.agendado, d.total_base);
     const taxaAgendResp = safeDiv(d.agendado, d.msg_respondida);
 
@@ -425,7 +425,7 @@ export const DashboardWhatsAppTab = ({
       { label: 'Leads responderam', value: numFmt(m.msg_respondida), pctVal: m.taxaResposta, pctSuffix: 'das lidas', hint: `Custo/respondido: ${brl(m.cpoRespondido)}`, icon: <MessageCircle className="h-4 w-4" /> },
       { label: 'Leads agendados', value: numFmt(m.agendado), pctVal: m.taxaAgendBase, hint: `CPL agendado: ${brl(m.cpoAgendado)}`, threshold: 0.03, icon: <CalendarCheck className="h-4 w-4" /> },
       { label: 'Gasto total', value: brl(m.gasto_total), hint: `Custo/entregue: ${brl(m.cpoEntregue)}`, icon: <DollarSign className="h-4 w-4" /> },
-      { label: 'Taxa de leitura', value: pctFmt(m.taxaLeituraBase), hint: `${numFmt(m.msg_lida)} de ${numFmt(m.total_base)} da base`, icon: <Eye className="h-4 w-4" /> },
+      { label: 'Taxa de leitura', value: pctFmt(m.taxaLeituraBase), hint: `${numFmt(m.msg_lida)} de ${numFmt(m.msg_entregue)} entregues`, icon: <Eye className="h-4 w-4" /> },
       { label: 'Taxa resposta', value: pctFmt(m.taxaResposta), hint: `${numFmt(m.msg_respondida)} de ${numFmt(m.msg_lida)} lidas`, icon: <TrendingUp className="h-4 w-4" /> },
       { label: 'Taxa agendamento', value: pctFmt(m.taxaAgendBase), hint: taxaAgendPct > 3 ? '✓ Acima de 3%' : '✕ Abaixo de 3%', threshold: 0.03, useValueColor: true, icon: <BarChart3 className="h-4 w-4" /> },
     ];
