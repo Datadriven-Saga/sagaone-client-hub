@@ -229,11 +229,11 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-3">
         <div>
-          <h2 className="text-xl font-bold">Métricas Consolidadas</h2>
-          <p className="text-sm text-muted-foreground">
-            Dados agregados de todos os eventos (apenas contadores)
+          <h2 className="text-lg sm:text-xl font-bold">Métricas Consolidadas</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Dados agregados de todos os eventos
           </p>
           {lastAppUpdate && (
             <p className="text-xs text-muted-foreground mt-1">
@@ -242,10 +242,10 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
           )}
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           {allEventsData.length > 0 && (
             <Select value={selectedEvento} onValueChange={setSelectedEvento}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-full sm:w-[220px]">
                 <SelectValue placeholder="Todos os eventos" />
               </SelectTrigger>
               <SelectContent>
@@ -257,7 +257,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
             </Select>
           )}
           
-          <Button variant="outline" size="sm" onClick={() => fetchAllMetrics(false)}>
+          <Button variant="outline" size="sm" onClick={() => fetchAllMetrics(false)} className="w-full sm:w-auto">
             <RefreshCw className="h-4 w-4 mr-2" />
             Atualizar
           </Button>
@@ -265,92 +265,92 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       </div>
 
       {/* Main Metrics Grid - Apenas contadores agregados */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <Card className="border-l-4 border-l-primary">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
               Total de Leads
             </CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-primary">{aggregatedMetrics.total.toLocaleString('pt-BR')}</p>
-            <p className="text-xs text-muted-foreground mt-1">
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <p className="text-2xl sm:text-3xl font-bold text-primary">{aggregatedMetrics.total.toLocaleString('pt-BR')}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
               Em {aggregatedMetrics.totalEventos} evento{aggregatedMetrics.totalEventos !== 1 ? 's' : ''}
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-blue-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
               Total de Ligações
             </CardTitle>
             <Phone className="h-4 w-4 text-blue-600" />
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-blue-600">{aggregatedMetrics.totalLigacoes.toLocaleString('pt-BR')}</p>
-            <p className="text-xs text-muted-foreground mt-1">
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <p className="text-2xl sm:text-3xl font-bold text-blue-600">{aggregatedMetrics.totalLigacoes.toLocaleString('pt-BR')}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
               Soma de tentativas
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-cyan-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
               Ligações Feitas
             </CardTitle>
             <PhoneCall className="h-4 w-4 text-cyan-600" />
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-cyan-600">{aggregatedMetrics.ligacoesFeitas.toLocaleString('pt-BR')}</p>
-            <p className="text-xs text-muted-foreground mt-1">
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <p className="text-2xl sm:text-3xl font-bold text-cyan-600">{aggregatedMetrics.ligacoesFeitas.toLocaleString('pt-BR')}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
               {calculatePercentage(aggregatedMetrics.ligacoesFeitas, aggregatedMetrics.total)} do total
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
               Atendidos
             </CardTitle>
             <PhoneCall className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-green-600">{aggregatedMetrics.atendidos.toLocaleString('pt-BR')}</p>
-            <p className="text-xs text-muted-foreground mt-1">
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <p className="text-2xl sm:text-3xl font-bold text-green-600">{aggregatedMetrics.atendidos.toLocaleString('pt-BR')}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
               {calculatePercentage(aggregatedMetrics.atendidos, aggregatedMetrics.total)} do total
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-[#04bbda]">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
               Agendados
             </CardTitle>
             <CalendarCheck className="h-4 w-4 text-[#04bbda]" />
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-[#04bbda]">{aggregatedMetrics.agendados.toLocaleString('pt-BR')}</p>
-            <p className="text-xs text-muted-foreground mt-1">
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <p className="text-2xl sm:text-3xl font-bold text-[#04bbda]">{aggregatedMetrics.agendados.toLocaleString('pt-BR')}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
               {calculatePercentage(aggregatedMetrics.agendados, aggregatedMetrics.total)} do total
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-emerald-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 p-3 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
               WhatsApp Enviados
             </CardTitle>
             <MessageSquare className="h-4 w-4 text-emerald-600" />
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-emerald-600">{aggregatedMetrics.whatsappEnviado.toLocaleString('pt-BR')}</p>
-            <p className="text-xs text-muted-foreground mt-1">
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <p className="text-2xl sm:text-3xl font-bold text-emerald-600">{aggregatedMetrics.whatsappEnviado.toLocaleString('pt-BR')}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
               {calculatePercentage(aggregatedMetrics.whatsappEnviado, aggregatedMetrics.total)} do total
             </p>
           </CardContent>
@@ -366,7 +366,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <p className="text-2xl font-bold text-green-600">
                 {calculatePercentage(aggregatedMetrics.atendidos, aggregatedMetrics.total)}
@@ -412,30 +412,30 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
           <CardContent>
             <div className="space-y-3">
               {allEventsData.map(event => (
-                <div key={event.eventId} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                  <div>
-                    <p className="font-medium">{event.eventName}</p>
-                    <p className="text-xs text-muted-foreground">
+                <div key={event.eventId} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-muted/30 rounded-lg gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{event.eventName}</p>
+                    <p className="text-xs text-muted-foreground truncate">
                       {event.cidade}{event.estado ? `, ${event.estado}` : ''}
                       {event.marca ? ` • ${event.marca}` : ''}
                     </p>
                   </div>
-                  <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-3 sm:gap-4 text-sm flex-shrink-0">
                     <div className="text-center">
                       <p className="font-bold text-primary">{event.metricas.total.toLocaleString('pt-BR')}</p>
-                      <p className="text-xs text-muted-foreground">Total</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Total</p>
                     </div>
                     <div className="text-center">
                       <p className="font-bold text-green-600">{event.metricas.atendidos.toLocaleString('pt-BR')}</p>
-                      <p className="text-xs text-muted-foreground">Atendidos</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Atendidos</p>
                     </div>
                     <div className="text-center">
                       <p className="font-bold text-[#04bbda]">{event.metricas.agendados.toLocaleString('pt-BR')}</p>
-                      <p className="text-xs text-muted-foreground">Agendados</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Agendados</p>
                     </div>
                     <div className="text-center">
                       <p className="font-bold text-blue-600">{event.metricas.totalLigacoes.toLocaleString('pt-BR')}</p>
-                      <p className="text-xs text-muted-foreground">Ligações</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Ligações</p>
                     </div>
                   </div>
                 </div>
