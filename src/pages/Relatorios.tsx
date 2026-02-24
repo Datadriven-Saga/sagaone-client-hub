@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { FileText, Download, Filter, Loader2, ChevronDown, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ResponsiveTable, ColumnDef } from "@/components/ui/responsive-table";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -394,12 +394,12 @@ const Relatorios = () => {
     <DashboardLayout title="Relatórios">
       <div className="space-y-6">
         {/* Header */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-4">
-            <FileText className="h-6 w-6 text-primary" />
-            <h2 className="text-xl font-semibold">Construtor de Relatórios</h2>
+            <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+            <h2 className="text-lg sm:text-xl font-semibold">Construtor de Relatórios</h2>
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Selecione um tipo de relatório e aplique os filtros desejados para gerar seu relatório.
           </p>
         </Card>
@@ -642,9 +642,9 @@ const Relatorios = () => {
             )}
 
             {/* Ações */}
-            <div className="flex gap-3 pt-4">
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <Button 
-                className="flex items-center gap-2" 
+                className="flex items-center justify-center gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0" 
                 onClick={handleGenerateReport}
                 disabled={!selectedModule || loading}
               >
@@ -653,7 +653,7 @@ const Relatorios = () => {
               </Button>
               <Button 
                 variant="outline" 
-                className="flex items-center gap-2"
+                className="flex items-center justify-center gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0"
                 onClick={handleExportExcel}
                 disabled={data.length === 0}
               >
@@ -666,8 +666,8 @@ const Relatorios = () => {
 
         {/* Resultado do Relatório */}
         {hasSearched && (
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">
+          <Card className="p-4 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold text-foreground mb-4">
               Resultado: {selectedModuleData?.name}
             </h3>
             
@@ -680,26 +680,17 @@ const Relatorios = () => {
                 Nenhum registro encontrado com os filtros aplicados.
               </div>
             ) : (
-              <div className="overflow-x-auto max-h-[60vh] overflow-y-auto border rounded-md">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-background z-10">
-                    <TableRow>
-                      {selectedModuleData?.fields.map((field) => (
-                        <TableHead key={field}>{field}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.map((row, index) => (
-                      <TableRow key={index}>
-                        {Object.values(row).map((value: any, cellIndex) => (
-                          <TableCell key={cellIndex}>{value}</TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <ResponsiveTable
+                data={data}
+                keyExtractor={(row: any) => String(data.indexOf(row))}
+                columns={(selectedModuleData?.fields || []).map((field, idx) => ({
+                  header: field,
+                  accessor: (row: any) => Object.values(row)[idx],
+                  hideOnMobile: idx > 3,
+                } as ColumnDef<any>))}
+                stickyHeader
+                emptyMessage="Nenhum registro encontrado"
+              />
             )}
 
             <div className="mt-4 text-sm text-muted-foreground">
