@@ -47,17 +47,17 @@ export function CompanySelector() {
       <DropdownMenuTrigger asChild>
         <Button 
           variant="outline" 
-          className="flex items-center gap-2 max-w-56"
+          className="flex items-center gap-1 md:gap-2 max-w-[140px] md:max-w-56 h-8 md:h-10 px-2 md:px-4 text-xs md:text-sm"
           disabled={switchingCompany}
         >
-          <Building2 className="h-4 w-4" />
+          <Building2 className="h-3.5 w-3.5 md:h-4 md:w-4 flex-shrink-0" />
           <span className="truncate">{activeCompany.nome_empresa}</span>
           {userCompanies.length > 1 && (
             <>
-              <Badge variant="secondary" className="text-xs ml-1">
+              <Badge variant="secondary" className="text-[10px] md:text-xs ml-0.5 md:ml-1 px-1 md:px-1.5">
                 {userCompanies.length}
               </Badge>
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
             </>
           )}
         </Button>

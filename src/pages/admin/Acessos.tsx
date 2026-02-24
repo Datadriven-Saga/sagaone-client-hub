@@ -385,25 +385,25 @@ const Acessos = () => {
     <DashboardLayout>
       <ScrollIndicator className="flex-1 h-full">
         <div className="space-y-6 pb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-5 w-5" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 md:gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0">
+              <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Acessos</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-xl md:text-2xl font-bold text-foreground">Acessos</h1>
+              <p className="text-xs md:text-sm text-muted-foreground">
                 Gerencie usuários e permissões do sistema
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {isAdminUser && <CleanupInvalidUsersButton />}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={handleNewUser}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Usuário
+                <Button onClick={handleNewUser} size="sm" className="md:h-10">
+                  <Plus className="h-4 w-4 mr-1 md:mr-2" />
+                  <span className="text-xs md:text-sm">Novo Usuário</span>
                 </Button>
               </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">

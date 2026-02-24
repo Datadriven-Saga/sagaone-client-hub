@@ -165,10 +165,10 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
         
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Header - Fixed */}
-          <header className="h-16 flex-shrink-0 border-b border-border bg-card flex items-center justify-between px-6">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger className="h-9 w-9 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-muted transition-colors">
-                <PanelLeft className="h-5 w-5" />
+          <header className="h-14 md:h-16 flex-shrink-0 border-b border-border bg-card flex items-center justify-between px-3 md:px-6 gap-2">
+            <div className="flex items-center gap-1.5 md:gap-2 min-w-0 flex-shrink">
+              <SidebarTrigger className="h-8 w-8 md:h-9 md:w-9 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-muted transition-colors flex-shrink-0">
+                <PanelLeft className="h-4 w-4 md:h-5 md:w-5" />
               </SidebarTrigger>
               
               {shouldShowBack && (
@@ -176,25 +176,25 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
                   variant="ghost"
                   size="icon"
                   onClick={() => navigate(-1)}
-                  className="h-9 w-9 flex-shrink-0"
+                  className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0"
                 >
-                  <ArrowLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
                 </Button>
               )}
 
               {title && (
-                <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+                <h1 className="text-base md:text-xl font-semibold text-foreground truncate">{title}</h1>
               )}
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0">
               <ActiveCampaignJobIndicator />
               <UserMenu />
             </div>
           </header>
 
           {/* Main Content - Scrollable area */}
-          <main className="flex-1 p-6 min-h-0 overflow-y-auto overflow-x-hidden">
+          <main className="flex-1 p-3 md:p-6 min-h-0 overflow-y-auto overflow-x-hidden">
             {children}
           </main>
         </div>

@@ -17,23 +17,23 @@ interface KPICardProps {
 export function KPICard({ title, value, icon: Icon, change, description, subtitle, trend }: KPICardProps) {
   return (
     <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">
+      <CardContent className="p-3 md:p-6">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs md:text-sm font-medium text-muted-foreground mb-0.5 md:mb-1 truncate">
               {title}
             </p>
-            <p className="text-2xl font-bold text-foreground">
+            <p className="text-lg md:text-2xl font-bold text-foreground">
               {value}
             </p>
             {(description || subtitle) && (
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1 truncate">
                 {description || subtitle}
               </p>
             )}
           </div>
-          <div className="p-3 rounded-full bg-primary/10">
-            <Icon className="h-6 w-6 text-primary" />
+          <div className="p-2 md:p-3 rounded-full bg-primary/10 flex-shrink-0">
+            <Icon className="h-4 w-4 md:h-6 md:w-6 text-primary" />
           </div>
         </div>
         

@@ -63,15 +63,15 @@ export function UserMenu() {
   const userEmail = authUser.email || "";
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-2 md:gap-4">
       <CompanySelector />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-auto w-auto p-2">
+          <Button variant="ghost" className="relative h-auto w-auto p-1.5 md:p-2">
             <div className="flex items-center space-x-2">
-              <Avatar className="h-8 w-8">
+              <Avatar className="h-7 w-7 md:h-8 md:w-8">
                 <AvatarImage src={profile?.foto_url} alt={displayName} />
-                <AvatarFallback>
+                <AvatarFallback className="text-xs">
                   {displayName
                     .split(" ")
                     .map((n: string) => n[0])
@@ -79,7 +79,7 @@ export function UserMenu() {
                     .toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div className="ml-2 text-left">
+              <div className="ml-1 md:ml-2 text-left hidden md:block">
                 <p className="text-sm font-medium leading-none">{displayName}</p>
                 <p className="text-xs leading-none text-muted-foreground">
                   {userEmail}

@@ -118,10 +118,19 @@
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
 
   body {
     @apply bg-background text-foreground font-roboto;
+    overflow-x: hidden;
+  }
+
+  /* Prevent horizontal overflow globally */
+  #root {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
   }
 
   /* Cursor pointer for all clickable elements */

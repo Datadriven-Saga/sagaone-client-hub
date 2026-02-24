@@ -186,19 +186,19 @@ export default function AgentesIA() {
       <ScrollIndicator className="flex-1 h-full">
         <div className="space-y-6 pb-6">
           {/* Header com gradiente */}
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 border">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-primary/10 ring-1 ring-primary/20">
-                  <Bot className="h-8 w-8 text-primary" />
+           <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 md:p-6 border">
+            <div className="absolute top-0 right-0 w-32 md:w-64 h-32 md:h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-4">
+              <div className="flex items-center gap-3 md:gap-4">
+                <div className="p-2 md:p-3 rounded-xl bg-primary/10 ring-1 ring-primary/20">
+                  <Bot className="h-5 w-5 md:h-8 md:w-8 text-primary" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                  <h1 className="text-lg md:text-2xl font-bold text-foreground flex items-center gap-2">
                     Agentes de IA
-                    <Sparkles className="h-5 w-5 text-primary" />
+                    <Sparkles className="h-4 w-4 md:h-5 md:w-5 text-primary" />
                   </h1>
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="text-xs md:text-sm text-muted-foreground mt-0.5 md:mt-1">
                     Gerencie seus assistentes virtuais inteligentes
                   </p>
                 </div>
@@ -217,39 +217,39 @@ export default function AgentesIA() {
           </div>
 
           {/* Cards de estatísticas */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-2 md:gap-4">
             <Card className="border-l-4 border-l-primary">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="p-2.5 rounded-lg bg-primary/10">
-                  <Bot className="h-5 w-5 text-primary" />
+              <CardContent className="p-3 md:p-4 flex items-center gap-2 md:gap-4">
+                <div className="p-1.5 md:p-2.5 rounded-lg bg-primary/10">
+                  <Bot className="h-4 w-4 md:h-5 md:w-5 text-primary" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{agentes.length.toLocaleString('pt-BR')}</p>
-                  <p className="text-xs text-muted-foreground">Total de Agentes</p>
+                <div className="min-w-0">
+                  <p className="text-lg md:text-2xl font-bold">{agentes.length}</p>
+                  <p className="text-[10px] md:text-xs text-muted-foreground truncate">Total de Agentes</p>
                 </div>
               </CardContent>
             </Card>
             
             <Card className="border-l-4 border-l-green-500">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="p-2.5 rounded-lg bg-green-500/10">
-                  <Activity className="h-5 w-5 text-green-500" />
+              <CardContent className="p-3 md:p-4 flex items-center gap-2 md:gap-4">
+                <div className="p-1.5 md:p-2.5 rounded-lg bg-green-500/10">
+                  <Activity className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-green-600">{agentesAtivos.toLocaleString('pt-BR')}</p>
-                  <p className="text-xs text-muted-foreground">Ativos</p>
+                <div className="min-w-0">
+                  <p className="text-lg md:text-2xl font-bold text-green-600">{agentesAtivos}</p>
+                  <p className="text-[10px] md:text-xs text-muted-foreground">Ativos</p>
                 </div>
               </CardContent>
             </Card>
             
             <Card className="border-l-4 border-l-orange-500">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="p-2.5 rounded-lg bg-orange-500/10">
-                  <Zap className="h-5 w-5 text-orange-500" />
+              <CardContent className="p-3 md:p-4 flex items-center gap-2 md:gap-4">
+                <div className="p-1.5 md:p-2.5 rounded-lg bg-orange-500/10">
+                  <Zap className="h-4 w-4 md:h-5 md:w-5 text-orange-500" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-orange-600">{agentesInativos.toLocaleString('pt-BR')}</p>
-                  <p className="text-xs text-muted-foreground">Inativos</p>
+                <div className="min-w-0">
+                  <p className="text-lg md:text-2xl font-bold text-orange-600">{agentesInativos}</p>
+                  <p className="text-[10px] md:text-xs text-muted-foreground">Inativos</p>
                 </div>
               </CardContent>
             </Card>
@@ -280,7 +280,7 @@ export default function AgentesIA() {
           ) : (
             <>
               {/* Grid de cards dos agentes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
                 {paginatedAgentes.map((agente) => (
                   <Card 
                     key={agente.id} 
@@ -294,17 +294,17 @@ export default function AgentesIA() {
                     {/* Efeito de hover */}
                     <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     
-                    <CardContent className="p-5 relative">
-                      <div className="flex items-start gap-4">
+                    <CardContent className="p-3 md:p-5 relative">
+                      <div className="flex items-start gap-3 md:gap-4">
                         {/* Avatar com indicador de status */}
-                        <div className="relative">
-                          <Avatar className="h-14 w-14 ring-2 ring-background shadow-md">
+                        <div className="relative flex-shrink-0">
+                          <Avatar className="h-10 w-10 md:h-14 md:w-14 ring-2 ring-background shadow-md">
                             <AvatarImage src={agente.foto_url || undefined} alt={agente.nome || "Agente"} />
-                            <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-lg font-semibold">
+                            <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-sm md:text-lg font-semibold">
                               {agente.nome?.charAt(0).toUpperCase() || "?"}
                             </AvatarFallback>
                           </Avatar>
-                          <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-background ${
+                          <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 md:w-4 md:h-4 rounded-full border-2 border-background ${
                             agente.ativo ? 'bg-green-500' : 'bg-red-500'
                           }`} />
                         </div>

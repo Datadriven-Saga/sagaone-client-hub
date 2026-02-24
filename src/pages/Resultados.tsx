@@ -78,70 +78,70 @@ const Resultados = () => {
   return (
     <DashboardLayout title="Resultados">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full w-full">
-        <div className="bg-card border-b">
-          <TabsList className="h-12 w-full justify-start rounded-none bg-transparent p-0 gap-0">
+        <div className="bg-card border-b overflow-x-auto scrollbar-thin">
+          <TabsList className="h-11 md:h-12 w-max md:w-full justify-start rounded-none bg-transparent p-0 gap-0">
             <TabsTrigger 
               value="resumo" 
-              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+              className="relative h-11 md:h-12 px-3 md:px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-1.5 md:gap-2 text-xs md:text-sm whitespace-nowrap"
             >
-              <LayoutDashboard className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">Resumo</span>
+              <LayoutDashboard className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <span className="font-medium">Resumo</span>
             </TabsTrigger>
             <TabsTrigger 
               value="dashboard-whatsapp" 
-              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+              className="relative h-11 md:h-12 px-3 md:px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-1.5 md:gap-2 text-xs md:text-sm whitespace-nowrap"
             >
-              <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">WhatsApp</span>
+              <MessageSquare className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <span className="font-medium">WhatsApp</span>
             </TabsTrigger>
             <TabsTrigger 
               value="ligacao" 
-              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+              className="relative h-11 md:h-12 px-3 md:px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-1.5 md:gap-2 text-xs md:text-sm whitespace-nowrap"
             >
-              <Phone className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">Ligação</span>
+              <Phone className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <span className="font-medium">Ligação</span>
             </TabsTrigger>
             <TabsTrigger 
               value="ranking" 
-              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+              className="relative h-11 md:h-12 px-3 md:px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-1.5 md:gap-2 text-xs md:text-sm whitespace-nowrap"
             >
-              <Medal className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">Ranking</span>
+              <Medal className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <span className="font-medium">Ranking</span>
             </TabsTrigger>
             <TabsTrigger 
               value="produtos" 
-              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+              className="relative h-11 md:h-12 px-3 md:px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-1.5 md:gap-2 text-xs md:text-sm whitespace-nowrap"
             >
-              <Package className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">Produtos</span>
+              <Package className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <span className="font-medium">Produtos</span>
             </TabsTrigger>
             <TabsTrigger 
               value="desempenho" 
-              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+              className="relative h-11 md:h-12 px-3 md:px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-1.5 md:gap-2 text-xs md:text-sm whitespace-nowrap"
             >
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">Desempenho</span>
+              <BarChart3 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <span className="font-medium">Desempenho</span>
             </TabsTrigger>
             <TabsTrigger 
               value="individual" 
-              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+              className="relative h-11 md:h-12 px-3 md:px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-1.5 md:gap-2 text-xs md:text-sm whitespace-nowrap"
             >
-              <User className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">Individual</span>
+              <User className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <span className="font-medium">Individual</span>
             </TabsTrigger>
             <TabsTrigger 
               value="premiacoes" 
-              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+              className="relative h-11 md:h-12 px-3 md:px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-1.5 md:gap-2 text-xs md:text-sm whitespace-nowrap"
             >
-              <Trophy className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">Premiações</span>
+              <Trophy className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <span className="font-medium">Premiações</span>
             </TabsTrigger>
             <TabsTrigger 
               value="relatorios" 
-              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
+              className="relative h-11 md:h-12 px-3 md:px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-1.5 md:gap-2 text-xs md:text-sm whitespace-nowrap"
             >
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">Relatórios</span>
+              <FileText className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <span className="font-medium">Relatórios</span>
             </TabsTrigger>
           </TabsList>
         </div>

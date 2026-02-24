@@ -71,56 +71,56 @@ export function FilterBar({
 
   return (
     <Card className={cn("p-3", className)}>
-      <div className="flex flex-wrap gap-3 items-center">
+      <div className="flex flex-col md:flex-row flex-wrap gap-2 md:gap-3 items-stretch md:items-center">
         {/* Search Input */}
-        <div className="flex-1 min-w-[200px]">
+        <div className="flex-1 min-w-0 md:min-w-[200px]">
           <Input
             placeholder={searchPlaceholder}
             onChange={(e) => onSearchChange?.(e.target.value)}
-            className="h-9"
+            className="h-10 md:h-9"
           />
         </div>
 
         {/* Date Range Filter */}
         {showDateFilter && (
-          <>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-              <Input
-                type="date"
-                placeholder="Data início"
-                value={startDate}
-                onChange={(e) => handleDateChange('start', e.target.value)}
-                className="w-36 h-9"
-              />
-              <span className="text-muted-foreground text-sm">até</span>
-              <Input
-                type="date"
-                placeholder="Data fim"
-                value={endDate}
-                onChange={(e) => handleDateChange('end', e.target.value)}
-                className="w-36 h-9"
-              />
-            </div>
-          </>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Calendar className="w-4 h-4 text-muted-foreground hidden md:block" />
+            <Input
+              type="date"
+              placeholder="Data início"
+              value={startDate}
+              onChange={(e) => handleDateChange('start', e.target.value)}
+              className="flex-1 min-w-[120px] md:w-36 h-10 md:h-9"
+            />
+            <span className="text-muted-foreground text-xs md:text-sm">até</span>
+            <Input
+              type="date"
+              placeholder="Data fim"
+              value={endDate}
+              onChange={(e) => handleDateChange('end', e.target.value)}
+              className="flex-1 min-w-[120px] md:w-36 h-10 md:h-9"
+            />
+          </div>
         )}
 
         {/* Additional Filters */}
-        {additionalFilters.map((filter) => (
-          <Select key={filter.key} onValueChange={(value) => onFilterChange?.(filter.key, value)}>
-            <SelectTrigger className="w-40 h-9">
-              <SelectValue placeholder={filter.label} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              {filter.options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ))}
+        <div className="flex flex-wrap gap-2">
+          {additionalFilters.map((filter) => (
+            <Select key={filter.key} onValueChange={(value) => onFilterChange?.(filter.key, value)}>
+              <SelectTrigger className="flex-1 min-w-[120px] md:w-40 h-10 md:h-9">
+                <SelectValue placeholder={filter.label} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                {filter.options.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ))}
+        </div>
       </div>
     </Card>
   );
