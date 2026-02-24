@@ -66,6 +66,7 @@ Deno.serve(async (req) => {
 
     // 3. Lista fixa de destinatários CRM
     const emails: string[] = [
+      "joao.clara@gruposaga.com.br",
       "maria.frezende@gruposaga.com.br",
       "sabrina.mqueiroz@gruposaga.com.br",
       "victor.hferreira@gruposaga.com.br",
