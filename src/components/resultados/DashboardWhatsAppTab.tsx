@@ -391,7 +391,8 @@ export const DashboardWhatsAppTab = ({
     const d = dashboardData;
 
     const taxaEntrega = safeDiv(d.msg_entregue, d.msg_enviada);
-    const taxaResposta = safeDiv(d.msg_respondida, d.msg_entregue);
+    const taxaResposta = safeDiv(d.msg_respondida, d.msg_lida);
+    const taxaLeituraBase = safeDiv(d.msg_lida, d.total_base);
     const taxaAgendBase = safeDiv(d.agendado, d.total_base);
     const taxaAgendResp = safeDiv(d.agendado, d.msg_respondida);
 
@@ -403,6 +404,7 @@ export const DashboardWhatsAppTab = ({
       ...d,
       taxaEntrega,
       taxaResposta,
+      taxaLeituraBase,
       taxaAgendBase,
       taxaAgendResp,
       cpoEntregue,
@@ -419,12 +421,12 @@ export const DashboardWhatsAppTab = ({
 
     return [
       { label: 'Total da base', value: numFmt(m.total_base), hint: `Enviadas: ${pctFmt(safeDiv(m.msg_enviada, m.total_base))}`, icon: <MessageSquare className="h-4 w-4" /> },
-      { label: 'Msg entregues', value: numFmt(m.msg_entregue), pctVal: m.taxaEntrega, hint: `Custo/entregue: ${brl(m.cpoEntregue)}`, icon: <CheckCircle2 className="h-4 w-4" /> },
-      { label: 'Leads responderam', value: numFmt(m.msg_respondida), pctVal: m.taxaResposta, hint: `Custo/respondido: ${brl(m.cpoRespondido)}`, icon: <MessageCircle className="h-4 w-4" /> },
+      { label: 'Mensagens entregues', value: numFmt(m.msg_entregue), pctVal: m.taxaEntrega, pctSuffix: 'das enviadas', hint: `Custo/entregue: ${brl(m.cpoEntregue)}`, icon: <CheckCircle2 className="h-4 w-4" /> },
+      { label: 'Leads responderam', value: numFmt(m.msg_respondida), pctVal: m.taxaResposta, pctSuffix: 'das lidas', hint: `Custo/respondido: ${brl(m.cpoRespondido)}`, icon: <MessageCircle className="h-4 w-4" /> },
       { label: 'Leads agendados', value: numFmt(m.agendado), pctVal: m.taxaAgendBase, hint: `CPL agendado: ${brl(m.cpoAgendado)}`, threshold: 0.03, icon: <CalendarCheck className="h-4 w-4" /> },
       { label: 'Gasto total', value: brl(m.gasto_total), hint: `Custo/entregue: ${brl(m.cpoEntregue)}`, icon: <DollarSign className="h-4 w-4" /> },
-      { label: 'Taxa entrega', value: pctFmt(m.taxaEntrega), hint: `${numFmt(m.msg_entregue)} de ${numFmt(m.msg_enviada)} enviadas`, icon: <Send className="h-4 w-4" /> },
-      { label: 'Taxa resposta', value: pctFmt(m.taxaResposta), hint: `${numFmt(m.msg_respondida)} de ${numFmt(m.msg_entregue)} entregues`, icon: <TrendingUp className="h-4 w-4" /> },
+      { label: 'Taxa de leitura', value: pctFmt(m.taxaLeituraBase), hint: `${numFmt(m.msg_lida)} de ${numFmt(m.total_base)} da base`, icon: <Eye className="h-4 w-4" /> },
+      { label: 'Taxa resposta', value: pctFmt(m.taxaResposta), hint: `${numFmt(m.msg_respondida)} de ${numFmt(m.msg_lida)} lidas`, icon: <TrendingUp className="h-4 w-4" /> },
       { label: 'Taxa agendamento', value: pctFmt(m.taxaAgendBase), hint: taxaAgendPct > 3 ? '✓ Acima de 3%' : '✕ Abaixo de 3%', threshold: 0.03, useValueColor: true, icon: <BarChart3 className="h-4 w-4" /> },
     ];
   }, [metrics]);
@@ -435,10 +437,10 @@ export const DashboardWhatsAppTab = ({
     const d = metrics;
     return [
       { name: 'Total da base', count: d.total_base, desc: 'Total de leads no evento', key: 'base' },
-      { name: 'Msg enviada', count: d.msg_enviada, desc: 'Leads que receberam pelo menos uma mensagem', key: 'enviada' },
-      { name: 'Msg entregue', count: d.msg_entregue, desc: 'Mensagens efetivamente entregues ao destinatário', key: 'entregue' },
-      { name: 'Msg lida', count: d.msg_lida, desc: 'Mensagens lidas pelo destinatário', key: 'lida' },
-      { name: 'Msg respondida', count: d.msg_respondida, desc: 'Leads que responderam', key: 'respondida' },
+      { name: 'Mensagem enviada', count: d.msg_enviada, desc: 'Leads que receberam pelo menos uma mensagem', key: 'enviada' },
+      { name: 'Mensagem entregue', count: d.msg_entregue, desc: 'Mensagens efetivamente entregues ao destinatário', key: 'entregue' },
+      { name: 'Mensagem lida', count: d.msg_lida, desc: 'Mensagens lidas pelo destinatário', key: 'lida' },
+      { name: 'Mensagem respondida', count: d.msg_respondida, desc: 'Leads que responderam', key: 'respondida' },
       { name: 'Agendado', count: d.agendado, desc: 'Leads que agendaram', key: 'agendado' },
     ];
   }, [metrics]);
@@ -540,7 +542,7 @@ export const DashboardWhatsAppTab = ({
                         className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-muted/50 ${isSelected ? 'bg-primary/10' : ''}`}
                         onClick={() => toggleEventSelection(event.id_evento)}
                       >
-                        <Checkbox checked={isSelected} onCheckedChange={() => toggleEventSelection(event.id_evento)} />
+                        <Checkbox checked={isSelected} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{event.nome}</p>
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -619,6 +621,7 @@ export const DashboardWhatsAppTab = ({
                           : 'text-primary'
                       }`}>
                         {pctFmt(kpi.pctVal)}
+                        {kpi.pctSuffix && <span className="text-xs text-muted-foreground font-normal ml-1">{kpi.pctSuffix}</span>}
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground mt-1">{kpi.hint}</p>
@@ -708,7 +711,7 @@ export const DashboardWhatsAppTab = ({
                 Enviada {pctFmt(safeDiv(metrics.msg_enviada, metrics.total_base))} → 
                 Entregue {pctFmt(metrics.taxaEntrega)} → 
                 Lida {pctFmt(safeDiv(metrics.msg_lida, metrics.msg_entregue))} → 
-                Resposta {pctFmt(metrics.taxaResposta)} → 
+                Resposta {pctFmt(metrics.taxaResposta)} das lidas → 
                 Agendamento {pctFmt(metrics.taxaAgendResp)} ({pctFmt(metrics.taxaAgendBase)} da base).
               </p>
             </CardContent>
