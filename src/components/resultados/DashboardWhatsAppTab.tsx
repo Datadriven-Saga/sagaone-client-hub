@@ -298,8 +298,15 @@ export const DashboardWhatsAppTab = ({
             return null;
           }
           
-          const arr = Array.isArray(data) ? data : [];
-          return arr[0] as WebhookResponse | undefined;
+          // Response can be an array or a single object
+          if (Array.isArray(data)) {
+            return data[0] as WebhookResponse | undefined;
+          }
+          if (data && typeof data === 'object' && 'total_base' in data) {
+            return data as WebhookResponse;
+          }
+          console.warn(`Unexpected response format for event ${eventId}:`, data);
+          return null;
         })
       );
 
