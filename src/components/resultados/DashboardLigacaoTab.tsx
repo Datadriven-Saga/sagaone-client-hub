@@ -58,8 +58,8 @@ interface EventData {
 
 interface Metricas {
   totalLeads: number;
+  totalLigacoes: number;
   leadsAtendidos: number;
-  leadsEmFila: number;
   leadsAgendados: number;
   mensagensEnviadas: number;
 }
@@ -82,18 +82,18 @@ const metricsConfig = [
     iconColor: 'text-primary'
   },
   { 
+    key: 'totalLigacoes' as const, 
+    label: 'Total de Ligações', 
+    icon: Phone,
+    borderColor: 'border-l-blue-500',
+    iconColor: 'text-blue-600'
+  },
+  { 
     key: 'leadsAtendidos' as const, 
     label: 'Atendidos', 
     icon: PhoneCall,
     borderColor: 'border-l-green-500',
     iconColor: 'text-green-600'
-  },
-  { 
-    key: 'leadsEmFila' as const, 
-    label: 'Em Fila', 
-    icon: PhoneOff,
-    borderColor: 'border-l-orange-500',
-    iconColor: 'text-orange-600'
   },
   { 
     key: 'leadsAgendados' as const, 
@@ -309,8 +309,8 @@ export const DashboardLigacaoTab = ({
         setLeads([]);
         setMetricas({
           totalLeads: 0,
+          totalLigacoes: 0,
           leadsAtendidos: 0,
-          leadsEmFila: 0,
           leadsAgendados: 0,
           mensagensEnviadas: 0,
         });
@@ -343,11 +343,14 @@ export const DashboardLigacaoTab = ({
       setLeads(processedLeads);
       
       // Usar métricas já calculadas pela edge function (considera JOIN + filtro de loja)
+      // Total de ligações = soma de todas as tentativas
+      const totalLigacoes = processedLeads.reduce((sum: number, l: LeadData) => sum + (l.num_tentativas || 0), 0);
+      
       if (data.metricas) {
         setMetricas({
           totalLeads: data.metricas.total,
+          totalLigacoes: totalLigacoes,
           leadsAtendidos: data.metricas.atendidos,
-          leadsEmFila: data.metricas.emFila,
           leadsAgendados: data.metricas.agendados,
           mensagensEnviadas: data.metricas.whatsappEnviado,
         });
@@ -355,8 +358,8 @@ export const DashboardLigacaoTab = ({
         // Fallback
         setMetricas({
           totalLeads: processedLeads.length,
+          totalLigacoes: totalLigacoes,
           leadsAtendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
-          leadsEmFila: processedLeads.filter((l: LeadData) => l.ligacao_erro && !l.status_agendado).length,
           leadsAgendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
           mensagensEnviadas: processedLeads.filter((l: LeadData) => l.enviado_whatsapp).length,
         });
@@ -476,10 +479,11 @@ export const DashboardLigacaoTab = ({
   const displayMetrics = useMemo(() => {
     // Se há filtro de busca por texto local, recalcular métricas dos resultados filtrados
     if (filters.search || (filters.status && filters.status !== '__all__')) {
+      const totalLigacoes = filteredLeads.reduce((sum, l) => sum + (l.num_tentativas || 0), 0);
       return {
         totalLeads: filteredLeads.length,
+        totalLigacoes: totalLigacoes,
         leadsAtendidos: filteredLeads.filter(l => l.ligacao_atendida).length,
-        leadsEmFila: filteredLeads.filter(l => l.ligacao_erro && !l.status_agendado).length,
         leadsAgendados: filteredLeads.filter(l => l.status_agendado).length,
         mensagensEnviadas: filteredLeads.filter(l => l.enviado_whatsapp).length,
       };
@@ -488,8 +492,8 @@ export const DashboardLigacaoTab = ({
     // Sem filtros locais, usar as métricas da API (que já consideram filtros do servidor)
     return metricas || {
       totalLeads: 0,
+      totalLigacoes: 0,
       leadsAtendidos: 0,
-      leadsEmFila: 0,
       leadsAgendados: 0,
       mensagensEnviadas: 0,
     };
