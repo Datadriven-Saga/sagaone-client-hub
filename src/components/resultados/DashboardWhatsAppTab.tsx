@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  Loader2, 
-  RefreshCw, 
-  MessageSquare, 
-  Send, 
+import { useState, useEffect, useMemo, useCallback } from "react";
+import {
+  Loader2,
+  RefreshCw,
+  MessageSquare,
+  Send,
   MessageCircle,
   CalendarCheck,
   CheckCircle2,
@@ -18,32 +18,20 @@ import {
   Phone,
   Store,
   AlertTriangle,
-  ArrowRight
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Progress } from '@/components/ui/progress';
-import { supabase } from '@/integrations/supabase/client';
-import { useCompany } from '@/contexts/CompanyContext';
-import { useAuth } from '@/contexts/AuthContext';
+  ArrowRight,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
+import { supabase } from "@/integrations/supabase/client";
+import { useCompany } from "@/contexts/CompanyContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DashboardWhatsAppTabProps {
   selectedEventId: string;
@@ -97,15 +85,15 @@ interface AgentWhatsApp {
 }
 
 // Helper functions
-const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const pctFmt = (n: number) => (n * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '%';
-const numFmt = (n: number) => n.toLocaleString('pt-BR');
+const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const pctFmt = (n: number) => (n * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + "%";
+const numFmt = (n: number) => n.toLocaleString("pt-BR");
 const safeDiv = (a: number, b: number) => (b === 0 ? 0 : a / b);
 
-export const DashboardWhatsAppTab = ({ 
+export const DashboardWhatsAppTab = ({
   selectedEventId,
   selectedEventIdPri,
-  onEventChange 
+  onEventChange,
 }: DashboardWhatsAppTabProps) => {
   const { activeCompany } = useCompany();
   const { user } = useAuth();
@@ -125,25 +113,23 @@ export const DashboardWhatsAppTab = ({
 
       try {
         const { data: agenteEmpresasData, error } = await supabase
-          .from('agente_empresas')
-          .select('agente_id, agentes_ia!inner(id, nome, telefone, ativo)')
-          .eq('empresa_id', activeCompany.id);
-        
+          .from("agente_empresas")
+          .select("agente_id, agentes_ia!inner(id, nome, telefone, ativo)")
+          .eq("empresa_id", activeCompany.id);
+
         if (error) {
-          console.error('Error fetching agente_empresas:', error);
+          console.error("Error fetching agente_empresas:", error);
           return;
         }
-        
-        const allAgents = (agenteEmpresasData || [])
-          .map((ae: any) => ae.agentes_ia)
-          .filter((ag: any) => !!ag);
+
+        const allAgents = (agenteEmpresasData || []).map((ae: any) => ae.agentes_ia).filter((ag: any) => !!ag);
 
         const priWhatsAppAgents = allAgents
           .filter((ag: any) => {
             if (!ag.ativo || !ag.telefone) return false;
-            const nome = (ag.nome || '').toLowerCase();
-            const isWhatsApp = nome.includes('whatsapp') || nome.includes('wpp') || nome.includes('zap');
-            const isPri = nome.includes('pri');
+            const nome = (ag.nome || "").toLowerCase();
+            const isWhatsApp = nome.includes("whatsapp") || nome.includes("wpp") || nome.includes("zap");
+            const isPri = nome.includes("pri");
             return isWhatsApp && isPri;
           })
           .map((ag: any) => ({ id: ag.id, nome: ag.nome, telefone: ag.telefone }));
@@ -151,15 +137,15 @@ export const DashboardWhatsAppTab = ({
         const whatsAppAgents = allAgents
           .filter((ag: any) => {
             if (!ag.ativo || !ag.telefone) return false;
-            const nome = (ag.nome || '').toLowerCase();
-            return nome.includes('whatsapp') || nome.includes('wpp') || nome.includes('zap');
+            const nome = (ag.nome || "").toLowerCase();
+            return nome.includes("whatsapp") || nome.includes("wpp") || nome.includes("zap");
           })
           .map((ag: any) => ({ id: ag.id, nome: ag.nome, telefone: ag.telefone }));
 
         const chosen = priWhatsAppAgents[0] ?? whatsAppAgents[0];
         if (chosen) setAgent(chosen);
       } catch (error) {
-        console.error('Error fetching WhatsApp agent:', error);
+        console.error("Error fetching WhatsApp agent:", error);
       }
     };
 
@@ -176,42 +162,42 @@ export const DashboardWhatsAppTab = ({
 
       try {
         setLoadingEvents(true);
-        
-        const cleanPhone = agent.telefone.replace(/\D/g, '');
-        
+
+        const cleanPhone = agent.telefone.replace(/\D/g, "");
+
         const { data: userEmpresas, error: userEmpresasError } = await supabase
-          .from('user_empresas')
-          .select('empresa_id')
-          .eq('user_id', user.id);
+          .from("user_empresas")
+          .select("empresa_id")
+          .eq("user_id", user.id);
 
         if (userEmpresasError) {
-          console.error('Erro ao buscar user_empresas:', userEmpresasError);
+          console.error("Erro ao buscar user_empresas:", userEmpresasError);
           return;
         }
 
-        const empresaIds = userEmpresas?.map(ue => ue.empresa_id) || [];
-        
+        const empresaIds = userEmpresas?.map((ue) => ue.empresa_id) || [];
+
         if (empresaIds.length === 0) {
           setEvents([]);
           return;
         }
 
         const { data: agentesEmpresas, error: agentesError } = await supabase
-          .from('agente_empresas')
-          .select('empresa_id, agentes_ia!inner(telefone, nome, ativo)')
-          .in('empresa_id', empresaIds);
+          .from("agente_empresas")
+          .select("empresa_id, agentes_ia!inner(telefone, nome, ativo)")
+          .in("empresa_id", empresaIds);
 
         if (agentesError) {
-          console.error('Erro ao buscar agente_empresas:', agentesError);
+          console.error("Erro ao buscar agente_empresas:", agentesError);
         }
 
         const empresasComMesmoAgente = (agentesEmpresas || [])
           .filter((ae: any) => {
             const agentData = ae.agentes_ia;
             if (!agentData) return false;
-            const nome = (agentData.nome || '').toLowerCase();
-            const isWhatsApp = nome.includes('whatsapp') || nome.includes('wpp') || nome.includes('zap');
-            const telefoneAgente = (agentData.telefone || '').replace(/\D/g, '');
+            const nome = (agentData.nome || "").toLowerCase();
+            const isWhatsApp = nome.includes("whatsapp") || nome.includes("wpp") || nome.includes("zap");
+            const telefoneAgente = (agentData.telefone || "").replace(/\D/g, "");
             return isWhatsApp && telefoneAgente === cleanPhone && agentData.ativo;
           })
           .map((ae: any) => ae.empresa_id);
@@ -222,8 +208,9 @@ export const DashboardWhatsAppTab = ({
         }
 
         const { data: prospeccoes, error: prospError } = await supabase
-          .from('prospeccoes')
-          .select(`
+          .from("prospeccoes")
+          .select(
+            `
             id, 
             titulo, 
             event_id_pri, 
@@ -231,31 +218,32 @@ export const DashboardWhatsAppTab = ({
             data_fim,
             empresa_id,
             empresas!inner(nome_empresa)
-          `)
-          .eq('canal', 'Whatsapp')
-          .not('event_id_pri', 'is', null)
-          .in('empresa_id', empresasComMesmoAgente)
-          .order('data_inicio', { ascending: false });
+          `,
+          )
+          .eq("canal", "Whatsapp")
+          .not("event_id_pri", "is", null)
+          .in("empresa_id", empresasComMesmoAgente)
+          .order("data_inicio", { ascending: false });
 
         if (prospError) {
-          console.error('Erro ao buscar prospeccoes:', prospError);
-          toast.error('Erro ao buscar eventos');
+          console.error("Erro ao buscar prospeccoes:", prospError);
+          toast.error("Erro ao buscar eventos");
           return;
         }
 
         const eventsList: EventOption[] = (prospeccoes || []).map((p: any) => ({
           id_evento: Number(p.event_id_pri),
           nome: p.titulo || `Evento ${p.event_id_pri}`,
-          empresa_nome: p.empresas?.nome_empresa || '',
+          empresa_nome: p.empresas?.nome_empresa || "",
           prospeccao_id: p.id,
         }));
-        
+
         setEvents(eventsList);
-        
+
         // Don't auto-select - respect the prop-initialized value
       } catch (error) {
-        console.error('Error:', error);
-        toast.error('Erro ao carregar eventos');
+        console.error("Error:", error);
+        toast.error("Erro ao carregar eventos");
       } finally {
         setLoadingEvents(false);
       }
@@ -278,34 +266,34 @@ export const DashboardWhatsAppTab = ({
 
     try {
       setLoading(true);
-      
-      console.log('📊 Fetching WhatsApp dashboard for events:', selectedEventIds);
-      
+
+      console.log("📊 Fetching WhatsApp dashboard for events:", selectedEventIds);
+
       // Fetch and aggregate data for all selected events
       const allResponses = await Promise.all(
         selectedEventIds.map(async (eventId) => {
-          const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
-            body: { 
-              endpoint: 'dashboard-evento-pri-whats', 
-              id_evento: eventId
+          const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
+            body: {
+              endpoint: "dashboard-evento-pri-whats",
+              id_evento: eventId,
             },
           });
-          
+
           if (error) {
             console.error(`Error fetching event ${eventId}:`, error);
             return null;
           }
-          
+
           // Response can be an array or a single object
           if (Array.isArray(data)) {
             return data[0] as WebhookResponse | undefined;
           }
-          if (data && typeof data === 'object' && 'total_base' in data) {
+          if (data && typeof data === "object" && "total_base" in data) {
             return data as WebhookResponse;
           }
           console.warn(`Unexpected response format for event ${eventId}:`, data);
           return null;
-        })
+        }),
       );
 
       // Aggregate all responses
@@ -342,10 +330,10 @@ export const DashboardWhatsAppTab = ({
           if (existing) {
             existing.valor_em_real += Number(t.valor_em_real) || 0;
           } else {
-            templateMap.set(key, { 
-              template_nome: t.template_nome, 
-              valor_em_real: Number(t.valor_em_real) || 0, 
-              tipo_disparo: t.tipo_disparo 
+            templateMap.set(key, {
+              template_nome: t.template_nome,
+              valor_em_real: Number(t.valor_em_real) || 0,
+              tipo_disparo: t.tipo_disparo,
             });
           }
         });
@@ -353,30 +341,29 @@ export const DashboardWhatsAppTab = ({
 
       aggregated.templates = Array.from(templateMap.values());
 
-      console.log('📊 Dashboard WhatsApp aggregated:', aggregated);
-      
+      console.log("📊 Dashboard WhatsApp aggregated:", aggregated);
+
       setDashboardData(aggregated);
       setLastUpdate(new Date());
-
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error('Erro ao carregar dados do dashboard');
+      console.error("Error fetching dashboard data:", error);
+      toast.error("Erro ao carregar dados do dashboard");
     } finally {
       setLoading(false);
     }
   }, [selectedEventIds]);
 
   const toggleEventSelection = (eventId: number) => {
-    setSelectedEventIds(prev => {
+    setSelectedEventIds((prev) => {
       if (prev.includes(eventId)) {
-        return prev.filter(id => id !== eventId);
+        return prev.filter((id) => id !== eventId);
       }
       return [...prev, eventId];
     });
   };
 
   const selectAllEvents = () => {
-    setSelectedEventIds(events.map(e => e.id_evento));
+    setSelectedEventIds(events.map((e) => e.id_evento));
   };
 
   const selectNone = () => {
@@ -418,14 +405,62 @@ export const DashboardWhatsAppTab = ({
     const taxaAgendPct = m.taxaAgendBase * 100;
 
     return [
-      { label: 'Total da base', value: numFmt(m.total_base), hint: `Enviadas: ${pctFmt(safeDiv(m.msg_enviada, m.total_base))}`, icon: <MessageSquare className="h-4 w-4" /> },
-      { label: 'Mensagens entregues', value: numFmt(m.msg_entregue), pctVal: m.taxaEntrega, pctSuffix: 'das enviadas', hint: `Custo/entregue: ${brl(m.cpoEntregue)}`, icon: <CheckCircle2 className="h-4 w-4" /> },
-      { label: 'Leads responderam', value: numFmt(m.msg_respondida), pctVal: m.taxaResposta, pctSuffix: 'das lidas', hint: `Custo/respondido: ${brl(m.cpoRespondido)}`, icon: <MessageCircle className="h-4 w-4" /> },
-      { label: 'Leads agendados', value: numFmt(m.agendado), pctVal: m.taxaAgendBase, hint: `CPL agendado: ${brl(m.cpoAgendado)}`, threshold: 0.03, icon: <CalendarCheck className="h-4 w-4" /> },
-      { label: 'Gasto total', value: brl(m.gasto_total), hint: `Custo/entregue: ${brl(m.cpoEntregue)}`, icon: <DollarSign className="h-4 w-4" /> },
-      { label: 'Taxa de leitura', value: pctFmt(m.taxaLeituraBase), hint: `${numFmt(m.msg_lida)} de ${numFmt(m.msg_entregue)} entregues`, icon: <Eye className="h-4 w-4" /> },
-      { label: 'Taxa resposta', value: pctFmt(m.taxaResposta), hint: `${numFmt(m.msg_respondida)} de ${numFmt(m.msg_lida)} lidas`, icon: <TrendingUp className="h-4 w-4" /> },
-      { label: 'Taxa agendamento', value: pctFmt(m.taxaAgendBase), hint: taxaAgendPct > 3 ? '✓ Acima de 3%' : '✕ Abaixo de 3%', threshold: 0.03, useValueColor: true, icon: <BarChart3 className="h-4 w-4" /> },
+      {
+        label: "Total da base",
+        value: numFmt(m.total_base),
+        hint: `Enviadas: ${pctFmt(safeDiv(m.msg_enviada, m.total_base))}`,
+        icon: <MessageSquare className="h-4 w-4" />,
+      },
+      {
+        label: "Mensagens entregues",
+        value: numFmt(m.msg_entregue),
+        pctVal: m.taxaEntrega,
+        pctSuffix: "das enviadas",
+        hint: `Custo/entregue: ${brl(m.cpoEntregue)}`,
+        icon: <CheckCircle2 className="h-4 w-4" />,
+      },
+      {
+        label: "Leads responderam",
+        value: numFmt(m.msg_respondida),
+        pctVal: m.taxaResposta,
+        pctSuffix: "das lidas",
+        hint: `Custo/respondido: ${brl(m.cpoRespondido)}`,
+        icon: <MessageCircle className="h-4 w-4" />,
+      },
+      {
+        label: "Leads agendados",
+        value: numFmt(m.agendado),
+        pctVal: m.taxaAgendBase,
+        hint: `CPL agendado: ${brl(m.cpoAgendado)}`,
+        threshold: 0.03,
+        icon: <CalendarCheck className="h-4 w-4" />,
+      },
+      {
+        label: "Gasto total",
+        value: brl(m.gasto_total),
+        hint: `Custo/entregue: ${brl(m.cpoEntregue)}`,
+        icon: <DollarSign className="h-4 w-4" />,
+      },
+      {
+        label: "Taxa de leitura",
+        value: pctFmt(m.taxaLeituraBase),
+        hint: `${numFmt(m.msg_lida)} de ${numFmt(m.msg_entregue)} entregues`,
+        icon: <Eye className="h-4 w-4" />,
+      },
+      {
+        label: "Taxa resposta",
+        value: pctFmt(m.taxaResposta),
+        hint: `${numFmt(m.msg_respondida)} de ${numFmt(m.msg_lida)} lidas`,
+        icon: <TrendingUp className="h-4 w-4" />,
+      },
+      {
+        label: "Taxa agendamento",
+        value: pctFmt(m.taxaAgendBase),
+        hint: taxaAgendPct > 3 ? "✓ Acima de 3%" : "✕ Abaixo de 3%",
+        threshold: 0.03,
+        useValueColor: true,
+        icon: <BarChart3 className="h-4 w-4" />,
+      },
     ];
   }, [metrics]);
 
@@ -434,12 +469,22 @@ export const DashboardWhatsAppTab = ({
     if (!metrics) return [];
     const d = metrics;
     return [
-      { name: 'Total da base', count: d.total_base, desc: 'Total de leads no evento', key: 'base' },
-      { name: 'Mensagem enviada', count: d.msg_enviada, desc: 'Leads que receberam pelo menos uma mensagem', key: 'enviada' },
-      { name: 'Mensagem entregue', count: d.msg_entregue, desc: 'Mensagens efetivamente entregues ao destinatário', key: 'entregue' },
-      { name: 'Mensagem lida', count: d.msg_lida, desc: 'Mensagens lidas pelo destinatário', key: 'lida' },
-      { name: 'Mensagem respondida', count: d.msg_respondida, desc: 'Leads que responderam', key: 'respondida' },
-      { name: 'Agendado', count: d.agendado, desc: 'Leads que agendaram', key: 'agendado' },
+      { name: "Total da base", count: d.total_base, desc: "Total de leads no evento", key: "base" },
+      {
+        name: "Mensagem enviada",
+        count: d.msg_enviada,
+        desc: "Total de mensagens enviadas pelo WhatsApp",
+        key: "enviada",
+      },
+      {
+        name: "Mensagem entregue",
+        count: d.msg_entregue,
+        desc: "Mensagens efetivamente entregues ao destinatário",
+        key: "entregue",
+      },
+      { name: "Mensagem lida", count: d.msg_lida, desc: "Mensagens lidas pelo destinatário", key: "lida" },
+      { name: "Mensagem respondida", count: d.msg_respondida, desc: "Leads que responderam", key: "respondida" },
+      { name: "Agendado", count: d.agendado, desc: "Leads que agendaram", key: "agendado" },
     ];
   }, [metrics]);
 
@@ -447,9 +492,9 @@ export const DashboardWhatsAppTab = ({
   const losses = useMemo(() => {
     if (!metrics) return [];
     return [
-      { name: 'Opt-out', count: metrics.optout, desc: 'Leads que pediram para sair' },
-      { name: 'Negativa clara', count: metrics.negativa_clara, desc: 'Objeção explícita' },
-    ].filter(l => l.count > 0);
+      { name: "Opt-out", count: metrics.optout, desc: "Leads que pediram para sair" },
+      { name: "Negativa clara", count: metrics.negativa_clara, desc: "Objeção explícita" },
+    ].filter((l) => l.count > 0);
   }, [metrics]);
 
   // No agent configured
@@ -502,20 +547,19 @@ export const DashboardWhatsAppTab = ({
           {/* Multi-select Events Popover */}
           <Popover open={eventsPopoverOpen} onOpenChange={setEventsPopoverOpen}>
             <PopoverTrigger asChild>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="min-w-[200px] justify-between"
                 disabled={loadingEvents || events.length === 0}
               >
                 <span className="truncate">
-                  {loadingEvents 
-                    ? 'Carregando...' 
-                    : selectedEventIds.length === 0 
-                      ? 'Selecione eventos'
+                  {loadingEvents
+                    ? "Carregando..."
+                    : selectedEventIds.length === 0
+                      ? "Selecione eventos"
                       : selectedEventIds.length === 1
-                        ? events.find(e => e.id_evento === selectedEventIds[0])?.nome || 'Evento'
-                        : `${selectedEventIds.length} eventos selecionados`
-                  }
+                        ? events.find((e) => e.id_evento === selectedEventIds[0])?.nome || "Evento"
+                        : `${selectedEventIds.length} eventos selecionados`}
                 </span>
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
@@ -525,8 +569,12 @@ export const DashboardWhatsAppTab = ({
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Eventos da PRI</span>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={selectAllEvents}>Todos</Button>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={selectNone}>Limpar</Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={selectAllEvents}>
+                      Todos
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={selectNone}>
+                      Limpar
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -537,7 +585,7 @@ export const DashboardWhatsAppTab = ({
                     return (
                       <div
                         key={event.id_evento}
-                        className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-muted/50 ${isSelected ? 'bg-primary/10' : ''}`}
+                        className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-muted/50 ${isSelected ? "bg-primary/10" : ""}`}
                         onClick={() => toggleEventSelection(event.id_evento)}
                       >
                         <Checkbox checked={isSelected} />
@@ -568,20 +616,20 @@ export const DashboardWhatsAppTab = ({
             </PopoverContent>
           </Popover>
 
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={fetchDashboardData}
             disabled={loading || selectedEventIds.length === 0}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
 
           {lastUpdate && (
             <Badge variant="outline" className="text-xs">
               <Clock className="h-3 w-3 mr-1" />
-              Atualizado em {lastUpdate.toLocaleString('pt-BR')}
+              Atualizado em {lastUpdate.toLocaleString("pt-BR")}
             </Badge>
           )}
         </div>
@@ -598,10 +646,10 @@ export const DashboardWhatsAppTab = ({
           {/* KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {kpiCards.map((kpi, idx) => {
-              let valueColor = '';
+              let valueColor = "";
               if (kpi.useValueColor && kpi.threshold !== undefined) {
                 const pv = kpi.pctVal ?? 0;
-                valueColor = pv > kpi.threshold ? 'text-emerald-500' : 'text-destructive';
+                valueColor = pv > kpi.threshold ? "text-emerald-500" : "text-destructive";
               }
 
               return (
@@ -613,13 +661,19 @@ export const DashboardWhatsAppTab = ({
                     </div>
                     <p className={`text-xl font-extrabold ${valueColor}`}>{kpi.value}</p>
                     {kpi.pctVal !== undefined && !kpi.useValueColor && (
-                      <p className={`text-sm font-bold mt-1 ${
-                        kpi.threshold !== undefined
-                          ? (kpi.pctVal > kpi.threshold ? 'text-emerald-500' : 'text-destructive')
-                          : 'text-primary'
-                      }`}>
+                      <p
+                        className={`text-sm font-bold mt-1 ${
+                          kpi.threshold !== undefined
+                            ? kpi.pctVal > kpi.threshold
+                              ? "text-emerald-500"
+                              : "text-destructive"
+                            : "text-primary"
+                        }`}
+                      >
                         {pctFmt(kpi.pctVal)}
-                        {kpi.pctSuffix && <span className="text-xs text-muted-foreground font-normal ml-1">{kpi.pctSuffix}</span>}
+                        {kpi.pctSuffix && (
+                          <span className="text-xs text-muted-foreground font-normal ml-1">{kpi.pctSuffix}</span>
+                        )}
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground mt-1">{kpi.hint}</p>
@@ -643,14 +697,16 @@ export const DashboardWhatsAppTab = ({
               {funnelSteps.map((step, idx) => {
                 const prev = idx === 0 ? null : funnelSteps[idx - 1].count;
                 const width = safeDiv(step.count, leadBase) * 100;
-                const prevText = prev === null ? '—' : pctFmt(safeDiv(step.count, prev));
+                const prevText = prev === null ? "—" : pctFmt(safeDiv(step.count, prev));
                 const totalPct = safeDiv(step.count, leadBase);
 
                 return (
                   <div key={step.key} className="border rounded-xl p-3 border-border/50 bg-background/30">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div>
-                        <span className="font-extrabold text-sm">{idx + 1}. {step.name}</span>
+                        <span className="font-extrabold text-sm">
+                          {idx + 1}. {step.name}
+                        </span>
                         <p className="text-xs text-muted-foreground">{step.desc}</p>
                       </div>
                       <div className="flex gap-2 flex-wrap">
@@ -666,7 +722,7 @@ export const DashboardWhatsAppTab = ({
                       </div>
                     </div>
                     <div className="h-2.5 rounded-full bg-muted/50 overflow-hidden mt-2">
-                      <div 
+                      <div
                         className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-500"
                         style={{ width: `${Math.max(2, width)}%` }}
                       />
@@ -687,20 +743,22 @@ export const DashboardWhatsAppTab = ({
                       <p className="text-xs text-muted-foreground">{loss.desc}</p>
                     </div>
                     <div className="flex gap-2">
-                      <Badge variant="outline" className="text-xs">{numFmt(loss.count)}</Badge>
-                      <Badge variant="outline" className="text-xs">{pctFmt(safeDiv(loss.count, leadBase))} da base</Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {numFmt(loss.count)}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {pctFmt(safeDiv(loss.count, leadBase))} da base
+                      </Badge>
                     </div>
                   </div>
                 </div>
               ))}
 
               <p className="text-xs text-muted-foreground leading-relaxed mt-2">
-                Base {numFmt(metrics.total_base)} → 
-                Enviada {pctFmt(safeDiv(metrics.msg_enviada, metrics.total_base))} → 
-                Entregue {pctFmt(metrics.taxaEntrega)} → 
-                Lida {pctFmt(safeDiv(metrics.msg_lida, metrics.msg_entregue))} → 
-                Resposta {pctFmt(metrics.taxaResposta)} das lidas → 
-                Agendamento {pctFmt(metrics.taxaAgendResp)} ({pctFmt(metrics.taxaAgendBase)} da base).
+                Base {numFmt(metrics.total_base)} → Enviada {pctFmt(safeDiv(metrics.msg_enviada, metrics.total_base))} →
+                Entregue {pctFmt(metrics.taxaEntrega)} → Lida {pctFmt(safeDiv(metrics.msg_lida, metrics.msg_entregue))}{" "}
+                → Resposta {pctFmt(metrics.taxaResposta)} das lidas → Agendamento {pctFmt(metrics.taxaAgendResp)} (
+                {pctFmt(metrics.taxaAgendBase)} da base).
               </p>
             </CardContent>
           </Card>
@@ -710,7 +768,9 @@ export const DashboardWhatsAppTab = ({
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <CardTitle className="text-sm font-bold">Gastos por template</CardTitle>
-                <Badge variant="outline" className="text-xs">Detalhamento</Badge>
+                <Badge variant="outline" className="text-xs">
+                  Detalhamento
+                </Badge>
               </div>
             </CardHeader>
             <CardContent>
@@ -736,13 +796,13 @@ export const DashboardWhatsAppTab = ({
                             <TableCell className="py-3">
                               <span className="text-sm font-bold text-amber-500">{t.template_nome}</span>
                               <div className="h-2 rounded-full bg-muted/50 overflow-hidden mt-2">
-                                <div 
+                                <div
                                   className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-500"
                                   style={{ width: `${Math.max(2, barWidth)}%` }}
                                 />
                               </div>
                             </TableCell>
-                            <TableCell className="text-sm py-3">{t.tipo_disparo || '—'}</TableCell>
+                            <TableCell className="text-sm py-3">{t.tipo_disparo || "—"}</TableCell>
                             <TableCell className="text-sm py-3 text-right">{brl(t.valor_em_real)}</TableCell>
                             <TableCell className="text-sm py-3 text-right">{pctFmt(pctOfTotal)}</TableCell>
                           </TableRow>
@@ -762,7 +822,8 @@ export const DashboardWhatsAppTab = ({
                   {Math.abs(spentDiff) > 0.02 && (
                     <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
                       <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                      Diferença entre gasto total ({brl(metrics.gasto_total)}) e soma dos templates ({brl(totalTplSpent)}): {brl(spentDiff)}
+                      Diferença entre gasto total ({brl(metrics.gasto_total)}) e soma dos templates (
+                      {brl(totalTplSpent)}): {brl(spentDiff)}
                     </p>
                   )}
                 </>
