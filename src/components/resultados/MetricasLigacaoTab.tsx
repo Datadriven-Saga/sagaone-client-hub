@@ -29,9 +29,8 @@ interface EventMetrics {
   telefone_pri?: string;
   metricas: {
     total: number;
-    pendentes: number;
-    disparados: number;
-    emFila: number;
+    ligacoesFeitas: number;
+    totalLigacoes: number;
     encerrados: number;
     agendados: number;
     whatsappEnviado: number;
@@ -127,6 +126,10 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
           
           const metricas = data.metricas || {};
           
+          // totalLigacoes = soma de todas as tentativas de ligação dos leads
+          const contatos = data.contatos || [];
+          const totalLigacoes = contatos.reduce((sum: number, c: any) => sum + (c.num_tentativas || 0), 0) || (metricas.disparados1 || 0);
+          
           return {
             eventId: String(event.id_evento),
             eventName: event.nome || 'Evento sem nome',
@@ -136,9 +139,8 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
             telefone_pri: event.telefone_pri,
             metricas: {
               total: metricas.total || 0,
-              pendentes: metricas.pendentes || 0,
-              disparados: metricas.disparados1 || 0,
-              emFila: metricas.emFila || 0,
+              ligacoesFeitas: metricas.disparados1 || 0,
+              totalLigacoes: totalLigacoes,
               encerrados: metricas.encerrados || 0,
               agendados: metricas.agendados || 0,
               whatsappEnviado: metricas.whatsappEnviado || 0,
@@ -179,9 +181,8 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
     return filteredData.reduce((acc, event) => {
       return {
         total: acc.total + event.metricas.total,
-        pendentes: acc.pendentes + event.metricas.pendentes,
-        disparados: acc.disparados + event.metricas.disparados,
-        emFila: acc.emFila + event.metricas.emFila,
+        ligacoesFeitas: acc.ligacoesFeitas + event.metricas.ligacoesFeitas,
+        totalLigacoes: acc.totalLigacoes + event.metricas.totalLigacoes,
         encerrados: acc.encerrados + event.metricas.encerrados,
         agendados: acc.agendados + event.metricas.agendados,
         whatsappEnviado: acc.whatsappEnviado + event.metricas.whatsappEnviado,
@@ -190,9 +191,8 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       };
     }, {
       total: 0,
-      pendentes: 0,
-      disparados: 0,
-      emFila: 0,
+      ligacoesFeitas: 0,
+      totalLigacoes: 0,
       encerrados: 0,
       agendados: 0,
       whatsappEnviado: 0,
@@ -265,7 +265,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       </div>
 
       {/* Main Metrics Grid - Apenas contadores agregados */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -281,47 +281,32 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-yellow-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pendentes
-            </CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-yellow-600">{aggregatedMetrics.pendentes.toLocaleString('pt-BR')}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {calculatePercentage(aggregatedMetrics.pendentes, aggregatedMetrics.total)} do total
-            </p>
-          </CardContent>
-        </Card>
-
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Disparados
+              Total de Ligações
             </CardTitle>
             <Phone className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-blue-600">{aggregatedMetrics.disparados.toLocaleString('pt-BR')}</p>
+            <p className="text-3xl font-bold text-blue-600">{aggregatedMetrics.totalLigacoes.toLocaleString('pt-BR')}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {calculatePercentage(aggregatedMetrics.disparados, aggregatedMetrics.total)} do total
+              Soma de tentativas
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-orange-500">
+        <Card className="border-l-4 border-l-cyan-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Em Fila
+              Ligações Feitas
             </CardTitle>
-            <PhoneOff className="h-4 w-4 text-orange-600" />
+            <PhoneCall className="h-4 w-4 text-cyan-600" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-orange-600">{aggregatedMetrics.emFila.toLocaleString('pt-BR')}</p>
+            <p className="text-3xl font-bold text-cyan-600">{aggregatedMetrics.ligacoesFeitas.toLocaleString('pt-BR')}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {calculatePercentage(aggregatedMetrics.emFila, aggregatedMetrics.total)} do total
+              {calculatePercentage(aggregatedMetrics.ligacoesFeitas, aggregatedMetrics.total)} do total
             </p>
           </CardContent>
         </Card>
@@ -370,21 +355,6 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
             </p>
           </CardContent>
         </Card>
-
-        <Card className="border-l-4 border-l-slate-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Encerrados
-            </CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-slate-600" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-slate-600">{aggregatedMetrics.encerrados.toLocaleString('pt-BR')}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {calculatePercentage(aggregatedMetrics.encerrados, aggregatedMetrics.total)} do total
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Summary Card */}
@@ -413,9 +383,9 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
             
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <p className="text-2xl font-bold text-blue-600">
-                {calculatePercentage(aggregatedMetrics.disparados, aggregatedMetrics.total)}
+                {calculatePercentage(aggregatedMetrics.ligacoesFeitas, aggregatedMetrics.total)}
               </p>
-              <p className="text-sm text-muted-foreground mt-1">Taxa de Disparo</p>
+              <p className="text-sm text-muted-foreground mt-1">Taxa de Ligações Feitas</p>
             </div>
             
             <div className="bg-muted/50 rounded-lg p-4 text-center">
@@ -464,8 +434,8 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
                       <p className="text-xs text-muted-foreground">Agendados</p>
                     </div>
                     <div className="text-center">
-                      <p className="font-bold text-orange-600">{event.metricas.emFila.toLocaleString('pt-BR')}</p>
-                      <p className="text-xs text-muted-foreground">Em Fila</p>
+                      <p className="font-bold text-blue-600">{event.metricas.totalLigacoes.toLocaleString('pt-BR')}</p>
+                      <p className="text-xs text-muted-foreground">Ligações</p>
                     </div>
                   </div>
                 </div>
