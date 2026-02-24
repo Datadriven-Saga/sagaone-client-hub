@@ -12,7 +12,6 @@ import {
   Trophy, 
   FileText,
   Phone,
-  TrendingUp,
   MessageSquare
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,7 +20,6 @@ import { ResumoTab } from "@/components/resultados/ResumoTab";
 import { DesempenhoTab } from "@/components/resultados/DesempenhoTab";
 import { RankingTab } from "@/components/resultados/RankingTab";
 import { ResultadosGlobalFilter } from "@/components/resultados/ResultadosGlobalFilter";
-import { DashboardLigacaoTab } from "@/components/resultados/DashboardLigacaoTab";
 import { MetricasLigacaoTab } from "@/components/resultados/MetricasLigacaoTab";
 import { EventoSelectorLigacao } from "@/components/resultados/EventoSelectorLigacao";
 import { DashboardWhatsAppTab } from "@/components/resultados/DashboardWhatsAppTab";
@@ -40,8 +38,7 @@ const Resultados = () => {
   const [selectedProspeccoes, setSelectedProspeccoes] = useState<string[]>([]);
   const { activeCompany } = useCompany();
   
-  // State for Ligação tabs
-  const [selectedLigacaoEventId, setSelectedLigacaoEventId] = useState<string | null>(null);
+  // State for Ligação tab
   const [selectedAgentPhone, setSelectedAgentPhone] = useState<string | null>(null);
   
   // State for WhatsApp tab
@@ -70,23 +67,13 @@ const Resultados = () => {
     fetchProspeccoes();
   }, [activeCompany?.id]);
 
-  const handleLigacaoEventSelect = (eventId: string, agentPhone: string) => {
-    setSelectedLigacaoEventId(eventId);
-    setSelectedAgentPhone(agentPhone);
-    setActiveTab("dashboard-ligacao");
-  };
-
-  const handleDashboardEventChange = (eventId: string) => {
-    setSelectedLigacaoEventId(eventId);
-  };
-
   const handleWhatsAppEventSelect = (eventId: string, eventIdPri: string) => {
     setSelectedWhatsAppEventId(eventId);
     setSelectedWhatsAppEventIdPri(eventIdPri);
   };
 
   // Check if current tab needs global filter (not ligação/whatsapp tabs)
-  const showGlobalFilter = !["dashboard-ligacao", "metricas-ligacao", "eventos-ligacao", "dashboard-whatsapp"].includes(activeTab);
+  const showGlobalFilter = !["ligacao", "dashboard-whatsapp"].includes(activeTab);
 
   return (
     <DashboardLayout title="Resultados">
@@ -108,18 +95,11 @@ const Resultados = () => {
               <span className="hidden sm:inline font-medium">WhatsApp</span>
             </TabsTrigger>
             <TabsTrigger 
-              value="dashboard-ligacao" 
+              value="ligacao" 
               className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
             >
               <Phone className="h-4 w-4" />
               <span className="hidden sm:inline font-medium">Ligação</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="metricas-ligacao" 
-              className="relative h-12 px-4 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none flex items-center gap-2"
-            >
-              <TrendingUp className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">Métricas</span>
             </TabsTrigger>
             <TabsTrigger 
               value="ranking" 
@@ -211,29 +191,8 @@ const Resultados = () => {
           </ScrollIndicator>
         </TabsContent>
 
-        {/* Tab Dashboard Ligação */}
-        <TabsContent value="dashboard-ligacao" className="flex-1 min-h-0 overflow-hidden mt-4">
-          <ScrollIndicator className="flex-1 h-full">
-            <div className="pb-6">
-              {selectedLigacaoEventId && selectedAgentPhone ? (
-                <DashboardLigacaoTab 
-                  selectedEventId={selectedLigacaoEventId}
-                  selectedAgentPhone={selectedAgentPhone}
-                  onEventChange={handleDashboardEventChange}
-                />
-              ) : (
-                <EventoSelectorLigacao
-                  onEventSelect={handleLigacaoEventSelect}
-                  selectedEventId={selectedLigacaoEventId}
-                  agentPhone={selectedAgentPhone}
-                />
-              )}
-            </div>
-          </ScrollIndicator>
-        </TabsContent>
-
-        {/* Tab Métricas Ligação */}
-        <TabsContent value="metricas-ligacao" className="flex-1 min-h-0 overflow-hidden mt-4">
+        {/* Tab Ligação */}
+        <TabsContent value="ligacao" className="flex-1 min-h-0 overflow-hidden mt-4">
           <ScrollIndicator className="flex-1 h-full">
             <div className="pb-6">
               {selectedAgentPhone ? (
@@ -242,9 +201,9 @@ const Resultados = () => {
                 />
               ) : (
                 <EventoSelectorLigacao
-                  onEventSelect={(eventId, phone) => {
+                  onEventSelect={(_eventId, phone) => {
                     setSelectedAgentPhone(phone);
-                    setActiveTab("metricas-ligacao");
+                    setActiveTab("ligacao");
                   }}
                   selectedEventId={null}
                   agentPhone={null}
