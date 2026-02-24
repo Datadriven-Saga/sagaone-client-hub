@@ -371,7 +371,6 @@ export const DashboardWhatsAppTab = ({
   const toggleEventSelection = (eventId: number) => {
     setSelectedEventIds(prev => {
       if (prev.includes(eventId)) {
-        if (prev.length === 1) return prev;
         return prev.filter(id => id !== eventId);
       }
       return [...prev, eventId];
@@ -383,9 +382,7 @@ export const DashboardWhatsAppTab = ({
   };
 
   const selectNone = () => {
-    if (events.length > 0) {
-      setSelectedEventIds([events[0].id_evento]);
-    }
+    setSelectedEventIds([]);
   };
 
   // Computed metrics
@@ -619,7 +616,7 @@ export const DashboardWhatsAppTab = ({
                       <p className={`text-sm font-bold mt-1 ${
                         kpi.threshold !== undefined
                           ? (kpi.pctVal > kpi.threshold ? 'text-emerald-500' : 'text-destructive')
-                          : 'text-muted-foreground'
+                          : 'text-primary'
                       }`}>
                         {pctFmt(kpi.pctVal)}
                       </p>
