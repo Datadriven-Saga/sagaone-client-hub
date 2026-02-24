@@ -147,49 +147,72 @@ Deno.serve(async (req) => {
         </div>
       </div>`;
 
-    // 6. Enviar via Resend para cada destinatário
+    // 6. Enviar via Resend batch (uma única chamada para todos os destinatários)
     let enviados = 0;
     let erros = 0;
     const logs: Array<any> = [];
 
-    for (const email of emails) {
-      try {
-        console.log(`📤 Enviando email via Resend para: ${email}`);
+    try {
+      console.log(`📤 Enviando email via Resend Batch para ${emails.length} destinatários`);
 
-        const emailRes = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: "Saga One <onboarding@resend.dev>",
-            to: [email],
-            subject: assunto,
-            html: corpoHtml,
-          }),
-        });
+      const batchPayload = emails.map((email) => ({
+        from: "Saga One <noreply@email.sagadatadriven.com.br>",
+        to: [email],
+        subject: assunto,
+        html: corpoHtml,
+      }));
 
-        const emailResult = await emailRes.json();
-        console.log(`📨 Resposta Resend para ${email}: status=${emailRes.status}`, JSON.stringify(emailResult));
+      const emailRes = await fetch("https://api.resend.com/emails/batch", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(batchPayload),
+      });
 
-        if (emailRes.ok && emailResult.id) {
-          enviados++;
-          logs.push({
-            tipo: "send_crm_event_email",
-            referencia_id: event_id,
-            referencia_tipo: "prospeccao",
-            destinatario_email: email,
-            destinatario_nome: email,
-            assunto,
-            status: "enviado",
-            erro: null,
-            empresa_id: evento.empresa_id,
-          });
-        } else {
-          erros++;
-          const erroMsg = emailResult.message || JSON.stringify(emailResult);
-          console.error(`❌ Falha ao enviar para ${email}: ${erroMsg}`);
+      const emailResult = await emailRes.json();
+      console.log(`📨 Resposta Resend Batch: status=${emailRes.status}`, JSON.stringify(emailResult));
+
+      if (emailRes.ok && emailResult.data) {
+        // Batch retorna array de { id } para cada email enviado
+        const results = emailResult.data as Array<{ id: string }>;
+        for (let i = 0; i < emails.length; i++) {
+          const result = results[i];
+          if (result?.id) {
+            enviados++;
+            logs.push({
+              tipo: "send_crm_event_email",
+              referencia_id: event_id,
+              referencia_tipo: "prospeccao",
+              destinatario_email: emails[i],
+              destinatario_nome: emails[i],
+              assunto,
+              status: "enviado",
+              erro: null,
+              empresa_id: evento.empresa_id,
+            });
+          } else {
+            erros++;
+            logs.push({
+              tipo: "send_crm_event_email",
+              referencia_id: event_id,
+              referencia_tipo: "prospeccao",
+              destinatario_email: emails[i],
+              destinatario_nome: emails[i],
+              assunto,
+              status: "erro",
+              erro: "Sem ID de retorno no batch",
+              empresa_id: evento.empresa_id,
+            });
+          }
+        }
+      } else {
+        // Falha geral do batch
+        const erroMsg = emailResult.message || JSON.stringify(emailResult);
+        console.error(`❌ Falha no batch: ${erroMsg}`);
+        erros = emails.length;
+        for (const email of emails) {
           logs.push({
             tipo: "send_crm_event_email",
             referencia_id: event_id,
@@ -202,10 +225,12 @@ Deno.serve(async (req) => {
             empresa_id: evento.empresa_id,
           });
         }
-      } catch (emailErr) {
-        erros++;
-        const errMsg = (emailErr as Error).message;
-        console.error(`❌ Exceção ao enviar para ${email}: ${errMsg}`);
+      }
+    } catch (batchErr) {
+      const errMsg = (batchErr as Error).message;
+      console.error(`❌ Exceção no batch: ${errMsg}`);
+      erros = emails.length;
+      for (const email of emails) {
         logs.push({
           tipo: "send_crm_event_email",
           referencia_id: event_id,
