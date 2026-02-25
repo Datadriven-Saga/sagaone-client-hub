@@ -79,6 +79,9 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
   const { activeCompany } = useCompany();
   const { tipoAcesso } = useUserAccessType();
   const isAdminOrMaster = tipoAcesso === 'Administrador' || tipoAcesso === 'Master';
+  const isAdminOnly = tipoAcesso === 'Administrador';
+  const isCRMOrMaster = tipoAcesso === 'CRM' || tipoAcesso === 'Master';
+  const ADMIN_UPLOAD_LIMIT = 10;
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCampanha, setSelectedCampanha] = useState<string>('');
   const [selectedOrigem, setSelectedOrigem] = useState<string>('');
@@ -305,8 +308,19 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
         });
       
       // Quarentena desabilitada - todos os contatos válidos são aceitos
-      const contatosLimpos: ClienteData[] = [...validClientes];
+      let contatosLimpos: ClienteData[] = [...validClientes];
       const quarentenaClientes: ClienteData[] = [];
+
+      // Admin users have a 10-record limit (test bases only)
+      if (isAdminOnly && !isCRMOrMaster && contatosLimpos.length > ADMIN_UPLOAD_LIMIT) {
+        const excedentes = contatosLimpos.length - ADMIN_UPLOAD_LIMIT;
+        contatosLimpos = contatosLimpos.slice(0, ADMIN_UPLOAD_LIMIT);
+        toast({
+          title: "Limite de base de teste",
+          description: `Administradores podem subir no máximo ${ADMIN_UPLOAD_LIMIT} contatos por base. ${excedentes} contato(s) foram removidos.`,
+          variant: "default",
+        });
+      }
       
       setPreviewData(contatosLimpos);
       setInvalidData(invalidClientes);
@@ -530,6 +544,15 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
         </DialogHeader>
         
         <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+          {/* Aviso de limite para Admin */}
+          {isAdminOnly && !isCRMOrMaster && (
+            <Card className="p-3 bg-amber-50 border-amber-300 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+              <span className="text-sm text-amber-800">
+                <strong>Base de teste:</strong> Administradores podem subir no máximo {ADMIN_UPLOAD_LIMIT} contatos por base.
+              </span>
+            </Card>
+          )}
           {/* Seleção de Campanha */}
           <Card className="p-4 bg-green-50 border-green-200">
             <Label className="text-green-800 font-medium">Selecione a Campanha</Label>
