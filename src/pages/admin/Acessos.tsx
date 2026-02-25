@@ -8,7 +8,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -316,8 +315,8 @@ const Acessos = () => {
     setEditingUser(user);
     // Cast tipo_acesso para lidar com valores legados que foram removidos do sistema
     const tipoAcesso = user.tipo_acesso || "SDR";
-    const validTipoAcesso = ["SDR", "Gerente de Leads", "Vendedor", "Gerente de Loja", "Diretor", "TI", "Administrador", "Proprietário", "CRM", "Recepcionista"].includes(tipoAcesso) 
-      ? tipoAcesso as "SDR" | "Gerente de Leads" | "Vendedor" | "Gerente de Loja" | "Diretor" | "TI" | "Administrador" | "Proprietário" | "CRM" | "Recepcionista"
+    const validTipoAcesso = ["SDR", "Gerente de Leads", "Vendedor", "Gerente de Loja", "Diretor", "TI", "Administrador", "Proprietário", "CRM", "Recepcionista", "Master", "Coordenadora de Leads"].includes(tipoAcesso) 
+      ? tipoAcesso as UserForm["tipo_acesso"]
       : "Vendedor";
     form.reset({
       nome_completo: user.nome_completo,
@@ -383,8 +382,7 @@ const Acessos = () => {
 
   return (
     <DashboardLayout>
-      <ScrollIndicator className="flex-1 h-full">
-        <div className="space-y-6 pb-6">
+        <div className="space-y-4 md:space-y-6 pb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2 md:gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0">
@@ -406,7 +404,7 @@ const Acessos = () => {
                   <span className="text-xs md:text-sm">Novo Usuário</span>
                 </Button>
               </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {editingUser ? "Editar Usuário" : "Novo Usuário"}
@@ -426,7 +424,7 @@ const Acessos = () => {
                   <TabsContent value="dados" className="mt-4">
                     <Form {...form}>
                       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
                             name="nome_completo"
@@ -613,7 +611,7 @@ const Acessos = () => {
               ) : (
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="nome_completo"
@@ -902,7 +900,6 @@ const Acessos = () => {
           </CardContent>
         </Card>
         </div>
-      </ScrollIndicator>
     </DashboardLayout>
   );
 };
@@ -965,31 +962,33 @@ const FilteredUsersList = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div className="text-xs md:text-sm text-muted-foreground">
           Mostrando {startItem}-{endItem} de {filteredProfiles.length} usuários
         </div>
         {totalPages > 1 && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
+              className="h-8 px-2"
             >
               <ChevronLeft className="h-4 w-4" />
-              Anterior
+              <span className="hidden sm:inline ml-1">Anterior</span>
             </Button>
-            <span className="text-sm text-muted-foreground">
-              Página {currentPage} de {totalPages}
+            <span className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">
+              {currentPage}/{totalPages}
             </span>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
+              className="h-8 px-2"
             >
-              Próxima
+              <span className="hidden sm:inline mr-1">Próxima</span>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -998,16 +997,16 @@ const FilteredUsersList = ({
 
       <div className="divide-y divide-border rounded-lg border">
         {paginatedProfiles.map((profile: Profile) => (
-          <div key={profile.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
-            <div className="space-y-1.5 min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold truncate">{profile.nome_completo}</h3>
-                <Badge variant="outline" className="shrink-0">{profile.status}</Badge>
+          <div key={profile.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 md:p-4 gap-2 hover:bg-muted/50 transition-colors">
+            <div className="space-y-1 min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-semibold text-sm md:text-base truncate">{profile.nome_completo}</h3>
+                <Badge variant="outline" className="shrink-0 text-xs">{profile.status}</Badge>
               </div>
-              <p className="text-sm text-muted-foreground truncate">{profile.email}</p>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <p className="text-xs md:text-sm text-muted-foreground truncate">{profile.email}</p>
+              <div className="flex items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground flex-wrap">
                 <span className="flex items-center gap-1">
-                  <Shield className="h-4 w-4" />
+                  <Shield className="h-3 w-3 md:h-4 md:w-4" />
                   {profile.tipo_acesso}
                 </span>
                 {profile.departamento && (
@@ -1015,36 +1014,36 @@ const FilteredUsersList = ({
                 )}
               </div>
               {profile.empresas && profile.empresas.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                  {profile.empresas.slice(0, 3).map((empresa) => (
-                    <Badge key={empresa.id} variant="secondary" className="text-xs">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Building2 className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
+                  {profile.empresas.slice(0, 2).map((empresa) => (
+                    <Badge key={empresa.id} variant="secondary" className="text-[10px] md:text-xs">
                       {empresa.nome_empresa}
                     </Badge>
                   ))}
-                  {profile.empresas.length > 3 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{profile.empresas.length - 3}
+                  {profile.empresas.length > 2 && (
+                    <Badge variant="outline" className="text-[10px] md:text-xs">
+                      +{profile.empresas.length - 2}
                     </Badge>
                   )}
                 </div>
               )}
             </div>
-            <div className="flex items-center space-x-2 shrink-0">
+            <div className="flex items-center space-x-1 shrink-0 self-end sm:self-center">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => handleEdit(profile)}
+                className="h-8 w-8 p-0"
               >
                 <Edit className="h-4 w-4" />
               </Button>
-              {/* Only admins can delete users */}
               {isAdmin && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleDelete(profile.id)}
-                  className="text-destructive hover:text-destructive"
+                  className="text-destructive hover:text-destructive h-8 w-8 p-0"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

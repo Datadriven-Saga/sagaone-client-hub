@@ -517,6 +517,18 @@ Deno.serve(async (req: Request) => {
 
         // Update company relationships if provided
         if (empresas && empresas.length > 0) {
+          // First, get existing relationships to preserve is_ativa status
+          const { data: existingRelations } = await supabaseAdmin
+            .from('user_empresas')
+            .select('empresa_id, is_ativa')
+            .eq('user_id', user_id);
+          
+          // Build a map of existing is_ativa status
+          const existingActiveMap = new Map<string, boolean>();
+          (existingRelations || []).forEach(rel => {
+            existingActiveMap.set(rel.empresa_id, rel.is_ativa || false);
+          });
+
           // Delete existing relationships
           const { error: deleteError } = await supabaseAdmin
             .from('user_empresas')
@@ -528,11 +540,17 @@ Deno.serve(async (req: Request) => {
             throw deleteError;
           }
 
-          // Create new relationships
+          // Check if any previously active empresa is still in the new list
+          const hasActiveInNewList = empresas.some((empresaId: string) => existingActiveMap.get(empresaId) === true);
+
+          // Create new relationships preserving is_ativa status
           const userEmpresasData = empresas.map((empresaId: string, index: number) => ({
             user_id: user_id,
             empresa_id: empresaId,
-            is_ativa: index === 0 // First company is active by default
+            // Preserve existing is_ativa, or set first as active if no previous active found
+            is_ativa: existingActiveMap.has(empresaId) 
+              ? existingActiveMap.get(empresaId)! 
+              : (!hasActiveInNewList && index === 0)
           }));
 
           const { error: insertError } = await supabaseAdmin

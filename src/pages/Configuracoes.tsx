@@ -12,7 +12,7 @@ const Configuracoes = () => {
   return (
     <DashboardLayout title="Configurações">
       <Tabs defaultValue="departamentos" className="space-y-3">
-        <TabsList className="justify-start w-auto inline-flex">
+        <TabsList className="justify-start w-auto inline-flex overflow-x-auto max-w-full scrollbar-thin">
           <TabsTrigger value="departamentos">Departamentos</TabsTrigger>
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
           <TabsTrigger value="mensagens">Mensagens</TabsTrigger>
