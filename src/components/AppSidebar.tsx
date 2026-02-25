@@ -32,6 +32,7 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import sagaOneLogo from "@/assets/saga-one-menu-logo.png";
@@ -74,11 +75,16 @@ const bottomMenuItemsAdmin = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
+  const isMobile = useIsMobile();
   const isCollapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
   const { isAdmin, isAdminOrTI, isGerente, isDiretor } = useUserAccessType();
+
+  const closeMobileSidebar = () => {
+    if (isMobile) setOpenMobile(false);
+  };
   
   // Submenus recolhidos por padrão, abrem apenas se a rota atual está dentro
   const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(currentPath.startsWith('/prospeccao'));
@@ -134,6 +140,7 @@ export function AppSidebar() {
                     <NavLink 
                       to={item.url} 
                       end
+                      onClick={closeMobileSidebar}
                       className={({ isActive }) =>
                         `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
                           isActive 
@@ -173,6 +180,7 @@ export function AppSidebar() {
                         <SidebarMenuButton key={subItem.title} asChild>
                           <NavLink 
                             to={subItem.url}
+                            onClick={closeMobileSidebar}
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
                               currentPath.startsWith(subItem.url)
                                 ? "font-bold border-b-2 border-primary"
@@ -212,6 +220,7 @@ export function AppSidebar() {
                           <NavLink 
                             to={subItem.url}
                             end={subItem.exact}
+                            onClick={closeMobileSidebar}
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
                               (subItem.exact && currentPath === subItem.url) || 
                               (!subItem.exact && currentPath.startsWith(subItem.url) && currentPath !== '/treinamentos')
@@ -253,6 +262,7 @@ export function AppSidebar() {
                             <NavLink 
                               to={subItem.url}
                               end={subItem.url === '/agentes-ia'}
+                              onClick={closeMobileSidebar}
                               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
                                 (subItem.url === '/agentes-ia' && currentPath === '/agentes-ia') ||
                                 (subItem.url !== '/agentes-ia' && currentPath.startsWith(subItem.url))
@@ -278,6 +288,7 @@ export function AppSidebar() {
                     <NavLink 
                       to={item.url} 
                       end
+                      onClick={closeMobileSidebar}
                       className={({ isActive }) =>
                         `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
                           isActive 
@@ -307,6 +318,7 @@ export function AppSidebar() {
                     <NavLink 
                       to={item.url} 
                       end
+                      onClick={closeMobileSidebar}
                       className={({ isActive }) =>
                         `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
                           isActive 
