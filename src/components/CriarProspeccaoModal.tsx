@@ -458,13 +458,13 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         return;
       }
       
-      // Buscar profiles dos usuários com status ativo e tipo_acesso SDR ou Vendedor
+      // Buscar profiles dos usuários com status ativo vinculados à loja
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('id, nome_completo, tipo_acesso, status')
         .in('id', userIds)
         .eq('status', 'Ativo')
-        .in('tipo_acesso', ['SDR', 'Vendedor']);
+        .in('tipo_acesso', ['SDR', 'Vendedor', 'CRM', 'Gerente de Loja', 'Gerente de Leads', 'Coordenadora de Leads', 'Recepcionista', 'Diretor', 'Administrador', 'TI', 'Master', 'Proprietário']);
       
       if (profilesError) {
         console.error('Erro ao buscar profiles:', profilesError);
