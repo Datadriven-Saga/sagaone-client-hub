@@ -641,13 +641,13 @@ export function ContatoModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden flex flex-col">
-        <DialogHeader className="p-6 pb-4 pr-12 border-b flex-shrink-0">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-col gap-1">
-              <DialogTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                {isNewContact ? 'Novo Contato' : (contato?.nome || 'Sem nome')}
+      <DialogContent className="max-w-6xl h-[90vh] max-h-[90vh] md:h-[90vh] p-0 overflow-hidden flex flex-col w-[95vw] md:w-full">
+        <DialogHeader className="p-3 md:p-6 pb-3 md:pb-4 pr-10 md:pr-12 border-b flex-shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+            <div className="flex flex-col gap-1 min-w-0">
+              <DialogTitle className="flex items-center gap-2 text-sm md:text-base truncate">
+                <User className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+                <span className="truncate">{isNewContact ? 'Novo Contato' : (contato?.nome || 'Sem nome')}</span>
               </DialogTitle>
               {!isNewContact && contato && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -678,28 +678,51 @@ export function ContatoModal({
                   size="sm"
                   onClick={handleChamarWhatsApp}
                   disabled={!contato.telefone}
-                  className="gap-2"
+                  className="gap-1.5 text-xs md:text-sm h-8 md:h-9 px-2 md:px-3"
                 >
-                  <MessageCircle className="w-4 h-4" />
-                  Chamar no WhatsApp
+                  <MessageCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  <span className="hidden sm:inline">Chamar no</span> WhatsApp
                 </Button>
                 <Button
                   size="sm"
                   onClick={() => setContatoRealizadoOpen(true)}
                   disabled={!prospeccaoId || isLeadBloqueado}
-                  className="gap-2"
+                  className="gap-1.5 text-xs md:text-sm h-8 md:h-9 px-2 md:px-3"
                 >
-                  <PhoneCall className="w-4 h-4" />
-                  Contato Realizado
+                  <PhoneCall className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  <span className="hidden sm:inline">Contato</span> <span className="sm:hidden">Cont.</span> <span className="hidden sm:inline">Realizado</span>
                 </Button>
               </div>
             )}
           </div>
         </DialogHeader>
 
+        {/* Mobile: Horizontal scrollable tabs */}
+        <div className="md:hidden border-b flex-shrink-0 overflow-x-auto">
+          <div className="flex px-2 py-2 gap-1 min-w-max">
+            {sidebarItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full whitespace-nowrap transition-colors ${
+                    activeTab === item.id
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground bg-muted/50'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="flex flex-1 min-h-0">
-          {/* Sidebar - fixed height, scrollable */}
-          <div className="w-56 border-r bg-muted/30 flex-shrink-0 h-full overflow-y-auto">
+          {/* Sidebar - desktop only */}
+          <div className="hidden md:block w-56 border-r bg-muted/30 flex-shrink-0 h-full overflow-y-auto">
             <div className="p-3">
               <nav className="space-y-1">
                 {sidebarItems.map((item) => {
@@ -725,7 +748,7 @@ export function ContatoModal({
 
           {/* Main Content - scrollable independently */}
           <div className="flex-1 h-full overflow-y-auto">
-            <div className="p-4">
+            <div className="p-3 md:p-4">
               {/* Aviso de lead bloqueado */}
               {isLeadBloqueado && (
                 <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
