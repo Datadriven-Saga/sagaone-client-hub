@@ -122,22 +122,21 @@ export function EmpresasSelector({ companies, selectedCompanies, onSelectionChan
     <Card className="p-4">
       <div className="flex flex-col">
         {/* Cabeçalho com controles */}
-        <div className="flex items-center justify-between mb-4">
-          <Label className="text-base font-semibold flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
-            Empresas com Acesso * ({selectedCompanies.length} selecionadas)
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <Label className="text-sm md:text-base font-semibold flex items-center gap-2">
+            <Building2 className="h-4 w-4 shrink-0" />
+            <span>Empresas com Acesso * ({selectedCompanies.length} selecionadas)</span>
           </Label>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter className="h-4 w-4 mr-1" />
-              Filtros
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+            className="self-start sm:self-auto"
+          >
+            <Filter className="h-4 w-4 mr-1" />
+            Filtros
+          </Button>
         </div>
 
         {/* Filtros */}
@@ -211,8 +210,8 @@ export function EmpresasSelector({ companies, selectedCompanies, onSelectionChan
         )}
 
         {/* Contador de empresas e botão de seleção */}
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-muted-foreground">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
+          <span className="text-xs md:text-sm text-muted-foreground">
             Mostrando {filteredCompanies.length} de {companies.length} empresas
           </span>
           {filteredCompanies.length > 0 && (
@@ -221,15 +220,16 @@ export function EmpresasSelector({ companies, selectedCompanies, onSelectionChan
               variant="outline"
               size="sm"
               onClick={allFilteredSelected ? unselectAllFiltered : selectAllFiltered}
+              className="text-xs"
             >
               {allFilteredSelected ? (
                 <>
-                  <Square className="h-4 w-4 mr-1" />
+                  <Square className="h-3.5 w-3.5 mr-1" />
                   Desmarcar Filtradas
                 </>
               ) : (
                 <>
-                  <CheckSquare className="h-4 w-4 mr-1" />
+                  <CheckSquare className="h-3.5 w-3.5 mr-1" />
                   Selecionar Filtradas
                 </>
               )}
@@ -242,7 +242,7 @@ export function EmpresasSelector({ companies, selectedCompanies, onSelectionChan
           <div 
             ref={scrollContainerRef}
             onScroll={handleScroll}
-            className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-48 overflow-y-auto border rounded p-3"
+            className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 max-h-48 overflow-y-auto border rounded p-2 sm:p-3"
           >
             {filteredCompanies.length === 0 ? (
               <div className="col-span-2 text-center py-8 text-muted-foreground">
