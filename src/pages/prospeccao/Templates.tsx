@@ -393,19 +393,27 @@ export default function Templates() {
   }, [formData.nome, priTelefone]);
 
   const handleOpenModal = (duplicateFrom?: any) => {
-    setDuplicatingTemplate(duplicateFrom || null);
+    const isTemplateObject =
+      !!duplicateFrom &&
+      typeof duplicateFrom === "object" &&
+      "formato" in duplicateFrom &&
+      "categoria" in duplicateFrom;
+
+    const templateToDuplicate = isTemplateObject ? duplicateFrom : null;
+
+    setDuplicatingTemplate(templateToDuplicate);
     setVariableMappings([]); // Resetar mapeamento de variáveis
-    
-    if (duplicateFrom) {
+
+    if (templateToDuplicate) {
       // Preencher com dados do template duplicado
-      const cardData = duplicateFrom.card_data || {};
+      const cardData = templateToDuplicate.card_data || {};
       setFormData({
         nome: "", // Nome deve ser novo
-        categoria: duplicateFrom.categoria as TemplateCategory || "marketing",
-        departamento_id: duplicateFrom.departamento_id || "",
+        categoria: (templateToDuplicate.categoria as TemplateCategory) || "marketing",
+        departamento_id: templateToDuplicate.departamento_id || "",
         agente_id: selectedAgenteId || "",
-        formato: duplicateFrom.formato as TemplateFormat || "",
-        conteudo: duplicateFrom.formato === "texto" ? duplicateFrom.conteudo : "",
+        formato: (templateToDuplicate.formato as TemplateFormat) || "",
+        conteudo: templateToDuplicate.formato === "texto" ? templateToDuplicate.conteudo : "",
         variaveis: [],
         cardData: {
           imagemCampanha: null,
@@ -415,7 +423,7 @@ export default function Templates() {
           videoCampanha: null,
           videoPreviewUrl: cardData.videoUrl || "",
           textoCabecalho: cardData.textoCabecalho || "",
-          corpoTexto: duplicateFrom.formato !== "texto" ? duplicateFrom.conteudo : "",
+          corpoTexto: templateToDuplicate.formato !== "texto" ? templateToDuplicate.conteudo : "",
           rodape: cardData.rodape || "",
           botoes: (cardData.botoes || []).map((b: any) => ({
             id: crypto.randomUUID(),
@@ -2286,7 +2294,7 @@ export default function Templates() {
               </Button>
             </div>
             {/* Botão novo template em destaque */}
-            <Button onClick={handleOpenModal} disabled={agentesIAWhatsapp.length === 0} className="w-full sm:w-auto">
+            <Button onClick={() => handleOpenModal()} disabled={agentesIAWhatsapp.length === 0} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Novo Template
             </Button>
@@ -2304,7 +2312,7 @@ export default function Templates() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Crie seu primeiro template de mensagem para WhatsApp
                 </p>
-                <Button onClick={handleOpenModal}>
+                <Button onClick={() => handleOpenModal()}>
                   <Plus className="h-4 w-4 mr-2" />
                   Criar Template
                 </Button>
