@@ -702,13 +702,7 @@ export default function Templates() {
       });
     }
 
-    // FOOTER (opcional)
-    if (savedData.cardData?.rodape) {
-      components.push({
-        type: "FOOTER",
-        text: savedData.cardData.rodape,
-      });
-    }
+    // FOOTER removed - not used
 
     // BUTTONS (opcional)
     if (savedData.cardData?.botoes && savedData.cardData.botoes.length > 0) {
@@ -937,7 +931,6 @@ export default function Templates() {
             videoMimeType: formData.cardData.videoMimeType || undefined,
             videoSizeBytes: formData.cardData.videoSizeBytes || undefined,
             textoCabecalho: formData.cardData.textoCabecalho,
-            rodape: formData.cardData.rodape,
             botoes: formData.cardData.botoes.map(b => ({ 
               id: b.id, 
               nome: b.nome, 
@@ -1398,9 +1391,20 @@ export default function Templates() {
   );
 
   const renderStep3 = () => {
+    const limitsAlert = (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 mb-4">
+        <p className="text-sm font-medium text-amber-800">⚠️ Limites da Meta para aprovação:</p>
+        <ul className="text-xs text-amber-700 mt-1 list-disc list-inside space-y-0.5">
+          <li>Corpo do template: máximo de <strong>1024 caracteres</strong></li>
+          <li>Texto de cada botão: máximo de <strong>25 caracteres</strong></li>
+        </ul>
+      </div>
+    );
+
     if (formData.formato === "texto") {
       return (
         <div className="space-y-4">
+          {limitsAlert}
           <div>
             <Label htmlFor="conteudo">Conteúdo do Template</Label>
             <p className="text-sm text-muted-foreground mb-2">
@@ -1571,6 +1575,7 @@ export default function Templates() {
 
       return (
         <div className="space-y-4">
+          {limitsAlert}
           {/* Mídia da Campanha */}
           <div>
             <Label>Mídia da Campanha</Label>
@@ -1723,29 +1728,6 @@ export default function Templates() {
             />
           </div>
 
-          {/* Rodapé */}
-          <div>
-            <Label htmlFor="rodape">Rodapé</Label>
-            <Input
-              id="rodape"
-              value={formData.cardData.rodape}
-              onChange={(e) => {
-                if (e.target.value.length <= 60) {
-                  setFormData(prev => ({
-                    ...prev,
-                    cardData: { ...prev.cardData, rodape: e.target.value }
-                  }));
-                }
-              }}
-              placeholder="Texto do rodapé"
-              className="bg-white"
-              maxLength={60}
-            />
-            <p className="text-xs text-muted-foreground mt-1 text-right">
-              {formData.cardData.rodape.length}/60
-            </p>
-          </div>
-
           {/* Botões */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -1770,12 +1752,20 @@ export default function Templates() {
                 {formData.cardData.botoes.map((btn, index) => (
                   <div key={btn.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
                     <span className="text-sm font-medium text-muted-foreground w-6">{index + 1}.</span>
-                    <Input
-                      value={btn.nome}
-                      onChange={(e) => handleUpdateButton(btn.id, "nome", e.target.value)}
-                      placeholder="Nome do botão"
-                      className="flex-1 h-8 text-sm bg-white"
-                    />
+                    <div className="flex-1 space-y-0.5">
+                      <Input
+                        value={btn.nome}
+                        onChange={(e) => {
+                          if (e.target.value.length <= 25) {
+                            handleUpdateButton(btn.id, "nome", e.target.value);
+                          }
+                        }}
+                        placeholder="Nome do botão"
+                        className={`h-8 text-sm bg-white ${btn.nome.length >= 25 ? "border-amber-400" : ""}`}
+                        maxLength={25}
+                      />
+                      <p className="text-[10px] text-muted-foreground text-right">{btn.nome.length}/25</p>
+                    </div>
                     <Button
                       type="button"
                       variant="ghost"
@@ -1834,6 +1824,7 @@ export default function Templates() {
 
       return (
         <div className="space-y-4">
+          {limitsAlert}
           {/* Corpo do Texto */}
           <div>
             <Label htmlFor="corpoTextoBotao">Corpo do Texto</Label>
@@ -1900,12 +1891,20 @@ export default function Templates() {
                 {formData.cardData.botoes.map((btn, index) => (
                   <div key={btn.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
                     <span className="text-sm font-medium text-muted-foreground w-6">{index + 1}.</span>
-                    <Input
-                      value={btn.nome}
-                      onChange={(e) => handleUpdateButton(btn.id, "nome", e.target.value)}
-                      placeholder="Nome do botão"
-                      className="flex-1 h-8 text-sm bg-white"
-                    />
+                    <div className="flex-1 space-y-0.5">
+                      <Input
+                        value={btn.nome}
+                        onChange={(e) => {
+                          if (e.target.value.length <= 25) {
+                            handleUpdateButton(btn.id, "nome", e.target.value);
+                          }
+                        }}
+                        placeholder="Nome do botão"
+                        className={`h-8 text-sm bg-white ${btn.nome.length >= 25 ? "border-amber-400" : ""}`}
+                        maxLength={25}
+                      />
+                      <p className="text-[10px] text-muted-foreground text-right">{btn.nome.length}/25</p>
+                    </div>
                     <Button
                       type="button"
                       variant="ghost"
@@ -1960,6 +1959,7 @@ export default function Templates() {
 
       return (
         <div className="space-y-4">
+          {limitsAlert}
           {/* Imagem da Campanha */}
           <div>
             <Label>Imagem da Campanha</Label>
@@ -2114,6 +2114,7 @@ export default function Templates() {
 
       return (
         <div className="space-y-4">
+          {limitsAlert}
           {/* Vídeo da Campanha */}
           <div>
             <Label>Vídeo da Campanha</Label>
