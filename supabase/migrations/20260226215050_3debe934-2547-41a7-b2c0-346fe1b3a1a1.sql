@@ -1,0 +1,1 @@
+UPDATE whatsapp_templates SET status_meta = 'REJECTED' WHERE id_meta IN ('1380845080457416', '943892924841226') AND template_id_pri IS NULL;
