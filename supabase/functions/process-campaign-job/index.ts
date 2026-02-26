@@ -270,28 +270,34 @@ serve(async (req) => {
 
         console.log(`📤 Batch ${batch.batch_index}: enviando ${leads.length} leads`);
 
-        let batchSuccess = false;
-        let batchError = '';
+        // Arrays para rastrear resultados individuais por lead
+        const successLeadIds: string[] = [];
+        const failedLeadIds: string[] = [];
 
         if (isIALigacao) {
-          // IA Ligação: enviar em sub-lotes de 100 contatos para evitar erro 500 do n8n
-          const contatosArray = leads.map(lead => ({
+          // IA Ligação: enviar em sub-lotes de 100 contatos
+          // Para Ligação, o webhook recebe lote de contatos, mas rastreamos por sub-lote
+          const contatosWithIds = leads.map(lead => ({
+            id: lead.id,
             telefone_lead: normalizePhone(lead.telefone),
             nome: lead.nome,
             lead_id: lead.lead_id || null,
           }));
 
           const LIGACAO_SUB_BATCH = 100;
-          let ligacaoSucessos = 0;
-          let ligacaoFalhas = 0;
 
-          for (let i = 0; i < contatosArray.length; i += LIGACAO_SUB_BATCH) {
-            const subContatos = contatosArray.slice(i, i + LIGACAO_SUB_BATCH);
+          for (let i = 0; i < contatosWithIds.length; i += LIGACAO_SUB_BATCH) {
+            const subContatos = contatosWithIds.slice(i, i + LIGACAO_SUB_BATCH);
+            const subIds = subContatos.map(c => c.id);
             const payloadLigacao = {
               id_evento: eventIdPri,
               telefone_pri: telefonePri,
               loja: empresaData?.nome_empresa || '',
-              contatos: subContatos
+              contatos: subContatos.map(c => ({
+                telefone_lead: c.telefone_lead,
+                nome: c.nome,
+                lead_id: c.lead_id,
+              }))
             };
 
             try {
@@ -305,29 +311,24 @@ serve(async (req) => {
               });
 
               if (response.ok) {
-                ligacaoSucessos += subContatos.length;
+                // Sub-lote inteiro OK — marcar todos como sucesso
+                successLeadIds.push(...subIds);
                 console.log(`✅ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: webhook OK (${subContatos.length} contatos)`);
               } else {
                 const body = await response.text().catch(() => '');
-                ligacaoFalhas += subContatos.length;
+                failedLeadIds.push(...subIds);
                 console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: HTTP ${response.status}: ${body.substring(0, 200)}`);
               }
             } catch (err: any) {
-              ligacaoFalhas += subContatos.length;
+              failedLeadIds.push(...subIds);
               console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: Network error: ${err.message}`);
             }
           }
 
-          batchSuccess = ligacaoFalhas === 0;
-          if (ligacaoFalhas > 0) {
-            batchError = `${ligacaoFalhas} contatos falharam de ${contatosArray.length}`;
-          }
-          console.log(`📊 Batch ${batch.batch_index} Ligação: ${ligacaoSucessos} ok, ${ligacaoFalhas} falhas`);
+          console.log(`📊 Batch ${batch.batch_index} Ligação: ${successLeadIds.length} ok, ${failedLeadIds.length} falhas`);
         } else {
           // IA WhatsApp: processar leads individualmente em paralelo (batches de 50)
           const WA_BATCH_SIZE = 50;
-          let batchSucessos = 0;
-          let batchFalhas = 0;
 
           for (let i = 0; i < leads.length; i += WA_BATCH_SIZE) {
             const subBatch = leads.slice(i, i + WA_BATCH_SIZE);
@@ -370,61 +371,78 @@ serve(async (req) => {
             }));
 
             for (const r of results) {
-              if (r.status === 'fulfilled') batchSucessos++;
-              else batchFalhas++;
+              if (r.status === 'fulfilled') {
+                successLeadIds.push(r.value);
+              } else {
+                // Para falhas, pegar o ID do lead correspondente pelo índice
+                const idx = results.indexOf(r);
+                failedLeadIds.push(subBatch[idx].id);
+              }
             }
           }
 
-          batchSuccess = batchFalhas === 0;
-          if (batchFalhas > 0) {
-            batchError = `${batchFalhas} leads falharam de ${leads.length}`;
-          }
-          console.log(`📊 Batch ${batch.batch_index} WhatsApp: ${batchSucessos} ok, ${batchFalhas} falhas`);
+          console.log(`📊 Batch ${batch.batch_index} WhatsApp: ${successLeadIds.length} ok, ${failedLeadIds.length} falhas`);
         }
 
-        if (batchSuccess) {
+        // ========== PERSISTÊNCIA EM LOTE: SUCESSOS ==========
+        if (successLeadIds.length > 0) {
           const dataDisparoIA = new Date().toISOString();
           
-          // Atualizar contatos e eventos_prospeccao
-          await supabase.from('contatos').update({ data_disparo_ia: dataDisparoIA }).in('id', leadIds);
-          await supabase.from('eventos_prospeccao').update({ data_disparo_ia: dataDisparoIA }).eq('prospeccao_id', job.prospeccao_id).in('contato_id', leadIds);
+          // Atualizar contatos e eventos_prospeccao em sub-lotes de 100
+          for (let i = 0; i < successLeadIds.length; i += 100) {
+            const chunk = successLeadIds.slice(i, i + 100);
+            await supabase.from('contatos').update({ data_disparo_ia: dataDisparoIA }).in('id', chunk);
+            await supabase.from('eventos_prospeccao').update({ data_disparo_ia: dataDisparoIA }).eq('prospeccao_id', job.prospeccao_id).in('contato_id', chunk);
+          }
 
-          // Backup cadencia_pri_voz para ligação
+          // Backup cadencia_pri_voz para ligação (apenas leads com sucesso)
           if (isIALigacao) {
-            const cadenciasBackup = leads.map((lead: any) => ({
-              telefone_lead: normalizePhone(lead.telefone),
-              telefone_pri: telefonePri,
-              id_evento: parseInt(eventIdPri, 10),
-              num_tentativas: 1,
-              hora_primeira_tentativa: dataDisparoIA,
-              hora_ultima_tentativa: dataDisparoIA,
-              empresa_id: job.empresa_id,
-              criado_em: dataDisparoIA,
-              atualizado_em: dataDisparoIA,
-            }));
+            const successLeadSet = new Set(successLeadIds);
+            const cadenciasBackup = leads
+              .filter((lead: any) => successLeadSet.has(lead.id))
+              .map((lead: any) => ({
+                telefone_lead: normalizePhone(lead.telefone),
+                telefone_pri: telefonePri,
+                id_evento: parseInt(eventIdPri, 10),
+                num_tentativas: 1,
+                hora_primeira_tentativa: dataDisparoIA,
+                hora_ultima_tentativa: dataDisparoIA,
+                empresa_id: job.empresa_id,
+                criado_em: dataDisparoIA,
+                atualizado_em: dataDisparoIA,
+              }));
             for (let i = 0; i < cadenciasBackup.length; i += 100) {
               await supabase.from('cadencia_pri_voz').upsert(cadenciasBackup.slice(i, i + 100), { onConflict: 'telefone_lead,id_evento' });
             }
           }
-
-          // Marcar batch como completed
-          await supabase.from('campaign_batches').update({
-            status: 'completed',
-            processed_leads: leads.length,
-            completed_at: new Date().toISOString()
-          }).eq('id', batch.id);
-
-          totalProcessed += leads.length;
-        } else {
-          // Marcar batch como failed com retry
-          await supabase.from('campaign_batches').update({
-            status: 'failed',
-            retry_count: (batch.retry_count || 0) + 1,
-            error_log: batchError,
-          }).eq('id', batch.id);
-
-          totalFailed += leads.length;
         }
+
+        // ========== PERSISTÊNCIA EM LOTE: FALHAS ==========
+        // Leads com falha NÃO recebem data_disparo_ia (permanecem pendentes para reprocessamento)
+
+        // Determinar status do batch
+        const batchStatus = failedLeadIds.length === 0 
+          ? 'completed' 
+          : successLeadIds.length === 0 
+            ? 'failed' 
+            : 'completed'; // Parcial: batch completo, mas com falhas registradas
+
+        const batchError = failedLeadIds.length > 0 
+          ? `${failedLeadIds.length} de ${leads.length} leads falharam` 
+          : '';
+
+        await supabase.from('campaign_batches').update({
+          status: batchStatus,
+          processed_leads: successLeadIds.length,
+          error_log: batchError || null,
+          completed_at: new Date().toISOString(),
+          ...(failedLeadIds.length > 0 && successLeadIds.length === 0 
+            ? { retry_count: (batch.retry_count || 0) + 1 } 
+            : {}),
+        }).eq('id', batch.id);
+
+        totalProcessed += successLeadIds.length;
+        totalFailed += failedLeadIds.length;
 
         // Atualizar progresso do job (Realtime vai notificar o frontend)
         await supabase.from('campaign_jobs').update({
