@@ -1365,8 +1365,7 @@ export default function Templates() {
           }`}
           onClick={() => {
             setFormData(prev => ({ ...prev, formato: format.value }));
-            // Auto-avançar para step 3 ao selecionar formato
-            setTimeout(() => setCurrentStep(3), 150);
+            setCurrentStep(3);
           }}
         >
           <CardContent className="flex items-center justify-between py-1.5 px-3">
