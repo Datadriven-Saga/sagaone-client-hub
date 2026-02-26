@@ -1329,12 +1329,32 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         }
 
         // Chamar webhook após atualização (apenas IA Whatsapp)
+        let editEventIdPri: string | null = data.event_id_pri || null;
         if (tipoEvento === 'IA Whatsapp') {
-          await callWebhook(data);
+          const priConfigResult = await callWebhook(data);
+          if (priConfigResult) editEventIdPri = priConfigResult;
         }
         
         // Disparar gatilhos de "novo_evento_criado" (independente do webhook pri-config)
-        await triggerNovoEventoCriadoWebhooks(data, true);
+        const gatilhoResult = await triggerNovoEventoCriadoWebhooks(data, true);
+        if (gatilhoResult) editEventIdPri = gatilhoResult;
+        
+        // Para IA WhatsApp na edição: garantir que event_id_pri existe
+        if (tipoEvento === 'IA Whatsapp' && !editEventIdPri) {
+          console.warn('⚠️ Evento IA WhatsApp editado sem event_id_pri - salvando mas alertando usuário');
+          toast({
+            title: "⚠️ Atenção: event_id_pri ausente",
+            description: "O evento foi atualizado mas o identificador event_id_pri não está configurado. Algumas funcionalidades podem não funcionar corretamente.",
+            variant: "destructive",
+          });
+        } else if (tipoEvento === 'IA Whatsapp' && editEventIdPri && !data.event_id_pri) {
+          // Se obteve o event_id_pri agora mas não tinha antes, salvar
+          await supabase
+            .from('prospeccoes')
+            .update({ event_id_pri: editEventIdPri })
+            .eq('id', data.id);
+          console.log(`✅ event_id_pri "${editEventIdPri}" salvo na edição do evento`);
+        }
         
         // Salvar dados relacionados baseado no tipo
         if (tipoEvento === 'Grande Evento') {
@@ -1432,12 +1452,46 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         }
 
         // Chamar webhook após criação (apenas IA Whatsapp)
+        let eventIdPriFromWebhook: string | null = null;
         if (tipoEvento === 'IA Whatsapp') {
-          await callWebhook(data);
+          eventIdPriFromWebhook = await callWebhook(data);
         }
         
         // Disparar gatilhos de "novo_evento_criado" (independente do webhook pri-config)
-        await triggerNovoEventoCriadoWebhooks(data, false);
+        const eventIdPriFromGatilhos = await triggerNovoEventoCriadoWebhooks(data, false);
+        
+        // Para IA WhatsApp: consolidar event_id_pri obtido de qualquer fonte
+        if (tipoEvento === 'IA Whatsapp') {
+          const finalEventIdPri = eventIdPriFromWebhook || eventIdPriFromGatilhos;
+          
+          // Se obteve o event_id_pri do callWebhook mas não foi salvo ainda, salvar agora
+          if (eventIdPriFromWebhook && !eventIdPriFromGatilhos) {
+            await supabase
+              .from('prospeccoes')
+              .update({ event_id_pri: eventIdPriFromWebhook })
+              .eq('id', data.id);
+            console.log(`✅ event_id_pri "${eventIdPriFromWebhook}" salvo via pri-config`);
+          }
+          
+          // VALIDAÇÃO OBRIGATÓRIA: event_id_pri é mandatório para IA WhatsApp
+          if (!finalEventIdPri) {
+            console.error('❌ event_id_pri não retornado para IA WhatsApp - revertendo evento');
+            
+            // Reverter criação local
+            const { error: rollbackError } = await supabase
+              .from('prospeccoes')
+              .delete()
+              .eq('id', data.id);
+
+            if (rollbackError) {
+              console.error('❌ Falha ao reverter prospecção local:', rollbackError);
+            }
+
+            throw new Error('Não foi possível criar o evento de IA WhatsApp, pois o identificador event_id_pri não foi retornado. Esse dado é obrigatório para o funcionamento do evento. Tente novamente.');
+          }
+          
+          console.log(`✅ Evento IA WhatsApp criado com event_id_pri: ${finalEventIdPri}`);
+        }
         
         // Salvar dados relacionados baseado no tipo
         if (tipoEvento === 'Grande Evento') {
@@ -1527,7 +1581,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
 
-  const callWebhook = async (prospeccaoData: any) => {
+  const callWebhook = async (prospeccaoData: any): Promise<string | null> => {
     try {
       // Buscar dados da empresa para pegar o crm_id e telefone da Pri
       const { data: empresaData } = await supabase
@@ -1601,15 +1655,24 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       });
 
       if (error) {
-        console.warn('⚠️ Webhook pri-config retornou erro (não bloqueia o fluxo):', error?.message || error);
+        console.warn('⚠️ Webhook pri-config retornou erro:', error?.message || error);
+        return null;
       } else if (response?.code === 404) {
         console.warn('⚠️ Webhook pri-config: workflow não está ativo no n8n (404). Fluxo continua normalmente.');
+        return null;
       } else {
-        console.log('✅ Webhook pri-config enviado com sucesso');
+        console.log('✅ Webhook pri-config enviado com sucesso', response);
+        // Capturar event_id_pri se retornado pelo webhook
+        const eventId = response?.event_id || response?.event_id_pri || response?.id_evento;
+        if (eventId) {
+          console.log(`✅ event_id_pri capturado do pri-config: ${eventId}`);
+          return String(eventId);
+        }
+        return null;
       }
     } catch (error) {
       console.warn(`⚠️ Erro ao disparar gatilho "pri-config": ${error instanceof Error ? error.message : String(error)}`);
-      // Não mostramos erro ao usuário para não interromper o fluxo
+      return null;
     }
   };
 
@@ -1906,8 +1969,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
 
-  const triggerNovoEventoCriadoWebhooks = async (prospeccaoData: any, isEditing: boolean) => {
-    if (!activeCompany?.id) return;
+  const triggerNovoEventoCriadoWebhooks = async (prospeccaoData: any, isEditing: boolean): Promise<string | null> => {
+    if (!activeCompany?.id) return null;
     
     // Disparar webhook para todos os tipos de evento
 
@@ -2000,7 +2063,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
       if (error) {
         console.error('Erro ao buscar gatilhos:', error);
-        return;
+        return null;
       }
 
       // Filtrar gatilhos do tipo "novo_evento_criado"
@@ -2011,7 +2074,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
       if (gatilhosEvento.length === 0) {
         console.log('Nenhum gatilho de novo_evento_criado configurado');
-        return;
+        return null;
       }
 
       // Formatar datas para ISO 8601
@@ -2095,6 +2158,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       console.log('📦 Payload:', payload);
 
       // Disparar cada webhook
+      let capturedEventIdPri: string | null = null;
       for (const gatilho of gatilhosEvento) {
         const webhookUrl = (gatilho.acoes as any)?.webhook_url;
         if (!webhookUrl) continue;
@@ -2114,16 +2178,18 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
             console.log('📥 Resposta do webhook:', proxyResponse);
             
             // Se retornou event_id, salvar na prospecção
-            if (proxyResponse?.event_id) {
+            const returnedEventId = proxyResponse?.event_id || proxyResponse?.event_id_pri || proxyResponse?.id_evento;
+            if (returnedEventId) {
+              capturedEventIdPri = String(returnedEventId);
               const { error: updateError } = await supabase
                 .from('prospeccoes')
-                .update({ event_id_pri: String(proxyResponse.event_id) })
+                .update({ event_id_pri: capturedEventIdPri })
                 .eq('id', prospeccaoData.id);
               
               if (updateError) {
                 console.error(`❌ Erro ao salvar event_id_pri: ${updateError.message}`);
               } else {
-                console.log(`✅ event_id_pri "${proxyResponse.event_id}" salvo na prospecção ${prospeccaoData.id}`);
+                console.log(`✅ event_id_pri "${capturedEventIdPri}" salvo na prospecção ${prospeccaoData.id}`);
               }
             }
             
@@ -2137,8 +2203,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           console.error(`❌ Erro ao disparar gatilho "${gatilho.nome}": ${webhookError instanceof Error ? webhookError.message : 'Erro desconhecido'}`);
         }
       }
+      return capturedEventIdPri;
     } catch (error) {
       console.error(`❌ Erro ao processar gatilhos de "novo_evento_criado": ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      return null;
     }
   };
 
