@@ -273,13 +273,21 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   };
 
   const signInWithAzure = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
+    // Use skipBrowserRedirect + window.open to avoid iframe blocking by Microsoft
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'azure',
       options: {
         redirectTo: `${window.location.origin}/`,
         scopes: 'email profile openid',
+        skipBrowserRedirect: true,
       },
     });
+    
+    if (data?.url && !error) {
+      // Open in new tab to bypass iframe restrictions (preview environment)
+      window.open(data.url, '_blank');
+    }
+    
     return { error };
   };
 
