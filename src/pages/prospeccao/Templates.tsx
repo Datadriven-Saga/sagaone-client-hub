@@ -41,7 +41,7 @@ import {
   X,
   Upload,
   Trash2,
-  Edit2,
+  Copy,
   Music,
   RefreshCw,
   Eye,
@@ -97,7 +97,6 @@ interface TemplateFormData {
   conteudo: string;
   variaveis: string[];
   cardData: CardData;
-  template_id_pri: string;
 }
 
 const formatOptions = [
@@ -139,7 +138,7 @@ export default function Templates() {
   const { activeCompany } = useCompany();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [duplicatingTemplate, setDuplicatingTemplate] = useState<any | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [nomeDuplicado, setNomeDuplicado] = useState(false);
@@ -212,7 +211,6 @@ export default function Templates() {
     conteudo: "",
     variaveis: [],
     cardData: initialCardData,
-    template_id_pri: "",
   });
 
   // Estado para mapeamento de variáveis dinâmicas {{1}}, {{2}}, etc.
@@ -367,7 +365,7 @@ export default function Templates() {
   // Verificar nome duplicado em tempo real (usando pri_telefone)
   useEffect(() => {
     const verificarNomeDuplicado = async () => {
-      if (!formData.nome.trim() || formData.nome.trim().length < 2 || !priTelefone) {
+      if (!formData.nome || formData.nome.trim().length < 2 || !priTelefone) {
         setNomeDuplicado(false);
         return;
       }
@@ -380,10 +378,6 @@ export default function Templates() {
           .eq("pri_telefone", priTelefone)
           .ilike("nome", formData.nome.trim());
 
-        // Se estiver editando, excluir o template atual da verificação
-        if (editingTemplateId) {
-          query = query.neq("id", editingTemplateId);
-        }
 
         const { data: existingTemplate } = await query.maybeSingle();
         setNomeDuplicado(!!existingTemplate);
@@ -396,22 +390,52 @@ export default function Templates() {
 
     const debounceTimer = setTimeout(verificarNomeDuplicado, 300);
     return () => clearTimeout(debounceTimer);
-  }, [formData.nome, editingTemplateId, priTelefone]);
+  }, [formData.nome, priTelefone]);
 
-  const handleOpenModal = () => {
-    setEditingTemplateId(null);
+  const handleOpenModal = (duplicateFrom?: any) => {
+    setDuplicatingTemplate(duplicateFrom || null);
     setVariableMappings([]); // Resetar mapeamento de variáveis
-    setFormData({
-      nome: "",
-      categoria: "marketing",
-      departamento_id: "",
-      agente_id: selectedAgenteId || "",
-      formato: "",
-      conteudo: "",
-      variaveis: [],
-      cardData: initialCardData,
-      template_id_pri: "",
-    });
+    
+    if (duplicateFrom) {
+      // Preencher com dados do template duplicado
+      const cardData = duplicateFrom.card_data || {};
+      setFormData({
+        nome: "", // Nome deve ser novo
+        categoria: duplicateFrom.categoria as TemplateCategory || "marketing",
+        departamento_id: duplicateFrom.departamento_id || "",
+        agente_id: selectedAgenteId || "",
+        formato: duplicateFrom.formato as TemplateFormat || "",
+        conteudo: duplicateFrom.formato === "texto" ? duplicateFrom.conteudo : "",
+        variaveis: [],
+        cardData: {
+          imagemCampanha: null,
+          imagemPreviewUrl: cardData.imagemUrl || "",
+          audioCampanha: null,
+          audioPreviewUrl: cardData.audioUrl || "",
+          videoCampanha: null,
+          videoPreviewUrl: cardData.videoUrl || "",
+          textoCabecalho: cardData.textoCabecalho || "",
+          corpoTexto: duplicateFrom.formato !== "texto" ? duplicateFrom.conteudo : "",
+          rodape: cardData.rodape || "",
+          botoes: (cardData.botoes || []).map((b: any) => ({
+            id: crypto.randomUUID(),
+            nome: b.nome || "",
+            buttonId: b.buttonId || "",
+          })),
+        },
+      });
+    } else {
+      setFormData({
+        nome: "",
+        categoria: "marketing",
+        departamento_id: "",
+        agente_id: selectedAgenteId || "",
+        formato: "",
+        conteudo: "",
+        variaveis: [],
+        cardData: initialCardData,
+      });
+    }
     // Selecionar "Pri - Whatsapp" como padrão ao abrir modal
     const priWhatsapp = agentesIAWhatsapp.find((a: any) => 
       a.nome?.toLowerCase().includes('whatsapp') || 
@@ -422,42 +446,10 @@ export default function Templates() {
     setIsModalOpen(true);
   };
 
-  const handleEditTemplate = (template: any) => {
-    setEditingTemplateId(template.id);
-    
-    // Parse card_data from database
-    const cardData = template.card_data || {};
-    
-    setFormData({
-      nome: template.nome,
-      categoria: template.categoria as TemplateCategory,
-      departamento_id: template.departamento_id || "",
-      agente_id: selectedAgenteId || "",
-      formato: template.formato as TemplateFormat,
-      conteudo: template.formato === "texto" ? template.conteudo : "",
-      variaveis: [],
-      template_id_pri: template.template_id_pri || "",
-      cardData: {
-        imagemCampanha: null,
-        imagemPreviewUrl: cardData.imagemUrl || "",
-        audioCampanha: null,
-        audioPreviewUrl: cardData.audioUrl || "",
-        videoCampanha: null,
-        videoPreviewUrl: cardData.videoUrl || "",
-        textoCabecalho: cardData.textoCabecalho || "",
-        corpoTexto: template.formato !== "texto" ? template.conteudo : "",
-        rodape: cardData.rodape || "",
-        botoes: (cardData.botoes || []).map((b: any) => ({
-          id: b.id || crypto.randomUUID(),
-          nome: b.nome || "",
-          buttonId: b.buttonId || "",
-        })),
-      },
-    });
+  const handleDuplicateTemplate = (template: any) => {
     // Definir agente do template se existir
     setSelectedAgenteId(template.agente_id || (agentesIAWhatsapp.length > 0 ? agentesIAWhatsapp[0].id : null));
-    setCurrentStep(1);
-    setIsModalOpen(true);
+    handleOpenModal(template);
   };
 
   const handleDeleteTemplate = async (template: any) => {
@@ -532,7 +524,7 @@ export default function Templates() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setCurrentStep(1);
-    setEditingTemplateId(null);
+    setDuplicatingTemplate(null);
   };
 
   const handleNext = () => {
@@ -850,7 +842,7 @@ export default function Templates() {
     
     // Validação de nome duplicado
     const duplicateExists = templates.some(
-      t => t.nome.toLowerCase() === formData.nome.trim().toLowerCase() && t.id !== editingTemplateId
+      t => t.nome.toLowerCase() === formData.nome.trim().toLowerCase()
     );
     
     if (duplicateExists) {
@@ -977,34 +969,21 @@ export default function Templates() {
         agente_id: selectedAgenteId,
         pri_telefone: telefoneAgente,
         variable_mapping: varMappingForDB,
-        template_id_pri: formData.template_id_pri.trim() || null,
       };
 
-      let error;
-      let insertedTemplateId: string | null = null;
+      // 1. Inserir o template no banco
+      const { data: insertedData, error: insertError } = await supabase
+        .from("whatsapp_templates")
+        .insert(templateData)
+        .select("id")
+        .single();
+
+      if (insertError) throw insertError;
       
-      if (editingTemplateId) {
-        // Update existing template
-        const result = await supabase
-          .from("whatsapp_templates")
-          .update(templateData)
-          .eq("id", editingTemplateId);
-        error = result.error;
-        insertedTemplateId = editingTemplateId;
-      } else {
-        // Insert new template
-        const result = await supabase
-          .from("whatsapp_templates")
-          .insert([templateData])
-          .select("id")
-          .single();
-        error = result.error;
-        insertedTemplateId = result.data?.id || null;
-      }
+      const insertedTemplateId = insertedData?.id;
+      if (!insertedTemplateId) throw new Error("Erro ao criar template: ID não retornado.");
 
-      if (error) throw error;
-
-      // Disparar webhooks dos gatilhos "novo_template_whatsapp_criado"
+      // 2. Chamar webhook para criar na Meta
       const webhookResponse = await triggerWebhooks({
         nome: formData.nome,
         categoria: formData.categoria,
@@ -1015,31 +994,34 @@ export default function Templates() {
         variableMappings: variableMappings,
       });
 
-      // Se o webhook retornou dados do Meta, atualizar o template
-      if (insertedTemplateId) {
-        const hasValidIds = webhookResponse?.template_id_pri && webhookResponse?.id_meta;
-        
-        const { error: updateError } = await supabase
-          .from("whatsapp_templates")
-          .update({
-            template_id_pri: webhookResponse?.template_id_pri || null,
-            id_meta: webhookResponse?.id_meta || null,
-            status_meta: hasValidIds ? (webhookResponse?.status_meta || null) : 'REJECTED',
-            category_meta: webhookResponse?.category_meta || null,
-          })
-          .eq("id", insertedTemplateId);
-
-        if (updateError) {
-          console.error("Erro ao salvar dados do Meta:", updateError);
-        } else {
-          console.log("Dados do Meta salvos com sucesso:", webhookResponse);
-          if (!hasValidIds) {
-            console.warn("Template criado sem IDs da PRI/Meta - marcado como REJECTED");
-          }
-        }
+      // 3. Validar que o webhook retornou template_id_pri (OBRIGATÓRIO)
+      const returnedTemplateIdPri = webhookResponse?.template_id_pri;
+      
+      if (!returnedTemplateIdPri) {
+        // Rollback: excluir o template parcial do banco
+        await supabase.from("whatsapp_templates").delete().eq("id", insertedTemplateId);
+        throw new Error(
+          "Não foi possível criar o template, pois o identificador template_id_pri não foi retornado pelo webhook. " +
+          "Esse dado é obrigatório para o funcionamento do template na PRI WhatsApp. Tente novamente."
+        );
       }
 
-      toast.success(editingTemplateId ? "Template atualizado com sucesso!" : "Template criado com sucesso!");
+      // 4. Atualizar o template com os IDs retornados
+      const { error: updateError } = await supabase
+        .from("whatsapp_templates")
+        .update({
+          template_id_pri: returnedTemplateIdPri,
+          id_meta: webhookResponse?.id_meta || null,
+          status_meta: webhookResponse?.status_meta || null,
+          category_meta: webhookResponse?.category_meta || null,
+        })
+        .eq("id", insertedTemplateId);
+
+      if (updateError) {
+        console.error("Erro ao salvar dados do Meta:", updateError);
+      }
+
+      toast.success("Template criado com sucesso!");
       refetchTemplates();
       handleCloseModal();
     } catch (error: any) {
@@ -2383,10 +2365,10 @@ export default function Templates() {
                             variant="ghost" 
                             size="icon"
                             className="cursor-pointer"
-                            onClick={() => handleEditTemplate(template)}
-                            title="Editar"
+                            onClick={() => handleDuplicateTemplate(template)}
+                            title="Duplicar"
                           >
-                            <Edit2 className="h-4 w-4" />
+                            <Copy className="h-4 w-4" />
                           </Button>
                           <Button 
                             variant="ghost" 
@@ -2411,7 +2393,7 @@ export default function Templates() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[600px] h-[600px] flex flex-col overflow-hidden pb-3">
           <DialogHeader className="flex-shrink-0">
-            <DialogTitle>{editingTemplateId ? "Editar Template" : "Novo Template"}</DialogTitle>
+            <DialogTitle>{duplicatingTemplate ? "Novo Template (Duplicado)" : "Novo Template"}</DialogTitle>
           </DialogHeader>
           
           <div className="flex-shrink-0">
@@ -2464,7 +2446,7 @@ export default function Templates() {
                 </Button>
               ) : (
                 <Button onClick={handleSave} disabled={isSaving}>
-                  {isSaving ? "Salvando..." : "Salvar Template"}
+                  {isSaving ? "Criando..." : "Criar Template"}
                 </Button>
               )}
             </div>
