@@ -1363,7 +1363,11 @@ export default function Templates() {
           className={`cursor-pointer transition-all hover:border-primary ${
             formData.formato === format.value ? "border-primary border-2" : ""
           }`}
-          onClick={() => setFormData(prev => ({ ...prev, formato: format.value }))}
+          onClick={() => {
+            setFormData(prev => ({ ...prev, formato: format.value }));
+            // Auto-avançar para step 3 ao selecionar formato
+            setTimeout(() => setCurrentStep(3), 150);
+          }}
         >
           <CardContent className="flex items-center justify-between py-1.5 px-3">
             <div className="flex items-center gap-2">
