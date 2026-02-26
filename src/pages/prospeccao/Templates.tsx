@@ -1148,25 +1148,35 @@ export default function Templates() {
 
               if (!metaId || !metaStatus) continue;
 
-              const { data: updatedById, error: updateByIdErr } = await supabase
+              // Buscar o template local para verificar se tem template_id_pri
+              const { data: localMatch } = await supabase
                 .from("whatsapp_templates")
-                .update({
-                  status_meta: metaStatus,
-                  category_meta: metaCategory || null,
-                })
+                .select("id, template_id_pri")
                 .eq("id_meta", metaId)
                 .eq("empresa_id", activeCompany.id)
-                .select("id");
+                .maybeSingle();
 
-              if (!updateByIdErr && updatedById && updatedById.length > 0) {
-                updatedCount++;
+              // REGRA CRÍTICA: template sem template_id_pri NUNCA pode ser APPROVED
+              const finalStatus = (localMatch && !localMatch.template_id_pri) ? "REJECTED" : metaStatus;
+
+              if (localMatch) {
+                const { error: updateByIdErr } = await supabase
+                  .from("whatsapp_templates")
+                  .update({
+                    status_meta: finalStatus,
+                    category_meta: metaCategory || null,
+                  })
+                  .eq("id", localMatch.id)
+                  .eq("empresa_id", activeCompany.id);
+
+                if (!updateByIdErr) updatedCount++;
                 continue;
               }
 
               if (metaName) {
                 const { data: localTemplates } = await supabase
                   .from("whatsapp_templates")
-                  .select("id, nome")
+                  .select("id, nome, template_id_pri")
                   .eq("empresa_id", activeCompany.id)
                   .is("id_meta", null);
 
@@ -1177,11 +1187,14 @@ export default function Templates() {
                   });
 
                   if (matchingTemplate) {
+                    // REGRA CRÍTICA: template sem template_id_pri NUNCA pode ser APPROVED
+                    const finalStatusByName = !matchingTemplate.template_id_pri ? "REJECTED" : metaStatus;
+
                     const { error: updateByNameErr } = await supabase
                       .from("whatsapp_templates")
                       .update({
                         id_meta: metaId,
-                        status_meta: metaStatus,
+                        status_meta: finalStatusByName,
                         category_meta: metaCategory || null,
                       })
                       .eq("id", matchingTemplate.id)
