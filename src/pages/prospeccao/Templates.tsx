@@ -1771,7 +1771,7 @@ export default function Templates() {
                             handleUpdateButton(btn.id, "nome", e.target.value);
                           }
                         }}
-                        placeholder="Nome do botão"
+                        placeholder="Texto do botão"
                         className={`h-8 text-sm bg-white ${btn.nome.length >= 25 ? "border-amber-400" : ""}`}
                         maxLength={25}
                       />
@@ -1910,7 +1910,7 @@ export default function Templates() {
                             handleUpdateButton(btn.id, "nome", e.target.value);
                           }
                         }}
-                        placeholder="Nome do botão"
+                        placeholder="Texto do botão"
                         className={`h-8 text-sm bg-white ${btn.nome.length >= 25 ? "border-amber-400" : ""}`}
                         maxLength={25}
                       />

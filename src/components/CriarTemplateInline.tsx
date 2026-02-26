@@ -655,7 +655,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
                   <Input
                     value={btn.nome}
                     onChange={(e) => updateButton(btn.id, e.target.value)}
-                    placeholder="Nome do botão"
+                    placeholder="Texto do botão"
                   />
                   <Button type="button" variant="ghost" size="icon" onClick={() => removeButton(btn.id)}>
                     <Trash2 className="w-4 h-4 text-destructive" />
@@ -856,7 +856,7 @@ export const CriarTemplateInline = ({ empresaId, onClose, onTemplateCreated }: C
                   <Input
                     value={btn.nome}
                     onChange={(e) => updateButton(btn.id, e.target.value)}
-                    placeholder="Nome do botão"
+                    placeholder="Texto do botão"
                   />
                   <Button type="button" variant="ghost" size="icon" onClick={() => removeButton(btn.id)}>
                     <Trash2 className="w-4 h-4 text-destructive" />
