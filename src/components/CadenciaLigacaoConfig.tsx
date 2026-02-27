@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Phone, Settings2, CalendarClock, Loader2, X, PhoneCall, Plus, UserPlus, Trash2, RefreshCw, CheckCircle, Calendar } from "lucide-react";
+import { Save, Phone, Settings2, CalendarClock, Loader2, X, PhoneCall, Plus, UserPlus, Trash2, RefreshCw, CheckCircle, Calendar, Send, MessageSquare, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePriLigacaoEventos } from "@/hooks/usePriLigacaoEventos";
@@ -68,9 +69,9 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
   const [horario, setHorario] = useState("07:45");
   const [diasAtivos, setDiasAtivos] = useState<string[]>(["seg", "ter", "qua", "qui", "sex", "sab"]);
 
-  // Query params
-  const [eventTags, setEventTags] = useState<string[]>([]);
-  const [eventTagInput, setEventTagInput] = useState("");
+  // Cadência query params
+  const [selectedEventIds, setSelectedEventIds] = useState<number[]>([]);
+  const [showInativos, setShowInativos] = useState(false);
   const [numTentativas, setNumTentativas] = useState(2);
   const [evtStatus, setEvtStatus] = useState(true);
   const [ligacaoAtendida, setLigacaoAtendida] = useState(false);
@@ -86,7 +87,17 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
   const [baseConfirmada, setBaseConfirmada] = useState(false);
   const [eventoSelecionado, setEventoSelecionado] = useState<string>("");
 
-  // Events for testar
+  // ─── Envio Mensagem state ───
+  const [sendingMsg, setSendingMsg] = useState(false);
+  const [msgIdEvento, setMsgIdEvento] = useState("249");
+  const [msgEventIdMaia, setMsgEventIdMaia] = useState("232");
+  const [msgStatusAgendado, setMsgStatusAgendado] = useState(false);
+  const [msgEvtStatus, setMsgEvtStatus] = useState(true);
+  const [msgSomenteSemProposta, setMsgSomenteSemProposta] = useState(false);
+  const [msgTelefonePriWhatsapp, setMsgTelefonePriWhatsapp] = useState("");
+  const [msgDealerId, setMsgDealerId] = useState("");
+
+  // Events from selected Pri
   const { data: eventosData = [], isLoading: loadingEventos } = usePriLigacaoEventos(telefonePri);
 
   const eventos = useMemo<EventoPriVoz[]>(() => {
@@ -102,6 +113,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     });
   }, [eventosData]);
 
+  // Auto-select first active event for testar
   useEffect(() => {
     if (eventoSelecionado) return;
     if (eventos.length === 0) return;
@@ -155,33 +167,31 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
 
   // Reset when pri changes
   useEffect(() => {
-    setEventTags([]);
+    setSelectedEventIds([]);
     setEventoSelecionado("");
     setContatos([{ id: crypto.randomUUID(), nome: "", telefone: "" }]);
     setBaseConfirmada(false);
   }, [selectedPriId]);
 
-  // ─── Tag helpers ───
-  const addEventTag = () => {
-    const val = eventTagInput.trim();
-    if (val && !eventTags.includes(val)) setEventTags(prev => [...prev, val]);
-    setEventTagInput("");
-  };
-  const removeEventTag = (tag: string) => setEventTags(prev => prev.filter(t => t !== tag));
-  const handleEventTagKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addEventTag(); }
+  // ─── Cadência helpers ───
+  const toggleEventId = (id: number) => {
+    setSelectedEventIds(prev => prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]);
   };
   const toggleDia = (key: string) => setDiasAtivos(prev => prev.includes(key) ? prev.filter(d => d !== key) : [...prev, key]);
 
-  // ─── Cadência save ───
+  const filteredEventos = useMemo(() => {
+    if (showInativos) return eventos;
+    return eventos.filter(evt => evt.evt_status === "ativo");
+  }, [eventos, showInativos]);
+
   const handleSaveCadencia = async () => {
-    if (eventTags.length === 0) { toast({ title: "Adicione ao menos um id_evento", variant: "destructive" }); return; }
+    if (selectedEventIds.length === 0) { toast({ title: "Selecione ao menos um evento", variant: "destructive" }); return; }
     if (!telefonePri) { toast({ title: "Selecione um agente Pri", variant: "destructive" }); return; }
 
     setSaving(true);
     try {
       const payload = {
-        id_evento: eventTags.join(", "),
+        id_evento: selectedEventIds.join(", "),
         telefone_pri: telefonePri,
         evt_status: evtStatus,
         num_tentativas: numTentativas,
@@ -200,9 +210,9 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
         body: { ...payload, _webhook_url: "https://automatemaiawh.sagadatadriven.com.br/webhook/cadencia_ligacao" },
       });
       if (error) throw error;
-      toast({ title: "Configurações salvas com sucesso!" });
+      toast({ title: "Cadência configurada com sucesso!" });
     } catch (err: any) {
-      toast({ title: "Erro ao salvar", description: err.message || "Tente novamente.", variant: "destructive" });
+      toast({ title: "Erro ao configurar", description: err.message || "Tente novamente.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -277,6 +287,35 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     }
   };
 
+  // ─── Envio Mensagem handler ───
+  const handleDisparoMensagem = async () => {
+    if (!msgTelefonePriWhatsapp.trim()) {
+      toast({ title: "Informe o telefone_pri_whatsapp", variant: "destructive" });
+      return;
+    }
+    setSendingMsg(true);
+    try {
+      const payload = {
+        id_evento: msgIdEvento,
+        event_id_maia: msgEventIdMaia,
+        status_agendado: msgStatusAgendado,
+        evt_status: msgEvtStatus,
+        somente_sem_proposta: msgSomenteSemProposta,
+        telefone_pri_whatsapp: msgTelefonePriWhatsapp.replace(/\D/g, ""),
+        dealerid: msgDealerId.trim(),
+      };
+      const { error } = await supabase.functions.invoke("maia-webhook-proxy", {
+        body: { ...payload, _webhook_url: "https://automatemaiawh.sagadatadriven.com.br/webhook/envia_mensagem" },
+      });
+      if (error) throw error;
+      toast({ title: "Mensagens disparadas com sucesso!", description: "O processo de envio foi iniciado." });
+    } catch (err: any) {
+      toast({ title: "Erro ao disparar", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSendingMsg(false);
+    }
+  };
+
   // ─── Render ───
   return (
     <div className={cn("space-y-6", className)}>
@@ -288,14 +327,14 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
               <Phone className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg">Configuração de Ligação</CardTitle>
-              <CardDescription>Configure cadências, filtros de query e teste ligações do Agente de Voz (Pri)</CardDescription>
+              <CardTitle className="text-lg">Painel de Configuração de Agentes</CardTitle>
+              <CardDescription>Configure cadências de ligação, teste ligações e dispare mensagens em massa</CardDescription>
             </div>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Seleção de Pri (compartilhada) */}
+      {/* Seleção de Pri (compartilhada para Cadência e Testar) */}
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
@@ -326,9 +365,9 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
         </CardContent>
       </Card>
 
-      {/* Sub-tabs */}
+      {/* Sub-tabs: Cadência | Testar Ligação | Envio de Mensagem */}
       <Tabs defaultValue="cadencia" className="min-w-0">
-        <TabsList>
+        <TabsList className="flex-nowrap overflow-x-auto">
           <TabsTrigger value="cadencia" className="min-w-max whitespace-nowrap">
             <CalendarClock className="h-4 w-4 mr-1.5" />
             Cadência
@@ -337,9 +376,15 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
             <PhoneCall className="h-4 w-4 mr-1.5" />
             Testar Ligação
           </TabsTrigger>
+          <TabsTrigger value="envio-mensagem" className="min-w-max whitespace-nowrap">
+            <MessageSquare className="h-4 w-4 mr-1.5" />
+            Envio de Mensagem
+          </TabsTrigger>
         </TabsList>
 
-        {/* ─── Cadência Tab ─── */}
+        {/* ═══════════════════════════════════════════════
+            TAB 1: CADÊNCIA
+            ═══════════════════════════════════════════════ */}
         <TabsContent value="cadencia" className="space-y-6 mt-4">
           {/* Recorrência */}
           <Card className="shadow-sm">
@@ -401,21 +446,53 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
-              {/* id_evento tags */}
+              {/* Eventos checkbox list */}
               <div className="space-y-2">
-                <Label>id_evento</Label>
-                <div className="flex gap-2">
-                  <Input placeholder="Ex: 248" value={eventTagInput} onChange={e => setEventTagInput(e.target.value)} onKeyDown={handleEventTagKeyDown} className="flex-1" />
-                  <Button type="button" size="icon" variant="outline" onClick={addEventTag}><Plus className="h-4 w-4" /></Button>
+                <div className="flex items-center justify-between">
+                  <Label>Eventos (id_evento)</Label>
+                  {selectedPriId && eventos.length > 0 && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <span className="text-xs text-muted-foreground">Mostrar inativos</span>
+                      <Switch checked={showInativos} onCheckedChange={setShowInativos} />
+                    </label>
+                  )}
                 </div>
-                {eventTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {eventTags.map(tag => (
-                      <Badge key={tag} variant="secondary" className="gap-1 pr-1">
-                        {tag}
-                        <button type="button" onClick={() => removeEventTag(tag)} className="ml-1 rounded-full hover:bg-muted p-0.5"><X className="h-3 w-3" /></button>
-                      </Badge>
-                    ))}
+                {!selectedPriId ? (
+                  <p className="text-sm text-muted-foreground">Selecione um agente Pri acima para carregar os eventos.</p>
+                ) : loadingEventos ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Carregando eventos...
+                  </div>
+                ) : eventos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum evento encontrado para este agente.</p>
+                ) : filteredEventos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum evento ativo encontrado. Ative "Mostrar inativos" para ver todos.</p>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto rounded-lg border p-3">
+                      {filteredEventos.map(evt => {
+                        const isChecked = selectedEventIds.includes(Number(evt.id_evento));
+                        return (
+                          <label
+                            key={evt.id}
+                            className={cn(
+                              "flex items-center gap-2 rounded-md border p-2.5 cursor-pointer transition-colors",
+                              isChecked ? "border-primary bg-primary/5" : "border-input hover:border-primary/40"
+                            )}
+                          >
+                            <Checkbox
+                              checked={isChecked}
+                              onCheckedChange={() => toggleEventId(Number(evt.id_evento))}
+                            />
+                            <span className="text-sm font-medium">{evt.nome}</span>
+                            <Badge variant="outline" className="ml-auto text-xs">{evt.id_evento}</Badge>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {selectedEventIds.length > 0 && (
+                      <p className="text-xs text-muted-foreground">{selectedEventIds.length} evento(s) selecionado(s)</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -456,16 +533,17 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
             </CardContent>
           </Card>
 
-          {/* Salvar */}
+          {/* Configurar Cadência */}
           <Button onClick={handleSaveCadencia} disabled={saving} size="lg" className="w-full sm:w-auto">
             {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            Salvar Configurações
+            Configurar Cadência
           </Button>
         </TabsContent>
 
-        {/* ─── Testar Ligação Tab ─── */}
+        {/* ═══════════════════════════════════════════════
+            TAB 2: TESTAR LIGAÇÃO
+            ═══════════════════════════════════════════════ */}
         <TabsContent value="testar" className="space-y-6 mt-4">
-          {/* Header */}
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -477,12 +555,10 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={limparFormulario}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Limpar
+              <RefreshCw className="h-4 w-4 mr-2" /> Limpar
             </Button>
           </div>
 
-          {/* Info do Agente */}
           {selectedPri && (
             <Card className="bg-muted/30 border-dashed shadow-sm">
               <CardContent className="py-4">
@@ -495,12 +571,10 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
             </Card>
           )}
 
-          {/* Seletor de Evento */}
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Evento para Teste
+                <Calendar className="h-4 w-4" /> Evento para Teste
               </CardTitle>
               <CardDescription>Selecione o evento vinculado à ligação de teste</CardDescription>
             </CardHeader>
@@ -532,13 +606,11 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
             </CardContent>
           </Card>
 
-          {/* Lista de Contatos */}
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <UserPlus className="h-4 w-4" />
-                  Contatos para Teste
+                  <UserPlus className="h-4 w-4" /> Contatos para Teste
                   {contatosPreenchidos > 0 && <Badge variant="secondary" className="ml-2">{contatosPreenchidos} preenchido(s)</Badge>}
                 </CardTitle>
                 <Button variant="outline" size="sm" onClick={adicionarContato}><Plus className="h-4 w-4 mr-1" /> Adicionar</Button>
@@ -569,7 +641,6 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
             </CardContent>
           </Card>
 
-          {/* Botões de Ação */}
           <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 border-t">
             <Button onClick={handleConfirmar} disabled={confirmando || contatosPreenchidos === 0 || !selectedPriId} className="w-full sm:flex-1" variant={baseConfirmada ? "outline" : "default"}>
               {confirmando ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Criando base...</> : baseConfirmada ? <><CheckCircle className="h-4 w-4 mr-2 text-green-500" />Base Confirmada</> : <><CheckCircle className="h-4 w-4 mr-2" />Confirmar Base</>}
@@ -582,6 +653,92 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
           <p className="text-xs text-muted-foreground text-center">
             💡 Você pode confirmar a base primeiro ou disparar diretamente. O disparo também cria a base automaticamente se necessário.
           </p>
+        </TabsContent>
+
+        {/* ═══════════════════════════════════════════════
+            TAB 3: ENVIO DE MENSAGEM
+            ═══════════════════════════════════════════════ */}
+        <TabsContent value="envio-mensagem" className="space-y-6 mt-4">
+          {/* Header */}
+          <div>
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              Disparo de Mensagens em Massa
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Configure filtros e dispare mensagens via webhook independente da cadência de ligação
+            </p>
+          </div>
+
+          {/* Filtros da Query */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-primary/10 p-2"><Settings2 className="h-5 w-5 text-primary" /></div>
+                <div>
+                  <CardTitle className="text-lg">Configuração de Filtros</CardTitle>
+                  <CardDescription>Parâmetros da query para seleção de mensagens — webhook separado do disparo de ligação</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>ID do Evento Principal (p.id_evento)</Label>
+                  <Input value={msgIdEvento} onChange={e => setMsgIdEvento(e.target.value)} placeholder="249" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>ID do Evento Maia (m.event_id)</Label>
+                  <Input value={msgEventIdMaia} onChange={e => setMsgEventIdMaia(e.target.value)} placeholder="232" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <Label htmlFor="msg-status-agendado" className="text-sm">status_agendado</Label>
+                  <Switch id="msg-status-agendado" checked={msgStatusAgendado} onCheckedChange={setMsgStatusAgendado} />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <Label htmlFor="msg-evt-status" className="text-sm">evt_status</Label>
+                  <Switch id="msg-evt-status" checked={msgEvtStatus} onCheckedChange={setMsgEvtStatus} />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-lg border p-3">
+                <Checkbox id="sem-proposta" checked={msgSomenteSemProposta} onCheckedChange={(checked) => setMsgSomenteSemProposta(checked === true)} />
+                <Label htmlFor="sem-proposta" className="text-sm cursor-pointer">Somente código_proposta nulo</Label>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Campos de Identificação */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-primary/10 p-2"><User className="h-5 w-5 text-primary" /></div>
+                <div>
+                  <CardTitle className="text-lg">Campos de Identificação</CardTitle>
+                  <CardDescription>Referências de telefone e dealer para o disparo de mensagens</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>telefone_pri_whatsapp</Label>
+                <Input placeholder="Ex: 5511999999999" value={msgTelefonePriWhatsapp} onChange={e => setMsgTelefonePriWhatsapp(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>dealerid</Label>
+                <Input placeholder="Ex: DEALER001" value={msgDealerId} onChange={e => setMsgDealerId(e.target.value)} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Ação */}
+          <Button onClick={handleDisparoMensagem} disabled={sendingMsg} size="lg" className="w-full sm:w-auto">
+            {sendingMsg ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+            Disparar Mensagens em Massa
+          </Button>
         </TabsContent>
       </Tabs>
     </div>
