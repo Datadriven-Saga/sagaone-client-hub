@@ -23,17 +23,25 @@ serve(async (req) => {
     }
 
     const payload = await req.json();
-    console.log('Proxying webhook request with payload:', JSON.stringify(payload));
+    
+    // Support custom webhook URL override via _webhook_url
+    const defaultUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/8275b29e-b3b1-494d-a604-b285a8cc0d56';
+    const targetUrl = payload._webhook_url || defaultUrl;
+    
+    // Remove internal field before forwarding
+    const { _webhook_url, ...forwardPayload } = payload;
+    
+    console.log('Proxying webhook request to:', targetUrl);
 
     const response = await fetch(
-      'https://automatemaiawh.sagadatadriven.com.br/webhook/8275b29e-b3b1-494d-a604-b285a8cc0d56',
+      targetUrl,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'saga_one_supabase': SAGA_ONE,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(forwardPayload),
       }
     );
 

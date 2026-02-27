@@ -1,6 +1,8 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { ControleAgentesContent } from "@/components/admin/ControleAgentesContent";
+import { CadenciaLigacaoConfig } from "@/components/CadenciaLigacaoConfig";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function ControleAgentes() {
   return (
@@ -13,7 +15,18 @@ export default function ControleAgentes() {
               Gerencie implantações e status de agentes por loja
             </p>
           </div>
-          <ControleAgentesContent />
+          <Tabs defaultValue="agentes" className="min-w-0">
+            <TabsList>
+              <TabsTrigger value="agentes">Agentes</TabsTrigger>
+              <TabsTrigger value="cadencia-ligacao">Cadência Ligação</TabsTrigger>
+            </TabsList>
+            <TabsContent value="agentes">
+              <ControleAgentesContent />
+            </TabsContent>
+            <TabsContent value="cadencia-ligacao">
+              <CadenciaLigacaoConfig />
+            </TabsContent>
+          </Tabs>
         </div>
       </ScrollIndicator>
     </DashboardLayout>
