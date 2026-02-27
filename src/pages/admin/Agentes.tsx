@@ -1682,7 +1682,7 @@ export default function AdminAgentes() {
 
           {/* Tabs Principais */}
           <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
-            <TabsList className="grid w-full max-w-lg grid-cols-3">
+            <TabsList className="grid w-full sm:max-w-lg grid-cols-3">
               <TabsTrigger value="agentes">Agentes de IA</TabsTrigger>
               <TabsTrigger value="controle">Controle de Agentes</TabsTrigger>
               <TabsTrigger value="mfa">MFA</TabsTrigger>
@@ -2017,7 +2017,7 @@ export default function AdminAgentes() {
 
           {/* Modal Principal do Agente */}
           <Dialog open={showAgentModal} onOpenChange={setShowAgentModal}>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Bot className="h-5 w-5" />
@@ -2031,24 +2031,24 @@ export default function AdminAgentes() {
               {/* Action buttons */}
               <div className="flex flex-wrap gap-2 justify-end border-b pb-4">
                 {!isNewAgente && (
-                  <Button onClick={handleSaveAgente} disabled={savingAgente}>
-                    <Save className="h-4 w-4 mr-2" />
+                  <Button onClick={handleSaveAgente} disabled={savingAgente} size="sm">
+                    <Save className="h-4 w-4 mr-1.5" />
                     {savingAgente ? "Salvando..." : "Salvar"}
                   </Button>
                 )}
                 
                 {agenteLocal && (
                   <>
-                    <Button variant="outline" onClick={handleToggleStatus}>
+                    <Button variant="outline" size="sm" onClick={handleToggleStatus}>
                       {formData.ativo ? (
-                        <><PowerOff className="h-4 w-4 mr-2" />Inativar</>
+                        <><PowerOff className="h-4 w-4 mr-1.5" />Inativar</>
                       ) : (
-                        <><Power className="h-4 w-4 mr-2" />Ativar</>
+                        <><Power className="h-4 w-4 mr-1.5" />Ativar</>
                       )}
                     </Button>
                     
-                    <Button variant="destructive" onClick={handleDeleteAgente}>
-                      <Trash2 className="h-4 w-4 mr-2" />
+                    <Button variant="destructive" size="sm" onClick={handleDeleteAgente}>
+                      <Trash2 className="h-4 w-4 mr-1.5" />
                       Excluir
                     </Button>
                   </>
@@ -2972,7 +2972,7 @@ export default function AdminAgentes() {
 
           {/* Modal de Atribuição de Empresa */}
           <Dialog open={showAssignModal} onOpenChange={setShowAssignModal}>
-            <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+            <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[85vh] flex flex-col">
               <DialogHeader className="flex-shrink-0">
                 <DialogTitle>Atribuir Agente a Empresas</DialogTitle>
                 <DialogDescription>

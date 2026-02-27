@@ -300,30 +300,31 @@ export default function Empresas() {
   return (
     <DashboardLayout title="Empresas">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h2 className="text-2xl font-bold">Gerenciar Empresas</h2>
-              <p className="text-muted-foreground">
+            <div className="min-w-0">
+              <h2 className="text-xl sm:text-2xl font-bold truncate">Gerenciar Empresas</h2>
+              <p className="text-muted-foreground text-sm">
                 Cadastre e gerencie as empresas do sistema
               </p>
             </div>
           </div>
           
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             <SyncEmpresasButton />
             <DialogTrigger asChild>
-              <Button onClick={handleNewEmpresa}>
+              <Button onClick={handleNewEmpresa} size="sm" className="flex-1 sm:flex-initial">
                 <Plus className="h-4 w-4 mr-2" />
-                Nova Empresa
+                <span className="hidden sm:inline">Nova Empresa</span>
+                <span className="sm:hidden">Nova</span>
               </Button>
             </DialogTrigger>
           </div>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {editingEmpresa ? "Editar Empresa" : "Nova Empresa"}
@@ -568,7 +569,7 @@ export default function Empresas() {
           </Card>
          ) : (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div className="text-sm text-muted-foreground">
                 Mostrando {startItem}-{endItem} de {filteredEmpresas.length} empresas
               </div>
@@ -581,9 +582,9 @@ export default function Empresas() {
                     disabled={currentPage === 1}
                   >
                     <ChevronLeft className="h-4 w-4" />
-                    Anterior
+                    <span className="hidden sm:inline">Anterior</span>
                   </Button>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
                     Página {currentPage} de {totalPages}
                   </span>
                   <Button
@@ -592,7 +593,7 @@ export default function Empresas() {
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
                   >
-                    Próxima
+                    <span className="hidden sm:inline">Próxima</span>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -602,15 +603,15 @@ export default function Empresas() {
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
                   {paginatedEmpresas.map((empresa) => (
-                    <div key={empresa.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+                    <div key={empresa.id} className="flex items-center justify-between p-3 sm:p-4 hover:bg-muted/50 transition-colors gap-2">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
                           <div className="flex-shrink-0">
-                            <Building className="h-8 w-8 text-muted-foreground" />
+                            <Building className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground truncate">{empresa.nome_empresa}</h3>
-                            <p className="text-sm text-muted-foreground">{empresa.marca}</p>
+                            <h3 className="font-semibold text-foreground truncate text-sm sm:text-base">{empresa.nome_empresa}</h3>
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">{empresa.marca}</p>
                           </div>
                         </div>
                       </div>
