@@ -324,7 +324,7 @@ export default function Empresas() {
               </Button>
             </DialogTrigger>
           </div>
-            <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto px-4 sm:px-6 box-border max-w-[100vw]">
+            <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {editingEmpresa ? "Editar Empresa" : "Nova Empresa"}
