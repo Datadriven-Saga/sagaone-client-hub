@@ -106,3 +106,6 @@ verify_jwt = true
 
 [functions.fetch-call-costs]
 verify_jwt = false
+
+[functions.process-import]
+verify_jwt = false
