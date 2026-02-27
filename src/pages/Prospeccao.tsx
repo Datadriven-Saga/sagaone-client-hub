@@ -2008,7 +2008,7 @@ showAllEvents: true
                           prospeccoes={prospeccoes}
                         />
                         <UploadPlanilha 
-                          onClientesImported={handleClientesImported}
+                          onImportComplete={() => refetch()}
                           prospeccoes={prospeccoes}
                         />
                       </div>
