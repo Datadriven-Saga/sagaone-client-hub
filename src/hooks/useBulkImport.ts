@@ -31,9 +31,10 @@ const INITIAL_PROGRESS: BulkImportProgress = {
   errorDetails: [],
 };
 
-const RPC_BATCH_SIZE = 500; // Records per RPC call
+const RPC_BATCH_SIZE = 1000;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
+const MAX_CONCURRENT = 3;
 
 interface ContatoForImport {
   nome: string;
@@ -50,9 +51,12 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 export const useBulkImport = () => {
   const [progress, setProgress] = useState<BulkImportProgress>(INITIAL_PROGRESS);
   const abortRef = useRef(false);
+  const progressRef = useRef<BulkImportProgress>(INITIAL_PROGRESS);
 
   const resetProgress = useCallback(() => {
-    setProgress(INITIAL_PROGRESS);
+    const initial = { ...INITIAL_PROGRESS, errorDetails: [] };
+    setProgress(initial);
+    progressRef.current = initial;
     abortRef.current = false;
   }, []);
 
@@ -60,106 +64,175 @@ export const useBulkImport = () => {
     abortRef.current = true;
   }, []);
 
+  // Send a single batch to the RPC with retry logic
+  const sendBatch = useCallback(async (
+    batch: ContatoForImport[],
+    batchNum: number,
+    empresaId: string,
+    prospeccaoId: string,
+  ): Promise<void> => {
+    let lastError = '';
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const payload = batch.map(c => ({
+          nome: c.nome || '',
+          telefone: c.telefone,
+          email: c.email || null,
+          origem: c.origem || 'Outros',
+          observacoes: c.observacoes || null,
+          responsavel_email: c.responsavel_email || null,
+          base_id: c.base_id || null,
+        }));
+
+        console.log(`📤 Lote ${batchNum}: Enviando ${batch.length} registros (tentativa ${attempt})`);
+
+        const { data, error } = await supabase.rpc('bulk_upsert_contatos', {
+          p_contatos: payload as any,
+          p_empresa_id: empresaId,
+          p_prospeccao_id: prospeccaoId,
+        });
+
+        if (error) throw error;
+
+        const result = data as any;
+        const p = progressRef.current;
+        p.inserted += result.inserted || 0;
+        p.updated += result.updated || 0;
+        p.linked += result.linked || 0;
+        p.alreadyLinked += result.already_linked || 0;
+        p.errors += result.errors || 0;
+        p.processedRecords += batch.length;
+        p.currentBatch = batchNum;
+        progressRef.current = { ...p };
+        setProgress({ ...p });
+
+        console.log(`✅ Lote ${batchNum}: Sucesso (${result.inserted} novos, ${result.updated} atualizados, ${result.linked} vinculados)`);
+        return;
+      } catch (err: any) {
+        lastError = err?.message || String(err);
+        console.error(`❌ Lote ${batchNum} tentativa ${attempt} falhou:`, lastError);
+
+        if (attempt < MAX_RETRIES) {
+          const p = progressRef.current;
+          p.retries++;
+          progressRef.current = { ...p };
+          setProgress({ ...p });
+          await sleep(RETRY_DELAY_MS * attempt);
+        }
+      }
+    }
+
+    // All retries failed
+    const p = progressRef.current;
+    p.errors += batch.length;
+    p.processedRecords += batch.length;
+    p.errorDetails.push(`Lote ${batchNum} falhou após ${MAX_RETRIES} tentativas: ${lastError}`);
+    progressRef.current = { ...p };
+    setProgress({ ...p });
+    console.error(`🚫 Lote ${batchNum}: Falha permanente`);
+  }, []);
+
   /**
-   * Imports contacts in bulk using the server-side RPC for idempotent upserts.
-   * Processes in chunks of RPC_BATCH_SIZE with retry logic.
+   * Streaming import: accepts batches one at a time from a streaming parser.
+   * Controls concurrency with a semaphore (max MAX_CONCURRENT in-flight).
+   */
+  const createStreamingImporter = useCallback((
+    empresaId: string,
+    prospeccaoId: string,
+    estimatedTotal: number,
+  ) => {
+    abortRef.current = false;
+    const initial: BulkImportProgress = {
+      ...INITIAL_PROGRESS,
+      phase: 'importing',
+      totalRecords: estimatedTotal,
+      errorDetails: [],
+    };
+    progressRef.current = { ...initial };
+    setProgress({ ...initial });
+
+    let batchCounter = 0;
+    let inFlight = 0;
+    const queue: (() => Promise<void>)[] = [];
+    let drainResolve: (() => void) | null = null;
+
+    const processQueue = () => {
+      while (inFlight < MAX_CONCURRENT && queue.length > 0) {
+        const task = queue.shift()!;
+        inFlight++;
+        task().finally(() => {
+          inFlight--;
+          processQueue();
+          if (inFlight === 0 && queue.length === 0 && drainResolve) {
+            drainResolve();
+          }
+        });
+      }
+    };
+
+    const enqueueBatch = (batch: ContatoForImport[]) => {
+      if (abortRef.current) return;
+      batchCounter++;
+      const num = batchCounter;
+      queue.push(() => sendBatch(batch, num, empresaId, prospeccaoId));
+      processQueue();
+    };
+
+    const updateTotal = (total: number) => {
+      const p = progressRef.current;
+      p.totalRecords = total;
+      p.totalBatches = Math.ceil(total / RPC_BATCH_SIZE);
+      progressRef.current = { ...p };
+      setProgress({ ...p });
+    };
+
+    const drain = (): Promise<void> => {
+      if (inFlight === 0 && queue.length === 0) return Promise.resolve();
+      return new Promise(resolve => { drainResolve = resolve; });
+    };
+
+    const finalize = async (): Promise<BulkImportProgress> => {
+      await drain();
+      const p = progressRef.current;
+      p.phase = (p.errors > 0 && p.inserted === 0 && p.updated === 0) ? 'error' : 'done';
+      p.totalBatches = batchCounter;
+      progressRef.current = { ...p };
+      setProgress({ ...p });
+      return { ...p };
+    };
+
+    const isAborted = () => abortRef.current;
+
+    return { enqueueBatch, updateTotal, finalize, isAborted };
+  }, [sendBatch]);
+
+  /**
+   * Legacy batch import (for pre-collected arrays).
    */
   const importContacts = useCallback(async (
     contatos: ContatoForImport[],
     empresaId: string,
     prospeccaoId: string,
   ): Promise<BulkImportProgress> => {
-    abortRef.current = false;
-    const totalBatches = Math.ceil(contatos.length / RPC_BATCH_SIZE);
-
-    const currentProgress: BulkImportProgress = {
-      ...INITIAL_PROGRESS,
-      phase: 'importing',
-      totalRecords: contatos.length,
-      totalBatches,
-    };
-    setProgress({ ...currentProgress });
-
+    const importer = createStreamingImporter(empresaId, prospeccaoId, contatos.length);
+    
     for (let i = 0; i < contatos.length; i += RPC_BATCH_SIZE) {
-      if (abortRef.current) {
-        currentProgress.phase = 'error';
-        currentProgress.errorDetails.push('Importação cancelada pelo usuário');
-        setProgress({ ...currentProgress });
-        return currentProgress;
-      }
-
+      if (importer.isAborted()) break;
       const batch = contatos.slice(i, i + RPC_BATCH_SIZE);
-      const batchNum = Math.floor(i / RPC_BATCH_SIZE) + 1;
-      currentProgress.currentBatch = batchNum;
-      setProgress({ ...currentProgress });
-
-      let success = false;
-      let lastError = '';
-
-      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        try {
-          const payload = batch.map(c => ({
-            nome: c.nome || '',
-            telefone: c.telefone,
-            email: c.email || null,
-            origem: c.origem || 'Outros',
-            observacoes: c.observacoes || null,
-            responsavel_email: c.responsavel_email || null,
-            base_id: c.base_id || null,
-          }));
-
-          const { data, error } = await supabase.rpc('bulk_upsert_contatos', {
-            p_contatos: payload as any,
-            p_empresa_id: empresaId,
-            p_prospeccao_id: prospeccaoId,
-          });
-
-          if (error) throw error;
-
-          const result = data as any;
-          currentProgress.inserted += result.inserted || 0;
-          currentProgress.updated += result.updated || 0;
-          currentProgress.linked += result.linked || 0;
-          currentProgress.alreadyLinked += result.already_linked || 0;
-          currentProgress.errors += result.errors || 0;
-          currentProgress.processedRecords += batch.length;
-          success = true;
-          break;
-        } catch (err: any) {
-          lastError = err?.message || String(err);
-          console.error(`❌ Batch ${batchNum} attempt ${attempt} failed:`, lastError);
-          
-          if (attempt < MAX_RETRIES) {
-            currentProgress.retries++;
-            setProgress({ ...currentProgress });
-            await sleep(RETRY_DELAY_MS * attempt);
-          }
-        }
-      }
-
-      if (!success) {
-        currentProgress.errors += batch.length;
-        currentProgress.processedRecords += batch.length;
-        currentProgress.errorDetails.push(
-          `Lote ${batchNum} falhou após ${MAX_RETRIES} tentativas: ${lastError}`
-        );
-      }
-
-      setProgress({ ...currentProgress });
+      importer.enqueueBatch(batch);
     }
 
-    currentProgress.phase = currentProgress.errors > 0 && currentProgress.inserted === 0 && currentProgress.updated === 0
-      ? 'error'
-      : 'done';
-    setProgress({ ...currentProgress });
-    return currentProgress;
-  }, []);
+    return importer.finalize();
+  }, [createStreamingImporter]);
 
   return {
     progress,
     importContacts,
+    createStreamingImporter,
     resetProgress,
     abort,
     isImporting: progress.phase === 'importing' || progress.phase === 'linking',
+    RPC_BATCH_SIZE,
   };
 };
