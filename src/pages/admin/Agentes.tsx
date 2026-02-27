@@ -2934,7 +2934,7 @@ export default function AdminAgentes() {
                 )}
 
                 {isPriLigacao() && (
-                  <TabsContent value="eventos" forceMount>
+                  <TabsContent value="eventos">
                     <AgenteEventos 
                       agenteId={agenteLocal?.id}
                       agenteTelefone={formData.telefone}
