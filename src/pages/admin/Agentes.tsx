@@ -11,6 +11,7 @@ import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ControleAgentesContent } from "@/components/admin/ControleAgentesContent";
 import { MFAAgentesContent } from "@/components/admin/MFAAgentesContent";
+import { CadenciaLigacaoConfig } from "@/components/CadenciaLigacaoConfig";
 import { 
   Bot, 
   RefreshCw, 
@@ -1682,9 +1683,10 @@ export default function AdminAgentes() {
 
           {/* Tabs Principais */}
           <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
-            <TabsList className="grid w-full sm:max-w-lg grid-cols-3">
+            <TabsList className="grid w-full sm:max-w-2xl grid-cols-4">
               <TabsTrigger value="agentes">Agentes de IA</TabsTrigger>
               <TabsTrigger value="controle">Controle de Agentes</TabsTrigger>
+              <TabsTrigger value="cadencia-ligacao">Cadência Ligação</TabsTrigger>
               <TabsTrigger value="mfa">MFA</TabsTrigger>
             </TabsList>
 
@@ -3112,6 +3114,11 @@ export default function AdminAgentes() {
             {/* Tab Controle de Agentes */}
             <TabsContent value="controle" className="mt-6">
               <ControleAgentesContent />
+            </TabsContent>
+
+            {/* Tab Cadência Ligação */}
+            <TabsContent value="cadencia-ligacao" className="mt-6">
+              <CadenciaLigacaoConfig />
             </TabsContent>
 
             {/* Tab MFA */}
