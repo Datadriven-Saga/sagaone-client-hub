@@ -246,6 +246,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     async function fetchEmpresasComWhatsapp() {
       setLoadingEmpresas(true);
       try {
+        // Fetch all active agents with phone
         const { data: agentes, error: agErr } = await supabase
           .from("agentes_ia")
           .select("id, nome, telefone, empresa_id")
@@ -253,37 +254,76 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
           .not("telefone", "is", null);
         if (agErr) throw agErr;
 
-        const whatsappAgents = (agentes || []).filter((a: any) =>
-          String(a.nome || "").toLowerCase().includes("whatsapp") && a.telefone && a.empresa_id
-        );
+        // Fetch all agent-empresa links
+        const { data: agLinks, error: linkErr } = await supabase
+          .from("agente_empresas")
+          .select("agente_id, empresa_id")
+          .eq("status", "ativo");
+        if (linkErr) throw linkErr;
 
-        const ligacaoAgents = (agentes || []).filter((a: any) => {
+        // Build a map: empresa_id -> list of agent ids linked
+        const empresaAgentMap = new Map<string, Set<string>>();
+        for (const link of (agLinks || [])) {
+          if (!empresaAgentMap.has(link.empresa_id)) empresaAgentMap.set(link.empresa_id, new Set());
+          empresaAgentMap.get(link.empresa_id)!.add(link.agente_id);
+        }
+
+        // Classify agents
+        const allAgents = agentes || [];
+        const isWhatsapp = (a: any) => String(a.nome || "").toLowerCase().includes("whatsapp") && a.telefone;
+        const isLigacao = (a: any) => {
           const nome = String(a.nome || "").toLowerCase();
-          return (nome.includes("ligação") || nome.includes("ligacao") || nome.includes("ligaçao")) && a.telefone && a.empresa_id;
-        });
+          return (nome.includes("ligação") || nome.includes("ligacao") || nome.includes("ligaçao") || nome.includes("pri(ligação)") || nome.includes("pri(ligacao)")) && a.telefone;
+        };
 
-        if (whatsappAgents.length === 0) { setEmpresasWhatsapp([]); setLoadingEmpresas(false); return; }
+        // Find empresa IDs that have a whatsapp agent (via direct empresa_id or agente_empresas link)
+        const getEmpresaIdsForAgent = (agent: any): string[] => {
+          const ids: string[] = [];
+          if (agent.empresa_id) ids.push(agent.empresa_id);
+          for (const [empId, agentIds] of empresaAgentMap.entries()) {
+            if (agentIds.has(agent.id) && !ids.includes(empId)) ids.push(empId);
+          }
+          return ids;
+        };
 
-        const empresaIds = [...new Set(whatsappAgents.map((a: any) => a.empresa_id))];
+        // Build map: empresa_id -> { whatsapp agent, ligacao agent }
+        const empresaMap = new Map<string, { whatsapp?: any; ligacao?: any }>();
+
+        for (const agent of allAgents) {
+          const empIds = getEmpresaIdsForAgent(agent);
+          for (const empId of empIds) {
+            if (!empresaMap.has(empId)) empresaMap.set(empId, {});
+            const entry = empresaMap.get(empId)!;
+            if (isWhatsapp(agent) && !entry.whatsapp) entry.whatsapp = agent;
+            if (isLigacao(agent) && !entry.ligacao) entry.ligacao = agent;
+          }
+        }
+
+        // Filter only empresas that have whatsapp agent
+        const empresaIdsWithWhatsapp = [...empresaMap.entries()]
+          .filter(([, v]) => v.whatsapp)
+          .map(([id]) => id);
+
+        if (empresaIdsWithWhatsapp.length === 0) { setEmpresasWhatsapp([]); setLoadingEmpresas(false); return; }
+
         const { data: empresas, error: empErr } = await supabase
           .from("empresas")
           .select("id, nome_empresa, marca, uf, crm_id")
-          .in("id", empresaIds);
+          .in("id", empresaIdsWithWhatsapp);
         if (empErr) throw empErr;
 
         const result: EmpresaComWhatsapp[] = [];
         for (const emp of (empresas || [])) {
-          const whatsappAgent = whatsappAgents.find((a: any) => a.empresa_id === emp.id);
-          const ligacaoAgent = ligacaoAgents.find((a: any) => a.empresa_id === emp.id);
-          if (whatsappAgent) {
+          const agents = empresaMap.get(emp.id);
+          if (agents?.whatsapp) {
             result.push({
               empresa_id: emp.id,
               empresa_nome: emp.nome_empresa || "Sem nome",
               marca: emp.marca || undefined,
               uf: emp.uf || undefined,
               crm_id: emp.crm_id || undefined,
-              telefone_whatsapp: String(whatsappAgent.telefone).replace(/\D/g, ""),
-              telefone_ligacao: ligacaoAgent ? String(ligacaoAgent.telefone).replace(/\D/g, "") : undefined,
+              telefone_whatsapp: String(agents.whatsapp.telefone).replace(/\D/g, ""),
+              telefone_ligacao: agents.ligacao ? String(agents.ligacao.telefone).replace(/\D/g, "") : undefined,
             });
           }
         }
