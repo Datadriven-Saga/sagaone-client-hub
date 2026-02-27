@@ -75,8 +75,8 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
   const [recorrenciaAtiva, setRecorrenciaAtiva] = useState(true);
   const [dataInicio, setDataInicio] = useState("");
   const [dataTermino, setDataTermino] = useState("");
-  const [frequenciaDias, setFrequenciaDias] = useState(1);
-  const [horario, setHorario] = useState("07:45");
+  const [horarioInicio, setHorarioInicio] = useState("07:45");
+  const [horarioFim, setHorarioFim] = useState("18:00");
   const [diasAtivos, setDiasAtivos] = useState<string[]>(["seg", "ter", "qua", "qui", "sex", "sab"]);
 
   // Cadência query params
@@ -347,8 +347,8 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
         recorrencia: recorrenciaAtiva ? {
           data_inicio: dataInicio,
           data_termino: dataTermino,
-          frequencia_dias: frequenciaDias,
-          horario,
+          horario_inicio: horarioInicio,
+          horario_fim: horarioFim,
           dias_semana: diasAtivos,
         } : null,
       };
@@ -419,13 +419,21 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     const eventoEscolhido = testarEventos.find(e => e.id === eventoSelecionado);
     if (!eventoEscolhido) return;
 
+    if (!baseConfirmada) {
+      toast({ title: "Confirme a base primeiro", description: "Clique em 'Confirmar Base' antes de disparar a ligação.", variant: "destructive" });
+      return;
+    }
+
     setDisparando(true);
     try {
       const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
         body: { endpoint: 'dispara-ligacao', telefone_pri: testarTelefonePri, id_evento: eventoEscolhido.id_evento, contatos: contatosParaEnviar },
       });
       if (error) throw error;
-      toast({ title: "Disparo iniciado!", description: data?.message || `Ligação para ${contatosParaEnviar.length} contato(s) será realizada em instantes` });
+      if (data?.success === false) {
+        throw new Error(data?.message || data?.error || "Falha no disparo");
+      }
+      toast({ title: "Disparo realizado com sucesso!", description: data?.message || `Ligação para ${contatosParaEnviar.length} contato(s) confirmada pelo servidor.` });
     } catch (error: any) {
       toast({ title: "Erro ao disparar", description: error.message, variant: "destructive" });
     } finally {
@@ -556,8 +564,8 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
                   <div className="space-y-1.5"><Label>Data de Término</Label><Input type="date" value={dataTermino} onChange={e => setDataTermino(e.target.value)} /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5"><Label>A cada X Dia(s)</Label><Input type="number" min={1} max={30} value={frequenciaDias} onChange={e => setFrequenciaDias(Number(e.target.value))} /></div>
-                  <div className="space-y-1.5"><Label>Horário</Label><Input type="time" value={horario} onChange={e => setHorario(e.target.value)} /></div>
+                  <div className="space-y-1.5"><Label>Horário de Início</Label><Input type="time" value={horarioInicio} onChange={e => setHorarioInicio(e.target.value)} /></div>
+                  <div className="space-y-1.5"><Label>Horário de Fim</Label><Input type="time" value={horarioFim} onChange={e => setHorarioFim(e.target.value)} /></div>
                 </div>
                 <div className="space-y-2">
                   <Label>Dias da semana</Label>
@@ -671,8 +679,8 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
                 <Select value={orderBy} onValueChange={(v: "ASC" | "DESC") => setOrderBy(v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ASC">Crescente (ASC)</SelectItem>
-                    <SelectItem value="DESC">Decrescente (DESC)</SelectItem>
+                    <SelectItem value="ASC">Crescente (ASC) — Menor número de tentativas primeiro</SelectItem>
+                    <SelectItem value="DESC">Decrescente (DESC) — Maior número de tentativas primeiro</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -822,13 +830,13 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
             <Button onClick={handleConfirmar} disabled={confirmando || contatosPreenchidos === 0 || !testarSelectedPriId} className="w-full sm:flex-1" variant={baseConfirmada ? "outline" : "default"}>
               {confirmando ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Criando base...</> : baseConfirmada ? <><CheckCircle className="h-4 w-4 mr-2 text-green-500" />Base Confirmada</> : <><CheckCircle className="h-4 w-4 mr-2" />Confirmar Base</>}
             </Button>
-            <Button onClick={handleDisparar} disabled={disparando || contatosPreenchidos === 0 || !testarSelectedPriId} className="w-full sm:flex-1">
+            <Button onClick={handleDisparar} disabled={disparando || contatosPreenchidos === 0 || !testarSelectedPriId || !baseConfirmada} className="w-full sm:flex-1">
               {disparando ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Disparando...</> : <><PhoneCall className="h-4 w-4 mr-2" />Disparar Ligação</>}
             </Button>
           </div>
 
           <p className="text-xs text-muted-foreground text-center">
-            💡 Você pode confirmar a base primeiro ou disparar diretamente. O disparo também cria a base automaticamente se necessário.
+            💡 Confirme a base primeiro, depois clique em Disparar Ligação.
           </p>
         </TabsContent>
 
