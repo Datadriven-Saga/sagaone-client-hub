@@ -1289,9 +1289,15 @@ showAllEvents: true
         }
       }
 
+      const totalReal = resultado?.totalImportados ?? resultado?.todosContatosProcessados?.length ?? clientes.length;
+      const totalErros = resultado?.insertErrors ?? 0;
+      
       toast({
-        title: "Base importada",
-        description: `${clientes.length} contatos foram importados e vinculados ao evento`,
+        title: totalErros > 0 ? "Importação parcial" : "Base importada",
+        description: totalErros > 0 
+          ? `${totalReal} contatos importados de ${clientes.length} enviados (${totalErros} falharam). Verifique o console para detalhes.`
+          : `${totalReal} contatos foram importados e vinculados ao evento`,
+        variant: totalErros > 0 ? "destructive" : "default"
       });
 
       // Forçar atualização dos dados

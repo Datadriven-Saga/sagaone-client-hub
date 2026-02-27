@@ -554,6 +554,7 @@ export const useContatoData = () => {
 
       // 4) Criar novos contatos
       let novosContatosCriados: any[] = [];
+      let insertErrors = 0;
       if (contatosParaCriar.length > 0) {
         const contatosComEmpresa = contatosParaCriar.map(contato => ({
           ...contato,
@@ -564,21 +565,27 @@ export const useContatoData = () => {
         const INSERT_BATCH_SIZE = 500;
         for (let i = 0; i < contatosComEmpresa.length; i += INSERT_BATCH_SIZE) {
           const batch = contatosComEmpresa.slice(i, i + INSERT_BATCH_SIZE);
+          const batchNum = Math.floor(i / INSERT_BATCH_SIZE) + 1;
+          const totalBatches = Math.ceil(contatosComEmpresa.length / INSERT_BATCH_SIZE);
+          console.log(`📦 Inserindo lote ${batchNum}/${totalBatches} (${batch.length} contatos)`);
+          
           const { data: batchData, error: batchError } = await supabase
             .from('contatos')
             .insert(batch)
             .select('id, telefone, nome, lead_id, email, status, origem, empresa_id, created_at');
 
           if (batchError) {
-            console.error(`❌ Erro ao inserir lote ${i + 1}:`, batchError);
+            console.error(`❌ Erro ao inserir lote ${batchNum}/${totalBatches}:`, batchError);
+            insertErrors += batch.length;
           } else if (batchData) {
+            console.log(`✅ Lote ${batchNum}/${totalBatches}: ${batchData.length} inseridos`);
             console.log('📊 Contatos criados com lead_id:', 
               batchData.slice(0, 3).map(c => ({ id: c.id, lead_id: c.lead_id }))
             );
             novosContatosCriados = [...novosContatosCriados, ...batchData];
           }
         }
-        console.log(`✅ ${novosContatosCriados.length} novos contatos criados`);
+        console.log(`✅ ${novosContatosCriados.length} novos contatos criados (${insertErrors} falharam)`);
 
         // Fallback: buscar lead_id para contatos que não retornaram (edge case)
         const idsComLeadIdNull = novosContatosCriados
@@ -587,21 +594,25 @@ export const useContatoData = () => {
 
         if (idsComLeadIdNull.length > 0) {
           console.log(`⚠️ ${idsComLeadIdNull.length} contatos sem lead_id, buscando...`);
-          const { data: leadIds } = await supabase
-            .from('contatos')
-            .select('id, lead_id')
-            .in('id', idsComLeadIdNull);
-          
-          if (leadIds) {
-            const leadIdMap = new Map(leadIds.map(l => [l.id, l.lead_id]));
-            novosContatosCriados = novosContatosCriados.map(c => ({
-              ...c,
-              lead_id: c.lead_id ?? leadIdMap.get(c.id) ?? null
-            }));
-            console.log('✅ lead_ids atualizados:', 
-              novosContatosCriados.slice(0, 3).map(c => ({ id: c.id, lead_id: c.lead_id }))
-            );
+          // Buscar em lotes de 500 para não exceder limite de URL
+          for (let i = 0; i < idsComLeadIdNull.length; i += 500) {
+            const idsBatch = idsComLeadIdNull.slice(i, i + 500);
+            const { data: leadIds } = await supabase
+              .from('contatos')
+              .select('id, lead_id')
+              .in('id', idsBatch);
+            
+            if (leadIds) {
+              const leadIdMap = new Map(leadIds.map(l => [l.id, l.lead_id]));
+              novosContatosCriados = novosContatosCriados.map(c => ({
+                ...c,
+                lead_id: c.lead_id ?? leadIdMap.get(c.id) ?? c.lead_id
+              }));
+            }
           }
+          console.log('✅ lead_ids atualizados:', 
+            novosContatosCriados.slice(0, 3).map(c => ({ id: c.id, lead_id: c.lead_id }))
+          );
         }
       }
 
@@ -619,21 +630,30 @@ export const useContatoData = () => {
 
         const EVENTO_BATCH_SIZE = 500;
         let eventosInseridos = 0;
+        let eventosErros = 0;
         
         for (let i = 0; i < eventosParaInserir.length; i += EVENTO_BATCH_SIZE) {
           const batch = eventosParaInserir.slice(i, i + EVENTO_BATCH_SIZE);
-          const { error: eventoError } = await supabase
+          const batchNum = Math.floor(i / EVENTO_BATCH_SIZE) + 1;
+          const totalBatches = Math.ceil(eventosParaInserir.length / EVENTO_BATCH_SIZE);
+          
+          // Usar upsert com onConflict para não falhar em duplicatas
+          const { data: upsertData, error: eventoError } = await supabase
             .from('eventos_prospeccao')
-            .insert(batch);
+            .upsert(batch, { onConflict: 'contato_id,prospeccao_id', ignoreDuplicates: true })
+            .select('id');
           
           if (eventoError) {
-            console.error('Erro ao vincular contatos à prospecção:', eventoError);
+            console.error(`❌ Erro ao vincular lote ${batchNum}/${totalBatches}:`, eventoError);
+            eventosErros += batch.length;
           } else {
-            eventosInseridos += batch.length;
+            const inserted = upsertData?.length ?? batch.length;
+            eventosInseridos += inserted;
+            console.log(`✅ Lote ${batchNum}/${totalBatches}: ${inserted} vinculados`);
           }
         }
         
-        console.log(`✅ ${eventosInseridos} contatos vinculados à prospecção`);
+        console.log(`✅ ${eventosInseridos} contatos vinculados à prospecção (${eventosErros} erros)`);
       }
 
       // 6) Atualizar estado local
@@ -641,10 +661,13 @@ export const useContatoData = () => {
         setContatos(prev => [...novosContatosCriados, ...prev]);
       }
       
-      // Mensagem de sucesso
+      // Mensagem de sucesso com detalhes reais
       const partes: string[] = [];
       if (novosContatosCriados.length > 0) {
         partes.push(`${novosContatosCriados.length} novos criados`);
+      }
+      if (insertErrors > 0) {
+        partes.push(`${insertErrors} falharam ao criar`);
       }
       if (contatosParaVincular.length > 0) {
         partes.push(`${contatosParaVincular.length} existentes vinculados`);
@@ -653,9 +676,12 @@ export const useContatoData = () => {
         partes.push(`${jaVinculados.length} já estavam no evento`);
       }
       
+      const totalImportados = novosContatosCriados.length + contatosParaVincular.length;
+      
       toast({ 
-        title: "Sucesso", 
-        description: partes.join(', ') || 'Nenhum contato processado'
+        title: insertErrors > 0 ? "Importação parcial" : "Sucesso", 
+        description: partes.join(', ') || 'Nenhum contato processado',
+        variant: insertErrors > 0 ? "destructive" : "default"
       });
       
       // Retornar todos os contatos processados (novos + existentes vinculados) com dados para webhook
@@ -682,7 +708,9 @@ export const useContatoData = () => {
       return {
         novosContatosCriados,
         contatosVinculados: contatosParaVincular,
-        todosContatosProcessados
+        todosContatosProcessados,
+        insertErrors,
+        totalImportados
       };
     } catch (error) {
       console.error('Erro ao adicionar contatos:', error);
