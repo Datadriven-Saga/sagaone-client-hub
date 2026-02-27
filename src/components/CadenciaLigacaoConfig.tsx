@@ -49,6 +49,16 @@ interface EventoPriVoz {
   evt_status?: string;
 }
 
+interface EmpresaComWhatsapp {
+  empresa_id: string;
+  empresa_nome: string;
+  marca?: string;
+  uf?: string;
+  crm_id?: string;
+  telefone_whatsapp: string;
+  telefone_ligacao?: string;
+}
+
 export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -79,6 +89,9 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
   const [orderBy, setOrderBy] = useState<"ASC" | "DESC">("ASC");
 
   // ─── Testar state ───
+  const [testarSelectedPriId, setTestarSelectedPriId] = useState("");
+  const testarSelectedPri = priAgents.find(a => a.id === testarSelectedPriId);
+  const testarTelefonePri = testarSelectedPri?.telefone || "";
   const [contatos, setContatos] = useState<ContatoTeste[]>([
     { id: crypto.randomUUID(), nome: "", telefone: "" }
   ]);
@@ -93,29 +106,19 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
   const [msgEventIdMaia, setMsgEventIdMaia] = useState("");
   const [msgStatusAgendado, setMsgStatusAgendado] = useState(false);
   const [msgEvtStatus, setMsgEvtStatus] = useState(true);
-  const [msgSomenteSemProposta, setMsgSomenteSemProposta] = useState(false);
+  const [msgCodigoProposta, setMsgCodigoProposta] = useState(false);
   const [msgTelefonePriWhatsapp, setMsgTelefonePriWhatsapp] = useState("");
   const [msgDealerId, setMsgDealerId] = useState("");
+  const [msgTelefonePriLigacao, setMsgTelefonePriLigacao] = useState("");
 
   // ─── Envio Mensagem: Empresa selector ───
-  interface EmpresaComWhatsapp {
-    empresa_id: string;
-    empresa_nome: string;
-    marca?: string;
-    uf?: string;
-    crm_id?: string;
-    telefone_whatsapp: string;
-  }
   const [empresasWhatsapp, setEmpresasWhatsapp] = useState<EmpresaComWhatsapp[]>([]);
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [empresaSearch, setEmpresaSearch] = useState("");
   const [selectedEmpresaId, setSelectedEmpresaId] = useState("");
   const [showEmpresaDropdown, setShowEmpresaDropdown] = useState(false);
 
-  // ─── Envio Mensagem: Agente Ligação selector + events ───
-  const [msgSelectedPriId, setMsgSelectedPriId] = useState("");
-  const msgSelectedPri = priAgents.find(a => a.id === msgSelectedPriId);
-  const msgTelefonePriLigacao = msgSelectedPri?.telefone || "";
+  // ─── Envio Mensagem: Agente Ligação events ───
   const { data: msgEventosData = [], isLoading: loadingMsgEventos } = usePriLigacaoEventos(msgTelefonePriLigacao);
   const msgEventos = useMemo<EventoPriVoz[]>(() => {
     return (msgEventosData || []).map((evt: any) => {
@@ -142,7 +145,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Events from selected Pri
+  // Events from selected Pri (Cadência tab)
   const { data: eventosData = [], isLoading: loadingEventos } = usePriLigacaoEventos(telefonePri);
 
   const eventos = useMemo<EventoPriVoz[]>(() => {
@@ -158,13 +161,29 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     });
   }, [eventosData]);
 
+  // Events from selected Pri (Testar tab)
+  const { data: testarEventosData = [], isLoading: loadingTestarEventos } = usePriLigacaoEventos(testarTelefonePri);
+
+  const testarEventos = useMemo<EventoPriVoz[]>(() => {
+    return (testarEventosData || []).map((evt: any) => {
+      const rawStatus = evt?.evt_status ?? evt?.status;
+      const isAtivo = rawStatus === true || String(rawStatus).toLowerCase() === "ativo" || String(rawStatus).toLowerCase() === "true" || rawStatus === "1" || rawStatus === 1;
+      return {
+        id: String(evt.id_evento || evt.id),
+        id_evento: evt.id_evento || evt.id,
+        nome: evt.nome || evt.name || `Evento ${evt.id_evento}`,
+        evt_status: isAtivo ? "ativo" : "inativo",
+      };
+    });
+  }, [testarEventosData]);
+
   // Auto-select first active event for testar
   useEffect(() => {
     if (eventoSelecionado) return;
-    if (eventos.length === 0) return;
-    const eventoAtivo = eventos.find((e) => e.evt_status === "ativo");
-    setEventoSelecionado((eventoAtivo || eventos[0]).id);
-  }, [eventos, eventoSelecionado]);
+    if (testarEventos.length === 0) return;
+    const eventoAtivo = testarEventos.find((e) => e.evt_status === "ativo");
+    setEventoSelecionado((eventoAtivo || testarEventos[0]).id);
+  }, [testarEventos, eventoSelecionado]);
 
   // Fetch Pri agents
   useEffect(() => {
@@ -210,13 +229,17 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     fetchPriAgents();
   }, []);
 
-  // Reset when pri changes
+  // Reset when cadência pri changes
   useEffect(() => {
     setSelectedEventIds([]);
+  }, [selectedPriId]);
+
+  // Reset when testar pri changes
+  useEffect(() => {
     setEventoSelecionado("");
     setContatos([{ id: crypto.randomUUID(), nome: "", telefone: "" }]);
     setBaseConfirmada(false);
-  }, [selectedPriId]);
+  }, [testarSelectedPriId]);
 
   // ─── Fetch empresas with Pri-WhatsApp ───
   useEffect(() => {
@@ -234,6 +257,11 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
           String(a.nome || "").toLowerCase().includes("whatsapp") && a.telefone && a.empresa_id
         );
 
+        const ligacaoAgents = (agentes || []).filter((a: any) => {
+          const nome = String(a.nome || "").toLowerCase();
+          return (nome.includes("ligação") || nome.includes("ligacao") || nome.includes("ligaçao")) && a.telefone && a.empresa_id;
+        });
+
         if (whatsappAgents.length === 0) { setEmpresasWhatsapp([]); setLoadingEmpresas(false); return; }
 
         const empresaIds = [...new Set(whatsappAgents.map((a: any) => a.empresa_id))];
@@ -245,15 +273,17 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
 
         const result: EmpresaComWhatsapp[] = [];
         for (const emp of (empresas || [])) {
-          const agent = whatsappAgents.find((a: any) => a.empresa_id === emp.id);
-          if (agent) {
+          const whatsappAgent = whatsappAgents.find((a: any) => a.empresa_id === emp.id);
+          const ligacaoAgent = ligacaoAgents.find((a: any) => a.empresa_id === emp.id);
+          if (whatsappAgent) {
             result.push({
               empresa_id: emp.id,
               empresa_nome: emp.nome_empresa || "Sem nome",
               marca: emp.marca || undefined,
               uf: emp.uf || undefined,
               crm_id: emp.crm_id || undefined,
-              telefone_whatsapp: String(agent.telefone).replace(/\D/g, ""),
+              telefone_whatsapp: String(whatsappAgent.telefone).replace(/\D/g, ""),
+              telefone_ligacao: ligacaoAgent ? String(ligacaoAgent.telefone).replace(/\D/g, "") : undefined,
             });
           }
         }
@@ -272,6 +302,8 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     setSelectedEmpresaId(emp.empresa_id);
     setMsgTelefonePriWhatsapp(emp.telefone_whatsapp);
     setMsgDealerId(emp.crm_id || "");
+    setMsgTelefonePriLigacao(emp.telefone_ligacao || "");
+    setMsgIdEvento("");
     setEmpresaSearch(emp.empresa_nome);
     setShowEmpresaDropdown(false);
   };
@@ -352,7 +384,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     const contatosParaEnviar = contatos.filter(c => c.nome.trim() && c.telefone.trim()).map(c => ({ nome: c.nome.trim(), telefone: c.telefone.trim().replace(/\D/g, '') }));
     if (contatosParaEnviar.length === 0) { toast({ title: "Preencha pelo menos um contato", variant: "destructive" }); return; }
     if (!eventoSelecionado) { toast({ title: "Selecione um evento", variant: "destructive" }); return; }
-    const eventoEscolhido = eventos.find(e => e.id === eventoSelecionado);
+    const eventoEscolhido = testarEventos.find(e => e.id === eventoSelecionado);
     if (!eventoEscolhido) return;
 
     setConfirmando(true);
@@ -360,11 +392,11 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
       const payload: Record<string, any> = {
         contatos: contatosParaEnviar,
         id_evento: eventoEscolhido.id_evento,
-        telefone_pri: telefonePri,
-        loja: selectedPri?.nome || 'Teste Rápido',
+        telefone_pri: testarTelefonePri,
+        loja: testarSelectedPri?.nome || 'Teste Rápido',
         sync_external: true,
       };
-      if (selectedPri?.empresa_id) payload.empresa_id = selectedPri.empresa_id;
+      if (testarSelectedPri?.empresa_id) payload.empresa_id = testarSelectedPri.empresa_id;
 
       const { data, error } = await supabase.functions.invoke('create-base-ligacao', { body: payload });
       if (error) throw error;
@@ -382,15 +414,15 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
   const handleDisparar = async () => {
     const contatosParaEnviar = contatos.filter(c => c.nome.trim() && c.telefone.trim()).map(c => ({ nome: c.nome.trim(), telefone_lead: normalizePhoneTo10Digits(c.telefone) }));
     if (contatosParaEnviar.length === 0) { toast({ title: "Adicione pelo menos um contato", variant: "destructive" }); return; }
-    if (!telefonePri) { toast({ title: "Selecione um agente Pri", variant: "destructive" }); return; }
+    if (!testarTelefonePri) { toast({ title: "Selecione um agente Pri", variant: "destructive" }); return; }
     if (!eventoSelecionado) { toast({ title: "Selecione um evento", variant: "destructive" }); return; }
-    const eventoEscolhido = eventos.find(e => e.id === eventoSelecionado);
+    const eventoEscolhido = testarEventos.find(e => e.id === eventoSelecionado);
     if (!eventoEscolhido) return;
 
     setDisparando(true);
     try {
       const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
-        body: { endpoint: 'dispara-ligacao', telefone_pri: telefonePri, id_evento: eventoEscolhido.id_evento, contatos: contatosParaEnviar },
+        body: { endpoint: 'dispara-ligacao', telefone_pri: testarTelefonePri, id_evento: eventoEscolhido.id_evento, contatos: contatosParaEnviar },
       });
       if (error) throw error;
       toast({ title: "Disparo iniciado!", description: data?.message || `Ligação para ${contatosParaEnviar.length} contato(s) será realizada em instantes` });
@@ -404,7 +436,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
   // ─── Envio Mensagem handler ───
   const handleDisparoMensagem = async () => {
     if (!msgTelefonePriWhatsapp.trim()) {
-      toast({ title: "Informe o telefone_pri_whatsapp", variant: "destructive" });
+      toast({ title: "Selecione uma empresa", variant: "destructive" });
       return;
     }
     setSendingMsg(true);
@@ -414,7 +446,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
         event_id_maia: msgEventIdMaia,
         status_agendado: msgStatusAgendado,
         evt_status: msgEvtStatus,
-        somente_sem_proposta: msgSomenteSemProposta,
+        codigo_proposta: msgCodigoProposta,
         telefone_pri_whatsapp: msgTelefonePriWhatsapp.replace(/\D/g, ""),
         dealerid: msgDealerId.trim(),
       };
@@ -448,37 +480,6 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
         </CardHeader>
       </Card>
 
-      {/* Seleção de Pri (compartilhada para Cadência e Testar) */}
-      <Card className="shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base">Agente Pri (Ligação)</CardTitle>
-          </div>
-          <CardDescription>Selecione o agente para configurar a cadência ou testar ligações</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadingAgents ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Carregando agentes...
-            </div>
-          ) : priAgents.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">Nenhum agente Pri encontrado.</p>
-          ) : (
-            <Select value={selectedPriId} onValueChange={setSelectedPriId}>
-              <SelectTrigger><SelectValue placeholder="Escolha um agente Pri..." /></SelectTrigger>
-              <SelectContent>
-                {priAgents.map(agent => (
-                  <SelectItem key={agent.id} value={agent.id}>
-                    {agent.nome} — {agent.telefone}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Sub-tabs: Cadência | Testar Ligação | Envio de Mensagem */}
       <Tabs defaultValue="cadencia" className="min-w-0">
         <TabsList className="flex-nowrap overflow-x-auto">
@@ -500,6 +501,37 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
             TAB 1: CADÊNCIA
             ═══════════════════════════════════════════════ */}
         <TabsContent value="cadencia" className="space-y-6 mt-4">
+          {/* Seleção de Pri para Cadência */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">Agente Pri (Ligação)</CardTitle>
+              </div>
+              <CardDescription>Selecione o agente para configurar a cadência</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingAgents ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Carregando agentes...
+                </div>
+              ) : priAgents.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">Nenhum agente Pri encontrado.</p>
+              ) : (
+                <Select value={selectedPriId} onValueChange={setSelectedPriId}>
+                  <SelectTrigger><SelectValue placeholder="Escolha um agente Pri..." /></SelectTrigger>
+                  <SelectContent>
+                    {priAgents.map(agent => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.nome} — {agent.telefone}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Recorrência */}
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
@@ -673,13 +705,44 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
             </Button>
           </div>
 
-          {selectedPri && (
+          {/* Seleção de Pri para Testar */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">Agente Pri (Ligação)</CardTitle>
+              </div>
+              <CardDescription>Selecione o agente para testar ligações e carregar os eventos</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingAgents ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Carregando agentes...
+                </div>
+              ) : priAgents.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">Nenhum agente Pri encontrado.</p>
+              ) : (
+                <Select value={testarSelectedPriId} onValueChange={setTestarSelectedPriId}>
+                  <SelectTrigger><SelectValue placeholder="Escolha um agente Pri..." /></SelectTrigger>
+                  <SelectContent>
+                    {priAgents.map(agent => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.nome} — {agent.telefone}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </CardContent>
+          </Card>
+
+          {testarSelectedPri && (
             <Card className="bg-muted/30 border-dashed shadow-sm">
               <CardContent className="py-4">
                 <div className="flex items-center gap-4 text-sm flex-wrap">
-                  <div><span className="text-muted-foreground">Agente:</span> <span className="font-medium">{selectedPri.nome}</span></div>
-                  <div><span className="text-muted-foreground">Telefone PRI:</span> <span className="font-mono font-medium">{telefonePri}</span></div>
-                  {selectedPri.dealer_id && <div><span className="text-muted-foreground">Dealer ID:</span> <span className="font-mono">{selectedPri.dealer_id}</span></div>}
+                  <div><span className="text-muted-foreground">Agente:</span> <span className="font-medium">{testarSelectedPri.nome}</span></div>
+                  <div><span className="text-muted-foreground">Telefone PRI:</span> <span className="font-mono font-medium">{testarTelefonePri}</span></div>
+                  {testarSelectedPri.dealer_id && <div><span className="text-muted-foreground">Dealer ID:</span> <span className="font-mono">{testarSelectedPri.dealer_id}</span></div>}
                 </div>
               </CardContent>
             </Card>
@@ -693,17 +756,17 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
               <CardDescription>Selecione o evento vinculado à ligação de teste</CardDescription>
             </CardHeader>
             <CardContent>
-              {!selectedPriId ? (
+              {!testarSelectedPriId ? (
                 <p className="text-sm text-muted-foreground">Selecione um agente acima para carregar os eventos.</p>
-              ) : loadingEventos ? (
+              ) : loadingTestarEventos ? (
                 <div className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Carregando eventos...</div>
-              ) : eventos.length === 0 ? (
+              ) : testarEventos.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum evento encontrado para este agente.</p>
               ) : (
                 <Select value={eventoSelecionado} onValueChange={setEventoSelecionado}>
                   <SelectTrigger><SelectValue placeholder="Selecione um evento" /></SelectTrigger>
                   <SelectContent>
-                    {eventos.map((evento) => (
+                    {testarEventos.map((evento) => (
                       <SelectItem key={evento.id} value={evento.id}>
                         <div className="flex items-center gap-2">
                           <span>{evento.nome}</span>
@@ -756,10 +819,10 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
           </Card>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 border-t">
-            <Button onClick={handleConfirmar} disabled={confirmando || contatosPreenchidos === 0 || !selectedPriId} className="w-full sm:flex-1" variant={baseConfirmada ? "outline" : "default"}>
+            <Button onClick={handleConfirmar} disabled={confirmando || contatosPreenchidos === 0 || !testarSelectedPriId} className="w-full sm:flex-1" variant={baseConfirmada ? "outline" : "default"}>
               {confirmando ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Criando base...</> : baseConfirmada ? <><CheckCircle className="h-4 w-4 mr-2 text-green-500" />Base Confirmada</> : <><CheckCircle className="h-4 w-4 mr-2" />Confirmar Base</>}
             </Button>
-            <Button onClick={handleDisparar} disabled={disparando || contatosPreenchidos === 0 || !selectedPriId} className="w-full sm:flex-1">
+            <Button onClick={handleDisparar} disabled={disparando || contatosPreenchidos === 0 || !testarSelectedPriId} className="w-full sm:flex-1">
               {disparando ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Disparando...</> : <><PhoneCall className="h-4 w-4 mr-2" />Disparar Ligação</>}
             </Button>
           </div>
@@ -791,7 +854,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
                 <div className="rounded-lg bg-primary/10 p-2"><User className="h-5 w-5 text-primary" /></div>
                 <div>
                   <CardTitle className="text-lg">Campos de Identificação</CardTitle>
-                  <CardDescription>Selecione a empresa para preencher automaticamente telefone e dealer</CardDescription>
+                  <CardDescription>Selecione a empresa para preencher automaticamente todos os campos</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -828,7 +891,8 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
                               {emp.marca && <span>{emp.marca}</span>}
                               {emp.uf && <span>• {emp.uf}</span>}
                               {emp.crm_id && <span>• CRM: {emp.crm_id}</span>}
-                              <span>• Tel: {emp.telefone_whatsapp}</span>
+                              <span>• Tel WhatsApp: {emp.telefone_whatsapp}</span>
+                              {emp.telefone_ligacao && <span>• Tel Ligação: {emp.telefone_ligacao}</span>}
                             </div>
                           </button>
                         ))}
@@ -849,88 +913,79 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
                   <Label>telefone_pri_whatsapp</Label>
                   <Input
                     value={msgTelefonePriWhatsapp}
-                    onChange={e => setMsgTelefonePriWhatsapp(e.target.value)}
+                    readOnly
                     placeholder="Preenchido ao selecionar empresa"
-                    className={msgTelefonePriWhatsapp ? "border-primary/50" : ""}
+                    className={cn("bg-muted/50", msgTelefonePriWhatsapp && "border-primary/50")}
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label>dealerid (CRM ID)</Label>
                   <Input
                     value={msgDealerId}
-                    onChange={e => setMsgDealerId(e.target.value)}
+                    readOnly
                     placeholder="Preenchido ao selecionar empresa"
-                    className={msgDealerId ? "border-primary/50" : ""}
+                    className={cn("bg-muted/50", msgDealerId && "border-primary/50")}
                   />
                 </div>
+              </div>
+
+              {/* Agente de Ligação auto-filled */}
+              <div className="space-y-1.5">
+                <Label>Agente Pri (Ligação) da loja</Label>
+                <Input
+                  value={msgTelefonePriLigacao ? `Pri(Ligação) — ${msgTelefonePriLigacao}` : ""}
+                  readOnly
+                  placeholder="Preenchido ao selecionar empresa"
+                  className={cn("bg-muted/50", msgTelefonePriLigacao && "border-primary/50")}
+                />
+                {selectedEmpresaId && !msgTelefonePriLigacao && (
+                  <p className="text-xs text-amber-500">Nenhum agente de ligação encontrado para esta loja.</p>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Agente de Ligação + Eventos */}
+          {/* Filtros */}
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-primary/10 p-2"><Settings2 className="h-5 w-5 text-primary" /></div>
                 <div>
                   <CardTitle className="text-lg">Configuração de Filtros</CardTitle>
-                  <CardDescription>Selecione o agente de ligação e o evento para configurar os filtros do disparo</CardDescription>
+                  <CardDescription>Selecione o evento e configure os filtros do disparo</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
-              {/* Agente de Ligação selector */}
-              <div className="space-y-1.5">
-                <Label>Agente Pri (Ligação)</Label>
-                {loadingAgents ? (
+              {/* Eventos ativos do agente de ligação da loja */}
+              <div className="space-y-2">
+                <Label>Evento de Ligação (id_evento)</Label>
+                {!msgTelefonePriLigacao ? (
+                  <p className="text-sm text-muted-foreground py-2">Selecione uma empresa acima para carregar os eventos.</p>
+                ) : loadingMsgEventos ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Carregando agentes...
+                    <Loader2 className="h-4 w-4 animate-spin" /> Carregando eventos...
                   </div>
-                ) : priAgents.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2">Nenhum agente Pri encontrado.</p>
+                ) : msgEventosAtivos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">Nenhum evento ativo encontrado para este agente.</p>
                 ) : (
-                  <Select value={msgSelectedPriId} onValueChange={setMsgSelectedPriId}>
-                    <SelectTrigger><SelectValue placeholder="Escolha um agente Pri de Ligação..." /></SelectTrigger>
+                  <Select
+                    value={msgIdEvento}
+                    onValueChange={(val) => setMsgIdEvento(val)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um evento..." />
+                    </SelectTrigger>
                     <SelectContent>
-                      {priAgents.map(agent => (
-                        <SelectItem key={agent.id} value={agent.id}>
-                          {agent.nome} — {agent.telefone}
+                      {msgEventosAtivos.map(evt => (
+                        <SelectItem key={evt.id} value={evt.id}>
+                          {evt.nome} — ID: {evt.id_evento}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 )}
               </div>
-
-              {/* Eventos ativos do agente selecionado */}
-              {msgSelectedPriId && (
-                <div className="space-y-2">
-                  <Label>Evento de Ligação (id_evento)</Label>
-                  {loadingMsgEventos ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Carregando eventos...
-                    </div>
-                  ) : msgEventosAtivos.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-2">Nenhum evento ativo encontrado para este agente.</p>
-                  ) : (
-                    <Select
-                      value={msgIdEvento}
-                      onValueChange={(val) => setMsgIdEvento(val)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um evento..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {msgEventosAtivos.map(evt => (
-                          <SelectItem key={evt.id} value={evt.id}>
-                            {evt.nome} — ID: {evt.id_evento}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              )}
 
               {/* ID Evento Maia (manual) */}
               <div className="space-y-1.5">
@@ -939,7 +994,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
               </div>
 
               {/* Toggles */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <Label htmlFor="msg-status-agendado" className="text-sm">status_agendado</Label>
                   <Switch id="msg-status-agendado" checked={msgStatusAgendado} onCheckedChange={setMsgStatusAgendado} />
@@ -948,11 +1003,10 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
                   <Label htmlFor="msg-evt-status" className="text-sm">evt_status</Label>
                   <Switch id="msg-evt-status" checked={msgEvtStatus} onCheckedChange={setMsgEvtStatus} />
                 </div>
-              </div>
-
-              <div className="flex items-center gap-3 rounded-lg border p-3">
-                <Checkbox id="msg-sem-proposta" checked={msgSomenteSemProposta} onCheckedChange={(checked) => setMsgSomenteSemProposta(checked === true)} />
-                <Label htmlFor="msg-sem-proposta" className="text-sm cursor-pointer">Somente código_proposta nulo</Label>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <Label htmlFor="msg-codigo-proposta" className="text-sm">codigo_proposta</Label>
+                  <Switch id="msg-codigo-proposta" checked={msgCodigoProposta} onCheckedChange={setMsgCodigoProposta} />
+                </div>
               </div>
             </CardContent>
           </Card>
