@@ -491,11 +491,11 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     try {
       const payload = {
         id_evento: msgIdEvento,
-        event_id_maia: msgIdEvento,
         status_agendado: msgStatusAgendado,
         evt_status: msgEvtStatus,
         codigo_proposta: msgCodigoProposta,
         telefone_pri_whatsapp: msgTelefonePriWhatsapp.replace(/\D/g, ""),
+        pri_telefone: msgTelefonePriLigacao.replace(/\D/g, ""),
         dealerid: msgDealerId.trim(),
       };
       const { error } = await supabase.functions.invoke("maia-webhook-proxy", {
