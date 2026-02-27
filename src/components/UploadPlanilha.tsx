@@ -22,7 +22,7 @@ import { useUserAccessType } from '@/hooks/useUserAccessType';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useBulkImport, BulkImportProgress } from '@/hooks/useBulkImport';
+import { useBulkImport, type BulkImportProgress } from '@/hooks/useBulkImport';
 
 interface ClienteData {
   nome: string;
@@ -114,7 +114,7 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
   const { toast } = useToast();
   
   // Bulk import hook
-  const { progress: importProgress, importContacts, resetProgress, abort, isImporting } = useBulkImport();
+  const { progress: importProgress, importContacts, createStreamingImporter, resetProgress, abort, isImporting, RPC_BATCH_SIZE } = useBulkImport();
   const [finalResult, setFinalResult] = useState<BulkImportProgress | null>(null);
 
   // beforeunload protection during import
@@ -200,12 +200,61 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
     return -1;
   };
 
-  const validateAndMapRows = (headers: string[], dataRows: any[][]): {
-    validClientes: ClienteData[];
-    invalidClientes: ClienteData[];
-    duplicateClientes: ClienteData[];
-  } => {
-    const columnIndices = {
+  // validateAndMapRows removed — validation is now done incrementally in processFile/handleImport
+
+  /**
+   * Validates a single row and returns the result category.
+   * Does NOT accumulate data — the caller decides what to keep.
+   */
+  const validateSingleRow = (
+    row: any[],
+    columnIndices: Record<string, number>,
+    seenPhones: Map<string, number>,
+    rowIndex: number,
+  ): { category: 'valid' | 'invalid' | 'duplicate'; data: ClienteData } => {
+    const nome = columnIndices.nome >= 0 ? row[columnIndices.nome]?.toString().trim() || '' : '';
+    const telefoneOriginal = columnIndices.telefone >= 0 ? row[columnIndices.telefone]?.toString().trim() || '' : '';
+    const phoneValidation = validatePhonePermissive(telefoneOriginal);
+
+    const clienteBase: ClienteData = {
+      nome,
+      telefone: phoneValidation.normalized || '',
+      telefoneOriginal,
+      telefoneFormatado: phoneValidation.formatted || undefined,
+      email: columnIndices.email >= 0 ? row[columnIndices.email]?.toString().trim() || '' : '',
+      cpf: columnIndices.cpf >= 0 ? row[columnIndices.cpf]?.toString().trim() || '' : '',
+      segmentacao: columnIndices.segmentacao >= 0 ? row[columnIndices.segmentacao]?.toString().trim() || '' : '',
+      responsavel: columnIndices.responsavel >= 0 ? row[columnIndices.responsavel]?.toString().trim() || '' : '',
+    };
+
+    if (!phoneValidation.isValid) {
+      return {
+        category: 'invalid',
+        data: { ...clienteBase, validationError: phoneValidation.errorMessage || 'Telefone inválido', validationErrorCode: phoneValidation.errorCode || undefined },
+      };
+    }
+
+    const normalized = phoneValidation.normalized!;
+    if (seenPhones.has(normalized)) {
+      return {
+        category: 'duplicate',
+        data: { ...clienteBase, validationError: `Duplicado da linha ${seenPhones.get(normalized)! + 2}` },
+      };
+    }
+
+    seenPhones.set(normalized, rowIndex);
+
+    const localPhoneResult = normalizeToLocalPhone(phoneValidation.normalized);
+    const telefoneNormalizado = localPhoneResult.valido ? localPhoneResult.localPhone! : phoneValidation.normalized!;
+
+    return {
+      category: 'valid',
+      data: { ...clienteBase, telefone: telefoneNormalizado, telefoneFormatado: phoneValidation.formatted! },
+    };
+  };
+
+  const buildColumnIndices = (headers: string[]) => {
+    const indices = {
       nome: findColumnIndex(headers, 'nome'),
       telefone: findColumnIndex(headers, 'telefone'),
       email: findColumnIndex(headers, 'email'),
@@ -213,67 +262,15 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
       segmentacao: findColumnIndex(headers, 'segmentacao'),
       responsavel: findColumnIndex(headers, 'responsavel'),
     };
-
-    if (columnIndices.telefone === -1) {
-      throw new Error('MISSING_PHONE_COLUMN');
-    }
-
-    const validClientes: ClienteData[] = [];
-    const invalidClientes: ClienteData[] = [];
-    const duplicateClientes: ClienteData[] = [];
-    const seenPhones = new Map<string, number>();
-
-    dataRows.filter(row => row && row.length > 0).forEach((row, index) => {
-      const nome = columnIndices.nome >= 0 ? row[columnIndices.nome]?.toString().trim() || '' : '';
-      const telefoneOriginal = columnIndices.telefone >= 0 ? row[columnIndices.telefone]?.toString().trim() || '' : '';
-      const phoneValidation = validatePhonePermissive(telefoneOriginal);
-
-      const clienteBase: ClienteData = {
-        nome,
-        telefone: phoneValidation.normalized || '',
-        telefoneOriginal,
-        telefoneFormatado: phoneValidation.formatted || undefined,
-        email: columnIndices.email >= 0 ? row[columnIndices.email]?.toString().trim() || '' : '',
-        cpf: columnIndices.cpf >= 0 ? row[columnIndices.cpf]?.toString().trim() || '' : '',
-        segmentacao: columnIndices.segmentacao >= 0 ? row[columnIndices.segmentacao]?.toString().trim() || '' : '',
-        responsavel: columnIndices.responsavel >= 0 ? row[columnIndices.responsavel]?.toString().trim() || '' : '',
-      };
-
-      if (!phoneValidation.isValid) {
-        invalidClientes.push({
-          ...clienteBase,
-          validationError: phoneValidation.errorMessage || 'Telefone inválido',
-          validationErrorCode: phoneValidation.errorCode || undefined
-        });
-        return;
-      }
-
-      const normalized = phoneValidation.normalized!;
-      if (seenPhones.has(normalized)) {
-        duplicateClientes.push({
-          ...clienteBase,
-          validationError: `Duplicado da linha ${seenPhones.get(normalized)! + 2}`
-        });
-        return;
-      }
-
-      seenPhones.set(normalized, index);
-
-      const localPhoneResult = normalizeToLocalPhone(phoneValidation.normalized);
-      const telefoneNormalizado = localPhoneResult.valido
-        ? localPhoneResult.localPhone!
-        : phoneValidation.normalized!;
-
-      validClientes.push({
-        ...clienteBase,
-        telefone: telefoneNormalizado,
-        telefoneFormatado: phoneValidation.formatted!
-      });
-    });
-
-    return { validClientes, invalidClientes, duplicateClientes };
+    if (indices.telefone === -1) throw new Error('MISSING_PHONE_COLUMN');
+    return indices;
   };
 
+  /**
+   * processFile: Incrementally validates during streaming.
+   * Only keeps first 100 samples for preview; counts totals.
+   * Does NOT hold all rows in memory.
+   */
   const processFile = async (file: File) => {
     setIsProcessing(true);
     setInvalidData([]);
@@ -282,49 +279,75 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
     setParseProgress(null);
 
     const isCsv = file.name.endsWith('.csv');
+    const PREVIEW_LIMIT = 100;
 
     try {
-      let headers: string[] = [];
-      let dataRows: any[][] = [];
+      // For preview, we collect limited samples
+      const validSamples: ClienteData[] = [];
+      const invalidSamples: ClienteData[] = [];
+      const duplicateSamples: ClienteData[] = [];
+      let validCount = 0;
+      let invalidCount = 0;
+      let duplicateCount = 0;
+      const seenPhones = new Map<string, number>();
 
       if (isCsv) {
-        // Use PapaParse streaming for CSV files (handles massive files)
         await new Promise<void>((resolve, reject) => {
           let headerParsed = false;
-          let rowCount = 0;
-          const estimatedTotal = Math.round(file.size / 50); // rough estimate ~50 bytes/row
+          let columnIndices: Record<string, number> | null = null;
+          let rowIndex = 0;
+          const estimatedTotal = Math.round(file.size / 50);
 
           Papa.parse(file, {
             worker: true,
             step: (result) => {
               const row = result.data as any[];
               if (!headerParsed) {
-                headers = row.map(h => h?.toString() || '');
+                const headers = row.map(h => h?.toString() || '');
+                try {
+                  columnIndices = buildColumnIndices(headers);
+                } catch (err: any) {
+                  reject(err);
+                  return;
+                }
                 headerParsed = true;
                 return;
               }
-              if (row.some(cell => cell !== null && cell !== undefined && cell !== '')) {
-                dataRows.push(row);
-                rowCount++;
-                if (rowCount % 10000 === 0) {
-                  setParseProgress({ parsed: rowCount, total: estimatedTotal });
-                }
+              if (!row.some(cell => cell !== null && cell !== undefined && cell !== '')) return;
+
+              const { category, data } = validateSingleRow(row, columnIndices!, seenPhones, rowIndex);
+              rowIndex++;
+
+              if (category === 'valid') {
+                validCount++;
+                if (validSamples.length < PREVIEW_LIMIT) validSamples.push(data);
+              } else if (category === 'invalid') {
+                invalidCount++;
+                if (invalidSamples.length < PREVIEW_LIMIT) invalidSamples.push(data);
+              } else {
+                duplicateCount++;
+                if (duplicateSamples.length < PREVIEW_LIMIT) duplicateSamples.push(data);
+              }
+
+              if (rowIndex % 10000 === 0) {
+                setParseProgress({ parsed: rowIndex, total: estimatedTotal });
               }
             },
             complete: () => {
-              setParseProgress({ parsed: rowCount, total: rowCount });
+              setParseProgress({ parsed: rowIndex, total: rowIndex });
+              console.log(`📊 CSV streaming: ${rowIndex} linhas lidas (${validCount} válidos, ${invalidCount} inválidos, ${duplicateCount} duplicados)`);
               resolve();
             },
             error: (err) => reject(err),
           });
         });
       } else {
-        // Use XLSX for Excel files
+        // Excel: read all at once (no streaming API), but validate incrementally
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
         if (jsonData.length < 2) {
           toast({ title: "Arquivo vazio", description: "O arquivo não contém dados suficientes", variant: "destructive" });
@@ -332,73 +355,84 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
           return;
         }
 
-        headers = (jsonData[0] as any[]).map(h => h?.toString() || '');
-        dataRows = (jsonData.slice(1) as any[][]);
+        const headers = jsonData[0].map(h => h?.toString() || '');
+        const columnIndices = buildColumnIndices(headers);
+
+        for (let i = 1; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          if (!row || !row.some(cell => cell !== null && cell !== undefined && cell !== '')) continue;
+
+          const { category, data } = validateSingleRow(row, columnIndices, seenPhones, i - 1);
+
+          if (category === 'valid') {
+            validCount++;
+            if (validSamples.length < PREVIEW_LIMIT) validSamples.push(data);
+          } else if (category === 'invalid') {
+            invalidCount++;
+            if (invalidSamples.length < PREVIEW_LIMIT) invalidSamples.push(data);
+          } else {
+            duplicateCount++;
+            if (duplicateSamples.length < PREVIEW_LIMIT) duplicateSamples.push(data);
+          }
+        }
+        console.log(`📊 Excel: ${jsonData.length - 1} linhas (${validCount} válidos, ${invalidCount} inválidos, ${duplicateCount} duplicados)`);
       }
 
-      if (dataRows.length === 0) {
+      const totalRecords = validCount + invalidCount + duplicateCount;
+      if (totalRecords === 0) {
         toast({ title: "Arquivo vazio", description: "O arquivo não contém dados", variant: "destructive" });
         setIsProcessing(false);
         return;
       }
 
-      console.log(`📊 Arquivo lido: ${dataRows.length} linhas`);
-
-      let result;
-      try {
-        result = validateAndMapRows(headers, dataRows);
-      } catch (err: any) {
-        if (err.message === 'MISSING_PHONE_COLUMN') {
-          toast({ title: "Coluna obrigatória não encontrada", description: "Não foi possível identificar a coluna 'Telefone'.", variant: "destructive" });
-          setIsProcessing(false);
-          return;
-        }
-        throw err;
-      }
-
-      let { validClientes, invalidClientes, duplicateClientes } = result;
-      const quarentenaClientes: ClienteData[] = [];
-
-      // Admin limit
-      if (isAdminOnly && !isCRMOrMaster && validClientes.length > ADMIN_UPLOAD_LIMIT) {
-        const excedentes = validClientes.length - ADMIN_UPLOAD_LIMIT;
-        validClientes = validClientes.slice(0, ADMIN_UPLOAD_LIMIT);
+      // Admin limit check
+      let finalValidCount = validCount;
+      if (isAdminOnly && !isCRMOrMaster && validCount > ADMIN_UPLOAD_LIMIT) {
+        const excedentes = validCount - ADMIN_UPLOAD_LIMIT;
+        finalValidCount = ADMIN_UPLOAD_LIMIT;
         toast({
           title: "Limite de base de teste",
           description: `Administradores podem subir no máximo ${ADMIN_UPLOAD_LIMIT} contatos. ${excedentes} removidos.`,
         });
+        // Trim samples too
+        validSamples.splice(ADMIN_UPLOAD_LIMIT);
       }
 
-      setPreviewData(validClientes);
-      setInvalidData(invalidClientes);
-      setDuplicateData(duplicateClientes);
-      setQuarentenaData(quarentenaClientes);
+      // Store samples for preview (NOT the full dataset)
+      setPreviewData(validSamples);
+      setInvalidData(invalidSamples);
+      setDuplicateData(duplicateSamples);
+      setQuarentenaData([]);
       setValidationSummary({
-        total: validClientes.length + invalidClientes.length + duplicateClientes.length,
-        valid: validClientes.length,
-        invalid: invalidClientes.length,
-        duplicates: duplicateClientes.length,
+        total: totalRecords,
+        valid: finalValidCount,
+        invalid: invalidCount,
+        duplicates: duplicateCount,
         quarentena: 0,
       });
 
       setIsProcessing(false);
       setParseProgress(null);
 
-      if (invalidClientes.length > 0 || duplicateClientes.length > 0) {
+      if (invalidCount > 0 || duplicateCount > 0) {
         toast({
           title: "Arquivo processado com ressalvas",
-          description: `${validClientes.length} válidos, ${invalidClientes.length} inválidos, ${duplicateClientes.length} duplicados`,
+          description: `${finalValidCount.toLocaleString('pt-BR')} válidos, ${invalidCount.toLocaleString('pt-BR')} inválidos, ${duplicateCount.toLocaleString('pt-BR')} duplicados`,
         });
-        setActiveTab(invalidClientes.length > 0 ? 'invalid' : 'duplicates');
+        setActiveTab(invalidCount > 0 ? 'invalid' : 'duplicates');
       } else {
-        toast({ title: "Arquivo processado", description: `${validClientes.length} registros válidos encontrados` });
+        toast({ title: "Arquivo processado", description: `${finalValidCount.toLocaleString('pt-BR')} registros válidos encontrados` });
         setActiveTab('valid');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao processar arquivo:', error);
       setIsProcessing(false);
       setParseProgress(null);
-      toast({ title: "Erro ao processar arquivo", description: "Verifique se o formato está correto", variant: "destructive" });
+      if (error?.message === 'MISSING_PHONE_COLUMN') {
+        toast({ title: "Coluna obrigatória não encontrada", description: "Não foi possível identificar a coluna 'Telefone'.", variant: "destructive" });
+      } else {
+        toast({ title: "Erro ao processar arquivo", description: "Verifique se o formato está correto", variant: "destructive" });
+      }
     }
   };
 
@@ -407,62 +441,124 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
       toast({ title: "Selecione uma campanha", description: "Escolha uma campanha para adicionar os contatos", variant: "destructive" });
       return;
     }
-    if (previewData.length === 0) {
+    if (!validationSummary || validationSummary.valid === 0) {
       toast({ title: "Nenhum contato válido", description: "Não há contatos válidos para importar.", variant: "destructive" });
       return;
     }
-    if (!activeCompany?.id) return;
+    if (!activeCompany?.id || !file) return;
 
     const baseNomeFinal = nomeBase.trim() || `Importação ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
     const selectedProspeccao = prospeccoes.find(p => p.id === selectedCampanha);
+    const origemContato = selectedOrigem || 'Outros';
+    const isCsv = file.name.endsWith('.csv');
+    const adminLimit = (isAdminOnly && !isCRMOrMaster) ? ADMIN_UPLOAD_LIMIT : Infinity;
 
     setIsProcessing(true);
     resetProgress();
 
     try {
-      // 1) Criar registro da base importada
+      // 1) Create base record
       const { data: baseData, error: baseError } = await supabase
         .from('bases_importadas')
         .insert({
           nome: baseNomeFinal,
           empresa_id: activeCompany.id,
-          total_contatos: previewData.length
+          total_contatos: validationSummary.valid
         })
         .select()
         .single();
 
       if (baseError) throw baseError;
 
-      // 2) Preparar contatos para importação via RPC
-      const origemContato = selectedOrigem || 'Outros';
-      const contatosForImport = previewData.map(c => ({
-        nome: c.nome,
-        telefone: c.telefone,
-        email: c.email || undefined,
-        origem: origemContato,
-        observacoes: `Importado para: ${selectedProspeccao?.titulo || ''}`,
-        responsavel_email: c.responsavel && c.responsavel.trim() ? c.responsavel : undefined,
-        base_id: baseData.id,
-      }));
+      console.log(`🚀 Início da importação streaming: ~${validationSummary.valid} registros`);
 
-      // 3) Execute bulk import via RPC with progress tracking
-      const result = await importContacts(contatosForImport, activeCompany.id, selectedCampanha);
+      // 2) Create streaming importer
+      const importer = createStreamingImporter(activeCompany.id, selectedCampanha, validationSummary.valid);
+      const seenPhones = new Map<string, number>();
+      let currentBatch: any[] = [];
+      let validSent = 0;
 
-      // 4) Register quarantine
-      const QUARENTENA_BATCH = 500;
-      for (let i = 0; i < previewData.length; i += QUARENTENA_BATCH) {
-        const batch = previewData.slice(i, i + QUARENTENA_BATCH).map(c => ({
-          telefone_normalizado: c.telefone,
-          empresa_id: activeCompany.id,
-          ultimo_impacto_at: new Date().toISOString(),
-          prospeccao_id: selectedCampanha,
-          evento_nome: selectedProspeccao?.titulo || '',
-          canal: selectedProspeccao?.canal || 'WhatsApp',
-        }));
-        await supabase
-          .from('contato_quarentena')
-          .upsert(batch, { onConflict: 'telefone_normalizado,empresa_id' });
+      const flushBatch = () => {
+        if (currentBatch.length === 0) return;
+        importer.enqueueBatch([...currentBatch]);
+        currentBatch = [];
+      };
+
+      const processRow = (row: any[], columnIndices: Record<string, number>, rowIndex: number) => {
+        if (importer.isAborted()) return;
+        const { category, data } = validateSingleRow(row, columnIndices, seenPhones, rowIndex);
+        if (category !== 'valid') return;
+        if (validSent >= adminLimit) return;
+
+        validSent++;
+        currentBatch.push({
+          nome: data.nome,
+          telefone: data.telefone,
+          email: data.email || null,
+          origem: origemContato,
+          observacoes: `Importado para: ${selectedProspeccao?.titulo || ''}`,
+          responsavel_email: data.responsavel && data.responsavel.trim() ? data.responsavel : null,
+          base_id: baseData.id,
+        });
+
+        if (currentBatch.length >= RPC_BATCH_SIZE) {
+          flushBatch();
+        }
+      };
+
+      // 3) Re-parse file and stream batches to RPC
+      if (isCsv) {
+        await new Promise<void>((resolve, reject) => {
+          let headerParsed = false;
+          let columnIndices: Record<string, number> | null = null;
+          let rowIndex = 0;
+
+          Papa.parse(file, {
+            worker: true,
+            step: (result) => {
+              if (importer.isAborted()) return;
+              const row = result.data as any[];
+              if (!headerParsed) {
+                const headers = row.map(h => h?.toString() || '');
+                try { columnIndices = buildColumnIndices(headers); } catch (e) { reject(e); return; }
+                headerParsed = true;
+                return;
+              }
+              if (!row.some(cell => cell !== null && cell !== undefined && cell !== '')) return;
+              processRow(row, columnIndices!, rowIndex++);
+            },
+            complete: () => {
+              console.log(`📊 Re-parse completo: ${rowIndex} linhas, ${validSent} válidos enviados`);
+              resolve();
+            },
+            error: (err) => reject(err),
+          });
+        });
+      } else {
+        // Excel re-read
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+        const headers = jsonData[0].map(h => h?.toString() || '');
+        const columnIndices = buildColumnIndices(headers);
+
+        for (let i = 1; i < jsonData.length; i++) {
+          if (importer.isAborted()) break;
+          const row = jsonData[i];
+          if (!row || !row.some(cell => cell !== null && cell !== undefined && cell !== '')) continue;
+          processRow(row, columnIndices, i - 1);
+        }
+        console.log(`📊 Excel re-parse completo: ${jsonData.length - 1} linhas, ${validSent} válidos enviados`);
       }
+
+      // Flush remaining batch
+      flushBatch();
+      importer.updateTotal(validSent);
+
+      // 4) Wait for all in-flight batches to complete
+      const result = await importer.finalize();
+      console.log(`✅ Importação finalizada:`, result);
 
       // 5) Create notification
       const { data: userData } = await supabase
@@ -497,52 +593,6 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
           status: 'Pendente' as const,
         }));
         await supabase.from('notificacoes').insert(notificacoes);
-      }
-
-      // 7) Handle Ligação sync if needed
-      if (selectedProspeccao?.canal === 'Ligação') {
-        try {
-          const { data: agenteData } = await supabase
-            .from('agente_empresas')
-            .select('agente_id, agentes_ia (id, nome, telefone, ativo)')
-            .eq('empresa_id', activeCompany.id)
-            .limit(10);
-
-          const agenteAtivo = agenteData?.find((a: any) => a.agentes_ia?.ativo === true && a.agentes_ia?.telefone);
-
-          if (agenteAtivo?.agentes_ia?.telefone) {
-            const telefonePri = (agenteAtivo.agentes_ia as any).telefone.replace(/\D/g, '');
-            const idEvento = selectedProspeccao.event_id_pri ? Number(selectedProspeccao.event_id_pri) : null;
-
-            const contatosPayload = previewData.map(c => {
-              let digits = c.telefone.replace(/\D/g, '');
-              if (digits.length > 11 && digits.startsWith('55')) digits = digits.slice(2);
-              return { nome: c.nome || '', telefone: digits };
-            });
-
-            const SYNC_BATCH = 1000;
-            for (let i = 0; i < contatosPayload.length; i += SYNC_BATCH) {
-              const batch = contatosPayload.slice(i, i + SYNC_BATCH);
-              try {
-                await supabase.functions.invoke('create-base-ligacao', {
-                  body: {
-                    contatos: batch,
-                    id_evento: idEvento || 0,
-                    telefone_pri: telefonePri,
-                    empresa_id: activeCompany.id,
-                    prospeccao_id: selectedProspeccao.id,
-                    loja: activeCompany?.nome_empresa || '',
-                    sync_external: !!idEvento,
-                  },
-                });
-              } catch (batchError) {
-                console.error('❌ Sync batch error:', batchError);
-              }
-            }
-          }
-        } catch (syncError) {
-          console.error('❌ Ligação sync error:', syncError);
-        }
       }
 
       // Close upload dialog and show result
@@ -771,15 +821,15 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="valid" className="flex items-center gap-1 text-xs">
                     <CheckCircle size={14} className="text-green-600" />
-                    Válidos ({previewData.length.toLocaleString('pt-BR')})
+                    Válidos ({validationSummary.valid.toLocaleString('pt-BR')})
                   </TabsTrigger>
                   <TabsTrigger value="invalid" className="flex items-center gap-1 text-xs">
                     <XCircle size={14} className="text-red-600" />
-                    Inválidos ({invalidData.length.toLocaleString('pt-BR')})
+                    Inválidos ({validationSummary.invalid.toLocaleString('pt-BR')})
                   </TabsTrigger>
                   <TabsTrigger value="duplicates" className="flex items-center gap-1 text-xs">
                     <AlertTriangle size={14} className="text-yellow-600" />
-                    Duplicados ({duplicateData.length.toLocaleString('pt-BR')})
+                    Duplicados ({validationSummary.duplicates.toLocaleString('pt-BR')})
                   </TabsTrigger>
                 </TabsList>
                 
@@ -805,10 +855,10 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                             <TableCell><CheckCircle className="text-green-600" size={16} /></TableCell>
                           </TableRow>
                         ))}
-                        {previewData.length > 100 && (
+                        {validationSummary && validationSummary.valid > 100 && (
                           <TableRow>
                             <TableCell colSpan={5} className="text-center text-muted-foreground py-4">
-                              ...e mais {(previewData.length - 100).toLocaleString('pt-BR')} registros
+                              ...e mais {(validationSummary.valid - 100).toLocaleString('pt-BR')} registros
                             </TableCell>
                           </TableRow>
                         )}
@@ -850,10 +900,10 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                             <TableCell className="text-red-600 text-sm">{item.validationError}</TableCell>
                           </TableRow>
                         ))}
-                        {invalidData.length > 100 && (
+                        {validationSummary && validationSummary.invalid > 100 && (
                           <TableRow>
                             <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
-                              ...e mais {(invalidData.length - 100).toLocaleString('pt-BR')} erros
+                              ...e mais {(validationSummary.invalid - 100).toLocaleString('pt-BR')} erros
                             </TableCell>
                           </TableRow>
                         )}
@@ -885,10 +935,10 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                             <TableCell className="text-yellow-600 text-sm">{item.validationError}</TableCell>
                           </TableRow>
                         ))}
-                        {duplicateData.length > 100 && (
+                        {validationSummary && validationSummary.duplicates > 100 && (
                           <TableRow>
                             <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
-                              ...e mais {(duplicateData.length - 100).toLocaleString('pt-BR')} duplicatas
+                              ...e mais {(validationSummary.duplicates - 100).toLocaleString('pt-BR')} duplicatas
                             </TableCell>
                           </TableRow>
                         )}
@@ -908,17 +958,17 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
 
         <div className="flex-shrink-0 flex justify-between items-center pt-4 border-t">
           <div className="text-sm text-muted-foreground">
-            {validationSummary && previewData.length > 0 && !isImporting && (
+            {validationSummary && validationSummary.valid > 0 && !isImporting && (
               <span className="text-green-700 font-medium">
-                ✓ {previewData.length.toLocaleString('pt-BR')} contatos serão importados
+                ✓ {validationSummary.valid.toLocaleString('pt-BR')} contatos serão importados
               </span>
             )}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isImporting}>Cancelar</Button>
-            {previewData.length > 0 && !isImporting && (
+            {validationSummary && validationSummary.valid > 0 && !isImporting && (
               <Button onClick={handleImport} disabled={isProcessing}>
-                {isProcessing ? 'Importando...' : `Importar ${previewData.length.toLocaleString('pt-BR')} Contatos`}
+                {isProcessing ? 'Importando...' : `Importar ${validationSummary.valid.toLocaleString('pt-BR')} Contatos`}
               </Button>
             )}
           </div>
