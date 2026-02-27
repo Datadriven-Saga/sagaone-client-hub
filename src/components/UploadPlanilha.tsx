@@ -53,7 +53,7 @@ interface OrigemOption {
 }
 
 interface UploadPlanilhaProps {
-  onClientesImported: (campanha: string, clientes: ClienteData[]) => void;
+  onClientesImported: (campanha: string, clientes: ClienteData[]) => void | Promise<void>;
   prospeccoes: Prospeccao[];
 }
 
@@ -420,7 +420,9 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
         base_id: baseData.id
       }));
       
-      onClientesImported(selectedCampanha, clientesComDados);
+      // IMPORTANTE: Aguardar a importação real antes de mostrar resultado
+      // onClientesImported chama adicionarContatos que faz o insert no banco
+      await onClientesImported(selectedCampanha, clientesComDados);
       
       // Registrar quarentena para os contatos importados (em lotes de 500)
       if (activeCompany?.id && previewData.length > 0) {
@@ -496,12 +498,9 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       setQuarentenaData([]);
       setValidationSummary(null);
       
-      const rejectedCount = (validationSummary?.invalid || 0) + (validationSummary?.duplicates || 0);
-      
-      toast({
-        title: "Importação concluída",
-        description: `${previewData.length} contatos importados.${rejectedCount > 0 ? ` (${rejectedCount} rejeitados)` : ''}${isLigacaoEvent ? ' Use o botão "Disparar" para iniciar as ligações.' : ''}`,
-      });
+      // NOTA: O toast de resultado real já é exibido por adicionarContatos() no hook
+      // com os números reais (novos criados, existentes vinculados, já no evento)
+      // Não mostrar toast duplicado aqui para evitar confusão
     } catch (error) {
       console.error('Erro na importação:', error);
       toast({
