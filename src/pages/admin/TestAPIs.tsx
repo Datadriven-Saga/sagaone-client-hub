@@ -236,20 +236,21 @@ const TestAPIs = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start gap-3">
           <Button 
             variant="outline" 
             size="sm" 
             onClick={() => navigate('/administracao')}
+            className="shrink-0"
           >
             <ArrowLeft className="h-4 w-4" />
-            Voltar
+            <span className="hidden sm:inline ml-1">Voltar</span>
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              Teste de APIs de Prospecção
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-3xl font-bold text-foreground">
+              Teste de APIs
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Interface para testar as APIs usando <code className="text-xs bg-muted px-1 py-0.5 rounded">lead_id</code> numérico
             </p>
           </div>
@@ -310,8 +311,8 @@ const TestAPIs = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-muted p-3 rounded-md">
-              <code className="text-sm">
+            <div className="bg-muted p-3 rounded-md overflow-x-auto">
+              <code className="text-xs sm:text-sm break-all">
                 GET {baseUrl}/prospeccao-status?lead_id={leadId || '{lead_id}'}
               </code>
             </div>
@@ -355,8 +356,8 @@ const TestAPIs = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-muted p-3 rounded-md">
-              <code className="text-sm">
+            <div className="bg-muted p-3 rounded-md overflow-x-auto">
+              <code className="text-xs sm:text-sm break-all">
                 PUT {baseUrl}/prospeccao-status?lead_id={leadId || '{lead_id}'}
               </code>
             </div>
@@ -421,8 +422,8 @@ const TestAPIs = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-muted p-3 rounded-md">
-              <code className="text-sm">
+            <div className="bg-muted p-3 rounded-md overflow-x-auto">
+              <code className="text-xs sm:text-sm break-all">
                 POST {baseUrl}/prospeccao-anotacao
               </code>
             </div>
@@ -486,8 +487,8 @@ const TestAPIs = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-muted p-3 rounded-md">
-              <code className="text-sm">
+            <div className="bg-muted p-3 rounded-md overflow-x-auto">
+              <code className="text-xs sm:text-sm break-all">
                 GET {baseUrl}/get-lead-qrcode?lead_id={leadCodigo || '{lead_id}'}
               </code>
             </div>

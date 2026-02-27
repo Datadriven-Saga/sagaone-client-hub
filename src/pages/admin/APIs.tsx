@@ -88,19 +88,19 @@ const APIs = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">APIs e Integrações</h1>
-              <p className="text-sm text-muted-foreground">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">APIs e Integrações</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Gerencie APIs externas e integrações do sistema
               </p>
             </div>
           </div>
-          <Button size="sm">
+          <Button size="sm" className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Nova Integração
           </Button>
@@ -123,32 +123,32 @@ const APIs = () => {
             {integracoes.map((api, index) => (
               <div 
                 key={index} 
-                className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors gap-3"
               >
-                <div className="flex items-center gap-4">
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full shrink-0 ${
                     api.status === "Conectado" ? "bg-green-500/10" : "bg-destructive/10"
                   }`}>
                     {api.status === "Conectado" ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
                     ) : (
-                      <XCircle className="h-5 w-5 text-destructive" />
+                      <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
                     )}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-foreground">{api.nome}</h3>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-medium text-foreground text-sm sm:text-base">{api.nome}</h3>
                       <Badge variant={api.status === "Conectado" ? "default" : "secondary"} className="text-xs">
                         {api.status}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground">{api.tipo}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{api.tipo}</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       Última sincronização: {api.ultimaSincronizacao}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 self-end sm:self-center">
                   <Button variant="outline" size="sm" className="gap-2">
                     <Activity className="h-4 w-4" />
                     <span className="hidden sm:inline">Logs</span>
@@ -252,24 +252,24 @@ const APIs = () => {
             {webhooks.map((webhook, index) => (
               <div 
                 key={index} 
-                className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors gap-3"
               >
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-500/10">
-                    <Activity className="h-5 w-5 text-green-500" />
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-green-500/10 shrink-0">
+                    <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-foreground">{webhook.nome}</h3>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-medium text-foreground text-sm sm:text-base">{webhook.nome}</h3>
                       <Badge variant="default" className="text-xs">{webhook.status}</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground font-mono">{webhook.url}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground font-mono truncate">{webhook.url}</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       Última execução: {webhook.ultimaExecucao}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 self-end sm:self-center">
                   <Button variant="outline" size="sm" className="gap-2">
                     <Eye className="h-4 w-4" />
                     <span className="hidden sm:inline">Logs</span>

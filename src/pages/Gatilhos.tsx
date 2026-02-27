@@ -401,14 +401,14 @@ const Gatilhos = () => {
     <DashboardLayout>
       <ScrollIndicator className="h-full">
         <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Gatilhos</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Gatilhos</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Configure gatilhos automáticos para ações da prospecção
             </p>
           </div>
-          <Button onClick={() => setShowForm(true)}>
+          <Button onClick={() => setShowForm(true)} size="sm" className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Novo Gatilho
           </Button>
@@ -505,22 +505,22 @@ const Gatilhos = () => {
         <div className="grid grid-cols-1 gap-4">
           {gatilhos.map((gatilho) => (
             <Card key={gatilho.id}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Zap className="h-6 w-6 text-primary" />
-                    <div className="space-y-2">
-                      <h3 className="font-semibold">{gatilho.nome}</h3>
-                      <p className="text-sm text-muted-foreground">{gatilho.descricao}</p>
-                      <div className="flex flex-col gap-2 text-sm">
-                        <span className="text-muted-foreground">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <Zap className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0 mt-0.5" />
+                    <div className="space-y-1.5 min-w-0">
+                      <h3 className="font-semibold text-sm sm:text-base">{gatilho.nome}</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{gatilho.descricao}</p>
+                      <div className="flex flex-col gap-1 text-xs sm:text-sm">
+                        <span className="text-muted-foreground truncate">
                           Tipo: {tiposGatilho.find(t => t.value === gatilho.tipo)?.label || gatilho.tipo}
                         </span>
-                        <span className="text-muted-foreground">Webhook: {gatilho.webhook_url}</span>
+                        <span className="text-muted-foreground truncate break-all">Webhook: {gatilho.webhook_url}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-end sm:self-start shrink-0">
                     <Badge 
                       className={gatilho.ativo 
                         ? "bg-green-500 hover:bg-green-600 text-white" 
