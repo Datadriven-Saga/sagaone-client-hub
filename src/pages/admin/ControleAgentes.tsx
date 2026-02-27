@@ -24,7 +24,7 @@ export default function ControleAgentes() {
               </TabsTrigger>
               <TabsTrigger value="cadencia-ligacao" className="min-w-max whitespace-nowrap gap-1.5">
                 <Phone className="h-4 w-4" />
-                Cadência Ligação
+                Ligação
               </TabsTrigger>
             </TabsList>
             <TabsContent value="agentes">
