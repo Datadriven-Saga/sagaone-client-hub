@@ -2080,16 +2080,12 @@ export default function AdminAgentes() {
                     {isPriLigacao() && (
                       <TabsTrigger value="eventos">Eventos</TabsTrigger>
                     )}
-                    {/* Aba de Testar - apenas para agentes Pri(Ligação)
-                        (não depende do agenteLocal para não aparecer "em partes") */}
-                    {isPriLigacao() && (
-                      <TabsTrigger value="testar">Testar</TabsTrigger>
-                    )}
+                    {/* Aba "Testar" removida — agora fica em Controle de Agentes > Configuração Ligação */}
                   </TabsList>
                 </div>
 
                 {/* Aviso para novo agente */}
-                {!agenteLocal && activeTab !== "dados-gerais" && activeTab !== "instancias" && activeTab !== "lojas-gaia" && activeTab !== "eventos" && activeTab !== "testar" && (
+                {!agenteLocal && activeTab !== "dados-gerais" && activeTab !== "instancias" && activeTab !== "lojas-gaia" && activeTab !== "eventos" && (
                   <div className="flex items-center justify-center py-12 text-center">
                     <div className="space-y-2">
                       <Bot className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
@@ -2946,22 +2942,7 @@ export default function AdminAgentes() {
                   </TabsContent>
                 )}
 
-                {/* Testar Tab - apenas para agentes Pri(Ligação)
-                    forceMount para começar a buscar em background e evitar sensação de "demora" ao clicar */}
-                {isPriLigacao() && (
-                  <TabsContent value="testar" forceMount>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <AgenteTestar 
-                          telefonePri={formData.telefone}
-                          dealerId={formData.dealer_id}
-                          empresaId={selectedAgente?.empresa_id}
-                          agenteNome={formData.nome}
-                        />
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                )}
+                {/* Aba "Testar" removida — agora fica em Controle de Agentes > Configuração Ligação */}
               </Tabs>
 
               <DialogFooter>
