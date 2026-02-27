@@ -2009,6 +2009,100 @@ export type Database = {
           },
         ]
       }
+      import_logs: {
+        Row: {
+          already_linked: number | null
+          base_id: string | null
+          created_at: string
+          current_offset: number | null
+          empresa_id: string
+          error_details: Json | null
+          errors: number | null
+          file_name: string
+          file_path: string
+          id: string
+          inserted: number | null
+          linked: number | null
+          message: string | null
+          origem: string | null
+          processed_rows: number | null
+          prospeccao_id: string | null
+          status: string
+          total_rows: number | null
+          updated: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          already_linked?: number | null
+          base_id?: string | null
+          created_at?: string
+          current_offset?: number | null
+          empresa_id: string
+          error_details?: Json | null
+          errors?: number | null
+          file_name: string
+          file_path: string
+          id?: string
+          inserted?: number | null
+          linked?: number | null
+          message?: string | null
+          origem?: string | null
+          processed_rows?: number | null
+          prospeccao_id?: string | null
+          status?: string
+          total_rows?: number | null
+          updated?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          already_linked?: number | null
+          base_id?: string | null
+          created_at?: string
+          current_offset?: number | null
+          empresa_id?: string
+          error_details?: Json | null
+          errors?: number | null
+          file_name?: string
+          file_path?: string
+          id?: string
+          inserted?: number | null
+          linked?: number | null
+          message?: string | null
+          origem?: string | null
+          processed_rows?: number | null
+          prospeccao_id?: string | null
+          status?: string
+          total_rows?: number | null
+          updated?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_logs_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: false
+            referencedRelation: "bases_importadas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_logs_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_logs_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       logs_disparos: {
         Row: {
           canal: string
