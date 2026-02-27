@@ -5,12 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Save, Phone, Settings2, CalendarClock, Loader2 } from "lucide-react";
+import { Save, Phone, Settings2, CalendarClock, Loader2, X, PhoneCall, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { usePriLigacaoEventos } from "@/hooks/usePriLigacaoEventos";
 import { cn } from "@/lib/utils";
 
 interface CadenciaLigacaoConfigProps {
@@ -27,105 +25,55 @@ const DIAS_SEMANA = [
   { key: "sab", label: "S", full: "Sábado" },
 ];
 
-interface PriAgent {
-  id: string;
-  nome: string;
-  telefone: string;
-}
-
 export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
 
-  // Pri agents
-  const [priAgents, setPriAgents] = useState<PriAgent[]>([]);
-  const [loadingAgents, setLoadingAgents] = useState(true);
-  const [selectedPriId, setSelectedPriId] = useState<string>("");
+  // Recurrence toggle
+  const [recorrenciaAtiva, setRecorrenciaAtiva] = useState(true);
 
-  const selectedPri = priAgents.find(a => a.id === selectedPriId);
-  const telefonePri = selectedPri?.telefone?.replace(/\D/g, "") || "";
+  // Dates
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataTermino, setDataTermino] = useState("");
 
-  // Fetch events for selected Pri
-  const { data: eventos = [], isLoading: loadingEventos } = usePriLigacaoEventos(telefonePri);
+  // Frequency
+  const [frequenciaDias, setFrequenciaDias] = useState(1);
+  const [horario, setHorario] = useState("07:45");
 
-  // Selected event IDs
-  const [selectedEventIds, setSelectedEventIds] = useState<number[]>([]);
-  const [showInativos, setShowInativos] = useState(false);
+  // Weekdays
+  const [diasAtivos, setDiasAtivos] = useState<string[]>(["seg", "ter", "qua", "qui", "sex", "sab"]);
 
-  // Toggles
+  // Query params
+  const [eventTags, setEventTags] = useState<string[]>([]);
+  const [eventTagInput, setEventTagInput] = useState("");
+  const [telefonePri, setTelefonePri] = useState("");
+  const [numTentativas, setNumTentativas] = useState(2);
   const [evtStatus, setEvtStatus] = useState(true);
   const [ligacaoAtendida, setLigacaoAtendida] = useState(false);
   const [statusAgendado, setStatusAgendado] = useState(false);
-
-  // Numeric
-  const [numTentativas, setNumTentativas] = useState(2);
-
-  // Ordering
   const [orderBy, setOrderBy] = useState<"ASC" | "DESC">("ASC");
 
-  // Recurrence
-  const [dataInicio, setDataInicio] = useState("");
-  const [dataTermino, setDataTermino] = useState("");
-  const [horarioInicio, setHorarioInicio] = useState("07:45");
-  const [horarioFim, setHorarioFim] = useState("18:00");
-  const [diasAtivos, setDiasAtivos] = useState<string[]>(["seg", "ter", "qua", "qui", "sex", "sab"]);
+  // Test call
+  const [testNumber, setTestNumber] = useState("");
 
-  // Fetch Pri agents on mount
-  useEffect(() => {
-    async function fetchPriAgents() {
-      setLoadingAgents(true);
-      try {
-        const { data, error } = await supabase
-          .from("agentes_ia")
-          .select("id, nome, telefone")
-          .eq("ativo", true)
-          .not("telefone", "is", null);
-
-        if (error) throw error;
-
-        const searchPatterns = ["ligação", "ligacao", "ligaçao"];
-        const filtered = (data || []).filter((a: any) => {
-          const nome = String(a.nome || "").toLowerCase();
-          return searchPatterns.some(p => nome.includes(p)) && a.telefone;
-        });
-
-        // Deduplicate by normalized phone number, keeping first occurrence
-        const seen = new Map<string, boolean>();
-        const unique = filtered.filter((a: any) => {
-          const normalized = String(a.telefone || "").replace(/\D/g, "");
-          if (!normalized || seen.has(normalized)) return false;
-          seen.set(normalized, true);
-          return true;
-        });
-
-        // Normalize phone display
-        const withNormalizedPhone = unique.map((a: any) => ({
-          ...a,
-          telefone: String(a.telefone || "").replace(/\D/g, ""),
-        }));
-
-        setPriAgents(withNormalizedPhone as PriAgent[]);
-        if (filtered.length === 1) {
-          setSelectedPriId(filtered[0].id);
-        }
-      } catch (err) {
-        console.error("Erro ao buscar agentes Pri:", err);
-      } finally {
-        setLoadingAgents(false);
-      }
+  const addEventTag = () => {
+    const val = eventTagInput.trim();
+    if (val && !eventTags.includes(val)) {
+      setEventTags(prev => [...prev, val]);
     }
-    fetchPriAgents();
-  }, []);
+    setEventTagInput("");
+  };
 
-  // Reset selected events when Pri changes
-  useEffect(() => {
-    setSelectedEventIds([]);
-  }, [selectedPriId]);
+  const removeEventTag = (tag: string) => {
+    setEventTags(prev => prev.filter(t => t !== tag));
+  };
 
-  const toggleEventId = (id: number) => {
-    setSelectedEventIds(prev =>
-      prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
-    );
+  const handleEventTagKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addEventTag();
+    }
   };
 
   const toggleDia = (key: string) => {
@@ -134,185 +82,228 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     );
   };
 
+  const buildPayload = () => ({
+    id_evento: eventTags.join(", "),
+    telefone_pri: telefonePri.replace(/\D/g, ""),
+    evt_status: evtStatus,
+    num_tentativas: numTentativas,
+    ligacao_atendida: ligacaoAtendida,
+    status_agendado: statusAgendado,
+    order_by: orderBy,
+    recorrencia: recorrenciaAtiva ? {
+      data_inicio: dataInicio,
+      data_termino: dataTermino,
+      frequencia_dias: frequenciaDias,
+      horario,
+      dias_semana: diasAtivos,
+    } : null,
+  });
+
   const handleSave = async () => {
-    if (selectedEventIds.length === 0) {
-      toast({ title: "Selecione ao menos um evento", variant: "destructive" });
+    if (eventTags.length === 0) {
+      toast({ title: "Adicione ao menos um id_evento", variant: "destructive" });
       return;
     }
-    if (!telefonePri) {
-      toast({ title: "Selecione um agente Pri", variant: "destructive" });
+    if (!telefonePri.trim()) {
+      toast({ title: "Informe o telefone_pri", variant: "destructive" });
       return;
     }
 
     setSaving(true);
     try {
-      const payload = {
-        id_evento: selectedEventIds.join(", "),
-        evt_status: evtStatus,
-        num_tentativas: numTentativas,
-        ligacao_atendida: ligacaoAtendida,
-        status_agendado: statusAgendado,
-        telefone_pri: telefonePri,
-        order_by: orderBy,
-        recorrencia: {
-          data_inicio: dataInicio,
-          data_termino: dataTermino,
-          horario_inicio: horarioInicio,
-          horario_fim: horarioFim,
-          dias_semana: diasAtivos,
-        },
-      };
-
       const { error } = await supabase.functions.invoke("maia-webhook-proxy", {
         body: {
-          ...payload,
+          ...buildPayload(),
           _webhook_url: "https://automatemaiawh.sagadatadriven.com.br/webhook/cadencia_ligacao",
         },
       });
-
       if (error) throw error;
-
-      toast({ title: "Cadência configurada", description: "A cadência de ligação foi configurada com sucesso." });
+      toast({ title: "Configurações salvas com sucesso!" });
     } catch (err: any) {
-      console.error("Erro ao configurar cadência:", err);
-      toast({ title: "Erro ao configurar", description: err.message || "Tente novamente.", variant: "destructive" });
+      toast({ title: "Erro ao salvar", description: err.message || "Tente novamente.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
   };
 
+  const handleTestCall = async () => {
+    if (!testNumber.trim()) {
+      toast({ title: "Informe um número para teste", variant: "destructive" });
+      return;
+    }
+    setTesting(true);
+    try {
+      const { error } = await supabase.functions.invoke("maia-webhook-proxy", {
+        body: {
+          telefone_teste: testNumber.replace(/\D/g, ""),
+          telefone_pri: telefonePri.replace(/\D/g, ""),
+          _webhook_url: "https://automatemaiawh.sagadatadriven.com.br/webhook/cadencia_ligacao",
+        },
+      });
+      if (error) throw error;
+      toast({ title: "Teste disparado!", description: `Ligação de teste para ${testNumber}` });
+    } catch (err: any) {
+      toast({ title: "Erro no teste", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   return (
     <div className={cn("space-y-6", className)}>
-      {/* Header */}
-      <Card className="border-none shadow-md">
-        <CardHeader className="pb-2">
+      {/* Controle de Cadência */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-primary/10 p-2">
+                <CalendarClock className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Controle de Cadência</CardTitle>
+                <CardDescription>Configure a recorrência dos disparos de ligação</CardDescription>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="recorrencia-toggle" className="text-sm text-muted-foreground">Recorrência</Label>
+              <Switch id="recorrencia-toggle" checked={recorrenciaAtiva} onCheckedChange={setRecorrenciaAtiva} />
+            </div>
+          </div>
+        </CardHeader>
+        {recorrenciaAtiva && (
+          <CardContent className="space-y-5">
+            {/* Período */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Data de Início</Label>
+                <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Data de Término</Label>
+                <Input type="date" value={dataTermino} onChange={e => setDataTermino(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Frequência + Horário */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>A cada X Dia(s)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={frequenciaDias}
+                  onChange={e => setFrequenciaDias(Number(e.target.value))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Horário</Label>
+                <Input type="time" value={horario} onChange={e => setHorario(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Dias da semana */}
+            <div className="space-y-2">
+              <Label>Dias da semana</Label>
+              <div className="flex gap-2 flex-wrap">
+                {DIAS_SEMANA.map(dia => {
+                  const isActive = diasAtivos.includes(dia.key);
+                  return (
+                    <button
+                      key={dia.key}
+                      type="button"
+                      onClick={() => toggleDia(dia.key)}
+                      title={dia.full}
+                      className={cn(
+                        "w-10 h-10 rounded-lg text-sm font-semibold transition-colors border",
+                        isActive
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-muted-foreground border-input hover:border-primary/50"
+                      )}
+                    >
+                      {dia.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                D = Domingo, S = Segunda, T = Terça, Q = Quarta, Q = Quinta, S = Sexta, S = Sábado
+              </p>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Parâmetros da Query */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-primary/10 p-2">
-              <Phone className="h-5 w-5 text-primary" />
+              <Settings2 className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg">Cadência de Ligação</CardTitle>
-              <CardDescription>Configure os filtros e recorrência do Agente de Voz (Pri)</CardDescription>
+              <CardTitle className="text-lg">Parâmetros da Query</CardTitle>
+              <CardDescription>Filtros aplicados à base de ligação</CardDescription>
             </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      {/* Seleção de Pri */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base">Agente Pri (Ligação)</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-1.5">
-            <Label>Selecione o agente Pri</Label>
-            {loadingAgents ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Carregando agentes...
-              </div>
-            ) : priAgents.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2">Nenhum agente Pri encontrado.</p>
-            ) : (
-              <Select value={selectedPriId} onValueChange={setSelectedPriId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Escolha um agente Pri..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {priAgents.map(agent => (
-                    <SelectItem key={agent.id} value={agent.id}>
-                      {agent.nome} — {agent.telefone}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Filtros */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Settings2 className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base">Filtros da Query</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Eventos */}
+          {/* id_evento tags */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Eventos (id_evento)</Label>
-              {selectedPriId && eventos.length > 0 && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <span className="text-xs text-muted-foreground">Mostrar inativos</span>
-                  <Switch checked={showInativos} onCheckedChange={setShowInativos} />
-                </label>
-              )}
+            <Label>id_evento</Label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Ex: 248"
+                value={eventTagInput}
+                onChange={e => setEventTagInput(e.target.value)}
+                onKeyDown={handleEventTagKeyDown}
+                className="flex-1"
+              />
+              <Button type="button" size="icon" variant="outline" onClick={addEventTag}>
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
-            {!selectedPriId ? (
-              <p className="text-sm text-muted-foreground">Selecione um agente Pri acima para carregar os eventos.</p>
-            ) : loadingEventos ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Carregando eventos...
+            {eventTags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {eventTags.map(tag => (
+                  <Badge key={tag} variant="secondary" className="gap-1 pr-1">
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => removeEventTag(tag)}
+                      className="ml-1 rounded-full hover:bg-muted p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
               </div>
-            ) : eventos.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum evento encontrado para este agente.</p>
-            ) : (() => {
-              const filteredEventos = showInativos
-                ? eventos
-                : eventos.filter(evt => {
-                    const status = evt.evt_status;
-                    if (typeof status === "boolean") return status;
-                    if (typeof status === "string") return status.toLowerCase() === "true" || status === "1";
-                    if (typeof status === "number") return status === 1;
-                    return true; // show if unknown
-                  });
-              return filteredEventos.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhum evento ativo encontrado. Ative "Mostrar inativos" para ver todos.</p>
-              ) : (
-              <div className="space-y-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto rounded-lg border p-3">
-                  {filteredEventos.map(evt => {
-                    const evtId = evt.id_evento ?? (evt as any).id;
-                    const evtName = evt.nome || `Evento ${evtId}`;
-                    const isChecked = selectedEventIds.includes(Number(evtId));
-                    return (
-                      <label
-                        key={evtId}
-                        className={cn(
-                          "flex items-center gap-2 rounded-md border p-2.5 cursor-pointer transition-colors",
-                          isChecked
-                            ? "border-primary bg-primary/5"
-                            : "border-input hover:border-primary/40"
-                        )}
-                      >
-                        <Checkbox
-                          checked={isChecked}
-                          onCheckedChange={() => toggleEventId(Number(evtId))}
-                        />
-                        <span className="text-sm font-medium">{evtName}</span>
-                        <Badge variant="outline" className="ml-auto text-xs">{evtId}</Badge>
-                      </label>
-                    );
-                  })}
-                </div>
-                {selectedEventIds.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    {selectedEventIds.length} evento(s) selecionado(s)
-                  </p>
-                )}
-              </div>
-              );
-            })()}
+            )}
           </div>
 
-          {/* Toggles row */}
+          {/* telefone_pri */}
+          <div className="space-y-1.5">
+            <Label>telefone_pri</Label>
+            <Input
+              placeholder="Ex: 5511999999999"
+              value={telefonePri}
+              onChange={e => setTelefonePri(e.target.value)}
+            />
+          </div>
+
+          {/* num_tentativas */}
+          <div className="space-y-1.5">
+            <Label>num_tentativas (limite máximo)</Label>
+            <Input
+              type="number"
+              min={0}
+              max={10}
+              value={numTentativas}
+              onChange={e => setNumTentativas(Number(e.target.value))}
+            />
+          </div>
+
+          {/* Toggles */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="flex items-center justify-between rounded-lg border p-3">
               <Label htmlFor="evt-status" className="text-sm">evt_status</Label>
@@ -328,108 +319,62 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
             </div>
           </div>
 
-          {/* Tentativas + Ordenação */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Máx. Tentativas</Label>
-              <Input
-                type="number"
-                min={0}
-                max={10}
-                value={numTentativas}
-                onChange={e => setNumTentativas(Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Ordenação (tentativas)</Label>
-              <Select value={orderBy} onValueChange={(v: "ASC" | "DESC") => setOrderBy(v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ASC">Crescente (ASC)</SelectItem>
-                  <SelectItem value="DESC">Decrescente (DESC)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Ordenação */}
+          <div className="space-y-1.5">
+            <Label>Ordenação (tentativas)</Label>
+            <Select value={orderBy} onValueChange={(v: "ASC" | "DESC") => setOrderBy(v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ASC">Crescente (ASC)</SelectItem>
+                <SelectItem value="DESC">Decrescente (DESC)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* Recorrência */}
-      <Card>
+      {/* Ações */}
+      <Card className="shadow-sm">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base">Recorrência</CardTitle>
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-primary/10 p-2">
+              <Phone className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Ações</CardTitle>
+              <CardDescription>Teste e salve a configuração</CardDescription>
             </div>
           </div>
-          <CardDescription>
-            Envia de forma consolidada os alertas conforme recorrência configurada
-          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
-          {/* Dates */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Data de início</Label>
-              <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Data de término</Label>
-              <Input type="date" value={dataTermino} onChange={e => setDataTermino(e.target.value)} />
-            </div>
+        <CardContent className="space-y-4">
+          {/* Test call */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Input
+              placeholder="Número para teste (Ex: 11999999999)"
+              value={testNumber}
+              onChange={e => setTestNumber(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              variant="outline"
+              onClick={handleTestCall}
+              disabled={testing}
+              className="shrink-0"
+            >
+              {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PhoneCall className="h-4 w-4 mr-2" />}
+              Testar Ligação
+            </Button>
           </div>
 
-          {/* Horários */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Horário de início</Label>
-              <Input type="time" value={horarioInicio} onChange={e => setHorarioInicio(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Horário de encerramento</Label>
-              <Input type="time" value={horarioFim} onChange={e => setHorarioFim(e.target.value)} />
-            </div>
-          </div>
-
-          {/* Weekday selector */}
-          <div className="space-y-2">
-            <Label>Dias da semana para envio:</Label>
-            <div className="flex gap-2 flex-wrap">
-              {DIAS_SEMANA.map(dia => {
-                const isActive = diasAtivos.includes(dia.key);
-                return (
-                  <button
-                    key={dia.key}
-                    type="button"
-                    onClick={() => toggleDia(dia.key)}
-                    title={dia.full}
-                    className={cn(
-                      "w-10 h-10 rounded-lg text-sm font-semibold transition-colors border",
-                      isActive
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background text-muted-foreground border-input hover:border-primary/50"
-                    )}
-                  >
-                    {dia.label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              D = Domingo, S = Segunda, T = Terça, Q = Quarta, Q = Quinta, S = Sexta, S = Sábado
-            </p>
-          </div>
+          {/* Save */}
+          <Button onClick={handleSave} disabled={saving} size="lg" className="w-full sm:w-auto">
+            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+            Salvar Configurações
+          </Button>
         </CardContent>
       </Card>
-
-      {/* Save */}
-      <Button onClick={handleSave} disabled={saving} size="lg" className="w-full sm:w-auto">
-        {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-        Configurar Cadência
-      </Button>
     </div>
   );
 }
