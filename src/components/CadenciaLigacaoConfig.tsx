@@ -50,6 +50,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
 
   // Selected event IDs
   const [selectedEventIds, setSelectedEventIds] = useState<number[]>([]);
+  const [showInativos, setShowInativos] = useState(false);
 
   // Toggles
   const [evtStatus, setEvtStatus] = useState(true);
@@ -244,7 +245,15 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
         <CardContent className="space-y-5">
           {/* Eventos */}
           <div className="space-y-2">
-            <Label>Eventos (id_evento)</Label>
+            <div className="flex items-center justify-between">
+              <Label>Eventos (id_evento)</Label>
+              {selectedPriId && eventos.length > 0 && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <span className="text-xs text-muted-foreground">Mostrar inativos</span>
+                  <Switch checked={showInativos} onCheckedChange={setShowInativos} />
+                </label>
+              )}
+            </div>
             {!selectedPriId ? (
               <p className="text-sm text-muted-foreground">Selecione um agente Pri acima para carregar os eventos.</p>
             ) : loadingEventos ? (
@@ -254,10 +263,22 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
               </div>
             ) : eventos.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhum evento encontrado para este agente.</p>
-            ) : (
+            ) : (() => {
+              const filteredEventos = showInativos
+                ? eventos
+                : eventos.filter(evt => {
+                    const status = evt.evt_status;
+                    if (typeof status === "boolean") return status;
+                    if (typeof status === "string") return status.toLowerCase() === "true" || status === "1";
+                    if (typeof status === "number") return status === 1;
+                    return true; // show if unknown
+                  });
+              return filteredEventos.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum evento ativo encontrado. Ative "Mostrar inativos" para ver todos.</p>
+              ) : (
               <div className="space-y-2">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto rounded-lg border p-3">
-                  {eventos.map(evt => {
+                  {filteredEventos.map(evt => {
                     const evtId = evt.id_evento ?? (evt as any).id;
                     const evtName = evt.nome || `Evento ${evtId}`;
                     const isChecked = selectedEventIds.includes(Number(evtId));
@@ -287,7 +308,8 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
                   </p>
                 )}
               </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* Toggles row */}
