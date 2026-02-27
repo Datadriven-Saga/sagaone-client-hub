@@ -257,8 +257,8 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
         // Fetch all agent-empresa links
         const { data: agLinks, error: linkErr } = await supabase
           .from("agente_empresas")
-          .select("agente_id, empresa_id")
-          .eq("status", "ativo");
+          .select("agente_id, empresa_id, status")
+          .in("status", ["ativo", "pendente"]);
         if (linkErr) throw linkErr;
 
         // Build a map: empresa_id -> list of agent ids linked
