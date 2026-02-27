@@ -409,7 +409,7 @@ export default function AgentesIA() {
 
       {/* Modal de Detalhes do Agente */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-4 border-b">
             <div className="flex items-center gap-4">
               <div className="relative">

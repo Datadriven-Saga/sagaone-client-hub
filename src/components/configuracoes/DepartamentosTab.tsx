@@ -133,12 +133,12 @@ export function DepartamentosTab() {
 
   return (
     <Card className="p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
           <h3 className="text-lg font-semibold">Departamentos</h3>
         </div>
-        <Button onClick={handleNew}>
+        <Button onClick={handleNew} size="sm" className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           Novo Departamento
         </Button>
@@ -154,43 +154,45 @@ export function DepartamentosTab() {
           <p>Nenhum departamento cadastrado</p>
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Modelo de Distribuição</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {departamentos.map((dept) => (
-              <TableRow key={dept.id}>
-                <TableCell>{dept.nome}</TableCell>
-                <TableCell>{dept.modelo_distribuicao}</TableCell>
-                <TableCell>
-                  <span className={dept.ativo ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
-                    {dept.ativo ? "Ativo" : "Desativado"}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => handleEdit(dept)}>
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => confirmDelete(dept)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </TableCell>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>Modelo de Distribuição</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Ações</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {departamentos.map((dept) => (
+                <TableRow key={dept.id}>
+                  <TableCell>{dept.nome}</TableCell>
+                  <TableCell>{dept.modelo_distribuicao}</TableCell>
+                  <TableCell>
+                    <span className={dept.ativo ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                      {dept.ativo ? "Ativo" : "Desativado"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => handleEdit(dept)}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => confirmDelete(dept)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent>
+        <DialogContent className="w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{selectedDept ? "Editar Departamento" : "Novo Departamento"}</DialogTitle>
           </DialogHeader>

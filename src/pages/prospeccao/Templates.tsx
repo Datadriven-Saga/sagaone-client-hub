@@ -1300,8 +1300,8 @@ export default function Templates() {
 
   const renderStep1 = () => (
     <div className="space-y-3">
-      <div className="flex items-start gap-4">
-        <Label htmlFor="nome" className="w-40 shrink-0 text-right pt-2">Nome do Template *</Label>
+      <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-4">
+        <Label htmlFor="nome" className="sm:w-40 shrink-0 sm:text-right pt-2">Nome do Template *</Label>
         <div className="flex-1 space-y-1">
           <Input
             id="nome"
@@ -1329,8 +1329,8 @@ export default function Templates() {
           )}
         </div>
       </div>
-      <div className="flex items-center gap-4">
-        <Label htmlFor="categoria" className="w-40 shrink-0 text-right">Categoria *</Label>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+        <Label htmlFor="categoria" className="sm:w-40 shrink-0 sm:text-right">Categoria *</Label>
         <Select
           value={formData.categoria}
           onValueChange={(value: TemplateCategory) => setFormData(prev => ({ ...prev, categoria: value }))}
@@ -1345,8 +1345,8 @@ export default function Templates() {
           </SelectContent>
         </Select>
       </div>
-      <div className="flex items-center gap-4">
-        <Label htmlFor="agente" className="w-40 shrink-0 text-right">Agente IA WhatsApp *</Label>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+        <Label htmlFor="agente" className="sm:w-40 shrink-0 sm:text-right">Agente IA WhatsApp *</Label>
         <Select
           value={formData.agente_id}
           onValueChange={(value) => setFormData(prev => ({ ...prev, agente_id: value }))}
@@ -1365,8 +1365,8 @@ export default function Templates() {
         </Select>
       </div>
       {agentesIAWhatsapp.length === 0 && (
-        <div className="flex items-center gap-4">
-          <div className="w-40 shrink-0" />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <div className="hidden sm:block sm:w-40 shrink-0" />
           <p className="text-sm text-amber-600">
             Nenhum agente Pri - WhatsApp encontrado. Vincule um agente do tipo IA WhatsApp à empresa primeiro.
           </p>
