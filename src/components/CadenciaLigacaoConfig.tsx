@@ -1,18 +1,19 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Save, Phone, Settings2, CalendarClock, X, Plus, Loader2 } from "lucide-react";
+import { Save, Phone, Settings2, CalendarClock, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { usePriLigacaoEventos } from "@/hooks/usePriLigacaoEventos";
 import { cn } from "@/lib/utils";
 
 interface CadenciaLigacaoConfigProps {
-  telefonePri?: string;
   className?: string;
 }
 
@@ -26,13 +27,29 @@ const DIAS_SEMANA = [
   { key: "sab", label: "S", full: "Sábado" },
 ];
 
-export function CadenciaLigacaoConfig({ telefonePri = "", className }: CadenciaLigacaoConfigProps) {
+interface PriAgent {
+  id: string;
+  nome: string;
+  telefone: string;
+}
+
+export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
 
-  // Event IDs
-  const [eventIds, setEventIds] = useState<string[]>([]);
-  const [eventInput, setEventInput] = useState("");
+  // Pri agents
+  const [priAgents, setPriAgents] = useState<PriAgent[]>([]);
+  const [loadingAgents, setLoadingAgents] = useState(true);
+  const [selectedPriId, setSelectedPriId] = useState<string>("");
+
+  const selectedPri = priAgents.find(a => a.id === selectedPriId);
+  const telefonePri = selectedPri?.telefone?.replace(/\D/g, "") || "";
+
+  // Fetch events for selected Pri
+  const { data: eventos = [], isLoading: loadingEventos } = usePriLigacaoEventos(telefonePri);
+
+  // Selected event IDs
+  const [selectedEventIds, setSelectedEventIds] = useState<number[]>([]);
 
   // Toggles
   const [evtStatus, setEvtStatus] = useState(true);
@@ -42,9 +59,6 @@ export function CadenciaLigacaoConfig({ telefonePri = "", className }: CadenciaL
   // Numeric
   const [numTentativas, setNumTentativas] = useState(2);
 
-  // Telefone
-  const [telefone, setTelefone] = useState(telefonePri);
-
   // Ordering
   const [orderBy, setOrderBy] = useState<"ASC" | "DESC">("ASC");
 
@@ -53,19 +67,51 @@ export function CadenciaLigacaoConfig({ telefonePri = "", className }: CadenciaL
   const [dataTermino, setDataTermino] = useState("");
   const [intervaloValor, setIntervaloValor] = useState(1);
   const [intervaloUnidade, setIntervaloUnidade] = useState("dias");
-  const [horario, setHorario] = useState("07:45");
+  const [horarioInicio, setHorarioInicio] = useState("07:45");
+  const [horarioFim, setHorarioFim] = useState("18:00");
   const [diasAtivos, setDiasAtivos] = useState<string[]>(["seg", "ter", "qua", "qui", "sex", "sab"]);
 
-  const addEventId = useCallback(() => {
-    const trimmed = eventInput.trim();
-    if (trimmed && !eventIds.includes(trimmed)) {
-      setEventIds(prev => [...prev, trimmed]);
-      setEventInput("");
-    }
-  }, [eventInput, eventIds]);
+  // Fetch Pri agents on mount
+  useEffect(() => {
+    async function fetchPriAgents() {
+      setLoadingAgents(true);
+      try {
+        const { data, error } = await supabase
+          .from("agentes_ia")
+          .select("id, nome, telefone")
+          .eq("ativo", true)
+          .not("telefone", "is", null);
 
-  const removeEventId = (id: string) => {
-    setEventIds(prev => prev.filter(e => e !== id));
+        if (error) throw error;
+
+        const searchPatterns = ["ligação", "ligacao", "ligaçao", "pri"];
+        const filtered = (data || []).filter((a: any) => {
+          const nome = String(a.nome || "").toLowerCase();
+          return searchPatterns.some(p => nome.includes(p)) && a.telefone;
+        });
+
+        setPriAgents(filtered as PriAgent[]);
+        if (filtered.length === 1) {
+          setSelectedPriId(filtered[0].id);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar agentes Pri:", err);
+      } finally {
+        setLoadingAgents(false);
+      }
+    }
+    fetchPriAgents();
+  }, []);
+
+  // Reset selected events when Pri changes
+  useEffect(() => {
+    setSelectedEventIds([]);
+  }, [selectedPriId]);
+
+  const toggleEventId = (id: number) => {
+    setSelectedEventIds(prev =>
+      prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
+    );
   };
 
   const toggleDia = (key: string) => {
@@ -75,36 +121,37 @@ export function CadenciaLigacaoConfig({ telefonePri = "", className }: CadenciaL
   };
 
   const handleSave = async () => {
-    if (eventIds.length === 0) {
-      toast({ title: "Informe ao menos um ID de evento", variant: "destructive" });
+    if (selectedEventIds.length === 0) {
+      toast({ title: "Selecione ao menos um evento", variant: "destructive" });
       return;
     }
-    if (!telefone.trim()) {
-      toast({ title: "Informe o telefone primário", variant: "destructive" });
+    if (!telefonePri) {
+      toast({ title: "Selecione um agente Pri", variant: "destructive" });
       return;
     }
 
     setSaving(true);
     try {
       const payload = {
-        id_evento: eventIds.map(Number),
+        id_evento: selectedEventIds,
         evt_status: evtStatus,
         num_tentativas: numTentativas,
         ligacao_atendida: ligacaoAtendida,
         status_agendado: statusAgendado,
-        telefone_pri: telefone.replace(/\D/g, ""),
+        telefone_pri: telefonePri,
         order_by: orderBy,
         recorrencia: {
           data_inicio: dataInicio,
           data_termino: dataTermino,
           intervalo_valor: intervaloValor,
           intervalo_unidade: intervaloUnidade,
-          horario,
+          horario_inicio: horarioInicio,
+          horario_fim: horarioFim,
           dias_semana: diasAtivos,
         },
       };
 
-      const { data, error } = await supabase.functions.invoke("maia-webhook-proxy", {
+      const { error } = await supabase.functions.invoke("maia-webhook-proxy", {
         body: {
           ...payload,
           _webhook_url: "https://automatemaiawh.sagadatadriven.com.br/webhook/cadencia_ligacao",
@@ -113,10 +160,10 @@ export function CadenciaLigacaoConfig({ telefonePri = "", className }: CadenciaL
 
       if (error) throw error;
 
-      toast({ title: "Configurações salvas", description: "A cadência de ligação foi configurada com sucesso." });
+      toast({ title: "Cadência configurada", description: "A cadência de ligação foi configurada com sucesso." });
     } catch (err: any) {
-      console.error("Erro ao salvar cadência ligação:", err);
-      toast({ title: "Erro ao salvar", description: err.message || "Tente novamente.", variant: "destructive" });
+      console.error("Erro ao configurar cadência:", err);
+      toast({ title: "Erro ao configurar", description: err.message || "Tente novamente.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -139,6 +186,42 @@ export function CadenciaLigacaoConfig({ telefonePri = "", className }: CadenciaL
         </CardHeader>
       </Card>
 
+      {/* Seleção de Pri */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Phone className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base">Agente Pri (Ligação)</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-1.5">
+            <Label>Selecione o agente Pri</Label>
+            {loadingAgents ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Carregando agentes...
+              </div>
+            ) : priAgents.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">Nenhum agente Pri encontrado.</p>
+            ) : (
+              <Select value={selectedPriId} onValueChange={setSelectedPriId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Escolha um agente Pri..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {priAgents.map(agent => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.nome} — {agent.telefone}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Filtros */}
       <Card>
         <CardHeader className="pb-3">
@@ -148,31 +231,50 @@ export function CadenciaLigacaoConfig({ telefonePri = "", className }: CadenciaL
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Event IDs */}
+          {/* Eventos */}
           <div className="space-y-2">
             <Label>Eventos (id_evento)</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Ex: 248"
-                value={eventInput}
-                onChange={e => setEventInput(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addEventId(); } }}
-                className="flex-1"
-              />
-              <Button type="button" variant="outline" size="icon" onClick={addEventId}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            {eventIds.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {eventIds.map(id => (
-                  <Badge key={id} variant="secondary" className="gap-1 pr-1">
-                    {id}
-                    <button onClick={() => removeEventId(id)} className="rounded-full hover:bg-muted p-0.5">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
+            {!selectedPriId ? (
+              <p className="text-sm text-muted-foreground">Selecione um agente Pri acima para carregar os eventos.</p>
+            ) : loadingEventos ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Carregando eventos...
+              </div>
+            ) : eventos.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum evento encontrado para este agente.</p>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto rounded-lg border p-3">
+                  {eventos.map(evt => {
+                    const evtId = evt.id_evento ?? (evt as any).id;
+                    const evtName = evt.nome || `Evento ${evtId}`;
+                    const isChecked = selectedEventIds.includes(Number(evtId));
+                    return (
+                      <label
+                        key={evtId}
+                        className={cn(
+                          "flex items-center gap-2 rounded-md border p-2.5 cursor-pointer transition-colors",
+                          isChecked
+                            ? "border-primary bg-primary/5"
+                            : "border-input hover:border-primary/40"
+                        )}
+                      >
+                        <Checkbox
+                          checked={isChecked}
+                          onCheckedChange={() => toggleEventId(Number(evtId))}
+                        />
+                        <span className="text-sm font-medium">{evtName}</span>
+                        <Badge variant="outline" className="ml-auto text-xs">{evtId}</Badge>
+                      </label>
+                    );
+                  })}
+                </div>
+                {selectedEventIds.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {selectedEventIds.length} evento(s) selecionado(s)
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -193,8 +295,8 @@ export function CadenciaLigacaoConfig({ telefonePri = "", className }: CadenciaL
             </div>
           </div>
 
-          {/* Tentativas + Telefone + Ordenação */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Tentativas + Ordenação */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Máx. Tentativas</Label>
               <Input
@@ -203,14 +305,6 @@ export function CadenciaLigacaoConfig({ telefonePri = "", className }: CadenciaL
                 max={10}
                 value={numTentativas}
                 onChange={e => setNumTentativas(Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Telefone Primário</Label>
-              <Input
-                placeholder="5561999999999"
-                value={telefone}
-                onChange={e => setTelefone(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
@@ -255,8 +349,8 @@ export function CadenciaLigacaoConfig({ telefonePri = "", className }: CadenciaL
             </div>
           </div>
 
-          {/* Interval + Time */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Interval */}
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>A cada</Label>
               <Input
@@ -279,9 +373,17 @@ export function CadenciaLigacaoConfig({ telefonePri = "", className }: CadenciaL
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Horários */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>Horário</Label>
-              <Input type="time" value={horario} onChange={e => setHorario(e.target.value)} />
+              <Label>Horário de início</Label>
+              <Input type="time" value={horarioInicio} onChange={e => setHorarioInicio(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Horário de encerramento</Label>
+              <Input type="time" value={horarioFim} onChange={e => setHorarioFim(e.target.value)} />
             </div>
           </div>
 
@@ -319,7 +421,7 @@ export function CadenciaLigacaoConfig({ telefonePri = "", className }: CadenciaL
       {/* Save */}
       <Button onClick={handleSave} disabled={saving} size="lg" className="w-full sm:w-auto">
         {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-        Salvar Configurações
+        Configurar Cadência
       </Button>
     </div>
   );
