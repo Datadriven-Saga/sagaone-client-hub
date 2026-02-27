@@ -134,21 +134,35 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
   }, [msgEventosData]);
   const msgEventosAtivos = useMemo(() => msgEventos.filter(e => e.evt_status === "ativo"), [msgEventos]);
 
-  // ─── Envio Mensagem: Agente WhatsApp (Mensagem) events ───
-  const { data: msgWhatsEventosData = [], isLoading: loadingMsgWhatsEventos } = usePriLigacaoEventos(msgTelefonePriWhatsapp);
-  const msgWhatsEventos = useMemo<EventoPriVoz[]>(() => {
-    return (msgWhatsEventosData || []).map((evt: any) => {
-      const rawStatus = evt?.evt_status ?? evt?.status;
-      const isAtivo = rawStatus === true || String(rawStatus).toLowerCase() === "ativo" || String(rawStatus).toLowerCase() === "true" || rawStatus === "1" || rawStatus === 1;
-      return {
-        id: String(evt.id_evento || evt.id),
-        id_evento: evt.id_evento || evt.id,
-        nome: evt.nome || evt.name || `Evento ${evt.id_evento}`,
-        evt_status: isAtivo ? "ativo" : "inativo",
-      };
-    });
-  }, [msgWhatsEventosData]);
-  const msgWhatsEventosAtivos = useMemo(() => msgWhatsEventos.filter(e => e.evt_status === "ativo"), [msgWhatsEventos]);
+  // ─── Envio Mensagem: Eventos de WhatsApp (Mensagem) from prospeccoes table ───
+  const [msgWhatsEventos, setMsgWhatsEventos] = useState<{ id: string; event_id_pri: number | null; titulo: string }[]>([]);
+  const [loadingMsgWhatsEventos, setLoadingMsgWhatsEventos] = useState(false);
+
+  useEffect(() => {
+    if (!selectedEmpresaId) { setMsgWhatsEventos([]); return; }
+    let cancelled = false;
+    async function fetchWhatsEvents() {
+      setLoadingMsgWhatsEventos(true);
+      try {
+        const { data, error } = await supabase
+          .from("prospeccoes")
+          .select("id, titulo, event_id_pri, ativo")
+          .eq("empresa_id", selectedEmpresaId)
+          .ilike("canal", "%whatsapp%")
+          .eq("ativo", true)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        if (!cancelled) setMsgWhatsEventos((data || []).map((p: any) => ({ id: p.id, event_id_pri: p.event_id_pri, titulo: p.titulo })));
+      } catch (err) {
+        console.error("Erro ao buscar eventos WhatsApp:", err);
+        if (!cancelled) setMsgWhatsEventos([]);
+      } finally {
+        if (!cancelled) setLoadingMsgWhatsEventos(false);
+      }
+    }
+    fetchWhatsEvents();
+    return () => { cancelled = true; };
+  }, [selectedEmpresaId]);
 
   const empresaDropdownRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -512,7 +526,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
         eventid: msgIdEventoMensagem,
         status_agendado: msgStatusAgendado,
         evt_status: msgEvtStatus,
-        codigo_proposta: msgCodigoProposta,
+        codigo_proposta: msgCodigoProposta ? "not_null" : "null",
         telefone_pri_whatsapp: msgTelefonePriWhatsapp.replace(/\D/g, ""),
         pri_telefone: msgTelefonePriLigacao.replace(/\D/g, ""),
         dealerid: msgDealerId.trim(),
@@ -1061,23 +1075,23 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
               {/* Evento de Mensagem (WhatsApp) */}
               <div className="space-y-2">
                 <Label className="font-semibold">Evento de Mensagem <span className="text-xs font-normal text-muted-foreground">(eventid — enviado como id_evento_mensagem e eventid)</span></Label>
-                {!msgTelefonePriWhatsapp ? (
+                {!selectedEmpresaId ? (
                   <p className="text-sm text-muted-foreground py-2">Selecione uma empresa acima para carregar os eventos de mensagem.</p>
                 ) : loadingMsgWhatsEventos ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
                     <Loader2 className="h-4 w-4 animate-spin" /> Carregando eventos de mensagem...
                   </div>
-                ) : msgWhatsEventosAtivos.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2">Nenhum evento de mensagem ativo encontrado.</p>
+                ) : msgWhatsEventos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">Nenhum evento de mensagem ativo encontrado para esta loja.</p>
                 ) : (
                   <Select value={msgIdEventoMensagem} onValueChange={setMsgIdEventoMensagem}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione um evento de mensagem..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {msgWhatsEventosAtivos.map(evt => (
-                        <SelectItem key={evt.id} value={evt.id}>
-                          {evt.nome} — ID: {evt.id_evento}
+                      {msgWhatsEventos.map(evt => (
+                        <SelectItem key={evt.id} value={String(evt.event_id_pri || evt.id)}>
+                          {evt.titulo}{evt.event_id_pri ? ` — ID: ${evt.event_id_pri}` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1102,9 +1116,18 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
                   <Label htmlFor="msg-evt-status" className="text-sm">evt_status</Label>
                   <Switch id="msg-evt-status" checked={msgEvtStatus} onCheckedChange={setMsgEvtStatus} />
                 </div>
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <Label htmlFor="msg-codigo-proposta" className="text-sm">codigo_proposta</Label>
-                  <Switch id="msg-codigo-proposta" checked={msgCodigoProposta} onCheckedChange={setMsgCodigoProposta} />
+                <div className="flex flex-col gap-1 rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="msg-codigo-proposta" className="text-sm">codigo_proposta</Label>
+                    <Checkbox
+                      id="msg-codigo-proposta"
+                      checked={msgCodigoProposta}
+                      onCheckedChange={(checked) => setMsgCodigoProposta(checked === true)}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {msgCodigoProposta ? "✓ Selecionado: envia somente código_proposta NOT NULL" : "✗ Não selecionado: envia somente código_proposta NULL"}
+                  </p>
                 </div>
               </div>
             </CardContent>
