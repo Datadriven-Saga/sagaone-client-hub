@@ -4529,6 +4529,14 @@ export type Database = {
         Args: { user_id_param?: string }
         Returns: number
       }
+      bulk_upsert_contatos: {
+        Args: {
+          p_contatos: Json
+          p_empresa_id: string
+          p_prospeccao_id?: string
+        }
+        Returns: Json
+      }
       can_manage_users: { Args: { user_id?: string }; Returns: boolean }
       check_password_protection_status: { Args: never; Returns: string }
       check_quarentena: {
