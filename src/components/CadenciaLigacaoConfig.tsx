@@ -65,8 +65,6 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
   // Recurrence
   const [dataInicio, setDataInicio] = useState("");
   const [dataTermino, setDataTermino] = useState("");
-  const [intervaloValor, setIntervaloValor] = useState(1);
-  const [intervaloUnidade, setIntervaloUnidade] = useState("dias");
   const [horarioInicio, setHorarioInicio] = useState("07:45");
   const [horarioFim, setHorarioFim] = useState("18:00");
   const [diasAtivos, setDiasAtivos] = useState<string[]>(["seg", "ter", "qua", "qui", "sex", "sab"]);
@@ -84,7 +82,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
 
         if (error) throw error;
 
-        const searchPatterns = ["ligação", "ligacao", "ligaçao", "pri"];
+        const searchPatterns = ["ligação", "ligacao", "ligaçao"];
         const filtered = (data || []).filter((a: any) => {
           const nome = String(a.nome || "").toLowerCase();
           return searchPatterns.some(p => nome.includes(p)) && a.telefone;
@@ -133,7 +131,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     setSaving(true);
     try {
       const payload = {
-        id_evento: selectedEventIds,
+        id_evento: selectedEventIds.join(", "),
         evt_status: evtStatus,
         num_tentativas: numTentativas,
         ligacao_atendida: ligacaoAtendida,
@@ -143,8 +141,6 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
         recorrencia: {
           data_inicio: dataInicio,
           data_termino: dataTermino,
-          intervalo_valor: intervaloValor,
-          intervalo_unidade: intervaloUnidade,
           horario_inicio: horarioInicio,
           horario_fim: horarioFim,
           dias_semana: diasAtivos,
@@ -346,32 +342,6 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
             <div className="space-y-1.5">
               <Label>Data de término</Label>
               <Input type="date" value={dataTermino} onChange={e => setDataTermino(e.target.value)} />
-            </div>
-          </div>
-
-          {/* Interval */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>A cada</Label>
-              <Input
-                type="number"
-                min={1}
-                value={intervaloValor}
-                onChange={e => setIntervaloValor(Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Unidade</Label>
-              <Select value={intervaloUnidade} onValueChange={setIntervaloUnidade}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="minutos">Minuto(s)</SelectItem>
-                  <SelectItem value="horas">Hora(s)</SelectItem>
-                  <SelectItem value="dias">Dia(s)</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
