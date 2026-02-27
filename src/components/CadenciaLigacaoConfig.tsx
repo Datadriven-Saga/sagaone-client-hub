@@ -491,7 +491,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     try {
       const payload = {
         id_evento: msgIdEvento,
-        event_id_maia: msgEventIdMaia,
+        event_id_maia: msgIdEvento,
         status_agendado: msgStatusAgendado,
         evt_status: msgEvtStatus,
         codigo_proposta: msgCodigoProposta,
@@ -698,6 +698,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
               </div>
 
               {/* Toggles */}
+              <p className="text-xs text-muted-foreground">Variáveis configuráveis para query de busca de leads para cadência de ligação</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <Label htmlFor="evt-status" className="text-sm">evt_status</Label>
@@ -1035,13 +1036,14 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
                 )}
               </div>
 
-              {/* ID Evento Maia (manual) */}
+              {/* id_evento auto-preenchido */}
               <div className="space-y-1.5">
-                <Label>ID do Evento Maia (m.event_id)</Label>
-                <Input value={msgEventIdMaia} onChange={e => setMsgEventIdMaia(e.target.value)} placeholder="Ex: 232" />
+                <Label>id_evento</Label>
+                <Input value={msgIdEvento} readOnly placeholder="Preenchido ao selecionar evento acima" className="bg-muted/50" />
               </div>
 
               {/* Toggles */}
+              <p className="text-xs text-muted-foreground">Variáveis configuráveis para query de busca de leads para envio de mensagem</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <Label htmlFor="msg-status-agendado" className="text-sm">status_agendado</Label>
