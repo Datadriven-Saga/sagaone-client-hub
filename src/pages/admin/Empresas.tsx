@@ -324,7 +324,7 @@ export default function Empresas() {
               </Button>
             </DialogTrigger>
           </div>
-            <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto px-4 sm:px-6 box-border max-w-[100vw]">
               <DialogHeader>
                 <DialogTitle>
                   {editingEmpresa ? "Editar Empresa" : "Nova Empresa"}
@@ -340,7 +340,7 @@ export default function Empresas() {
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleSubmit)}>
                   <Tabs defaultValue="dados" className="space-y-4">
-                    <TabsList className={`grid w-full ${isAdmin && editingEmpresa ? 'grid-cols-3' : 'grid-cols-1'}`}>
+                    <TabsList className="w-full justify-start">
                       <TabsTrigger value="dados">Dados da Empresa</TabsTrigger>
                       {isAdmin && editingEmpresa && (
                         <>
