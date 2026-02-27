@@ -339,8 +339,8 @@ export default function Empresas() {
 
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleSubmit)}>
-                  <Tabs defaultValue="dados" className="space-y-4">
-                    <TabsList className="w-full justify-start">
+                  <Tabs defaultValue="dados" className="space-y-4 min-w-0">
+                    <TabsList className="w-full max-w-full">
                       <TabsTrigger value="dados">Dados da Empresa</TabsTrigger>
                       {isAdmin && editingEmpresa && (
                         <>
