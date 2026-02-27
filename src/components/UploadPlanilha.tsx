@@ -52,8 +52,18 @@ interface OrigemOption {
   nome: string;
 }
 
+export interface ImportResult {
+  eventosInseridos: number;
+  eventosErros: number;
+  novosContatosCriados: number;
+  existentesVinculados: number;
+  jaNoEvento: number;
+  insertErrors: number;
+  totalEnviados: number;
+}
+
 interface UploadPlanilhaProps {
-  onClientesImported: (campanha: string, clientes: ClienteData[]) => void | Promise<void>;
+  onClientesImported: (campanha: string, clientes: ClienteData[]) => Promise<ImportResult>;
   prospeccoes: Prospeccao[];
 }
 
@@ -95,6 +105,8 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
   const [isProcessing, setIsProcessing] = useState(false);
   const [validationSummary, setValidationSummary] = useState<ValidationSummary | null>(null);
   const [activeTab, setActiveTab] = useState('valid');
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [showResultDialog, setShowResultDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -422,7 +434,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       
       // IMPORTANTE: Aguardar a importação real antes de mostrar resultado
       // onClientesImported chama adicionarContatos que faz o insert no banco
-      await onClientesImported(selectedCampanha, clientesComDados);
+      const result = await onClientesImported(selectedCampanha, clientesComDados);
       
       // Registrar quarentena para os contatos importados (em lotes de 500)
       if (activeCompany?.id && previewData.length > 0) {
@@ -458,7 +470,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
             solicitante_id: (await supabase.auth.getUser()).data.user?.id || '',
             solicitante_nome: userData?.nome_completo || 'Usuário',
             base_nome: baseNomeFinal,
-            total_contatos: previewData.length,
+            total_contatos: result.eventosInseridos,
             prospeccao_id: selectedCampanha,
           });
         
@@ -475,7 +487,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
             destinatario_id: crm.id,
             tipo: 'Push' as const,
             titulo: `Nova importação de base: ${baseNomeFinal}`,
-            mensagem: `${userData?.nome_completo || 'Um usuário'} importou ${previewData.length} contatos para a campanha "${selectedProspeccao?.titulo || ''}"`,
+            mensagem: `${userData?.nome_completo || 'Um usuário'} importou ${result.eventosInseridos} contatos para a campanha "${selectedProspeccao?.titulo || ''}"`,
             status: 'Pendente' as const,
           }));
           
@@ -483,10 +495,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
         }
       }
 
-      // NOTA: A sincronização com o sistema externo de ligação (create-base-ligacao)
-      // é feita pelo handleClientesImported em Prospeccao.tsx via onClientesImported.
-      // Não duplicar a chamada aqui.
-      
+      // Fechar modal de upload e mostrar resultado detalhado
       setIsOpen(false);
       setSelectedCampanha('');
       setSelectedOrigem('');
@@ -498,9 +507,9 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
       setQuarentenaData([]);
       setValidationSummary(null);
       
-      // NOTA: O toast de resultado real já é exibido por adicionarContatos() no hook
-      // com os números reais (novos criados, existentes vinculados, já no evento)
-      // Não mostrar toast duplicado aqui para evitar confusão
+      // Salvar resultado e abrir diálogo de resultado
+      setImportResult(result);
+      setShowResultDialog(true);
     } catch (error) {
       console.error('Erro na importação:', error);
       toast({
@@ -529,6 +538,7 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="p-3 h-auto flex items-center gap-2">
@@ -876,5 +886,122 @@ export const UploadPlanilha = ({ onClientesImported, prospeccoes }: UploadPlanil
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Dialog de resultado da importação */}
+    <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
+      <DialogContent className="w-[95vw] sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {importResult && (importResult.eventosErros > 0 || importResult.insertErrors > 0) ? (
+              <><AlertTriangle className="h-5 w-5 text-amber-500" /> Importação Parcial</>
+            ) : (
+              <><CheckCircle className="h-5 w-5 text-emerald-500" /> Importação Concluída</>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+        
+        {importResult && (
+          <div className="space-y-4">
+            {/* Número principal - disponíveis para disparo */}
+            <Card className="p-4 border-emerald-500/30 bg-emerald-500/5">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-emerald-500">{importResult.eventosInseridos}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  contatos vinculados ao evento e disponíveis para disparo
+                </p>
+              </div>
+            </Card>
+            
+            {/* Detalhamento */}
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                <span className="text-muted-foreground">Enviados da planilha</span>
+                <span className="font-medium">{importResult.totalEnviados}</span>
+              </div>
+              
+              {importResult.novosContatosCriados > 0 && (
+                <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                    Novos contatos criados
+                  </span>
+                  <span className="font-medium text-emerald-600">{importResult.novosContatosCriados}</span>
+                </div>
+              )}
+              
+              {importResult.existentesVinculados > 0 && (
+                <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle className="h-3.5 w-3.5 text-blue-500" />
+                    Existentes vinculados ao evento
+                  </span>
+                  <span className="font-medium text-blue-600">{importResult.existentesVinculados}</span>
+                </div>
+              )}
+              
+              {importResult.jaNoEvento > 0 && (
+                <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                  <span className="flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                    Já estavam no evento (ignorados)
+                  </span>
+                  <span className="font-medium text-amber-600">{importResult.jaNoEvento}</span>
+                </div>
+              )}
+              
+              {importResult.insertErrors > 0 && (
+                <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                  <span className="flex items-center gap-1.5">
+                    <XCircle className="h-3.5 w-3.5 text-destructive" />
+                    Falharam ao criar no banco
+                  </span>
+                  <span className="font-medium text-destructive">{importResult.insertErrors}</span>
+                </div>
+              )}
+              
+              {importResult.eventosErros > 0 && (
+                <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                  <span className="flex items-center gap-1.5">
+                    <XCircle className="h-3.5 w-3.5 text-destructive" />
+                    Falharam ao vincular ao evento
+                  </span>
+                  <span className="font-medium text-destructive">{importResult.eventosErros}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Alerta se houver diferença */}
+            {importResult.eventosInseridos < importResult.totalEnviados && (
+              <Card className="p-3 border-amber-500/30 bg-amber-500/5">
+                <div className="flex gap-2 items-start">
+                  <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                  <div className="text-xs text-amber-700 dark:text-amber-400">
+                    <p className="font-medium">
+                      {importResult.totalEnviados - importResult.eventosInseridos} contatos não foram vinculados:
+                    </p>
+                    <ul className="mt-1 space-y-0.5 list-disc list-inside">
+                      {importResult.jaNoEvento > 0 && (
+                        <li>{importResult.jaNoEvento} já existiam neste evento</li>
+                      )}
+                      {importResult.insertErrors > 0 && (
+                        <li>{importResult.insertErrors} falharam na criação (possível duplicidade de telefone)</li>
+                      )}
+                      {importResult.eventosErros > 0 && (
+                        <li>{importResult.eventosErros} falharam na vinculação ao evento</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            <div className="flex justify-end">
+              <Button onClick={() => setShowResultDialog(false)}>Fechar</Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };

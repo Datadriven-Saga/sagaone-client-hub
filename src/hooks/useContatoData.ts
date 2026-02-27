@@ -622,6 +622,9 @@ export const useContatoData = () => {
         ...novosContatosCriados.map((c: any) => c.id)
       ];
 
+      let eventosInseridos = 0;
+      let eventosErros = 0;
+
       if (todosIdsParaVincular.length > 0) {
         const eventosParaInserir = todosIdsParaVincular.map(id => ({
           contato_id: id,
@@ -629,8 +632,6 @@ export const useContatoData = () => {
         }));
 
         const EVENTO_BATCH_SIZE = 500;
-        let eventosInseridos = 0;
-        let eventosErros = 0;
         
         for (let i = 0; i < eventosParaInserir.length; i += EVENTO_BATCH_SIZE) {
           const batch = eventosParaInserir.slice(i, i + EVENTO_BATCH_SIZE);
@@ -661,31 +662,10 @@ export const useContatoData = () => {
         setContatos(prev => [...novosContatosCriados, ...prev]);
       }
       
-      // Mensagem de sucesso com detalhes reais
-      const partes: string[] = [];
-      if (novosContatosCriados.length > 0) {
-        partes.push(`${novosContatosCriados.length} novos criados`);
-      }
-      if (insertErrors > 0) {
-        partes.push(`${insertErrors} falharam ao criar`);
-      }
-      if (contatosParaVincular.length > 0) {
-        partes.push(`${contatosParaVincular.length} existentes vinculados`);
-      }
-      if (jaVinculados.length > 0) {
-        partes.push(`${jaVinculados.length} já estavam no evento`);
-      }
-      
-      const totalImportados = novosContatosCriados.length + contatosParaVincular.length;
-      
-      toast({ 
-        title: insertErrors > 0 ? "Importação parcial" : "Sucesso", 
-        description: partes.join(', ') || 'Nenhum contato processado',
-        variant: insertErrors > 0 ? "destructive" : "default"
-      });
+      // NÃO mostrar toast aqui - deixar o UploadPlanilha mostrar o alerta detalhado
+      // para evitar toasts duplicados e garantir consistência
       
       // Retornar todos os contatos processados (novos + existentes vinculados) com dados para webhook
-      // Incluir lead_id (serial numérico) para todos os contatos
       const todosContatosProcessados = [
         ...novosContatosCriados.map((c: any) => ({ 
           id: c.id, 
@@ -708,9 +688,12 @@ export const useContatoData = () => {
       return {
         novosContatosCriados,
         contatosVinculados: contatosParaVincular,
+        jaVinculados,
         todosContatosProcessados,
         insertErrors,
-        totalImportados
+        eventosInseridos,
+        eventosErros,
+        totalImportados: novosContatosCriados.length + contatosParaVincular.length
       };
     } catch (error) {
       console.error('Erro ao adicionar contatos:', error);

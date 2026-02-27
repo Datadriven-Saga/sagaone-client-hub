@@ -1124,24 +1124,27 @@ showAllEvents: true
   };
 
   // Função para importar clientes como contatos
-  const handleClientesImported = async (prospeccaoId: string, clientes: ClienteData[]) => {
+  // Retorna resultado detalhado para que UploadPlanilha mostre feedback preciso
+  const handleClientesImported = async (prospeccaoId: string, clientes: ClienteData[]): Promise<{
+    eventosInseridos: number;
+    eventosErros: number;
+    novosContatosCriados: number;
+    existentesVinculados: number;
+    jaNoEvento: number;
+    insertErrors: number;
+    totalEnviados: number;
+  }> => {
     try {
       console.log('=== INICIANDO IMPORTAÇÃO ===');
       console.log('Prospeccao ID:', prospeccaoId);
       console.log('Quantidade de clientes:', clientes.length);
-      console.log('Usuário logado:', user?.id);
 
-      // Buscar a prospecção pelo ID (evita conflito quando existem títulos iguais)
       const prospeccaoSelecionada = prospeccoes.find(p => p.id === prospeccaoId);
-      console.log('Prospecção selecionada:', prospeccaoSelecionada);
-
       if (!prospeccaoSelecionada) {
         throw new Error(`Prospecção (id: ${prospeccaoId}) não encontrada`);
       }
 
-      // Determinar origem baseada no tipo de evento
       const origemContato = getOrigemFromProspeccao(prospeccaoSelecionada);
-      console.log('Origem determinada:', origemContato);
 
       const novosContatos = clientes.map(cliente => ({
         nome: cliente.nome,
@@ -1153,19 +1156,9 @@ showAllEvents: true
         base_id: cliente.base_id
       }));
 
-      console.log('=== PROCESSANDO CLIENTES ===');
-      console.log('Novos contatos a serem adicionados:', novosContatos);
-      console.log('Prospeccao selecionada ID:', prospeccaoSelecionada.id);
-
       const isLigacaoEvent = prospeccaoSelecionada.canal === 'Ligação';
-      console.log('📞 Verificando se é evento de Ligação:', { 
-        canal: prospeccaoSelecionada.canal, 
-        isLigacaoEvent,
-        totalClientesImportados: clientes.length
-      });
 
       // ETAPA 1: Criar contatos no banco local (com timeout de segurança de 120s)
-      // Isso garante que lead_id é gerado antes de enviar ao webhook externo
       let resultado: Awaited<ReturnType<typeof adicionarContatos>> | undefined;
       try {
         const adicionarPromise = adicionarContatos(novosContatos, prospeccaoSelecionada.id);
@@ -1175,18 +1168,18 @@ showAllEvents: true
         resultado = await Promise.race([adicionarPromise, timeoutPromise]) as typeof resultado;
       } catch (adicionarError) {
         console.error('❌ Erro/timeout ao adicionar contatos:', adicionarError);
-        // Continuar mesmo com erro - a Edge Function criará os contatos se necessário
+        throw adicionarError;
       }
 
       console.log('📊 Resultado do adicionarContatos:', {
-        temResultado: !!resultado,
-        todosContatosProcessados: resultado?.todosContatosProcessados?.length || 0,
-        novosContatosCriados: resultado?.novosContatosCriados?.length || 0,
-        contatosVinculados: resultado?.contatosVinculados?.length || 0
+        eventosInseridos: resultado?.eventosInseridos,
+        eventosErros: resultado?.eventosErros,
+        novos: resultado?.novosContatosCriados?.length,
+        vinculados: resultado?.contatosVinculados?.length,
+        jaNoEvento: resultado?.jaVinculados?.length,
       });
 
-      // ETAPA 2: Para eventos de Ligação, sincronizar com sistema externo (APÓS contatos criados)
-      // Os contatos já existem no banco com lead_id, então a Edge Function vai encontrá-los
+      // ETAPA 2: Para eventos de Ligação, sincronizar com sistema externo
       if (isLigacaoEvent) {
         try {
           console.log('📞 [SYNC] Iniciando sincronização com sistema externo de ligação...');
@@ -1209,44 +1202,27 @@ showAllEvents: true
 
           if (agenteError || !agenteAtivo?.agentes_ia?.telefone) {
             console.warn('⚠️ [SYNC] Nenhum agente Pri encontrado');
-            toast({
-              title: "Aviso",
-              description: "Agente Pri não encontrado. Contatos importados localmente, mas não sincronizados com o sistema de ligação.",
-              variant: "destructive"
-            });
           } else {
             const telefonePri = agenteAtivo.agentes_ia.telefone.replace(/\D/g, '');
             const lojaNome = activeCompany?.nome_empresa || '';
             const idEvento = prospeccaoSelecionada.event_id_pri ? Number(prospeccaoSelecionada.event_id_pri) : null;
-
-            console.log('📦 [SYNC] Dados:', { telefonePri, lojaNome, idEvento });
 
             const normalizeTelefoneForPri = (digits: string) => {
               if (digits.length > 11 && digits.startsWith('55')) return digits.slice(2);
               return digits;
             };
 
-            // Usar clientes originais da planilha como fonte
             const contatosPayload = clientes.map((c) => {
               const telefoneDigitsRaw = c.telefone?.replace(/\D/g, '') || '';
               const telefoneDigits = normalizeTelefoneForPri(telefoneDigitsRaw);
               return { nome: c.nome || '', telefone: telefoneDigits };
             });
 
-            console.log('🚀 [SYNC] Chamando create-base-ligacao com', contatosPayload.length, 'contatos');
-
             const SYNC_BATCH = 1000;
-            let totalSalvos = 0;
-            let syncHadError = false;
-
             for (let i = 0; i < contatosPayload.length; i += SYNC_BATCH) {
               const batch = contatosPayload.slice(i, i + SYNC_BATCH);
-              const batchNum = Math.floor(i / SYNC_BATCH) + 1;
-              const totalBatches = Math.ceil(contatosPayload.length / SYNC_BATCH);
-              console.log(`📦 [SYNC] Lote ${batchNum}/${totalBatches} (${batch.length} contatos)`);
-
               try {
-                const { data: createBaseData, error: createBaseError } = await supabase.functions.invoke('create-base-ligacao', {
+                await supabase.functions.invoke('create-base-ligacao', {
                   body: {
                     contatos: batch,
                     id_evento: idEvento || 0,
@@ -1257,31 +1233,9 @@ showAllEvents: true
                     sync_external: !!idEvento,
                   },
                 });
-
-                if (createBaseError) {
-                  console.error(`❌ [SYNC] Erro no lote ${batchNum}:`, createBaseError);
-                  syncHadError = true;
-                } else {
-                  totalSalvos += createBaseData?.summary?.supabase_salvos || batch.length;
-                  console.log(`✅ [SYNC] Lote ${batchNum} concluído:`, createBaseData?.summary);
-                }
               } catch (batchError) {
-                console.error(`❌ [SYNC] Exceção no lote ${batchNum}:`, batchError);
-                syncHadError = true;
+                console.error(`❌ [SYNC] Exceção no lote:`, batchError);
               }
-            }
-
-            if (!syncHadError) {
-              toast({
-                title: "Sincronização concluída",
-                description: `${totalSalvos} contatos enviados para o sistema de ligação`,
-              });
-            } else {
-              toast({
-                title: "Sincronização parcial",
-                description: `${totalSalvos} contatos sincronizados. Alguns lotes falharam.`,
-                variant: "destructive"
-              });
             }
           }
         } catch (createBaseError) {
@@ -1289,27 +1243,22 @@ showAllEvents: true
         }
       }
 
-      const totalReal = resultado?.totalImportados ?? resultado?.todosContatosProcessados?.length ?? clientes.length;
-      const totalErros = resultado?.insertErrors ?? 0;
-      
-      toast({
-        title: totalErros > 0 ? "Importação parcial" : "Base importada",
-        description: totalErros > 0 
-          ? `${totalReal} contatos importados de ${clientes.length} enviados (${totalErros} falharam). Verifique o console para detalhes.`
-          : `${totalReal} contatos foram importados e vinculados ao evento`,
-        variant: totalErros > 0 ? "destructive" : "default"
-      });
-
       // Forçar atualização dos dados
       refetch();
 
+      return {
+        eventosInseridos: resultado?.eventosInseridos ?? 0,
+        eventosErros: resultado?.eventosErros ?? 0,
+        novosContatosCriados: resultado?.novosContatosCriados?.length ?? 0,
+        existentesVinculados: resultado?.contatosVinculados?.length ?? 0,
+        jaNoEvento: resultado?.jaVinculados?.length ?? 0,
+        insertErrors: resultado?.insertErrors ?? 0,
+        totalEnviados: clientes.length,
+      };
+
     } catch (error: any) {
       console.error('Erro ao importar contatos:', error);
-      toast({
-        title: "Erro na importação",
-        description: `Erro: ${error.message || 'Não foi possível importar os contatos'}`,
-        variant: "destructive"
-      });
+      throw error;
     }
   };
 
