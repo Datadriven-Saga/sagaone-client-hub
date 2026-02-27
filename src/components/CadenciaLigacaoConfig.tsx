@@ -88,7 +88,22 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
           return searchPatterns.some(p => nome.includes(p)) && a.telefone;
         });
 
-        setPriAgents(filtered as PriAgent[]);
+        // Deduplicate by normalized phone number, keeping first occurrence
+        const seen = new Map<string, boolean>();
+        const unique = filtered.filter((a: any) => {
+          const normalized = String(a.telefone || "").replace(/\D/g, "");
+          if (!normalized || seen.has(normalized)) return false;
+          seen.set(normalized, true);
+          return true;
+        });
+
+        // Normalize phone display
+        const withNormalizedPhone = unique.map((a: any) => ({
+          ...a,
+          telefone: String(a.telefone || "").replace(/\D/g, ""),
+        }));
+
+        setPriAgents(withNormalizedPhone as PriAgent[]);
         if (filtered.length === 1) {
           setSelectedPriId(filtered[0].id);
         }
