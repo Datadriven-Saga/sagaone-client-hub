@@ -265,7 +265,7 @@ export function TemplatePreview({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[400px] p-0 overflow-hidden">
+      <DialogContent className="w-[95vw] sm:max-w-[400px] p-0 overflow-hidden">
         <DialogHeader className="px-4 pt-4 pb-2">
           <DialogTitle className="text-base">Preview: {nome || "Template"}</DialogTitle>
         </DialogHeader>
@@ -282,7 +282,7 @@ export function TemplatePreview({
           
           {/* Message Bubble */}
           <div className="relative flex justify-end mb-2">
-            <div className="max-w-[85%] bg-[#DCF8C6] dark:bg-[#005C4B] rounded-lg p-3 shadow-sm">
+            <div className="max-w-[85%] bg-[#DCF8C6] dark:bg-[#005C4B] rounded-lg p-3 shadow-sm break-words" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
               {/* Tail */}
               <div className="absolute -right-2 top-0 w-4 h-4 overflow-hidden">
                 <div className="w-4 h-4 bg-[#DCF8C6] dark:bg-[#005C4B] transform rotate-45 translate-x-2 -translate-y-2"></div>

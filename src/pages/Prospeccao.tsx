@@ -1743,24 +1743,26 @@ showAllEvents: true
               {/* Conteúdo condicional: Lista de Eventos ou Adicionar Clientes */}
               {!showAdicionarClientes ? (
                 <Card className="p-4">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
                     <div className="flex items-center gap-3">
                       <h3 className="text-base font-semibold text-foreground">Lista de Eventos</h3>
                       <span className="text-sm text-muted-foreground">
                         {filteredProspeccoes.length} {filteredProspeccoes.length === 1 ? 'evento' : 'eventos'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {canCreateEventos && (
                         <Button onClick={() => setIsModalOpen(true)} size="sm">
-                          <Plus className="w-4 h-4 mr-2" />
-                          Criar Evento
+                          <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+                          <span className="hidden sm:inline">Criar Evento</span>
+                          <span className="sm:hidden">Criar</span>
                         </Button>
                       )}
                       {canUploadBase && (
                         <Button onClick={() => setShowAdicionarClientes(true)} size="sm" variant="outline">
-                          <Users className="w-4 h-4 mr-2" />
-                          Adicionar Clientes
+                          <Users className="w-4 h-4 mr-1 sm:mr-2" />
+                          <span className="hidden sm:inline">Adicionar Clientes</span>
+                          <span className="sm:hidden">Clientes</span>
                         </Button>
                       )}
                     </div>
