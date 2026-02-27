@@ -103,7 +103,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
   // ─── Envio Mensagem state ───
   const [sendingMsg, setSendingMsg] = useState(false);
   const [msgIdEvento, setMsgIdEvento] = useState("");
-  const [msgEventIdMaia, setMsgEventIdMaia] = useState("");
+  const [msgIdEventoMensagem, setMsgIdEventoMensagem] = useState("");
   const [msgStatusAgendado, setMsgStatusAgendado] = useState(false);
   const [msgEvtStatus, setMsgEvtStatus] = useState(true);
   const [msgCodigoProposta, setMsgCodigoProposta] = useState(false);
@@ -133,6 +133,22 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     });
   }, [msgEventosData]);
   const msgEventosAtivos = useMemo(() => msgEventos.filter(e => e.evt_status === "ativo"), [msgEventos]);
+
+  // ─── Envio Mensagem: Agente WhatsApp (Mensagem) events ───
+  const { data: msgWhatsEventosData = [], isLoading: loadingMsgWhatsEventos } = usePriLigacaoEventos(msgTelefonePriWhatsapp);
+  const msgWhatsEventos = useMemo<EventoPriVoz[]>(() => {
+    return (msgWhatsEventosData || []).map((evt: any) => {
+      const rawStatus = evt?.evt_status ?? evt?.status;
+      const isAtivo = rawStatus === true || String(rawStatus).toLowerCase() === "ativo" || String(rawStatus).toLowerCase() === "true" || rawStatus === "1" || rawStatus === 1;
+      return {
+        id: String(evt.id_evento || evt.id),
+        id_evento: evt.id_evento || evt.id,
+        nome: evt.nome || evt.name || `Evento ${evt.id_evento}`,
+        evt_status: isAtivo ? "ativo" : "inativo",
+      };
+    });
+  }, [msgWhatsEventosData]);
+  const msgWhatsEventosAtivos = useMemo(() => msgWhatsEventos.filter(e => e.evt_status === "ativo"), [msgWhatsEventos]);
 
   const empresaDropdownRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -344,6 +360,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     setMsgDealerId(emp.crm_id || "");
     setMsgTelefonePriLigacao(emp.telefone_ligacao || "");
     setMsgIdEvento("");
+    setMsgIdEventoMensagem("");
     setEmpresaSearch(emp.empresa_nome);
     setShowEmpresaDropdown(false);
   };
@@ -491,6 +508,8 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     try {
       const payload = {
         id_evento: msgIdEvento,
+        id_evento_mensagem: msgIdEventoMensagem,
+        eventid: msgIdEventoMensagem,
         status_agendado: msgStatusAgendado,
         evt_status: msgEvtStatus,
         codigo_proposta: msgCodigoProposta,
@@ -1006,24 +1025,21 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
-              {/* Eventos ativos do agente de ligação da loja */}
+              {/* Evento de Ligação */}
               <div className="space-y-2">
-                <Label>Evento de Ligação (id_evento)</Label>
+                <Label className="font-semibold">Evento de Ligação <span className="text-xs font-normal text-muted-foreground">(id_evento — enviado como id_evento)</span></Label>
                 {!msgTelefonePriLigacao ? (
-                  <p className="text-sm text-muted-foreground py-2">Selecione uma empresa acima para carregar os eventos.</p>
+                  <p className="text-sm text-muted-foreground py-2">Selecione uma empresa acima para carregar os eventos de ligação.</p>
                 ) : loadingMsgEventos ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Carregando eventos...
+                    <Loader2 className="h-4 w-4 animate-spin" /> Carregando eventos de ligação...
                   </div>
                 ) : msgEventosAtivos.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2">Nenhum evento ativo encontrado para este agente.</p>
+                  <p className="text-sm text-muted-foreground py-2">Nenhum evento de ligação ativo encontrado.</p>
                 ) : (
-                  <Select
-                    value={msgIdEvento}
-                    onValueChange={(val) => setMsgIdEvento(val)}
-                  >
+                  <Select value={msgIdEvento} onValueChange={setMsgIdEvento}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione um evento..." />
+                      <SelectValue placeholder="Selecione um evento de ligação..." />
                     </SelectTrigger>
                     <SelectContent>
                       {msgEventosAtivos.map(evt => (
@@ -1034,12 +1050,45 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
                     </SelectContent>
                   </Select>
                 )}
+                {msgIdEvento && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">id_evento (ligação)</Label>
+                    <Input value={msgIdEvento} readOnly className="bg-muted/50" />
+                  </div>
+                )}
               </div>
 
-              {/* id_evento auto-preenchido */}
-              <div className="space-y-1.5">
-                <Label>id_evento</Label>
-                <Input value={msgIdEvento} readOnly placeholder="Preenchido ao selecionar evento acima" className="bg-muted/50" />
+              {/* Evento de Mensagem (WhatsApp) */}
+              <div className="space-y-2">
+                <Label className="font-semibold">Evento de Mensagem <span className="text-xs font-normal text-muted-foreground">(eventid — enviado como id_evento_mensagem e eventid)</span></Label>
+                {!msgTelefonePriWhatsapp ? (
+                  <p className="text-sm text-muted-foreground py-2">Selecione uma empresa acima para carregar os eventos de mensagem.</p>
+                ) : loadingMsgWhatsEventos ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Carregando eventos de mensagem...
+                  </div>
+                ) : msgWhatsEventosAtivos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">Nenhum evento de mensagem ativo encontrado.</p>
+                ) : (
+                  <Select value={msgIdEventoMensagem} onValueChange={setMsgIdEventoMensagem}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um evento de mensagem..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {msgWhatsEventosAtivos.map(evt => (
+                        <SelectItem key={evt.id} value={evt.id}>
+                          {evt.nome} — ID: {evt.id_evento}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {msgIdEventoMensagem && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">id_evento_mensagem (eventid)</Label>
+                    <Input value={msgIdEventoMensagem} readOnly className="bg-muted/50" />
+                  </div>
+                )}
               </div>
 
               {/* Toggles */}
