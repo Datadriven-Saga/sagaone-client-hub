@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,13 +89,58 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
 
   // ─── Envio Mensagem state ───
   const [sendingMsg, setSendingMsg] = useState(false);
-  const [msgIdEvento, setMsgIdEvento] = useState("249");
-  const [msgEventIdMaia, setMsgEventIdMaia] = useState("232");
+  const [msgIdEvento, setMsgIdEvento] = useState("");
+  const [msgEventIdMaia, setMsgEventIdMaia] = useState("");
   const [msgStatusAgendado, setMsgStatusAgendado] = useState(false);
   const [msgEvtStatus, setMsgEvtStatus] = useState(true);
   const [msgSomenteSemProposta, setMsgSomenteSemProposta] = useState(false);
   const [msgTelefonePriWhatsapp, setMsgTelefonePriWhatsapp] = useState("");
   const [msgDealerId, setMsgDealerId] = useState("");
+
+  // ─── Envio Mensagem: Empresa selector ───
+  interface EmpresaComWhatsapp {
+    empresa_id: string;
+    empresa_nome: string;
+    marca?: string;
+    uf?: string;
+    crm_id?: string;
+    telefone_whatsapp: string;
+  }
+  const [empresasWhatsapp, setEmpresasWhatsapp] = useState<EmpresaComWhatsapp[]>([]);
+  const [loadingEmpresas, setLoadingEmpresas] = useState(false);
+  const [empresaSearch, setEmpresaSearch] = useState("");
+  const [selectedEmpresaId, setSelectedEmpresaId] = useState("");
+  const [showEmpresaDropdown, setShowEmpresaDropdown] = useState(false);
+
+  // ─── Envio Mensagem: Agente Ligação selector + events ───
+  const [msgSelectedPriId, setMsgSelectedPriId] = useState("");
+  const msgSelectedPri = priAgents.find(a => a.id === msgSelectedPriId);
+  const msgTelefonePriLigacao = msgSelectedPri?.telefone || "";
+  const { data: msgEventosData = [], isLoading: loadingMsgEventos } = usePriLigacaoEventos(msgTelefonePriLigacao);
+  const msgEventos = useMemo<EventoPriVoz[]>(() => {
+    return (msgEventosData || []).map((evt: any) => {
+      const rawStatus = evt?.evt_status ?? evt?.status;
+      const isAtivo = rawStatus === true || String(rawStatus).toLowerCase() === "ativo" || String(rawStatus).toLowerCase() === "true" || rawStatus === "1" || rawStatus === 1;
+      return {
+        id: String(evt.id_evento || evt.id),
+        id_evento: evt.id_evento || evt.id,
+        nome: evt.nome || evt.name || `Evento ${evt.id_evento}`,
+        evt_status: isAtivo ? "ativo" : "inativo",
+      };
+    });
+  }, [msgEventosData]);
+  const msgEventosAtivos = useMemo(() => msgEventos.filter(e => e.evt_status === "ativo"), [msgEventos]);
+
+  const empresaDropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (empresaDropdownRef.current && !empresaDropdownRef.current.contains(e.target as Node)) {
+        setShowEmpresaDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Events from selected Pri
   const { data: eventosData = [], isLoading: loadingEventos } = usePriLigacaoEventos(telefonePri);
@@ -172,6 +217,75 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
     setContatos([{ id: crypto.randomUUID(), nome: "", telefone: "" }]);
     setBaseConfirmada(false);
   }, [selectedPriId]);
+
+  // ─── Fetch empresas with Pri-WhatsApp ───
+  useEffect(() => {
+    async function fetchEmpresasComWhatsapp() {
+      setLoadingEmpresas(true);
+      try {
+        const { data: agentes, error: agErr } = await supabase
+          .from("agentes_ia")
+          .select("id, nome, telefone, empresa_id")
+          .eq("ativo", true)
+          .not("telefone", "is", null);
+        if (agErr) throw agErr;
+
+        const whatsappAgents = (agentes || []).filter((a: any) =>
+          String(a.nome || "").toLowerCase().includes("whatsapp") && a.telefone && a.empresa_id
+        );
+
+        if (whatsappAgents.length === 0) { setEmpresasWhatsapp([]); setLoadingEmpresas(false); return; }
+
+        const empresaIds = [...new Set(whatsappAgents.map((a: any) => a.empresa_id))];
+        const { data: empresas, error: empErr } = await supabase
+          .from("empresas")
+          .select("id, nome_empresa, marca, uf, crm_id")
+          .in("id", empresaIds);
+        if (empErr) throw empErr;
+
+        const result: EmpresaComWhatsapp[] = [];
+        for (const emp of (empresas || [])) {
+          const agent = whatsappAgents.find((a: any) => a.empresa_id === emp.id);
+          if (agent) {
+            result.push({
+              empresa_id: emp.id,
+              empresa_nome: emp.nome_empresa || "Sem nome",
+              marca: emp.marca || undefined,
+              uf: emp.uf || undefined,
+              crm_id: emp.crm_id || undefined,
+              telefone_whatsapp: String(agent.telefone).replace(/\D/g, ""),
+            });
+          }
+        }
+        result.sort((a, b) => a.empresa_nome.localeCompare(b.empresa_nome));
+        setEmpresasWhatsapp(result);
+      } catch (err) {
+        console.error("Erro ao buscar empresas com WhatsApp:", err);
+      } finally {
+        setLoadingEmpresas(false);
+      }
+    }
+    fetchEmpresasComWhatsapp();
+  }, []);
+
+  const handleSelectEmpresa = (emp: EmpresaComWhatsapp) => {
+    setSelectedEmpresaId(emp.empresa_id);
+    setMsgTelefonePriWhatsapp(emp.telefone_whatsapp);
+    setMsgDealerId(emp.crm_id || "");
+    setEmpresaSearch(emp.empresa_nome);
+    setShowEmpresaDropdown(false);
+  };
+
+  const filteredEmpresas = useMemo(() => {
+    if (!empresaSearch.trim()) return empresasWhatsapp;
+    const q = empresaSearch.toLowerCase();
+    return empresasWhatsapp.filter(e =>
+      e.empresa_nome.toLowerCase().includes(q) ||
+      (e.crm_id && e.crm_id.toLowerCase().includes(q)) ||
+      (e.marca && e.marca.toLowerCase().includes(q)) ||
+      (e.uf && e.uf.toLowerCase().includes(q))
+    );
+  }, [empresasWhatsapp, empresaSearch]);
 
   // ─── Cadência helpers ───
   const toggleEventId = (id: number) => {
@@ -670,29 +784,161 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
             </p>
           </div>
 
-          {/* Filtros da Query */}
+          {/* Seleção de Empresa (Pri-WhatsApp) */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-primary/10 p-2"><User className="h-5 w-5 text-primary" /></div>
+                <div>
+                  <CardTitle className="text-lg">Campos de Identificação</CardTitle>
+                  <CardDescription>Selecione a empresa para preencher automaticamente telefone e dealer</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Empresa searchable dropdown */}
+              <div className="space-y-1.5">
+                <Label>Empresa (Pri - WhatsApp ativo)</Label>
+                {loadingEmpresas ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Carregando empresas...
+                  </div>
+                ) : (
+                  <div className="relative" ref={empresaDropdownRef}>
+                    <Input
+                      placeholder="Pesquisar empresa por nome, CRM ID, marca ou UF..."
+                      value={empresaSearch}
+                      onChange={e => { setEmpresaSearch(e.target.value); setShowEmpresaDropdown(true); }}
+                      onFocus={() => setShowEmpresaDropdown(true)}
+                    />
+                    {showEmpresaDropdown && filteredEmpresas.length > 0 && (
+                      <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border bg-popover shadow-lg">
+                        {filteredEmpresas.map(emp => (
+                          <button
+                            key={emp.empresa_id}
+                            type="button"
+                            className={cn(
+                              "w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors border-b last:border-b-0",
+                              selectedEmpresaId === emp.empresa_id && "bg-accent"
+                            )}
+                            onClick={() => handleSelectEmpresa(emp)}
+                          >
+                            <div className="font-medium text-foreground">{emp.empresa_nome}</div>
+                            <div className="text-xs text-muted-foreground flex gap-2 flex-wrap">
+                              {emp.marca && <span>{emp.marca}</span>}
+                              {emp.uf && <span>• {emp.uf}</span>}
+                              {emp.crm_id && <span>• CRM: {emp.crm_id}</span>}
+                              <span>• Tel: {emp.telefone_whatsapp}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {showEmpresaDropdown && filteredEmpresas.length === 0 && empresaSearch.trim() && (
+                      <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg p-3 text-sm text-muted-foreground">
+                        Nenhuma empresa encontrada
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Auto-filled fields (read-only display) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>telefone_pri_whatsapp</Label>
+                  <Input
+                    value={msgTelefonePriWhatsapp}
+                    onChange={e => setMsgTelefonePriWhatsapp(e.target.value)}
+                    placeholder="Preenchido ao selecionar empresa"
+                    className={msgTelefonePriWhatsapp ? "border-primary/50" : ""}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>dealerid (CRM ID)</Label>
+                  <Input
+                    value={msgDealerId}
+                    onChange={e => setMsgDealerId(e.target.value)}
+                    placeholder="Preenchido ao selecionar empresa"
+                    className={msgDealerId ? "border-primary/50" : ""}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Agente de Ligação + Eventos */}
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-primary/10 p-2"><Settings2 className="h-5 w-5 text-primary" /></div>
                 <div>
                   <CardTitle className="text-lg">Configuração de Filtros</CardTitle>
-                  <CardDescription>Parâmetros da query para seleção de mensagens — webhook separado do disparo de ligação</CardDescription>
+                  <CardDescription>Selecione o agente de ligação e o evento para configurar os filtros do disparo</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>ID do Evento Principal (p.id_evento)</Label>
-                  <Input value={msgIdEvento} onChange={e => setMsgIdEvento(e.target.value)} placeholder="249" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>ID do Evento Maia (m.event_id)</Label>
-                  <Input value={msgEventIdMaia} onChange={e => setMsgEventIdMaia(e.target.value)} placeholder="232" />
-                </div>
+              {/* Agente de Ligação selector */}
+              <div className="space-y-1.5">
+                <Label>Agente Pri (Ligação)</Label>
+                {loadingAgents ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Carregando agentes...
+                  </div>
+                ) : priAgents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">Nenhum agente Pri encontrado.</p>
+                ) : (
+                  <Select value={msgSelectedPriId} onValueChange={setMsgSelectedPriId}>
+                    <SelectTrigger><SelectValue placeholder="Escolha um agente Pri de Ligação..." /></SelectTrigger>
+                    <SelectContent>
+                      {priAgents.map(agent => (
+                        <SelectItem key={agent.id} value={agent.id}>
+                          {agent.nome} — {agent.telefone}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
+              {/* Eventos ativos do agente selecionado */}
+              {msgSelectedPriId && (
+                <div className="space-y-2">
+                  <Label>Evento de Ligação (id_evento)</Label>
+                  {loadingMsgEventos ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Carregando eventos...
+                    </div>
+                  ) : msgEventosAtivos.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">Nenhum evento ativo encontrado para este agente.</p>
+                  ) : (
+                    <Select
+                      value={msgIdEvento}
+                      onValueChange={(val) => setMsgIdEvento(val)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um evento..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {msgEventosAtivos.map(evt => (
+                          <SelectItem key={evt.id} value={evt.id}>
+                            {evt.nome} — ID: {evt.id_evento}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              )}
+
+              {/* ID Evento Maia (manual) */}
+              <div className="space-y-1.5">
+                <Label>ID do Evento Maia (m.event_id)</Label>
+                <Input value={msgEventIdMaia} onChange={e => setMsgEventIdMaia(e.target.value)} placeholder="Ex: 232" />
+              </div>
+
+              {/* Toggles */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <Label htmlFor="msg-status-agendado" className="text-sm">status_agendado</Label>
@@ -705,31 +951,8 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
               </div>
 
               <div className="flex items-center gap-3 rounded-lg border p-3">
-                <Checkbox id="sem-proposta" checked={msgSomenteSemProposta} onCheckedChange={(checked) => setMsgSomenteSemProposta(checked === true)} />
-                <Label htmlFor="sem-proposta" className="text-sm cursor-pointer">Somente código_proposta nulo</Label>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Campos de Identificação */}
-          <Card className="shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-primary/10 p-2"><User className="h-5 w-5 text-primary" /></div>
-                <div>
-                  <CardTitle className="text-lg">Campos de Identificação</CardTitle>
-                  <CardDescription>Referências de telefone e dealer para o disparo de mensagens</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>telefone_pri_whatsapp</Label>
-                <Input placeholder="Ex: 5511999999999" value={msgTelefonePriWhatsapp} onChange={e => setMsgTelefonePriWhatsapp(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>dealerid</Label>
-                <Input placeholder="Ex: DEALER001" value={msgDealerId} onChange={e => setMsgDealerId(e.target.value)} />
+                <Checkbox id="msg-sem-proposta" checked={msgSomenteSemProposta} onCheckedChange={(checked) => setMsgSomenteSemProposta(checked === true)} />
+                <Label htmlFor="msg-sem-proposta" className="text-sm cursor-pointer">Somente código_proposta nulo</Label>
               </div>
             </CardContent>
           </Card>
