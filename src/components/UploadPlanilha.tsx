@@ -209,12 +209,15 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
       setUploadProgress(0);
       const timestamp = Date.now();
       // Sanitize filename: remove accents, replace spaces/special chars with underscores
-      const sanitizedName = csvFile.name
+      const originalName = String(csvFile.name || 'arquivo.csv');
+      const sanitizedName = originalName
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-zA-Z0-9._-]/g, '_')
-        .replace(/_+/g, '_');
-      const filePath = `${activeCompany.id}/${timestamp}_${sanitizedName}`;
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '');
+      const filePath = `${activeCompany.id}/${timestamp}_${sanitizedName || 'arquivo.csv'}`;
+      console.log(`🔤 Original filename: "${originalName}" → Sanitized: "${sanitizedName}"`);
 
       console.log(`📤 Uploading file to storage: ${filePath}`);
 
