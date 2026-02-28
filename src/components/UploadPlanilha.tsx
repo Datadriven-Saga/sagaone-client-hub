@@ -208,7 +208,13 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
       setPhase('uploading');
       setUploadProgress(0);
       const timestamp = Date.now();
-      const filePath = `${activeCompany.id}/${timestamp}_${csvFile.name}`;
+      // Sanitize filename: remove accents, replace spaces/special chars with underscores
+      const sanitizedName = csvFile.name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9._-]/g, '_')
+        .replace(/_+/g, '_');
+      const filePath = `${activeCompany.id}/${timestamp}_${sanitizedName}`;
 
       console.log(`📤 Uploading file to storage: ${filePath}`);
 
