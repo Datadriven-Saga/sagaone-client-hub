@@ -240,36 +240,24 @@ export default function AdminAgentes() {
 
   // Verificar se é agente Gaia
   const isGaia = (): boolean => {
-    if (selectedAgente) {
-      const nome = (selectedAgente.nome || "").toLowerCase();
-      if (nome.includes("gaia")) return true;
-    }
-    if (agenteLocal) {
-      const nome = (agenteLocal.nome || "").toLowerCase();
-      if (nome.includes("gaia")) return true;
-    }
-    if (instanciaData?.agente) {
-      const agente = instanciaData.agente.toLowerCase();
-      if (agente.includes("gaia")) return true;
-    }
-    return false;
+    const nomes = [
+      selectedAgente?.nome,
+      agenteLocal?.nome,
+      instanciaData?.agente,
+      formData.nome,
+    ];
+    return nomes.some(n => (n || "").toLowerCase().includes("gaia"));
   };
 
   // Verificar se é agente Gabi
   const isGabi = (): boolean => {
-    if (selectedAgente) {
-      const nome = (selectedAgente.nome || "").toLowerCase();
-      if (nome.includes("gabi")) return true;
-    }
-    if (agenteLocal) {
-      const nome = (agenteLocal.nome || "").toLowerCase();
-      if (nome.includes("gabi")) return true;
-    }
-    if (instanciaData?.agente) {
-      const agente = instanciaData.agente.toLowerCase();
-      if (agente.includes("gabi")) return true;
-    }
-    return false;
+    const nomes = [
+      selectedAgente?.nome,
+      agenteLocal?.nome,
+      instanciaData?.agente,
+      formData.nome,
+    ];
+    return nomes.some(n => (n || "").toLowerCase().includes("gabi"));
   };
 
   const getAgenteNumero = (agente: AgenteWebhook | null | undefined): string => {
