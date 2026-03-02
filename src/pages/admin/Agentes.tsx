@@ -255,6 +255,23 @@ export default function AdminAgentes() {
     return false;
   };
 
+  // Verificar se é agente Gabi
+  const isGabi = (): boolean => {
+    if (selectedAgente) {
+      const nome = (selectedAgente.nome || "").toLowerCase();
+      if (nome.includes("gabi")) return true;
+    }
+    if (agenteLocal) {
+      const nome = (agenteLocal.nome || "").toLowerCase();
+      if (nome.includes("gabi")) return true;
+    }
+    if (instanciaData?.agente) {
+      const agente = instanciaData.agente.toLowerCase();
+      if (agente.includes("gabi")) return true;
+    }
+    return false;
+  };
+
   const getAgenteNumero = (agente: AgenteWebhook | null | undefined): string => {
     if (!agente) return "N/A";
     const tipo = getAgenteTipo(agente);
@@ -2052,8 +2069,8 @@ export default function AdminAgentes() {
                           Jornada da IA
                         </TabsTrigger>
                         <TabsTrigger value="instancias">Instâncias</TabsTrigger>
-                        {/* Aba de Lojas - apenas para agentes Gaia */}
-                        {isGaia() && <TabsTrigger value="lojas-gaia">Lojas</TabsTrigger>}
+                        {/* Aba de Lojas - apenas para agentes Gabi */}
+                        {isGabi() && <TabsTrigger value="lojas-gaia">Lojas</TabsTrigger>}
                         {/* Aba de Eventos - apenas para agentes Pri(Ligação)
                         (não depende do agenteLocal para não aparecer "em partes") */}
                         {isPriLigacao() && <TabsTrigger value="eventos">Eventos</TabsTrigger>}
@@ -2964,8 +2981,8 @@ export default function AdminAgentes() {
                     {/* Eventos Tab - apenas para agentes Pri(Ligação)
                     forceMount para começar a buscar em background e evitar sensação de "demora" ao clicar */}
 
-                    {/* Tab Lojas Gaia */}
-                    {isGaia() && (
+                    {/* Tab Lojas Gabi */}
+                    {isGabi() && (
                       <TabsContent value="lojas-gaia">
                         <AgenteLojas
                           agenteNome={agenteLocal?.nome || selectedAgente?.nome}
