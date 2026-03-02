@@ -1266,9 +1266,11 @@ export type Database = {
         Row: {
           canal: string | null
           created_at: string
+          data_fim_evento: string | null
           empresa_id: string | null
           evento_nome: string | null
           id: string
+          marca: string | null
           prospeccao_id: string | null
           telefone_normalizado: string
           ultimo_impacto_at: string
@@ -1277,9 +1279,11 @@ export type Database = {
         Insert: {
           canal?: string | null
           created_at?: string
+          data_fim_evento?: string | null
           empresa_id?: string | null
           evento_nome?: string | null
           id?: string
+          marca?: string | null
           prospeccao_id?: string | null
           telefone_normalizado: string
           ultimo_impacto_at?: string
@@ -1288,9 +1292,11 @@ export type Database = {
         Update: {
           canal?: string | null
           created_at?: string
+          data_fim_evento?: string | null
           empresa_id?: string | null
           evento_nome?: string | null
           id?: string
+          marca?: string | null
           prospeccao_id?: string | null
           telefone_normalizado?: string
           ultimo_impacto_at?: string
@@ -4634,8 +4640,9 @@ export type Database = {
       can_manage_users: { Args: { user_id?: string }; Returns: boolean }
       check_password_protection_status: { Args: never; Returns: string }
       check_quarentena: {
-        Args: { p_empresa_id: string; p_telefones: string[] }
+        Args: { p_loja_id: string; p_telefones: string[] }
         Returns: {
+          data_fim_evento: string
           em_quarentena: boolean
           evento: string
           telefone: string
@@ -4767,6 +4774,16 @@ export type Database = {
       normalize_phone_e164: { Args: { phone_input: string }; Returns: string }
       set_user_active_company: {
         Args: { new_empresa_id: string }
+        Returns: undefined
+      }
+      upsert_quarentena: {
+        Args: {
+          p_data_fim_evento: string
+          p_evento_nome: string
+          p_loja_id: string
+          p_prospeccao_id: string
+          p_telefone: string
+        }
         Returns: undefined
       }
       user_belongs_to_company: {
