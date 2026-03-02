@@ -334,10 +334,21 @@ showAllEvents: true
           return;
         }
         
-        if (profilesData) {
+        if (profilesData && profilesData.length > 0) {
+          // 3. Buscar emails dos usuários via função segura
+          const { data: emailsData } = await supabase
+            .rpc('get_users_emails', { user_ids: profilesData.map(p => p.id) });
+          
+          const emailMap = new Map<string, string>();
+          if (emailsData) {
+            emailsData.forEach((e: { user_id: string; email: string }) => {
+              emailMap.set(e.user_id, e.email);
+            });
+          }
+          
           setProfiles(profilesData.map(p => ({
             ...p,
-            email: undefined as string | undefined
+            email: emailMap.get(p.id) || undefined
           })));
         }
       } catch (error) {
