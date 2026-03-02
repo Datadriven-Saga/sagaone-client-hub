@@ -4718,6 +4718,13 @@ export type Database = {
         Returns: string
       }
       get_user_pri_telefone: { Args: never; Returns: string }
+      get_users_emails: {
+        Args: { user_ids: string[] }
+        Returns: {
+          email: string
+          user_id: string
+        }[]
+      }
       is_admin: { Args: never; Returns: boolean }
       is_company_owner: {
         Args: { company_id: string; user_id?: string }
