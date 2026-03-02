@@ -43,6 +43,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMetricasLigacao, MetricasLigacaoExternas } from "@/hooks/useMetricasLigacao";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { SimulacaoPriWhatsAppModal } from "@/components/SimulacaoPriWhatsAppModal";
+import { Bot } from "lucide-react";
 
 interface ClienteData {
   nome: string;
@@ -141,6 +143,7 @@ showAllEvents: true
     prospeccao: null
   });
   const [deletingEvento, setDeletingEvento] = useState(false);
+  const [isSimulacaoPriOpen, setIsSimulacaoPriOpen] = useState(false);
   const [custoModal, setCustoModal] = useState<{
     isOpen: boolean;
     prospeccaoId: string;
@@ -1766,6 +1769,21 @@ showAllEvents: true
                       </span>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsSimulacaoPriOpen(true)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Bot className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Simulação PRI Whats</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       {canCreateEventos && (
                         <Button onClick={() => setIsModalOpen(true)} size="sm">
                           <Plus className="w-4 h-4 mr-1 sm:mr-2" />
@@ -2698,6 +2716,12 @@ showAllEvents: true
         eventoNome={custoModal.eventoNome}
         canal={custoModal.canal}
         totalContatos={custoModal.totalContatos}
+      />
+
+      {/* Modal de Simulação PRI WhatsApp */}
+      <SimulacaoPriWhatsAppModal
+        isOpen={isSimulacaoPriOpen}
+        onClose={() => setIsSimulacaoPriOpen(false)}
       />
     </DashboardLayout>
   );
