@@ -2,35 +2,36 @@ import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Send, MessageCircle, Calendar, UserX, DollarSign, ArrowRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Users, Send, MessageCircle, Calendar, DollarSign, ArrowRight } from "lucide-react";
 
 interface SimulacaoPriWhatsAppModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// Taxas fixas
 const TAXAS = {
-  agendadosBase: 0.029,    // 2.9%
-  entreguesBase: 0.95,     // 95%
-  lidasEntregues: 0.49,    // 49%
-  respondidasLidas: 0.13,  // 13%
+  agendadosBase: 0.029,
+  entreguesBase: 0.95,
+  lidasEntregues: 0.49,
+  respondidasLidas: 0.13,
 };
 
-// Custos unitários (USD)
 const CUSTOS = {
   marketing: 0.06,
   utility: 0.01,
 };
 
-type CadenciaTipo = "nao_respondeu" | "agendados";
+type AgendadosTipo = "utility" | "marketing";
 
 export function SimulacaoPriWhatsAppModal({ isOpen, onClose }: SimulacaoPriWhatsAppModalProps) {
   const [agendadosDesejados, setAgendadosDesejados] = useState<string>("");
-  const [cadenciaTipo, setCadenciaTipo] = useState<CadenciaTipo>("nao_respondeu");
+  const [cadNaoRespondeu, setCadNaoRespondeu] = useState(true);
+  const [cadAgendados, setCadAgendados] = useState(false);
+  const [agendadosTipo, setAgendadosTipo] = useState<AgendadosTipo>("utility");
 
   const calcs = useMemo(() => {
     const A = parseInt(agendadosDesejados) || 0;
@@ -43,10 +44,11 @@ export function SimulacaoPriWhatsAppModal({ isOpen, onClose }: SimulacaoPriWhats
     const naoRespondidas = entregues - respondidas;
 
     const custoInicial = entregues * CUSTOS.marketing;
-    const custoCadencia = cadenciaTipo === "agendados"
-      ? A * CUSTOS.utility
-      : naoRespondidas * CUSTOS.marketing;
-    const custoTotal = custoInicial + custoCadencia;
+
+    const custoAgendadosUnit = agendadosTipo === "utility" ? CUSTOS.utility : CUSTOS.marketing;
+    const custoCadAgendados = cadAgendados ? A * custoAgendadosUnit : 0;
+    const custoCadNaoResp = cadNaoRespondeu ? naoRespondidas * CUSTOS.marketing : 0;
+    const custoTotal = custoInicial + custoCadAgendados + custoCadNaoResp;
 
     return {
       base: Math.round(base),
@@ -56,14 +58,14 @@ export function SimulacaoPriWhatsAppModal({ isOpen, onClose }: SimulacaoPriWhats
       agendados: A,
       naoRespondidas: Math.round(naoRespondidas),
       custoInicial,
-      custoCadencia,
+      custoCadAgendados,
+      custoCadNaoResp,
       custoTotal,
-      // Para tabela de custos
       volumeInicial: Math.round(entregues),
-      volumeCadencia: cadenciaTipo === "agendados" ? A : Math.round(naoRespondidas),
-      custoUnitarioCadencia: cadenciaTipo === "agendados" ? CUSTOS.utility : CUSTOS.marketing,
+      volumeNaoResp: Math.round(naoRespondidas),
+      custoAgendadosUnit,
     };
-  }, [agendadosDesejados, cadenciaTipo]);
+  }, [agendadosDesejados, cadNaoRespondeu, cadAgendados, agendadosTipo]);
 
   const funnelSteps = calcs ? [
     { label: "Base", value: calcs.base, icon: Users, pct: "100%" },
@@ -87,8 +89,8 @@ export function SimulacaoPriWhatsAppModal({ isOpen, onClose }: SimulacaoPriWhats
 
         <div className="space-y-5">
           {/* Entrada */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+          <div className="space-y-4">
+            <div className="max-w-[260px] space-y-1.5">
               <Label htmlFor="agendados" className="text-sm font-medium">
                 Leads agendados desejados
               </Label>
@@ -103,26 +105,44 @@ export function SimulacaoPriWhatsAppModal({ isOpen, onClose }: SimulacaoPriWhats
                 className="h-9"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Tipo de Cadência</Label>
-              <RadioGroup
-                value={cadenciaTipo}
-                onValueChange={(v) => setCadenciaTipo(v as CadenciaTipo)}
-                className="flex flex-col gap-2 pt-0.5"
-              >
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Cadências</Label>
+              <div className="flex flex-col gap-2.5">
+                {/* Cadência Não Respondeu */}
                 <div className="flex items-center gap-2">
-                  <RadioGroupItem value="nao_respondeu" id="cad-nr" />
+                  <Checkbox
+                    id="cad-nr"
+                    checked={cadNaoRespondeu}
+                    onCheckedChange={(v) => setCadNaoRespondeu(!!v)}
+                  />
                   <Label htmlFor="cad-nr" className="text-xs font-normal cursor-pointer">
-                    Não respondeu <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0">Marketing</Badge>
+                    Não respondeu
+                    <Badge variant="outline" className="ml-1.5 text-[10px] px-1.5 py-0">Marketing</Badge>
                   </Label>
                 </div>
+
+                {/* Cadência Agendados */}
                 <div className="flex items-center gap-2">
-                  <RadioGroupItem value="agendados" id="cad-ag" />
+                  <Checkbox
+                    id="cad-ag"
+                    checked={cadAgendados}
+                    onCheckedChange={(v) => setCadAgendados(!!v)}
+                  />
                   <Label htmlFor="cad-ag" className="text-xs font-normal cursor-pointer">
-                    Agendados <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0">Utility</Badge>
+                    Agendados
                   </Label>
+                  <Select value={agendadosTipo} onValueChange={(v) => setAgendadosTipo(v as AgendadosTipo)}>
+                    <SelectTrigger className="h-6 w-[110px] text-[10px] px-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="utility" className="text-xs">Utility</SelectItem>
+                      <SelectItem value="marketing" className="text-xs">Marketing</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </RadioGroup>
+              </div>
             </div>
           </div>
 
@@ -190,17 +210,30 @@ export function SimulacaoPriWhatsAppModal({ isOpen, onClose }: SimulacaoPriWhats
                         <td className="py-2 px-3 text-xs text-right">{formatUSD(CUSTOS.marketing)}</td>
                         <td className="py-2 px-3 text-xs text-right font-medium">{formatUSD(calcs.custoInicial)}</td>
                       </tr>
-                      <tr className="border-b">
-                        <td className="py-2 px-3 text-xs">
-                          Cadência – {cadenciaTipo === "agendados" ? "Agendados" : "Não respondeu"}
-                          <Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0">
-                            {cadenciaTipo === "agendados" ? "Utility" : "Marketing"}
-                          </Badge>
-                        </td>
-                        <td className="py-2 px-3 text-xs text-right">{calcs.volumeCadencia.toLocaleString("pt-BR")}</td>
-                        <td className="py-2 px-3 text-xs text-right">{formatUSD(calcs.custoUnitarioCadencia)}</td>
-                        <td className="py-2 px-3 text-xs text-right font-medium">{formatUSD(calcs.custoCadencia)}</td>
-                      </tr>
+                      {cadNaoRespondeu && (
+                        <tr className="border-b">
+                          <td className="py-2 px-3 text-xs">
+                            Cadência – Não respondeu
+                            <Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0">Marketing</Badge>
+                          </td>
+                          <td className="py-2 px-3 text-xs text-right">{calcs.volumeNaoResp.toLocaleString("pt-BR")}</td>
+                          <td className="py-2 px-3 text-xs text-right">{formatUSD(CUSTOS.marketing)}</td>
+                          <td className="py-2 px-3 text-xs text-right font-medium">{formatUSD(calcs.custoCadNaoResp)}</td>
+                        </tr>
+                      )}
+                      {cadAgendados && (
+                        <tr className="border-b">
+                          <td className="py-2 px-3 text-xs">
+                            Cadência – Agendados
+                            <Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0">
+                              {agendadosTipo === "utility" ? "Utility" : "Marketing"}
+                            </Badge>
+                          </td>
+                          <td className="py-2 px-3 text-xs text-right">{calcs.agendados.toLocaleString("pt-BR")}</td>
+                          <td className="py-2 px-3 text-xs text-right">{formatUSD(calcs.custoAgendadosUnit)}</td>
+                          <td className="py-2 px-3 text-xs text-right font-medium">{formatUSD(calcs.custoCadAgendados)}</td>
+                        </tr>
+                      )}
                       <tr className="bg-muted/30">
                         <td colSpan={3} className="py-2.5 px-3 text-xs font-semibold">Custo Total</td>
                         <td className="py-2.5 px-3 text-sm text-right font-bold text-primary">{formatUSD(calcs.custoTotal)}</td>
