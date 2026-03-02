@@ -427,6 +427,9 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                         </tr>
                       </tbody>
                     </table>
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-2">
+                      ⚠️ <strong>Responsável deve ser preenchido com o e-mail</strong> do vendedor cadastrado no sistema (ex: vendedor@empresa.com). Nomes não são aceitos.
+                    </p>
                   </div>
 
                   <div className="mt-2 pt-2 border-t border-blue-200 space-y-1">
