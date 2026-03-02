@@ -101,6 +101,29 @@ export interface Prospeccao {
   premio_indicacao_venda?: number;
 }
 
+export interface ContatosPaginatedResult {
+  contatos: Contato[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ContatosMetricas {
+  totalBase: number;
+  novos: number;
+  atribuidos: number;
+  emEspera: number;
+  convidados: number;
+  agendados: number;
+  confirmados: number;
+  checkin: number;
+  vendas: number;
+  descartados: number;
+  optOut: number;
+  desperdicio: number;
+  disponiveisDistribuicao: number;
+}
+
 export const useContatoData = () => {
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
@@ -111,12 +134,19 @@ export const useContatoData = () => {
     end: new Date().toISOString().split('T')[0]
   });
   
+  // Server-side paginated state
+  const [paginatedContatos, setPaginatedContatos] = useState<Contato[]>([]);
+  const [paginatedTotal, setPaginatedTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize] = useState(50);
+  const [loadingPaginated, setLoadingPaginated] = useState(false);
+  
+  // Server-side metrics
+  const [serverMetricas, setServerMetricas] = useState<ContatosMetricas | null>(null);
+  
   const { toast } = useToast();
   const { activeCompany } = useCompany();
   const { user } = useAuth();
-
-  console.log('🏢 useContatoData - activeCompany:', activeCompany);
-  console.log('👤 useContatoData - user:', user);
 
   // Buscar prospecções com filtro de empresa
   // IMPORTANTE: Por padrão mostra TODOS os eventos (incluindo encerrados) para permitir importação/visualização
@@ -323,27 +353,115 @@ export const useContatoData = () => {
     }
   }, [activeCompany?.id, toast]);
 
+  // ====== SERVER-SIDE PAGINATED FETCH (for Kanban/List display) ======
+  const fetchContatosPaginated = useCallback(async (
+    page: number = 0,
+    filters?: {
+      prospeccaoId?: string;
+      status?: string;
+      responsavel?: string;
+      search?: string;
+    }
+  ) => {
+    if (!activeCompany?.id) return;
+    
+    setLoadingPaginated(true);
+    try {
+      const { data, error } = await supabase.rpc('get_contatos_paginated', {
+        p_empresa_id: activeCompany.id,
+        p_limit: pageSize,
+        p_offset: page * pageSize,
+        p_prospeccao_id: filters?.prospeccaoId && filters.prospeccaoId !== 'todos' ? filters.prospeccaoId : null,
+        p_status: filters?.status && filters.status !== 'todos' ? filters.status : null,
+        p_responsavel: filters?.responsavel || null,
+        p_search: filters?.search || null,
+        p_sort_column: 'updated_at',
+        p_sort_direction: 'desc'
+      });
+
+      if (error) {
+        console.error('Error fetching paginated contatos:', error);
+        throw error;
+      }
+
+      const result = data as any;
+      const contatosData = (result?.contatos || []) as Contato[];
+      const total = result?.total || 0;
+
+      setPaginatedContatos(contatosData);
+      setPaginatedTotal(total);
+      setCurrentPage(page);
+      
+      console.log(`📄 Paginated: page ${page + 1}, ${contatosData.length} items, ${total} total`);
+    } catch (error) {
+      console.error('Erro ao buscar contatos paginados:', error);
+      setPaginatedContatos([]);
+      setPaginatedTotal(0);
+    } finally {
+      setLoadingPaginated(false);
+    }
+  }, [activeCompany?.id, pageSize]);
+
+  // ====== SERVER-SIDE METRICS (avoids loading all contatos) ======
+  const fetchServerMetricas = useCallback(async () => {
+    if (!activeCompany?.id) return;
+    
+    try {
+      const { data, error } = await supabase.rpc('get_contatos_metricas', {
+        p_empresa_id: activeCompany.id
+      });
+
+      if (error) {
+        console.error('Error fetching metrics:', error);
+        return;
+      }
+
+      const m = data as any;
+      const totalBase = m?.totalBase || 0;
+      const atribuidos = m?.atribuidos || 0;
+      const emEspera = m?.emEspera || 0;
+      const convidados = m?.convidados || 0;
+      const agendados = m?.agendados || 0;
+      const confirmados = m?.confirmados || 0;
+      const checkin = m?.checkin || 0;
+      const vendas = m?.vendas || 0;
+      const descartados = m?.descartados || 0;
+      const optOut = m?.optOut || 0;
+      
+      setServerMetricas({
+        totalBase,
+        novos: m?.novos || 0,
+        atribuidos,
+        emEspera,
+        convidados,
+        agendados,
+        confirmados,
+        checkin,
+        vendas,
+        descartados,
+        optOut,
+        desperdicio: m?.desperdicio || 0,
+        disponiveisDistribuicao: totalBase - atribuidos - emEspera - convidados - agendados - confirmados - checkin - vendas - descartados - optOut
+      });
+    } catch (error) {
+      console.error('Erro ao buscar métricas:', error);
+    }
+  }, [activeCompany?.id]);
+
   // Estado para controlar se contatos já foram carregados
   const [contatosLoaded, setContatosLoaded] = useState(false);
   const [loadingContatos, setLoadingContatos] = useState(false);
 
-  // Carregar prospecções quando empresa ativa muda (RÁPIDO - apenas eventos)
+  // Carregar prospecções e métricas quando empresa ativa muda (RÁPIDO)
   useEffect(() => {
-    console.log('🔄 useContatoData - Loading prospeccoes only');
-    console.log('👤 User ID:', user?.id);
-    console.log('🏢 Active company ID:', activeCompany?.id);
-
     if (!user?.id) {
-      console.log('❌ User not authenticated, clearing data');
       setContatos([]);
       setProspeccoes([]);
       setLoading(false);
       return;
     }
 
-    // Se não tem empresa ativa mas o usuário está autenticado, parar loading imediatamente
     if (!activeCompany?.id) {
-      console.log('⏳ No active company, stopping loading');
       setContatos([]);
       setProspeccoes([]);
       setLoading(false);
@@ -351,13 +469,13 @@ export const useContatoData = () => {
     }
 
     const loadProspeccoes = async () => {
-      console.log('🔄 Loading prospeccoes for company:', activeCompany.id);
       setLoading(true);
       
       try {
-        // Apenas carrega prospecções (rápido) - contatos serão carregados sob demanda
-        await fetchProspeccoes(true);
-        console.log('✅ Prospeccoes loaded successfully');
+        await Promise.all([
+          fetchProspeccoes(true),
+          fetchServerMetricas()
+        ]);
       } catch (error) {
         console.error('❌ Error loading prospeccoes:', error);
       } finally {
@@ -370,9 +488,13 @@ export const useContatoData = () => {
     setLoadingContatos(false);
     setContatos([]);
     setContatosProspeccoes(new Map());
+    setPaginatedContatos([]);
+    setPaginatedTotal(0);
+    setCurrentPage(0);
+    setServerMetricas(null);
     
     loadProspeccoes();
-  }, [activeCompany?.id, user?.id, fetchProspeccoes]);
+  }, [activeCompany?.id, user?.id, fetchProspeccoes, fetchServerMetricas]);
 
   // Função para carregar contatos sob demanda (chamada apenas quando necessário)
   const loadContatos = useCallback(async () => {
@@ -1221,8 +1343,13 @@ export const useContatoData = () => {
     }
   };
 
-  // Métricas - Corrigido com status corretos
-  const getMetricas = () => {
+  // Métricas - Usa server-side quando disponível, fallback para client-side
+  const getMetricas = (): ContatosMetricas => {
+    if (serverMetricas) {
+      return serverMetricas;
+    }
+    
+    // Fallback: cálculo client-side (quando contatos já estão carregados)
     const totalBase = contatos.length;
     const novos = contatos.filter(c => c.status === 'Novo').length;
     const atribuidos = contatos.filter(c => c.status === 'Atribuído').length;
@@ -1236,7 +1363,6 @@ export const useContatoData = () => {
     const optOut = contatos.filter(c => c.status === 'Opt Out').length;
     const desperdicio = contatos.filter(c => c.status === 'Desperdício').length;
     
-    // Disponíveis = Total - Atribuídos (que já foram distribuídos a alguém)
     const disponiveisDistribuicao = totalBase - atribuidos - emEspera - convidados - agendados - confirmados - checkin - vendas - descartados - optOut;
 
     return {
@@ -1864,9 +1990,19 @@ export const useContatoData = () => {
   return {
     contatos,
     prospeccoes,
-    contatosProspeccoes, // Mapa contato_id -> Set<prospeccao_id> para filtrar por evento
+    contatosProspeccoes,
     loading,
     loadingContatos,
+    // Paginated API
+    paginatedContatos,
+    paginatedTotal,
+    currentPage,
+    pageSize,
+    loadingPaginated,
+    fetchContatosPaginated,
+    fetchServerMetricas,
+    serverMetricas,
+    // Original methods
     adicionarContatos,
     atualizarContato,
     atualizarStatusContato,
@@ -1876,10 +2012,8 @@ export const useContatoData = () => {
     desvincularContatoDoEvento,
     desvincularContatosDoEvento,
     desvincularTodosDoEvento: async (prospeccaoId: string) => {
-      // Desvincular todos de um evento específico
       if (!activeCompany?.id || !prospeccaoId) return { sucesso: 0, falha: 0 };
       
-      console.log(`🔗 Desvinculando TODOS do evento ${prospeccaoId}`);
       const PAGE_SIZE = 1000;
       let from = 0;
       const contatoIds: string[] = [];
@@ -1915,7 +2049,10 @@ export const useContatoData = () => {
     contatosLoaded,
     refetch: async () => {
       console.log('🔄 Refetch triggered...');
-      await fetchProspeccoes();
+      await Promise.all([
+        fetchProspeccoes(),
+        fetchServerMetricas()
+      ]);
       if (contatosLoaded) {
         await fetchContatos();
       }

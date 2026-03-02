@@ -167,6 +167,16 @@ showAllEvents: true
     contatosProspeccoes,
     loading, 
     loadingContatos,
+    // Paginated API
+    paginatedContatos,
+    paginatedTotal,
+    currentPage,
+    pageSize,
+    loadingPaginated,
+    fetchContatosPaginated,
+    fetchServerMetricas,
+    serverMetricas,
+    // Original methods
     adicionarContatos,
     atualizarContato,
     atualizarStatusContato,
@@ -507,25 +517,63 @@ showAllEvents: true
     }
   }, [activeCompany?.id, prospeccoes.length > 0]);
 
-  // Carregar contatos apenas quando necessário (aba kanban, recepcao, ou vendas)
-  // Para vendedores: atribuir leads automaticamente quando entrar na aba de atendimentos
+  // Carregar contatos quando necessário - usa paginação server-side para Kanban/Lista
+  // Para recepcao/vendas mantém carregamento completo via loadContatos
   useEffect(() => {
-    if (activeTab !== 'eventos' && activeCompany?.id && !contatosLoaded) {
-      console.log('📥 Loading contatos for tab:', activeTab);
-      loadContatos();
+    if (activeTab !== 'eventos' && activeCompany?.id) {
+      if (activeTab === 'kanban' || activeTab === 'lista') {
+        // Use server-side pagination for Kanban/List
+        const resolvedResponsavel = globalFilters.responsavelId !== 'todos' 
+          ? (() => {
+              const profile = profiles.find(p => p.id === globalFilters.responsavelId);
+              return profile?.email || profile?.id || globalFilters.responsavelId;
+            })()
+          : undefined;
+        
+        fetchContatosPaginated(0, {
+          prospeccaoId: globalFilters.prospeccaoId !== 'todos' ? globalFilters.prospeccaoId : undefined,
+          status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
+          responsavel: resolvedResponsavel,
+          search: globalFilters.dadosLead || undefined,
+        });
+      } else if (!contatosLoaded) {
+        // For recepcao/vendas tabs, load full contatos
+        loadContatos();
+      }
     }
-  }, [activeTab, activeCompany?.id, contatosLoaded, loadContatos]);
+  }, [activeTab, activeCompany?.id, contatosLoaded, loadContatos, fetchContatosPaginated]);
+
+  // Re-fetch paginated data when global filters change (only for kanban/lista)
+  useEffect(() => {
+    if ((activeTab === 'kanban' || activeTab === 'lista') && activeCompany?.id) {
+      const resolvedResponsavel = globalFilters.responsavelId !== 'todos' 
+        ? (() => {
+            const profile = profiles.find(p => p.id === globalFilters.responsavelId);
+            return profile?.email || profile?.id || globalFilters.responsavelId;
+          })()
+        : undefined;
+      
+      fetchContatosPaginated(0, {
+        prospeccaoId: globalFilters.prospeccaoId !== 'todos' ? globalFilters.prospeccaoId : undefined,
+        status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
+        responsavel: resolvedResponsavel,
+        search: globalFilters.dadosLead || undefined,
+      });
+    }
+  }, [globalFilters.prospeccaoId, globalFilters.status, globalFilters.responsavelId, globalFilters.dadosLead, activeCompany?.id]);
 
   // Atribuir leads automaticamente para vendedores quando acessam a aba de atendimentos
   useEffect(() => {
-    if (activeTab === 'kanban' && contatosLoaded && isLimitedUser) {
-      console.log('🎯 Vendedor acessou aba de atendimentos - verificando se precisa de leads...');
+    if (activeTab === 'kanban' && isLimitedUser && !loadingPaginated && paginatedContatos.length >= 0) {
       verificarEAtribuirSeNecessario().then(() => {
-        // Recarregar contatos após atribuição para mostrar os novos leads
-        refetch();
+        fetchContatosPaginated(currentPage, {
+          prospeccaoId: globalFilters.prospeccaoId !== 'todos' ? globalFilters.prospeccaoId : undefined,
+          status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
+        });
+        fetchServerMetricas();
       });
     }
-  }, [activeTab, contatosLoaded, isLimitedUser, verificarEAtribuirSeNecessario, refetch]);
+  }, [activeTab, isLimitedUser]);
   useEffect(() => {
     sessionStorage.setItem('prospeccao_active_tab', activeTab);
   }, [activeTab]);
@@ -1058,63 +1106,85 @@ showAllEvents: true
       });
   };
 
-  // Configurar colunas do Kanban com dados filtrados globalmente
+  // Configurar colunas do Kanban com dados paginados do servidor
+  // Quando usando paginação server-side, os contatos já vêm filtrados
+  const displayContatos = (activeTab === 'kanban' || activeTab === 'lista') ? paginatedContatos : filteredContatos;
+  
   const kanbanColumns: KanbanColumnData[] = [
     {
       id: 'novos',
       title: 'Novos',
       color: '#6645EB',
-      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Novo')) : []
+      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Novo')) : []
     },
     {
       id: 'atribuidos',
       title: 'Atribuídos',
       color: '#8B5FD6',
-      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Atribuído')) : []
+      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Atribuído')) : []
     },
     {
       id: 'emespera',
       title: 'Em Espera',
       color: '#F59E0B',
-      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Em Espera')) : []
+      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Em Espera')) : []
     },
     {
       id: 'convidados',
       title: 'Convidados',
       color: '#A679E1',
-      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Convidado')) : []
+      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Convidado')) : []
     },
     {
       id: 'confirmados',
       title: 'Confirmados',
       color: '#10B981',
-      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Confirmado')) : []
+      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Confirmado')) : []
     },
     {
       id: 'checkin',
       title: 'Check-ins',
       color: '#22c55e',
-      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Check-in')) : []
+      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Check-in')) : []
     },
     {
       id: 'venda',
       title: 'Vendas',
       color: '#16a34a',
-      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Venda')) : []
+      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Venda')) : []
     },
     {
       id: 'descartados',
       title: 'Descartados',
       color: '#ef4444',
-      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Descartado')) : []
+      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Descartado')) : []
     },
     {
       id: 'optout',
       title: 'Opt Out',
       color: '#6B7280',
-      items: filteredContatos ? contatosToKanbanItems(filteredContatos.filter(contato => contato && contato.status === 'Opt Out')) : []
+      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Opt Out')) : []
     }
   ];
+
+  // Pagination helpers
+  const totalPages = Math.ceil(paginatedTotal / pageSize);
+  
+  const handlePageChange = (newPage: number) => {
+    const resolvedResponsavel = globalFilters.responsavelId !== 'todos' 
+      ? (() => {
+          const profile = profiles.find(p => p.id === globalFilters.responsavelId);
+          return profile?.email || profile?.id || globalFilters.responsavelId;
+        })()
+      : undefined;
+    
+    fetchContatosPaginated(newPage, {
+      prospeccaoId: globalFilters.prospeccaoId !== 'todos' ? globalFilters.prospeccaoId : undefined,
+      status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
+      responsavel: resolvedResponsavel,
+      search: globalFilters.dadosLead || undefined,
+    });
+  };
 
   // Função para determinar origem baseada no canal do evento
   const getOrigemFromProspeccao = (prospeccao: any): 'WhatsApp' | 'ligacao' | 'grande_evento' | 'prospeccao_mensal' | 'Outros' => {
@@ -2052,22 +2122,64 @@ showAllEvents: true
         </TabsContent>
 
         <TabsContent value="kanban" className="mt-0 w-full min-w-0 overflow-hidden">
-          <div className="h-[calc(100vh-220px)] w-full min-w-0 overflow-hidden">
-            {loadingContatos ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  <p className="text-sm text-muted-foreground">Carregando leads...</p>
-                </div>
+          <div className="h-[calc(100vh-260px)] w-full min-w-0 overflow-hidden flex flex-col">
+            {loadingPaginated ? (
+              <div className="flex-1 flex gap-3 p-2 overflow-hidden">
+                {/* Skeleton Kanban columns */}
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex-1 min-w-[200px] bg-muted/30 rounded-lg p-3 space-y-3">
+                    <div className="h-5 w-24 bg-muted animate-pulse rounded" />
+                    {Array.from({ length: 3 }).map((_, j) => (
+                      <div key={j} className="bg-card rounded-lg p-3 space-y-2 border">
+                        <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
+                        <div className="h-3 w-1/2 bg-muted animate-pulse rounded" />
+                        <div className="h-3 w-2/3 bg-muted animate-pulse rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
             ) : (
-              <KanbanBoard
-                columns={kanbanColumns}
-                onUpdateColumns={() => {}}
-                onCardClick={handleCardClick}
-                onStatusChange={handleStatusChange}
-                onSolicitarClientes={isLimitedUser ? solicitarClientes : undefined}
-              />
+              <div className="flex-1 overflow-hidden">
+                <KanbanBoard
+                  columns={kanbanColumns}
+                  onUpdateColumns={() => {}}
+                  onCardClick={handleCardClick}
+                  onStatusChange={handleStatusChange}
+                  onSolicitarClientes={isLimitedUser ? solicitarClientes : undefined}
+                />
+              </div>
+            )}
+            {/* Pagination controls */}
+            {paginatedTotal > pageSize && (
+              <div className="flex items-center justify-between px-4 py-2 border-t bg-card/50">
+                <p className="text-xs text-muted-foreground">
+                  Exibindo {currentPage * pageSize + 1}-{Math.min((currentPage + 1) * pageSize, paginatedTotal)} de {paginatedTotal} leads
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 0 || loadingPaginated}
+                    className="h-7 px-2"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground px-2">
+                    Página {currentPage + 1} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage >= totalPages - 1 || loadingPaginated}
+                    className="h-7 px-2"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
         </TabsContent>
@@ -2082,17 +2194,27 @@ showAllEvents: true
                     <div>
                       <h3 className="text-base font-semibold text-foreground">Lista de Leads</h3>
                       <p className="text-xs text-muted-foreground">
-                        {filteredContatos.length} {filteredContatos.length === 1 ? 'lead' : 'leads'}
+                        {paginatedTotal} {paginatedTotal === 1 ? 'lead' : 'leads'}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {(loading || loadingContatos) ? (
-                  <div className="flex items-center justify-center h-24">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                {(loading || loadingPaginated) ? (
+                  <div className="space-y-2 p-2">
+                    {/* Skeleton table rows */}
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div key={i} className="flex gap-3 py-2 border-b border-muted/30">
+                        <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+                        <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+                        <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                        <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                        <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                        <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                      </div>
+                    ))}
                   </div>
-                ) : filteredContatos.length === 0 ? (
+                ) : paginatedContatos.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Target className="mx-auto h-12 w-12 mb-3 opacity-50" />
                     <p>Nenhum lead encontrado</p>
@@ -2140,7 +2262,7 @@ showAllEvents: true
                         </tr>
                       </thead>
                       <tbody>
-                        {[...filteredContatos]
+                        {[...paginatedContatos]
                           .sort((a, b) => {
                             const direction = listaSortDirection === 'asc' ? 1 : -1;
                             
@@ -2268,6 +2390,23 @@ showAllEvents: true
                   </div>
                 )}
               </Card>
+              {/* Pagination controls for Lista */}
+              {paginatedTotal > pageSize && (
+                <div className="flex items-center justify-between px-4 py-2 bg-card/50 border rounded-lg">
+                  <p className="text-xs text-muted-foreground">
+                    Exibindo {currentPage * pageSize + 1}-{Math.min((currentPage + 1) * pageSize, paginatedTotal)} de {paginatedTotal} leads
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 0 || loadingPaginated} className="h-7 px-2">
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground px-2">Página {currentPage + 1} de {totalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage >= totalPages - 1 || loadingPaginated} className="h-7 px-2">
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </ScrollIndicator>
         </TabsContent>
