@@ -4697,6 +4697,16 @@ export type Database = {
         Returns: Database["public"]["Enums"]["tipo_acesso"]
       }
       get_current_user_email: { Args: never; Returns: string }
+      get_kanban_columns: {
+        Args: {
+          p_empresa_id: string
+          p_per_column?: number
+          p_prospeccao_id?: string
+          p_responsavel?: string
+          p_search?: string
+        }
+        Returns: Json
+      }
       get_next_venda_numero: {
         Args: { p_prospeccao_id: string }
         Returns: number

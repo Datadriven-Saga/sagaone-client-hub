@@ -144,6 +144,11 @@ export const useContatoData = () => {
   // Server-side metrics
   const [serverMetricas, setServerMetricas] = useState<ContatosMetricas | null>(null);
   
+  // Kanban-specific state (per-column data with real counts)
+  const [kanbanData, setKanbanData] = useState<Record<string, { count: number; items: Contato[] }>>({});
+  const [kanbanLoadingMore, setKanbanLoadingMore] = useState<Record<string, boolean>>({});
+  const [loadingKanban, setLoadingKanban] = useState(false);
+  
   const { toast } = useToast();
   const { activeCompany } = useCompany();
   const { user } = useAuth();
@@ -447,6 +452,131 @@ export const useContatoData = () => {
       console.error('Erro ao buscar métricas:', error);
     }
   }, [activeCompany?.id]);
+
+  // ====== KANBAN-SPECIFIC FETCH (per-column with real counts) ======
+  const KANBAN_PER_COLUMN = 20;
+  
+  const fetchKanbanColumns = useCallback(async (
+    filters?: {
+      prospeccaoId?: string;
+      responsavel?: string;
+      search?: string;
+    }
+  ) => {
+    if (!activeCompany?.id) return;
+    
+    setLoadingKanban(true);
+    try {
+      const { data, error } = await supabase.rpc('get_kanban_columns' as any, {
+        p_empresa_id: activeCompany.id,
+        p_per_column: KANBAN_PER_COLUMN,
+        p_prospeccao_id: filters?.prospeccaoId || null,
+        p_responsavel: filters?.responsavel || null,
+        p_search: filters?.search || null,
+      });
+
+      if (error) {
+        console.error('Error fetching kanban columns:', error);
+        throw error;
+      }
+
+      const result = data as Record<string, { count: number; items: any[] }>;
+      
+      // Map DB status names to kanban column ids
+      const statusToColumnId: Record<string, string> = {
+        'Novo': 'novos',
+        'Atribuído': 'atribuidos',
+        'Em Espera': 'emespera',
+        'Convidado': 'convidados',
+        'Confirmado': 'confirmados',
+        'Check-in': 'checkin',
+        'Venda': 'venda',
+        'Descartado': 'descartados',
+        'Opt Out': 'optout',
+        'Desperdício': 'desperdicio',
+      };
+
+      const mapped: Record<string, { count: number; items: Contato[] }> = {};
+      for (const [status, colData] of Object.entries(result || {})) {
+        const colId = statusToColumnId[status];
+        if (colId) {
+          mapped[colId] = {
+            count: colData.count || 0,
+            items: (colData.items || []) as Contato[],
+          };
+        }
+      }
+      
+      setKanbanData(mapped);
+      console.log('📊 Kanban columns loaded:', Object.entries(mapped).map(([k, v]) => `${k}: ${v.count} total, ${v.items.length} loaded`).join(', '));
+    } catch (error) {
+      console.error('Erro ao buscar colunas kanban:', error);
+      setKanbanData({});
+    } finally {
+      setLoadingKanban(false);
+    }
+  }, [activeCompany?.id]);
+
+  const loadMoreKanbanColumn = useCallback(async (
+    columnId: string,
+    filters?: {
+      prospeccaoId?: string;
+      responsavel?: string;
+      search?: string;
+    }
+  ) => {
+    if (!activeCompany?.id) return;
+    
+    const columnStatusMap: Record<string, string> = {
+      'novos': 'Novo',
+      'atribuidos': 'Atribuído',
+      'emespera': 'Em Espera',
+      'convidados': 'Convidado',
+      'confirmados': 'Confirmado',
+      'checkin': 'Check-in',
+      'venda': 'Venda',
+      'descartados': 'Descartado',
+      'optout': 'Opt Out',
+      'desperdicio': 'Desperdício',
+    };
+    
+    const status = columnStatusMap[columnId];
+    if (!status) return;
+    
+    const currentItems = kanbanData[columnId]?.items || [];
+    
+    setKanbanLoadingMore(prev => ({ ...prev, [columnId]: true }));
+    try {
+      const { data, error } = await supabase.rpc('get_contatos_paginated', {
+        p_empresa_id: activeCompany.id,
+        p_limit: KANBAN_PER_COLUMN,
+        p_offset: currentItems.length,
+        p_prospeccao_id: filters?.prospeccaoId || null,
+        p_status: status,
+        p_responsavel: filters?.responsavel || null,
+        p_search: filters?.search || null,
+        p_sort_column: 'updated_at',
+        p_sort_direction: 'desc'
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+      const newItems = (result?.contatos || []) as Contato[];
+      
+      setKanbanData(prev => ({
+        ...prev,
+        [columnId]: {
+          ...prev[columnId],
+          items: [...currentItems, ...newItems],
+        }
+      }));
+    } catch (error) {
+      console.error(`Erro ao carregar mais items da coluna ${columnId}:`, error);
+    } finally {
+      setKanbanLoadingMore(prev => ({ ...prev, [columnId]: false }));
+    }
+  }, [activeCompany?.id, kanbanData]);
 
   // Estado para controlar se contatos já foram carregados
   const [contatosLoaded, setContatosLoaded] = useState(false);
@@ -2002,6 +2132,12 @@ export const useContatoData = () => {
     fetchContatosPaginated,
     fetchServerMetricas,
     serverMetricas,
+    // Kanban-specific API
+    kanbanData,
+    loadingKanban,
+    kanbanLoadingMore,
+    fetchKanbanColumns,
+    loadMoreKanbanColumn,
     // Original methods
     adicionarContatos,
     atualizarContato,
