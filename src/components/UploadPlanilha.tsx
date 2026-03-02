@@ -389,33 +389,80 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
               </Card>
             </div>
 
-            {/* Instructions + File Upload */}
-            <div className="grid grid-cols-2 gap-4">
-              <Card className="p-4 bg-blue-50 border-blue-200">
-                <div className="flex items-start space-x-2">
-                  <AlertCircle className="text-blue-600 mt-0.5 flex-shrink-0" size={16} />
-                  <div className="text-sm">
-                    <p className="font-medium text-blue-800 mb-1">Como funciona:</p>
+            {/* Guide: Spreadsheet columns */}
+            <Card className="p-4 bg-blue-50 border-blue-200">
+              <div className="flex items-start space-x-2">
+                <FileSpreadsheet className="text-blue-600 mt-0.5 flex-shrink-0" size={16} />
+                <div className="text-sm space-y-2 w-full">
+                  <p className="font-medium text-blue-800">📋 Colunas aceitas na planilha:</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-blue-200">
+                          <th className="text-left py-1 pr-2 text-blue-900 font-semibold">Coluna</th>
+                          <th className="text-left py-1 pr-2 text-blue-900 font-semibold">Obrigatória</th>
+                          <th className="text-left py-1 text-blue-900 font-semibold">Nomes aceitos</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-blue-700">
+                        <tr className="border-b border-blue-100">
+                          <td className="py-1 pr-2 font-medium">Telefone</td>
+                          <td className="py-1 pr-2"><span className="text-red-600 font-bold">Sim ✱</span></td>
+                          <td className="py-1">telefone, phone, celular, cel, whatsapp, fone, tel</td>
+                        </tr>
+                        <tr className="border-b border-blue-100">
+                          <td className="py-1 pr-2 font-medium">Nome</td>
+                          <td className="py-1 pr-2">Não</td>
+                          <td className="py-1">nome, name, nome completo, nome do cliente</td>
+                        </tr>
+                        <tr className="border-b border-blue-100">
+                          <td className="py-1 pr-2 font-medium">E-mail</td>
+                          <td className="py-1 pr-2">Não</td>
+                          <td className="py-1">email, e-mail, mail</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1 pr-2 font-medium">Responsável</td>
+                          <td className="py-1 pr-2">Não</td>
+                          <td className="py-1">responsavel, vendedor, atendente, consultor</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="mt-2 pt-2 border-t border-blue-200 space-y-1">
+                    <p className="font-medium text-blue-800">👤 Distribuição de vendedores:</p>
                     <p className="text-blue-700">
-                      • O arquivo é enviado ao servidor<br/>
-                      • Processamento ocorre no backend<br/>
-                      • Suporta milhões de linhas<br/>
-                      • Duplicatas são atualizadas (idempotente)<br/>
+                      • <strong>Com responsável preenchido:</strong> O lead é atribuído diretamente ao vendedor informado (e-mail) e <strong>não entra</strong> no pool de distribuição automática.<br/>
+                      • <strong>Sem responsável:</strong> O lead entra no pool geral e será distribuído automaticamente (até 30 leads por vendedor) quando o vendedor acessar a aba "Atendimento".<br/>
+                      • <strong>Dica:</strong> Você pode misturar na mesma planilha — preencha o responsável apenas nas linhas desejadas.
+                    </p>
+                  </div>
+
+                  <div className="mt-2 pt-2 border-t border-blue-200 space-y-1">
+                    <p className="font-medium text-blue-800">⚙️ Como funciona a importação:</p>
+                    <p className="text-blue-700">
+                      • Formatos aceitos: <strong>CSV</strong>, <strong>Excel (.xlsx, .xls)</strong><br/>
+                      • Suporta <strong>milhões de linhas</strong> (processamento no servidor)<br/>
+                      • Telefones são normalizados automaticamente (DDD + 9 dígitos)<br/>
+                      • <strong>Duplicatas</strong> são atualizadas (mesmo telefone + empresa = atualiza dados)<br/>
+                      • O contato é vinculado à <strong>campanha selecionada acima</strong><br/>
                       • Acompanhe o progresso em tempo real
                     </p>
                   </div>
                 </div>
-              </Card>
-              <Card className="p-4 border-dashed border-2 border-muted flex flex-col justify-center">
-                <Input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFileSelect} className="hidden" id="file-upload" disabled={isWorking} />
-                <Label htmlFor="file-upload" className="cursor-pointer text-center">
-                  <Upload className="mx-auto mb-2 text-muted-foreground" size={24} />
-                  <p className="text-sm text-muted-foreground">Clique para selecionar o arquivo</p>
-                  <p className="text-xs text-muted-foreground mt-1">CSV ou Excel (.xlsx, .xls)</p>
-                  {file && <p className="text-sm font-medium mt-2 text-primary">{file.name}</p>}
-                </Label>
-              </Card>
-            </div>
+              </div>
+            </Card>
+
+            {/* File Upload */}
+            <Card className="p-4 border-dashed border-2 border-muted flex flex-col justify-center">
+              <Input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFileSelect} className="hidden" id="file-upload" disabled={isWorking} />
+              <Label htmlFor="file-upload" className="cursor-pointer text-center">
+                <Upload className="mx-auto mb-2 text-muted-foreground" size={24} />
+                <p className="text-sm text-muted-foreground">Clique para selecionar o arquivo</p>
+                <p className="text-xs text-muted-foreground mt-1">CSV ou Excel (.xlsx, .xls)</p>
+                {file && <p className="text-sm font-medium mt-2 text-primary">{file.name}</p>}
+              </Label>
+            </Card>
 
             {/* Converting indicator */}
             {phase === 'converting' && (
