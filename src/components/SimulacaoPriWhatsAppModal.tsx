@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Send, MessageCircle, Calendar, DollarSign, ArrowRight } from "lucide-react";
+import { Users, Send, MessageCircle, Calendar, DollarSign, ArrowRight, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SimulacaoPriWhatsAppModalProps {
   isOpen: boolean;
@@ -141,6 +142,17 @@ export function SimulacaoPriWhatsAppModal({ isOpen, onClose }: SimulacaoPriWhats
                       <SelectItem value="marketing" className="text-xs">Marketing</SelectItem>
                     </SelectContent>
                   </Select>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[300px] text-xs">
+                        <p className="font-semibold mb-1">Template de Utilidade</p>
+                        <p>Para aprovar como Utilidade, o template deve ser operacional e esperado pelo cliente: confirmar/lembrar presença (RSVP), reagendamento ou info do evento. Inclua dados objetivos (nome, data, hora, local/QR/ingresso, protocolo) e CTAs claros (Confirmar / Não vou / Reagendar). Evite promoções, descontos, slogans, "últimas vagas" e linguagem de venda.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </div>
             </div>

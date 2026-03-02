@@ -1776,12 +1776,12 @@ showAllEvents: true
                               variant="outline"
                               size="sm"
                               onClick={() => setIsSimulacaoPriOpen(true)}
-                              className="h-8 w-8 p-0"
                             >
-                              <Bot className="h-4 w-4" />
+                              <Bot className="h-4 w-4 mr-1" />
+                              <span className="hidden sm:inline">Simular evento whatsapp</span>
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Simulação PRI Whats</TooltipContent>
+                          <TooltipContent>Simular evento whatsapp</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                       {canCreateEventos && (
