@@ -3925,6 +3925,42 @@ export type Database = {
           },
         ]
       }
+      system_feature_flags: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          flag_key: string
+          flag_label: string
+          id: string
+          is_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          flag_key: string
+          flag_label: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          flag_key?: string
+          flag_label?: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       temperaturas_lead: {
         Row: {
           ativo: boolean
@@ -4765,6 +4801,7 @@ export type Database = {
         Args: { company_id: string; user_id?: string }
         Returns: boolean
       }
+      is_feature_enabled: { Args: { p_flag_key: string }; Returns: boolean }
       is_mfa_master: { Args: { check_user_id?: string }; Returns: boolean }
       mask_sensitive_data: {
         Args: {

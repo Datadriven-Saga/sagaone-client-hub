@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import {
@@ -26,7 +25,6 @@ import {
   ShieldCheck,
   Users,
   ScrollText,
-  Settings2,
   UserPlus,
   UserMinus,
   Search,
@@ -76,12 +74,7 @@ interface AuditLog {
   created_at: string;
 }
 
-interface FeatureFlag {
-  id: string;
-  flag_key: string;
-  flag_label: string;
-  enabled: boolean;
-}
+// Feature flags moved to /administracao/feature-flags
 
 interface ProfileRow {
   id: string;
@@ -97,7 +90,6 @@ const MFAMasterDashboard = () => {
   const [accounts, setAccounts] = useState<MFAAccountRow[]>([]);
   const [accessList, setAccessList] = useState<AccessRow[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [featureFlags, setFeatureFlags] = useState<FeatureFlag[]>([]);
   const [users, setUsers] = useState<ProfileRow[]>([]);
   const [searchAccounts, setSearchAccounts] = useState("");
   const [searchLogs, setSearchLogs] = useState("");
@@ -107,18 +99,16 @@ const MFAMasterDashboard = () => {
   const loadAll = useCallback(async () => {
     setLoadingData(true);
     try {
-      const [accRes, accessRes, logsRes, flagsRes, usersRes] = await Promise.all([
+      const [accRes, accessRes, logsRes, usersRes] = await Promise.all([
         supabase.from("mfa_accounts" as any).select("id, issuer, label, user_id, created_by, created_at").order("created_at", { ascending: false }),
         supabase.from("mfa_account_access" as any).select("*").order("granted_at", { ascending: false }),
         supabase.from("mfa_audit_logs" as any).select("*").order("created_at", { ascending: false }).limit(200),
-        supabase.from("mfa_feature_flags" as any).select("*"),
         supabase.from("profiles").select("id, nome_completo").eq("status", "Ativo").in("tipo_acesso", ["Administrador", "Master"] as any).order("nome_completo"),
       ]);
 
       setAccounts((accRes.data as any[]) || []);
       setAccessList((accessRes.data as any[]) || []);
       setAuditLogs((logsRes.data as any[]) || []);
-      setFeatureFlags((flagsRes.data as any[]) || []);
 
       // Get emails for users
       const profilesWithEmail = (usersRes.data || []).map((p: any) => ({ ...p, email: "" }));
@@ -134,25 +124,7 @@ const MFAMasterDashboard = () => {
     if (isMaster && !masterLoading) loadAll();
   }, [isMaster, masterLoading, loadAll]);
 
-  // Grant/Revoke access now handled by MFAAccessManager component
-
-  const handleToggleFlag = async (flag: FeatureFlag) => {
-    try {
-      const { error } = await supabase
-        .from("mfa_feature_flags" as any)
-        .update({ enabled: !flag.enabled, updated_at: new Date().toISOString(), updated_by: user?.id })
-        .eq("id", flag.id);
-      if (error) throw error;
-      await logAction("toggle_feature_flag", undefined, undefined, undefined, undefined, {
-        flag: flag.flag_key,
-        new_value: !flag.enabled,
-      });
-      toast({ title: `Feature flag ${!flag.enabled ? "ativada" : "desativada"}` });
-      loadAll();
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    }
-  };
+  // Feature flags moved to /administracao/feature-flags
 
   if (authLoading || masterLoading) {
     return (
@@ -232,9 +204,6 @@ const MFAMasterDashboard = () => {
               </TabsTrigger>
               <TabsTrigger value="logs" className="gap-1.5">
                 <ScrollText className="h-4 w-4" /> Logs
-              </TabsTrigger>
-              <TabsTrigger value="flags" className="gap-1.5">
-                <Settings2 className="h-4 w-4" /> Feature Flags
               </TabsTrigger>
             </TabsList>
 
@@ -355,28 +324,6 @@ const MFAMasterDashboard = () => {
               )}
             </TabsContent>
 
-            {/* FEATURE FLAGS TAB */}
-            <TabsContent value="flags" className="space-y-4 mt-4">
-              <div>
-                <h3 className="font-semibold text-foreground mb-1">Feature Flags</h3>
-                <p className="text-sm text-muted-foreground">Controle granular de funcionalidades do MFA</p>
-              </div>
-              <div className="space-y-3">
-                {featureFlags.map(flag => (
-                  <Card key={flag.id}>
-                    <CardContent className="py-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-foreground">{flag.flag_label}</span>
-                          <p className="text-xs text-muted-foreground font-mono">{flag.flag_key}</p>
-                        </div>
-                        <Switch checked={flag.enabled} onCheckedChange={() => handleToggleFlag(flag)} />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
           </Tabs>
         </div>
 
