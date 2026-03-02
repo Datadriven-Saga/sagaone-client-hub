@@ -14,7 +14,8 @@ import {
   ShieldCheck,
   KeyRound,
   DollarSign,
-  PhoneCall
+  PhoneCall,
+  Flag
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
@@ -134,6 +135,12 @@ const Administracao = () => {
       description: "Dashboard de custos e métricas Twilio / Vapi em tempo real",
       icon: PhoneCall,
       route: "/administracao/gastos-ligacao"
+    },
+    {
+      title: "Feature Flags",
+      description: "Controle centralizado de funcionalidades do sistema",
+      icon: Flag,
+      route: "/administracao/feature-flags"
     }
   ];
 
