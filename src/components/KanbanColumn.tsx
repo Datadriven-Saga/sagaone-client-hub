@@ -7,8 +7,12 @@ import { Button } from '@/components/ui/button';
 
 interface KanbanColumnProps {
   column: KanbanColumnData;
+  totalCount?: number; // Real total from DB, independent of loaded items
   onCardClick?: (item: KanbanItem) => void;
   onSolicitarClientes?: () => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
 }
 
 const COLUMN_COLORS: Record<string, string> = {
@@ -24,12 +28,13 @@ const COLUMN_COLORS: Record<string, string> = {
   'desperdicio': '#F43F5E',
 };
 
-export function KanbanColumn({ column, onCardClick, onSolicitarClientes }: KanbanColumnProps) {
+export function KanbanColumn({ column, totalCount, onCardClick, onSolicitarClientes, onLoadMore, hasMore, loadingMore }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
 
   const badgeColor = COLUMN_COLORS[column.id] || '#04bbda';
+  const displayCount = totalCount ?? column.items.length;
 
   return (
     <div 
@@ -48,7 +53,7 @@ export function KanbanColumn({ column, onCardClick, onSolicitarClientes }: Kanba
             className="text-xs font-medium text-white px-2 py-0.5 rounded-full min-w-[24px] text-center"
             style={{ backgroundColor: badgeColor }}
           >
-            {column.items.length}
+            {displayCount}
           </span>
         </div>
         {onSolicitarClientes && (
@@ -73,13 +78,24 @@ export function KanbanColumn({ column, onCardClick, onSolicitarClientes }: Kanba
             Nenhum lead nesta etapa
           </div>
         ) : (
-          column.items.map((item) => (
-            <KanbanCard
-              key={item.id}
-              item={item}
-              onCardClick={onCardClick}
-            />
-          ))
+          <>
+            {column.items.map((item) => (
+              <KanbanCard
+                key={item.id}
+                item={item}
+                onCardClick={onCardClick}
+              />
+            ))}
+            {hasMore && (
+              <button
+                onClick={onLoadMore}
+                disabled={loadingMore}
+                className="w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50 disabled:opacity-50"
+              >
+                {loadingMore ? 'Carregando...' : `Carregar mais (${column.items.length} de ${displayCount})`}
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

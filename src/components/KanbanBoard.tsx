@@ -41,18 +41,26 @@ export interface KanbanColumnData {
 
 interface KanbanBoardProps {
   columns: KanbanColumnData[];
+  columnCounts?: Record<string, number>; // Real DB counts per column id
   onUpdateColumns: (columns: KanbanColumnData[]) => void;
   onCardClick?: (item: KanbanItem) => void;
   onStatusChange?: (itemId: string, fromStatus: string, toStatus: string) => Promise<boolean> | void;
   onSolicitarClientes?: () => void;
+  onLoadMore?: (columnId: string) => void;
+  columnHasMore?: Record<string, boolean>;
+  columnLoadingMore?: Record<string, boolean>;
 }
 
 export function KanbanBoard({ 
   columns, 
+  columnCounts,
   onUpdateColumns, 
   onCardClick,
   onStatusChange,
-  onSolicitarClientes
+  onSolicitarClientes,
+  onLoadMore,
+  columnHasMore,
+  columnLoadingMore,
 }: KanbanBoardProps) {
   const [activeItem, setActiveItem] = useState<KanbanItem | null>(null);
 
@@ -180,8 +188,12 @@ export function KanbanBoard({
             >
               <KanbanColumn
                 column={column}
+                totalCount={columnCounts?.[column.id]}
                 onCardClick={onCardClick}
                 onSolicitarClientes={column.id === 'novos' ? onSolicitarClientes : undefined}
+                onLoadMore={() => onLoadMore?.(column.id)}
+                hasMore={columnHasMore?.[column.id]}
+                loadingMore={columnLoadingMore?.[column.id]}
               />
             </SortableContext>
           ))}

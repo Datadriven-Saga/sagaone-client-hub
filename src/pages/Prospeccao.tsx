@@ -167,7 +167,7 @@ showAllEvents: true
     contatosProspeccoes,
     loading, 
     loadingContatos,
-    // Paginated API
+    // Paginated API (for list view)
     paginatedContatos,
     paginatedTotal,
     currentPage,
@@ -176,6 +176,12 @@ showAllEvents: true
     fetchContatosPaginated,
     fetchServerMetricas,
     serverMetricas,
+    // Kanban-specific API
+    kanbanData,
+    loadingKanban,
+    kanbanLoadingMore,
+    fetchKanbanColumns,
+    loadMoreKanbanColumn,
     // Original methods
     adicionarContatos,
     atualizarContato,
@@ -517,59 +523,58 @@ showAllEvents: true
     }
   }, [activeCompany?.id, prospeccoes.length > 0]);
 
-  // Carregar contatos quando necessário - usa paginação server-side para Kanban/Lista
-  // Para recepcao/vendas mantém carregamento completo via loadContatos
+  // Helper to resolve kanban filters
+  const getKanbanFilters = () => {
+    const resolvedResponsavel = globalFilters.responsavelId !== 'todos' 
+      ? (() => {
+          const profile = profiles.find(p => p.id === globalFilters.responsavelId);
+          return profile?.email || profile?.id || globalFilters.responsavelId;
+        })()
+      : undefined;
+    return {
+      prospeccaoId: globalFilters.prospeccaoId !== 'todos' ? globalFilters.prospeccaoId : undefined,
+      responsavel: resolvedResponsavel,
+      search: globalFilters.dadosLead || undefined,
+    };
+  };
+
+  // Carregar contatos quando necessário
+  // Kanban usa fetchKanbanColumns (per-column), Lista usa fetchContatosPaginated
   useEffect(() => {
     if (activeTab !== 'eventos' && activeCompany?.id) {
-      if (activeTab === 'kanban' || activeTab === 'lista') {
-        // Use server-side pagination for Kanban/List
-        const resolvedResponsavel = globalFilters.responsavelId !== 'todos' 
-          ? (() => {
-              const profile = profiles.find(p => p.id === globalFilters.responsavelId);
-              return profile?.email || profile?.id || globalFilters.responsavelId;
-            })()
-          : undefined;
-        
+      if (activeTab === 'kanban') {
+        fetchKanbanColumns(getKanbanFilters());
+      } else if (activeTab === 'lista') {
+        const filters = getKanbanFilters();
         fetchContatosPaginated(0, {
-          prospeccaoId: globalFilters.prospeccaoId !== 'todos' ? globalFilters.prospeccaoId : undefined,
+          ...filters,
           status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
-          responsavel: resolvedResponsavel,
-          search: globalFilters.dadosLead || undefined,
         });
       } else if (!contatosLoaded) {
-        // For recepcao/vendas tabs, load full contatos
         loadContatos();
       }
     }
-  }, [activeTab, activeCompany?.id, contatosLoaded, loadContatos, fetchContatosPaginated]);
+  }, [activeTab, activeCompany?.id, contatosLoaded, loadContatos, fetchContatosPaginated, fetchKanbanColumns]);
 
-  // Re-fetch paginated data when global filters change (only for kanban/lista)
+  // Re-fetch when global filters change
   useEffect(() => {
-    if ((activeTab === 'kanban' || activeTab === 'lista') && activeCompany?.id) {
-      const resolvedResponsavel = globalFilters.responsavelId !== 'todos' 
-        ? (() => {
-            const profile = profiles.find(p => p.id === globalFilters.responsavelId);
-            return profile?.email || profile?.id || globalFilters.responsavelId;
-          })()
-        : undefined;
-      
+    if (!activeCompany?.id) return;
+    if (activeTab === 'kanban') {
+      fetchKanbanColumns(getKanbanFilters());
+    } else if (activeTab === 'lista') {
+      const filters = getKanbanFilters();
       fetchContatosPaginated(0, {
-        prospeccaoId: globalFilters.prospeccaoId !== 'todos' ? globalFilters.prospeccaoId : undefined,
+        ...filters,
         status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
-        responsavel: resolvedResponsavel,
-        search: globalFilters.dadosLead || undefined,
       });
     }
   }, [globalFilters.prospeccaoId, globalFilters.status, globalFilters.responsavelId, globalFilters.dadosLead, activeCompany?.id]);
 
   // Atribuir leads automaticamente para vendedores quando acessam a aba de atendimentos
   useEffect(() => {
-    if (activeTab === 'kanban' && isLimitedUser && !loadingPaginated && paginatedContatos.length >= 0) {
+    if (activeTab === 'kanban' && isLimitedUser && !loadingKanban) {
       verificarEAtribuirSeNecessario().then(() => {
-        fetchContatosPaginated(currentPage, {
-          prospeccaoId: globalFilters.prospeccaoId !== 'todos' ? globalFilters.prospeccaoId : undefined,
-          status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
-        });
+        fetchKanbanColumns(getKanbanFilters());
         fetchServerMetricas();
       });
     }
@@ -1106,83 +1111,57 @@ showAllEvents: true
       });
   };
 
-  // Configurar colunas do Kanban com dados paginados do servidor
-  // Quando usando paginação server-side, os contatos já vêm filtrados
-  const displayContatos = (activeTab === 'kanban' || activeTab === 'lista') ? paginatedContatos : filteredContatos;
+  // Configurar colunas do Kanban
+  // Para Kanban: usar kanbanData (per-column com contagens reais do DB)
+  // Para Lista: usar paginatedContatos
+  // Para outros: usar filteredContatos
+  const displayContatos = activeTab === 'lista' ? paginatedContatos : filteredContatos;
   
-  const kanbanColumns: KanbanColumnData[] = [
-    {
-      id: 'novos',
-      title: 'Novos',
-      color: '#6645EB',
-      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Novo')) : []
-    },
-    {
-      id: 'atribuidos',
-      title: 'Atribuídos',
-      color: '#8B5FD6',
-      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Atribuído')) : []
-    },
-    {
-      id: 'emespera',
-      title: 'Em Espera',
-      color: '#F59E0B',
-      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Em Espera')) : []
-    },
-    {
-      id: 'convidados',
-      title: 'Convidados',
-      color: '#A679E1',
-      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Convidado')) : []
-    },
-    {
-      id: 'confirmados',
-      title: 'Confirmados',
-      color: '#10B981',
-      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Confirmado')) : []
-    },
-    {
-      id: 'checkin',
-      title: 'Check-ins',
-      color: '#22c55e',
-      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Check-in')) : []
-    },
-    {
-      id: 'venda',
-      title: 'Vendas',
-      color: '#16a34a',
-      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Venda')) : []
-    },
-    {
-      id: 'descartados',
-      title: 'Descartados',
-      color: '#ef4444',
-      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Descartado')) : []
-    },
-    {
-      id: 'optout',
-      title: 'Opt Out',
-      color: '#6B7280',
-      items: displayContatos ? contatosToKanbanItems(displayContatos.filter(contato => contato && contato.status === 'Opt Out')) : []
-    }
+  const kanbanColumnDefs = [
+    { id: 'novos', title: 'Novos', color: '#6645EB', status: 'Novo' },
+    { id: 'atribuidos', title: 'Atribuídos', color: '#8B5FD6', status: 'Atribuído' },
+    { id: 'emespera', title: 'Em Espera', color: '#F59E0B', status: 'Em Espera' },
+    { id: 'convidados', title: 'Convidados', color: '#A679E1', status: 'Convidado' },
+    { id: 'confirmados', title: 'Confirmados', color: '#10B981', status: 'Confirmado' },
+    { id: 'checkin', title: 'Check-ins', color: '#22c55e', status: 'Check-in' },
+    { id: 'venda', title: 'Vendas', color: '#16a34a', status: 'Venda' },
+    { id: 'descartados', title: 'Descartados', color: '#ef4444', status: 'Descartado' },
+    { id: 'optout', title: 'Opt Out', color: '#6B7280', status: 'Opt Out' },
   ];
 
-  // Pagination helpers
+  const kanbanColumns: KanbanColumnData[] = kanbanColumnDefs.map(def => ({
+    id: def.id,
+    title: def.title,
+    color: def.color,
+    items: kanbanData[def.id]
+      ? contatosToKanbanItems(kanbanData[def.id].items as any[])
+      : [],
+  }));
+
+  // Real counts from DB per column
+  const kanbanColumnCounts: Record<string, number> = {};
+  const kanbanColumnHasMore: Record<string, boolean> = {};
+  kanbanColumnDefs.forEach(def => {
+    const col = kanbanData[def.id];
+    kanbanColumnCounts[def.id] = col?.count ?? 0;
+    kanbanColumnHasMore[def.id] = col ? col.items.length < col.count : false;
+  });
+
+  // Total leads across all kanban columns
+  const kanbanTotalLeads = Object.values(kanbanColumnCounts).reduce((a, b) => a + b, 0);
+
+  const handleLoadMoreColumn = (columnId: string) => {
+    loadMoreKanbanColumn(columnId, getKanbanFilters());
+  };
+
+  // Pagination helpers (for list view only)
   const totalPages = Math.ceil(paginatedTotal / pageSize);
   
   const handlePageChange = (newPage: number) => {
-    const resolvedResponsavel = globalFilters.responsavelId !== 'todos' 
-      ? (() => {
-          const profile = profiles.find(p => p.id === globalFilters.responsavelId);
-          return profile?.email || profile?.id || globalFilters.responsavelId;
-        })()
-      : undefined;
-    
+    const filters = getKanbanFilters();
     fetchContatosPaginated(newPage, {
-      prospeccaoId: globalFilters.prospeccaoId !== 'todos' ? globalFilters.prospeccaoId : undefined,
+      ...filters,
       status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
-      responsavel: resolvedResponsavel,
-      search: globalFilters.dadosLead || undefined,
     });
   };
 
@@ -2123,7 +2102,7 @@ showAllEvents: true
 
         <TabsContent value="kanban" className="mt-0 w-full min-w-0 overflow-hidden">
           <div className="h-[calc(100vh-260px)] w-full min-w-0 overflow-hidden flex flex-col">
-            {loadingPaginated ? (
+            {loadingKanban ? (
               <div className="flex-1 flex gap-3 p-2 overflow-hidden">
                 {/* Skeleton Kanban columns */}
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -2143,42 +2122,23 @@ showAllEvents: true
               <div className="flex-1 overflow-hidden">
                 <KanbanBoard
                   columns={kanbanColumns}
+                  columnCounts={kanbanColumnCounts}
                   onUpdateColumns={() => {}}
                   onCardClick={handleCardClick}
                   onStatusChange={handleStatusChange}
                   onSolicitarClientes={isLimitedUser ? solicitarClientes : undefined}
+                  onLoadMore={handleLoadMoreColumn}
+                  columnHasMore={kanbanColumnHasMore}
+                  columnLoadingMore={kanbanLoadingMore}
                 />
               </div>
             )}
-            {/* Pagination controls */}
-            {paginatedTotal > pageSize && (
+            {/* Total leads count */}
+            {kanbanTotalLeads > 0 && (
               <div className="flex items-center justify-between px-4 py-2 border-t bg-card/50">
                 <p className="text-xs text-muted-foreground">
-                  Exibindo {currentPage * pageSize + 1}-{Math.min((currentPage + 1) * pageSize, paginatedTotal)} de {paginatedTotal} leads
+                  Total: {kanbanTotalLeads.toLocaleString('pt-BR')} leads
                 </p>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 0 || loadingPaginated}
-                    className="h-7 px-2"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-xs text-muted-foreground px-2">
-                    Página {currentPage + 1} de {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage >= totalPages - 1 || loadingPaginated}
-                    className="h-7 px-2"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
               </div>
             )}
           </div>
