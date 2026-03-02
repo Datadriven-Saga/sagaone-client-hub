@@ -53,6 +53,7 @@ interface ImportLog {
   linked: number;
   already_linked: number;
   errors: number;
+  quarantined: number;
   error_details: string[];
   message: string | null;
 }
@@ -511,7 +512,7 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
 
                 {/* Stats grid */}
                 {importLog.processed_rows > 0 && (
-                  <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                <div className="grid grid-cols-5 gap-2 text-center text-xs">
                     <div>
                       <p className="font-bold text-emerald-600">{importLog.inserted.toLocaleString('pt-BR')}</p>
                       <p className="text-muted-foreground">Novos</p>
@@ -523,6 +524,10 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                     <div>
                       <p className="font-bold text-primary">{importLog.linked.toLocaleString('pt-BR')}</p>
                       <p className="text-muted-foreground">Vinculados</p>
+                    </div>
+                    <div>
+                      <p className="font-bold text-amber-600">{(importLog.quarantined || 0).toLocaleString('pt-BR')}</p>
+                      <p className="text-muted-foreground">Quarentena</p>
                     </div>
                     <div>
                       <p className="font-bold text-destructive">{importLog.errors.toLocaleString('pt-BR')}</p>
@@ -646,6 +651,16 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                       Já estavam no evento
                     </span>
                     <span className="font-medium text-amber-600">{importLog.already_linked.toLocaleString('pt-BR')}</span>
+                  </div>
+                )}
+
+                {(importLog.quarantined || 0) > 0 && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                    <span className="flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                      Bloqueados por quarentena (mesma marca, 30 dias)
+                    </span>
+                    <span className="font-medium text-amber-600">{importLog.quarantined.toLocaleString('pt-BR')}</span>
                   </div>
                 )}
 

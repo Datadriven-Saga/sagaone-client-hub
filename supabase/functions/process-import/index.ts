@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 const BATCH_SIZE = 1000;
-const MAX_ELAPSED_MS = 120_000; // 2 min, leave buffer for edge function limits
+const MAX_ELAPSED_MS = 120_000;
 
 // Simple CSV parser that handles quoted fields
 function parseCSVLine(line: string): string[] {
@@ -61,13 +61,10 @@ function normalizePhone(raw: string): string | null {
   if (!raw) return null;
   let digits = raw.replace(/\D/g, '');
   if (digits.length < 10) return null;
-  // Remove country code 55 if present
   if (digits.startsWith('55') && digits.length >= 12) {
     digits = digits.slice(2);
   }
-  // Must be 10 or 11 digits
   if (digits.length < 10 || digits.length > 11) return null;
-  // Add 9th digit if missing (10 digits → 11)
   if (digits.length === 10) {
     const ddd = digits.slice(0, 2);
     const number = digits.slice(2);
@@ -113,7 +110,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Skip if already done or error
     if (log.status === 'done' || log.status === 'error') {
       return new Response(JSON.stringify({ message: 'Already finished' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -122,7 +118,6 @@ Deno.serve(async (req: Request) => {
 
     console.log(`🚀 Processing import ${import_log_id}, offset: ${log.current_offset}`);
 
-    // 2. Update status to processing
     await supabaseAdmin.from('import_logs').update({
       status: 'processing',
       message: 'Baixando arquivo do servidor...',
@@ -183,7 +178,6 @@ Deno.serve(async (req: Request) => {
     const totalDataRows = lines.length - 1;
     const currentOffset = log.current_offset || 0;
 
-    // Update total rows
     if (currentOffset === 0) {
       await supabaseAdmin.from('import_logs').update({
         total_rows: totalDataRows,
@@ -193,26 +187,25 @@ Deno.serve(async (req: Request) => {
 
     console.log(`📊 Total rows: ${totalDataRows}, starting from offset: ${currentOffset}`);
 
-    // Accumulate stats from previous runs
+    // Accumulate stats
     let inserted = log.inserted || 0;
     let updated = log.updated || 0;
     let linked = log.linked || 0;
     let alreadyLinked = log.already_linked || 0;
     let errors = log.errors || 0;
+    let quarantined = log.quarantined || 0;
     const errorDetails: string[] = Array.isArray(log.error_details) ? [...log.error_details] : [];
     let processedRows = log.processed_rows || 0;
 
-    // 6. Process rows from current offset in batches
+    // 6. Process rows
     const seenPhones = new Set<string>();
     let batch: any[] = [];
     let batchCount = 0;
     let needsChain = false;
 
     for (let i = currentOffset; i < totalDataRows; i++) {
-      // Check timeout
       if (Date.now() - startTime > MAX_ELAPSED_MS) {
         console.log(`⏱️ Timeout approaching at row ${i}, will self-chain`);
-        // Flush current batch before chaining
         if (batch.length > 0) {
           const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id);
           inserted += result.inserted;
@@ -220,17 +213,15 @@ Deno.serve(async (req: Request) => {
           linked += result.linked;
           alreadyLinked += result.already_linked;
           errors += result.errors;
+          quarantined += result.quarantined;
           processedRows += batch.length;
         }
 
         await supabaseAdmin.from('import_logs').update({
           current_offset: i,
           processed_rows: processedRows,
-          inserted,
-          updated,
-          linked,
-          already_linked: alreadyLinked,
-          errors,
+          inserted, updated, linked, already_linked: alreadyLinked,
+          errors, quarantined,
           error_details: errorDetails,
           message: `Processando... ${processedRows.toLocaleString('pt-BR')}/${totalDataRows.toLocaleString('pt-BR')} (continuando em nova execução)`,
         }).eq('id', import_log_id);
@@ -239,7 +230,7 @@ Deno.serve(async (req: Request) => {
         break;
       }
 
-      const row = parseCSVLine(lines[i + 1]); // +1 because index 0 is header
+      const row = parseCSVLine(lines[i + 1]);
       const telefoneRaw = colIndices.telefone >= 0 ? row[colIndices.telefone] || '' : '';
       const phone = normalizePhone(telefoneRaw);
 
@@ -254,7 +245,7 @@ Deno.serve(async (req: Request) => {
 
       if (seenPhones.has(phone)) {
         processedRows++;
-        continue; // Skip duplicates within file
+        continue;
       }
       seenPhones.add(phone);
 
@@ -278,18 +269,15 @@ Deno.serve(async (req: Request) => {
         linked += result.linked;
         alreadyLinked += result.already_linked;
         errors += result.errors;
+        quarantined += result.quarantined;
         processedRows += batch.length;
 
-        console.log(`✅ Lote ${batchCount}: ${result.inserted} novos, ${result.updated} atualizados`);
+        console.log(`✅ Lote ${batchCount}: ${result.inserted} novos, ${result.updated} atualizados, ${result.quarantined} em quarentena`);
 
-        // Update progress in import_logs (every batch)
         await supabaseAdmin.from('import_logs').update({
           processed_rows: processedRows,
-          inserted,
-          updated,
-          linked,
-          already_linked: alreadyLinked,
-          errors,
+          inserted, updated, linked, already_linked: alreadyLinked,
+          errors, quarantined,
           message: `Processando... ${processedRows.toLocaleString('pt-BR')}/${totalDataRows.toLocaleString('pt-BR')}`,
         }).eq('id', import_log_id);
 
@@ -308,16 +296,15 @@ Deno.serve(async (req: Request) => {
       linked += result.linked;
       alreadyLinked += result.already_linked;
       errors += result.errors;
+      quarantined += result.quarantined;
       processedRows += batch.length;
     }
 
     if (needsChain) {
-      // Self-chain: invoke ourselves again
       console.log(`🔄 Self-chaining for remaining rows...`);
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-      // Fire and forget
       fetch(`${supabaseUrl}/functions/v1/process-import`, {
         method: 'POST',
         headers: {
@@ -335,19 +322,17 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 7. Done! Update final status
+    // 7. Done!
+    const quarantineMsg = quarantined > 0 ? ` ${quarantined} em quarentena.` : '';
     const finalMessage = errors > 0
-      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.`
-      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.`;
+      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.${quarantineMsg}`
+      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.${quarantineMsg}`;
 
     await supabaseAdmin.from('import_logs').update({
       status: 'done',
       processed_rows: processedRows,
-      inserted,
-      updated,
-      linked,
-      already_linked: alreadyLinked,
-      errors,
+      inserted, updated, linked, already_linked: alreadyLinked,
+      errors, quarantined,
       error_details: errorDetails,
       message: finalMessage,
     }).eq('id', import_log_id);
@@ -382,15 +367,13 @@ Deno.serve(async (req: Request) => {
       console.error('Cleanup error:', cleanErr);
     }
 
-    console.log(`✅ Import complete: ${inserted} inserted, ${updated} updated, ${linked} linked, ${errors} errors`);
+    console.log(`✅ Import complete: ${inserted} inserted, ${updated} updated, ${linked} linked, ${quarantined} quarantined, ${errors} errors`);
 
     return new Response(JSON.stringify({
       status: 'done',
-      inserted,
-      updated,
-      linked,
+      inserted, updated, linked,
       already_linked: alreadyLinked,
-      errors,
+      errors, quarantined,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -398,7 +381,6 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     console.error('❌ Unexpected error:', err);
 
-    // Try to update import_log with error
     try {
       const { import_log_id } = await req.clone().json().catch(() => ({ import_log_id: null }));
       if (import_log_id) {
@@ -426,7 +408,7 @@ async function processBatch(
   batch: any[],
   empresaId: string,
   prospeccaoId: string | null,
-): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number }> {
+): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number }> {
   const MAX_RETRIES = 3;
   let lastError = '';
 
@@ -446,6 +428,7 @@ async function processBatch(
         linked: data?.linked || 0,
         already_linked: data?.already_linked || 0,
         errors: data?.errors || 0,
+        quarantined: data?.quarantined || 0,
       };
     } catch (err: any) {
       lastError = err?.message || String(err);
@@ -457,5 +440,5 @@ async function processBatch(
   }
 
   console.error(`🚫 Batch failed permanently: ${lastError}`);
-  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length };
+  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0 };
 }

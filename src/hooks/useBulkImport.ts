@@ -11,6 +11,7 @@ export interface BulkImportProgress {
   updated: number;
   linked: number;
   alreadyLinked: number;
+  quarantined: number;
   errors: number;
   retries: number;
   errorDetails: string[];
@@ -26,6 +27,7 @@ const INITIAL_PROGRESS: BulkImportProgress = {
   updated: 0,
   linked: 0,
   alreadyLinked: 0,
+  quarantined: 0,
   errors: 0,
   retries: 0,
   errorDetails: [],
@@ -101,6 +103,7 @@ export const useBulkImport = () => {
         p.updated += result.updated || 0;
         p.linked += result.linked || 0;
         p.alreadyLinked += result.already_linked || 0;
+        p.quarantined += result.quarantined || 0;
         p.errors += result.errors || 0;
         p.processedRecords += batch.length;
         p.currentBatch = batchNum;

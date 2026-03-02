@@ -2033,6 +2033,7 @@ export type Database = {
           origem: string | null
           processed_rows: number | null
           prospeccao_id: string | null
+          quarantined: number | null
           status: string
           total_rows: number | null
           updated: number | null
@@ -2056,6 +2057,7 @@ export type Database = {
           origem?: string | null
           processed_rows?: number | null
           prospeccao_id?: string | null
+          quarantined?: number | null
           status?: string
           total_rows?: number | null
           updated?: number | null
@@ -2079,6 +2081,7 @@ export type Database = {
           origem?: string | null
           processed_rows?: number | null
           prospeccao_id?: string | null
+          quarantined?: number | null
           status?: string
           total_rows?: number | null
           updated?: number | null
