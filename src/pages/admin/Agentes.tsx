@@ -2069,8 +2069,8 @@ export default function AdminAgentes() {
                           Jornada da IA
                         </TabsTrigger>
                         <TabsTrigger value="instancias">Instâncias</TabsTrigger>
-                        {/* Aba de Lojas - apenas para agentes Gabi */}
-                        {isGabi() && <TabsTrigger value="lojas-gaia">Lojas</TabsTrigger>}
+                        {/* Aba de Lojas - para agentes Gabi ou Gaia */}
+                        {(isGabi() || isGaia()) && <TabsTrigger value="lojas-gaia">Lojas</TabsTrigger>}
                         {/* Aba de Eventos - apenas para agentes Pri(Ligação)
                         (não depende do agenteLocal para não aparecer "em partes") */}
                         {isPriLigacao() && <TabsTrigger value="eventos">Eventos</TabsTrigger>}
@@ -2981,8 +2981,8 @@ export default function AdminAgentes() {
                     {/* Eventos Tab - apenas para agentes Pri(Ligação)
                     forceMount para começar a buscar em background e evitar sensação de "demora" ao clicar */}
 
-                    {/* Tab Lojas Gabi */}
-                    {isGabi() && (
+                    {/* Tab Lojas Gabi/Gaia */}
+                    {(isGabi() || isGaia()) && (
                       <TabsContent value="lojas-gaia">
                         <AgenteLojas
                           agenteNome={agenteLocal?.nome || selectedAgente?.nome}
