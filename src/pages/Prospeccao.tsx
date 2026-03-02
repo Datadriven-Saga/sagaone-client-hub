@@ -1039,7 +1039,7 @@ showAllEvents: true
           const responsavelProfile = profiles.find(p => 
             p.id === contato.responsavel_email || p.email === contato.responsavel_email
           );
-          assigneeName = responsavelProfile?.nome_completo || undefined;
+          assigneeName = responsavelProfile?.nome_completo || contato.responsavel_email;
         }
         
         return {
