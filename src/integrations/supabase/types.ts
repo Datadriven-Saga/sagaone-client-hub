@@ -1267,6 +1267,9 @@ export type Database = {
           canal: string | null
           created_at: string
           data_fim_evento: string | null
+          desativado: boolean
+          desativado_em: string | null
+          desativado_por: string | null
           empresa_id: string | null
           evento_nome: string | null
           id: string
@@ -1280,6 +1283,9 @@ export type Database = {
           canal?: string | null
           created_at?: string
           data_fim_evento?: string | null
+          desativado?: boolean
+          desativado_em?: string | null
+          desativado_por?: string | null
           empresa_id?: string | null
           evento_nome?: string | null
           id?: string
@@ -1293,6 +1299,9 @@ export type Database = {
           canal?: string | null
           created_at?: string
           data_fim_evento?: string | null
+          desativado?: boolean
+          desativado_em?: string | null
+          desativado_por?: string | null
           empresa_id?: string | null
           evento_nome?: string | null
           id?: string
@@ -3570,6 +3579,7 @@ export type Database = {
           evento_principal: boolean
           id: string
           imagem_divulgacao_url: string | null
+          is_teste: boolean
           leads_gerados: number | null
           meta_checkins: number | null
           meta_confirmacoes: number | null
@@ -3616,6 +3626,7 @@ export type Database = {
           evento_principal?: boolean
           id?: string
           imagem_divulgacao_url?: string | null
+          is_teste?: boolean
           leads_gerados?: number | null
           meta_checkins?: number | null
           meta_confirmacoes?: number | null
@@ -3662,6 +3673,7 @@ export type Database = {
           evento_principal?: boolean
           id?: string
           imagem_divulgacao_url?: string | null
+          is_teste?: boolean
           leads_gerados?: number | null
           meta_checkins?: number | null
           meta_confirmacoes?: number | null
@@ -3806,6 +3818,60 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quarentena_logs: {
+        Row: {
+          acao: string
+          created_at: string
+          detalhes: string | null
+          empresa_id: string | null
+          id: string
+          marca: string | null
+          quarentena_id: string | null
+          telefone_normalizado: string
+          usuario_email: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          detalhes?: string | null
+          empresa_id?: string | null
+          id?: string
+          marca?: string | null
+          quarentena_id?: string | null
+          telefone_normalizado: string
+          usuario_email?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          detalhes?: string | null
+          empresa_id?: string | null
+          id?: string
+          marca?: string | null
+          quarentena_id?: string | null
+          telefone_normalizado?: string
+          usuario_email?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quarentena_logs_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quarentena_logs_quarentena_id_fkey"
+            columns: ["quarentena_id"]
+            isOneToOne: false
+            referencedRelation: "contato_quarentena"
             referencedColumns: ["id"]
           },
         ]
