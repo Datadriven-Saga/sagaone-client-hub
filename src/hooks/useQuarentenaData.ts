@@ -81,15 +81,11 @@ export function useQuarentenaData() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      let query = supabase
+      const query = supabase
         .from("contato_quarentena")
         .select("*, empresas!contato_quarentena_empresa_id_fkey(nome_empresa)")
         .order("ultimo_impacto_at", { ascending: false })
         .limit(2000);
-
-      if (activeCompany?.id) {
-        query = query.eq("empresa_id", activeCompany.id);
-      }
 
       const { data, error } = await query;
       if (error) throw error;
