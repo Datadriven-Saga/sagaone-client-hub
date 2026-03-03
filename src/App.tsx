@@ -105,7 +105,7 @@ const AppRoutes = () => {
       <Route path="/administracao/logs-disparos" element={<AdminProtectedRoute><LogsDisparos /></AdminProtectedRoute>} />
       <Route path="/administracao/gastos-ligacao" element={<AdminProtectedRoute><ControleGastosLigacao /></AdminProtectedRoute>} />
       <Route path="/administracao/feature-flags" element={<AdminProtectedRoute><FeatureFlags /></AdminProtectedRoute>} />
-      <Route path="/administracao/quarentena" element={<AdminProtectedRoute><Quarentena /></AdminProtectedRoute>} />
+      <Route path="/administracao/quarentena" element={<ProtectedRoute><Quarentena /></ProtectedRoute>} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

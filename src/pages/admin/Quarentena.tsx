@@ -1,4 +1,4 @@
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, AlertTriangle } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,13 @@ import { QuarentenaFilters } from "@/components/quarentena/QuarentenaFilters";
 import { QuarentenaTable } from "@/components/quarentena/QuarentenaTable";
 import { QuarentenaLogs } from "@/components/quarentena/QuarentenaLogs";
 import { useQuarentenaData, getQuarentenaStatus } from "@/hooks/useQuarentenaData";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Quarentena = () => {
+  const { isAdmin, isCRM, loading: accessLoading } = useUserAccessType();
+  const canAccess = isAdmin || isCRM;
+
   const {
     items, allFiltered, loading, filters, setFilters,
     page, setPage, totalPages,
@@ -17,6 +22,31 @@ const Quarentena = () => {
     sortColumn, sortDirection, toggleSort,
     handleDeactivate, handleDeactivateFiltered, reload,
   } = useQuarentenaData();
+
+  if (accessLoading) {
+    return (
+      <DashboardLayout title="Quarentena de Contatos">
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!canAccess) {
+    return (
+      <DashboardLayout title="Quarentena de Contatos">
+        <div className="space-y-6">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Você não tem permissão para acessar este módulo. Apenas perfis <strong>Administrador</strong> e <strong>CRM</strong> podem visualizar a quarentena.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const activeFilteredCount = allFiltered.filter(i => getQuarentenaStatus(i).status === "ativo").length;
 

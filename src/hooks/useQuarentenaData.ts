@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { toast } from "sonner";
 import { differenceInDays, addDays, isAfter, isBefore } from "date-fns";
 import { DateRange } from "react-day-picker";
@@ -62,6 +64,8 @@ export function getQuarentenaStatus(item: QuarentenaItem): StatusInfo {
 
 export function useQuarentenaData() {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
+  const { isCRM, isAdmin } = useUserAccessType();
   const [items, setItems] = useState<QuarentenaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<QuarentenaFilters>({
@@ -76,6 +80,9 @@ export function useQuarentenaData() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const pageSize = 50;
 
+  // CRM users see only their active company; admins see all
+  const companyFilter = isCRM && !isAdmin ? activeCompany?.id : null;
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -85,11 +92,17 @@ export function useQuarentenaData() {
       let hasMore = true;
 
       while (hasMore) {
-        const { data, error } = await supabase
+        let query = supabase
           .from("contato_quarentena")
           .select("*, empresas!contato_quarentena_empresa_id_fkey(nome_empresa)")
           .order("ultimo_impacto_at", { ascending: false })
           .range(from, from + batchSize - 1);
+
+        if (companyFilter) {
+          query = query.eq("empresa_id", companyFilter);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -114,7 +127,7 @@ export function useQuarentenaData() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [companyFilter]);
 
   useEffect(() => {
     loadData();

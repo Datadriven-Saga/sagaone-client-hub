@@ -7,6 +7,7 @@ import {
   BookOpen, 
   Settings, 
   Shield,
+  ShieldBan,
   Bot,
   ChevronDown,
   ChevronRight,
@@ -80,7 +81,7 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
-  const { isAdmin, isAdminOrTI, isGerente, isDiretor } = useUserAccessType();
+  const { isAdmin, isAdminOrTI, isGerente, isDiretor, isCRM } = useUserAccessType();
 
   const closeMobileSidebar = () => {
     if (isMobile) setOpenMobile(false);
@@ -97,9 +98,16 @@ export function AppSidebar() {
   // Gestores e admins podem ver o item Administração
   const canSeeAdministracao = isAdmin || isGerente;
   
-  const bottomMenuItems = canSeeAdministracao
-    ? [...bottomMenuItemsPublic, ...bottomMenuItemsAdmin]
-    : bottomMenuItemsPublic;
+  // CRM users get a direct Quarentena link (they can't access Administração)
+  const crmOnlyItems = (isCRM && !isAdmin) ? [
+    { title: "Quarentena", url: "/administracao/quarentena", icon: ShieldBan },
+  ] : [];
+  
+  const bottomMenuItems = [
+    ...bottomMenuItemsPublic,
+    ...(canSeeAdministracao ? bottomMenuItemsAdmin : []),
+    ...crmOnlyItems,
+  ];
 
   // Use treinamentos items directly (no admin filtering needed now)
   const filteredTreinamentosItems = treinamentosSubItems;
