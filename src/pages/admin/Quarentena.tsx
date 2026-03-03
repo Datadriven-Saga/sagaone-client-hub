@@ -7,7 +7,7 @@ import { QuarentenaStats } from "@/components/quarentena/QuarentenaStats";
 import { QuarentenaFilters } from "@/components/quarentena/QuarentenaFilters";
 import { QuarentenaTable } from "@/components/quarentena/QuarentenaTable";
 import { QuarentenaLogs } from "@/components/quarentena/QuarentenaLogs";
-import { useQuarentenaData, getQuarentenaStatus } from "@/hooks/useQuarentenaData";
+import { useQuarentenaData } from "@/hooks/useQuarentenaData";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -16,11 +16,12 @@ const Quarentena = () => {
   const canAccess = isAdmin || isCRM;
 
   const {
-    items, allFiltered, loading, filters, setFilters,
+    items, loading, filters, setFilters,
     page, setPage, totalPages,
     stats, availableMarcas, availableLojas,
     sortColumn, sortDirection, toggleSort,
-    handleDeactivate, handleDeactivateFiltered, reload,
+    handleDeactivate, handleDeactivateFiltered,
+    activeFilteredCount, reload,
   } = useQuarentenaData();
 
   if (accessLoading) {
@@ -47,8 +48,7 @@ const Quarentena = () => {
       </DashboardLayout>
     );
   }
-
-  const activeFilteredCount = allFiltered.filter(i => getQuarentenaStatus(i).status === "ativo").length;
+  const totalFiltered = stats.total;
 
   return (
     <DashboardLayout title="Quarentena de Contatos">
@@ -85,7 +85,7 @@ const Quarentena = () => {
                 onToggleSort={toggleSort}
                 onDeactivate={handleDeactivate}
                 onDeactivateFiltered={handleDeactivateFiltered}
-                totalFiltered={allFiltered.length}
+                totalFiltered={totalFiltered}
                 activeFilteredCount={activeFilteredCount}
               />
 
