@@ -15,10 +15,18 @@ interface SimulacaoPriWhatsAppModalProps {
 }
 
 const TAXAS = {
-  agendadosBase: 0.029,
-  entreguesBase: 0.95,
-  lidasEntregues: 0.49,
-  respondidasLidas: 0.13,
+  carregada: {
+    entreguesBase: 0.95,
+    lidasEntregues: 0.49,
+    respondidasLidas: 0.13,
+    agendadosRespondidas: 0.029 / (0.95 * 0.49 * 0.13),
+  },
+  gerada: {
+    entreguesBase: 0.95,
+    lidasEntregues: 0.60,
+    respondidasLidas: 0.28,
+    agendadosRespondidas: 0.36,
+  },
 };
 
 const CUSTOS = {
@@ -27,21 +35,25 @@ const CUSTOS = {
 };
 
 type AgendadosTipo = "utility" | "marketing";
+type TipoBase = "carregada" | "gerada";
 
 export function SimulacaoPriWhatsAppModal({ isOpen, onClose }: SimulacaoPriWhatsAppModalProps) {
   const [agendadosDesejados, setAgendadosDesejados] = useState<string>("");
   const [cadNaoRespondeu, setCadNaoRespondeu] = useState(true);
   const [cadAgendados, setCadAgendados] = useState(false);
   const [agendadosTipo, setAgendadosTipo] = useState<AgendadosTipo>("utility");
+  const [tipoBase, setTipoBase] = useState<TipoBase>("carregada");
 
   const calcs = useMemo(() => {
     const A = parseInt(agendadosDesejados) || 0;
     if (A <= 0) return null;
 
-    const base = A / TAXAS.agendadosBase;
-    const entregues = base * TAXAS.entreguesBase;
-    const lidas = entregues * TAXAS.lidasEntregues;
-    const respondidas = lidas * TAXAS.respondidasLidas;
+    const t = TAXAS[tipoBase];
+    const agendadosBase = t.entreguesBase * t.lidasEntregues * t.respondidasLidas * t.agendadosRespondidas;
+    const base = A / agendadosBase;
+    const entregues = base * t.entreguesBase;
+    const lidas = entregues * t.lidasEntregues;
+    const respondidas = lidas * t.respondidasLidas;
     const naoRespondidas = entregues - respondidas;
 
     const custoInicial = entregues * CUSTOS.marketing;
@@ -65,15 +77,17 @@ export function SimulacaoPriWhatsAppModal({ isOpen, onClose }: SimulacaoPriWhats
       volumeInicial: Math.round(entregues),
       volumeNaoResp: Math.round(naoRespondidas),
       custoAgendadosUnit,
+      taxas: t,
+      agendadosBase,
     };
-  }, [agendadosDesejados, cadNaoRespondeu, cadAgendados, agendadosTipo]);
+  }, [agendadosDesejados, cadNaoRespondeu, cadAgendados, agendadosTipo, tipoBase]);
 
   const funnelSteps = calcs ? [
     { label: "Base", value: calcs.base, icon: Users, pct: "100%" },
-    { label: "Entregues", value: calcs.entregues, icon: Send, pct: `${(TAXAS.entreguesBase * 100).toFixed(0)}%` },
-    { label: "Lidas", value: calcs.lidas, icon: MessageCircle, pct: `${(TAXAS.lidasEntregues * 100).toFixed(0)}%` },
-    { label: "Respondidas", value: calcs.respondidas, icon: MessageCircle, pct: `${(TAXAS.respondidasLidas * 100).toFixed(0)}%` },
-    { label: "Agendados", value: calcs.agendados, icon: Calendar, pct: `${(TAXAS.agendadosBase * 100).toFixed(1)}%` },
+    { label: "Entregues", value: calcs.entregues, icon: Send, pct: `${(calcs.taxas.entreguesBase * 100).toFixed(0)}%` },
+    { label: "Lidas", value: calcs.lidas, icon: MessageCircle, pct: `${(calcs.taxas.lidasEntregues * 100).toFixed(0)}%` },
+    { label: "Respondidas", value: calcs.respondidas, icon: MessageCircle, pct: `${(calcs.taxas.respondidasLidas * 100).toFixed(0)}%` },
+    { label: "Agendados", value: calcs.agendados, icon: Calendar, pct: `${(calcs.agendadosBase * 100).toFixed(1)}%` },
   ] : [];
 
   const formatUSD = (val: number) => `US$ ${val.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -91,20 +105,50 @@ export function SimulacaoPriWhatsAppModal({ isOpen, onClose }: SimulacaoPriWhats
         <div className="space-y-5">
           {/* Entrada */}
           <div className="space-y-4">
-            <div className="max-w-[260px] space-y-1.5">
-              <Label htmlFor="agendados" className="text-sm font-medium">
-                Leads agendados desejados
-              </Label>
-              <Input
-                id="agendados"
-                type="number"
-                min={0}
-                step={1}
-                placeholder="Ex: 100"
-                value={agendadosDesejados}
-                onChange={(e) => setAgendadosDesejados(e.target.value)}
-                className="h-9"
-              />
+            <div className="flex gap-4 flex-wrap">
+              <div className="space-y-1.5 min-w-[160px] flex-1">
+                <Label htmlFor="agendados" className="text-sm font-medium">
+                  Leads agendados desejados
+                </Label>
+                <Input
+                  id="agendados"
+                  type="number"
+                  min={0}
+                  step={1}
+                  placeholder="Ex: 100"
+                  value={agendadosDesejados}
+                  onChange={(e) => setAgendadosDesejados(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5 min-w-[180px] flex-1">
+                <div className="flex items-center gap-1">
+                  <Label className="text-sm font-medium">Tipo de base</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[300px] text-xs">
+                        <p className="font-semibold mb-1">Carregada</p>
+                        <p className="mb-2">Base carregada pela equipe de CRM.</p>
+                        <p className="font-semibold mb-1">Gerada</p>
+                        <p>Base gerada por campanhas sobre o evento integradas no Mobigestor. Possui taxas de conversão superiores.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Select value={tipoBase} onValueChange={(v) => setTipoBase(v as TipoBase)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="carregada" className="text-xs">Carregada (CRM)</SelectItem>
+                    <SelectItem value="gerada" className="text-xs">Gerada (Mobigestor)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
