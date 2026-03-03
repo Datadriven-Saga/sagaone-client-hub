@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useCompany } from "@/contexts/CompanyContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -29,22 +28,17 @@ const acaoLabels: Record<string, string> = {
 };
 
 export function QuarentenaLogs() {
-  const { activeCompany } = useCompany();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadLogs = useCallback(async () => {
     setLoading(true);
     try {
-      let query = supabase
+      const query = supabase
         .from("quarentena_logs")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(200);
-
-      if (activeCompany?.id) {
-        query = query.eq("empresa_id", activeCompany.id);
-      }
 
       const { data, error } = await query;
       if (error) throw error;
@@ -55,7 +49,7 @@ export function QuarentenaLogs() {
     } finally {
       setLoading(false);
     }
-  }, [activeCompany?.id]);
+  }, []);
 
   useEffect(() => {
     loadLogs();
