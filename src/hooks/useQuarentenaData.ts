@@ -79,16 +79,30 @@ export function useQuarentenaData() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const query = supabase
-        .from("contato_quarentena")
-        .select("*, empresas!contato_quarentena_empresa_id_fkey(nome_empresa)")
-        .order("ultimo_impacto_at", { ascending: false })
-        .limit(2000);
+      const batchSize = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      let hasMore = true;
 
-      const { data, error } = await query;
-      if (error) throw error;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("contato_quarentena")
+          .select("*, empresas!contato_quarentena_empresa_id_fkey(nome_empresa)")
+          .order("ultimo_impacto_at", { ascending: false })
+          .range(from, from + batchSize - 1);
 
-      const mapped = (data || []).map((d: any) => ({
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      const mapped = allData.map((d: any) => ({
         ...d,
         empresa_nome: d.empresas?.nome_empresa || null,
       }));
