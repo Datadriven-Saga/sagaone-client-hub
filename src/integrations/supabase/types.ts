@@ -4844,6 +4844,22 @@ export type Database = {
           status: string
         }[]
       }
+      get_quarentena_paginated: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_empresa_id?: string
+          p_limit?: number
+          p_lojas?: string[]
+          p_marcas?: string[]
+          p_offset?: number
+          p_search?: string
+          p_sort_column?: string
+          p_sort_direction?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
       get_user_accessible_clients: {
         Args: { user_id_param?: string }
         Returns: {
