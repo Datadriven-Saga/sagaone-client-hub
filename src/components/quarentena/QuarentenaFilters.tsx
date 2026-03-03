@@ -58,7 +58,7 @@ export function QuarentenaFilters({ filters, onFiltersChange, availableMarcas, a
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[200px] p-2" align="start">
-            <ScrollArea className="max-h-[300px]">
+            <ScrollArea className="h-[300px]">
               <div className="space-y-1">
                 {availableMarcas.map(m => (
                   <label key={m} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm">
@@ -79,7 +79,7 @@ export function QuarentenaFilters({ filters, onFiltersChange, availableMarcas, a
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[240px] p-2" align="start">
-            <ScrollArea className="max-h-[300px]">
+            <ScrollArea className="h-[300px]">
               <div className="space-y-1">
                 {availableLojas.map(l => (
                   <label key={l.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm">
