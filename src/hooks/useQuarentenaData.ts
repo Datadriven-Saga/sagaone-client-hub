@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { differenceInDays, addDays, isAfter, isBefore } from "date-fns";
@@ -62,7 +61,6 @@ export function getQuarentenaStatus(item: QuarentenaItem): StatusInfo {
 }
 
 export function useQuarentenaData() {
-  const { activeCompany } = useCompany();
   const { user } = useAuth();
   const [items, setItems] = useState<QuarentenaItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,7 +100,7 @@ export function useQuarentenaData() {
     } finally {
       setLoading(false);
     }
-  }, [activeCompany?.id]);
+  }, []);
 
   useEffect(() => {
     loadData();
