@@ -15,7 +15,8 @@ import {
   KeyRound,
   DollarSign,
   PhoneCall,
-  Flag
+  Flag,
+  ShieldBan
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
@@ -141,6 +142,12 @@ const Administracao = () => {
       description: "Controle centralizado de funcionalidades do sistema",
       icon: Flag,
       route: "/administracao/feature-flags"
+    },
+    {
+      title: "Quarentena",
+      description: "Visualizar e gerenciar contatos bloqueados por marca",
+      icon: ShieldBan,
+      route: "/administracao/quarentena"
     }
   ];
 
