@@ -594,12 +594,13 @@ export default function AdminAgentes() {
       );
     }
 
-    // Filtro por nome do agente (dropdown) - comparação exata case-insensitive
+    // Filtro por nome do agente (dropdown) - comparação normalizada case-insensitive
     if (nomeAgente && nomeAgente !== "all") {
+      const normalizeStr = (s: string) => s.toLowerCase().replace(/[\s-]+/g, " ").trim();
+      const nomeNorm = normalizeStr(nomeAgente);
       filtered = filtered.filter((a) => {
         const agenteNome = (a as any).agente || a.nome || "";
-        // Comparação case-insensitive
-        return agenteNome.toLowerCase() === nomeAgente.toLowerCase();
+        return normalizeStr(agenteNome) === nomeNorm;
       });
     }
 
