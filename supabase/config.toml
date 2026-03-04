@@ -109,3 +109,6 @@ verify_jwt = false
 
 [functions.process-import]
 verify_jwt = false
+
+[functions.create-lead-ligacao]
+verify_jwt = false
