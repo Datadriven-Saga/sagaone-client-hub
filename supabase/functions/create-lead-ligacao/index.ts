@@ -42,7 +42,7 @@ serve(async (req) => {
 
     // --- Parsear body ---
     const body = await req.json();
-    const { nome, telefone, origem, observacao, id_evento } = body;
+    const { nome, telefone, origem, observacao, id_evento, pri_telefone } = body;
 
     // Validações
     if (!nome || !nome.trim()) {
@@ -168,6 +168,7 @@ serve(async (req) => {
             empresa_id: novoContato.empresa_id,
             origem: novoContato.origem,
             id_evento,
+            pri_telefone: pri_telefone || null,
           }
         }
       });
@@ -186,6 +187,7 @@ serve(async (req) => {
         status: novoContato.status,
         empresa_id: novoContato.empresa_id,
         origem: novoContato.origem,
+        pri_telefone: pri_telefone || null,
         evento: prospeccao.titulo,
         created_at: novoContato.created_at,
       }),
