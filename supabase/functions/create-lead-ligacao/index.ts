@@ -117,7 +117,7 @@ serve(async (req) => {
         nome: nome.trim(),
         telefone: telefoneNormalizado,
         empresa_id,
-        origem: origem || 'Telefone',
+        origem: origem === 'Ligação' ? 'ligacao' : (origem || 'ligacao'),
         observacoes: observacao?.trim() || null,
         status: 'Novo',
       })
