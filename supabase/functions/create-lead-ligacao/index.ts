@@ -59,29 +59,29 @@ serve(async (req) => {
       );
     }
 
-    if (!id_evento) {
+    if (!id_evento || isNaN(Number(id_evento))) {
       return new Response(
-        JSON.stringify({ error: 'Campo "id_evento" é obrigatório (UUID da prospecção de ligação)' }),
+        JSON.stringify({ error: 'Campo "id_evento" é obrigatório e deve ser numérico (ex: 27)' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Buscar prospecção (evento de ligação) para obter empresa_id
-    const { data: prospeccao, error: prospError } = await supabaseClient
-      .from('prospeccoes')
-      .select('id, empresa_id, titulo')
-      .eq('id', id_evento)
+    // Buscar evento de ligação (eventos_pri_voz) pelo id_evento numérico
+    const { data: eventoPri, error: eventoError } = await supabaseClient
+      .from('eventos_pri_voz')
+      .select('id, id_evento, empresa_id, nome')
+      .eq('id_evento', Number(id_evento))
       .maybeSingle();
 
-    if (prospError || !prospeccao) {
-      console.error('❌ Evento de ligação não encontrado:', id_evento, prospError);
+    if (eventoError || !eventoPri) {
+      console.error('❌ Evento de ligação não encontrado:', id_evento, eventoError);
       return new Response(
         JSON.stringify({ error: 'Evento de ligação não encontrado para o id_evento informado' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const empresa_id = prospeccao.empresa_id;
+    const empresa_id = eventoPri.empresa_id;
     const telefoneNormalizado = telefone.replace(/\D/g, '');
 
     // Verificar duplicidade por telefone na mesma empresa
@@ -93,29 +93,18 @@ serve(async (req) => {
       .maybeSingle();
 
     if (existente) {
-      // Lead já existe — vincular ao evento se ainda não vinculado
-      const { error: vinculoError } = await supabaseClient
-        .from('eventos_prospeccao')
-        .insert({ contato_id: existente.id, prospeccao_id: id_evento })
-        .select()
-        .maybeSingle();
-
-      const jaVinculado = vinculoError?.code === '23505'; // unique violation
-
-      console.log(`⚠️ Lead duplicado: ${existente.nome} (lead_id: ${existente.lead_id}) — vínculo: ${jaVinculado ? 'já existia' : 'criado'}`);
+      console.log(`⚠️ Lead duplicado: ${existente.nome} (lead_id: ${existente.lead_id}) — evento_pri: ${eventoPri.id_evento}`);
 
       return new Response(
         JSON.stringify({
           success: true,
           duplicado: true,
-          vinculado: !jaVinculado,
           lead_id: existente.lead_id,
           contato_id: existente.id,
           nome: existente.nome,
           status: existente.status,
-          message: jaVinculado
-            ? 'Lead já existia e já estava vinculado ao evento'
-            : 'Lead já existia e foi vinculado ao evento de ligação',
+          id_evento: eventoPri.id_evento,
+          message: 'Lead já existia nesta empresa',
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -143,16 +132,7 @@ serve(async (req) => {
       );
     }
 
-    // Vincular ao evento de ligação
-    const { error: vinculoError } = await supabaseClient
-      .from('eventos_prospeccao')
-      .insert({ contato_id: novoContato.id, prospeccao_id: id_evento });
-
-    if (vinculoError) {
-      console.error('⚠️ Lead criado mas erro ao vincular ao evento:', vinculoError);
-    }
-
-    console.log(`✅ Lead criado via ligação: ${novoContato.nome} (lead_id: ${novoContato.lead_id}) → evento: ${prospeccao.titulo}`);
+    console.log(`✅ Lead criado via ligação: ${novoContato.nome} (lead_id: ${novoContato.lead_id}) → evento_pri: ${eventoPri.nome} (${eventoPri.id_evento})`);
 
     // Disparar gatilho
     try {
@@ -167,7 +147,7 @@ serve(async (req) => {
             status: novoContato.status,
             empresa_id: novoContato.empresa_id,
             origem: novoContato.origem,
-            id_evento,
+            id_evento: eventoPri.id_evento,
             pri_telefone: pri_telefone || null,
           }
         }
@@ -188,7 +168,8 @@ serve(async (req) => {
         empresa_id: novoContato.empresa_id,
         origem: novoContato.origem,
         pri_telefone: pri_telefone || null,
-        evento: prospeccao.titulo,
+        id_evento: eventoPri.id_evento,
+        evento: eventoPri.nome,
         created_at: novoContato.created_at,
       }),
       { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
