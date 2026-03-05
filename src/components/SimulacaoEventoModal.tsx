@@ -88,19 +88,25 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
   const [cotacaoLoading, setCotacaoLoading] = useState(false);
   const [cotacaoFonte, setCotacaoFonte] = useState<string | null>(null);
   const [cotacaoData, setCotacaoData] = useState<string | null>(null);
+  const [cotacaoErro, setCotacaoErro] = useState<string | null>(null);
 
   const fetchCotacao = async () => {
     setCotacaoLoading(true);
+    setCotacaoErro(null);
     try {
       const { data, error } = await supabase.functions.invoke("cotacao-dolar");
       if (error) throw error;
+      if (!data?.cotacao || typeof data.cotacao !== "number" || data.cotacao <= 0) {
+        throw new Error("Valor de cotação inválido retornado pela API");
+      }
       setCotacao(data.cotacao);
       setCotacaoFonte(data.fonte ?? null);
-      setCotacaoData(data.data_cotacao ?? null);
-    } catch {
-      setCotacao(5.75);
-      setCotacaoFonte("Fallback");
+      setCotacaoData(new Date().toLocaleString("pt-BR"));
+    } catch (err: any) {
+      setCotacao(null);
+      setCotacaoFonte(null);
       setCotacaoData(null);
+      setCotacaoErro(err?.message ?? "Erro ao buscar cotação do dólar");
     } finally {
       setCotacaoLoading(false);
     }
@@ -114,6 +120,7 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
       setCotacao(null);
       setCotacaoFonte(null);
       setCotacaoData(null);
+      setCotacaoErro(null);
     }
   }, [isOpen]);
 
@@ -167,7 +174,7 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
   }, [baseLigacao]);
 
   const custoTotalUSD = canal === "whatsapp" ? (waCalcs?.custoTotal ?? 0) : (ligCalcs?.custoTotal ?? 0);
-  const custoTotalBRL = custoTotalUSD * (cotacao ?? 5.75);
+  const custoTotalBRL = cotacao !== null ? custoTotalUSD * cotacao : null;
 
   const formatUSD = (v: number) =>
     `US$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -452,8 +459,12 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
                         <td className="py-2 px-3 text-xs text-right font-semibold text-muted-foreground">
                           {cotacaoLoading ? (
                             <Loader2 className="h-3 w-3 animate-spin inline" />
-                          ) : (
+                          ) : cotacaoErro ? (
+                            <span className="text-destructive text-[10px]">Erro na cotação</span>
+                          ) : custoTotalBRL !== null ? (
                             formatBRL(custoTotalBRL)
+                          ) : (
+                            "—"
                           )}
                         </td>
                       </tr>
@@ -461,10 +472,17 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
                   </table>
                 </div>
 
+                {/* Erro de cotação */}
+                {cotacaoErro && !cotacaoLoading && (
+                  <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-[11px] text-destructive">
+                    ⚠️ {cotacaoErro}. Os valores em BRL não serão exibidos. Clique em "Atualizar" para tentar novamente.
+                  </div>
+                )}
+
                 {/* Cotação footnote */}
                 <div className="flex items-center justify-between mt-2">
                   <p className="text-[10px] text-muted-foreground">
-                    Cotação utilizada: US$ 1.00 = {cotacaoLoading ? "..." : formatBRL(cotacao ?? 5.75)}
+                    Cotação utilizada: US$ 1.00 = {cotacaoLoading ? "..." : cotacao !== null ? formatBRL(cotacao) : "—"}
                   </p>
                   <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={fetchCotacao} disabled={cotacaoLoading}>
                     <RefreshCw className={`h-3 w-3 mr-1 ${cotacaoLoading ? "animate-spin" : ""}`} />
@@ -474,7 +492,7 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
                 {/* Debug API */}
                 <div className="mt-1 px-1">
                   <p className="text-[9px] text-muted-foreground/60 font-mono">
-                    Debug API: 1 USD = R$ {cotacaoLoading ? "..." : (cotacao?.toFixed(4) ?? "—")} | Fonte: {cotacaoFonte ?? "—"} | Data: {cotacaoData ? new Date(cotacaoData).toLocaleString("pt-BR") : "—"}
+                    Debug API: 1 USD = R$ {cotacaoLoading ? "..." : (cotacao?.toFixed(4) ?? "—")} | Fonte: {cotacaoFonte ?? "—"} | Atualizado em: {cotacaoData ?? "—"}
                   </p>
                 </div>
               </div>

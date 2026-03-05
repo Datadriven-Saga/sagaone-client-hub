@@ -15,42 +15,44 @@ serve(async (req) => {
     let dataCotacao: string | null = null;
     let fonte = "Fallback";
 
-    // Primary: Frankfurter API (latest real-time rate)
+    // Primary: AwesomeAPI (updates every 30s, best for Brazilian market)
     try {
-      const response = await fetch("https://api.frankfurter.app/latest?from=USD&to=BRL", {
-        signal: AbortSignal.timeout(5000),
-      });
+      const cacheBuster = Date.now();
+      const response = await fetch(
+        `https://economia.awesomeapi.com.br/json/last/USD-BRL?t=${cacheBuster}`,
+        { signal: AbortSignal.timeout(5000) }
+      );
 
       if (response.ok) {
         const data = await response.json();
-        if (data?.rates?.BRL) {
-          cotacao = data.rates.BRL;
-          dataCotacao = data.date + "T" + new Date().toISOString().split("T")[1];
-          fonte = "Frankfurter";
+        const usdBrl = data?.USDBRL;
+        if (usdBrl?.bid) {
+          cotacao = parseFloat(usdBrl.bid);
+          dataCotacao = usdBrl.create_date || new Date().toISOString();
+          fonte = "AwesomeAPI";
         }
       }
     } catch (e) {
-      console.warn("Frankfurter API failed, trying fallback:", e.message);
+      console.warn("AwesomeAPI failed, trying fallback:", e.message);
     }
 
-    // Fallback 1: AwesomeAPI
+    // Fallback: Frankfurter API
     if (!cotacao) {
       try {
-        const response = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL", {
+        const response = await fetch("https://api.frankfurter.app/latest?from=USD&to=BRL", {
           signal: AbortSignal.timeout(5000),
         });
 
         if (response.ok) {
           const data = await response.json();
-          const usdBrl = data?.USDBRL;
-          if (usdBrl?.bid) {
-            cotacao = parseFloat(usdBrl.bid);
-            dataCotacao = usdBrl.create_date;
-            fonte = "AwesomeAPI";
+          if (data?.rates?.BRL) {
+            cotacao = data.rates.BRL;
+            dataCotacao = new Date().toISOString();
+            fonte = "Frankfurter";
           }
         }
       } catch (e) {
-        console.warn("AwesomeAPI also failed:", e.message);
+        console.warn("Frankfurter API also failed:", e.message);
       }
     }
 
