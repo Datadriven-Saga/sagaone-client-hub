@@ -69,8 +69,15 @@ const AppRoutes = () => {
       <Route path="/prospeccao/vendas" element={<ProtectedRoute><Prospeccao defaultTab="vendas" /></ProtectedRoute>} />
       <Route path="/prospeccao/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
       <Route path="/prospeccao/eventos/:eventoId/base" element={<ProtectedRoute><EventoBase /></ProtectedRoute>} />
-      <Route path="/prospeccao/performance" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
       <Route path="/resultados" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
+      <Route path="/resultados/whatsapp" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
+      <Route path="/resultados/ligacao" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
+      <Route path="/resultados/ranking" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
+      <Route path="/resultados/produtos" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
+      <Route path="/resultados/desempenho" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
+      <Route path="/resultados/individual" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
+      <Route path="/resultados/premiacoes" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
+      <Route path="/resultados/relatorios" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
       <Route path="/relatorios" element={<AdminProtectedRoute><Relatorios /></AdminProtectedRoute>} />
       <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
       <Route path="/treinamentos/simulacoes" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
