@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ResponsiveTable, ColumnDef } from "@/components/ui/responsive-table";
 import { DateRangePicker } from "@/components/DateRangePicker";
+import { ClientesSkeleton } from "@/components/ClientesSkeleton";
 import { Users, Phone, Mail, UserCheck, CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback, memo } from "react";
 import { DateRange } from "react-day-picker";
 import { useClientesData } from "@/hooks/useClientesData";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -64,7 +65,6 @@ const Clientes = () => {
     const searchDigits = searchTerm.replace(/\D/g, '');
     
     return clientesList.filter(cliente => {
-      // Filtro de busca (nome, telefone, email) - mais robusto
       let matchSearch = true;
       if (searchTerm !== "") {
         const nameMatch = cliente.name?.toLowerCase().includes(searchLower);
@@ -73,18 +73,12 @@ const Clientes = () => {
         matchSearch = nameMatch || phoneMatch || emailMatch;
       }
 
-      // Filtro de tipo de documento (CPF/CNPJ) - ignorar se não houver dados
       let matchTipo = true;
       if (tipoCliente !== "todos") {
         const docDigits = cliente.document?.replace(/\D/g, '') || '';
-        if (tipoCliente === "cpf") {
-          matchTipo = docDigits.length === 11;
-        } else if (tipoCliente === "cnpj") {
-          matchTipo = docDigits.length === 14;
-        }
+        matchTipo = tipoCliente === "cpf" ? docDigits.length === 11 : docDigits.length === 14;
       }
 
-      // Filtro de sexo - ignorar "Não informado" se filtro específico
       let matchSexo = true;
       if (sexoFiltro !== "todos") {
         const genderLower = cliente.gender?.toLowerCase() || '';
@@ -92,7 +86,6 @@ const Clientes = () => {
           (sexoFiltro === "outro" && !["masculino", "feminino", "não informado"].includes(genderLower));
       }
 
-      // Filtro de período (data de cadastro)
       let matchDate = true;
       if (dateRange?.from && cliente.createdAt) {
         const clienteDate = new Date(cliente.createdAt);
@@ -122,7 +115,7 @@ const Clientes = () => {
     return clientesFiltrados.slice(startIndex, startIndex + itemsPerPage);
   }, [clientesFiltrados, currentPage, itemsPerPage]);
 
-  const kpis = [
+  const kpis = useMemo(() => [
     { title: "Clientes", value: loading ? "..." : kpisData.total.toLocaleString('pt-BR'), icon: Users },
     { 
       title: "Com Telefone", 
@@ -142,7 +135,7 @@ const Clientes = () => {
       subtitle: kpisData.total > 0 ? `${((kpisData.realizaramCompra / kpisData.total) * 100).toFixed(0)}%` : "0%", 
       icon: UserCheck 
     }
-  ];
+  ], [loading, kpisData]);
 
   const handleClientRowClick = (client: any) => {
     setSelectedClient(client);
@@ -153,7 +146,13 @@ const Clientes = () => {
     setSelectedClient(null);
     setIsNewClientDialogOpen(true);
   };
-
+  if (loading && clientesList.length === 0) {
+    return (
+      <DashboardLayout title="Carteira de Clientes">
+        <ClientesSkeleton />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Carteira de Clientes">
@@ -322,11 +321,7 @@ const Clientes = () => {
             </div>
           </div>
 
-          {loading ? (
-            <div className="text-center py-8">
-              <p>Carregando clientes...</p>
-            </div>
-          ) : clientesFiltrados.length === 0 ? (
+          {clientesFiltrados.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="mx-auto mb-2" size={32} />
               <p>
