@@ -86,6 +86,8 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
   // Cotação
   const [cotacao, setCotacao] = useState<number | null>(null);
   const [cotacaoLoading, setCotacaoLoading] = useState(false);
+  const [cotacaoFonte, setCotacaoFonte] = useState<string | null>(null);
+  const [cotacaoData, setCotacaoData] = useState<string | null>(null);
 
   const fetchCotacao = async () => {
     setCotacaoLoading(true);
@@ -93,16 +95,26 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
       const { data, error } = await supabase.functions.invoke("cotacao-dolar");
       if (error) throw error;
       setCotacao(data.cotacao);
+      setCotacaoFonte(data.fonte ?? null);
+      setCotacaoData(data.data_cotacao ?? null);
     } catch {
-      // fallback
       setCotacao(5.75);
+      setCotacaoFonte("Fallback");
+      setCotacaoData(null);
     } finally {
       setCotacaoLoading(false);
     }
   };
 
+  // Fetch every time modal opens
   useEffect(() => {
-    if (isOpen && cotacao === null) fetchCotacao();
+    if (isOpen) {
+      fetchCotacao();
+    } else {
+      setCotacao(null);
+      setCotacaoFonte(null);
+      setCotacaoData(null);
+    }
   }, [isOpen]);
 
   // ── WhatsApp calcs ──
@@ -458,6 +470,12 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
                     <RefreshCw className={`h-3 w-3 mr-1 ${cotacaoLoading ? "animate-spin" : ""}`} />
                     Atualizar
                   </Button>
+                </div>
+                {/* Debug API */}
+                <div className="mt-1 px-1">
+                  <p className="text-[9px] text-muted-foreground/60 font-mono">
+                    Debug API: 1 USD = R$ {cotacaoLoading ? "..." : (cotacao?.toFixed(4) ?? "—")} | Fonte: {cotacaoFonte ?? "—"} | Data: {cotacaoData ? new Date(cotacaoData).toLocaleString("pt-BR") : "—"}
+                  </p>
                 </div>
               </div>
             </>
