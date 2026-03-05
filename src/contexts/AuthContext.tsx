@@ -9,6 +9,7 @@ const SESSION_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours max session
 const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour of inactivity
 const SESSION_START_KEY = 'session_start_time';
 const LAST_ACTIVITY_KEY = 'last_activity_time';
+const AUTH_REDIRECT_KEY = 'auth_redirect_path';
 const ALLOWED_DOMAIN = '@gruposaga.com.br';
 
 interface AuthContextType {
@@ -241,6 +242,18 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           // Defer domain validation to avoid deadlock
           setTimeout(() => {
             validateAndSetUser(session);
+            // After SSO callback, check for deep link redirect
+            if (event === 'SIGNED_IN') {
+              const savedPath = localStorage.getItem(AUTH_REDIRECT_KEY);
+              if (savedPath && savedPath !== '/' && savedPath !== '/login') {
+                localStorage.removeItem(AUTH_REDIRECT_KEY);
+                // Sanitize: remove any trailing /# artifacts
+                const cleanPath = savedPath.replace(/\/#$/, '').replace(/#+$/, '');
+                if (cleanPath && cleanPath !== '/') {
+                  navigate(cleanPath, { replace: true });
+                }
+              }
+            }
           }, 0);
         } else {
           setSession(session);
