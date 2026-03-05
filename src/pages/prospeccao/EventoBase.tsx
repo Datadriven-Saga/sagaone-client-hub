@@ -22,7 +22,7 @@ import { useUserAccessType } from '@/hooks/useUserAccessType';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DispararProgressModal from '@/components/DispararProgressModal';
-import DispararCustoModal from '@/components/DispararCustoModal';
+import { SimulacaoEventoModal } from '@/components/SimulacaoEventoModal';
 import { EventoBaseSkeleton } from '@/components/EventoBaseSkeleton';
 
 interface ContatoEvento {
@@ -2256,14 +2256,14 @@ export default function EventoBase() {
         onRetry={handleRetryJob}
       />
 
-      {/* Modal de Custo do Disparo */}
-      <DispararCustoModal
+      {/* Modal de Simulação/Custo do Disparo */}
+      <SimulacaoEventoModal
         isOpen={custoModal.isOpen}
         onClose={() => setCustoModal({ isOpen: false })}
+        mode="disparo"
         onConfirm={executarDisparoConfirmado}
-        prospeccaoId={prospeccao?.id || ''}
         eventoNome={prospeccao?.titulo || 'Evento'}
-        canal={prospeccao?.canal || ''}
+        canalEvento={prospeccao?.canal || ''}
         totalContatos={custoModal.quantidade || (isIALigacaoLocal && metricasLigacao ? metricasLigacao.pendentes : metricas.pendentes)}
       />
     </DashboardLayout>
