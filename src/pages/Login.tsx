@@ -13,15 +13,20 @@ const USE_SSO_LOGIN = true;
 const Login = () => {
   const [loading, setLoading] = useState(false);
 
-  const REDIRECT_KEY = 'auth_redirect_to';
+  const REDIRECT_KEY = 'auth_redirect_path';
   const { signInWithAzure, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
-      const redirectTo = sessionStorage.getItem(REDIRECT_KEY);
-      sessionStorage.removeItem(REDIRECT_KEY);
-      navigate(redirectTo && redirectTo !== '/login' ? redirectTo : "/", { replace: true });
+      const savedPath = localStorage.getItem(REDIRECT_KEY);
+      if (savedPath && savedPath !== '/' && savedPath !== '/login') {
+        localStorage.removeItem(REDIRECT_KEY);
+        navigate(savedPath, { replace: true });
+      } else {
+        localStorage.removeItem(REDIRECT_KEY);
+        navigate("/", { replace: true });
+      }
     }
   }, [user, navigate]);
 
