@@ -1,6 +1,8 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { ReactNode } from "react";
+
+const REDIRECT_KEY = 'auth_redirect_to';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -8,6 +10,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -21,6 +24,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!user) {
+    const intendedPath = location.pathname + location.search + location.hash;
+    if (intendedPath && intendedPath !== '/login') {
+      sessionStorage.setItem(REDIRECT_KEY, intendedPath);
+    }
     return <Navigate to="/login" replace />;
   }
 

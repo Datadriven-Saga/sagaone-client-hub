@@ -1,7 +1,9 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { ReactNode } from "react";
+
+const REDIRECT_KEY = 'auth_redirect_to';
 
 interface AdminProtectedRouteProps {
   children: ReactNode;
@@ -10,6 +12,7 @@ interface AdminProtectedRouteProps {
 export function AdminProtectedRoute({ children }: AdminProtectedRouteProps) {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: accessLoading } = useUserAccessType();
+  const location = useLocation();
 
   const loading = authLoading || accessLoading;
 
@@ -25,6 +28,10 @@ export function AdminProtectedRoute({ children }: AdminProtectedRouteProps) {
   }
 
   if (!user) {
+    const intendedPath = location.pathname + location.search + location.hash;
+    if (intendedPath && intendedPath !== '/login') {
+      sessionStorage.setItem(REDIRECT_KEY, intendedPath);
+    }
     return <Navigate to="/login" replace />;
   }
 
