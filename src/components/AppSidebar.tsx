@@ -19,7 +19,14 @@ import {
   ShoppingCart,
   LayoutDashboard,
   GraduationCap,
-  History
+  History,
+  Phone,
+  MessageSquare,
+  Medal,
+  Package,
+  User,
+  Trophy,
+  TrendingUp
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -48,7 +55,18 @@ const prospeccaoSubItems = [
   { title: "Recepção", url: "/prospeccao/recepcao", icon: UserCheck },
   { title: "Vendas", url: "/prospeccao/vendas", icon: ShoppingCart },
   { title: "Templates", url: "/prospeccao/templates", icon: MessageSquareText },
-  { title: "Performance", url: "/prospeccao/performance", icon: BarChart3 },
+];
+
+const performanceSubItems = [
+  { title: "Resumo", url: "/resultados", icon: LayoutDashboard, exact: true },
+  { title: "WhatsApp", url: "/resultados/whatsapp", icon: MessageSquare },
+  { title: "Ligação", url: "/resultados/ligacao", icon: Phone },
+  { title: "Ranking", url: "/resultados/ranking", icon: Medal },
+  { title: "Produtos", url: "/resultados/produtos", icon: Package },
+  { title: "Desempenho", url: "/resultados/desempenho", icon: BarChart3 },
+  { title: "Individual", url: "/resultados/individual", icon: User },
+  { title: "Premiações", url: "/resultados/premiacoes", icon: Trophy },
+  { title: "Relatórios", url: "/resultados/relatorios", icon: FileText },
 ];
 
 const treinamentosSubItems = [
@@ -89,6 +107,7 @@ export function AppSidebar() {
   
   // Submenus recolhidos por padrão, abrem apenas se a rota atual está dentro
   const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(currentPath.startsWith('/prospeccao'));
+  const [isPerformanceOpen, setIsPerformanceOpen] = useState(currentPath.startsWith('/resultados'));
   const [isTreinamentosOpen, setIsTreinamentosOpen] = useState(currentPath.startsWith('/treinamentos'));
   const [isAgentesIAOpen, setIsAgentesIAOpen] = useState(currentPath.startsWith('/agentes-ia'));
 
@@ -111,6 +130,60 @@ export function AppSidebar() {
 
   // Use treinamentos items directly (no admin filtering needed now)
   const filteredTreinamentosItems = treinamentosSubItems;
+
+  const renderCollapsibleMenu = (
+    label: string,
+    icon: React.ElementType,
+    isOpen: boolean,
+    setIsOpen: (v: boolean) => void,
+    subItems: Array<{ title: string; url: string; icon: React.ElementType; exact?: boolean }>,
+    pathPrefix: string
+  ) => {
+    const Icon = icon;
+    return (
+      <SidebarMenuItem>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+          <CollapsibleTrigger asChild>
+            <SidebarMenuButton
+              className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between hover:scale-105 hover:opacity-80 text-sidebar-foreground"
+            >
+              <div className="flex items-center gap-3">
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                {!isCollapsed && <span className="font-medium">{label}</span>}
+              </div>
+              {!isCollapsed && (
+                isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
+              )}
+            </SidebarMenuButton>
+          </CollapsibleTrigger>
+          {!isCollapsed && (
+            <CollapsibleContent className="pl-4 mt-1 space-y-1">
+              {subItems.map((subItem) => (
+                <SidebarMenuButton key={subItem.title} asChild>
+                  <NavLink 
+                    to={subItem.url}
+                    end={subItem.exact}
+                    onClick={closeMobileSidebar}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
+                      (subItem.exact && currentPath === subItem.url) || 
+                      (!subItem.exact && currentPath.startsWith(subItem.url) && currentPath !== pathPrefix)
+                        ? "font-bold border-b-2 border-primary"
+                        : (subItem.exact && currentPath === subItem.url) 
+                          ? "font-bold border-b-2 border-primary" 
+                          : "hover:scale-105 hover:opacity-80"
+                    }`}
+                  >
+                    <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                    <span>{subItem.title}</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              ))}
+            </CollapsibleContent>
+          )}
+        </Collapsible>
+      </SidebarMenuItem>
+    );
+  };
 
   return (
     <Sidebar
@@ -167,127 +240,16 @@ export function AppSidebar() {
               ))}
 
               {/* Prospecção com submenu */}
-              <SidebarMenuItem>
-                <Collapsible open={isProspeccaoOpen} onOpenChange={setIsProspeccaoOpen}>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between hover:scale-105 hover:opacity-80 text-sidebar-foreground"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Target className="h-5 w-5 flex-shrink-0" />
-                        {!isCollapsed && <span className="font-medium">Prospecção</span>}
-                      </div>
-                      {!isCollapsed && (
-                        isProspeccaoOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
-                      )}
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  {!isCollapsed && (
-                    <CollapsibleContent className="pl-4 mt-1 space-y-1">
-                      {prospeccaoSubItems.map((subItem) => (
-                        <SidebarMenuButton key={subItem.title} asChild>
-                          <NavLink 
-                            to={subItem.url}
-                            onClick={closeMobileSidebar}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
-                              currentPath.startsWith(subItem.url)
-                                ? "font-bold border-b-2 border-primary"
-                                : "hover:scale-105 hover:opacity-80"
-                            }`}
-                          >
-                            <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                            <span>{subItem.title}</span>
-                          </NavLink>
-                        </SidebarMenuButton>
-                      ))}
-                    </CollapsibleContent>
-                  )}
-                </Collapsible>
-              </SidebarMenuItem>
+              {renderCollapsibleMenu("Prospecção", Target, isProspeccaoOpen, setIsProspeccaoOpen, prospeccaoSubItems, '/prospeccao')}
+
+              {/* Performance com submenu - novo menu de nível 1 */}
+              {renderCollapsibleMenu("Performance", TrendingUp, isPerformanceOpen, setIsPerformanceOpen, performanceSubItems, '/resultados')}
 
               {/* Treinamentos com submenu */}
-              <SidebarMenuItem>
-                <Collapsible open={isTreinamentosOpen} onOpenChange={setIsTreinamentosOpen}>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between hover:scale-105 hover:opacity-80 text-sidebar-foreground"
-                    >
-                      <div className="flex items-center gap-3">
-                        <BookOpen className="h-5 w-5 flex-shrink-0" />
-                        {!isCollapsed && <span className="font-medium">Treinamentos</span>}
-                      </div>
-                      {!isCollapsed && (
-                        isTreinamentosOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
-                      )}
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  {!isCollapsed && (
-                    <CollapsibleContent className="pl-4 mt-1 space-y-1">
-                      {filteredTreinamentosItems.map((subItem) => (
-                        <SidebarMenuButton key={subItem.title} asChild>
-                          <NavLink 
-                            to={subItem.url}
-                            end={subItem.exact}
-                            onClick={closeMobileSidebar}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
-                              (subItem.exact && currentPath === subItem.url) || 
-                              (!subItem.exact && currentPath.startsWith(subItem.url) && currentPath !== '/treinamentos')
-                                ? "font-bold border-b-2 border-primary"
-                                : "hover:scale-105 hover:opacity-80"
-                            }`}
-                          >
-                            <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                            <span>{subItem.title}</span>
-                          </NavLink>
-                        </SidebarMenuButton>
-                      ))}
-                    </CollapsibleContent>
-                  )}
-                </Collapsible>
-              </SidebarMenuItem>
+              {renderCollapsibleMenu("Treinamentos", BookOpen, isTreinamentosOpen, setIsTreinamentosOpen, filteredTreinamentosItems, '/treinamentos')}
 
               {/* Agentes de IA com submenu - apenas para TI e Admin */}
-              {isAdminOrTI && (
-                <SidebarMenuItem>
-                  <Collapsible open={isAgentesIAOpen} onOpenChange={setIsAgentesIAOpen}>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between hover:scale-105 hover:opacity-80 text-sidebar-foreground"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Bot className="h-5 w-5 flex-shrink-0" />
-                          {!isCollapsed && <span className="font-medium">Agentes de IA</span>}
-                        </div>
-                        {!isCollapsed && (
-                          isAgentesIAOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
-                        )}
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    {!isCollapsed && (
-                      <CollapsibleContent className="pl-4 mt-1 space-y-1">
-                        {agentesIASubItems.map((subItem) => (
-                          <SidebarMenuButton key={subItem.title} asChild>
-                            <NavLink 
-                              to={subItem.url}
-                              end={subItem.url === '/agentes-ia'}
-                              onClick={closeMobileSidebar}
-                              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
-                                (subItem.url === '/agentes-ia' && currentPath === '/agentes-ia') ||
-                                (subItem.url !== '/agentes-ia' && currentPath.startsWith(subItem.url))
-                                  ? "font-bold border-b-2 border-primary"
-                                  : "hover:scale-105 hover:opacity-80"
-                              }`}
-                            >
-                              <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                              <span>{subItem.title}</span>
-                            </NavLink>
-                          </SidebarMenuButton>
-                        ))}
-                      </CollapsibleContent>
-                    )}
-                  </Collapsible>
-                </SidebarMenuItem>
-              )}
+              {isAdminOrTI && renderCollapsibleMenu("Agentes de IA", Bot, isAgentesIAOpen, setIsAgentesIAOpen, agentesIASubItems, '/agentes-ia')}
 
               {/* Items apenas para Admin */}
               {isAdmin && afterProspeccaoItemsAdmin.map((item) => (
