@@ -492,7 +492,7 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
                 {/* Debug API */}
                 <div className="mt-1 px-1">
                   <p className="text-[9px] text-muted-foreground/60 font-mono">
-                    Debug API: 1 USD = R$ {cotacaoLoading ? "..." : (cotacao?.toFixed(4) ?? "—")} | Fonte: {cotacaoFonte ?? "—"} | Atualizado em: {cotacaoData ?? "—"}
+                    1 USD = R$ {cotacaoLoading ? "..." : (cotacao?.toFixed(4) ?? "—")} | Fonte: {cotacaoFonte ?? "—"} | {cotacaoData ?? "—"}
                   </p>
                 </div>
               </div>
