@@ -43,7 +43,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMetricasLigacao, MetricasLigacaoExternas } from "@/hooks/useMetricasLigacao";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { SimulacaoPriWhatsAppModal } from "@/components/SimulacaoPriWhatsAppModal";
+import { SimulacaoEventoModal } from "@/components/SimulacaoEventoModal";
 import { Bot } from "lucide-react";
 
 interface ClienteData {
@@ -1778,10 +1778,10 @@ showAllEvents: true
                               onClick={() => setIsSimulacaoPriOpen(true)}
                             >
                               <Bot className="h-4 w-4 mr-1" />
-                              <span className="hidden sm:inline">Simular evento whatsapp</span>
+                              <span className="hidden sm:inline">Simulação de Evento</span>
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Simular evento whatsapp</TooltipContent>
+                          <TooltipContent>Simulação de Evento</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                       {canCreateEventos && (
@@ -2718,8 +2718,8 @@ showAllEvents: true
         totalContatos={custoModal.totalContatos}
       />
 
-      {/* Modal de Simulação PRI WhatsApp */}
-      <SimulacaoPriWhatsAppModal
+      {/* Modal de Simulação de Evento */}
+      <SimulacaoEventoModal
         isOpen={isSimulacaoPriOpen}
         onClose={() => setIsSimulacaoPriOpen(false)}
       />
