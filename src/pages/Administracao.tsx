@@ -18,7 +18,7 @@ import {
   Flag,
   ShieldBan
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { useMfaMaster } from "@/hooks/useMfaMaster";
@@ -27,7 +27,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 const Administracao = () => {
   const navigate = useNavigate();
   const { isAdmin, loading } = useAdminCheck();
-  const { isGerente, loading: accessLoading } = useUserAccessType();
+  const { isGerente, isCRM, loading: accessLoading } = useUserAccessType();
   const { isMaster } = useMfaMaster();
 
   const isFullLoading = loading || accessLoading;
@@ -46,7 +46,13 @@ const Administracao = () => {
     );
   }
 
-  // Allow access for admins AND managers (Gerente de Leads / Gerente de Loja)
+  // CRM users: redirect straight to Quarentena
+  const isCRMOnly = isCRM && !isAdmin && !isGerente;
+  if (isCRMOnly) {
+    return <Navigate to="/administracao/quarentena" replace />;
+  }
+
+  // Allow access for admins AND managers
   const hasAccess = isAdmin || isGerente;
 
   // Block access for users without permission

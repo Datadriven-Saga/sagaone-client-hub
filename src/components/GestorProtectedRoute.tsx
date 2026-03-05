@@ -10,12 +10,12 @@ interface GestorProtectedRouteProps {
 }
 
 /**
- * Protected route for the Acessos page.
- * Allows: Administrador, Gerente de Leads, Gerente de Loja, CRM
+ * Protected route for the Administração section.
+ * Allows: Administrador, TI, Master, Gerente de Leads, Gerente de Loja, CRM
  */
 export function GestorProtectedRoute({ children }: GestorProtectedRouteProps) {
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, isGerente, loading: accessLoading } = useUserAccessType();
+  const { isAdmin, isGerente, isCRM, loading: accessLoading } = useUserAccessType();
   const location = useLocation();
 
   const loading = authLoading || accessLoading;
@@ -40,7 +40,7 @@ export function GestorProtectedRoute({ children }: GestorProtectedRouteProps) {
   }
 
   // Admin, Gerente de Leads/Loja, or CRM can access
-  if (!isAdmin && !isGerente) {
+  if (!isAdmin && !isGerente && !isCRM) {
     return <Navigate to="/" replace />;
   }
 

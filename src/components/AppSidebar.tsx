@@ -7,7 +7,7 @@ import {
   BookOpen, 
   Settings, 
   Shield,
-  ShieldBan,
+  
   Bot,
   ChevronDown,
   ChevronRight,
@@ -114,18 +114,12 @@ export function AppSidebar() {
   // Check if user has admin access to show admin panel
   const hasAdminAccess = isAdminOrTI || isGerente || isDiretor;
 
-  // Gestores e admins podem ver o item Administração
-  const canSeeAdministracao = isAdmin || isGerente;
-  
-  // CRM users get a direct Quarentena link (they can't access Administração)
-  const crmOnlyItems = (isCRM && !isAdmin) ? [
-    { title: "Quarentena", url: "/administracao/quarentena", icon: ShieldBan },
-  ] : [];
+  // Gestores, admins e CRM podem ver o item Administração
+  const canSeeAdministracao = isAdmin || isGerente || isCRM;
   
   const bottomMenuItems = [
     ...bottomMenuItemsPublic,
     ...(canSeeAdministracao ? bottomMenuItemsAdmin : []),
-    ...crmOnlyItems,
   ];
 
   // Use treinamentos items directly (no admin filtering needed now)
