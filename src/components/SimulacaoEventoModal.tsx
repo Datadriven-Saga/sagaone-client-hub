@@ -81,6 +81,8 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
   const [agendadosTipo, setAgendadosTipo] = useState<AgendadosTipo>("utility");
   const [tipoBase, setTipoBase] = useState<TipoBase>("carregada");
 
+  // Ligação state
+  const [baseLigacao, setBaseLigacao] = useState("");
   // Cotação
   const [cotacao, setCotacao] = useState<number | null>(null);
   const [cotacaoLoading, setCotacaoLoading] = useState(false);
@@ -142,16 +144,17 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
 
   // ── Ligação calcs ──
   const ligCalcs = useMemo(() => {
-    const total = LIGACAO.base;
+    const total = parseInt(baseLigacao) || 0;
+    if (total <= 0) return null;
     const atendidas = Math.round(total * LIGACAO.taxaAtendimento);
     const naoAtendidas = total - atendidas;
     const custoNaoAtendidas = naoAtendidas * LIGACAO.custoNaoAtendida;
     const custoAtendidas = atendidas * (LIGACAO.custoFixoAtendida + LIGACAO.custoPorMinuto * LIGACAO.minutosSimulacao);
     const custoTotal = custoNaoAtendidas + custoAtendidas;
     return { total, atendidas, naoAtendidas, custoNaoAtendidas, custoAtendidas, custoTotal };
-  }, []);
+  }, [baseLigacao]);
 
-  const custoTotalUSD = canal === "whatsapp" ? (waCalcs?.custoTotal ?? 0) : ligCalcs.custoTotal;
+  const custoTotalUSD = canal === "whatsapp" ? (waCalcs?.custoTotal ?? 0) : (ligCalcs?.custoTotal ?? 0);
   const custoTotalBRL = custoTotalUSD * (cotacao ?? 5.75);
 
   const formatUSD = (v: number) =>
@@ -159,7 +162,7 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
   const formatBRL = (v: number) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 });
 
-  const showResults = canal === "ligacao" || (canal === "whatsapp" && waCalcs);
+  const showResults = (canal === "whatsapp" && waCalcs) || (canal === "ligacao" && ligCalcs);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -281,12 +284,27 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
             </div>
           )}
 
-          {/* ─── Ligação info ─── */}
+          {/* ─── Ligação input ─── */}
           {canal === "ligacao" && (
-            <div className="bg-muted/50 rounded-xl p-4">
-              <p className="text-xs text-muted-foreground">
-                Simulação baseada em <span className="font-semibold text-foreground">{LIGACAO.base.toLocaleString("pt-BR")}</span> pessoas, com taxa de atendimento de <span className="font-semibold text-foreground">{(LIGACAO.taxaAtendimento * 100).toFixed(0)}%</span> e duração média de <span className="font-semibold text-foreground">{LIGACAO.minutosSimulacao} min</span> por chamada atendida.
-              </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="baseLigacao" className="text-sm font-medium">
+                Total da base (pessoas)
+              </Label>
+              <Input
+                id="baseLigacao"
+                type="number"
+                min={0}
+                step={1}
+                placeholder="Ex: 1000"
+                value={baseLigacao}
+                onChange={(e) => setBaseLigacao(e.target.value)}
+                className="h-9"
+              />
+              {ligCalcs && (
+                <p className="text-[11px] text-muted-foreground">
+                  Taxa de atendimento: <span className="font-semibold text-foreground">{(LIGACAO.taxaAtendimento * 100).toFixed(0)}%</span> · Duração simulada: <span className="font-semibold text-foreground">{LIGACAO.minutosSimulacao} min</span>
+                </p>
+              )}
             </div>
           )}
 
@@ -317,17 +335,18 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
                 </div>
               )}
 
-              {canal === "ligacao" && (
+              {canal === "ligacao" && ligCalcs && (
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { label: "Total", value: ligCalcs.total, icon: Users },
-                    { label: "Atendidas", value: ligCalcs.atendidas, icon: Phone },
-                    { label: "Não Atendidas", value: ligCalcs.naoAtendidas, icon: PhoneOff },
+                    { label: "Total", value: ligCalcs.total, pct: "100%" },
+                    { label: "Atendidas", value: ligCalcs.atendidas, pct: `${(LIGACAO.taxaAtendimento * 100).toFixed(0)}%` },
+                    { label: "Não Atendidas", value: ligCalcs.naoAtendidas, pct: `${((1 - LIGACAO.taxaAtendimento) * 100).toFixed(0)}%` },
                   ].map((kpi) => (
                     <Card key={kpi.label} className="border">
                       <CardContent className="p-2 text-center">
                         <p className="text-[10px] text-muted-foreground leading-tight">{kpi.label}</p>
                         <p className="text-sm font-bold">{kpi.value.toLocaleString("pt-BR")}</p>
+                        <p className="text-[10px] font-semibold text-primary">{kpi.pct}</p>
                       </CardContent>
                     </Card>
                   ))}
@@ -388,7 +407,7 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
                         </>
                       )}
 
-                      {canal === "ligacao" && (
+                      {canal === "ligacao" && ligCalcs && (
                         <>
                           <tr className="border-b">
                             <td className="py-2 px-3 text-xs">Ligações não atendidas</td>
@@ -444,11 +463,17 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
             </>
           )}
 
-          {/* Empty state WhatsApp */}
+          {/* Empty states */}
           {canal === "whatsapp" && !waCalcs && (
             <div className="text-center py-8 text-muted-foreground">
               <DollarSign className="mx-auto h-10 w-10 mb-2 opacity-30" />
               <p className="text-sm">Insira a quantidade de leads agendados desejados para ver a simulação.</p>
+            </div>
+          )}
+          {canal === "ligacao" && !ligCalcs && (
+            <div className="text-center py-8 text-muted-foreground">
+              <PhoneCall className="mx-auto h-10 w-10 mb-2 opacity-30" />
+              <p className="text-sm">Insira o total da base para ver a simulação de custos.</p>
             </div>
           )}
         </div>
