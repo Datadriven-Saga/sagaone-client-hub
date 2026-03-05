@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { ResultadosLigacaoSkeleton } from '@/components/resultados/ResultadosSkeleton';
 import { 
   Loader2, Phone, PhoneCall, CalendarCheck, MessageSquare,
   RefreshCw, Users, AlertTriangle
@@ -62,12 +63,16 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
     
     try {
       setLoading(true);
+      const t0 = performance.now();
+      console.time('[Ligação] total-fetch');
       
+      console.time('[Ligação] fetch-eventos-db');
       const { data: eventsFromDb, error: eventsDbError } = await supabase
         .from('eventos_pri_voz')
         .select('id_evento, nome, marca, uf, cidade, telefone_pri')
         .eq('telefone_pri', selectedAgentPhone)
         .order('data_inicio', { ascending: false });
+      console.timeEnd('[Ligação] fetch-eventos-db');
       
       if (eventsDbError) {
         console.error('❌ Erro ao buscar eventos:', eventsDbError);
@@ -79,11 +84,12 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       if (events.length === 0) {
         setAllEventsData([]);
         setLastAppUpdate(new Date().toLocaleString('pt-BR'));
+        console.timeEnd('[Ligação] total-fetch');
         return;
       }
 
       if (!skipSync) {
-        console.log('🔄 Métricas - Sincronizando dados externos...');
+        console.time('[Ligação] sync-external');
         const syncBatchSize = 3;
         for (let i = 0; i < events.length; i += syncBatchSize) {
           const batch = events.slice(i, i + syncBatchSize);
@@ -99,8 +105,10 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
             )
           );
         }
+        console.timeEnd('[Ligação] sync-external');
       }
       
+      console.time('[Ligação] fetch-metrics-parallel');
       const metricsPromises = events.map(async (event) => {
         try {
           const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
@@ -143,8 +151,12 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       });
       
       const results = await Promise.all(metricsPromises);
+      console.timeEnd('[Ligação] fetch-metrics-parallel');
+      
       setAllEventsData(results.filter((r): r is EventMetrics => r !== null));
       setLastAppUpdate(new Date().toLocaleString('pt-BR'));
+      console.timeEnd('[Ligação] total-fetch');
+      console.log(`[Ligação] Total: ${(performance.now() - t0).toFixed(0)}ms | ${events.length} eventos | ${results.filter(Boolean).length} com dados`);
       
     } catch (error) {
       console.error('Error:', error);
@@ -260,11 +272,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <ResultadosLigacaoSkeleton />;
   }
 
   const leadBase = aggregatedMetrics.total || 1;

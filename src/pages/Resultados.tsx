@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
@@ -16,14 +16,35 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
-import { ResumoTab } from "@/components/resultados/ResumoTab";
-import { DesempenhoTab } from "@/components/resultados/DesempenhoTab";
-import { RankingTab } from "@/components/resultados/RankingTab";
 import { ResultadosGlobalFilter } from "@/components/resultados/ResultadosGlobalFilter";
-import { MetricasLigacaoTab } from "@/components/resultados/MetricasLigacaoTab";
-import { EventoSelectorLigacao } from "@/components/resultados/EventoSelectorLigacao";
-import { DashboardWhatsAppTab } from "@/components/resultados/DashboardWhatsAppTab";
-import { EventoSelectorWhatsApp } from "@/components/resultados/EventoSelectorWhatsApp";
+import { 
+  ResultadosLigacaoSkeleton, 
+  ResultadosResumoSkeleton, 
+  ResultadosGenericSkeleton 
+} from "@/components/resultados/ResultadosSkeleton";
+
+// Lazy-loaded tab components
+const ResumoTab = lazy(() => 
+  import("@/components/resultados/ResumoTab").then(m => ({ default: m.ResumoTab }))
+);
+const DesempenhoTab = lazy(() => 
+  import("@/components/resultados/DesempenhoTab").then(m => ({ default: m.DesempenhoTab }))
+);
+const RankingTab = lazy(() => 
+  import("@/components/resultados/RankingTab").then(m => ({ default: m.RankingTab }))
+);
+const MetricasLigacaoTab = lazy(() => 
+  import("@/components/resultados/MetricasLigacaoTab").then(m => ({ default: m.MetricasLigacaoTab }))
+);
+const EventoSelectorLigacao = lazy(() => 
+  import("@/components/resultados/EventoSelectorLigacao").then(m => ({ default: m.EventoSelectorLigacao }))
+);
+const DashboardWhatsAppTab = lazy(() => 
+  import("@/components/resultados/DashboardWhatsAppTab").then(m => ({ default: m.DashboardWhatsAppTab }))
+);
+const EventoSelectorWhatsApp = lazy(() => 
+  import("@/components/resultados/EventoSelectorWhatsApp").then(m => ({ default: m.EventoSelectorWhatsApp }))
+);
 
 interface Prospeccao {
   id: string;
@@ -32,11 +53,26 @@ interface Prospeccao {
   data_fim: string | null;
 }
 
+// Track which tabs have been visited for keep-alive
+const useVisitedTabs = (activeTab: string) => {
+  const [visited, setVisited] = useState<Set<string>>(new Set([activeTab]));
+  useEffect(() => {
+    setVisited(prev => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
+  return visited;
+};
+
 const Resultados = () => {
   const [activeTab, setActiveTab] = useState("resumo");
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
   const [selectedProspeccoes, setSelectedProspeccoes] = useState<string[]>([]);
   const { activeCompany } = useCompany();
+  const visitedTabs = useVisitedTabs(activeTab);
   
   // State for Ligação tab
   const [selectedAgentPhone, setSelectedAgentPhone] = useState<string | null>(null);
@@ -50,6 +86,7 @@ const Resultados = () => {
     const fetchProspeccoes = async () => {
       if (!activeCompany?.id) return;
 
+      console.time('[Resultados] fetch-prospeccoes');
       const { data, error } = await supabase
         .from('prospeccoes')
         .select('id, titulo, data_inicio, data_fim')
@@ -62,18 +99,32 @@ const Resultados = () => {
           setSelectedProspeccoes([data[0].id]);
         }
       }
+      console.timeEnd('[Resultados] fetch-prospeccoes');
     };
 
     fetchProspeccoes();
   }, [activeCompany?.id]);
 
-  const handleWhatsAppEventSelect = (eventId: string, eventIdPri: string) => {
+  const handleWhatsAppEventSelect = useCallback((eventId: string, eventIdPri: string) => {
     setSelectedWhatsAppEventId(eventId);
     setSelectedWhatsAppEventIdPri(eventIdPri);
-  };
+  }, []);
 
-  // Check if current tab needs global filter (not ligação/whatsapp tabs)
+  const handleLigacaoEventSelect = useCallback((_eventId: string, phone: string) => {
+    setSelectedAgentPhone(phone);
+    setActiveTab("ligacao");
+  }, []);
+
+  const handleWhatsAppEventChange = useCallback((eventId: string, eventIdPri: string) => {
+    setSelectedWhatsAppEventId(eventId);
+    setSelectedWhatsAppEventIdPri(eventIdPri);
+  }, []);
+
+  // Check if current tab needs global filter
   const showGlobalFilter = !["ligacao", "dashboard-whatsapp"].includes(activeTab);
+
+  // Render tab content only when visited (keeps state alive after first visit)
+  const shouldRender = (tab: string) => visitedTabs.has(tab);
 
   return (
     <DashboardLayout title="Resultados">
@@ -160,69 +211,77 @@ const Resultados = () => {
         <TabsContent value="resumo" className="flex-1 min-h-0 overflow-hidden mt-2">
           <ScrollIndicator className="flex-1 h-full">
             <div className="pb-6">
-              <ResumoTab 
-                prospeccaoIds={selectedProspeccoes} 
-                empresaId={activeCompany?.id || null}
-              />
+              <Suspense fallback={<ResultadosResumoSkeleton />}>
+                <ResumoTab 
+                  prospeccaoIds={selectedProspeccoes} 
+                  empresaId={activeCompany?.id || null}
+                />
+              </Suspense>
             </div>
           </ScrollIndicator>
         </TabsContent>
 
-        {/* Tab Dashboard WhatsApp */}
+        {/* Tab Dashboard WhatsApp - only render after first visit */}
         <TabsContent value="dashboard-whatsapp" className="flex-1 min-h-0 overflow-hidden mt-4">
-          <ScrollIndicator className="flex-1 h-full">
-            <div className="pb-6">
-              {selectedWhatsAppEventId && selectedWhatsAppEventIdPri ? (
-                <DashboardWhatsAppTab 
-                  selectedEventId={selectedWhatsAppEventId}
-                  selectedEventIdPri={selectedWhatsAppEventIdPri}
-                  onEventChange={(eventId, eventIdPri) => {
-                    setSelectedWhatsAppEventId(eventId);
-                    setSelectedWhatsAppEventIdPri(eventIdPri);
-                  }}
-                />
-              ) : (
-                <EventoSelectorWhatsApp
-                  onEventSelect={handleWhatsAppEventSelect}
-                  selectedEventId={selectedWhatsAppEventId}
-                />
-              )}
-            </div>
-          </ScrollIndicator>
+          {shouldRender("dashboard-whatsapp") && (
+            <ScrollIndicator className="flex-1 h-full">
+              <div className="pb-6">
+                <Suspense fallback={<ResultadosGenericSkeleton />}>
+                  {selectedWhatsAppEventId && selectedWhatsAppEventIdPri ? (
+                    <DashboardWhatsAppTab 
+                      selectedEventId={selectedWhatsAppEventId}
+                      selectedEventIdPri={selectedWhatsAppEventIdPri}
+                      onEventChange={handleWhatsAppEventChange}
+                    />
+                  ) : (
+                    <EventoSelectorWhatsApp
+                      onEventSelect={handleWhatsAppEventSelect}
+                      selectedEventId={selectedWhatsAppEventId}
+                    />
+                  )}
+                </Suspense>
+              </div>
+            </ScrollIndicator>
+          )}
         </TabsContent>
 
-        {/* Tab Ligação */}
+        {/* Tab Ligação - only render after first visit */}
         <TabsContent value="ligacao" className="flex-1 min-h-0 overflow-hidden mt-4">
-          <ScrollIndicator className="flex-1 h-full">
-            <div className="pb-6">
-              {selectedAgentPhone ? (
-                <MetricasLigacaoTab 
-                  selectedAgentPhone={selectedAgentPhone}
-                />
-              ) : (
-                <EventoSelectorLigacao
-                  onEventSelect={(_eventId, phone) => {
-                    setSelectedAgentPhone(phone);
-                    setActiveTab("ligacao");
-                  }}
-                  selectedEventId={null}
-                  agentPhone={null}
-                />
-              )}
-            </div>
-          </ScrollIndicator>
+          {shouldRender("ligacao") && (
+            <ScrollIndicator className="flex-1 h-full">
+              <div className="pb-6">
+                <Suspense fallback={<ResultadosLigacaoSkeleton />}>
+                  {selectedAgentPhone ? (
+                    <MetricasLigacaoTab 
+                      selectedAgentPhone={selectedAgentPhone}
+                    />
+                  ) : (
+                    <EventoSelectorLigacao
+                      onEventSelect={handleLigacaoEventSelect}
+                      selectedEventId={null}
+                      agentPhone={null}
+                    />
+                  )}
+                </Suspense>
+              </div>
+            </ScrollIndicator>
+          )}
         </TabsContent>
 
-        {/* Tab Ranking */}
+        {/* Tab Ranking - only render after first visit */}
         <TabsContent value="ranking" className="flex-1 min-h-0 overflow-hidden mt-4">
-          <ScrollIndicator className="flex-1 h-full">
-            <div className="pb-6">
-              <RankingTab 
-                prospeccaoId={selectedProspeccoes[0] || null} 
-                empresaId={activeCompany?.id || null} 
-              />
-            </div>
-          </ScrollIndicator>
+          {shouldRender("ranking") && (
+            <ScrollIndicator className="flex-1 h-full">
+              <div className="pb-6">
+                <Suspense fallback={<ResultadosGenericSkeleton />}>
+                  <RankingTab 
+                    prospeccaoId={selectedProspeccoes[0] || null} 
+                    empresaId={activeCompany?.id || null} 
+                  />
+                </Suspense>
+              </div>
+            </ScrollIndicator>
+          )}
         </TabsContent>
 
         {/* Tab Produtos */}
@@ -240,16 +299,20 @@ const Resultados = () => {
           </ScrollIndicator>
         </TabsContent>
 
-        {/* Tab Desempenho */}
+        {/* Tab Desempenho - only render after first visit */}
         <TabsContent value="desempenho" className="flex-1 min-h-0 overflow-hidden mt-4">
-          <ScrollIndicator className="flex-1 h-full">
-            <div className="pb-6">
-              <DesempenhoTab 
-                prospeccaoId={selectedProspeccoes[0] || null} 
-                empresaId={activeCompany?.id || null} 
-              />
-            </div>
-          </ScrollIndicator>
+          {shouldRender("desempenho") && (
+            <ScrollIndicator className="flex-1 h-full">
+              <div className="pb-6">
+                <Suspense fallback={<ResultadosGenericSkeleton />}>
+                  <DesempenhoTab 
+                    prospeccaoId={selectedProspeccoes[0] || null} 
+                    empresaId={activeCompany?.id || null} 
+                  />
+                </Suspense>
+              </div>
+            </ScrollIndicator>
+          )}
         </TabsContent>
 
         {/* Tab Individual */}
