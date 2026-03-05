@@ -15,51 +15,59 @@ serve(async (req) => {
     let dataCotacao: string | null = null;
     let fonte = "Fallback";
 
-    // Primary: AwesomeAPI (updates every 30s, best for Brazilian market)
+    // Build today's date in YYYY-MM-DD for Frankfurter
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+
+    // Primary: Frankfurter API with today's date
     try {
-      const cacheBuster = Date.now();
       const response = await fetch(
-        `https://economia.awesomeapi.com.br/json/last/USD-BRL?t=${cacheBuster}`,
+        `https://api.frankfurter.app/${todayStr}?from=USD&to=BRL`,
         { signal: AbortSignal.timeout(5000) }
       );
 
       if (response.ok) {
         const data = await response.json();
-        const usdBrl = data?.USDBRL;
-        if (usdBrl?.bid) {
-          cotacao = parseFloat(usdBrl.bid);
-          dataCotacao = usdBrl.create_date || new Date().toISOString();
-          fonte = "AwesomeAPI";
+        if (data?.rates?.BRL) {
+          cotacao = data.rates.BRL;
+          dataCotacao = now.toISOString();
+          fonte = "Frankfurter";
         }
       }
     } catch (e) {
-      console.warn("AwesomeAPI failed, trying fallback:", e.message);
+      console.warn("Frankfurter API failed, trying fallback:", e.message);
     }
 
-    // Fallback: Frankfurter API
+    // Fallback: AwesomeAPI
     if (!cotacao) {
       try {
-        const response = await fetch("https://api.frankfurter.app/latest?from=USD&to=BRL", {
-          signal: AbortSignal.timeout(5000),
-        });
+        const cacheBuster = Date.now();
+        const response = await fetch(
+          `https://economia.awesomeapi.com.br/json/last/USD-BRL?t=${cacheBuster}`,
+          { signal: AbortSignal.timeout(5000) }
+        );
 
         if (response.ok) {
           const data = await response.json();
-          if (data?.rates?.BRL) {
-            cotacao = data.rates.BRL;
-            dataCotacao = new Date().toISOString();
-            fonte = "Frankfurter";
+          const usdBrl = data?.USDBRL;
+          if (usdBrl?.bid) {
+            cotacao = parseFloat(usdBrl.bid);
+            dataCotacao = now.toISOString();
+            fonte = "AwesomeAPI";
           }
         }
       } catch (e) {
-        console.warn("Frankfurter API also failed:", e.message);
+        console.warn("AwesomeAPI also failed:", e.message);
       }
     }
 
     // Final fallback
     if (!cotacao) {
       cotacao = 5.75;
-      dataCotacao = new Date().toISOString();
+      dataCotacao = now.toISOString();
       fonte = "Fallback";
       console.warn("Using fallback rate: 5.75");
     }
