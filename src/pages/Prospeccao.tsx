@@ -29,7 +29,7 @@ import { DescarteLeadModal } from "@/components/DescarteLeadModal";
 import { ClientesImportadosList } from "@/components/ClientesImportadosList";
 import { VendasProspeccaoTab } from "@/components/VendasProspeccaoTab";
 import { EventoBaseModal } from "@/components/EventoBaseModal";
-import DispararCustoModal from "@/components/DispararCustoModal";
+import { SimulacaoEventoModal } from "@/components/SimulacaoEventoModal";
 import { useVendasProspeccao } from "@/hooks/useVendasProspeccao";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
@@ -43,7 +43,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMetricasLigacao, MetricasLigacaoExternas } from "@/hooks/useMetricasLigacao";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { SimulacaoEventoModal } from "@/components/SimulacaoEventoModal";
 import { Bot } from "lucide-react";
 
 interface ClienteData {
@@ -2708,13 +2707,13 @@ showAllEvents: true
       </AlertDialog>
 
       {/* Modal de Simulação de Custos */}
-      <DispararCustoModal
+      <SimulacaoEventoModal
         isOpen={custoModal.isOpen}
         onClose={() => setCustoModal(prev => ({ ...prev, isOpen: false }))}
+        mode="disparo"
         onConfirm={executarDisparo}
-        prospeccaoId={custoModal.prospeccaoId}
         eventoNome={custoModal.eventoNome}
-        canal={custoModal.canal}
+        canalEvento={custoModal.canal}
         totalContatos={custoModal.totalContatos}
       />
 

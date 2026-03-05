@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +24,7 @@ import {
   Phone,
   Loader2,
   RefreshCw,
+  X,
 } from "lucide-react";
 import {
   Tooltip,
@@ -55,7 +56,7 @@ const CUSTOS_WA = { marketing: 0.06, utility: 0.01 };
 // ── Ligação rates ──
 const LIGACAO = {
   base: 1000,
-  taxaAtendimento: 0.10,
+  taxaAtendimento: 0.05,
   custoNaoAtendida: 0.06,
   custoFixoAtendida: 0.06,
   custoPorMinuto: 0.15,
@@ -69,10 +70,36 @@ type TipoBase = "carregada" | "gerada";
 interface SimulacaoEventoModalProps {
   isOpen: boolean;
   onClose: () => void;
+  // Dispatch mode props (optional)
+  mode?: "simulacao" | "disparo";
+  onConfirm?: () => void;
+  eventoNome?: string;
+  canalEvento?: string; // "whatsapp", "ligacao", "ia_whatsapp", "ia_ligacao", etc.
+  totalContatos?: number;
 }
 
-export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalProps) {
-  const [canal, setCanal] = useState<Canal>("whatsapp");
+function detectCanal(canalEvento?: string): Canal {
+  if (!canalEvento) return "whatsapp";
+  const c = canalEvento.toLowerCase();
+  if (c.includes("ligac") || c.includes("ligaç") || c.includes("voz") || c.includes("call") || c.includes("phone")) {
+    return "ligacao";
+  }
+  return "whatsapp";
+}
+
+export function SimulacaoEventoModal({ 
+  isOpen, 
+  onClose, 
+  mode = "simulacao",
+  onConfirm,
+  eventoNome,
+  canalEvento,
+  totalContatos,
+}: SimulacaoEventoModalProps) {
+  const isDisparo = mode === "disparo";
+  const autoCanal = detectCanal(canalEvento);
+  
+  const [canal, setCanal] = useState<Canal>(autoCanal);
 
   // WhatsApp state
   const [agendadosDesejados, setAgendadosDesejados] = useState("");
@@ -112,20 +139,69 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
     }
   };
 
-  // Fetch every time modal opens
+  // Fetch every time modal opens + auto-fill values for dispatch mode
   useEffect(() => {
     if (isOpen) {
       fetchCotacao();
+      // Auto-detect canal from event
+      if (canalEvento) {
+        setCanal(detectCanal(canalEvento));
+      }
+      // Auto-fill base count
+      if (totalContatos !== undefined && totalContatos > 0) {
+        const detected = detectCanal(canalEvento);
+        if (detected === "ligacao") {
+          setBaseLigacao(String(totalContatos));
+        }
+        // For WhatsApp in dispatch mode, we don't auto-fill agendadosDesejados 
+        // since it uses a different input (desired scheduled leads)
+      }
     } else {
       setCotacao(null);
       setCotacaoFonte(null);
       setCotacaoData(null);
       setCotacaoErro(null);
     }
-  }, [isOpen]);
+  }, [isOpen, canalEvento, totalContatos]);
 
   // ── WhatsApp calcs ──
   const waCalcs = useMemo(() => {
+    // In dispatch mode for WhatsApp, calculate based on total contacts
+    if (isDisparo && canal === "whatsapp" && totalContatos && totalContatos > 0) {
+      const base = totalContatos;
+      const t = TAXAS_WA[tipoBase];
+      const entregues = base * t.entreguesBase;
+      const lidas = entregues * t.lidasEntregues;
+      const respondidas = lidas * t.respondidasLidas;
+      const agendados = Math.round(respondidas * t.agendadosRespondidas);
+      const naoRespondidas = entregues - respondidas;
+
+      const custoInicial = entregues * CUSTOS_WA.marketing;
+      const custoAgendadosUnit = agendadosTipo === "utility" ? CUSTOS_WA.utility : CUSTOS_WA.marketing;
+      const custoCadAgendados = cadAgendados ? agendados * custoAgendadosUnit : 0;
+      const custoCadNaoResp = cadNaoRespondeu ? naoRespondidas * CUSTOS_WA.marketing : 0;
+      const custoTotal = custoInicial + custoCadAgendados + custoCadNaoResp;
+      const agendadosBase = t.entreguesBase * t.lidasEntregues * t.respondidasLidas * t.agendadosRespondidas;
+
+      return {
+        base: Math.round(base),
+        entregues: Math.round(entregues),
+        lidas: Math.round(lidas),
+        respondidas: Math.round(respondidas),
+        agendados,
+        naoRespondidas: Math.round(naoRespondidas),
+        custoInicial,
+        custoCadAgendados,
+        custoCadNaoResp,
+        custoTotal,
+        volumeInicial: Math.round(entregues),
+        volumeNaoResp: Math.round(naoRespondidas),
+        custoAgendadosUnit,
+        taxas: t,
+        agendadosBase,
+      };
+    }
+    
     const A = parseInt(agendadosDesejados) || 0;
     if (A <= 0) return null;
     const t = TAXAS_WA[tipoBase];
@@ -159,7 +235,7 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
       taxas: t,
       agendadosBase,
     };
-  }, [agendadosDesejados, cadNaoRespondeu, cadAgendados, agendadosTipo, tipoBase]);
+  }, [agendadosDesejados, cadNaoRespondeu, cadAgendados, agendadosTipo, tipoBase, isDisparo, canal, totalContatos]);
 
   // ── Ligação calcs ──
   const ligCalcs = useMemo(() => {
@@ -183,41 +259,73 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
 
   const showResults = (canal === "whatsapp" && waCalcs) || (canal === "ligacao" && ligCalcs);
 
+  const modalTitle = isDisparo ? "Simulação de Evento" : "Simulação de Evento";
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
             <DollarSign className="h-5 w-5 text-primary" />
-            Simulação de Evento
+            {modalTitle}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
-          {/* Canal selector */}
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Canal</Label>
-            <Select value={canal} onValueChange={(v) => setCanal(v as Canal)}>
-              <SelectTrigger className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="whatsapp">
-                  <span className="flex items-center gap-2">
-                    <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+          {/* Event info when in dispatch mode */}
+          {isDisparo && eventoNome && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Evento</span>
+                  <span className="text-sm font-semibold">{eventoNome}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Canal</span>
+                  <Badge variant="outline" className="text-xs">
+                    {canal === "whatsapp" ? (
+                      <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /> IA WhatsApp</span>
+                    ) : (
+                      <span className="flex items-center gap-1"><PhoneCall className="h-3 w-3" /> IA Ligação</span>
+                    )}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Total de Pessoas</span>
+                  <span className="text-sm font-semibold flex items-center gap-1">
+                    <Users className="h-3.5 w-3.5" /> {(totalContatos ?? 0).toLocaleString("pt-BR")}
                   </span>
-                </SelectItem>
-                <SelectItem value="ligacao">
-                  <span className="flex items-center gap-2">
-                    <PhoneCall className="h-3.5 w-3.5" /> Ligação
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Canal selector - hidden in dispatch mode (auto-detected) */}
+          {!isDisparo && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Canal</Label>
+              <Select value={canal} onValueChange={(v) => setCanal(v as Canal)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="whatsapp">
+                    <span className="flex items-center gap-2">
+                      <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="ligacao">
+                    <span className="flex items-center gap-2">
+                      <PhoneCall className="h-3.5 w-3.5" /> Ligação
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* ─── WhatsApp inputs ─── */}
-          {canal === "whatsapp" && (
+          {canal === "whatsapp" && !isDisparo && (
             <div className="space-y-4">
               <div className="flex gap-4 flex-wrap">
                 <div className="space-y-1.5 min-w-[160px] flex-1">
@@ -303,7 +411,68 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
             </div>
           )}
 
-          {/* ─── Ligação input ─── */}
+          {/* WhatsApp dispatch mode - simplified inputs */}
+          {canal === "whatsapp" && isDisparo && (
+            <div className="space-y-4">
+              <div className="flex gap-4 flex-wrap">
+                <div className="space-y-1.5 min-w-[180px] flex-1">
+                  <div className="flex items-center gap-1">
+                    <Label className="text-sm font-medium">Tipo de base</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-[300px] text-xs">
+                          <p className="font-semibold mb-1">Carregada</p>
+                          <p className="mb-2">Base carregada pela equipe de CRM.</p>
+                          <p className="font-semibold mb-1">Gerada</p>
+                          <p>Base gerada por campanhas sobre o evento integradas no Mobigestor.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Select value={tipoBase} onValueChange={(v) => setTipoBase(v as TipoBase)}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="carregada" className="text-xs">Carregada (CRM)</SelectItem>
+                      <SelectItem value="gerada" className="text-xs">Gerada (Mobigestor)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Cadências</Label>
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="cad-nr-d" checked={cadNaoRespondeu} onCheckedChange={(v) => setCadNaoRespondeu(!!v)} />
+                    <Label htmlFor="cad-nr-d" className="text-xs font-normal cursor-pointer">
+                      Não respondeu
+                      <Badge variant="outline" className="ml-1.5 text-[10px] px-1.5 py-0">Marketing</Badge>
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="cad-ag-d" checked={cadAgendados} onCheckedChange={(v) => setCadAgendados(!!v)} />
+                    <Label htmlFor="cad-ag-d" className="text-xs font-normal cursor-pointer">Agendados</Label>
+                    <Select value={agendadosTipo} onValueChange={(v) => setAgendadosTipo(v as AgendadosTipo)}>
+                      <SelectTrigger className="h-6 w-[110px] text-[10px] px-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="utility" className="text-xs">Utility</SelectItem>
+                        <SelectItem value="marketing" className="text-xs">Marketing</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Ligação input - only editable in simulacao mode ─── */}
           {canal === "ligacao" && (
             <div className="space-y-1.5">
               <Label htmlFor="baseLigacao" className="text-sm font-medium">
@@ -318,6 +487,7 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
                 value={baseLigacao}
                 onChange={(e) => setBaseLigacao(e.target.value)}
                 className="h-9"
+                readOnly={isDisparo}
               />
               {ligCalcs && (
                 <p className="text-[11px] text-muted-foreground">
@@ -489,7 +659,7 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
                     Atualizar
                   </Button>
                 </div>
-                {/* Debug API */}
+                {/* Debug info */}
                 <div className="mt-1 px-1">
                   <p className="text-[9px] text-muted-foreground/60 font-mono">
                     1 USD = R$ {cotacaoLoading ? "..." : (cotacao?.toFixed(4) ?? "—")} | Fonte: {cotacaoFonte ?? "—"} | {cotacaoData ?? "—"}
@@ -500,7 +670,7 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
           )}
 
           {/* Empty states */}
-          {canal === "whatsapp" && !waCalcs && (
+          {canal === "whatsapp" && !waCalcs && !isDisparo && (
             <div className="text-center py-8 text-muted-foreground">
               <DollarSign className="mx-auto h-10 w-10 mb-2 opacity-30" />
               <p className="text-sm">Insira a quantidade de leads agendados desejados para ver a simulação.</p>
@@ -513,6 +683,20 @@ export function SimulacaoEventoModal({ isOpen, onClose }: SimulacaoEventoModalPr
             </div>
           )}
         </div>
+
+        {/* Dispatch mode footer with confirm/cancel */}
+        {isDisparo && (
+          <DialogFooter className="flex flex-row gap-2 sm:justify-end mt-4">
+            <Button variant="outline" onClick={onClose} className="flex-1 sm:flex-none">
+              <X className="h-4 w-4 mr-1" />
+              Cancelar Disparo
+            </Button>
+            <Button onClick={onConfirm} className="flex-1 sm:flex-none">
+              <Send className="h-4 w-4 mr-1" />
+              Confirmar Disparo
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
