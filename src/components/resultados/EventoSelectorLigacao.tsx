@@ -78,6 +78,7 @@ export const EventoSelectorLigacao = ({
       
       try {
         setLoading(true);
+        console.time('[Ligação-Selector] fetch-agents');
         
         // Get agents linked to this company via agente_empresas, filtering by nome containing "Ligação"
         const { data: agenteEmpresasData, error: aeError } = await supabase
@@ -125,6 +126,7 @@ export const EventoSelectorLigacao = ({
         console.error('Error:', error);
         toast.error('Erro ao carregar agentes');
       } finally {
+        console.timeEnd('[Ligação-Selector] fetch-agents');
         setLoading(false);
       }
     };
