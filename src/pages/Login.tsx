@@ -13,12 +13,15 @@ const USE_SSO_LOGIN = true;
 const Login = () => {
   const [loading, setLoading] = useState(false);
 
+  const REDIRECT_KEY = 'auth_redirect_to';
   const { signInWithAzure, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
-      navigate("/");
+      const redirectTo = sessionStorage.getItem(REDIRECT_KEY);
+      sessionStorage.removeItem(REDIRECT_KEY);
+      navigate(redirectTo && redirectTo !== '/login' ? redirectTo : "/", { replace: true });
     }
   }, [user, navigate]);
 

@@ -1,7 +1,9 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { ReactNode } from "react";
+
+const REDIRECT_KEY = 'auth_redirect_to';
 
 interface GestorProtectedRouteProps {
   children: ReactNode;
@@ -14,6 +16,7 @@ interface GestorProtectedRouteProps {
 export function GestorProtectedRoute({ children }: GestorProtectedRouteProps) {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, isGerente, loading: accessLoading } = useUserAccessType();
+  const location = useLocation();
 
   const loading = authLoading || accessLoading;
 
@@ -29,6 +32,10 @@ export function GestorProtectedRoute({ children }: GestorProtectedRouteProps) {
   }
 
   if (!user) {
+    const intendedPath = location.pathname + location.search + location.hash;
+    if (intendedPath && intendedPath !== '/login') {
+      sessionStorage.setItem(REDIRECT_KEY, intendedPath);
+    }
     return <Navigate to="/login" replace />;
   }
 
