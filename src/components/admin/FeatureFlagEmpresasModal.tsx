@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Search, Building2, Plus, Trash2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -17,55 +17,42 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-interface FlagEmpresa {
-  id: string;
-  empresa_id: string;
-  is_enabled: boolean;
-  empresa_nome: string;
-}
-
 interface Empresa {
   id: string;
   nome_empresa: string;
+  marca: string | null;
+  cidade: string | null;
+  uf: string | null;
 }
 
 export function FeatureFlagEmpresasModal({ flag, open, onOpenChange }: Props) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [assigned, setAssigned] = useState<FlagEmpresa[]>([]);
   const [allEmpresas, setAllEmpresas] = useState<Empresa[]>([]);
-  const [search, setSearch] = useState("");
-  const [showAddList, setShowAddList] = useState(false);
-  const [addSearch, setAddSearch] = useState("");
+  const [assignedIds, setAssignedIds] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Filters
+  const [filterNome, setFilterNome] = useState("");
+  const [filterMarca, setFilterMarca] = useState("all");
+  const [filterUF, setFilterUF] = useState("all");
 
   const loadData = useCallback(async () => {
     if (!flag) return;
     setLoading(true);
     try {
-      // Load assigned empresas
-      const { data: flagEmpresas, error: feError } = await supabase
-        .from("feature_flag_empresas")
-        .select("id, empresa_id, is_enabled")
-        .eq("flag_id", flag.id);
+      const [{ data: empresas, error: eError }, { data: flagEmpresas, error: feError }] = await Promise.all([
+        supabase.from("empresas").select("id, nome_empresa, marca, cidade, uf").order("nome_empresa"),
+        supabase.from("feature_flag_empresas").select("empresa_id").eq("flag_id", flag.id).eq("is_enabled", true),
+      ]);
+      if (eError) throw eError;
       if (feError) throw feError;
 
-      // Load all empresas
-      const { data: empresas, error: eError } = await supabase
-        .from("empresas")
-        .select("id, nome_empresa")
-        .order("nome_empresa");
-      if (eError) throw eError;
-
       setAllEmpresas(empresas || []);
-
-      // Merge names
-      const merged = (flagEmpresas || []).map((fe: any) => {
-        const emp = (empresas || []).find((e: any) => e.id === fe.empresa_id);
-        return { ...fe, empresa_nome: emp?.nome_empresa || "Desconhecida" };
-      }).sort((a: FlagEmpresa, b: FlagEmpresa) => a.empresa_nome.localeCompare(b.empresa_nome));
-
-      setAssigned(merged);
+      const ids = new Set((flagEmpresas || []).map((fe: any) => fe.empresa_id));
+      setAssignedIds(ids);
+      setSelectedIds(Array.from(ids));
     } catch (err: any) {
       toast.error("Erro ao carregar dados", { description: err.message });
     } finally {
@@ -76,87 +63,96 @@ export function FeatureFlagEmpresasModal({ flag, open, onOpenChange }: Props) {
   useEffect(() => {
     if (open && flag) {
       loadData();
-      setSearch("");
-      setAddSearch("");
-      setShowAddList(false);
+      setFilterNome("");
+      setFilterMarca("all");
+      setFilterUF("all");
     }
   }, [open, flag, loadData]);
 
-  const handleToggle = async (item: FlagEmpresa) => {
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from("feature_flag_empresas")
-        .update({ is_enabled: !item.is_enabled })
-        .eq("id", item.id);
-      if (error) throw error;
-      setAssigned((prev) =>
-        prev.map((a) => (a.id === item.id ? { ...a, is_enabled: !a.is_enabled } : a))
-      );
-    } catch (err: any) {
-      toast.error("Erro ao atualizar", { description: err.message });
-    } finally {
-      setSaving(false);
+  const uniqueMarcas = useMemo(
+    () => [...new Set(allEmpresas.map((e) => e.marca).filter(Boolean) as string[])].sort(),
+    [allEmpresas]
+  );
+
+  const uniqueUFs = useMemo(
+    () => [...new Set(allEmpresas.map((e) => e.uf).filter(Boolean) as string[])].sort(),
+    [allEmpresas]
+  );
+
+  const filteredEmpresas = useMemo(() => {
+    return allEmpresas.filter((e) => {
+      if (filterNome && !e.nome_empresa.toLowerCase().includes(filterNome.toLowerCase())) return false;
+      if (filterMarca !== "all" && e.marca !== filterMarca) return false;
+      if (filterUF !== "all" && e.uf !== filterUF) return false;
+      return true;
+    });
+  }, [allEmpresas, filterNome, filterMarca, filterUF]);
+
+  const handleToggleEmpresa = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    const filteredIds = filteredEmpresas.map((e) => e.id);
+    const allSelected = filteredIds.every((id) => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => [...new Set([...prev, ...filteredIds])]);
     }
   };
 
-  const handleAdd = async (empresaId: string) => {
+  const handleConfirm = async () => {
     if (!flag) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("feature_flag_empresas").insert({
-        flag_id: flag.id,
-        empresa_id: empresaId,
-        is_enabled: true,
-        created_by: user?.id,
-      });
-      if (error) throw error;
-      toast.success("Loja adicionada");
-      await loadData();
-      setShowAddList(false);
-      setAddSearch("");
+      const toAdd = selectedIds.filter((id) => !assignedIds.has(id));
+      const toRemove = Array.from(assignedIds).filter((id) => !selectedIds.includes(id));
+
+      if (toRemove.length > 0) {
+        const { error } = await supabase
+          .from("feature_flag_empresas")
+          .delete()
+          .eq("flag_id", flag.id)
+          .in("empresa_id", toRemove);
+        if (error) throw error;
+      }
+
+      if (toAdd.length > 0) {
+        const rows = toAdd.map((empresa_id) => ({
+          flag_id: flag.id,
+          empresa_id,
+          is_enabled: true,
+          created_by: user?.id,
+        }));
+        const { error } = await supabase.from("feature_flag_empresas").insert(rows);
+        if (error) throw error;
+      }
+
+      toast.success(`${selectedIds.length} loja(s) atribuída(s)`);
+      onOpenChange(false);
     } catch (err: any) {
-      toast.error("Erro ao adicionar", { description: err.message });
+      toast.error("Erro ao salvar", { description: err.message });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleRemove = async (item: FlagEmpresa) => {
-    setSaving(true);
-    try {
-      const { error } = await supabase.from("feature_flag_empresas").delete().eq("id", item.id);
-      if (error) throw error;
-      setAssigned((prev) => prev.filter((a) => a.id !== item.id));
-      toast.success("Loja removida");
-    } catch (err: any) {
-      toast.error("Erro ao remover", { description: err.message });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const assignedIds = new Set(assigned.map((a) => a.empresa_id));
-  const unassigned = allEmpresas.filter(
-    (e) =>
-      !assignedIds.has(e.id) &&
-      (!addSearch || e.nome_empresa.toLowerCase().includes(addSearch.toLowerCase()))
-  );
-
-  const filteredAssigned = assigned.filter(
-    (a) => !search || a.empresa_nome.toLowerCase().includes(search.toLowerCase())
-  );
+  const allFilteredSelected =
+    filteredEmpresas.length > 0 && filteredEmpresas.every((e) => selectedIds.includes(e.id));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
             Lojas — {flag?.flag_label}
           </DialogTitle>
           <DialogDescription>
-            Gerencie quais lojas têm esta feature habilitada. Apenas lojas atribuídas terão acesso.
+            Selecione as lojas que terão esta feature habilitada.
           </DialogDescription>
         </DialogHeader>
 
@@ -165,106 +161,117 @@ export function FeatureFlagEmpresasModal({ flag, open, onOpenChange }: Props) {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="flex flex-col gap-3 flex-1 min-h-0">
-            {/* Actions bar */}
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            {/* Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pb-4 flex-shrink-0">
+              <div className="space-y-1">
+                <Label className="text-xs">Buscar por Nome</Label>
                 <Input
-                  placeholder="Buscar lojas atribuídas..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-8 h-9"
+                  placeholder="Filtrar por nome..."
+                  value={filterNome}
+                  onChange={(e) => setFilterNome(e.target.value)}
+                  className="h-8"
                 />
               </div>
-              <Button
-                size="sm"
-                onClick={() => setShowAddList(!showAddList)}
-                variant={showAddList ? "secondary" : "default"}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Atribuir
-              </Button>
+              <div className="space-y-1">
+                <Label className="text-xs">Marca</Label>
+                <Select value={filterMarca} onValueChange={setFilterMarca}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {uniqueMarcas.map((marca) => (
+                      <SelectItem key={marca} value={marca}>{marca}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">UF</Label>
+                <Select value={filterUF} onValueChange={setFilterUF}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {uniqueUFs.map((uf) => (
+                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <Badge variant="secondary" className="w-fit">
-              {assigned.filter((a) => a.is_enabled).length}/{assigned.length} lojas ativas
-            </Badge>
+            {/* Counter + Select all */}
+            <div className="flex items-center justify-between pb-2 border-b flex-shrink-0">
+              <span className="text-sm text-muted-foreground">
+                {filteredEmpresas.length} empresa(s) encontrada(s)
+              </span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                  {allFilteredSelected ? "Desmarcar todas" : "Selecionar todas"}
+                </Button>
+                <Badge variant="secondary">{selectedIds.length} selecionada(s)</Badge>
+              </div>
+            </div>
 
-            {/* Add list */}
-            {showAddList && (
-              <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar loja para adicionar..."
-                    value={addSearch}
-                    onChange={(e) => setAddSearch(e.target.value)}
-                    className="pl-8 h-9"
-                    autoFocus
-                  />
-                </div>
-                <ScrollArea className="max-h-[180px]">
-                  <div className="space-y-1">
-                    {unassigned.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-3">
-                        {addSearch ? "Nenhuma loja encontrada" : "Todas as lojas já foram atribuídas"}
-                      </p>
-                    ) : (
-                      unassigned.slice(0, 50).map((emp) => (
-                        <button
-                          key={emp.id}
-                          onClick={() => handleAdd(emp.id)}
-                          disabled={saving}
-                          className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-accent transition-colors flex items-center justify-between"
-                        >
-                          <span className="truncate">{emp.nome_empresa}</span>
-                          <Plus className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        </button>
-                      ))
+            {/* List */}
+            <div className="flex-1 overflow-y-auto mt-2 space-y-1 min-h-0">
+              {filteredEmpresas.map((empresa) => (
+                <div
+                  key={empresa.id}
+                  className={`flex items-center gap-3 p-2 rounded-md border cursor-pointer transition-colors ${
+                    selectedIds.includes(empresa.id)
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted/50"
+                  }`}
+                  onClick={() => handleToggleEmpresa(empresa.id)}
+                >
+                  <div
+                    className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${
+                      selectedIds.includes(empresa.id)
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : "border-input"
+                    }`}
+                  >
+                    {selectedIds.includes(empresa.id) && (
+                      <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
                     )}
                   </div>
-                </ScrollArea>
-              </div>
-            )}
-
-            {/* Assigned list */}
-            <ScrollArea className="flex-1 min-h-0 max-h-[300px]">
-              <div className="space-y-1">
-                {filteredAssigned.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-6">
-                    Nenhuma loja atribuída
-                  </p>
-                ) : (
-                  filteredAssigned.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-muted/40 transition-colors"
-                    >
-                      <span className="text-sm font-medium truncate flex-1">{item.empresa_nome}</span>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <Switch
-                          checked={item.is_enabled}
-                          onCheckedChange={() => handleToggle(item)}
-                          disabled={saving}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          onClick={() => handleRemove(item)}
-                          disabled={saving}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm truncate">{empresa.nome_empresa}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {empresa.marca} • {empresa.cidade} - {empresa.uf}
                     </div>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
+                  </div>
+                </div>
+              ))}
+              {filteredEmpresas.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Nenhuma empresa encontrada</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
+
+        <DialogFooter className="flex-shrink-0 pt-4 border-t">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleConfirm} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            Confirmar ({selectedIds.length})
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
