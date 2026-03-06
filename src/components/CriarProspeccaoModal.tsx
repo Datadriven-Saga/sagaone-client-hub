@@ -304,6 +304,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       setDataEnvioInicial(formatToDatetimeLocal(editingProspeccao.data_envio_template_inicial));
       setDataEnvioCadencia(formatToDatetimeLocal(editingProspeccao.data_envio_cadencia));
       
+      // Cadência Completa
+      setCadenciaCompleta(editingProspeccao.cadencia_completa ?? false);
+      setTemplateAgendado48hId(editingProspeccao.template_agendado_48h_id || "");
+      setTemplateAgendado24hId(editingProspeccao.template_agendado_24h_id || "");
+      
       // Determinar tipo de evento baseado no canal salvo
       const canalSalvo = editingProspeccao.canal;
       if (canalSalvo === 'Grande Evento') {
