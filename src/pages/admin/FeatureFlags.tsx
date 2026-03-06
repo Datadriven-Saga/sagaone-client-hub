@@ -5,8 +5,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Flag, Search, Shield, Upload, MessageSquare, Target, Brain, BarChart3, Settings, GraduationCap, DollarSign } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Flag, Search, Shield, Upload, MessageSquare, Target, Brain, BarChart3, Settings, GraduationCap, DollarSign, Building2 } from "lucide-react";
 import { useFeatureFlags, type FeatureFlag } from "@/hooks/useFeatureFlags";
+import { FeatureFlagEmpresasModal } from "@/components/admin/FeatureFlagEmpresasModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -29,6 +31,8 @@ const FeatureFlagsPage = () => {
   const { flags, loading, reload } = useFeatureFlags();
   const [search, setSearch] = useState("");
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [empresasFlag, setEmpresasFlag] = useState<FeatureFlag | null>(null);
+  const [empresasModalOpen, setEmpresasModalOpen] = useState(false);
 
   const handleToggle = useCallback(async (flag: FeatureFlag) => {
     setTogglingId(flag.id);
@@ -134,42 +138,73 @@ const FeatureFlagsPage = () => {
                     </div>
 
                     <div className="space-y-2">
-                      {categoryFlags.map((flag) => (
-                        <Card key={flag.id} className="transition-colors hover:bg-muted/30">
-                          <CardContent className="py-4">
-                            <div className="flex items-center justify-between gap-4">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="font-medium text-foreground">{flag.flag_label}</span>
-                                  <Badge
-                                    variant={flag.is_enabled ? "default" : "outline"}
-                                    className={`text-[10px] px-1.5 py-0 ${
-                                      flag.is_enabled
-                                        ? "bg-emerald-500/15 text-emerald-600 border-emerald-300"
-                                        : "text-muted-foreground"
-                                    }`}
-                                  >
-                                    {flag.is_enabled ? "ON" : "OFF"}
-                                  </Badge>
-                                </div>
-                                {flag.description && (
-                                  <p className="text-sm text-muted-foreground line-clamp-1">
-                                    {flag.description}
+                      {categoryFlags.map((flag) => {
+                        const isPerEmpresa = flag.scope === "per_empresa";
+
+                        return (
+                          <Card key={flag.id} className="transition-colors hover:bg-muted/30">
+                            <CardContent className="py-4">
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                    <span className="font-medium text-foreground">{flag.flag_label}</span>
+                                    {isPerEmpresa ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] px-1.5 py-0 bg-blue-500/10 text-blue-600 border-blue-300"
+                                      >
+                                        POR LOJA
+                                      </Badge>
+                                    ) : (
+                                      <Badge
+                                        variant={flag.is_enabled ? "default" : "outline"}
+                                        className={`text-[10px] px-1.5 py-0 ${
+                                          flag.is_enabled
+                                            ? "bg-emerald-500/15 text-emerald-600 border-emerald-300"
+                                            : "text-muted-foreground"
+                                        }`}
+                                      >
+                                        {flag.is_enabled ? "ON" : "OFF"}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {flag.description && (
+                                    <p className="text-sm text-muted-foreground line-clamp-1">
+                                      {flag.description}
+                                    </p>
+                                  )}
+                                  <p className="text-xs text-muted-foreground/60 font-mono mt-1">
+                                    {flag.flag_key}
                                   </p>
-                                )}
-                                <p className="text-xs text-muted-foreground/60 font-mono mt-1">
-                                  {flag.flag_key}
-                                </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {isPerEmpresa && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 gap-1.5"
+                                      onClick={() => {
+                                        setEmpresasFlag(flag);
+                                        setEmpresasModalOpen(true);
+                                      }}
+                                    >
+                                      <Building2 className="h-3.5 w-3.5" />
+                                      Lojas
+                                    </Button>
+                                  )}
+                                  {!isPerEmpresa && (
+                                    <Switch
+                                      checked={flag.is_enabled}
+                                      onCheckedChange={() => handleToggle(flag)}
+                                      disabled={togglingId === flag.id}
+                                    />
+                                  )}
+                                </div>
                               </div>
-                              <Switch
-                                checked={flag.is_enabled}
-                                onCheckedChange={() => handleToggle(flag)}
-                                disabled={togglingId === flag.id}
-                              />
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -178,6 +213,12 @@ const FeatureFlagsPage = () => {
           )}
         </div>
       </ScrollIndicator>
+
+      <FeatureFlagEmpresasModal
+        flag={empresasFlag}
+        open={empresasModalOpen}
+        onOpenChange={setEmpresasModalOpen}
+      />
     </DashboardLayout>
   );
 };
