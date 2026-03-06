@@ -8,8 +8,18 @@ export interface FeatureFlag {
   description: string | null;
   category: string;
   is_enabled: boolean;
+  scope: string;
   updated_at: string;
   updated_by: string | null;
+}
+
+export interface FeatureFlagEmpresa {
+  id: string;
+  flag_id: string;
+  empresa_id: string;
+  is_enabled: boolean;
+  created_at: string;
+  empresa_nome?: string;
 }
 
 export function useFeatureFlags() {
@@ -45,5 +55,23 @@ export function useFeatureFlags() {
     [flags]
   );
 
-  return { flags, loading, reload: loadFlags, isEnabled };
+  /** Check if a per_empresa flag is enabled for a specific empresa */
+  const isEnabledForEmpresa = useCallback(
+    async (key: string, empresaId: string): Promise<boolean> => {
+      try {
+        const { data, error } = await supabase.rpc("is_feature_enabled_for_empresa", {
+          p_flag_key: key,
+          p_empresa_id: empresaId,
+        });
+        if (error) throw error;
+        return data ?? false;
+      } catch (err) {
+        console.error("Erro ao verificar flag por empresa:", err);
+        return false;
+      }
+    },
+    []
+  );
+
+  return { flags, loading, reload: loadFlags, isEnabled, isEnabledForEmpresa };
 }
