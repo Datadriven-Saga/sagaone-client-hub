@@ -1307,8 +1307,20 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         dadosProspeccao.evento_principal = eventoPrincipal;
         dadosProspeccao.qualificar_lead = qualificarLead;
         dadosProspeccao.data_envio_template_inicial = dataEnvioInicial ? new Date(dataEnvioInicial).toISOString() : new Date().toISOString();
+        // Cadência completa (apenas na criação, não altera na edição)
+        if (!editingProspeccao) {
+          dadosProspeccao.cadencia_completa = cadenciaCompleta;
+        }
+        // Templates 48h/24h (quando cadência completa ativa)
+        if (cadenciaCompleta || editingProspeccao?.cadencia_completa) {
+          dadosProspeccao.template_agendado_48h_id = templateAgendado48hId || null;
+          dadosProspeccao.template_agendado_24h_id = templateAgendado24hId || null;
+        }
         // Calcular data_envio_cadencia: se não preenchida, 24h antes da data final do evento
-        if (dataEnvioCadencia) {
+        if (cadenciaCompleta || editingProspeccao?.cadencia_completa) {
+          // Cadência completa usa horários fixos, não precisa de data_envio_cadencia manual
+          dadosProspeccao.data_envio_cadencia = null;
+        } else if (dataEnvioCadencia) {
           dadosProspeccao.data_envio_cadencia = new Date(dataEnvioCadencia).toISOString();
         } else if (dataFim || dataInicio) {
           const dataRef = dataFim || dataInicio;
