@@ -3566,6 +3566,7 @@ export type Database = {
       prospeccoes: {
         Row: {
           ativo: boolean
+          cadencia_completa: boolean
           canal: string
           convite: string | null
           created_at: string | null
@@ -3605,6 +3606,8 @@ export type Database = {
           premio_vendedor_prata: number | null
           qualificar_lead: boolean
           responsavel_id: string | null
+          template_agendado_24h_id: string | null
+          template_agendado_48h_id: string | null
           template_agendado_id: string | null
           template_nao_agendado_id: string | null
           template_prospeccao_id: string | null
@@ -3613,6 +3616,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          cadencia_completa?: boolean
           canal?: string
           convite?: string | null
           created_at?: string | null
@@ -3652,6 +3656,8 @@ export type Database = {
           premio_vendedor_prata?: number | null
           qualificar_lead?: boolean
           responsavel_id?: string | null
+          template_agendado_24h_id?: string | null
+          template_agendado_48h_id?: string | null
           template_agendado_id?: string | null
           template_nao_agendado_id?: string | null
           template_prospeccao_id?: string | null
@@ -3660,6 +3666,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          cadencia_completa?: boolean
           canal?: string
           convite?: string | null
           created_at?: string | null
@@ -3699,6 +3706,8 @@ export type Database = {
           premio_vendedor_prata?: number | null
           qualificar_lead?: boolean
           responsavel_id?: string | null
+          template_agendado_24h_id?: string | null
+          template_agendado_48h_id?: string | null
           template_agendado_id?: string | null
           template_nao_agendado_id?: string | null
           template_prospeccao_id?: string | null
@@ -3732,6 +3741,20 @@ export type Database = {
             columns: ["responsavel_id"]
             isOneToOne: false
             referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccoes_template_agendado_24h_id_fkey"
+            columns: ["template_agendado_24h_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccoes_template_agendado_48h_id_fkey"
+            columns: ["template_agendado_48h_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
             referencedColumns: ["id"]
           },
           {
