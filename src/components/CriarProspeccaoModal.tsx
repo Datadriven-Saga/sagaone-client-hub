@@ -2797,8 +2797,8 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
               </div>
             </div>
 
-            {/* Toggle Cadência Completa - apenas na criação de IA WhatsApp com feature flag */}
-            {tipoEvento === 'IA Whatsapp' && cadenciaCompletaFlagEnabled && (
+            {/* Toggle Cadência Completa - visível na criação com flag OU na edição se já estava ativa */}
+            {tipoEvento === 'IA Whatsapp' && (cadenciaCompletaFlagEnabled || editingProspeccao?.cadencia_completa) && (
               <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
                 <div className="flex items-center gap-2">
                   <Label htmlFor="cadencia_completa" className="font-medium cursor-pointer">
