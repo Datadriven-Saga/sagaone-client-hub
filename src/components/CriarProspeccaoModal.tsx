@@ -1134,6 +1134,23 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       return;
     }
 
+    // Validação: quando cadência completa está ativa, todos os 4 templates são obrigatórios
+    const isCadenciaCompletaAtiva = cadenciaCompleta || editingProspeccao?.cadencia_completa;
+    if (tipoEvento === 'IA Whatsapp' && isCadenciaCompletaAtiva) {
+      const missingTemplates: string[] = [];
+      if (!templateAgendado48hId) missingTemplates.push("Agendado 48h");
+      if (!templateAgendado24hId) missingTemplates.push("Agendado 24h");
+      if (!templateNaoAgendadoId) missingTemplates.push("Não Responderam");
+      if (missingTemplates.length > 0) {
+        toast({
+          title: "Templates obrigatórios",
+          description: `Com cadência completa ativa, os seguintes templates são obrigatórios: ${missingTemplates.join(", ")}.`,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     if (!user) {
       toast({
         title: "Erro",
