@@ -224,6 +224,15 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const { user } = useAuth();
   const { activeCompany } = useCompany();
 
+  // Check per-empresa feature flag for cadência completa
+  useEffect(() => {
+    if (activeCompany?.id && tipoEvento === 'IA Whatsapp') {
+      isEnabledForEmpresa('pri_whats_cadencia_completa', activeCompany.id).then(setCadenciaCompletaFlagEnabled);
+    } else {
+      setCadenciaCompletaFlagEnabled(false);
+    }
+  }, [activeCompany?.id, tipoEvento, isEnabledForEmpresa]);
+
   // Get current steps based on tipo
   const steps = getStepsByType(tipoEvento);
   const currentStepName = steps[currentStep];
