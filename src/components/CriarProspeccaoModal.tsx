@@ -57,7 +57,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [loadingMessage, setLoadingMessage] = useState("");
   const [currentStep, setCurrentStep] = useState(0);
   const { canCreateIALigacao, canCreateEventos, canUploadBase } = useUserAccessType();
-  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
+  const { isEnabledForEmpresa } = useFeatureFlags();
+  const [cadenciaCompletaFlagEnabled, setCadenciaCompletaFlagEnabled] = useState(false);
   
   // Tipo de Evento
   const [tipoEvento, setTipoEvento] = useState<TipoEvento>('Prospecção Mensal');
@@ -222,6 +223,15 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeCompany } = useCompany();
+
+  // Check per-empresa feature flag for cadência completa
+  useEffect(() => {
+    if (activeCompany?.id && tipoEvento === 'IA Whatsapp') {
+      isEnabledForEmpresa('pri_whats_cadencia_completa', activeCompany.id).then(setCadenciaCompletaFlagEnabled);
+    } else {
+      setCadenciaCompletaFlagEnabled(false);
+    }
+  }, [activeCompany?.id, tipoEvento, isEnabledForEmpresa]);
 
   // Get current steps based on tipo
   const steps = getStepsByType(tipoEvento);
@@ -2788,7 +2798,7 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
             </div>
 
             {/* Toggle Cadência Completa - apenas na criação de IA WhatsApp com feature flag */}
-            {tipoEvento === 'IA Whatsapp' && isFeatureEnabled('pri_whats_cadencia_completa') && (
+            {tipoEvento === 'IA Whatsapp' && cadenciaCompletaFlagEnabled && (
               <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
                 <div className="flex items-center gap-2">
                   <Label htmlFor="cadencia_completa" className="font-medium cursor-pointer">

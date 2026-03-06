@@ -1909,6 +1909,48 @@ export type Database = {
           },
         ]
       }
+      feature_flag_empresas: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          empresa_id: string
+          flag_id: string
+          id: string
+          is_enabled: boolean
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          empresa_id: string
+          flag_id: string
+          id?: string
+          is_enabled?: boolean
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          empresa_id?: string
+          flag_id?: string
+          id?: string
+          is_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flag_empresas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feature_flag_empresas_flag_id_fkey"
+            columns: ["flag_id"]
+            isOneToOne: false
+            referencedRelation: "system_feature_flags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gatilhos: {
         Row: {
           acoes: Json | null
@@ -4023,6 +4065,7 @@ export type Database = {
           flag_label: string
           id: string
           is_enabled: boolean
+          scope: string
           updated_at: string
           updated_by: string | null
         }
@@ -4034,6 +4077,7 @@ export type Database = {
           flag_label: string
           id?: string
           is_enabled?: boolean
+          scope?: string
           updated_at?: string
           updated_by?: string | null
         }
@@ -4045,6 +4089,7 @@ export type Database = {
           flag_label?: string
           id?: string
           is_enabled?: boolean
+          scope?: string
           updated_at?: string
           updated_by?: string | null
         }
@@ -4907,6 +4952,10 @@ export type Database = {
         Returns: boolean
       }
       is_feature_enabled: { Args: { p_flag_key: string }; Returns: boolean }
+      is_feature_enabled_for_empresa: {
+        Args: { p_empresa_id: string; p_flag_key: string }
+        Returns: boolean
+      }
       is_mfa_master: { Args: { check_user_id?: string }; Returns: boolean }
       mask_sensitive_data: {
         Args: {
