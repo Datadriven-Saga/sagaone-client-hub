@@ -57,7 +57,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [loadingMessage, setLoadingMessage] = useState("");
   const [currentStep, setCurrentStep] = useState(0);
   const { canCreateIALigacao, canCreateEventos, canUploadBase } = useUserAccessType();
-  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
+  const { isEnabledForEmpresa } = useFeatureFlags();
+  const [cadenciaCompletaFlagEnabled, setCadenciaCompletaFlagEnabled] = useState(false);
   
   // Tipo de Evento
   const [tipoEvento, setTipoEvento] = useState<TipoEvento>('Prospecção Mensal');
