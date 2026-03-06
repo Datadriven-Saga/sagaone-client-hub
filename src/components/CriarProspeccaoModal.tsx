@@ -2874,6 +2874,8 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 )}
               </div>
               
+              {/* Template Agendado - visível apenas quando cadência completa está desativa */}
+              {!(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
               <div className="space-y-2">
                 <Label htmlFor="template_agendado">Template Agendado (opcional)</Label>
                 <div className="flex gap-2">
@@ -2915,9 +2917,87 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                   )}
                 </div>
               </div>
+              )}
+
+              {/* Templates Agendado 48h e 24h - visíveis apenas quando cadência completa está ativa */}
+              {(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="template_agendado_48h">
+                      Template Agendado 48h <span className="text-destructive">*</span>
+                    </Label>
+                    <div className="flex gap-2">
+                      <Select value={templateAgendado48hId} onValueChange={setTemplateAgendado48hId}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione um template aprovado" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {whatsappTemplates
+                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendado24hId && t.id !== templateNaoAgendadoId)
+                            .map(template => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.nome}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {templateAgendado48hId && (
+                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendado48hId("")} className="shrink-0" title="Limpar seleção">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Enviado automaticamente 48h antes do início do evento</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="template_agendado_24h">
+                      Template Agendado 24h <span className="text-destructive">*</span>
+                    </Label>
+                    <div className="flex gap-2">
+                      <Select value={templateAgendado24hId} onValueChange={setTemplateAgendado24hId}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione um template aprovado" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {whatsappTemplates
+                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendado48hId && t.id !== templateNaoAgendadoId)
+                            .map(template => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.nome}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {templateAgendado24hId && (
+                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendado24hId("")} className="shrink-0" title="Limpar seleção">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Enviado automaticamente 24h antes do início do evento</p>
+                  </div>
+                </>
+              )}
               
               <div className="space-y-2">
-                <Label htmlFor="template_nao_agendado">Template Não Agendado (opcional)</Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="template_nao_agendado">Template Não Responderam (opcional)</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="font-medium mb-1">Motivo:</p>
+                        <p>Quem respondeu terá uma cadência automática "como a Maia", sem gastar dinheiro com template. Isso vale para os leads que responderam, mas não agendaram.</p>
+                        {(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
+                          <p className="mt-2 text-xs">Será enviado 4 horas após o disparo inicial.</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <div className="flex gap-2">
                   <Select value={templateNaoAgendadoId} onValueChange={(value) => {
                     if (value === templateProspeccaoId || value === templateAgendadoId) {
@@ -2958,7 +3038,8 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 </div>
               </div>
 
-              {/* Separador */}
+              {/* Configurações de Disparo - ocultas quando cadência completa ativa */}
+              {!(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
               <div className="border-t pt-4 mt-4">
                 <h4 className="text-sm font-medium mb-4">Configurações de Disparo</h4>
                 
@@ -3009,6 +3090,24 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                   <p className="text-xs text-muted-foreground">Deixe em branco para usar 24h antes do evento</p>
                 </div>
               </div>
+              )}
+
+              {/* Info sobre cadências fixas quando cadência completa ativa */}
+              {(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="text-sm font-medium mb-3">Cadências Fixas (automáticas)</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 p-2 rounded border bg-muted/30">
+                      <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm text-muted-foreground">Agendados: <strong>48h</strong> e <strong>24h</strong> antes do início do evento</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-2 rounded border bg-muted/30">
+                      <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm text-muted-foreground">Não responderam: <strong>4h</strong> após o disparo inicial</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Separador */}
               <div className="border-t pt-4 mt-4">
