@@ -214,7 +214,10 @@ export const useContatoData = () => {
           evento_principal,
           qualificar_lead,
           data_envio_template_inicial,
-          data_envio_cadencia
+          data_envio_cadencia,
+          cadencia_completa,
+          template_agendado_48h_id,
+          template_agendado_24h_id
         `)
         .eq('empresa_id', activeCompany.id);
       
