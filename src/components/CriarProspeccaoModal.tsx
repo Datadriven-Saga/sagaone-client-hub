@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { validatePhoneBatchForIALigacao } from "@/lib/phoneUtils";
 import { sendCrmEventEmail } from "@/lib/sendCrmEventEmail";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 
 interface CriarProspeccaoModalProps {
