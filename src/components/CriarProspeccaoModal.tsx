@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { validatePhoneBatchForIALigacao } from "@/lib/phoneUtils";
 import { sendCrmEventEmail } from "@/lib/sendCrmEventEmail";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 
 interface CriarProspeccaoModalProps {
@@ -56,6 +57,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [loadingMessage, setLoadingMessage] = useState("");
   const [currentStep, setCurrentStep] = useState(0);
   const { canCreateIALigacao, canCreateEventos, canUploadBase } = useUserAccessType();
+  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
   
   // Tipo de Evento
   const [tipoEvento, setTipoEvento] = useState<TipoEvento>('Prospecção Mensal');
@@ -80,6 +82,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [qualificarLead, setQualificarLead] = useState(true);
   const [dataEnvioInicial, setDataEnvioInicial] = useState("");
   const [dataEnvioCadencia, setDataEnvioCadencia] = useState("");
+  
+  // Cadência Completa (IA WhatsApp)
+  const [cadenciaCompleta, setCadenciaCompleta] = useState(false);
+  const [templateAgendado48hId, setTemplateAgendado48hId] = useState("");
+  const [templateAgendado24hId, setTemplateAgendado24hId] = useState("");
 
   // Metas
   const [metaNovos, setMetaNovos] = useState<number | "">("");
@@ -297,6 +304,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       setDataEnvioInicial(formatToDatetimeLocal(editingProspeccao.data_envio_template_inicial));
       setDataEnvioCadencia(formatToDatetimeLocal(editingProspeccao.data_envio_cadencia));
       
+      // Cadência Completa
+      setCadenciaCompleta(editingProspeccao.cadencia_completa ?? false);
+      setTemplateAgendado48hId(editingProspeccao.template_agendado_48h_id || "");
+      setTemplateAgendado24hId(editingProspeccao.template_agendado_24h_id || "");
+      
       // Determinar tipo de evento baseado no canal salvo
       const canalSalvo = editingProspeccao.canal;
       if (canalSalvo === 'Grande Evento') {
@@ -422,6 +434,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setQualificarLead(true);
     setDataEnvioInicial("");
     setDataEnvioCadencia("");
+    // Reset Cadência Completa
+    setCadenciaCompleta(false);
+    setTemplateAgendado48hId("");
+    setTemplateAgendado24hId("");
     // Reset IA Ligação
     setContatosLigacao([]);
     setContatosInvalidos([]);
@@ -1291,8 +1307,20 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         dadosProspeccao.evento_principal = eventoPrincipal;
         dadosProspeccao.qualificar_lead = qualificarLead;
         dadosProspeccao.data_envio_template_inicial = dataEnvioInicial ? new Date(dataEnvioInicial).toISOString() : new Date().toISOString();
+        // Cadência completa (apenas na criação, não altera na edição)
+        if (!editingProspeccao) {
+          dadosProspeccao.cadencia_completa = cadenciaCompleta;
+        }
+        // Templates 48h/24h (quando cadência completa ativa)
+        if (cadenciaCompleta || editingProspeccao?.cadencia_completa) {
+          dadosProspeccao.template_agendado_48h_id = templateAgendado48hId || null;
+          dadosProspeccao.template_agendado_24h_id = templateAgendado24hId || null;
+        }
         // Calcular data_envio_cadencia: se não preenchida, 24h antes da data final do evento
-        if (dataEnvioCadencia) {
+        if (cadenciaCompleta || editingProspeccao?.cadencia_completa) {
+          // Cadência completa usa horários fixos, não precisa de data_envio_cadencia manual
+          dadosProspeccao.data_envio_cadencia = null;
+        } else if (dataEnvioCadencia) {
           dadosProspeccao.data_envio_cadencia = new Date(dataEnvioCadencia).toISOString();
         } else if (dataFim || dataInicio) {
           const dataRef = dataFim || dataInicio;
@@ -1625,8 +1653,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       const templateDescobertaData = whatsappTemplates.find(t => t.id === prospeccaoData.template_prospeccao_id);
       const templateAgendadoData = whatsappTemplates.find(t => t.id === prospeccaoData.template_agendado_id);
       const templateNaoAgendadoData = whatsappTemplates.find(t => t.id === prospeccaoData.template_nao_agendado_id);
+      const templateAgendado48hData = whatsappTemplates.find(t => t.id === prospeccaoData.template_agendado_48h_id);
+      const templateAgendado24hData = whatsappTemplates.find(t => t.id === prospeccaoData.template_agendado_24h_id);
 
-      const webhookPayload = {
+      const webhookPayload: any = {
         maia_id: formatarTelefone(agenteData?.telefone || ""),
         nome_evento: prospeccaoData.titulo || "",
         data_inicio: formatarDataISO(prospeccaoData.data_inicio || ""),
@@ -1641,8 +1671,19 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         template_conf_agendado_id_meta: templateAgendadoData?.id_meta || "",
         template_conf_nao_agendado: templateNaoAgendadoData?.nome || "",
         template_conf_nao_agendado_id_pri: templateNaoAgendadoData?.template_id_pri || "",
-        template_conf_nao_agendado_id_meta: templateNaoAgendadoData?.id_meta || ""
+        template_conf_nao_agendado_id_meta: templateNaoAgendadoData?.id_meta || "",
+        cadencia_completa: prospeccaoData.cadencia_completa ?? false,
       };
+
+      // Adicionar templates 48h/24h quando cadência completa
+      if (prospeccaoData.cadencia_completa) {
+        webhookPayload.template_agendado_48h = templateAgendado48hData?.nome || "";
+        webhookPayload.template_agendado_48h_id_pri = templateAgendado48hData?.template_id_pri || "";
+        webhookPayload.template_agendado_48h_id_meta = templateAgendado48hData?.id_meta || "";
+        webhookPayload.template_agendado_24h = templateAgendado24hData?.nome || "";
+        webhookPayload.template_agendado_24h_id_pri = templateAgendado24hData?.template_id_pri || "";
+        webhookPayload.template_agendado_24h_id_meta = templateAgendado24hData?.id_meta || "";
+      }
 
       console.log('📤 Enviando webhook:', webhookPayload);
 
@@ -2108,6 +2149,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         qualificar_lead: prospeccaoData.qualificar_lead ?? true,
         data_envio_template_inicial: formatarDataISO(prospeccaoData.data_envio_template_inicial),
         data_envio_cadencia: formatarDataISO(prospeccaoData.data_envio_cadencia),
+        cadencia_completa: prospeccaoData.cadencia_completa ?? false,
       };
 
       // Adicionar templates para IA Whatsapp com IDs Pri e Meta
@@ -2130,11 +2172,15 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         const templateProspeccaoUuid = (prospeccaoData as any).template_prospeccao_id as string | null | undefined;
         const templateAgendadoUuid = (prospeccaoData as any).template_agendado_id as string | null | undefined;
         const templateNaoAgendadoUuid = (prospeccaoData as any).template_nao_agendado_id as string | null | undefined;
+        const templateAgendado48hUuid = (prospeccaoData as any).template_agendado_48h_id as string | null | undefined;
+        const templateAgendado24hUuid = (prospeccaoData as any).template_agendado_24h_id as string | null | undefined;
 
-        const [templateProspeccaoData, templateAgendadoData, templateNaoAgendadoData] = await Promise.all([
+        const [templateProspeccaoData, templateAgendadoData, templateNaoAgendadoData, templateAgendado48hData, templateAgendado24hData] = await Promise.all([
           lookupTemplateById(templateProspeccaoUuid),
           lookupTemplateById(templateAgendadoUuid),
           lookupTemplateById(templateNaoAgendadoUuid),
+          lookupTemplateById(templateAgendado48hUuid),
+          lookupTemplateById(templateAgendado24hUuid),
         ]);
 
         // Enviar tanto o UUID (novo padrão) quanto os ids externos (PRI/Meta)
@@ -2152,6 +2198,19 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         payload.template_nao_agendado = templateNaoAgendadoData?.nome || null;
         payload.template_nao_agendado_id_pri = templateNaoAgendadoData?.template_id_pri || null;
         payload.template_nao_agendado_id_meta = templateNaoAgendadoData?.id_meta || null;
+
+        // Templates 48h/24h quando cadência completa
+        if (prospeccaoData.cadencia_completa) {
+          payload.template_agendado_48h_id = templateAgendado48hUuid || null;
+          payload.template_agendado_48h = templateAgendado48hData?.nome || null;
+          payload.template_agendado_48h_id_pri = templateAgendado48hData?.template_id_pri || null;
+          payload.template_agendado_48h_id_meta = templateAgendado48hData?.id_meta || null;
+
+          payload.template_agendado_24h_id = templateAgendado24hUuid || null;
+          payload.template_agendado_24h = templateAgendado24hData?.nome || null;
+          payload.template_agendado_24h_id_pri = templateAgendado24hData?.template_id_pri || null;
+          payload.template_agendado_24h_id_meta = templateAgendado24hData?.id_meta || null;
+        }
       }
 
       console.log(`📤 Disparando ${gatilhosEvento.length} gatilho(s) de novo_evento_criado para ${tipoEvento}`);
@@ -2728,6 +2787,37 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
               </div>
             </div>
 
+            {/* Toggle Cadência Completa - apenas na criação de IA WhatsApp com feature flag */}
+            {tipoEvento === 'IA Whatsapp' && isFeatureEnabled('pri_whats_cadencia_completa') && (
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="cadencia_completa" className="font-medium cursor-pointer">
+                    Cadência completa
+                  </Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        {editingProspeccao ? (
+                          <p>Definido na criação, não pode ser alterado.</p>
+                        ) : (
+                          <p>Quando ativado, habilita cadências com horários fixos: 48h e 24h antes do evento para agendados e 4h após o disparo inicial para "não responderam". Os horários não podem ser alterados.</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Switch
+                  id="cadencia_completa"
+                  checked={editingProspeccao ? (editingProspeccao.cadencia_completa ?? false) : cadenciaCompleta}
+                  onCheckedChange={setCadenciaCompleta}
+                  disabled={!!editingProspeccao}
+                />
+              </div>
+            )}
+
           </div>
         );
 
@@ -2815,6 +2905,8 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 )}
               </div>
               
+              {/* Template Agendado - visível apenas quando cadência completa está desativa */}
+              {!(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
               <div className="space-y-2">
                 <Label htmlFor="template_agendado">Template Agendado (opcional)</Label>
                 <div className="flex gap-2">
@@ -2856,9 +2948,87 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                   )}
                 </div>
               </div>
+              )}
+
+              {/* Templates Agendado 48h e 24h - visíveis apenas quando cadência completa está ativa */}
+              {(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="template_agendado_48h">
+                      Template Agendado 48h <span className="text-destructive">*</span>
+                    </Label>
+                    <div className="flex gap-2">
+                      <Select value={templateAgendado48hId} onValueChange={setTemplateAgendado48hId}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione um template aprovado" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {whatsappTemplates
+                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendado24hId && t.id !== templateNaoAgendadoId)
+                            .map(template => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.nome}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {templateAgendado48hId && (
+                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendado48hId("")} className="shrink-0" title="Limpar seleção">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Enviado automaticamente 48h antes do início do evento</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="template_agendado_24h">
+                      Template Agendado 24h <span className="text-destructive">*</span>
+                    </Label>
+                    <div className="flex gap-2">
+                      <Select value={templateAgendado24hId} onValueChange={setTemplateAgendado24hId}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione um template aprovado" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {whatsappTemplates
+                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendado48hId && t.id !== templateNaoAgendadoId)
+                            .map(template => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.nome}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {templateAgendado24hId && (
+                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendado24hId("")} className="shrink-0" title="Limpar seleção">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Enviado automaticamente 24h antes do início do evento</p>
+                  </div>
+                </>
+              )}
               
               <div className="space-y-2">
-                <Label htmlFor="template_nao_agendado">Template Não Agendado (opcional)</Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="template_nao_agendado">Template Não Responderam (opcional)</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="font-medium mb-1">Motivo:</p>
+                        <p>Quem respondeu terá uma cadência automática "como a Maia", sem gastar dinheiro com template. Isso vale para os leads que responderam, mas não agendaram.</p>
+                        {(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
+                          <p className="mt-2 text-xs">Será enviado 4 horas após o disparo inicial.</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <div className="flex gap-2">
                   <Select value={templateNaoAgendadoId} onValueChange={(value) => {
                     if (value === templateProspeccaoId || value === templateAgendadoId) {
@@ -2899,7 +3069,8 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                 </div>
               </div>
 
-              {/* Separador */}
+              {/* Configurações de Disparo - ocultas quando cadência completa ativa */}
+              {!(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
               <div className="border-t pt-4 mt-4">
                 <h4 className="text-sm font-medium mb-4">Configurações de Disparo</h4>
                 
@@ -2950,6 +3121,24 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                   <p className="text-xs text-muted-foreground">Deixe em branco para usar 24h antes do evento</p>
                 </div>
               </div>
+              )}
+
+              {/* Info sobre cadências fixas quando cadência completa ativa */}
+              {(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="text-sm font-medium mb-3">Cadências Fixas (automáticas)</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 p-2 rounded border bg-muted/30">
+                      <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm text-muted-foreground">Agendados: <strong>48h</strong> e <strong>24h</strong> antes do início do evento</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-2 rounded border bg-muted/30">
+                      <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm text-muted-foreground">Não responderam: <strong>4h</strong> após o disparo inicial</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Separador */}
               <div className="border-t pt-4 mt-4">
