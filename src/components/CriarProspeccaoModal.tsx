@@ -82,6 +82,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [qualificarLead, setQualificarLead] = useState(true);
   const [dataEnvioInicial, setDataEnvioInicial] = useState("");
   const [dataEnvioCadencia, setDataEnvioCadencia] = useState("");
+  
+  // Cadência Completa (IA WhatsApp)
+  const [cadenciaCompleta, setCadenciaCompleta] = useState(false);
+  const [templateAgendado48hId, setTemplateAgendado48hId] = useState("");
+  const [templateAgendado24hId, setTemplateAgendado24hId] = useState("");
 
   // Metas
   const [metaNovos, setMetaNovos] = useState<number | "">("");
