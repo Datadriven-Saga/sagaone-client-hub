@@ -1134,6 +1134,23 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       return;
     }
 
+    // Validação: quando cadência completa está ativa, todos os 4 templates são obrigatórios
+    const isCadenciaCompletaAtiva = cadenciaCompleta || editingProspeccao?.cadencia_completa;
+    if (tipoEvento === 'IA Whatsapp' && isCadenciaCompletaAtiva) {
+      const missingTemplates: string[] = [];
+      if (!templateAgendado48hId) missingTemplates.push("Agendado 48h");
+      if (!templateAgendado24hId) missingTemplates.push("Agendado 24h");
+      if (!templateNaoAgendadoId) missingTemplates.push("Não Responderam");
+      if (missingTemplates.length > 0) {
+        toast({
+          title: "Templates obrigatórios",
+          description: `Com cadência completa ativa, os seguintes templates são obrigatórios: ${missingTemplates.join(", ")}.`,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     if (!user) {
       toast({
         title: "Erro",
@@ -2989,6 +3006,9 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">Enviado automaticamente 48h antes do início do evento</p>
+                    {!templateAgendado48hId && (
+                      <p className="text-xs text-destructive">Template obrigatório</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -3017,13 +3037,18 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">Enviado automaticamente 24h antes do início do evento</p>
+                    {!templateAgendado24hId && (
+                      <p className="text-xs text-destructive">Template obrigatório</p>
+                    )}
                   </div>
                 </>
               )}
               
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="template_nao_agendado">Template Não Responderam (opcional)</Label>
+                  <Label htmlFor="template_nao_agendado">
+                    Template Não Responderam {(cadenciaCompleta || editingProspeccao?.cadencia_completa) ? <span className="text-destructive">*</span> : '(opcional)'}
+                  </Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -3077,6 +3102,9 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                     </Button>
                   )}
                 </div>
+                {(cadenciaCompleta || editingProspeccao?.cadencia_completa) && !templateNaoAgendadoId && (
+                  <p className="text-xs text-destructive">Obrigatório com cadência completa ativa</p>
+                )}
               </div>
 
               {/* Configurações de Disparo - ocultas quando cadência completa ativa */}
