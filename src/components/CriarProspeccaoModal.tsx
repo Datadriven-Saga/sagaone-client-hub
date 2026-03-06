@@ -3096,6 +3096,9 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                     </Button>
                   )}
                 </div>
+                {(cadenciaCompleta || editingProspeccao?.cadencia_completa) && !templateNaoAgendadoId && (
+                  <p className="text-xs text-destructive">Obrigatório com cadência completa ativa</p>
+                )}
               </div>
 
               {/* Configurações de Disparo - ocultas quando cadência completa ativa */}
