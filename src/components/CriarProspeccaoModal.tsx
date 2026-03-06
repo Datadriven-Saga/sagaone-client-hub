@@ -434,6 +434,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setQualificarLead(true);
     setDataEnvioInicial("");
     setDataEnvioCadencia("");
+    // Reset Cadência Completa
+    setCadenciaCompleta(false);
+    setTemplateAgendado48hId("");
+    setTemplateAgendado24hId("");
     // Reset IA Ligação
     setContatosLigacao([]);
     setContatosInvalidos([]);
