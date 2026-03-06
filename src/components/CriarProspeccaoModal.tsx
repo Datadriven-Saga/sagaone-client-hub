@@ -2756,6 +2756,37 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
               </div>
             </div>
 
+            {/* Toggle Cadência Completa - apenas na criação de IA WhatsApp com feature flag */}
+            {tipoEvento === 'IA Whatsapp' && isFeatureEnabled('pri_whats_cadencia_completa') && (
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="cadencia_completa" className="font-medium cursor-pointer">
+                    Cadência completa
+                  </Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        {editingProspeccao ? (
+                          <p>Definido na criação, não pode ser alterado.</p>
+                        ) : (
+                          <p>Quando ativado, habilita cadências com horários fixos: 48h e 24h antes do evento para agendados e 4h após o disparo inicial para "não responderam". Os horários não podem ser alterados.</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Switch
+                  id="cadencia_completa"
+                  checked={editingProspeccao ? (editingProspeccao.cadencia_completa ?? false) : cadenciaCompleta}
+                  onCheckedChange={setCadenciaCompleta}
+                  disabled={!!editingProspeccao}
+                />
+              </div>
+            )}
+
           </div>
         );
 
