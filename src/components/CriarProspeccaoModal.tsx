@@ -3037,6 +3037,9 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">Enviado automaticamente 24h antes do início do evento</p>
+                    {!templateAgendado24hId && (
+                      <p className="text-xs text-destructive">Template obrigatório</p>
+                    )}
                   </div>
                 </>
               )}
