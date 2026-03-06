@@ -3040,7 +3040,9 @@ ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar 
               
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="template_nao_agendado">Template Não Responderam (opcional)</Label>
+                  <Label htmlFor="template_nao_agendado">
+                    Template Não Responderam {(cadenciaCompleta || editingProspeccao?.cadencia_completa) ? <span className="text-destructive">*</span> : '(opcional)'}
+                  </Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
