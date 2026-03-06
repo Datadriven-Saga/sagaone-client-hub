@@ -30,25 +30,74 @@ const TIPOS_MENSAGEM_COM_PERIODO = [
 ];
 
 // Texto inicial padrão para o modelo de descrição
-const TEXTO_MODELO_PROSPECCAO = `🔥 Noite RAM na Saga BR-153!
-Potência, exclusividade e oportunidades imperdíveis. 🚗💨
+const TEXTO_MODELO_PROSPECCAO = `🔥 *[NOME DO EVENTO]*
 
-Chegou o momento que todo apaixonado por RAM esperava!
-A Saga RAM BR-153 convida você para uma noite exclusiva de vendas, com atendimento VIP e condições únicas válidas apenas neste evento especial.
+[CHAMADA CURTA DE IMPACTO]
 
-🌙 Evento noturno exclusivo
-🛞 Chassis selecionados com preços imperdíveis
-🤝 Atendimento personalizado com o gerente
-🚗 Oportunidades disponíveis só no dia
+[BREVE DESCRIÇÃO DO EVENTO]
 
-🗓️ 28 de outubro, a partir das 18h
-📍 Saga RAM BR-153
 
-Viva uma experiência premium, com atendimento prioritário e condições feitas sob medida para quem valoriza potência e sofisticação.
-Garanta sua presença e não perca essa oportunidade única de sair de RAM nova!
 
-A PRI deve apenas convidar, confirmar interesse, e confirmar o endereço da loja.
-Ela não deve falar sobre valores, taxas, entrada, financiamento, simulações ou detalhes técnicos de veículos.`;
+
+[DESCREVER AQUI O QUE É O EVENTO, INFORMANDO DE FORMA CLARA:]
+
+- qual é a marca ou marcas participantes;
+
+- se o evento será de carros novos, seminovos ou ambos;
+
+- se o evento é focado em um único modelo, uma linha específica ou várias opções;
+
+- se o cliente poderá avaliar/comprar outros veículos além do principal divulgado;
+
+- qual é o principal objetivo do evento para o cliente.
+
+
+
+
+✨ O que te espera: [DESCREVER TUDO O QUE O CLIENTE PODE ESPERAR NO EVENTO E OS PRINCIPAIS MOTIVOS PARA COMPARECER]
+
+🚗 [ESTRUTURA / EXPERIÊNCIA / ORGANIZAÇÃO DO EVENTO];
+
+👥 [PRESENÇA DE TIME COMERCIAL, GERÊNCIA OU ESPECIALISTAS];
+
+🎉 [CLIMA / AMBIENTE / DIFERENCIAL DO EVENTO];
+
+🔄 [POSSIBILIDADE DE COMPARAR VEÍCULOS, MARCAS OU CONDIÇÕES];
+
+💸 [TIPO DE NEGOCIAÇÃO OU CONDIÇÃO ESPECIAL QUE HAVERÁ];
+
+📆 [INFORMAR SE AS CONDIÇÕES SÃO EXCLUSIVAS DOS DIAS DO EVENTO];
+
+🔍 [INFORMAR SE HAVERÁ AVALIAÇÃO DE USADO / TROCA / CONSULTORIA];
+
+📦 [INFORMAR SE HAVERÁ ESTOQUE SELECIONADO / UNIDADES ESPECÍFICAS];
+
+🎁 [INFORMAR SE HAVERÁ BRINDES, AÇÕES OU BENEFÍCIOS EXTRAS].
+
+
+
+
+🗓️ [DATA COMPLETA DO EVENTO]
+
+⏱️Horário:
+
+[DIA 1]: [HORÁRIO]
+
+[DIA 2]: [HORÁRIO]
+
+[DIA 3]: [HORÁRIO]
+
+📍 [LOCAL COMPLETO DO EVENTO]
+
+
+
+
+Garanta sua presença e não perca essa oportunidade única!
+
+
+
+
+ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar sobre [LISTAR TUDO O QUE NÃO PODE SER FALADO: valores, taxas, entrada, financiamento, parcelas, estoque, simulações, detalhes técnicos, jurídico, contratos, etc.].`;
 
 // Tipos que são templates de texto longo (sem período)
 const TIPOS_MENSAGEM_TEXTO_LONGO = [
