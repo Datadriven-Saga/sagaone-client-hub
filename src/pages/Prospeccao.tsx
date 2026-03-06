@@ -1371,15 +1371,32 @@ showAllEvents: true
     console.log('Delete item:', itemId);
   };
 
-  const handleCardClick = (item: KanbanItem) => {
-    // Buscar o contato completo pelo ID do item
-    const contatoCompleto = contatos.find(c => c.id === item.id);
+  const handleCardClick = async (item: KanbanItem) => {
+    // Encontrar a coluna do item para passar como contexto
+    const coluna = kanbanColumns.find(col => 
+      col.items.some(kanbanItem => kanbanItem.id === item.id)
+    );
+
+    // Buscar o contato completo pelo ID do item (local first)
+    let contatoCompleto = contatos.find(c => c.id === item.id);
+
+    // Se não encontrou no array local (Kanban server-side), buscar do banco
+    if (!contatoCompleto) {
+      try {
+        const { data } = await supabase
+          .from('contatos')
+          .select('*')
+          .eq('id', item.id)
+          .single();
+        if (data) {
+          contatoCompleto = data;
+        }
+      } catch (err) {
+        console.error('Erro ao buscar contato:', err);
+      }
+    }
+
     if (contatoCompleto) {
-      // Encontrar a coluna do item para passar como contexto
-      const coluna = kanbanColumns.find(col => 
-        col.items.some(kanbanItem => kanbanItem.id === item.id)
-      );
-      
       setModalContato({
         isOpen: true,
         contato: contatoCompleto,
