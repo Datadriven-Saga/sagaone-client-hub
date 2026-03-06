@@ -6,14 +6,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ResponsiveTable, ColumnDef } from "@/components/ui/responsive-table";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { ClientesSkeleton } from "@/components/ClientesSkeleton";
+import { VirtualTable, VirtualColumnDef } from "@/components/ui/virtual-table";
+import { ResponsiveTable, ColumnDef } from "@/components/ui/responsive-table";
 import { Users, Phone, Mail, UserCheck, CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { useState, useMemo, useEffect, useCallback, memo } from "react";
+import { useState, useMemo, useEffect, memo } from "react";
 import { DateRange } from "react-day-picker";
 import { useClientesData } from "@/hooks/useClientesData";
 import { useCompany } from "@/contexts/CompanyContext";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Prospeccao {
@@ -21,52 +25,66 @@ interface Prospeccao {
   titulo: string;
 }
 
+// Memoized KPI row
+const KPIRow = memo(({ kpis, loading }: { kpis: any[]; loading: boolean }) => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+    {kpis.map((kpi, index) => (
+      <KPICard
+        key={index}
+        title={kpi.title}
+        value={kpi.value}
+        subtitle={kpi.subtitle}
+        icon={kpi.icon}
+      />
+    ))}
+  </div>
+));
+KPIRow.displayName = "KPIRow";
+
 const Clientes = () => {
   const { activeCompany } = useCompany();
+  const isMobile = useIsMobile();
   const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [searchTerm, setSearchTerm] = useState("");
   const [tipoCliente, setTipoCliente] = useState("todos");
   const [sexoFiltro, setSexoFiltro] = useState("todos");
-  
-  // SINCRONIZAÇÃO: Filtro por evento/prospecção (mesma lógica do Kanban e Funil)
   const [prospeccaoId, setProspeccaoId] = useState("todos");
-  const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
-  
-  // Paginação
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
-  
-  // Hook agora aceita prospeccaoId para filtrar
-  const { clientes: clientesList, kpis: kpisData, distribuicaoGenero, distribuicaoDocumento, loading, refetch } = useClientesData({ prospeccaoId });
 
-  // Carregar prospecções para o filtro
-  useEffect(() => {
-    const fetchProspeccoes = async () => {
-      if (!activeCompany?.id) return;
-      
+  // Debounced search - 400ms delay
+  const debouncedSearch = useDebounce(searchTerm, 400);
+  
+  // React Query for prospeccoes list
+  const { data: prospeccoes = [] } = useQuery({
+    queryKey: ['prospeccoes-filter', activeCompany?.id],
+    queryFn: async () => {
+      if (!activeCompany?.id) return [];
       const { data } = await supabase
         .from("prospeccoes")
         .select("id, titulo")
         .eq("empresa_id", activeCompany.id)
         .order("titulo");
-      
-      setProspeccoes(data || []);
-    };
-    
-    fetchProspeccoes();
-  }, [activeCompany?.id]);
+      return (data || []) as Prospeccao[];
+    },
+    enabled: !!activeCompany?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Hook with React Query internally
+  const { clientes: clientesList, kpis: kpisData, distribuicaoGenero, distribuicaoDocumento, loading, refetch } = useClientesData({ prospeccaoId });
 
   const clientesFiltrados = useMemo(() => {
     if (!clientesList || clientesList.length === 0) return [];
     
-    const searchLower = searchTerm.toLowerCase().trim();
-    const searchDigits = searchTerm.replace(/\D/g, '');
+    const searchLower = debouncedSearch.toLowerCase().trim();
+    const searchDigits = debouncedSearch.replace(/\D/g, '');
     
     return clientesList.filter(cliente => {
       let matchSearch = true;
-      if (searchTerm !== "") {
+      if (debouncedSearch !== "") {
         const nameMatch = cliente.name?.toLowerCase().includes(searchLower);
         const phoneMatch = cliente.phone?.replace(/\D/g, '').includes(searchDigits);
         const emailMatch = cliente.email?.toLowerCase().includes(searchLower);
@@ -101,14 +119,13 @@ const Clientes = () => {
 
       return matchSearch && matchTipo && matchSexo && matchDate;
     });
-  }, [clientesList, searchTerm, tipoCliente, sexoFiltro, dateRange]);
+  }, [clientesList, debouncedSearch, tipoCliente, sexoFiltro, dateRange]);
 
-  // Reset para página 1 quando filtros mudam
+  // Reset page on filter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, tipoCliente, sexoFiltro, dateRange, prospeccaoId]);
+  }, [debouncedSearch, tipoCliente, sexoFiltro, dateRange, prospeccaoId]);
 
-  // Paginação
   const totalPages = Math.ceil(clientesFiltrados.length / itemsPerPage);
   const paginatedClientes = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -146,6 +163,7 @@ const Clientes = () => {
     setSelectedClient(null);
     setIsNewClientDialogOpen(true);
   };
+
   if (loading && clientesList.length === 0) {
     return (
       <DashboardLayout title="Carteira de Clientes">
@@ -153,6 +171,42 @@ const Clientes = () => {
       </DashboardLayout>
     );
   }
+
+  // Virtual table columns (desktop only, 100+ rows)
+  const virtualColumns: VirtualColumnDef<any>[] = [
+    { header: "Nome", accessor: (c) => c.name, className: "font-medium" },
+    { header: "Telefone", accessor: (c) => c.phone || "-", className: "text-muted-foreground" },
+    { header: "Email", accessor: (c) => c.email || "-", className: "text-muted-foreground" },
+    { 
+      header: "Comprou", 
+      accessor: (c) => c.hasPurchased,
+      className: "text-center" 
+    },
+    { header: "Responsável", accessor: (c) => c.responsible, className: "text-muted-foreground" },
+  ];
+
+  const responsiveColumns: ColumnDef<any>[] = [
+    { header: "Nome", accessor: (c) => c.name, className: "font-medium" },
+    { header: "Telefone", accessor: (c) => c.phone || "-", className: "text-muted-foreground" },
+    { header: "Email", accessor: (c) => c.email || "-", className: "text-muted-foreground", hideOnMobile: true },
+    { 
+      header: "Comprou", 
+      accessor: (c) => (
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+          c.hasPurchased === 'Sim' 
+            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+            : 'bg-muted text-muted-foreground'
+        }`}>
+          {c.hasPurchased}
+        </span>
+      ), 
+      className: "text-center" 
+    },
+    { header: "Responsável", accessor: (c) => c.responsible, className: "text-muted-foreground", hideOnMobile: true },
+  ];
+
+  // Use virtual table for large datasets on desktop
+  const useVirtual = !isMobile && paginatedClientes.length > 100;
 
   return (
     <DashboardLayout title="Carteira de Clientes">
@@ -166,7 +220,6 @@ const Clientes = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
 
-            {/* NOVO: Filtro por Evento/Prospecção - sincronizado com Kanban e Funil */}
             <Select value={prospeccaoId} onValueChange={setProspeccaoId}>
               <SelectTrigger>
                 <div className="flex items-center gap-2">
@@ -215,86 +268,46 @@ const Clientes = () => {
           </div>
         </Card>
 
-        {/* KPIs Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          {kpis.map((kpi, index) => (
-            <KPICard
-              key={index}
-              title={kpi.title}
-              value={kpi.value}
-              subtitle={kpi.subtitle}
-              icon={kpi.icon}
-            />
-          ))}
-        </div>
+        {/* KPIs */}
+        <KPIRow kpis={kpis} loading={loading} />
 
-        {/* Gender/Document Distribution */}
+        {/* Distribution */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Card className="p-4">
-          <h3 className="text-lg font-semibold text-foreground mb-4">Distribuição por Sexo</h3>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Masculino</span>
-              <span className="font-medium">
-                {kpisData.total > 0 
-                  ? `${((distribuicaoGenero.masculino / kpisData.total) * 100).toFixed(0)}%`
-                  : '0%'
-                }
-              </span>
+          <Card className="p-4">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Distribuição por Sexo</h3>
+            <div className="space-y-2">
+              {[
+                { label: "Masculino", value: distribuicaoGenero.masculino },
+                { label: "Feminino", value: distribuicaoGenero.feminino },
+                { label: "Não informado", value: distribuicaoGenero.naoInformado },
+              ].map(item => (
+                <div key={item.label} className="flex justify-between">
+                  <span className="text-muted-foreground">{item.label}</span>
+                  <span className="font-medium">
+                    {kpisData.total > 0 ? `${((item.value / kpisData.total) * 100).toFixed(0)}%` : '0%'}
+                  </span>
+                </div>
+              ))}
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Feminino</span>
-              <span className="font-medium">
-                {kpisData.total > 0 
-                  ? `${((distribuicaoGenero.feminino / kpisData.total) * 100).toFixed(0)}%`
-                  : '0%'
-                }
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Não informado</span>
-              <span className="font-medium">
-                {kpisData.total > 0 
-                  ? `${((distribuicaoGenero.naoInformado / kpisData.total) * 100).toFixed(0)}%`
-                  : '0%'
-                }
-              </span>
-            </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card className="p-4">
-          <h3 className="text-lg font-semibold text-foreground mb-4">Tipo de Documento</h3>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">CPF</span>
-              <span className="font-medium">
-                {kpisData.total > 0 
-                  ? `${((distribuicaoDocumento.cpf / kpisData.total) * 100).toFixed(0)}%`
-                  : '0%'
-                }
-              </span>
+          <Card className="p-4">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Tipo de Documento</h3>
+            <div className="space-y-2">
+              {[
+                { label: "CPF", value: distribuicaoDocumento.cpf },
+                { label: "CNPJ", value: distribuicaoDocumento.cnpj },
+                { label: "Não informado", value: distribuicaoDocumento.naoInformado },
+              ].map(item => (
+                <div key={item.label} className="flex justify-between">
+                  <span className="text-muted-foreground">{item.label}</span>
+                  <span className="font-medium">
+                    {kpisData.total > 0 ? `${((item.value / kpisData.total) * 100).toFixed(0)}%` : '0%'}
+                  </span>
+                </div>
+              ))}
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">CNPJ</span>
-              <span className="font-medium">
-                {kpisData.total > 0 
-                  ? `${((distribuicaoDocumento.cnpj / kpisData.total) * 100).toFixed(0)}%`
-                  : '0%'
-                }
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Não informado</span>
-              <span className="font-medium">
-                {kpisData.total > 0 
-                  ? `${((distribuicaoDocumento.naoInformado / kpisData.total) * 100).toFixed(0)}%`
-                  : '0%'
-                }
-              </span>
-            </div>
-          </div>
-        </Card>
+          </Card>
         </div>
 
         {/* Clients Table */}
@@ -334,34 +347,26 @@ const Clientes = () => {
             </div>
           ) : (
             <>
-              <ResponsiveTable
-                data={paginatedClientes}
-                keyExtractor={(client) => client.id}
-                onRowClick={handleClientRowClick}
-                columns={[
-                  { header: "Nome", accessor: (c) => c.name, className: "font-medium" },
-                  { header: "Telefone", accessor: (c) => c.phone || "-", className: "text-muted-foreground" },
-                  { header: "Email", accessor: (c) => c.email || "-", className: "text-muted-foreground", hideOnMobile: true },
-                  { 
-                    header: "Comprou", 
-                    accessor: (c) => (
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        c.hasPurchased === 'Sim' 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                          : 'bg-muted text-muted-foreground'
-                      }`}>
-                        {c.hasPurchased}
-                      </span>
-                    ), 
-                    className: "text-center" 
-                  },
-                  { header: "Responsável", accessor: (c) => c.responsible, className: "text-muted-foreground", hideOnMobile: true },
-                ] as ColumnDef<any>[]}
-                emptyMessage="Nenhum cliente encontrado"
-                emptyIcon={<Users className="w-8 h-8 text-muted-foreground" />}
-              />
+              {useVirtual ? (
+                <VirtualTable
+                  data={paginatedClientes}
+                  columns={virtualColumns}
+                  keyExtractor={(c) => c.id}
+                  onRowClick={handleClientRowClick}
+                  maxHeight={600}
+                />
+              ) : (
+                <ResponsiveTable
+                  data={paginatedClientes}
+                  keyExtractor={(client) => client.id}
+                  onRowClick={handleClientRowClick}
+                  columns={responsiveColumns}
+                  emptyMessage="Nenhum cliente encontrado"
+                  emptyIcon={<Users className="w-8 h-8 text-muted-foreground" />}
+                />
+              )}
 
-              {/* Paginação */}
+              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t">
                   <div className="text-xs sm:text-sm text-muted-foreground">
@@ -420,7 +425,7 @@ const Clientes = () => {
           )}
         </Card>
 
-        {/* Dialog para Novo/Editar Cliente */}
+        {/* Dialog */}
         <Dialog open={isNewClientDialogOpen} onOpenChange={setIsNewClientDialogOpen}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -432,78 +437,38 @@ const Clientes = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
               <div>
                 <Label htmlFor="name">Nome Completo</Label>
-                 <Input 
-                  id="name" 
-                  defaultValue={selectedClient?.name || ''} 
-                  placeholder="Digite o nome completo"
-                  className="bg-white"
-                />
+                <Input id="name" defaultValue={selectedClient?.name || ''} placeholder="Digite o nome completo" className="bg-white" />
               </div>
-              
               <div>
                 <Label htmlFor="phone">Telefone</Label>
-                <Input 
-                  id="phone" 
-                  defaultValue={selectedClient?.phone || ''} 
-                  placeholder="(11) 99999-9999"
-                  className="bg-white"
-                />
+                <Input id="phone" defaultValue={selectedClient?.phone || ''} placeholder="(11) 99999-9999" className="bg-white" />
               </div>
-              
               <div>
                 <Label htmlFor="email">E-mail</Label>
-                <Input 
-                  id="email" 
-                  type="email"
-                  defaultValue={selectedClient?.email || ''} 
-                  placeholder="cliente@email.com"
-                  className="bg-white"
-                />
+                <Input id="email" type="email" defaultValue={selectedClient?.email || ''} placeholder="cliente@email.com" className="bg-white" />
               </div>
-              
               <div>
                 <Label htmlFor="gender">Sexo</Label>
-                <select 
-                  id="gender" 
-                  className="w-full p-2 border rounded-md bg-white"
-                  defaultValue={selectedClient?.gender || ''}
-                >
+                <select id="gender" className="w-full p-2 border rounded-md bg-white" defaultValue={selectedClient?.gender || ''}>
                   <option value="">Selecione</option>
                   <option value="Masculino">Masculino</option>
                   <option value="Feminino">Feminino</option>
                   <option value="Outro">Outro</option>
                 </select>
               </div>
-              
               <div>
                 <Label htmlFor="birthDate">Data de Nascimento</Label>
-                <Input 
-                  id="birthDate" 
-                  type="date"
-                  defaultValue={selectedClient?.birthDate ? 
-                    selectedClient.birthDate.split('/').reverse().join('-') : ''} 
-                  className="bg-white"
-                />
+                <Input id="birthDate" type="date" defaultValue={selectedClient?.birthDate ? selectedClient.birthDate.split('/').reverse().join('-') : ''} className="bg-white" />
               </div>
-              
               <div>
                 <Label htmlFor="document">CPF/CNPJ</Label>
-                <Input 
-                  id="document" 
-                  defaultValue={selectedClient?.document || ''} 
-                  placeholder="000.000.000-00"
-                  className="bg-white"
-                />
+                <Input id="document" defaultValue={selectedClient?.document || ''} placeholder="000.000.000-00" className="bg-white" />
               </div>
             </div>
             
             <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setIsNewClientDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={() => setIsNewClientDialogOpen(false)}>
-                {selectedClient ? 'Atualizar' : 'Salvar'}
-              </Button>
+              <Button variant="outline" onClick={() => setIsNewClientDialogOpen(false)}>Cancelar</Button>
+              <Button onClick={() => setIsNewClientDialogOpen(false)}>{selectedClient ? 'Atualizar' : 'Salvar'}</Button>
             </div>
           </DialogContent>
         </Dialog>
