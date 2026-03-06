@@ -2149,6 +2149,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         qualificar_lead: prospeccaoData.qualificar_lead ?? true,
         data_envio_template_inicial: formatarDataISO(prospeccaoData.data_envio_template_inicial),
         data_envio_cadencia: formatarDataISO(prospeccaoData.data_envio_cadencia),
+        cadencia_completa: prospeccaoData.cadencia_completa ?? false,
       };
 
       // Adicionar templates para IA Whatsapp com IDs Pri e Meta
@@ -2171,11 +2172,15 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         const templateProspeccaoUuid = (prospeccaoData as any).template_prospeccao_id as string | null | undefined;
         const templateAgendadoUuid = (prospeccaoData as any).template_agendado_id as string | null | undefined;
         const templateNaoAgendadoUuid = (prospeccaoData as any).template_nao_agendado_id as string | null | undefined;
+        const templateAgendado48hUuid = (prospeccaoData as any).template_agendado_48h_id as string | null | undefined;
+        const templateAgendado24hUuid = (prospeccaoData as any).template_agendado_24h_id as string | null | undefined;
 
-        const [templateProspeccaoData, templateAgendadoData, templateNaoAgendadoData] = await Promise.all([
+        const [templateProspeccaoData, templateAgendadoData, templateNaoAgendadoData, templateAgendado48hData, templateAgendado24hData] = await Promise.all([
           lookupTemplateById(templateProspeccaoUuid),
           lookupTemplateById(templateAgendadoUuid),
           lookupTemplateById(templateNaoAgendadoUuid),
+          lookupTemplateById(templateAgendado48hUuid),
+          lookupTemplateById(templateAgendado24hUuid),
         ]);
 
         // Enviar tanto o UUID (novo padrão) quanto os ids externos (PRI/Meta)
@@ -2193,6 +2198,19 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         payload.template_nao_agendado = templateNaoAgendadoData?.nome || null;
         payload.template_nao_agendado_id_pri = templateNaoAgendadoData?.template_id_pri || null;
         payload.template_nao_agendado_id_meta = templateNaoAgendadoData?.id_meta || null;
+
+        // Templates 48h/24h quando cadência completa
+        if (prospeccaoData.cadencia_completa) {
+          payload.template_agendado_48h_id = templateAgendado48hUuid || null;
+          payload.template_agendado_48h = templateAgendado48hData?.nome || null;
+          payload.template_agendado_48h_id_pri = templateAgendado48hData?.template_id_pri || null;
+          payload.template_agendado_48h_id_meta = templateAgendado48hData?.id_meta || null;
+
+          payload.template_agendado_24h_id = templateAgendado24hUuid || null;
+          payload.template_agendado_24h = templateAgendado24hData?.nome || null;
+          payload.template_agendado_24h_id_pri = templateAgendado24hData?.template_id_pri || null;
+          payload.template_agendado_24h_id_meta = templateAgendado24hData?.id_meta || null;
+        }
       }
 
       console.log(`📤 Disparando ${gatilhosEvento.length} gatilho(s) de novo_evento_criado para ${tipoEvento}`);
