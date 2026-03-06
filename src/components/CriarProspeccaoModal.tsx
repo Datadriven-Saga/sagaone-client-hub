@@ -1653,8 +1653,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       const templateDescobertaData = whatsappTemplates.find(t => t.id === prospeccaoData.template_prospeccao_id);
       const templateAgendadoData = whatsappTemplates.find(t => t.id === prospeccaoData.template_agendado_id);
       const templateNaoAgendadoData = whatsappTemplates.find(t => t.id === prospeccaoData.template_nao_agendado_id);
+      const templateAgendado48hData = whatsappTemplates.find(t => t.id === prospeccaoData.template_agendado_48h_id);
+      const templateAgendado24hData = whatsappTemplates.find(t => t.id === prospeccaoData.template_agendado_24h_id);
 
-      const webhookPayload = {
+      const webhookPayload: any = {
         maia_id: formatarTelefone(agenteData?.telefone || ""),
         nome_evento: prospeccaoData.titulo || "",
         data_inicio: formatarDataISO(prospeccaoData.data_inicio || ""),
@@ -1669,8 +1671,19 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         template_conf_agendado_id_meta: templateAgendadoData?.id_meta || "",
         template_conf_nao_agendado: templateNaoAgendadoData?.nome || "",
         template_conf_nao_agendado_id_pri: templateNaoAgendadoData?.template_id_pri || "",
-        template_conf_nao_agendado_id_meta: templateNaoAgendadoData?.id_meta || ""
+        template_conf_nao_agendado_id_meta: templateNaoAgendadoData?.id_meta || "",
+        cadencia_completa: prospeccaoData.cadencia_completa ?? false,
       };
+
+      // Adicionar templates 48h/24h quando cadência completa
+      if (prospeccaoData.cadencia_completa) {
+        webhookPayload.template_agendado_48h = templateAgendado48hData?.nome || "";
+        webhookPayload.template_agendado_48h_id_pri = templateAgendado48hData?.template_id_pri || "";
+        webhookPayload.template_agendado_48h_id_meta = templateAgendado48hData?.id_meta || "";
+        webhookPayload.template_agendado_24h = templateAgendado24hData?.nome || "";
+        webhookPayload.template_agendado_24h_id_pri = templateAgendado24hData?.template_id_pri || "";
+        webhookPayload.template_agendado_24h_id_meta = templateAgendado24hData?.id_meta || "";
+      }
 
       console.log('📤 Enviando webhook:', webhookPayload);
 
