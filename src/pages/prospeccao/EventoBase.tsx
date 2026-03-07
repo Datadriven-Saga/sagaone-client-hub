@@ -1346,6 +1346,18 @@ export default function EventoBase() {
         templateProspeccaoId = (pData as any)?.template_prospeccao_id || null;
       }
 
+      // Para IA WhatsApp, template é obrigatório
+      const isWhatsapp = prospeccao.canal === 'Whatsapp' || prospeccao.canal === 'IA Whatsapp';
+      if (isWhatsapp && !templateProspeccaoId) {
+        toast({ 
+          title: "Template não configurado", 
+          description: "Este evento não possui template de prospecção. Edite o evento e configure um template antes de redisparar.", 
+          variant: "destructive" 
+        });
+        setDisparandoContato(null);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
         body: {
           leads,
