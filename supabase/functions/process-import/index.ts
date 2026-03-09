@@ -522,7 +522,7 @@ async function processBatch(
   batch: any[],
   empresaId: string,
   prospeccaoId: string | null,
-): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number }> {
+): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
   const MAX_RETRIES = 3;
   let lastError = '';
 
