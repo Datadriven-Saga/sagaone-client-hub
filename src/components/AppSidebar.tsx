@@ -99,12 +99,7 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
-  const { 
-    permissions,
-    canAccessAgentesIA,
-    canAccessConfiguracoes,
-    canAccessRelatorios,
-  } = useUserAccessType();
+  const { permissions } = useUserAccessType();
 
   const closeMobileSidebar = () => {
     if (isMobile) setOpenMobile(false);
@@ -112,12 +107,18 @@ export function AppSidebar() {
 
   const p = (key: string): boolean => permissions[key] ?? false;
 
+  // Submenus recolhidos por padrão, abrem apenas se a rota atual está dentro
+  const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(currentPath.startsWith('/prospeccao'));
+  const [isPerformanceOpen, setIsPerformanceOpen] = useState(currentPath.startsWith('/resultados'));
+  const [isTreinamentosOpen, setIsTreinamentosOpen] = useState(currentPath.startsWith('/treinamentos'));
+  const [isAgentesIAOpen, setIsAgentesIAOpen] = useState(currentPath.startsWith('/agentes-ia'));
+
   // Sidebar visibility driven by permission flags
   const canSeeAdministracao = p("canAccessAdministracao");
-  const canSeeClientes = p("canViewClientes");
-  const canSeeAgentesIA = canAccessAgentesIA;
-  const canSeeConfiguracoes = canAccessConfiguracoes;
-  const canSeeRelatorios = canAccessRelatorios;
+  const canSeeClientes = p("canViewClientes") && p("canAddClientes");
+  const canSeeAgentesIA = p("canAccessAgentesIA");
+  const canSeeConfiguracoes = p("canAccessConfiguracoes");
+  const canSeeRelatorios = p("canAccessRelatorios");
   const canSeeResultados = p("canAccessResultados");
   const canSeeAcademy = p("canAccessAcademy");
   
