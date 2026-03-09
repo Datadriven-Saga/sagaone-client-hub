@@ -218,6 +218,8 @@ serve(async (req) => {
 
     let totalProcessed = job.processed_records || 0;
     let totalFailed = job.failed_records || 0;
+    let batchBaseProcessed = totalProcessed;
+    let batchBaseFailed = totalFailed;
 
     for (const batch of batches) {
       // Verificar se job foi cancelado
