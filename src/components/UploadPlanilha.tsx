@@ -544,13 +544,25 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
 
                 {/* Error details */}
                 {importLog.error_details && importLog.error_details.length > 0 && (
-                  <ScrollArea className="max-h-32 border rounded p-2">
-                    <div className="text-xs text-destructive space-y-0.5">
-                      {importLog.error_details.slice(0, 20).map((err, i) => (
-                        <p key={i}>• {err}</p>
-                      ))}
-                      {importLog.error_details.length > 20 && (
-                        <p className="text-muted-foreground">...e mais {importLog.error_details.length - 20} erros</p>
+                  <ScrollArea className="max-h-40 border rounded p-2">
+                    <div className="text-xs space-y-1">
+                      <p className="font-medium text-destructive mb-1">
+                        ⚠️ Erros encontrados ({importLog.error_details.length}):
+                      </p>
+                      {importLog.error_details.slice(0, 30).map((err, i) => {
+                        const parts = err.split(' | ');
+                        if (parts.length >= 3) {
+                          return (
+                            <div key={i} className="py-0.5 border-b border-border/30 last:border-0">
+                              <span className="text-muted-foreground">{parts[0]} • {parts[1]}</span>
+                              <span className="text-destructive ml-1">→ {parts[2]}</span>
+                            </div>
+                          );
+                        }
+                        return <p key={i} className="text-destructive">• {err}</p>;
+                      })}
+                      {importLog.error_details.length > 30 && (
+                        <p className="text-muted-foreground pt-1">...e mais {importLog.error_details.length - 30} erros</p>
                       )}
                     </div>
                   </ScrollArea>
