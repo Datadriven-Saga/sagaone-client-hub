@@ -375,18 +375,39 @@ serve(async (req) => {
                 variable_mapping: resolvedMapping,
               };
 
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 30000);
+
               const response = await fetch(webhookUrl, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: controller.signal,
               });
+              clearTimeout(timeout);
+
+              const responseBody = await response.text().catch(() => '');
 
               if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+                throw new Error(`HTTP ${response.status}: ${responseBody.substring(0, 200)}`);
               }
+
+              // Validar que o webhook realmente processou
+              if (responseBody.length === 0) {
+                throw new Error('Webhook retornou 200 mas body vazio (workflow possivelmente inativo)');
+              }
+
+              const hasError = responseBody.toLowerCase().includes('"error"') ||
+                               responseBody.toLowerCase().includes('workflow not found') ||
+                               responseBody.toLowerCase().includes('not active');
+              if (hasError) {
+                throw new Error(`Webhook retornou erro interno: ${responseBody.substring(0, 200)}`);
+              }
+
+              console.log(`📡 Lead ${lead.id}: webhook OK, body: ${responseBody.substring(0, 100)}`);
               return lead.id;
             }));
 
