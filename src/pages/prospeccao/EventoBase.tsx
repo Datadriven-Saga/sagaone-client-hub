@@ -1471,11 +1471,9 @@ export default function EventoBase() {
   const isIALigacao = isIALigacaoLocal;
   const isIA = isIALocal;
   
-  // Permissão para disparar:
-  // WhatsApp = ADM, TI, Gerente de Leads, CRM
-  // Ligação = apenas ADM/TI
-  const canDispatchWhatsApp = isAdmin || isTI || isGerenteLeads || isCRM;
-  const canDispatchLigacao = isAdminOrTI;
+  // Permissão para disparar - driven by permission flags
+  const canDispatchWhatsApp = permissions.canDispararEventos ?? false;
+  const canDispatchLigacao = permissions.canDispararIALigacao ?? false;
   const canDispatch = loadingAccess ? false : (isIAWhatsApp ? canDispatchWhatsApp : (isIALigacao ? canDispatchLigacao : false));
 
   // Log para debug
