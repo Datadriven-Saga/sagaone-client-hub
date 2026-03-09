@@ -319,7 +319,6 @@ serve(async (req) => {
               console.log(`📡 Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: HTTP ${response.status}, body: ${responseBody.substring(0, 300)}`);
 
               if (response.ok && responseBody.length > 0) {
-                // Validar que o webhook realmente processou (não retornou vazio ou erro interno)
                 const isValidResponse = !responseBody.toLowerCase().includes('"error"') && 
                                         !responseBody.toLowerCase().includes('workflow not found') &&
                                         !responseBody.toLowerCase().includes('not active');
@@ -331,7 +330,6 @@ serve(async (req) => {
                   console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: Webhook retornou erro interno: ${responseBody.substring(0, 200)}`);
                 }
               } else if (response.ok && responseBody.length === 0) {
-                // Webhook retornou 200 mas sem body — possível workflow inativo
                 failedLeadIds.push(...subIds);
                 console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: Webhook retornou 200 mas body vazio (workflow possivelmente inativo)`);
               } else {
@@ -343,6 +341,17 @@ serve(async (req) => {
               const isTimeout = err.name === 'AbortError';
               console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: ${isTimeout ? 'Timeout (30s)' : 'Network error'}: ${err.message}`);
             }
+
+            // *** PROGRESSO GRANULAR: atualizar após cada sub-lote de 100 (Ligação) ***
+            totalProcessed = (job.processed_records || 0) + successLeadIds.length;
+            totalFailed = (job.failed_records || 0) + failedLeadIds.length;
+            await supabase.from('campaign_jobs').update({
+              processed_records: totalProcessed,
+              failed_records: totalFailed,
+              updated_at: new Date().toISOString(),
+            }).eq('id', job_id);
+
+            console.log(`📊 Sub-lote Ligação ${Math.floor(i / LIGACAO_SUB_BATCH) + 1}: progresso ${totalProcessed}/${job.total_records}`);
           }
 
           console.log(`📊 Batch ${batch.batch_index} Ligação: ${successLeadIds.length} ok, ${failedLeadIds.length} falhas`);
