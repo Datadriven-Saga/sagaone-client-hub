@@ -99,26 +99,30 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
-  const { isAdmin, isAdminOrTI, isGerente, isDiretor, isCRM } = useUserAccessType();
+  const { 
+    permissions,
+    canAccessAgentesIA,
+    canAccessConfiguracoes,
+    canAccessRelatorios,
+  } = useUserAccessType();
 
   const closeMobileSidebar = () => {
     if (isMobile) setOpenMobile(false);
   };
-  
-  // Submenus recolhidos por padrão, abrem apenas se a rota atual está dentro
-  const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(currentPath.startsWith('/prospeccao'));
-  const [isPerformanceOpen, setIsPerformanceOpen] = useState(currentPath.startsWith('/resultados'));
-  const [isTreinamentosOpen, setIsTreinamentosOpen] = useState(currentPath.startsWith('/treinamentos'));
-  const [isAgentesIAOpen, setIsAgentesIAOpen] = useState(currentPath.startsWith('/agentes-ia'));
 
-  // Check if user has admin access to show admin panel
-  const hasAdminAccess = isAdminOrTI || isGerente || isDiretor;
+  const p = (key: string): boolean => permissions[key] ?? false;
 
-  // Gestores, admins e CRM podem ver o item Administração
-  const canSeeAdministracao = isAdmin || isGerente || isCRM;
+  // Sidebar visibility driven by permission flags
+  const canSeeAdministracao = p("canAccessAdministracao");
+  const canSeeClientes = p("canViewClientes");
+  const canSeeAgentesIA = canAccessAgentesIA;
+  const canSeeConfiguracoes = canAccessConfiguracoes;
+  const canSeeRelatorios = canAccessRelatorios;
+  const canSeeResultados = p("canAccessResultados");
+  const canSeeAcademy = p("canAccessAcademy");
   
   const bottomMenuItems = [
-    ...bottomMenuItemsPublic,
+    ...(canSeeConfiguracoes ? bottomMenuItemsPublic : []),
     ...(canSeeAdministracao ? bottomMenuItemsAdmin : []),
   ];
 
