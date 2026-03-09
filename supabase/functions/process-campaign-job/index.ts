@@ -218,6 +218,8 @@ serve(async (req) => {
 
     let totalProcessed = job.processed_records || 0;
     let totalFailed = job.failed_records || 0;
+    let batchBaseProcessed = totalProcessed;
+    let batchBaseFailed = totalFailed;
 
     for (const batch of batches) {
       // Verificar se job foi cancelado
@@ -319,7 +321,6 @@ serve(async (req) => {
               console.log(`📡 Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: HTTP ${response.status}, body: ${responseBody.substring(0, 300)}`);
 
               if (response.ok && responseBody.length > 0) {
-                // Validar que o webhook realmente processou (não retornou vazio ou erro interno)
                 const isValidResponse = !responseBody.toLowerCase().includes('"error"') && 
                                         !responseBody.toLowerCase().includes('workflow not found') &&
                                         !responseBody.toLowerCase().includes('not active');
@@ -331,7 +332,6 @@ serve(async (req) => {
                   console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: Webhook retornou erro interno: ${responseBody.substring(0, 200)}`);
                 }
               } else if (response.ok && responseBody.length === 0) {
-                // Webhook retornou 200 mas sem body — possível workflow inativo
                 failedLeadIds.push(...subIds);
                 console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: Webhook retornou 200 mas body vazio (workflow possivelmente inativo)`);
               } else {
@@ -343,6 +343,17 @@ serve(async (req) => {
               const isTimeout = err.name === 'AbortError';
               console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: ${isTimeout ? 'Timeout (30s)' : 'Network error'}: ${err.message}`);
             }
+
+            // *** PROGRESSO GRANULAR: atualizar após cada sub-lote de 100 (Ligação) ***
+            totalProcessed = batchBaseProcessed + successLeadIds.length;
+            totalFailed = batchBaseFailed + failedLeadIds.length;
+            await supabase.from('campaign_jobs').update({
+              processed_records: totalProcessed,
+              failed_records: totalFailed,
+              updated_at: new Date().toISOString(),
+            }).eq('id', job_id);
+
+            console.log(`📊 Sub-lote Ligação ${Math.floor(i / LIGACAO_SUB_BATCH) + 1}: progresso ${totalProcessed}/${job.total_records}`);
           }
 
           console.log(`📊 Batch ${batch.batch_index} Ligação: ${successLeadIds.length} ok, ${failedLeadIds.length} falhas`);
@@ -420,6 +431,17 @@ serve(async (req) => {
                 failedLeadIds.push(subBatch[idx].id);
               }
             }
+
+            // *** PROGRESSO GRANULAR: atualizar após cada sub-lote de 50 ***
+            totalProcessed = batchBaseProcessed + successLeadIds.length;
+            totalFailed = batchBaseFailed + failedLeadIds.length;
+            await supabase.from('campaign_jobs').update({
+              processed_records: totalProcessed,
+              failed_records: totalFailed,
+              updated_at: new Date().toISOString(),
+            }).eq('id', job_id);
+
+            console.log(`📊 Sub-lote WhatsApp ${Math.floor(i / WA_BATCH_SIZE) + 1}: progresso ${totalProcessed}/${job.total_records}`);
           }
 
           console.log(`📊 Batch ${batch.batch_index} WhatsApp: ${successLeadIds.length} ok, ${failedLeadIds.length} falhas`);
@@ -482,13 +504,17 @@ serve(async (req) => {
             : {}),
         }).eq('id', batch.id);
 
-        totalProcessed += successLeadIds.length;
-        totalFailed += failedLeadIds.length;
+        // Atualizar acumuladores para o próximo batch
+        totalProcessed = batchBaseProcessed + successLeadIds.length;
+        totalFailed = batchBaseFailed + failedLeadIds.length;
+        batchBaseProcessed = totalProcessed;
+        batchBaseFailed = totalFailed;
 
-        // Atualizar progresso do job (Realtime vai notificar o frontend)
+        // Atualização final do batch no job
         await supabase.from('campaign_jobs').update({
           processed_records: totalProcessed,
           failed_records: totalFailed,
+          updated_at: new Date().toISOString(),
         }).eq('id', job_id);
 
       } catch (batchErr: any) {
@@ -499,10 +525,13 @@ serve(async (req) => {
           error_log: batchErr.message,
         }).eq('id', batch.id);
         totalFailed += (batch.lead_ids as string[]).length;
+        batchBaseProcessed = totalProcessed;
+        batchBaseFailed = totalFailed;
         
         await supabase.from('campaign_jobs').update({
           processed_records: totalProcessed,
           failed_records: totalFailed,
+          updated_at: new Date().toISOString(),
         }).eq('id', job_id);
       }
     }
