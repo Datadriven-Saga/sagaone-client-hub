@@ -289,7 +289,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canToggleControleAgentes = isAdminOrTI;
 
   // ── Agentes IA ──
-  defaults.canAccessAgentesIA = false; // Requires TI department check
+  defaults.canAccessAgentesIA = isAdminOrTI;
   defaults.canEditAgentesIA = isAdminOrTI;
   defaults.canDeleteAgentesIA = isAdminOrTI;
   defaults.canCreateAgentesIA = isAdminOrTI;
