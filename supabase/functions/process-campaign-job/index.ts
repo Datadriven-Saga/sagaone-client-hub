@@ -504,12 +504,13 @@ serve(async (req) => {
             : {}),
         }).eq('id', batch.id);
 
-        // totalProcessed/totalFailed já foram atualizados nos sub-lotes acima
-        // Recalcular para garantir consistência
-        totalProcessed = (job.processed_records || 0) + successLeadIds.length;
-        totalFailed = (job.failed_records || 0) + failedLeadIds.length;
+        // Atualizar acumuladores para o próximo batch
+        totalProcessed = batchBaseProcessed + successLeadIds.length;
+        totalFailed = batchBaseFailed + failedLeadIds.length;
+        batchBaseProcessed = totalProcessed;
+        batchBaseFailed = totalFailed;
 
-        // Atualização final do batch no job (garante valor correto)
+        // Atualização final do batch no job
         await supabase.from('campaign_jobs').update({
           processed_records: totalProcessed,
           failed_records: totalFailed,
