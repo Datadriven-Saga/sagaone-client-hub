@@ -525,10 +525,13 @@ serve(async (req) => {
           error_log: batchErr.message,
         }).eq('id', batch.id);
         totalFailed += (batch.lead_ids as string[]).length;
+        batchBaseProcessed = totalProcessed;
+        batchBaseFailed = totalFailed;
         
         await supabase.from('campaign_jobs').update({
           processed_records: totalProcessed,
           failed_records: totalFailed,
+          updated_at: new Date().toISOString(),
         }).eq('id', job_id);
       }
     }
