@@ -543,6 +543,7 @@ async function processBatch(
         already_linked: data?.already_linked || 0,
         errors: data?.errors || 0,
         quarantined: data?.quarantined || 0,
+        error_details: data?.error_details || [],
       };
     } catch (err: any) {
       lastError = err?.message || String(err);
