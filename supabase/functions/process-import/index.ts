@@ -272,12 +272,23 @@ Deno.serve(async (req: Request) => {
         quarantined += result.quarantined;
         processedRows += batch.length;
 
+        // Capture per-record error details from RPC
+        if (result.error_details && result.error_details.length > 0) {
+          for (const detail of result.error_details) {
+            if (errorDetails.length < 200) {
+              const batchOffset = (batchCount - 1) * BATCH_SIZE + currentOffset;
+              errorDetails.push(`Tel: ${detail.telefone || '?'} | Nome: ${detail.nome || '?'} | Erro: ${detail.erro}`);
+            }
+          }
+        }
+
         console.log(`✅ Lote ${batchCount}: ${result.inserted} novos, ${result.updated} atualizados, ${result.quarantined} em quarentena`);
 
         await supabaseAdmin.from('import_logs').update({
           processed_rows: processedRows,
           inserted, updated, linked, already_linked: alreadyLinked,
           errors, quarantined,
+          error_details: errorDetails,
           message: `Processando... ${processedRows.toLocaleString('pt-BR')}/${totalDataRows.toLocaleString('pt-BR')}`,
         }).eq('id', import_log_id);
 
