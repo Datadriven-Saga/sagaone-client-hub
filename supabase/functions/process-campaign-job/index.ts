@@ -502,13 +502,16 @@ serve(async (req) => {
             : {}),
         }).eq('id', batch.id);
 
-        totalProcessed += successLeadIds.length;
-        totalFailed += failedLeadIds.length;
+        // totalProcessed/totalFailed já foram atualizados nos sub-lotes acima
+        // Recalcular para garantir consistência
+        totalProcessed = (job.processed_records || 0) + successLeadIds.length;
+        totalFailed = (job.failed_records || 0) + failedLeadIds.length;
 
-        // Atualizar progresso do job (Realtime vai notificar o frontend)
+        // Atualização final do batch no job (garante valor correto)
         await supabase.from('campaign_jobs').update({
           processed_records: totalProcessed,
           failed_records: totalFailed,
+          updated_at: new Date().toISOString(),
         }).eq('id', job_id);
 
       } catch (batchErr: any) {
