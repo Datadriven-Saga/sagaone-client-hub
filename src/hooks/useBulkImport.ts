@@ -107,6 +107,16 @@ export const useBulkImport = () => {
         p.errors += result.errors || 0;
         p.processedRecords += batch.length;
         p.currentBatch = batchNum;
+
+        // Capture per-record error details from RPC
+        if (result.error_details && Array.isArray(result.error_details)) {
+          for (const detail of result.error_details) {
+            if (p.errorDetails.length < 200) {
+              p.errorDetails.push(`Tel: ${detail.telefone || '?'} | Nome: ${detail.nome || '?'} | Erro: ${detail.erro}`);
+            }
+          }
+        }
+
         progressRef.current = { ...p };
         setProgress({ ...p });
 

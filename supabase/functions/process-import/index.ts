@@ -272,12 +272,23 @@ Deno.serve(async (req: Request) => {
         quarantined += result.quarantined;
         processedRows += batch.length;
 
+        // Capture per-record error details from RPC
+        if (result.error_details && result.error_details.length > 0) {
+          for (const detail of result.error_details) {
+            if (errorDetails.length < 200) {
+              const batchOffset = (batchCount - 1) * BATCH_SIZE + currentOffset;
+              errorDetails.push(`Tel: ${detail.telefone || '?'} | Nome: ${detail.nome || '?'} | Erro: ${detail.erro}`);
+            }
+          }
+        }
+
         console.log(`✅ Lote ${batchCount}: ${result.inserted} novos, ${result.updated} atualizados, ${result.quarantined} em quarentena`);
 
         await supabaseAdmin.from('import_logs').update({
           processed_rows: processedRows,
           inserted, updated, linked, already_linked: alreadyLinked,
           errors, quarantined,
+          error_details: errorDetails,
           message: `Processando... ${processedRows.toLocaleString('pt-BR')}/${totalDataRows.toLocaleString('pt-BR')}`,
         }).eq('id', import_log_id);
 
@@ -298,6 +309,15 @@ Deno.serve(async (req: Request) => {
       errors += result.errors;
       quarantined += result.quarantined;
       processedRows += batch.length;
+
+      // Capture per-record error details from final batch
+      if (result.error_details && result.error_details.length > 0) {
+        for (const detail of result.error_details) {
+          if (errorDetails.length < 200) {
+            errorDetails.push(`Tel: ${detail.telefone || '?'} | Nome: ${detail.nome || '?'} | Erro: ${detail.erro}`);
+          }
+        }
+      }
     }
 
     if (needsChain) {
@@ -502,7 +522,7 @@ async function processBatch(
   batch: any[],
   empresaId: string,
   prospeccaoId: string | null,
-): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number }> {
+): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
   const MAX_RETRIES = 3;
   let lastError = '';
 
@@ -523,6 +543,7 @@ async function processBatch(
         already_linked: data?.already_linked || 0,
         errors: data?.errors || 0,
         quarantined: data?.quarantined || 0,
+        error_details: data?.error_details || [],
       };
     } catch (err: any) {
       lastError = err?.message || String(err);
@@ -534,5 +555,5 @@ async function processBatch(
   }
 
   console.error(`🚫 Batch failed permanently: ${lastError}`);
-  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0 };
+  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0, error_details: [{ telefone: '', nome: '', erro: `Lote inteiro falhou: ${lastError}` }] };
 }
