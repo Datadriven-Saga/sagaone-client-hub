@@ -555,5 +555,5 @@ async function processBatch(
   }
 
   console.error(`🚫 Batch failed permanently: ${lastError}`);
-  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0 };
+  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0, error_details: [{ telefone: '', nome: '', erro: `Lote inteiro falhou: ${lastError}` }] };
 }
