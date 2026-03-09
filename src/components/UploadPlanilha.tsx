@@ -205,11 +205,10 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
         console.log('📄 Excel convertido para CSV');
       }
 
-      // 2) Upload CSV to Supabase Storage
+      // 2) Upload CSV to Supabase Storage (with retry)
       setPhase('uploading');
       setUploadProgress(0);
       const timestamp = Date.now();
-      // Sanitize filename: remove accents, replace spaces/special chars with underscores
       const originalName = String(csvFile.name || 'arquivo.csv');
       const sanitizedName = originalName
         .normalize('NFD')
@@ -219,19 +218,43 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
         .replace(/^_|_$/g, '');
       const filePath = `${activeCompany.id}/${timestamp}_${sanitizedName || 'arquivo.csv'}`;
       console.log(`🔤 Original filename: "${originalName}" → Sanitized: "${sanitizedName}"`);
-
       console.log(`📤 Uploading file to storage: ${filePath}`);
 
-      const { error: uploadError } = await supabase.storage
-        .from('import-files')
-        .upload(filePath, csvFile, {
-          cacheControl: '3600',
-          upsert: false,
-        });
+      const MAX_UPLOAD_RETRIES = 3;
+      let uploadSuccess = false;
+      let lastUploadError: any = null;
 
-      if (uploadError) {
-        console.error('❌ Upload error:', uploadError);
-        throw new Error(`Erro no upload: ${uploadError.message}`);
+      for (let attempt = 1; attempt <= MAX_UPLOAD_RETRIES; attempt++) {
+        setUploadProgress(attempt > 1 ? 0 : 0);
+        console.log(`📤 Upload tentativa ${attempt}/${MAX_UPLOAD_RETRIES}...`);
+
+        const { error: uploadError } = await supabase.storage
+          .from('import-files')
+          .upload(filePath, csvFile, {
+            cacheControl: '3600',
+            upsert: attempt > 1, // Allow overwrite on retry
+          });
+
+        if (!uploadError) {
+          uploadSuccess = true;
+          break;
+        }
+
+        lastUploadError = uploadError;
+        console.error(`❌ Upload tentativa ${attempt} falhou:`, uploadError.message);
+
+        if (attempt < MAX_UPLOAD_RETRIES) {
+          toast({
+            title: `Tentativa ${attempt} falhou`,
+            description: `Reconectando... (tentativa ${attempt + 1}/${MAX_UPLOAD_RETRIES})`,
+          });
+          await new Promise(r => setTimeout(r, 2000 * attempt));
+        }
+      }
+
+      if (!uploadSuccess) {
+        console.error('❌ Upload failed after all retries:', lastUploadError);
+        throw new Error(`Erro no upload após ${MAX_UPLOAD_RETRIES} tentativas: ${lastUploadError?.message || 'Timeout na conexão'}`);
       }
 
       setUploadProgress(100);
