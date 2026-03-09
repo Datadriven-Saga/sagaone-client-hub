@@ -56,6 +56,7 @@ export function useUserAccessType() {
 
           const myOverrides = allOverrides[tipo as string] || {};
           const resolved = resolvePermissions(tipo as TipoAcesso, myOverrides);
+          console.log("[DEBUG] tipo_acesso:", tipo, "canAccessAgentesIA:", resolved.canAccessAgentesIA, "overrides:", myOverrides);
           setPermissions(resolved);
         } else {
           setPermissions({});
