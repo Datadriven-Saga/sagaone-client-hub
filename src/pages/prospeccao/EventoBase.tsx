@@ -99,9 +99,8 @@ export default function EventoBase() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { activeCompany } = useCompany();
-  const { isAdminOrTI, isAdmin, isMasterRole, isTI, isCRM, loading: loadingAccess } = useUserAccessType();
-  const isGerenteLeads = useUserAccessType().tipoAcesso === "Gerente de Leads";
-  const canRedispatch = isAdmin || isMasterRole; // Admin/Master podem redisparar
+  const { permissions, loading: loadingAccess } = useUserAccessType();
+  const canRedispatch = permissions.canRedispararEventos ?? false;
 
   // Constantes de configuração de disparo
   const BATCH_SIZE = 1000; // Tamanho do lote por chamada ao webhook
