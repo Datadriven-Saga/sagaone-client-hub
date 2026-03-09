@@ -359,7 +359,101 @@ Deno.serve(async (req: Request) => {
       console.error('Notification error:', notifErr);
     }
 
-    // 9. Clean up uploaded file
+    // 9. Sync with create-base-ligacao webhook for IA Ligação events
+    if (log.prospeccao_id) {
+      try {
+        const { data: prospeccao } = await supabaseAdmin
+          .from('prospeccoes')
+          .select('canal, event_id_pri, empresa_id')
+          .eq('id', log.prospeccao_id)
+          .single();
+
+        if (prospeccao && prospeccao.canal === 'IA Ligação' && prospeccao.event_id_pri) {
+          console.log(`📞 IA Ligação detected - syncing with create-base-ligacao webhook...`);
+
+          // Get Pri agent phone for this company
+          const { data: agente } = await supabaseAdmin
+            .from('agentes_ia')
+            .select('telefone')
+            .eq('empresa_id', log.empresa_id)
+            .eq('nome', 'Pri')
+            .not('telefone', 'is', null)
+            .limit(1)
+            .single();
+
+          const telefonePri = (agente?.telefone || '').replace(/\D/g, '');
+
+          // Fetch all contacts linked to this event
+          const allContatos: { nome: string; telefone: string; lead_id: number | null }[] = [];
+          let fetchOffset = 0;
+          const FETCH_LIMIT = 1000;
+
+          while (true) {
+            const { data: rows, error: fetchErr } = await supabaseAdmin
+              .from('eventos_prospeccao')
+              .select('contato_id, contatos!inner(nome, telefone, lead_id)')
+              .eq('prospeccao_id', log.prospeccao_id)
+              .range(fetchOffset, fetchOffset + FETCH_LIMIT - 1);
+
+            if (fetchErr || !rows || rows.length === 0) break;
+
+            for (const row of rows) {
+              const c = (row as any).contatos;
+              if (c && c.telefone) {
+                allContatos.push({
+                  nome: c.nome || '',
+                  telefone: c.telefone,
+                  lead_id: c.lead_id || null,
+                });
+              }
+            }
+
+            if (rows.length < FETCH_LIMIT) break;
+            fetchOffset += FETCH_LIMIT;
+          }
+
+          console.log(`📤 Sending ${allContatos.length} contacts to create-base-ligacao`);
+
+          if (allContatos.length > 0) {
+            const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+            const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+            const webhookPayload = {
+              contatos: allContatos.map(c => ({
+                nome: c.nome,
+                telefone: c.telefone,
+              })),
+              id_evento: parseInt(prospeccao.event_id_pri, 10),
+              telefone_pri: telefonePri,
+              empresa_id: log.empresa_id,
+              prospeccao_id: log.prospeccao_id,
+              sync_external: true,
+            };
+
+            const resp = await fetch(`${supabaseUrl}/functions/v1/create-base-ligacao`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${serviceKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(webhookPayload),
+            });
+
+            if (resp.ok) {
+              const result = await resp.json();
+              console.log(`✅ create-base-ligacao sync complete:`, JSON.stringify(result.summary || {}));
+            } else {
+              const errText = await resp.text();
+              console.error(`⚠️ create-base-ligacao failed (${resp.status}): ${errText.substring(0, 300)}`);
+            }
+          }
+        }
+      } catch (syncErr) {
+        console.error('⚠️ IA Ligação sync error (non-critical):', syncErr);
+      }
+    }
+
+    // 10. Clean up uploaded file
     try {
       await supabaseAdmin.storage.from('import-files').remove([log.file_path]);
       console.log('🧹 Cleaned up uploaded file');
