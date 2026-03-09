@@ -27,7 +27,8 @@ const Treinamentos = ({ adminMode = false }: TreinamentosProps) => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { isAdminOrTI, loading: accessLoading } = useUserAccessType();
+  const { permissions, loading: accessLoading } = useUserAccessType();
+  const isAdminOrTI = permissions.canManageAcademy ?? false;
   const [activeSimulation, setActiveSimulation] = useState<{
     scenario: TrainingScenario;
     persona: Persona;

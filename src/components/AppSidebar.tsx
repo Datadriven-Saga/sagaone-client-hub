@@ -99,26 +99,31 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
-  const { isAdmin, isAdminOrTI, isGerente, isDiretor, isCRM } = useUserAccessType();
+  const { permissions } = useUserAccessType();
 
   const closeMobileSidebar = () => {
     if (isMobile) setOpenMobile(false);
   };
-  
+
+  const p = (key: string): boolean => permissions[key] ?? false;
+
   // Submenus recolhidos por padrão, abrem apenas se a rota atual está dentro
   const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(currentPath.startsWith('/prospeccao'));
   const [isPerformanceOpen, setIsPerformanceOpen] = useState(currentPath.startsWith('/resultados'));
   const [isTreinamentosOpen, setIsTreinamentosOpen] = useState(currentPath.startsWith('/treinamentos'));
   const [isAgentesIAOpen, setIsAgentesIAOpen] = useState(currentPath.startsWith('/agentes-ia'));
 
-  // Check if user has admin access to show admin panel
-  const hasAdminAccess = isAdminOrTI || isGerente || isDiretor;
-
-  // Gestores, admins e CRM podem ver o item Administração
-  const canSeeAdministracao = isAdmin || isGerente || isCRM;
+  // Sidebar visibility driven by permission flags
+  const canSeeAdministracao = p("canAccessAdministracao");
+  const canSeeClientes = p("canViewClientes") && p("canAddClientes");
+  const canSeeAgentesIA = p("canAccessAgentesIA");
+  const canSeeConfiguracoes = p("canAccessConfiguracoes");
+  const canSeeRelatorios = p("canAccessRelatorios");
+  const canSeeResultados = p("canAccessResultados");
+  const canSeeAcademy = p("canAccessAcademy");
   
   const bottomMenuItems = [
-    ...bottomMenuItemsPublic,
+    ...(canSeeConfiguracoes ? bottomMenuItemsPublic : []),
     ...(canSeeAdministracao ? bottomMenuItemsAdmin : []),
   ];
 
@@ -236,21 +241,21 @@ export function AppSidebar() {
               {/* Prospecção com submenu */}
               {renderCollapsibleMenu("Prospecção", Target, isProspeccaoOpen, setIsProspeccaoOpen, prospeccaoSubItems, '/prospeccao')}
 
-              {/* Performance com submenu - novo menu de nível 1 */}
-              {renderCollapsibleMenu("Performance", TrendingUp, isPerformanceOpen, setIsPerformanceOpen, performanceSubItems, '/resultados')}
+              {/* Performance com submenu */}
+              {canSeeResultados && renderCollapsibleMenu("Performance", TrendingUp, isPerformanceOpen, setIsPerformanceOpen, performanceSubItems, '/resultados')}
 
               {/* Treinamentos com submenu */}
-              {renderCollapsibleMenu("Treinamentos", BookOpen, isTreinamentosOpen, setIsTreinamentosOpen, filteredTreinamentosItems, '/treinamentos')}
+              {canSeeAcademy && renderCollapsibleMenu("Treinamentos", BookOpen, isTreinamentosOpen, setIsTreinamentosOpen, filteredTreinamentosItems, '/treinamentos')}
 
-              {/* Agentes de IA com submenu - apenas para TI e Admin */}
-              {isAdminOrTI && renderCollapsibleMenu("Agentes de IA", Bot, isAgentesIAOpen, setIsAgentesIAOpen, agentesIASubItems, '/agentes-ia')}
+              {/* Agentes de IA com submenu */}
+              {canSeeAgentesIA && renderCollapsibleMenu("Agentes de IA", Bot, isAgentesIAOpen, setIsAgentesIAOpen, agentesIASubItems, '/agentes-ia')}
 
-              {/* Items apenas para Admin */}
-              {isAdmin && afterProspeccaoItemsAdmin.map((item) => (
-                <SidebarMenuItem key={item.title}>
+              {/* Carteira de Clientes e Relatórios */}
+              {canSeeClientes && (
+                <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <NavLink 
-                      to={item.url} 
+                      to="/clientes" 
                       end
                       onClick={closeMobileSidebar}
                       className={({ isActive }) =>
@@ -261,14 +266,33 @@ export function AppSidebar() {
                         }`
                       }
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!isCollapsed && (
-                        <span className="font-medium">{item.title}</span>
-                      )}
+                      <Users className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && <span className="font-medium">Carteira de Clientes</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
+              )}
+              {canSeeRelatorios && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink 
+                      to="/relatorios" 
+                      end
+                      onClick={closeMobileSidebar}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
+                          isActive 
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground" 
+                            : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
+                        }`
+                      }
+                    >
+                      <FileText className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && <span className="font-medium">Relatórios</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

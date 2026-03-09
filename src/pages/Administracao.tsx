@@ -19,21 +19,18 @@ import {
   ShieldBan
 } from "lucide-react";
 import { useNavigate, Navigate } from "react-router-dom";
-import { useAdminCheck } from "@/hooks/useAdminCheck";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { useMfaMaster } from "@/hooks/useMfaMaster";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Administracao = () => {
   const navigate = useNavigate();
-  const { isAdmin, loading } = useAdminCheck();
-  const { isGerente, isCRM, loading: accessLoading } = useUserAccessType();
+  const { permissions, loading: accessLoading } = useUserAccessType();
   const { isMaster } = useMfaMaster();
 
-  const isFullLoading = loading || accessLoading;
+  const p = (key: string): boolean => permissions[key] ?? false;
 
-  // Show loading state
-  if (isFullLoading) {
+  if (accessLoading) {
     return (
       <DashboardLayout>
         <div className="min-h-screen flex items-center justify-center">
@@ -46,16 +43,13 @@ const Administracao = () => {
     );
   }
 
-  // CRM users: redirect straight to Quarentena
-  const isCRMOnly = isCRM && !isAdmin && !isGerente;
-  if (isCRMOnly) {
+  // CRM users with canGovernancaDados but not full admin: redirect to Quarentena
+  if (p("canGovernancaDados") && !p("canAccessAdminConfig") && !p("canManageUsers")) {
     return <Navigate to="/administracao/quarentena" replace />;
   }
 
-  // Allow access for admins AND managers
-  const hasAccess = isAdmin || isGerente;
+  const hasAccess = p("canAccessAdministracao");
 
-  // Block access for users without permission
   if (!hasAccess) {
     return (
       <DashboardLayout>
@@ -72,7 +66,7 @@ const Administracao = () => {
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              O módulo de Administração é restrito a usuários com perfil de <strong>Administrador</strong> ou <strong>Gerente</strong>. 
+              O módulo de Administração é restrito. 
               Entre em contato com um administrador do sistema se você acredita que deveria ter acesso a esta área.
             </AlertDescription>
           </Alert>
@@ -81,108 +75,118 @@ const Administracao = () => {
     );
   }
 
-  // Modules available only for Admins
-  const adminOnlyModules = [
+  // Build modules dynamically based on permission flags
+  const allModules: { title: string; description: string; icon: any; route: string; permissionKey: string }[] = [
+    {
+      title: "Acessos",
+      description: "Gerenciar usuários e permissões do sistema",
+      icon: Users,
+      route: "/administracao/acessos",
+      permissionKey: "canAccessAdministracao",
+    },
     {
       title: "Empresas",
       description: "Gerenciar dados das empresas do sistema",
       icon: Building,
-      route: "/administracao/empresas"
+      route: "/administracao/empresas",
+      permissionKey: "canManageEmpresas",
     },
     {
       title: "Agentes",
       description: "Gerenciar agentes de IA e controle de implantação",
       icon: Bot,
-      route: "/administracao/agentes"
+      route: "/administracao/agentes",
+      permissionKey: "canAccessAgentesIA",
     },
     {
       title: "Gatilhos",
       description: "Configurar gatilhos para personas de IA",
       icon: Zap,
-      route: "/gatilhos"
+      route: "/gatilhos",
+      permissionKey: "canAccessGatilhos",
     },
     {
       title: "Campos Obrigatórios",
       description: "Configurar campos obrigatórios por módulo",
       icon: FileText,
-      route: "/administracao/campos"
+      route: "/administracao/campos",
+      permissionKey: "canAccessAdminConfig",
     },
     {
       title: "APIs",
       description: "Gerenciar APIs e integrações do sistema",
       icon: Code,
-      route: "/administracao/apis"
+      route: "/administracao/apis",
+      permissionKey: "canAccessAPIs",
     },
     {
       title: "Teste de APIs",
       description: "Testar APIs de prospecção do sistema",
       icon: Settings,
-      route: "/administracao/test-apis"
+      route: "/administracao/test-apis",
+      permissionKey: "canTestAPIs",
     },
     {
       title: "Painel Treinamento",
       description: "Gerenciar treinamentos e simulações",
       icon: GraduationCap,
-      route: "/administracao/treinamentos"
+      route: "/administracao/treinamentos",
+      permissionKey: "canManageAcademy",
     },
     {
       title: "Controle de Acessos",
       description: "Gerenciar permissões por departamento",
       icon: ShieldCheck,
-      route: "/administracao/controle-acessos"
+      route: "/administracao/controle-acessos",
+      permissionKey: "canAccessControleAcessos",
     },
     {
       title: "Logs de Disparos",
       description: "Auditoria de todos os disparos de IA com custos",
       icon: DollarSign,
-      route: "/administracao/logs-disparos"
+      route: "/administracao/logs-disparos",
+      permissionKey: "canAccessAdminConfig",
     },
     {
       title: "Controle Gastos Ligação",
       description: "Dashboard de custos e métricas Twilio / Vapi em tempo real",
       icon: PhoneCall,
-      route: "/administracao/gastos-ligacao"
+      route: "/administracao/gastos-ligacao",
+      permissionKey: "canAccessFinancialReports",
     },
     {
       title: "Feature Flags",
       description: "Controle centralizado de funcionalidades do sistema",
       icon: Flag,
-      route: "/administracao/feature-flags"
+      route: "/administracao/feature-flags",
+      permissionKey: "canAccessAdminConfig",
     },
     {
       title: "Quarentena",
       description: "Visualizar e gerenciar contatos bloqueados por marca",
       icon: ShieldBan,
-      route: "/administracao/quarentena"
-    }
+      route: "/administracao/quarentena",
+      permissionKey: "canGovernancaDados",
+    },
   ];
 
-  // MFA Master module - only for Master users
+  // MFA Master module
   const masterModules = isMaster ? [
     {
       title: "MFA Master",
       description: "Controle centralizado de Authenticators, acessos e logs",
       icon: KeyRound,
-      route: "/administracao/mfa-master"
+      route: "/administracao/mfa-master",
+      permissionKey: "_always_", // Controlled by isMaster check above
     }
   ] : [];
 
-  // Modules available for both Admins and Managers
-  const sharedModules = [
-    {
-      title: "Acessos",
-      description: isGerente && !isAdmin 
-        ? "Gerenciar usuários SDR, Vendedores e Recepcionistas das suas lojas" 
-        : "Gerenciar usuários e permissões do sistema",
-      icon: Users,
-      route: "/administracao/acessos"
-    }
+  const visibleModules = [
+    ...allModules.filter(m => p(m.permissionKey)),
+    ...masterModules,
   ];
 
-  // Combine modules based on user role
-  const adminModules = isAdmin 
-    ? [...sharedModules, ...adminOnlyModules, ...masterModules] 
-    : [...sharedModules, ...masterModules];
+  const isFullAdmin = p("canAccessAdminConfig");
 
   return (
     <DashboardLayout>
@@ -200,7 +204,7 @@ const Administracao = () => {
 
           {/* Admin Modules Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {adminModules.map((module) => (
+            {visibleModules.map((module) => (
               <DashboardCard
                 key={module.title}
                 title={module.title}
@@ -215,14 +219,14 @@ const Administracao = () => {
             ))}
           </div>
 
-          {/* Info Cards - only show for admins */}
-          {isAdmin && (
+          {/* Info Cards - only show for full admins */}
+          {isFullAdmin && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
               <div className="bg-card border rounded-lg p-6">
                 <h3 className="text-lg font-semibold mb-2">Acesso Restrito</h3>
                 <p className="text-sm text-muted-foreground">
-                  Apenas usuários com perfil de <strong>Administrador</strong> têm acesso 
-                  completo a este módulo. Gerentes podem gerenciar apenas acessos da equipe.
+                  Apenas usuários com permissões administrativas têm acesso 
+                  completo a este módulo. Outros perfis veem apenas os módulos permitidos.
                 </p>
               </div>
               
@@ -236,12 +240,12 @@ const Administracao = () => {
             </div>
           )}
           
-          {/* Info for Managers */}
-          {isGerente && !isAdmin && (
+          {/* Info for limited access users */}
+          {!isFullAdmin && (
             <div className="bg-card border rounded-lg p-6 mt-8">
-              <h3 className="text-lg font-semibold mb-2">Acesso de Gerente</h3>
+              <h3 className="text-lg font-semibold mb-2">Acesso Limitado</h3>
               <p className="text-sm text-muted-foreground">
-                Como gerente, você pode criar e gerenciar usuários <strong>SDR</strong>, <strong>Vendedor</strong> e <strong>Recepcionista</strong> apenas das lojas que você gerencia.
+                Seu perfil possui acesso aos módulos exibidos acima. Para acesso a funcionalidades adicionais, entre em contato com um administrador.
               </p>
             </div>
           )}

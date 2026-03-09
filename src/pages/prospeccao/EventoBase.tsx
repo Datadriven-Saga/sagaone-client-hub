@@ -99,9 +99,8 @@ export default function EventoBase() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { activeCompany } = useCompany();
-  const { isAdminOrTI, isAdmin, isMasterRole, isTI, isCRM, loading: loadingAccess } = useUserAccessType();
-  const isGerenteLeads = useUserAccessType().tipoAcesso === "Gerente de Leads";
-  const canRedispatch = isAdmin || isMasterRole; // Admin/Master podem redisparar
+  const { permissions, loading: loadingAccess } = useUserAccessType();
+  const canRedispatch = permissions.canRedispararEventos ?? false;
 
   // Constantes de configuração de disparo
   const BATCH_SIZE = 1000; // Tamanho do lote por chamada ao webhook
@@ -1472,11 +1471,9 @@ export default function EventoBase() {
   const isIALigacao = isIALigacaoLocal;
   const isIA = isIALocal;
   
-  // Permissão para disparar:
-  // WhatsApp = ADM, TI, Gerente de Leads, CRM
-  // Ligação = apenas ADM/TI
-  const canDispatchWhatsApp = isAdmin || isTI || isGerenteLeads || isCRM;
-  const canDispatchLigacao = isAdminOrTI;
+  // Permissão para disparar - driven by permission flags
+  const canDispatchWhatsApp = permissions.canDispararEventos ?? false;
+  const canDispatchLigacao = permissions.canDispararIALigacao ?? false;
   const canDispatch = loadingAccess ? false : (isIAWhatsApp ? canDispatchWhatsApp : (isIALigacao ? canDispatchLigacao : false));
 
   // Log para debug

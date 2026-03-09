@@ -7,9 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CompanyProvider } from "@/contexts/CompanyContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
-import { TIAdminProtectedRoute } from "@/components/TIAdminProtectedRoute";
-import { GestorProtectedRoute } from "@/components/GestorProtectedRoute";
+import { PermissionProtectedRoute } from "@/components/PermissionProtectedRoute";
 
 // Critical pages - eagerly loaded
 import Login from "./pages/Login";
@@ -77,60 +75,60 @@ const AppRoutes = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-        <Route path="/clientes" element={<AdminProtectedRoute><Clientes /></AdminProtectedRoute>} />
+        <Route path="/clientes" element={<PermissionProtectedRoute permissionKey="canViewClientes"><Clientes /></PermissionProtectedRoute>} />
         <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
-        <Route path="/personas" element={<ProtectedRoute><Personas /></ProtectedRoute>} />
+        <Route path="/personas" element={<PermissionProtectedRoute permissionKey="canAccessPersonas"><Personas /></PermissionProtectedRoute>} />
         <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
         <Route path="/prospeccao/eventos" element={<ProtectedRoute><Prospeccao defaultTab="eventos" /></ProtectedRoute>} />
         <Route path="/prospeccao/atendimento" element={<ProtectedRoute><Prospeccao defaultTab="atendimento" /></ProtectedRoute>} />
-        <Route path="/prospeccao/recepcao" element={<ProtectedRoute><Prospeccao defaultTab="recepcao" /></ProtectedRoute>} />
+        <Route path="/prospeccao/recepcao" element={<PermissionProtectedRoute permissionKey="canAccessRecepcao"><Prospeccao defaultTab="recepcao" /></PermissionProtectedRoute>} />
         <Route path="/prospeccao/vendas" element={<ProtectedRoute><Prospeccao defaultTab="vendas" /></ProtectedRoute>} />
-        <Route path="/prospeccao/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
+        <Route path="/prospeccao/templates" element={<PermissionProtectedRoute permissionKey="canViewTemplates"><Templates /></PermissionProtectedRoute>} />
         <Route path="/prospeccao/eventos/:eventoId/base" element={<ProtectedRoute><EventoBase /></ProtectedRoute>} />
-        <Route path="/resultados" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
-        <Route path="/resultados/whatsapp" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
-        <Route path="/resultados/ligacao" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
-        <Route path="/resultados/ranking" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
-        <Route path="/resultados/produtos" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
-        <Route path="/resultados/desempenho" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
-        <Route path="/resultados/individual" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
-        <Route path="/resultados/premiacoes" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
-        <Route path="/resultados/relatorios" element={<ProtectedRoute><Resultados /></ProtectedRoute>} />
-        <Route path="/relatorios" element={<AdminProtectedRoute><Relatorios /></AdminProtectedRoute>} />
-        <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
-        <Route path="/treinamentos/simulacoes" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
-        <Route path="/treinamentos/simulacoes-voz" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
-        <Route path="/treinamentos/simulacoes-texto" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
-        <Route path="/treinamentos/historico" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
-        <Route path="/treinamentos/historico/:id" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
-        <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+        <Route path="/resultados" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
+        <Route path="/resultados/whatsapp" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
+        <Route path="/resultados/ligacao" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
+        <Route path="/resultados/ranking" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
+        <Route path="/resultados/produtos" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
+        <Route path="/resultados/desempenho" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
+        <Route path="/resultados/individual" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
+        <Route path="/resultados/premiacoes" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
+        <Route path="/resultados/relatorios" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
+        <Route path="/relatorios" element={<PermissionProtectedRoute permissionKey="canAccessRelatorios"><Relatorios /></PermissionProtectedRoute>} />
+        <Route path="/treinamentos" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
+        <Route path="/treinamentos/simulacoes" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
+        <Route path="/treinamentos/simulacoes-voz" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
+        <Route path="/treinamentos/simulacoes-texto" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
+        <Route path="/treinamentos/historico" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
+        <Route path="/treinamentos/historico/:id" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
+        <Route path="/configuracoes" element={<PermissionProtectedRoute permissionKey="canAccessConfiguracoes"><Configuracoes /></PermissionProtectedRoute>} />
         <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
         <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
-        <Route path="/gatilhos" element={<ProtectedRoute><Gatilhos /></ProtectedRoute>} />
+        <Route path="/gatilhos" element={<PermissionProtectedRoute permissionKey="canAccessGatilhos"><Gatilhos /></PermissionProtectedRoute>} />
         
         {/* Agentes IA */}
-        <Route path="/agentes-ia" element={<TIAdminProtectedRoute><AgentesIA /></TIAdminProtectedRoute>} />
-        <Route path="/agentes-ia/instancias" element={<TIAdminProtectedRoute><Instancias /></TIAdminProtectedRoute>} />
-        <Route path="/agentes-ia/performance" element={<TIAdminProtectedRoute><Resultados /></TIAdminProtectedRoute>} />
+        <Route path="/agentes-ia" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><AgentesIA /></PermissionProtectedRoute>} />
+        <Route path="/agentes-ia/instancias" element={<PermissionProtectedRoute permissionKey="canManageInstancias"><Instancias /></PermissionProtectedRoute>} />
+        <Route path="/agentes-ia/performance" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><Resultados /></PermissionProtectedRoute>} />
         
-        <Route path="/administracao" element={<GestorProtectedRoute><Administracao /></GestorProtectedRoute>} />
-        <Route path="/admin" element={<GestorProtectedRoute><Administracao /></GestorProtectedRoute>} />
-        <Route path="/administracao/empresas" element={<AdminProtectedRoute><Empresas /></AdminProtectedRoute>} />
-        <Route path="/administracao/acessos" element={<GestorProtectedRoute><Acessos /></GestorProtectedRoute>} />
-        <Route path="/admin/acessos" element={<GestorProtectedRoute><Acessos /></GestorProtectedRoute>} />
-        <Route path="/administracao/agentes" element={<TIAdminProtectedRoute><AdminAgentes /></TIAdminProtectedRoute>} />
-        <Route path="/administracao/agentes/controle" element={<TIAdminProtectedRoute><ControleAgentes /></TIAdminProtectedRoute>} />
-        <Route path="/administracao/agentes/visao-geral" element={<TIAdminProtectedRoute><VisaoGeral /></TIAdminProtectedRoute>} />
-        <Route path="/administracao/campos" element={<AdminProtectedRoute><CamposObrigatorios /></AdminProtectedRoute>} />
-        <Route path="/administracao/apis" element={<AdminProtectedRoute><APIs /></AdminProtectedRoute>} />
-        <Route path="/administracao/test-apis" element={<AdminProtectedRoute><TestAPIs /></AdminProtectedRoute>} />
-        <Route path="/administracao/treinamentos" element={<TIAdminProtectedRoute><Treinamentos adminMode /></TIAdminProtectedRoute>} />
-        <Route path="/administracao/controle-acessos" element={<AdminProtectedRoute><ControleAcessos /></AdminProtectedRoute>} />
+        <Route path="/administracao" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Administracao /></PermissionProtectedRoute>} />
+        <Route path="/admin" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Administracao /></PermissionProtectedRoute>} />
+        <Route path="/administracao/empresas" element={<PermissionProtectedRoute permissionKey="canManageEmpresas"><Empresas /></PermissionProtectedRoute>} />
+        <Route path="/administracao/acessos" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Acessos /></PermissionProtectedRoute>} />
+        <Route path="/admin/acessos" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Acessos /></PermissionProtectedRoute>} />
+        <Route path="/administracao/agentes" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><AdminAgentes /></PermissionProtectedRoute>} />
+        <Route path="/administracao/agentes/controle" element={<PermissionProtectedRoute permissionKey={["canViewControleAgentes", "canAccessAgentesIA"]}><ControleAgentes /></PermissionProtectedRoute>} />
+        <Route path="/administracao/agentes/visao-geral" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><VisaoGeral /></PermissionProtectedRoute>} />
+        <Route path="/administracao/campos" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><CamposObrigatorios /></PermissionProtectedRoute>} />
+        <Route path="/administracao/apis" element={<PermissionProtectedRoute permissionKey="canAccessAPIs"><APIs /></PermissionProtectedRoute>} />
+        <Route path="/administracao/test-apis" element={<PermissionProtectedRoute permissionKey="canTestAPIs"><TestAPIs /></PermissionProtectedRoute>} />
+        <Route path="/administracao/treinamentos" element={<PermissionProtectedRoute permissionKey="canManageAcademy"><Treinamentos adminMode /></PermissionProtectedRoute>} />
+        <Route path="/administracao/controle-acessos" element={<PermissionProtectedRoute permissionKey="canAccessControleAcessos"><ControleAcessos /></PermissionProtectedRoute>} />
         <Route path="/administracao/mfa-master" element={<ProtectedRoute><MFAMasterDashboard /></ProtectedRoute>} />
-        <Route path="/administracao/logs-disparos" element={<AdminProtectedRoute><LogsDisparos /></AdminProtectedRoute>} />
-        <Route path="/administracao/gastos-ligacao" element={<AdminProtectedRoute><ControleGastosLigacao /></AdminProtectedRoute>} />
-        <Route path="/administracao/feature-flags" element={<AdminProtectedRoute><FeatureFlags /></AdminProtectedRoute>} />
-        <Route path="/administracao/quarentena" element={<ProtectedRoute><Quarentena /></ProtectedRoute>} />
+        <Route path="/administracao/logs-disparos" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><LogsDisparos /></PermissionProtectedRoute>} />
+        <Route path="/administracao/gastos-ligacao" element={<PermissionProtectedRoute permissionKey="canAccessFinancialReports"><ControleGastosLigacao /></PermissionProtectedRoute>} />
+        <Route path="/administracao/feature-flags" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><FeatureFlags /></PermissionProtectedRoute>} />
+        <Route path="/administracao/quarentena" element={<PermissionProtectedRoute permissionKey={["canGovernancaDados", "canAccessAdminConfig"]}><Quarentena /></PermissionProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
