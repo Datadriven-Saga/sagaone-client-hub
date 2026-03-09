@@ -251,11 +251,11 @@ export function AppSidebar() {
               {canSeeAgentesIA && renderCollapsibleMenu("Agentes de IA", Bot, isAgentesIAOpen, setIsAgentesIAOpen, agentesIASubItems, '/agentes-ia')}
 
               {/* Carteira de Clientes e Relatórios */}
-              {canSeeClientes && afterProspeccaoItemsAdmin.filter(i => i.url === '/clientes').map((item) => (
-                <SidebarMenuItem key={item.title}>
+              {canSeeClientes && (
+                <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <NavLink 
-                      to={item.url} 
+                      to="/clientes" 
                       end
                       onClick={closeMobileSidebar}
                       className={({ isActive }) =>
@@ -266,14 +266,33 @@ export function AppSidebar() {
                         }`
                       }
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!isCollapsed && (
-                        <span className="font-medium">{item.title}</span>
-                      )}
+                      <Users className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && <span className="font-medium">Carteira de Clientes</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
+              )}
+              {canSeeRelatorios && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink 
+                      to="/relatorios" 
+                      end
+                      onClick={closeMobileSidebar}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
+                          isActive 
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground" 
+                            : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
+                        }`
+                      }
+                    >
+                      <FileText className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && <span className="font-medium">Relatórios</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
