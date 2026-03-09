@@ -301,27 +301,47 @@ serve(async (req) => {
             };
 
             try {
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 30000);
+              
               const response = await fetch(webhookUrl, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
                 },
-                body: JSON.stringify(payloadLigacao)
+                body: JSON.stringify(payloadLigacao),
+                signal: controller.signal,
               });
+              clearTimeout(timeout);
 
-              if (response.ok) {
-                // Sub-lote inteiro OK — marcar todos como sucesso
-                successLeadIds.push(...subIds);
-                console.log(`✅ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: webhook OK (${subContatos.length} contatos)`);
-              } else {
-                const body = await response.text().catch(() => '');
+              const responseBody = await response.text().catch(() => '');
+              console.log(`📡 Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: HTTP ${response.status}, body: ${responseBody.substring(0, 300)}`);
+
+              if (response.ok && responseBody.length > 0) {
+                // Validar que o webhook realmente processou (não retornou vazio ou erro interno)
+                const isValidResponse = !responseBody.toLowerCase().includes('"error"') && 
+                                        !responseBody.toLowerCase().includes('workflow not found') &&
+                                        !responseBody.toLowerCase().includes('not active');
+                if (isValidResponse) {
+                  successLeadIds.push(...subIds);
+                  console.log(`✅ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: webhook OK (${subContatos.length} contatos)`);
+                } else {
+                  failedLeadIds.push(...subIds);
+                  console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: Webhook retornou erro interno: ${responseBody.substring(0, 200)}`);
+                }
+              } else if (response.ok && responseBody.length === 0) {
+                // Webhook retornou 200 mas sem body — possível workflow inativo
                 failedLeadIds.push(...subIds);
-                console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: HTTP ${response.status}: ${body.substring(0, 200)}`);
+                console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: Webhook retornou 200 mas body vazio (workflow possivelmente inativo)`);
+              } else {
+                failedLeadIds.push(...subIds);
+                console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: HTTP ${response.status}: ${responseBody.substring(0, 200)}`);
               }
             } catch (err: any) {
               failedLeadIds.push(...subIds);
-              console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: Network error: ${err.message}`);
+              const isTimeout = err.name === 'AbortError';
+              console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: ${isTimeout ? 'Timeout (30s)' : 'Network error'}: ${err.message}`);
             }
           }
 
@@ -355,18 +375,39 @@ serve(async (req) => {
                 variable_mapping: resolvedMapping,
               };
 
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 30000);
+
               const response = await fetch(webhookUrl, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: controller.signal,
               });
+              clearTimeout(timeout);
+
+              const responseBody = await response.text().catch(() => '');
 
               if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+                throw new Error(`HTTP ${response.status}: ${responseBody.substring(0, 200)}`);
               }
+
+              // Validar que o webhook realmente processou
+              if (responseBody.length === 0) {
+                throw new Error('Webhook retornou 200 mas body vazio (workflow possivelmente inativo)');
+              }
+
+              const hasError = responseBody.toLowerCase().includes('"error"') ||
+                               responseBody.toLowerCase().includes('workflow not found') ||
+                               responseBody.toLowerCase().includes('not active');
+              if (hasError) {
+                throw new Error(`Webhook retornou erro interno: ${responseBody.substring(0, 200)}`);
+              }
+
+              console.log(`📡 Lead ${lead.id}: webhook OK, body: ${responseBody.substring(0, 100)}`);
               return lead.id;
             }));
 
