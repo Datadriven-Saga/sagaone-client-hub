@@ -1941,8 +1941,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           return false;
         }
 
-        if ((edgeData as any)?.success === false || (edgeData as any)?.error) {
-          console.error('❌ ia-ligacao-webhook retornou erro:', edgeData);
+        // Verificar se houve erro real (sem id_evento = falha total)
+        if ((edgeData as any)?.error && !(edgeData as any)?.id_evento) {
+          console.error('❌ ia-ligacao-webhook retornou erro sem id_evento:', edgeData);
           const detalhe =
             (edgeData as any)?.data?.message ||
             (edgeData as any)?.data?.hint ||
@@ -1958,51 +1959,64 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           return false;
         }
 
-        // Se retornou id_evento, garantir que está salvo localmente
+        // Notificar se o webhook externo falhou mas o evento foi salvo localmente
+        if ((edgeData as any)?.webhook_ok === false) {
+          console.warn('⚠️ Webhook externo falhou mas evento foi persistido localmente');
+          toast({
+            title: '⚠️ Aviso: Sincronização parcial',
+            description: 'O evento foi salvo localmente, mas o sistema externo não confirmou. A sincronização será feita automaticamente.',
+          });
+        }
+
+        // Obter id_evento - SEMPRE deve existir após ia-ligacao-webhook
         const returnedIdEvento = (edgeData as any)?.id_evento;
-        if (returnedIdEvento) {
-          const returnedIdEventoStr = String(returnedIdEvento);
-          if (!prospeccaoData.event_id_pri || String(prospeccaoData.event_id_pri) !== returnedIdEventoStr) {
+        const idEventoFinalStr = returnedIdEvento ? String(returnedIdEvento) : prospeccaoData.event_id_pri;
+        
+        // Garantir que event_id_pri está salvo na prospecção
+        if (idEventoFinalStr) {
+          if (!prospeccaoData.event_id_pri || String(prospeccaoData.event_id_pri) !== idEventoFinalStr) {
             const { error: updateError } = await supabase
               .from('prospeccoes')
-              .update({ event_id_pri: returnedIdEventoStr })
+              .update({ event_id_pri: idEventoFinalStr })
               .eq('id', prospeccaoData.id);
 
             if (updateError) {
               console.error('❌ Erro ao salvar event_id_pri:', updateError);
             } else {
-              console.log(`✅ event_id_pri "${returnedIdEventoStr}" salvo na prospecção ${prospeccaoData.id}`);
+              console.log(`✅ event_id_pri "${idEventoFinalStr}" salvo na prospecção ${prospeccaoData.id}`);
             }
           }
+        } else {
+          console.error('❌ Nenhum id_evento disponível após operação');
+        }
 
-          // ============================================================
-          // SALVAR BASE NO SUPABASE (FONTE PRIMÁRIA) + SYNC EXTERNO
-          // ============================================================
-          if (contatosParaEdge.length > 0 && (acao === 'criar' || acao === 'atualizar')) {
-            console.log(`📦 Salvando ${contatosParaEdge.length} contatos no Supabase (fonte primária)...`);
-            
-            const { data: baseData, error: baseError } = await supabase.functions.invoke('create-base-ligacao', {
-              body: {
-                contatos: contatosParaEdge.map(c => ({
-                  nome: c.nome,
-                  telefone: c.telefone,
-                  email: c.email || null,
-                })),
-                id_evento: parseInt(returnedIdEventoStr, 10),
-                telefone_pri: priTelefoneLimpo,
-                empresa_id: activeCompany.id,
-                prospeccao_id: prospeccaoData.id,
-                loja: empresaCrmData?.nome_empresa || '',
-                sync_external: true, // Sincronizar com sistema externo
-              }
-            });
-
-            if (baseError) {
-              console.error('❌ Erro ao salvar base no Supabase:', baseError);
-              // Não falhar a operação principal, apenas logar
-            } else {
-              console.log('✅ Base salva no Supabase:', baseData?.summary);
+        // ============================================================
+        // SALVAR BASE NO SUPABASE (FONTE PRIMÁRIA) + SYNC EXTERNO
+        // Executa independente do resultado do webhook externo
+        // ============================================================
+        if (contatosParaEdge.length > 0 && (acao === 'criar' || acao === 'atualizar') && idEventoFinalStr) {
+          console.log(`📦 Salvando ${contatosParaEdge.length} contatos no Supabase (fonte primária)...`);
+          
+          const { data: baseData, error: baseError } = await supabase.functions.invoke('create-base-ligacao', {
+            body: {
+              contatos: contatosParaEdge.map(c => ({
+                nome: c.nome,
+                telefone: c.telefone,
+                email: c.email || null,
+              })),
+              id_evento: parseInt(idEventoFinalStr, 10),
+              telefone_pri: priTelefoneLimpo,
+              empresa_id: activeCompany.id,
+              prospeccao_id: prospeccaoData.id,
+              loja: empresaCrmData?.nome_empresa || '',
+              sync_external: true,
             }
+          });
+
+          if (baseError) {
+            console.error('❌ Erro ao salvar base no Supabase:', baseError);
+          } else {
+            console.log('✅ Base salva no Supabase:', baseData?.summary);
           }
         }
 
