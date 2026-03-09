@@ -345,8 +345,8 @@ serve(async (req) => {
             }
 
             // *** PROGRESSO GRANULAR: atualizar após cada sub-lote de 100 (Ligação) ***
-            totalProcessed = (job.processed_records || 0) + successLeadIds.length;
-            totalFailed = (job.failed_records || 0) + failedLeadIds.length;
+            totalProcessed = batchBaseProcessed + successLeadIds.length;
+            totalFailed = batchBaseFailed + failedLeadIds.length;
             await supabase.from('campaign_jobs').update({
               processed_records: totalProcessed,
               failed_records: totalFailed,
