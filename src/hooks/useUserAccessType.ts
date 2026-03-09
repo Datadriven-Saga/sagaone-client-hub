@@ -56,7 +56,14 @@ export function useUserAccessType() {
 
           const myOverrides = allOverrides[tipo as string] || {};
           const resolved = resolvePermissions(tipo as TipoAcesso, myOverrides);
-          console.log("[DEBUG] tipo_acesso:", tipo, "canAccessAgentesIA:", resolved.canAccessAgentesIA, "overrides:", myOverrides);
+          
+          // Master role: force all permissions to true (superadmin)
+          if (tipo === "Master") {
+            for (const key of Object.keys(resolved)) {
+              resolved[key] = true;
+            }
+          }
+          
           setPermissions(resolved);
         } else {
           setPermissions({});
