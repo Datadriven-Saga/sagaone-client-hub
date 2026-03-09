@@ -420,6 +420,17 @@ serve(async (req) => {
                 failedLeadIds.push(subBatch[idx].id);
               }
             }
+
+            // *** PROGRESSO GRANULAR: atualizar após cada sub-lote de 50 ***
+            totalProcessed = (job.processed_records || 0) + successLeadIds.length;
+            totalFailed = (job.failed_records || 0) + failedLeadIds.length;
+            await supabase.from('campaign_jobs').update({
+              processed_records: totalProcessed,
+              failed_records: totalFailed,
+              updated_at: new Date().toISOString(),
+            }).eq('id', job_id);
+
+            console.log(`📊 Sub-lote WhatsApp ${Math.floor(i / WA_BATCH_SIZE) + 1}: progresso ${totalProcessed}/${job.total_records}`);
           }
 
           console.log(`📊 Batch ${batch.batch_index} WhatsApp: ${successLeadIds.length} ok, ${failedLeadIds.length} falhas`);
