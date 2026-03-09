@@ -309,6 +309,15 @@ Deno.serve(async (req: Request) => {
       errors += result.errors;
       quarantined += result.quarantined;
       processedRows += batch.length;
+
+      // Capture per-record error details from final batch
+      if (result.error_details && result.error_details.length > 0) {
+        for (const detail of result.error_details) {
+          if (errorDetails.length < 200) {
+            errorDetails.push(`Tel: ${detail.telefone || '?'} | Nome: ${detail.nome || '?'} | Erro: ${detail.erro}`);
+          }
+        }
+      }
     }
 
     if (needsChain) {
