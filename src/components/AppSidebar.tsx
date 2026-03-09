@@ -241,17 +241,17 @@ export function AppSidebar() {
               {/* Prospecção com submenu */}
               {renderCollapsibleMenu("Prospecção", Target, isProspeccaoOpen, setIsProspeccaoOpen, prospeccaoSubItems, '/prospeccao')}
 
-              {/* Performance com submenu - novo menu de nível 1 */}
-              {renderCollapsibleMenu("Performance", TrendingUp, isPerformanceOpen, setIsPerformanceOpen, performanceSubItems, '/resultados')}
+              {/* Performance com submenu */}
+              {canSeeResultados && renderCollapsibleMenu("Performance", TrendingUp, isPerformanceOpen, setIsPerformanceOpen, performanceSubItems, '/resultados')}
 
               {/* Treinamentos com submenu */}
-              {renderCollapsibleMenu("Treinamentos", BookOpen, isTreinamentosOpen, setIsTreinamentosOpen, filteredTreinamentosItems, '/treinamentos')}
+              {canSeeAcademy && renderCollapsibleMenu("Treinamentos", BookOpen, isTreinamentosOpen, setIsTreinamentosOpen, filteredTreinamentosItems, '/treinamentos')}
 
-              {/* Agentes de IA com submenu - apenas para TI e Admin */}
-              {isAdminOrTI && renderCollapsibleMenu("Agentes de IA", Bot, isAgentesIAOpen, setIsAgentesIAOpen, agentesIASubItems, '/agentes-ia')}
+              {/* Agentes de IA com submenu */}
+              {canSeeAgentesIA && renderCollapsibleMenu("Agentes de IA", Bot, isAgentesIAOpen, setIsAgentesIAOpen, agentesIASubItems, '/agentes-ia')}
 
-              {/* Items apenas para Admin */}
-              {isAdmin && afterProspeccaoItemsAdmin.map((item) => (
+              {/* Carteira de Clientes e Relatórios */}
+              {canSeeClientes && afterProspeccaoItemsAdmin.filter(i => i.url === '/clientes').map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink 
