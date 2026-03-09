@@ -367,6 +367,46 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   }, [editingProspeccao, activeCompany?.id, isOpen]);
 
+  // Buscar endereço do evento de IA Ligação quando editando
+  useEffect(() => {
+    const fetchEnderecoEvento = async () => {
+      if (!editingProspeccao?.id || !isOpen) return;
+      
+      const canalSalvo = editingProspeccao.canal;
+      // Só busca endereço para IA Ligação (e IA Whatsapp que também pode ter)
+      if (canalSalvo !== 'Ligação' && canalSalvo !== 'Whatsapp') return;
+      
+      const eventIdPri = editingProspeccao.event_id_pri;
+      if (!eventIdPri) return;
+      
+      try {
+        const idEvento = parseInt(String(eventIdPri), 10);
+        if (isNaN(idEvento)) return;
+        
+        const { data, error } = await supabase
+          .from('eventos_pri_voz')
+          .select('uf, cidade, endereco')
+          .eq('id_evento', idEvento)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Erro ao buscar endereço do evento:', error);
+          return;
+        }
+        
+        if (data) {
+          if (data.uf) setEventoUF(data.uf);
+          if (data.cidade) setEventoCidade(data.cidade);
+          if (data.endereco) setEventoEndereco(data.endereco);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar endereço:', err);
+      }
+    };
+    
+    fetchEnderecoEvento();
+  }, [editingProspeccao, isOpen]);
+
   // Reset step ao abrir modal
   useEffect(() => {
     if (isOpen) {
