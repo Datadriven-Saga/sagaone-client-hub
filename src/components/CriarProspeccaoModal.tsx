@@ -1566,20 +1566,22 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
           const ok = await callIALigacaoWebhooks(data, 'criar');
           if (!ok) {
-            // Reverter criação local se o evento externo não foi criado (fonte da verdade)
+            // O edge function já persiste localmente em eventos_pri_voz,
+            // então só revertemos se callIALigacaoWebhooks retornou false por erro de validação
+            // (crm_id ausente, agente não configurado, etc.)
             const { error: rollbackError } = await supabase
               .from('prospeccoes')
               .delete()
               .eq('id', data.id);
 
             if (rollbackError) {
-              console.error('❌ Falha ao reverter prospecção local após erro externo:', rollbackError);
+              console.error('❌ Falha ao reverter prospecção local:', rollbackError);
             }
 
-            throw new Error('Falha ao criar o evento externo (IA Ligação). O evento local foi revertido.');
+            throw new Error('Falha ao criar o evento de IA Ligação. Verifique se o agente Pri(Ligação) e o CRM ID estão configurados corretamente.');
           }
 
-          console.log('✅ Evento IA Ligação criado e sincronizado externamente.');
+          console.log('✅ Evento IA Ligação criado e sincronizado.');
         }
 
         toast({
