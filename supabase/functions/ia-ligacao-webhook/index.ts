@@ -411,11 +411,15 @@ Deno.serve(async (req: Request) => {
     console.log('📦 Payload:', JSON.stringify(payload, null, 2));
 
     const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+    const WEBHOOK_TIMEOUT = 15000; // 15 seconds timeout for external webhooks
 
     let responseData: unknown = null;
     let webhookOk = false;
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT);
+
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 
@@ -423,7 +427,10 @@ Deno.serve(async (req: Request) => {
           ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
         },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const responseText = await response.text();
       console.log('📥 Resposta webhook:', response.status, responseText.substring(0, 500));
@@ -431,8 +438,12 @@ Deno.serve(async (req: Request) => {
 
       try { responseData = JSON.parse(responseText); } catch { responseData = { raw: responseText }; }
     } catch (webhookError) {
-      console.error('⚠️ Erro ao chamar webhook externo (não fatal):', webhookError);
-      responseData = { error: 'Falha na comunicação com sistema externo', detail: String(webhookError) };
+      const isTimeout = webhookError.name === 'AbortError';
+      console.error(`⚠️ ${isTimeout ? 'Timeout' : 'Erro'} ao chamar webhook externo (não fatal):`, webhookError);
+      responseData = { 
+        error: isTimeout ? 'Timeout ao comunicar com sistema externo (15s)' : 'Falha na comunicação com sistema externo', 
+        detail: String(webhookError) 
+      };
     }
 
     // =====================================================

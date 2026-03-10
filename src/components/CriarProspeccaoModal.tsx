@@ -1467,10 +1467,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
 
+          setLoadingMessage("Sincronizando evento externo...");
           const ok = await callIALigacaoWebhooks(data, 'atualizar');
           if (!ok) {
             throw new Error('Falha ao atualizar o evento externo (IA Ligação).');
           }
+          setLoadingMessage("");
 
           console.log('✅ Evento IA Ligação atualizado e sincronizado externamente.');
         }
@@ -1604,6 +1606,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
 
+          setLoadingMessage("Sincronizando evento externo...");
           const ok = await callIALigacaoWebhooks(data, 'criar');
           if (!ok) {
             // O edge function já persiste localmente em eventos_pri_voz,
@@ -1620,6 +1623,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
             throw new Error('Falha ao criar o evento de IA Ligação. Verifique se o agente Pri(Ligação) e o CRM ID estão configurados corretamente.');
           }
+          setLoadingMessage("");
 
           console.log('✅ Evento IA Ligação criado e sincronizado.');
         }
@@ -1675,6 +1679,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       });
     } finally {
       setLoading(false);
+      setLoadingMessage("");
     }
   };
 
@@ -1794,6 +1799,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     console.log(`📞 Enviando evento para webhook IA Ligação (${acao}):`, prospeccaoData.titulo);
     
     try {
+      setLoadingMessage("Verificando configuração do agente...");
       // Mapear contatos da planilha importada ou da base existente (apenas para criar/atualizar)
       // PADRONIZADO: Sempre enviar como array de {nome, telefone, loja}
       const contatosParaEnviarPadronizado = acao !== 'deletar' 
@@ -1952,6 +1958,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           origem: null,
         }));
 
+        setLoadingMessage(`${acao === 'criar' ? 'Criando' : 'Atualizando'} evento no sistema externo...`);
+
         console.log(`📤 IA Ligação via edge function (${acao})`, {
           prospeccao_id: prospeccaoData.id,
           empresa_id: activeCompany.id,
@@ -2037,6 +2045,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         // Executa independente do resultado do webhook externo
         // ============================================================
         if (contatosParaEdge.length > 0 && (acao === 'criar' || acao === 'atualizar') && idEventoFinalStr) {
+          setLoadingMessage("Salvando base de contatos...");
           console.log(`📦 Salvando ${contatosParaEdge.length} contatos no Supabase (fonte primária)...`);
           
           const { data: baseData, error: baseError } = await supabase.functions.invoke('create-base-ligacao', {
