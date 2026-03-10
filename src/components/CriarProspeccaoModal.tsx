@@ -1957,6 +1957,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           origem: null,
         }));
 
+        setLoadingMessage(`${acao === 'criar' ? 'Criando' : 'Atualizando'} evento no sistema externo...`);
+
         console.log(`📤 IA Ligação via edge function (${acao})`, {
           prospeccao_id: prospeccaoData.id,
           empresa_id: activeCompany.id,
