@@ -1202,6 +1202,59 @@ export default function EventoBase() {
     handleDispararIA(custoModal.quantidade);
   };
 
+  // Helper fire-and-forget para registrar log de disparo em logs_disparos
+  const registrarLogDisparo = async (totalContatos: number, tipoAcao: string = 'disparo_individual') => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
+      const userEmail = sessionData?.session?.user?.email || '';
+      if (!userId || !prospeccao || !activeCompany?.id) return;
+
+      const [profileRes, cotacaoRes] = await Promise.all([
+        supabase.from('profiles').select('nome_completo, tipo_acesso').eq('id', userId).maybeSingle(),
+        supabase.functions.invoke('cotacao-dolar'),
+      ]);
+
+      const userName = profileRes.data?.nome_completo || userEmail;
+      const userPerfil = profileRes.data?.tipo_acesso || '';
+      const cotacaoDolar = cotacaoRes.data?.cotacao || 5.75;
+      const cotacaoData = cotacaoRes.data?.data_cotacao || new Date().toISOString();
+
+      const canalAtual = prospeccao.canal?.toLowerCase() || '';
+      const isLigacao = canalAtual.includes('liga');
+      const VALOR_UNITARIO_WHATSAPP_USD = 0.06;
+      const VALOR_UNITARIO_LIGACAO_BRL = 1.15;
+
+      const custoTotalBRL = isLigacao
+        ? totalContatos * VALOR_UNITARIO_LIGACAO_BRL
+        : totalContatos * VALOR_UNITARIO_WHATSAPP_USD * cotacaoDolar;
+      const custoTotalUSD = isLigacao
+        ? custoTotalBRL / (cotacaoDolar || 1)
+        : totalContatos * VALOR_UNITARIO_WHATSAPP_USD;
+      const valorUnitarioUSD = isLigacao
+        ? VALOR_UNITARIO_LIGACAO_BRL / (cotacaoDolar || 1)
+        : VALOR_UNITARIO_WHATSAPP_USD;
+
+      await supabase.from('logs_disparos').insert({
+        usuario_id: userId,
+        usuario_nome: userName,
+        usuario_email: userEmail,
+        usuario_perfil: userPerfil,
+        prospeccao_id: prospeccao.id,
+        evento_nome: `[${tipoAcao}] ${prospeccao.titulo}`,
+        canal: prospeccao.canal || '',
+        total_contatos: totalContatos,
+        cotacao_dolar: cotacaoDolar,
+        cotacao_data: cotacaoData,
+        custo_total_usd: custoTotalUSD,
+        custo_total_brl: custoTotalBRL,
+        valor_unitario_usd: valorUnitarioUSD,
+      });
+    } catch (err) {
+      console.error('Erro ao registrar log de disparo:', err);
+    }
+  };
+
   // Disparar IA para contato individual
   const handleDispararContato = async (contato: ContatoEvento) => {
     if (!prospeccao || !activeCompany?.id) return;
