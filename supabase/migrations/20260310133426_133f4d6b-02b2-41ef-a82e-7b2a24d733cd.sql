@@ -1,0 +1,1 @@
+ALTER FUNCTION public.update_atualizado_em_column() SET search_path = public;
