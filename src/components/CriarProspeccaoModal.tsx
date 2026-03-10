@@ -2415,11 +2415,13 @@ Convidamos você para um evento exclusivo de vendas, com atendimento VIP e condi
 • Oportunidades únicas
 
 🗓️ ${dataEvento}
-📍 ${localEvento}
 
 Garanta sua presença e não perca essa oportunidade única!
 
-ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar sobre valores, taxas, entrada, financiamento, simulações ou detalhes técnicos.`;
+ATENÇÃO: A equipe deve apenas convidar e confirmar interesse. Não deve falar sobre valores, taxas, entrada, financiamento, simulações ou detalhes técnicos.
+
+📍 Localização do Evento:
+${localEvento}`;
 
     // Buscar modelo do banco de dados
     const { data, error } = await supabase
