@@ -2417,7 +2417,7 @@ export default function Templates() {
       </div>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[600px] h-[600px] flex flex-col overflow-hidden pb-3">
+        <DialogContent className="sm:max-w-[750px] h-[85vh] max-h-[750px] flex flex-col overflow-hidden pb-3">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>{duplicatingTemplate ? "Novo Template (Duplicado)" : "Novo Template"}</DialogTitle>
           </DialogHeader>
