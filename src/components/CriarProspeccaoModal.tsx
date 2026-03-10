@@ -1467,10 +1467,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
 
+          setLoadingMessage("Sincronizando evento externo...");
           const ok = await callIALigacaoWebhooks(data, 'atualizar');
           if (!ok) {
             throw new Error('Falha ao atualizar o evento externo (IA Ligação).');
           }
+          setLoadingMessage("");
 
           console.log('✅ Evento IA Ligação atualizado e sincronizado externamente.');
         }
