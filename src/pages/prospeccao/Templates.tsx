@@ -45,7 +45,8 @@ import {
   Music,
   RefreshCw,
   Eye,
-  Loader2
+  Loader2,
+  Maximize2
 } from "lucide-react";
 import { TemplatePreview } from "@/components/TemplatePreview";
 import { 
