@@ -1440,6 +1440,7 @@ export default function EventoBase() {
         .eq('contato_id', contato.id);
 
       toast({ title: "Sucesso", description: `Redisparo enviado para ${contato.nome}` });
+      registrarLogDisparo(1, 'redisparo_individual');
 
       // Atualizar contato na lista
       setContatos(prev => prev.map(c => 
