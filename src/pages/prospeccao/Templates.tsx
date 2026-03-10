@@ -1239,16 +1239,22 @@ export default function Templates() {
     }
   };
 
-  // Chamar atualização de status ao entrar no módulo
+  // Ref para garantir que a atualização automática rode apenas uma vez por mount
+  const autoUpdateDoneRef = useRef(false);
+
+  // Chamar atualização de status automaticamente ao carregar templates
   useEffect(() => {
-    if (activeCompany?.id && templates.length > 0) {
-      // Delay pequeno para garantir que os dados estejam carregados
-      const timer = setTimeout(() => {
-        handleUpdateStatusMeta({ showToasts: false });
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [activeCompany?.id]);
+    if (autoUpdateDoneRef.current) return;
+    if (!activeCompany?.id || !priTelefone || templates.length === 0 || isUpdatingStatus) return;
+
+    autoUpdateDoneRef.current = true;
+    const timer = setTimeout(() => {
+      handleUpdateStatusMeta({ showToasts: false }).catch(() => {
+        toast.error("Não foi possível atualizar status automaticamente. Use o botão 'Atualizar Status'.");
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [activeCompany?.id, priTelefone, templates.length]);
 
   const insertVariable = (variable: string) => {
     setFormData(prev => ({
