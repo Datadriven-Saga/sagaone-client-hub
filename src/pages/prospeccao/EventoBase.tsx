@@ -1904,7 +1904,7 @@ export default function EventoBase() {
                           variant="outline"
                           size="sm"
                           onClick={handleDispararPersonalizado}
-                          disabled={isDisparandoIA || !customDispatchCount}
+                          disabled={isDisparandoIA || !customDispatchCount || !!(prospeccao as any)?.disparos_pausados}
                           className={isIALigacao ? 'border-orange-600 text-orange-600 hover:bg-orange-50' : ''}
                         >
                           {isIALigacao ? (
