@@ -128,6 +128,12 @@ export default function EventoBase() {
   const [disparandoContato, setDisparandoContato] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isSyncingContatos, setIsSyncingContatos] = useState(false);
+  
+  // Estado para substituição manual de template bloqueado
+  const [availableTemplates, setAvailableTemplates] = useState<Array<{ id: string; nome: string; status_meta: string | null }>>([]);
+  const [selectedReplacementTemplate, setSelectedReplacementTemplate] = useState<string>('');
+  const [isReplacingTemplate, setIsReplacingTemplate] = useState(false);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [isLoadingExternalMetrics, setIsLoadingExternalMetrics] = useState(false);
   
   // Estados do modal de progresso (server-side jobs)
@@ -176,6 +182,78 @@ export default function EventoBase() {
 
     fetchProspeccao();
   }, [eventoId, activeCompany?.id, navigate, toast]);
+
+  // Buscar templates aprovados quando disparos estão pausados (para substituição manual)
+  useEffect(() => {
+    const fetchAvailableTemplates = async () => {
+      if (!(prospeccao as any)?.disparos_pausados || !activeCompany?.id) return;
+      
+      const canalCheck = prospeccao?.canal?.toLowerCase() || '';
+      if (!canalCheck.includes('whatsapp')) return;
+      
+      setLoadingTemplates(true);
+      try {
+        const { data, error } = await supabase
+          .from('whatsapp_templates')
+          .select('id, nome, status_meta')
+          .eq('empresa_id', activeCompany.id)
+          .eq('ativo', true);
+        
+        if (!error && data) {
+          // Filter to only approved or pending templates (exclude PAUSED)
+          setAvailableTemplates(data.filter(t => t.status_meta !== 'PAUSED'));
+        }
+      } catch (err) {
+        console.error('Erro ao buscar templates disponíveis:', err);
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
+
+    fetchAvailableTemplates();
+  }, [(prospeccao as any)?.disparos_pausados, activeCompany?.id, prospeccao?.canal]);
+
+  // Handler para substituir template manualmente
+  const handleReplaceTemplate = async () => {
+    if (!selectedReplacementTemplate || !eventoId) return;
+    
+    setIsReplacingTemplate(true);
+    try {
+      // Determine which template field is null (was cleared by the pause)
+      const templateFields = ['template_prospeccao_id', 'template_agendado_id', 'template_nao_agendado_id'] as const;
+      const nullFields = templateFields.filter(f => !(prospeccao as any)?.[f]);
+      
+      // Default to template_prospeccao_id if we can't determine
+      const fieldToSet = nullFields.length > 0 ? nullFields[0] : 'template_prospeccao_id';
+      
+      const { error } = await supabase
+        .from('prospeccoes')
+        .update({
+          [fieldToSet]: selectedReplacementTemplate,
+          disparos_pausados: false,
+        })
+        .eq('id', eventoId);
+      
+      if (error) throw error;
+      
+      // Refresh prospeccao data
+      const { data: refreshed } = await supabase
+        .from('prospeccoes')
+        .select('id, titulo, canal, data_inicio, data_fim, meta_convites, meta_confirmacoes, meta_checkins, event_id_pri, template_prospeccao_id, template_agendado_id, template_nao_agendado_id, disparos_pausados')
+        .eq('id', eventoId)
+        .maybeSingle();
+      
+      if (refreshed) setProspeccao(refreshed);
+      
+      toast({ title: "Sucesso", description: "Template substituído e disparos liberados!" });
+      setSelectedReplacementTemplate('');
+    } catch (err: any) {
+      console.error('Erro ao substituir template:', err);
+      toast({ title: "Erro", description: "Erro ao substituir template: " + err.message, variant: "destructive" });
+    } finally {
+      setIsReplacingTemplate(false);
+    }
+  };
 
   // Buscar telefone do agente Pri(Ligação) para esta empresa
   const fetchTelefonePriLigacao = useCallback(async (): Promise<string | null> => {
@@ -1553,13 +1631,47 @@ export default function EventoBase() {
       <div className="space-y-6">
         {/* Banner de template pausado pela Meta */}
         {(prospeccao as any)?.disparos_pausados && isIAWhatsApp && (
-          <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10">
-            <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-destructive">Disparos pausados</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                A Meta pausou um dos templates usados neste evento. Já iniciamos a duplicação automática do template e ele será vinculado ao evento assim que for aprovado. Até lá, novos disparos ficam temporariamente bloqueados.
-              </p>
+          <div className="p-4 rounded-lg border border-destructive/50 bg-destructive/10 space-y-3">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-destructive">Disparos pausados</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  A Meta pausou um dos templates usados neste evento. Já iniciamos a duplicação automática do template e ele será vinculado ao evento assim que for aprovado. Até lá, novos disparos ficam temporariamente bloqueados.
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Você também pode resolver manualmente selecionando um template aprovado abaixo:
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 ml-8">
+              <Select
+                value={selectedReplacementTemplate}
+                onValueChange={setSelectedReplacementTemplate}
+                disabled={loadingTemplates || isReplacingTemplate}
+              >
+                <SelectTrigger className="w-[300px] h-9 bg-background">
+                  <SelectValue placeholder={loadingTemplates ? "Carregando..." : "Selecione um template aprovado"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTemplates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.nome} {t.status_meta === 'APPROVED' ? '✅' : '⏳'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                onClick={handleReplaceTemplate}
+                disabled={!selectedReplacementTemplate || isReplacingTemplate}
+              >
+                {isReplacingTemplate ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Vinculando...</>
+                ) : (
+                  'Vincular e liberar disparos'
+                )}
+              </Button>
             </div>
           </div>
         )}
