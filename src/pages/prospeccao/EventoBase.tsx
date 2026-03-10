@@ -128,6 +128,12 @@ export default function EventoBase() {
   const [disparandoContato, setDisparandoContato] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isSyncingContatos, setIsSyncingContatos] = useState(false);
+  
+  // Estado para substituição manual de template bloqueado
+  const [availableTemplates, setAvailableTemplates] = useState<Array<{ id: string; nome: string; status_meta: string | null }>>([]);
+  const [selectedReplacementTemplate, setSelectedReplacementTemplate] = useState<string>('');
+  const [isReplacingTemplate, setIsReplacingTemplate] = useState(false);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [isLoadingExternalMetrics, setIsLoadingExternalMetrics] = useState(false);
   
   // Estados do modal de progresso (server-side jobs)
