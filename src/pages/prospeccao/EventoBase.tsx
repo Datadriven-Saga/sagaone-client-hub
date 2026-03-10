@@ -178,6 +178,23 @@ export default function EventoBase() {
       }
 
       setProspeccao(data);
+
+      // Auto-release: se disparos estão pausados mas já tem template válido, liberar automaticamente
+      if (data.disparos_pausados && data.canal?.toLowerCase().includes('whatsapp')) {
+        const hasValidTemplate = data.template_prospeccao_id || data.template_agendado_id || data.template_nao_agendado_id;
+        if (hasValidTemplate) {
+          console.log('🔓 Auto-release: template válido detectado, liberando disparos...');
+          const { error: releaseErr } = await supabase
+            .from('prospeccoes')
+            .update({ disparos_pausados: false })
+            .eq('id', data.id);
+          
+          if (!releaseErr) {
+            setProspeccao({ ...data, disparos_pausados: false } as any);
+            toast({ title: "Disparos liberados", description: "Um template válido foi detectado. Os disparos foram liberados automaticamente." });
+          }
+        }
+      }
     };
 
     fetchProspeccao();
