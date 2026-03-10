@@ -12,7 +12,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { 
   Download, Users, Search, Filter, Send, Loader2, CheckCircle, Phone, Mail, 
   Calendar, Clock, ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, MessageCircle, 
-  PhoneCall, Lock, RotateCcw, CalendarCheck, PhoneMissed, PhoneOutgoing, FileSpreadsheet, FileText
+  PhoneCall, Lock, RotateCcw, CalendarCheck, PhoneMissed, PhoneOutgoing, FileSpreadsheet, FileText,
+  AlertTriangle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
