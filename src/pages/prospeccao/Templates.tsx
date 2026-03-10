@@ -2505,6 +2505,42 @@ export default function Templates() {
         </DialogContent>
       </Dialog>
 
+      {/* Expanded Body Text Editor */}
+      <Dialog open={expandedBodyOpen} onOpenChange={setExpandedBodyOpen}>
+        <DialogContent className="sm:max-w-[800px] h-[80vh] max-h-[700px] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Editar Corpo do Texto</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 flex flex-col">
+            <RichTextarea
+              value={formData.formato === "card" ? formData.cardData.corpoTexto : formData.conteudo}
+              onValueChange={(value) => {
+                if (value.length <= 1024) {
+                  if (formData.formato === "card") {
+                    setFormData(prev => ({
+                      ...prev,
+                      cardData: { ...prev.cardData, corpoTexto: value }
+                    }));
+                  } else {
+                    setFormData(prev => ({ ...prev, conteudo: value }));
+                  }
+                }
+              }}
+              placeholder="Digite o conteúdo do template..."
+              className="bg-white flex-1"
+              minHeight="100%"
+              maxLength={1024}
+            />
+            <p className="text-sm text-muted-foreground mt-2 text-right">
+              {(formData.formato === "card" ? formData.cardData.corpoTexto : formData.conteudo).length}/1024
+            </p>
+          </div>
+          <div className="flex justify-end pt-2 border-t">
+            <Button onClick={() => setExpandedBodyOpen(false)}>Concluir</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Template Preview Modal */}
       <TemplatePreview
         isOpen={isPreviewOpen}
