@@ -1208,6 +1208,71 @@ export default function Templates() {
               }
             }
             if (showToasts) toast.success(`Status atualizado para ${updatedCount} templates`);
+
+            // === AUTO-LINK: Vincular templates aprovados a eventos pausados ===
+            try {
+              // Get all templates that were just set to APPROVED in this sync
+              const approvedTemplates = templatesArray.filter((item: any) => {
+                const status = item.status || item.status_meta;
+                return status === 'APPROVED';
+              });
+
+              for (const approvedItem of approvedTemplates) {
+                const approvedMetaId = approvedItem.id || approvedItem.id_meta;
+                if (!approvedMetaId) continue;
+
+                // Find the local template by id_meta
+                const { data: approvedLocal } = await supabase
+                  .from("whatsapp_templates")
+                  .select("id")
+                  .eq("id_meta", approvedMetaId)
+                  .eq("empresa_id", activeCompany.id)
+                  .maybeSingle();
+
+                if (!approvedLocal) continue;
+
+                // Check template_pausado_log for awaiting_approval entries
+                const { data: logEntries } = await supabase
+                  .from("template_pausado_log")
+                  .select("id, eventos_impactados")
+                  .eq("template_duplicado_id", approvedLocal.id)
+                  .eq("status", "awaiting_approval");
+
+                if (!logEntries || logEntries.length === 0) continue;
+
+                console.log(`🔗 Auto-link: Template ${approvedLocal.id} aprovado, vinculando a ${logEntries.length} log(s)`);
+
+                for (const logEntry of logEntries) {
+                  const eventos = (logEntry.eventos_impactados as any[]) || [];
+
+                  for (const evt of eventos) {
+                    if (!evt.prospeccao_id || !evt.campo) continue;
+
+                    // Re-link: set the template field on the prospeccao
+                    await supabase
+                      .from("prospeccoes")
+                      .update({
+                        [evt.campo]: approvedLocal.id,
+                        disparos_pausados: false,
+                      })
+                      .eq("id", evt.prospeccao_id);
+
+                    console.log(`  ✅ Prospeccao ${evt.prospeccao_id}: campo ${evt.campo} vinculado ao template ${approvedLocal.id}`);
+                  }
+
+                  // Update log status
+                  await supabase
+                    .from("template_pausado_log")
+                    .update({ status: "approved_linked", updated_at: new Date().toISOString() })
+                    .eq("id", logEntry.id);
+                }
+
+                if (showToasts) toast.success("Template aprovado vinculado automaticamente aos eventos!");
+              }
+            } catch (autoLinkErr) {
+              console.error("Erro no auto-link de templates:", autoLinkErr);
+              // Non-critical, don't show error to user
+            }
           } else if (templatesArray?.id_meta && templatesArray?.status_meta) {
             await supabase
               .from("whatsapp_templates")

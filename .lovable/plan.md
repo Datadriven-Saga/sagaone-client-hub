@@ -1,116 +1,200 @@
 
+# Plano: Corrigir Dropdown de Eventos WhatsApp
 
-# Plan: Tratamento Automático de Template Pausado pela Meta (IA WhatsApp)
+## Problema Identificado
 
-## Key Clarifications Incorporated
+O dropdown de eventos no Dashboard WhatsApp está chamando um webhook externo (`verifica-todos-eventos-pri`) que **não existe para a PRI de WhatsApp**, resultando em dados inválidos ("Evento undefined / ID:0"). 
 
-1. **Templates are shared across companies** via the same `pri_telefone` (agent phone). The `whatsapp_templates` table has per-empresa rows but they share the same `id_meta`. When Meta pauses a template, ALL empresas using that `id_meta` are affected.
-2. **Reset endpoint works lead-by-lead** using `lead_id` (serial integer), not UUID lists. Matches the dispatch payload pattern: `"lead_id": "191988"`.
+A lógica correta é usar os dados já existentes no banco de dados Supabase (tabela `prospeccoes`), filtrando eventos WhatsApp das lojas às quais o usuário tem acesso que compartilham o mesmo telefone PRI do agente configurado.
 
 ---
 
-## Database Changes
+## Fluxo Atual vs. Proposto
 
-### Migration 1: New table + new column
+```text
+ATUAL (errado):
+┌─────────────────────┐
+│ Identifica agente   │
+│ Pri WhatsApp        │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Chama webhook       │
+│ verifica-todos-     │
+│ eventos-pri         │  ← Não existe para WhatsApp
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Retorna dados       │
+│ inválidos/vazios    │
+└─────────────────────┘
 
-```sql
--- Track paused templates and their replacements
-CREATE TABLE public.template_pausado_log (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  id_meta_original text NOT NULL,
-  template_original_id uuid REFERENCES whatsapp_templates(id) ON DELETE SET NULL,
-  template_duplicado_id uuid REFERENCES whatsapp_templates(id) ON DELETE SET NULL,
-  status text NOT NULL DEFAULT 'pending_duplicate',
-  -- CHECK via trigger: pending_duplicate, awaiting_approval, approved_linked, failed
-  eventos_impactados jsonb NOT NULL DEFAULT '[]',
-  -- Array of {prospeccao_id, empresa_id, campo}
-  pri_telefone text,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-
-ALTER TABLE public.template_pausado_log ENABLE ROW LEVEL SECURITY;
-
--- Service role only (edge functions)
-CREATE POLICY "Service role full access" ON public.template_pausado_log
-  FOR ALL USING (true) WITH CHECK (true);
-
--- New column on prospeccoes
-ALTER TABLE public.prospeccoes
-  ADD COLUMN IF NOT EXISTS disparos_pausados boolean DEFAULT false;
+PROPOSTO (correto):
+┌─────────────────────┐
+│ Identifica agente   │
+│ Pri WhatsApp +      │
+│ telefone_pri        │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Busca user_empresas │
+│ (todas as lojas     │
+│  do usuário)        │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Query prospeccoes:  │
+│ • canal='Whatsapp'  │
+│ • event_id_pri set  │
+│ • empresa_id in     │
+│   [lojas usuário]   │
+│ • JOIN agentes_ia   │
+│   por telefone      │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Multi-select de     │
+│ eventos com nome    │
+│ e id_evento (PRI)   │
+└─────────────────────┘
 ```
 
 ---
 
-## Edge Functions
+## Mudanças Técnicas
 
-### 1. `template-paused-webhook` (verify_jwt = false)
+### 1. Refatorar `DashboardWhatsAppTab.tsx` - Fetch de Eventos
 
-**Input:** `{ id_meta: string }`
+**Antes:**
+```typescript
+// Chama webhook externo (NÃO EXISTE para WhatsApp)
+const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
+  body: { 
+    endpoint: 'verifica-todos-eventos-pri', 
+    telefone_pri: cleanPhone
+  },
+});
+```
 
-**Flow:**
-1. Find ALL `whatsapp_templates` rows with this `id_meta` (across all empresas sharing the same agent phone)
-2. Update their `status_meta` to `'PAUSED'`
-3. For each template found, find ALL `prospeccoes` where `canal = 'IA WhatsApp'` AND any template field (`template_prospeccao_id`, `template_agendado_id`, `template_nao_agendado_id`, `template_agendado_48h_id`, `template_agendado_24h_id`) references that template UUID
-4. For each affected prospeccao:
-   - NULL out the matching template field(s)
-   - SET `disparos_pausados = true`
-   - Record `{prospeccao_id, empresa_id, campo}` in `eventos_impactados`
-5. Cancel active `campaign_jobs` (status in pending/processing) for those prospeccoes → sets status to `cancelled` which stops batch processing at the next iteration
-6. Check `template_pausado_log` for existing entry with same `id_meta_original` and status `pending_duplicate` or `awaiting_approval`:
-   - If exists → reuse, skip duplication
-   - If not → duplicate template: copy content/format/card_data/variable_mapping, name it `{nome}_v2` (increment if exists), insert into `whatsapp_templates` for each affected empresa, call `external-webhook-proxy` with `novo_template_whatsapp` gatilho to register on Meta
-7. Save log entry in `template_pausado_log`
+**Depois:**
+```typescript
+// 1. Buscar IDs das empresas do usuário
+const { data: userEmpresas } = await supabase
+  .from('user_empresas')
+  .select('empresa_id')
+  .eq('user_id', userId);
 
-### 2. `reset-disparos-pendente` (verify_jwt = false)
+const empresaIds = userEmpresas?.map(ue => ue.empresa_id) || [];
 
-**Input:** `{ lead_id: number, prospeccao_id: string }`
+// 2. Buscar prospeccoes WhatsApp dessas empresas
+//    que usam o mesmo telefone PRI do agente
+const { data: prospeccoes } = await supabase
+  .from('prospeccoes')
+  .select(`
+    id, 
+    titulo, 
+    event_id_pri, 
+    data_inicio, 
+    data_fim,
+    empresa_id,
+    empresas!inner(nome_empresa)
+  `)
+  .eq('canal', 'Whatsapp')
+  .not('event_id_pri', 'is', null)
+  .in('empresa_id', empresaIds);
 
-Single lead reset, matching the dispatch pattern.
+// 3. Filtrar apenas eventos que pertencem a empresas
+//    com o mesmo agente WhatsApp (telefone_pri)
+const eventosDoAgente = await filtrarPorTelefonePri(prospeccoes, agent.telefone);
+```
 
-**Flow:**
-1. Find `contatos` row by `lead_id` (serial)
-2. SET `data_disparo_ia = NULL` on `contatos` where `lead_id = input.lead_id`
-3. SET `data_disparo_ia = NULL` on `eventos_prospeccao` where `contato_id = found_contato.id AND prospeccao_id = input.prospeccao_id`
-4. Return `{ success: true, lead_id, reset: true }`
+### 2. Lógica de Filtro por Telefone do Agente
+
+Para garantir que mostramos apenas eventos do mesmo agente PRI WhatsApp:
+
+1. Buscar `agente_empresas` para cada `empresa_id` retornado
+2. Verificar se o agente vinculado tem o mesmo `telefone` que o agente atual
+3. Incluir apenas os eventos dessas empresas
+
+```typescript
+// Buscar agentes de todas as empresas do usuário
+const { data: agentesEmpresas } = await supabase
+  .from('agente_empresas')
+  .select('empresa_id, agentes_ia!inner(telefone, nome, ativo)')
+  .in('empresa_id', empresaIds);
+
+// Filtrar empresas que têm o mesmo agente WhatsApp (por telefone)
+const empresasComMesmoAgente = agentesEmpresas
+  ?.filter(ae => {
+    const nome = (ae.agentes_ia?.nome || '').toLowerCase();
+    const isWhatsApp = nome.includes('whatsapp') || nome.includes('wpp') || nome.includes('zap');
+    const telefonesIguais = ae.agentes_ia?.telefone === agent.telefone;
+    return isWhatsApp && telefonesIguais && ae.agentes_ia?.ativo;
+  })
+  .map(ae => ae.empresa_id);
+
+// Filtrar prospeccoes apenas dessas empresas
+const eventosFinais = prospeccoes?.filter(p => 
+  empresasComMesmoAgente?.includes(p.empresa_id)
+);
+```
+
+### 3. Estrutura dos Dados no Dropdown
+
+A interface `EventOption` será atualizada para incluir informações úteis:
+
+```typescript
+interface EventOption {
+  id_evento: number;        // event_id_pri numérico
+  nome: string;             // titulo da prospeccao
+  empresa_nome?: string;    // nome da empresa (para multi-loja)
+  prospeccao_id: string;    // UUID interno
+}
+```
+
+### 4. UI do Dropdown com Contexto de Loja
+
+O dropdown mostrará o nome da loja para ajudar o usuário a identificar eventos de outras lojas:
+
+```tsx
+<div className="flex-1 min-w-0">
+  <p className="text-sm font-medium truncate">{event.nome}</p>
+  <p className="text-xs text-muted-foreground">
+    {event.empresa_nome} • ID: {event.id_evento}
+  </p>
+</div>
+```
 
 ---
 
-## Frontend Changes
+## Arquivos a Modificar
 
-### 3. `EventoBase.tsx` - Warning Banner + Dispatch Block
-
-- Add `disparos_pausados` to the prospeccao select query
-- When `disparos_pausados === true`, render an alert banner with the specified text
-- Disable the dispatch button when `disparos_pausados` is true
-- No other changes to EventoBase
-
-### 4. `Templates.tsx` - Auto-link on Approval
-
-In the existing `handleUpdateStatusMeta` loop, after updating a template's status to `APPROVED`:
-- Query `template_pausado_log` where `template_duplicado_id` matches the approved template and status = `awaiting_approval`
-- For each match:
-  - Iterate `eventos_impactados`, SET the correct template field on each prospeccao
-  - SET `disparos_pausados = false` on those prospeccoes
-  - Update log status to `approved_linked`
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/resultados/DashboardWhatsAppTab.tsx` | Refatorar `fetchEvents` para consultar `prospeccoes` + `agente_empresas` localmente |
+| `src/components/resultados/EventoSelectorWhatsApp.tsx` | (Opcional) Alinhar com nova lógica se necessário |
 
 ---
 
-## Files to Create/Modify
+## Fluxo Completo Após Implementação
 
-| File | Action |
-|------|--------|
-| `supabase/migrations/...` | Create table + add column |
-| `supabase/functions/template-paused-webhook/index.ts` | Create |
-| `supabase/functions/reset-disparos-pendente/index.ts` | Create |
-| `supabase/config.toml` | Add 2 function configs |
-| `src/pages/prospeccao/EventoBase.tsx` | Add banner + block dispatch |
-| `src/pages/prospeccao/Templates.tsx` | Add auto-link logic in status sync |
+1. **Usuário acessa** `/prospeccao/performance` → aba WhatsApp
+2. **Sistema identifica** o agente "Pri WhatsApp" configurado para a loja ativa
+3. **Sistema busca** todas as empresas do usuário (`user_empresas`)
+4. **Sistema filtra** quais dessas empresas têm o mesmo agente WhatsApp (mesmo telefone)
+5. **Sistema consulta** `prospeccoes` com `canal='Whatsapp'` e `event_id_pri` válido dessas empresas
+6. **Dropdown exibe** lista de eventos com nome e loja de origem
+7. **Usuário seleciona** um ou mais eventos (multi-select)
+8. **Sistema busca métricas** via `dashboard-evento-pri-whats` para cada `event_id_pri` selecionado
 
-## Multi-empresa Template Handling
+---
 
-Since templates share `id_meta` across empresas (same PRI phone):
-- The webhook finds ALL template rows by `id_meta` (not filtered by empresa)
-- Duplicates are created per-empresa (each empresa gets its own copy)
-- The `eventos_impactados` array stores `empresa_id` alongside `prospeccao_id` and `campo` for precise re-linking
+## Validações de Segurança
 
+- RLS de `prospeccoes` restringe ao `empresa_id` ativo, mas podemos consultar `user_empresas` sem restrição (política permite visualizar próprias associações)
+- Não há risco de vazamento pois só mostramos eventos de empresas onde o usuário tem vínculo E o agente é o mesmo
