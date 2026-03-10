@@ -1798,6 +1798,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     console.log(`📞 Enviando evento para webhook IA Ligação (${acao}):`, prospeccaoData.titulo);
     
     try {
+      setLoadingMessage("Verificando configuração do agente...");
       // Mapear contatos da planilha importada ou da base existente (apenas para criar/atualizar)
       // PADRONIZADO: Sempre enviar como array de {nome, telefone, loja}
       const contatosParaEnviarPadronizado = acao !== 'deletar' 
