@@ -1725,7 +1725,19 @@ export default function Templates() {
 
           {/* Corpo do Texto */}
           <div>
-            <Label htmlFor="corpoTexto">Corpo do Texto</Label>
+            <div className="flex items-center justify-between mb-1">
+              <Label htmlFor="corpoTexto">Corpo do Texto</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setExpandedBodyOpen(true)}
+              >
+                <Maximize2 className="h-3 w-3" />
+                Expandir
+              </Button>
+            </div>
             <RichTextarea
               id="corpoTexto"
               value={formData.cardData.corpoTexto}
