@@ -1631,13 +1631,47 @@ export default function EventoBase() {
       <div className="space-y-6">
         {/* Banner de template pausado pela Meta */}
         {(prospeccao as any)?.disparos_pausados && isIAWhatsApp && (
-          <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10">
-            <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-destructive">Disparos pausados</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                A Meta pausou um dos templates usados neste evento. Já iniciamos a duplicação automática do template e ele será vinculado ao evento assim que for aprovado. Até lá, novos disparos ficam temporariamente bloqueados.
-              </p>
+          <div className="p-4 rounded-lg border border-destructive/50 bg-destructive/10 space-y-3">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-destructive">Disparos pausados</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  A Meta pausou um dos templates usados neste evento. Já iniciamos a duplicação automática do template e ele será vinculado ao evento assim que for aprovado. Até lá, novos disparos ficam temporariamente bloqueados.
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Você também pode resolver manualmente selecionando um template aprovado abaixo:
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 ml-8">
+              <Select
+                value={selectedReplacementTemplate}
+                onValueChange={setSelectedReplacementTemplate}
+                disabled={loadingTemplates || isReplacingTemplate}
+              >
+                <SelectTrigger className="w-[300px] h-9 bg-background">
+                  <SelectValue placeholder={loadingTemplates ? "Carregando..." : "Selecione um template aprovado"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTemplates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.nome} {t.status_meta === 'APPROVED' ? '✅' : '⏳'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                onClick={handleReplaceTemplate}
+                disabled={!selectedReplacementTemplate || isReplacingTemplate}
+              >
+                {isReplacingTemplate ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Vinculando...</>
+                ) : (
+                  'Vincular e liberar disparos'
+                )}
+              </Button>
             </div>
           </div>
         )}
