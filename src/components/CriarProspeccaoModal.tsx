@@ -2044,6 +2044,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         // Executa independente do resultado do webhook externo
         // ============================================================
         if (contatosParaEdge.length > 0 && (acao === 'criar' || acao === 'atualizar') && idEventoFinalStr) {
+          setLoadingMessage("Salvando base de contatos...");
           console.log(`📦 Salvando ${contatosParaEdge.length} contatos no Supabase (fonte primária)...`);
           
           const { data: baseData, error: baseError } = await supabase.functions.invoke('create-base-ligacao', {
