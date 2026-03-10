@@ -3617,6 +3617,7 @@ export type Database = {
           data_fim: string | null
           data_inicio: string | null
           descricao: string | null
+          disparos_pausados: boolean | null
           empresa_id: string
           event_id_pri: string | null
           evento_principal: boolean
@@ -3667,6 +3668,7 @@ export type Database = {
           data_fim?: string | null
           data_inicio?: string | null
           descricao?: string | null
+          disparos_pausados?: boolean | null
           empresa_id: string
           event_id_pri?: string | null
           evento_principal?: boolean
@@ -3717,6 +3719,7 @@ export type Database = {
           data_fim?: string | null
           data_inicio?: string | null
           descricao?: string | null
+          disparos_pausados?: boolean | null
           empresa_id?: string
           event_id_pri?: string | null
           evento_principal?: boolean
@@ -4132,6 +4135,57 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_pausado_log: {
+        Row: {
+          created_at: string | null
+          eventos_impactados: Json
+          id: string
+          id_meta_original: string
+          pri_telefone: string | null
+          status: string
+          template_duplicado_id: string | null
+          template_original_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          eventos_impactados?: Json
+          id?: string
+          id_meta_original: string
+          pri_telefone?: string | null
+          status?: string
+          template_duplicado_id?: string | null
+          template_original_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          eventos_impactados?: Json
+          id?: string
+          id_meta_original?: string
+          pri_telefone?: string | null
+          status?: string
+          template_duplicado_id?: string | null
+          template_original_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_pausado_log_template_duplicado_id_fkey"
+            columns: ["template_duplicado_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_pausado_log_template_original_id_fkey"
+            columns: ["template_original_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
             referencedColumns: ["id"]
           },
         ]
