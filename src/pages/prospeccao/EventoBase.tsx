@@ -1494,7 +1494,18 @@ export default function EventoBase() {
   return (
     <DashboardLayout title={`Base: ${prospeccao?.titulo || 'Evento'}`}>
       <div className="space-y-6">
-        {/* Header com navegação */}
+        {/* Banner de template pausado pela Meta */}
+        {(prospeccao as any)?.disparos_pausados && isIAWhatsApp && (
+          <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10">
+            <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-destructive">Disparos pausados</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                A Meta pausou um dos templates usados neste evento. Já iniciamos a duplicação automática do template e ele será vinculado ao evento assim que for aprovado. Até lá, novos disparos ficam temporariamente bloqueados.
+              </p>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={() => navigate('/prospeccao/eventos')}>
