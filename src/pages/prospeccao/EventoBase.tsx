@@ -1181,7 +1181,9 @@ export default function EventoBase() {
       return;
     }
     
+    const totalResetados = metricas.disparados;
     toast({ title: "Disparos resetados", description: "Todos os contatos estão pendentes novamente. Clique em Disparar." });
+    registrarLogDisparo(totalResetados, 'redisparo_em_massa');
     await fetchMetricas();
     await fetchContatos();
   };
