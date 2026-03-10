@@ -1852,7 +1852,7 @@ export default function EventoBase() {
                               variant="default"
                               size="sm"
                               onClick={handleDispararTodos}
-                              disabled={isDisparandoIA}
+                              disabled={isDisparandoIA || !!(prospeccao as any)?.disparos_pausados}
                               className={isIALigacao ? 'bg-orange-600 hover:bg-orange-700' : ''}
                             >
                               {isDisparandoIA ? (
