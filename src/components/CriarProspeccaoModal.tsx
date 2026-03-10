@@ -1679,6 +1679,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       });
     } finally {
       setLoading(false);
+      setLoadingMessage("");
     }
   };
 
