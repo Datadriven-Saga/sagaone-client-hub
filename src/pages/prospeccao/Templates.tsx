@@ -45,7 +45,8 @@ import {
   Music,
   RefreshCw,
   Eye,
-  Loader2
+  Loader2,
+  Maximize2
 } from "lucide-react";
 import { TemplatePreview } from "@/components/TemplatePreview";
 import { 
@@ -146,6 +147,7 @@ export default function Templates() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [expandedBodyOpen, setExpandedBodyOpen] = useState(false);
   const [selectedAgenteId, setSelectedAgenteId] = useState<string | null>(null);
   
   // Video compression hook
@@ -1430,7 +1432,19 @@ export default function Templates() {
         <div className="space-y-4">
           {limitsAlert}
           <div>
-            <Label htmlFor="conteudo">Conteúdo do Template</Label>
+            <div className="flex items-center justify-between mb-1">
+              <Label htmlFor="conteudo">Conteúdo do Template</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setExpandedBodyOpen(true)}
+              >
+                <Maximize2 className="h-3 w-3" />
+                Expandir
+              </Button>
+            </div>
             <p className="text-sm text-muted-foreground mb-2">
               Máximo de 1024 caracteres
             </p>
@@ -1712,7 +1726,19 @@ export default function Templates() {
 
           {/* Corpo do Texto */}
           <div>
-            <Label htmlFor="corpoTexto">Corpo do Texto</Label>
+            <div className="flex items-center justify-between mb-1">
+              <Label htmlFor="corpoTexto">Corpo do Texto</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setExpandedBodyOpen(true)}
+              >
+                <Maximize2 className="h-3 w-3" />
+                Expandir
+              </Button>
+            </div>
             <RichTextarea
               id="corpoTexto"
               value={formData.cardData.corpoTexto}
@@ -2416,7 +2442,7 @@ export default function Templates() {
       </div>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[600px] h-[600px] flex flex-col overflow-hidden pb-3">
+        <DialogContent className="sm:max-w-[750px] h-[85vh] max-h-[750px] flex flex-col overflow-hidden pb-3">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>{duplicatingTemplate ? "Novo Template (Duplicado)" : "Novo Template"}</DialogTitle>
           </DialogHeader>
@@ -2475,6 +2501,42 @@ export default function Templates() {
                 </Button>
               )}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Expanded Body Text Editor */}
+      <Dialog open={expandedBodyOpen} onOpenChange={setExpandedBodyOpen}>
+        <DialogContent className="sm:max-w-[800px] h-[80vh] max-h-[700px] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Editar Corpo do Texto</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 flex flex-col">
+            <RichTextarea
+              value={formData.formato === "card" ? formData.cardData.corpoTexto : formData.conteudo}
+              onValueChange={(value) => {
+                if (value.length <= 1024) {
+                  if (formData.formato === "card") {
+                    setFormData(prev => ({
+                      ...prev,
+                      cardData: { ...prev.cardData, corpoTexto: value }
+                    }));
+                  } else {
+                    setFormData(prev => ({ ...prev, conteudo: value }));
+                  }
+                }
+              }}
+              placeholder="Digite o conteúdo do template..."
+              className="bg-white flex-1"
+              minHeight="100%"
+              maxLength={1024}
+            />
+            <p className="text-sm text-muted-foreground mt-2 text-right">
+              {(formData.formato === "card" ? formData.cardData.corpoTexto : formData.conteudo).length}/1024
+            </p>
+          </div>
+          <div className="flex justify-end pt-2 border-t">
+            <Button onClick={() => setExpandedBodyOpen(false)}>Concluir</Button>
           </div>
         </DialogContent>
       </Dialog>
