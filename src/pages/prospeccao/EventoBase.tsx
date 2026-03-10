@@ -152,7 +152,7 @@ export default function EventoBase() {
 
       const { data, error } = await supabase
         .from('prospeccoes')
-        .select('id, titulo, canal, data_inicio, data_fim, meta_convites, meta_confirmacoes, meta_checkins, event_id_pri, template_prospeccao_id, template_agendado_id, template_nao_agendado_id')
+        .select('id, titulo, canal, data_inicio, data_fim, meta_convites, meta_confirmacoes, meta_checkins, event_id_pri, template_prospeccao_id, template_agendado_id, template_nao_agendado_id, disparos_pausados')
         .eq('id', eventoId)
         .eq('empresa_id', activeCompany.id)
         .maybeSingle();
