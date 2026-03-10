@@ -1370,6 +1370,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         dadosProspeccao.template_agendado_id = templateAgendadoId || null;
         dadosProspeccao.template_nao_agendado_id = templateNaoAgendadoId || null;
         dadosProspeccao.convite = null;
+        // Se estiver editando e colocando um template válido, liberar disparos pausados
+        if (editingProspeccao && (templateProspeccaoId || templateAgendadoId || templateNaoAgendadoId)) {
+          dadosProspeccao.disparos_pausados = false;
+        }
         // Novos campos IA Whatsapp
         dadosProspeccao.evento_principal = eventoPrincipal;
         dadosProspeccao.qualificar_lead = qualificarLead;
