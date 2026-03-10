@@ -183,6 +183,78 @@ export default function EventoBase() {
     fetchProspeccao();
   }, [eventoId, activeCompany?.id, navigate, toast]);
 
+  // Buscar templates aprovados quando disparos estão pausados (para substituição manual)
+  useEffect(() => {
+    const fetchAvailableTemplates = async () => {
+      if (!(prospeccao as any)?.disparos_pausados || !activeCompany?.id) return;
+      
+      const canalCheck = prospeccao?.canal?.toLowerCase() || '';
+      if (!canalCheck.includes('whatsapp')) return;
+      
+      setLoadingTemplates(true);
+      try {
+        const { data, error } = await supabase
+          .from('whatsapp_templates')
+          .select('id, nome, status_meta')
+          .eq('empresa_id', activeCompany.id)
+          .eq('ativo', true);
+        
+        if (!error && data) {
+          // Filter to only approved or pending templates (exclude PAUSED)
+          setAvailableTemplates(data.filter(t => t.status_meta !== 'PAUSED'));
+        }
+      } catch (err) {
+        console.error('Erro ao buscar templates disponíveis:', err);
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
+
+    fetchAvailableTemplates();
+  }, [(prospeccao as any)?.disparos_pausados, activeCompany?.id, prospeccao?.canal]);
+
+  // Handler para substituir template manualmente
+  const handleReplaceTemplate = async () => {
+    if (!selectedReplacementTemplate || !eventoId) return;
+    
+    setIsReplacingTemplate(true);
+    try {
+      // Determine which template field is null (was cleared by the pause)
+      const templateFields = ['template_prospeccao_id', 'template_agendado_id', 'template_nao_agendado_id'] as const;
+      const nullFields = templateFields.filter(f => !(prospeccao as any)?.[f]);
+      
+      // Default to template_prospeccao_id if we can't determine
+      const fieldToSet = nullFields.length > 0 ? nullFields[0] : 'template_prospeccao_id';
+      
+      const { error } = await supabase
+        .from('prospeccoes')
+        .update({
+          [fieldToSet]: selectedReplacementTemplate,
+          disparos_pausados: false,
+        })
+        .eq('id', eventoId);
+      
+      if (error) throw error;
+      
+      // Refresh prospeccao data
+      const { data: refreshed } = await supabase
+        .from('prospeccoes')
+        .select('id, titulo, canal, data_inicio, data_fim, meta_convites, meta_confirmacoes, meta_checkins, event_id_pri, template_prospeccao_id, template_agendado_id, template_nao_agendado_id, disparos_pausados')
+        .eq('id', eventoId)
+        .maybeSingle();
+      
+      if (refreshed) setProspeccao(refreshed);
+      
+      toast({ title: "Sucesso", description: "Template substituído e disparos liberados!" });
+      setSelectedReplacementTemplate('');
+    } catch (err: any) {
+      console.error('Erro ao substituir template:', err);
+      toast({ title: "Erro", description: "Erro ao substituir template: " + err.message, variant: "destructive" });
+    } finally {
+      setIsReplacingTemplate(false);
+    }
+  };
+
   // Buscar telefone do agente Pri(Ligação) para esta empresa
   const fetchTelefonePriLigacao = useCallback(async (): Promise<string | null> => {
     if (!activeCompany?.id) return null;
