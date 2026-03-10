@@ -1431,7 +1431,19 @@ export default function Templates() {
         <div className="space-y-4">
           {limitsAlert}
           <div>
-            <Label htmlFor="conteudo">Conteúdo do Template</Label>
+            <div className="flex items-center justify-between mb-1">
+              <Label htmlFor="conteudo">Conteúdo do Template</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setExpandedBodyOpen(true)}
+              >
+                <Maximize2 className="h-3 w-3" />
+                Expandir
+              </Button>
+            </div>
             <p className="text-sm text-muted-foreground mb-2">
               Máximo de 1024 caracteres
             </p>
