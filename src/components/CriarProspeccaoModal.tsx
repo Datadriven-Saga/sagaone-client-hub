@@ -1606,6 +1606,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
 
+          setLoadingMessage("Sincronizando evento externo...");
           const ok = await callIALigacaoWebhooks(data, 'criar');
           if (!ok) {
             // O edge function já persiste localmente em eventos_pri_voz,
@@ -1622,6 +1623,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
             throw new Error('Falha ao criar o evento de IA Ligação. Verifique se o agente Pri(Ligação) e o CRM ID estão configurados corretamente.');
           }
+          setLoadingMessage("");
 
           console.log('✅ Evento IA Ligação criado e sincronizado.');
         }
