@@ -147,6 +147,7 @@ export default function Templates() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [expandedBodyOpen, setExpandedBodyOpen] = useState(false);
   const [selectedAgenteId, setSelectedAgenteId] = useState<string | null>(null);
   
   // Video compression hook
