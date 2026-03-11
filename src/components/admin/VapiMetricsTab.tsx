@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatPhone } from "@/lib/utils";
@@ -65,37 +65,30 @@ const MultiSelectDropdown = ({
   loading: boolean;
   formatItem: (item: VapiResource) => string;
 }) => {
-  // "todos" = nenhum filtro explícito (selected vazio) OU todos marcados explicitamente
+  const allSelected = items.length > 0 && selected.length === items.length;
   const noneSelected = selected.length === 0;
-  const allExplicit = items.length > 0 && selected.length === items.length;
-  const allSelected = noneSelected || allExplicit;
   const [open, setOpen] = useState(false);
 
   const toggleAll = () => {
-    if (noneSelected) {
-      // Estava em modo "todos implícito" → selecionar todos explicitamente para permitir desmarcar
-      onSelectionChange(items.map(i => i.id));
-    } else if (allExplicit) {
-      // Todos marcados explicitamente → desmarcar todos
+    if (allSelected) {
       onSelectionChange([]);
-    } else {
-      // Parcialmente selecionado → selecionar todos
-      onSelectionChange(items.map(i => i.id));
+      return;
     }
+    onSelectionChange(items.map(i => i.id));
   };
 
   const toggleItem = (id: string) => {
     if (selected.includes(id)) {
-      const next = selected.filter(s => s !== id);
-      onSelectionChange(next);
-    } else {
-      onSelectionChange([...selected, id]);
+      onSelectionChange(selected.filter(s => s !== id));
+      return;
     }
+    onSelectionChange([...selected, id]);
   };
 
   const displayText = () => {
     if (loading) return "Carregando...";
-    if (allSelected || selected.length === 0) return `Todos (${items.length})`;
+    if (noneSelected) return `Nenhum (0)`;
+    if (allSelected) return `Todos (${items.length})`;
     if (selected.length === 1) {
       const item = items.find(i => i.id === selected[0]);
       return item ? formatItem(item) : selected[0].substring(0, 12);
@@ -126,15 +119,8 @@ const MultiSelectDropdown = ({
           {items.map(item => (
             <label key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer text-sm">
               <Checkbox
-                checked={allSelected || selected.includes(item.id)}
-                onCheckedChange={() => {
-                  if (allSelected) {
-                    // Deselect this one item: select all except this
-                    onSelectionChange(items.filter(i => i.id !== item.id).map(i => i.id));
-                  } else {
-                    toggleItem(item.id);
-                  }
-                }}
+                checked={selected.includes(item.id)}
+                onCheckedChange={() => toggleItem(item.id)}
               />
               <span className="truncate">{formatItem(item)}</span>
             </label>
@@ -260,6 +246,19 @@ const VapiMetricsTab = () => {
     loadVapiResources();
   }, []);
 
+  // Inicializa filtros com todos os itens quando os recursos carregam
+  useEffect(() => {
+    if (vapiAssistants.length > 0 && selectedAssistants.length === 0) {
+      setSelectedAssistants(vapiAssistants.map((a) => a.id));
+    }
+  }, [vapiAssistants]);
+
+  useEffect(() => {
+    if (vapiPhones.length > 0 && selectedPhones.length === 0) {
+      setSelectedPhones(vapiPhones.map((p) => p.id));
+    }
+  }, [vapiPhones]);
+
   const fetchData = async () => {
     setLoading(true);
     setPage(0);
@@ -291,8 +290,8 @@ const VapiMetricsTab = () => {
               body: {
                 startDate: batch.startDate,
                 endDate: batch.endDate,
-                assistantIds: selectedAssistants.length > 0 ? selectedAssistants : undefined,
-                phoneNumberIds: selectedPhones.length > 0 ? selectedPhones : undefined,
+                assistantIds: selectedAssistants,
+                phoneNumberIds: selectedPhones,
               },
             });
             if (error) throw error;

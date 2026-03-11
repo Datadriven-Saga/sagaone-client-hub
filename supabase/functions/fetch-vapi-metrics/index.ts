@@ -102,8 +102,16 @@ serve(async (req) => {
     const endIso = new Date(endDate + "T23:59:59").toISOString();
 
     // Support both single and array params
-    const effectiveAssistantIds: string[] = assistantIds || (assistantId && assistantId !== "all" ? [assistantId] : []);
-    const effectivePhoneIds: string[] = phoneNumberIds || (phoneNumberId && phoneNumberId !== "all" ? [phoneNumberId] : []);
+    const hasAssistantIds = Array.isArray(body.assistantIds);
+    const hasPhoneNumberIds = Array.isArray(body.phoneNumberIds);
+
+    const effectiveAssistantIds: string[] = hasAssistantIds
+      ? body.assistantIds
+      : (assistantId && assistantId !== "all" ? [assistantId] : []);
+
+    const effectivePhoneIds: string[] = hasPhoneNumberIds
+      ? body.phoneNumberIds
+      : (phoneNumberId && phoneNumberId !== "all" ? [phoneNumberId] : []);
 
     const warnings: string[] = [];
 
@@ -114,6 +122,18 @@ serve(async (req) => {
     };
     const recentCalls: VapiCallRecord[] = [];
     const dailyCosts: Record<string, { cost: number; count: number }> = {};
+
+    // Filtro explícito vazio = nenhum resultado
+    if ((hasAssistantIds && effectiveAssistantIds.length === 0) || (hasPhoneNumberIds && effectivePhoneIds.length === 0)) {
+      return new Response(JSON.stringify({
+        calls: [],
+        summary,
+        dailyChart: [],
+        warnings: ["Nenhum item selecionado no filtro."],
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Build list of filter combos to query
     // If multiple phoneIds, query each separately (Vapi API only supports single phoneNumberId)
