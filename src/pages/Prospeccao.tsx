@@ -1208,17 +1208,25 @@ showAllEvents: true
 
       const origemContato = getOrigemFromProspeccao(prospeccaoSelecionada);
 
+      const isLigacaoEvent = prospeccaoSelecionada.canal === 'Ligação';
+
+      // Normalizar telefone para ligação: remove 9º dígito (DDD + 8 dígitos)
+      const normalizeTelefoneParaLigacao = (tel: string) => {
+        let digits = tel.replace(/\D/g, '');
+        if (digits.startsWith('55') && digits.length > 11) digits = digits.slice(2);
+        if (digits.length === 11 && digits[2] === '9') digits = digits.slice(0, 2) + digits.slice(3);
+        return digits;
+      };
+
       const novosContatos = clientes.map(cliente => ({
         nome: cliente.nome,
-        telefone: cliente.telefone,
+        telefone: isLigacaoEvent ? normalizeTelefoneParaLigacao(cliente.telefone) : cliente.telefone,
         email: cliente.email || undefined,
         origem: origemContato,
         observacoes: `Importado para o evento: ${prospeccaoSelecionada.titulo}`,
         responsavel_email: cliente.responsavel && cliente.responsavel.trim() ? cliente.responsavel : undefined,
         base_id: cliente.base_id
       }));
-
-      const isLigacaoEvent = prospeccaoSelecionada.canal === 'Ligação';
 
       // ETAPA 1: Criar contatos no banco local (com timeout de segurança de 120s)
       let resultado: Awaited<ReturnType<typeof adicionarContatos>> | undefined;

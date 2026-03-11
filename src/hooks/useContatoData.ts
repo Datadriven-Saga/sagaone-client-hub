@@ -647,13 +647,17 @@ export const useContatoData = () => {
     }
   }, [contatosLoaded, loadingContatos, activeCompany?.id, fetchContatos]);
 
-  // Normalizar telefone para comparação (remove caracteres especiais)
-  // Usa os últimos 11 dígitos para evitar conflitos (DDD + número completo)
+  // Normalizar telefone para comparação (remove caracteres especiais e 9º dígito)
+  // Formato final: DDD + 8 dígitos (10 dígitos) para compatibilidade com discadores
   const normalizeTelefoneForComparison = (telefone: string): string => {
-    const digitos = telefone.replace(/\D/g, '');
-    // Se tiver código do país (55), remove. Mantém DDD + número (11 dígitos)
+    let digitos = telefone.replace(/\D/g, '');
+    // Se tiver código do país (55), remove
     if (digitos.startsWith('55') && digitos.length >= 12) {
-      return digitos.slice(2); // Remove 55 do início
+      digitos = digitos.slice(2);
+    }
+    // Remover 9º dígito de celular (DDD + 9 + 8 dígitos → DDD + 8 dígitos)
+    if (digitos.length === 11 && digitos[2] === '9') {
+      digitos = digitos.slice(0, 2) + digitos.slice(3);
     }
     return digitos;
   };
