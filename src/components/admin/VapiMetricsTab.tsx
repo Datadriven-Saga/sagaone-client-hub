@@ -119,15 +119,8 @@ const MultiSelectDropdown = ({
           {items.map(item => (
             <label key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer text-sm">
               <Checkbox
-                checked={allSelected || selected.includes(item.id)}
-                onCheckedChange={() => {
-                  if (allSelected) {
-                    // Deselect this one item: select all except this
-                    onSelectionChange(items.filter(i => i.id !== item.id).map(i => i.id));
-                  } else {
-                    toggleItem(item.id);
-                  }
-                }}
+                checked={selected.includes(item.id)}
+                onCheckedChange={() => toggleItem(item.id)}
               />
               <span className="truncate">{formatItem(item)}</span>
             </label>
