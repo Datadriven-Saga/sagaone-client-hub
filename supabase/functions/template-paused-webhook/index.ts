@@ -157,6 +157,7 @@ async function buildMetaComponents(template: {
   }
 
   // HEADER (media) - fetch base64 like frontend does
+  const cardData = template.card_data || {};
   if (cardData.videoUrl) {
     console.log('📥 Baixando vídeo para base64...');
     const mediaData = await fetchMediaAsBase64(cardData.videoUrl);
