@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, formatPhone } from "@/lib/utils";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -23,6 +24,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar, Legend
 } from "recharts";
+import VapiMetricsTab from "@/components/admin/VapiMetricsTab";
 
 interface CallRecord {
   id: string;
@@ -218,8 +220,17 @@ const ControleGastosLigacao = () => {
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-1">Controle de Gastos — Ligação</h1>
-            <p className="text-muted-foreground">Dashboard de custos e métricas de chamadas Twilio / Vapi</p>
+            <p className="text-muted-foreground">Dashboard de custos e métricas de chamadas</p>
           </div>
+
+          <Tabs defaultValue="geral" className="w-full">
+            <TabsList>
+              <TabsTrigger value="geral">Gastos Gerais</TabsTrigger>
+              <TabsTrigger value="ligacoes">Ligações (Vapi Metrics)</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="geral">
+              <div className="space-y-6">
 
           {/* Filters */}
           <Card>
@@ -516,6 +527,13 @@ const ControleGastosLigacao = () => {
               </CardContent>
             </Card>
           )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="ligacoes">
+              <VapiMetricsTab />
+            </TabsContent>
+          </Tabs>
         </div>
       </ScrollIndicator>
     </DashboardLayout>

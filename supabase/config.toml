@@ -118,3 +118,6 @@ verify_jwt = false
 
 [functions.reset-disparos-pendente]
 verify_jwt = false
+
+[functions.fetch-vapi-metrics]
+verify_jwt = true
