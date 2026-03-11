@@ -69,7 +69,13 @@ const MultiSelectDropdown = ({
   const [open, setOpen] = useState(false);
 
   const toggleAll = () => {
-    onSelectionChange([]);
+    if (allSelected) {
+      // Desmarcar todos
+      onSelectionChange([]);
+    } else {
+      // Selecionar todos
+      onSelectionChange(items.map(i => i.id));
+    }
   };
 
   const toggleItem = (id: string) => {
