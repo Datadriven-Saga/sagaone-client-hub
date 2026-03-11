@@ -1453,9 +1453,10 @@ export default function EventoBase() {
         pendentes: prev.pendentes - 1,
         disparados: prev.disparados + 1
       }));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao disparar IA:', error);
-      toast({ title: "Erro", description: "Erro ao enviar disparo", variant: "destructive" });
+      const detalhe = error?.message || error?.error || 'Erro ao enviar disparo';
+      toast({ title: "Erro", description: String(detalhe).substring(0, 200), variant: "destructive" });
     } finally {
       setDisparandoContato(null);
     }
