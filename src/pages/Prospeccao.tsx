@@ -1270,7 +1270,9 @@ showAllEvents: true
             const idEvento = prospeccaoSelecionada.event_id_pri ? Number(prospeccaoSelecionada.event_id_pri) : null;
 
             const normalizeTelefoneForPri = (digits: string) => {
-              if (digits.length > 11 && digits.startsWith('55')) return digits.slice(2);
+              if (digits.length > 11 && digits.startsWith('55')) digits = digits.slice(2);
+              // Remover 9º dígito de celular (DDD + 9 + 8 dígitos → DDD + 8 dígitos)
+              if (digits.length === 11 && digits[2] === '9') digits = digits.slice(0, 2) + digits.slice(3);
               return digits;
             };
 

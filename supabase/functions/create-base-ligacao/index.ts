@@ -213,17 +213,20 @@ Deno.serve(async (req: Request) => {
 
       console.log(`📊 [${requestId}] Para criar: ${contatosParaCriar.length}, Existentes: ${contatosExistentes.length}`);
 
-      // 1c) Criar novos contatos em lotes de 500
+      // 1c) Criar novos contatos em lotes de 500 (telefone normalizado sem o 9)
       const INSERT_BATCH = 500;
       for (let i = 0; i < contatosParaCriar.length; i += INSERT_BATCH) {
-        const batch = contatosParaCriar.slice(i, i + INSERT_BATCH).map(c => ({
-          nome: c.nome || `Contato ${normalizePhone(c.telefone)}`,
-          telefone: c.telefone,
-          email: c.email || null,
-          status: 'Novo',
-          origem: 'ligacao',
-          empresa_id: empresa_id,
-        }));
+        const batch = contatosParaCriar.slice(i, i + INSERT_BATCH).map(c => {
+          const phone10 = normalizePhoneTo10Digits(c.telefone);
+          return {
+            nome: c.nome || `Contato ${normalizePhone(c.telefone)}`,
+            telefone: phone10.valid ? phone10.normalized : normalizePhone(c.telefone),
+            email: c.email || null,
+            status: 'Novo',
+            origem: 'ligacao',
+            empresa_id: empresa_id,
+          };
+        });
 
         const { data: created, error: createError } = await supabase
           .from('contatos')
@@ -246,6 +249,30 @@ Deno.serve(async (req: Request) => {
             }
           }
         }
+      }
+
+      // 1d) Atualizar telefones existentes que ainda têm o 9º dígito
+      const telefonesParaAtualizar: { id: string; telefone: string }[] = [];
+      for (const c of contatosExistentes) {
+        const currentPhone = normalizePhone(c.input.telefone);
+        const phone10 = normalizePhoneTo10Digits(c.input.telefone);
+        if (phone10.valid && currentPhone.length === 11 && currentPhone[2] === '9') {
+          telefonesParaAtualizar.push({ id: c.contato_id, telefone: phone10.normalized });
+        }
+      }
+
+      if (telefonesParaAtualizar.length > 0) {
+        console.log(`📞 [${requestId}] Atualizando ${telefonesParaAtualizar.length} telefones para formato 10 dígitos (sem 9)...`);
+        for (let i = 0; i < telefonesParaAtualizar.length; i += INSERT_BATCH) {
+          const batch = telefonesParaAtualizar.slice(i, i + INSERT_BATCH);
+          for (const item of batch) {
+            await supabase
+              .from('contatos')
+              .update({ telefone: item.telefone, updated_at: now })
+              .eq('id', item.id);
+          }
+        }
+        console.log(`✅ [${requestId}] Telefones atualizados`);
       }
 
       // 1d) Vincular todos ao evento em lotes de 500
