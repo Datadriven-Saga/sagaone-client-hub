@@ -246,6 +246,19 @@ const VapiMetricsTab = () => {
     loadVapiResources();
   }, []);
 
+  // Inicializa filtros com todos os itens quando os recursos carregam
+  useEffect(() => {
+    if (vapiAssistants.length > 0 && selectedAssistants.length === 0) {
+      setSelectedAssistants(vapiAssistants.map((a) => a.id));
+    }
+  }, [vapiAssistants]);
+
+  useEffect(() => {
+    if (vapiPhones.length > 0 && selectedPhones.length === 0) {
+      setSelectedPhones(vapiPhones.map((p) => p.id));
+    }
+  }, [vapiPhones]);
+
   const fetchData = async () => {
     setLoading(true);
     setPage(0);
