@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -10,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatPhone } from "@/lib/utils";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Search, DollarSign, Phone, Clock, Loader2 } from "lucide-react";
+import { CalendarIcon, Search, DollarSign, Phone, Clock, Loader2, Cpu, Calculator } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -18,14 +17,6 @@ import {
 } from "recharts";
 
 const fmtUSD = (v: number) => `US$ ${v.toFixed(2)}`;
-
-const fmtDuration = (s: number) => {
-  if (s < 60) return `${s}s`;
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (h > 0) return `${h}h ${m}min`;
-  return `${m}min`;
-};
 
 const GastosGeraisTab = () => {
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 7));
@@ -86,9 +77,13 @@ const GastosGeraisTab = () => {
   };
 
   const kpis = useMemo(() => {
-    if (!serverSummary) return { totalCost: 0, totalCalls: 0, totalDuration: 0 };
+    if (!serverSummary) return { totalCost: 0, vapiCost: 0, twilioCost: 0, avgCostPerCall: 0, totalCalls: 0, totalDuration: 0 };
+    const avg = serverSummary.totalCalls > 0 ? serverSummary.totalCost / serverSummary.totalCalls : 0;
     return {
       totalCost: serverSummary.totalCost || 0,
+      vapiCost: serverSummary.vapiCost || 0,
+      twilioCost: serverSummary.twilioCost || 0,
+      avgCostPerCall: avg,
       totalCalls: serverSummary.totalCalls || 0,
       totalDuration: serverSummary.totalDuration || 0,
     };
@@ -165,8 +160,8 @@ const GastosGeraisTab = () => {
       {/* Loading */}
       {loading && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
               <Card key={i}><CardContent className="pt-6"><Skeleton className="h-16 w-full" /></CardContent></Card>
             ))}
           </div>
@@ -174,13 +169,14 @@ const GastosGeraisTab = () => {
         </div>
       )}
 
-      {/* KPIs */}
+      {/* KPIs - 4 cards */}
       {fetched && !loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: "Custo Total Acumulado (USD)", value: fmtUSD(kpis.totalCost), icon: DollarSign },
-            { label: "Volume Total de Chamadas", value: kpis.totalCalls.toLocaleString("pt-BR"), icon: Phone },
-            { label: "Minutos Totais", value: fmtDuration(kpis.totalDuration), icon: Clock },
+            { label: "Custo Total (Geral)", value: fmtUSD(kpis.totalCost), icon: DollarSign },
+            { label: "Custo Vapi", value: fmtUSD(kpis.vapiCost), icon: Cpu },
+            { label: "Custo Twilio", value: fmtUSD(kpis.twilioCost), icon: Phone },
+            { label: "Custo Médio p/ Ligação", value: fmtUSD(kpis.avgCostPerCall), icon: Calculator },
           ].map(kpi => (
             <Card key={kpi.label}>
               <CardHeader className="pb-2 pt-4 px-4">

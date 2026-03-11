@@ -8,6 +8,7 @@ const corsHeaders = {
 interface VapiCallRecord {
   id: string;
   customer: string;
+  agentPhone: string;
   duration: number;
   cost: number;
   status: string;
@@ -47,7 +48,41 @@ serve(async (req) => {
     const apiKey = Deno.env.get("VAPI_API_KEY");
     if (!apiKey) throw new Error("VAPI_API_KEY not configured");
 
-    const { startDate, endDate, assistantId, phoneNumberId } = await req.json();
+    const body = await req.json();
+
+    // Action: list resources (assistants + phone numbers)
+    if (body.action === "list-resources") {
+      const [assistantsRes, phonesRes] = await Promise.all([
+        fetch("https://api.vapi.ai/assistant", { headers: { Authorization: `Bearer ${apiKey}` } }),
+        fetch("https://api.vapi.ai/phone-number", { headers: { Authorization: `Bearer ${apiKey}` } }),
+      ]);
+
+      const assistants: { id: string; name: string }[] = [];
+      const phoneNumbers: { id: string; number: string }[] = [];
+
+      if (assistantsRes.ok) {
+        const raw = await assistantsRes.json();
+        const list = Array.isArray(raw) ? raw : raw.results || raw.data || [];
+        for (const a of list) {
+          assistants.push({ id: a.id, name: a.name || a.id.substring(0, 12) });
+        }
+      }
+
+      if (phonesRes.ok) {
+        const raw = await phonesRes.json();
+        const list = Array.isArray(raw) ? raw : raw.results || raw.data || [];
+        for (const p of list) {
+          phoneNumbers.push({ id: p.id, number: p.number || p.twilioPhoneNumber || p.id });
+        }
+      }
+
+      return new Response(JSON.stringify({ assistants, phoneNumbers }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Default action: fetch metrics
+    const { startDate, endDate, assistantId, phoneNumberId } = body;
     if (!startDate || !endDate) {
       return new Response(JSON.stringify({ error: "startDate and endDate required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -55,8 +90,25 @@ serve(async (req) => {
     }
 
     const deadline = Date.now() + 50_000;
-    const startIso = new Date(startDate).toISOString();
+
+    // 14-day retention clamp
+    const minAllowed = new Date();
+    minAllowed.setDate(minAllowed.getDate() - 14);
+    minAllowed.setHours(0, 0, 0, 0);
+
+    let effStart = new Date(startDate);
+    const warnings: string[] = [];
+    if (effStart < minAllowed) {
+      effStart = minAllowed;
+      warnings.push(`Dados limitados aos últimos 14 dias (a partir de ${effStart.toISOString().split("T")[0]}).`);
+    }
+
+    const startIso = effStart.toISOString();
     const endIso = new Date(endDate + "T23:59:59").toISOString();
+
+    // Clean "all" values
+    const effectiveAssistantId = assistantId === "all" ? undefined : assistantId;
+    const effectivePhoneNumberId = phoneNumberId === "all" ? undefined : phoneNumberId;
 
     const summary: VapiSummary = {
       totalCalls: 0, totalCost: 0, totalDuration: 0, endedCount: 0,
@@ -65,7 +117,6 @@ serve(async (req) => {
     };
     const recentCalls: VapiCallRecord[] = [];
     const dailyCosts: Record<string, { cost: number; count: number }> = {};
-    const warnings: string[] = [];
 
     let cursor: string | null = null;
     let pageNum = 0;
@@ -82,8 +133,8 @@ serve(async (req) => {
       params.set("createdAtGe", startIso);
       params.set("createdAtLe", endIso);
       params.set("limit", "1000");
-      if (assistantId) params.set("assistantId", assistantId);
-      if (phoneNumberId) params.set("phoneNumberId", phoneNumberId);
+      if (effectiveAssistantId) params.set("assistantId", effectiveAssistantId);
+      if (effectivePhoneNumberId) params.set("phoneNumberId", effectivePhoneNumberId);
       if (cursor) params.set("createdAtLt", cursor);
 
       const res = await fetch(`https://api.vapi.ai/call?${params.toString()}`, {
@@ -109,7 +160,6 @@ serve(async (req) => {
         const endedReason = call.endedReason || "";
         const isEnded = status === "ended" && !endedReason.includes("error") && !endedReason.includes("failed");
 
-        // Cost breakdown
         const cb = call.costBreakdown || {};
         const stt = parseFloat(cb.stt || "0");
         const llm = parseFloat(cb.llm || "0");
@@ -127,7 +177,6 @@ serve(async (req) => {
         summary.costBreakdown.transport += transport;
         summary.costBreakdown.vapi += vapiCost;
 
-        // Daily aggregation
         const dateStr = (call.startedAt || call.createdAt || "").substring(0, 10);
         if (dateStr) {
           if (!dailyCosts[dateStr]) dailyCosts[dateStr] = { cost: 0, count: 0 };
@@ -139,6 +188,7 @@ serve(async (req) => {
           recentCalls.push({
             id: call.id,
             customer: call.customer?.number || call.customer?.name || "—",
+            agentPhone: call.phoneNumber?.number || call.phoneNumber?.twilioPhoneNumber || "",
             duration,
             cost,
             status: isEnded ? "ended" : (endedReason || status),
@@ -156,10 +206,8 @@ serve(async (req) => {
       cursor = lastDate;
     }
 
-    // Sort recent calls
     recentCalls.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // Build daily chart data
     const dailyChart = Object.entries(dailyCosts)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, data]) => ({ date, cost: +data.cost.toFixed(4), count: data.count }));
