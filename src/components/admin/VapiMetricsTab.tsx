@@ -14,19 +14,19 @@ import { cn, formatPhone } from "@/lib/utils";
 import { format, subDays, addDays, differenceInDays, min as minDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity, AlertTriangle, Eye, ChevronDown, ChevronsUpDown
+  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity, AlertTriangle, Eye, ChevronDown, ChevronsUpDown, Database
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  Legend
 } from "recharts";
 import CallDetailModal from "./CallDetailModal";
 
 const ITEMS_PER_PAGE = 20;
 const BATCH_DAYS = 14;
-const PIE_COLORS = [
+const BAR_COLORS = [
   "hsl(var(--primary))",
   "hsl(210, 70%, 55%)",
   "hsl(160, 60%, 45%)",
@@ -220,6 +220,7 @@ const VapiMetricsTab = () => {
   const [dateWarning, setDateWarning] = useState("");
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [batchProgress, setBatchProgress] = useState({ total: 0, completed: 0, days: 0 });
+  const [dataSource, setDataSource] = useState<string>("");
 
   // Dynamic dropdown data
   const [vapiAssistants, setVapiAssistants] = useState<VapiResource[]>([]);
@@ -331,6 +332,14 @@ const VapiMetricsTab = () => {
       setCalls(mergedCalls);
       setFetched(true);
 
+      // Detect data source from results
+      const sources = allResults.map(r => r?.source).filter(Boolean);
+      if (sources.includes("cache+vapi")) {
+        setDataSource("cache+vapi");
+      } else {
+        setDataSource("vapi");
+      }
+
       // Show unique warnings
       const uniqueWarnings = [...new Set(allWarnings)];
       uniqueWarnings.forEach(w => toast.warning(w, { duration: 8000 }));
@@ -354,16 +363,23 @@ const VapiMetricsTab = () => {
     };
   }, [summary]);
 
-  const pieData = useMemo(() => {
+  const costBarData = useMemo(() => {
     if (!summary?.costBreakdown) return [];
     const cb = summary.costBreakdown;
-    return [
-      { name: "STT", value: +cb.stt.toFixed(4) },
-      { name: "LLM", value: +cb.llm.toFixed(4) },
-      { name: "TTS", value: +cb.tts.toFixed(4) },
-      { name: "Transport", value: +cb.transport.toFixed(4) },
-      { name: "Vapi", value: +cb.vapi.toFixed(4) },
-    ].filter(d => d.value > 0);
+    return [{
+      name: "Custos",
+      STT: +cb.stt.toFixed(4),
+      LLM: +cb.llm.toFixed(4),
+      TTS: +cb.tts.toFixed(4),
+      Transport: +cb.transport.toFixed(4),
+      Vapi: +cb.vapi.toFixed(4),
+    }];
+  }, [summary]);
+
+  const costTotal = useMemo(() => {
+    if (!summary?.costBreakdown) return 0;
+    const cb = summary.costBreakdown;
+    return cb.stt + cb.llm + cb.tts + cb.transport + cb.vapi;
   }, [summary]);
 
   const chartData = useMemo(() => {
@@ -385,6 +401,14 @@ const VapiMetricsTab = () => {
 
   return (
     <div className="space-y-6">
+      {/* Data source indicator */}
+      {fetched && !loading && dataSource === "cache+vapi" && (
+        <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/30 bg-primary/5 text-sm">
+          <Database className="h-4 w-4 shrink-0 text-primary" />
+          <span>Histórico completo via Banco de Dados — dados além de 14 dias recuperados do cache local.</span>
+        </div>
+      )}
+
       {/* Warnings */}
       {dateWarning && (
         <div className="flex items-start gap-3 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 text-sm text-yellow-200">
@@ -532,22 +556,33 @@ const VapiMetricsTab = () => {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">Composição de Custos</CardTitle></CardHeader>
-            <CardContent className="flex items-center justify-center">
-              {pieData.length > 0 ? (
+            <CardHeader>
+              <CardTitle className="text-base flex items-center justify-between">
+                Composição de Custos
+                <span className="text-sm font-normal text-muted-foreground">{fmtUSD(costTotal)}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {costBarData.length > 0 && costTotal > 0 ? (
                 <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}
-                      label={({ name, value }) => `${name}: ${fmtUSD(value)}`}
-                    >
-                      {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip formatter={(v: number) => fmtUSD(v)} />
+                  <BarChart data={costBarData} layout="vertical" margin={{ left: 0, right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                    <XAxis type="number" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={v => `$${v}`} />
+                    <YAxis type="category" dataKey="name" hide />
+                    <Tooltip
+                      formatter={(v: number, name: string) => [fmtUSD(v), name]}
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
+                    />
                     <Legend />
-                  </PieChart>
+                    <Bar dataKey="STT" stackId="costs" fill={BAR_COLORS[0]} name="STT" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="LLM" stackId="costs" fill={BAR_COLORS[1]} name="LLM" />
+                    <Bar dataKey="TTS" stackId="costs" fill={BAR_COLORS[2]} name="TTS" />
+                    <Bar dataKey="Transport" stackId="costs" fill={BAR_COLORS[3]} name="Transport" />
+                    <Bar dataKey="Vapi" stackId="costs" fill={BAR_COLORS[4]} name="Vapi" radius={[0, 4, 4, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-sm text-muted-foreground">Sem dados de composição</p>
+                <p className="text-sm text-muted-foreground text-center py-8">Sem dados de composição</p>
               )}
             </CardContent>
           </Card>
