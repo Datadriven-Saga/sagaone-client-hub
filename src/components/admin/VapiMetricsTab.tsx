@@ -24,16 +24,6 @@ import {
 } from "recharts";
 import CallDetailModal from "./CallDetailModal";
 
-const ITEMS_PER_PAGE = 20;
-const BATCH_DAYS = 14;
-const BAR_COLORS = [
-  "hsl(var(--primary))",
-  "hsl(210, 70%, 55%)",
-  "hsl(160, 60%, 45%)",
-  "hsl(var(--destructive))",
-  "hsl(45, 80%, 55%)",
-];
-
 const fmtUSD = (v: number) => `US$ ${v.toFixed(2)}`;
 const fmtDuration = (s: number) => {
   if (s < 60) return `${s}s`;
