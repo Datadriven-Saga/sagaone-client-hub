@@ -363,16 +363,23 @@ const VapiMetricsTab = () => {
     };
   }, [summary]);
 
-  const pieData = useMemo(() => {
+  const costBarData = useMemo(() => {
     if (!summary?.costBreakdown) return [];
     const cb = summary.costBreakdown;
-    return [
-      { name: "STT", value: +cb.stt.toFixed(4) },
-      { name: "LLM", value: +cb.llm.toFixed(4) },
-      { name: "TTS", value: +cb.tts.toFixed(4) },
-      { name: "Transport", value: +cb.transport.toFixed(4) },
-      { name: "Vapi", value: +cb.vapi.toFixed(4) },
-    ].filter(d => d.value > 0);
+    return [{
+      name: "Custos",
+      STT: +cb.stt.toFixed(4),
+      LLM: +cb.llm.toFixed(4),
+      TTS: +cb.tts.toFixed(4),
+      Transport: +cb.transport.toFixed(4),
+      Vapi: +cb.vapi.toFixed(4),
+    }];
+  }, [summary]);
+
+  const costTotal = useMemo(() => {
+    if (!summary?.costBreakdown) return 0;
+    const cb = summary.costBreakdown;
+    return cb.stt + cb.llm + cb.tts + cb.transport + cb.vapi;
   }, [summary]);
 
   const chartData = useMemo(() => {
