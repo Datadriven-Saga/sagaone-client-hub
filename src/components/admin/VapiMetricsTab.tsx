@@ -332,6 +332,14 @@ const VapiMetricsTab = () => {
       setCalls(mergedCalls);
       setFetched(true);
 
+      // Detect data source from results
+      const sources = allResults.map(r => r?.source).filter(Boolean);
+      if (sources.includes("cache+vapi")) {
+        setDataSource("cache+vapi");
+      } else {
+        setDataSource("vapi");
+      }
+
       // Show unique warnings
       const uniqueWarnings = [...new Set(allWarnings)];
       uniqueWarnings.forEach(w => toast.warning(w, { duration: 8000 }));
