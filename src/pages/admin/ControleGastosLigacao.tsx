@@ -527,6 +527,13 @@ const ControleGastosLigacao = () => {
               </CardContent>
             </Card>
           )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="ligacoes">
+              <VapiMetricsTab />
+            </TabsContent>
+          </Tabs>
         </div>
       </ScrollIndicator>
     </DashboardLayout>
