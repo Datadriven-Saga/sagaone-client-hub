@@ -462,7 +462,7 @@ Deno.serve(async (req: Request) => {
           name: formatNameForMeta(newName),
           language: 'pt_BR',
           category: mapCategoriaToMeta(sourceTemplate.categoria || 'marketing'),
-          components: await buildMetaComponents(sourceTemplate),
+          components: await buildMetaComponents(sourceTemplate, { tweakText: true }),
         },
         empresa_id: empresaId,
         agente_id: sourceTemplate.agente_id,
