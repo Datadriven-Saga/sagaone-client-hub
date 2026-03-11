@@ -38,6 +38,66 @@ function mapCategoriaToMeta(categoria: string): string {
   return mapping[categoria] || 'MARKETING';
 }
 
+// Helper: default example values for known variable names
+const DEFAULT_VARIABLE_EXAMPLES: Record<string, string> = {
+  nome: 'João',
+  nome_cliente: 'João',
+  primeiro_nome: 'João',
+  email: 'cliente@email.com',
+  telefone: '11999999999',
+  empresa: 'Empresa Exemplo',
+  loja: 'Loja Centro',
+  marca: 'Toyota',
+  modelo: 'Corolla',
+  vendedor: 'Carlos',
+  data: '15/03/2026',
+  horario: '14:00',
+};
+
+// Helper: build variable examples from variable_mapping + stored examples
+function buildVariableExamples(
+  variableMapping: Record<string, string> | null,
+  exemplosVarDb: Record<string, string> | null,
+): Record<string, string> {
+  const examples: Record<string, string> = {};
+  if (!variableMapping) return examples;
+
+  for (const [position, fieldName] of Object.entries(variableMapping)) {
+    // Priority: 1) stored example from DB, 2) default by field name, 3) generic
+    if (exemplosVarDb && exemplosVarDb[position]) {
+      examples[position] = exemplosVarDb[position];
+    } else {
+      const normalizedField = (fieldName || '').toLowerCase().replace(/[^a-z_]/g, '');
+      examples[position] = DEFAULT_VARIABLE_EXAMPLES[normalizedField] || `Exemplo ${position}`;
+    }
+  }
+  return examples;
+}
+
+// Helper: slightly modify template body text to avoid Meta duplicate rejection
+function tweakBodyText(text: string): string {
+  if (!text) return text;
+
+  let modified = text;
+
+  // 1. Remove emojis (unicode emoji ranges)
+  const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu;
+  modified = modified.replace(emojiRegex, '').replace(/  +/g, ' ').trim();
+
+  // 2. If text has sentences (period followed by space+capital), add a line break after the first one
+  const sentenceBreak = modified.replace(/(\.\s)(?=[A-ZÀ-Ú])/, '.\n');
+  if (sentenceBreak !== modified) {
+    modified = sentenceBreak;
+  }
+
+  // 3. If nothing changed at all, append a subtle zero-impact change
+  if (modified === text) {
+    modified = modified + ' ';
+  }
+
+  return modified;
+}
+
 // Helper: build Meta-compatible components from template data
 // Helper: fetch media URL and convert to base64 (same as frontend fetchMediaAsBase64)
 async function fetchMediaAsBase64(url: string): Promise<{ base64: string; mimeType: string; size: number } | null> {
@@ -71,15 +131,30 @@ async function buildMetaComponents(template: {
   formato: string | null;
   card_data: any;
   variable_mapping: any;
-}): Promise<any[]> {
+  exemplos_variaveis?: any;
+}, options?: { tweakText?: boolean }): Promise<any[]> {
   const components: any[] = [];
 
   // BODY
   if (template.conteudo) {
-    components.push({ type: 'BODY', text: template.conteudo });
-  }
+    const bodyText = options?.tweakText ? tweakBodyText(template.conteudo) : template.conteudo;
+    const bodyComponent: any = { type: 'BODY', text: bodyText };
 
-  const cardData = template.card_data || {};
+    // Add variable examples if template has variables
+    const varExamples = buildVariableExamples(
+      template.variable_mapping,
+      template.exemplos_variaveis,
+    );
+    if (Object.keys(varExamples).length > 0) {
+      // Meta expects example.body_text as array of arrays
+      const sortedValues = Object.keys(varExamples)
+        .sort((a, b) => parseInt(a) - parseInt(b))
+        .map(k => varExamples[k]);
+      bodyComponent.example = { body_text: [sortedValues] };
+    }
+
+    components.push(bodyComponent);
+  }
 
   // HEADER (media) - fetch base64 like frontend does
   if (cardData.videoUrl) {
@@ -164,7 +239,7 @@ Deno.serve(async (req: Request) => {
     // 1. Find ALL whatsapp_templates with this id_meta (across all empresas)
     const { data: templates, error: templatesErr } = await supabase
       .from('whatsapp_templates')
-      .select('id, nome, empresa_id, pri_telefone, conteudo, formato, categoria, card_data, variable_mapping, agente_id, departamento_id, template_id_pri, category_meta')
+      .select('id, nome, empresa_id, pri_telefone, conteudo, formato, categoria, card_data, variable_mapping, agente_id, departamento_id, template_id_pri, category_meta, exemplos_variaveis')
       .eq('id_meta', id_meta);
 
     if (templatesErr) throw templatesErr;
@@ -333,9 +408,10 @@ Deno.serve(async (req: Request) => {
           empresa_id: empresaId,
           categoria: sourceTemplate.categoria,
           formato: sourceTemplate.formato,
-          conteudo: sourceTemplate.conteudo,
+          conteudo: tweakBodyText(sourceTemplate.conteudo || ''),
           card_data: sourceTemplate.card_data,
           variable_mapping: sourceTemplate.variable_mapping,
+          exemplos_variaveis: sourceTemplate.exemplos_variaveis || {},
           agente_id: sourceTemplate.agente_id,
           departamento_id: sourceTemplate.departamento_id,
           pri_telefone: sourceTemplate.pri_telefone,
@@ -387,7 +463,7 @@ Deno.serve(async (req: Request) => {
           name: formatNameForMeta(newName),
           language: 'pt_BR',
           category: mapCategoriaToMeta(sourceTemplate.categoria || 'marketing'),
-          components: await buildMetaComponents(sourceTemplate),
+          components: await buildMetaComponents(sourceTemplate, { tweakText: true }),
         },
         empresa_id: empresaId,
         agente_id: sourceTemplate.agente_id,

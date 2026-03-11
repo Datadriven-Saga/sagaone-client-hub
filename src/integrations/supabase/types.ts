@@ -4689,6 +4689,7 @@ export type Database = {
           created_at: string
           departamento_id: string | null
           empresa_id: string
+          exemplos_variaveis: Json | null
           formato: string
           id: string
           id_meta: string | null
@@ -4710,6 +4711,7 @@ export type Database = {
           created_at?: string
           departamento_id?: string | null
           empresa_id: string
+          exemplos_variaveis?: Json | null
           formato: string
           id?: string
           id_meta?: string | null
@@ -4731,6 +4733,7 @@ export type Database = {
           created_at?: string
           departamento_id?: string | null
           empresa_id?: string
+          exemplos_variaveis?: Json | null
           formato?: string
           id?: string
           id_meta?: string | null
