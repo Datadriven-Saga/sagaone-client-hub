@@ -5,7 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Webhook externo para sincronização
+// Webhooks externos para sincronização
+const WEBHOOK_CRIA_EVENTO = 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-evento-ligacao';
 const WEBHOOK_CRIA_BASE = 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-base-ligacao';
 
 interface ContatoInput {
