@@ -444,6 +444,27 @@ Deno.serve(async (req: Request) => {
       console.error('❌ Nenhum template duplicado foi confirmado pelo webhook - todos sofreram rollback');
     }
 
+    // 8. Save log entry - status depende do resultado do webhook
+    const logStatus = webhookSuccess ? 'awaiting_approval' : 'failed';
+    const { data: logEntry, error: logErr } = await supabase
+      .from('template_pausado_log')
+      .insert({
+        id_meta_original: id_meta,
+        template_original_id: originalTemplate.id,
+        template_duplicado_id: firstDuplicateId,
+        status: logStatus,
+        eventos_impactados: eventosImpactados,
+        pri_telefone: originalTemplate.pri_telefone,
+      })
+      .select('id')
+      .single();
+
+    if (logErr) {
+      console.error('❌ Erro ao criar log:', logErr);
+    } else {
+      console.log(`📝 Log criado: ${logEntry?.id} (status: ${logStatus})`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
