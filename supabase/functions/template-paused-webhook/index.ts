@@ -273,6 +273,7 @@ Deno.serve(async (req: Request) => {
     console.log(`📋 Nome do template duplicado: ${newName}`);
 
     // Create duplicate for each empresa that had a template
+    // REGRA CRÍTICA: Mesma lógica do frontend - template só persiste se webhook retornar template_id_pri
     const duplicatedTemplateIds: string[] = [];
     const uniqueEmpresas = new Map<string, typeof templates[0]>();
     for (const t of templates) {
@@ -282,8 +283,10 @@ Deno.serve(async (req: Request) => {
     }
 
     let firstDuplicateId: string | null = null;
+    let webhookSuccess = false;
 
     for (const [empresaId, sourceTemplate] of uniqueEmpresas) {
+      // 7a. Insert template provisoriamente (mesmo padrão do frontend)
       const { data: newTemplate, error: insertErr } = await supabase
         .from('whatsapp_templates')
         .insert({
@@ -309,21 +312,147 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      if (newTemplate) {
-        duplicatedTemplateIds.push(newTemplate.id);
-        if (!firstDuplicateId) firstDuplicateId = newTemplate.id;
-        console.log(`  ✅ Template duplicado criado: ${newTemplate.id} para empresa ${empresaId}`);
+      if (!newTemplate) continue;
+
+      const insertedId = newTemplate.id;
+      console.log(`  📋 Template provisório criado: ${insertedId} para empresa ${empresaId}`);
+
+      // 7b. Chamar webhook (OBRIGATÓRIO - mesma regra do frontend)
+      if (!sourceTemplate.agente_id) {
+        console.error(`❌ Template sem agente_id - rollback do template ${insertedId}`);
+        await supabase.from('whatsapp_templates').delete().eq('id', insertedId);
+        continue;
       }
+
+      const { data: agenteData } = await supabase
+        .from('agentes_ia')
+        .select('id, nome, telefone, dealer_id, ativo')
+        .eq('id', sourceTemplate.agente_id)
+        .single();
+
+      if (!agenteData) {
+        console.error(`❌ Agente ${sourceTemplate.agente_id} não encontrado - rollback do template ${insertedId}`);
+        await supabase.from('whatsapp_templates').delete().eq('id', insertedId);
+        continue;
+      }
+
+      const telefoneLimpo = agenteData.telefone?.replace(/\D/g, '') || sourceTemplate.pri_telefone || '';
+      const hasVariables = /\{\{\d+\}\}/.test(sourceTemplate.conteudo || '');
+
+      const webhookPayload = {
+        provider: 'meta_whatsapp',
+        action: 'create_message_template',
+        waba_id: '',
+        tem_variavel: hasVariables ? 'Sim' : 'Não',
+        payload: {
+          name: formatNameForMeta(newName),
+          language: 'pt_BR',
+          category: mapCategoriaToMeta(sourceTemplate.categoria || 'marketing'),
+          components: buildMetaComponents(sourceTemplate),
+        },
+        empresa_id: empresaId,
+        agente_id: sourceTemplate.agente_id,
+        agente_nome: agenteData.nome,
+        pri_telefone: telefoneLimpo,
+        pri_dealer_id: agenteData.dealer_id || null,
+        pri_status: agenteData.ativo ? 'Ativo' : 'Inativo',
+        variable_mapping: sourceTemplate.variable_mapping || {},
+      };
+
+      // Chamar trigger-webhook (mesmo fluxo do frontend)
+      const triggerUrl = `${supabaseUrl}/functions/v1/trigger-webhook`;
+
+      let returnedTemplateIdPri: string | null = null;
+      let webhookResponseData: Record<string, any> | null = null;
+
+      try {
+        console.log(`🔗 Chamando trigger-webhook para empresa ${empresaId}...`);
+
+        const triggerResponse = await fetch(triggerUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serviceRoleKey}`,
+            'apikey': serviceRoleKey,
+          },
+          body: JSON.stringify({
+            gatilho: 'novo_template_whatsapp',
+            dados: webhookPayload,
+          }),
+        });
+
+        const triggerResultText = await triggerResponse.text();
+        console.log(`📨 trigger-webhook resposta (${triggerResponse.status}):`, triggerResultText.substring(0, 1000));
+
+        if (!triggerResponse.ok) {
+          throw new Error(`trigger-webhook retornou status ${triggerResponse.status}`);
+        }
+
+        const parsed = JSON.parse(triggerResultText);
+
+        // Verificar se algum webhook foi disparado
+        if (!parsed?.webhooks_disparados || parsed.webhooks_disparados === 0) {
+          throw new Error('Nenhum gatilho ativo encontrado para novo_template_whatsapp nesta empresa. Verifique a configuração dos gatilhos.');
+        }
+
+        // Extrair resposta do webhook externo (mesmo padrão do frontend)
+        const webhookResponse = parsed?.webhook_response;
+        if (webhookResponse) {
+          returnedTemplateIdPri = webhookResponse.template_id_pri || webhookResponse.id || null;
+          webhookResponseData = {
+            template_id_pri: returnedTemplateIdPri,
+            id_meta: webhookResponse.id_meta || webhookResponse.id || null,
+            status_meta: webhookResponse.status_meta || webhookResponse.status || null,
+            category_meta: webhookResponse.category_meta || webhookResponse.category || null,
+          };
+        }
+      } catch (webhookErr) {
+        console.error(`❌ Erro no webhook para empresa ${empresaId}:`, webhookErr);
+      }
+
+      // 7c. VALIDAÇÃO CRÍTICA: template_id_pri é OBRIGATÓRIO (mesma regra do frontend)
+      if (!returnedTemplateIdPri) {
+        console.error(`❌ template_id_pri não retornado pelo webhook - ROLLBACK do template ${insertedId}`);
+        await supabase.from('whatsapp_templates').delete().eq('id', insertedId);
+        console.log(`  🗑️ Template ${insertedId} removido (sem template_id_pri)`);
+        continue;
+      }
+
+      // 7d. Atualizar template com IDs retornados pelo webhook
+      const { error: updateErr } = await supabase
+        .from('whatsapp_templates')
+        .update({
+          template_id_pri: webhookResponseData!.template_id_pri,
+          id_meta: webhookResponseData!.id_meta,
+          status_meta: webhookResponseData!.status_meta,
+          category_meta: webhookResponseData!.category_meta,
+        })
+        .eq('id', insertedId);
+
+      if (updateErr) {
+        console.error(`❌ Erro ao atualizar template ${insertedId} com dados da Meta:`, updateErr);
+      } else {
+        console.log(`  ✅ Template ${insertedId} confirmado com template_id_pri=${returnedTemplateIdPri}`);
+      }
+
+      duplicatedTemplateIds.push(insertedId);
+      if (!firstDuplicateId) firstDuplicateId = insertedId;
+      webhookSuccess = true;
     }
 
-    // 8. Save log entry
+    if (!webhookSuccess) {
+      console.error('❌ Nenhum template duplicado foi confirmado pelo webhook - todos sofreram rollback');
+    }
+
+    // 8. Save log entry - status depende do resultado do webhook
+    const logStatus = webhookSuccess ? 'awaiting_approval' : 'failed';
     const { data: logEntry, error: logErr } = await supabase
       .from('template_pausado_log')
       .insert({
         id_meta_original: id_meta,
         template_original_id: originalTemplate.id,
         template_duplicado_id: firstDuplicateId,
-        status: firstDuplicateId ? 'awaiting_approval' : 'failed',
+        status: logStatus,
         eventos_impactados: eventosImpactados,
         pri_telefone: originalTemplate.pri_telefone,
       })
@@ -333,107 +462,20 @@ Deno.serve(async (req: Request) => {
     if (logErr) {
       console.error('❌ Erro ao criar log:', logErr);
     } else {
-      console.log(`📝 Log criado: ${logEntry?.id}`);
-    }
-
-    // 9. Register duplicate on Meta via trigger-webhook (same flow as frontend)
-    if (firstDuplicateId && originalTemplate.agente_id) {
-      try {
-        console.log('🔗 Registrando template duplicado na Meta via trigger-webhook...');
-
-        // Fetch agent data
-        const { data: agenteData } = await supabase
-          .from('agentes_ia')
-          .select('id, nome, telefone, dealer_id, ativo')
-          .eq('id', originalTemplate.agente_id)
-          .single();
-
-        if (agenteData) {
-          const telefoneLimpo = agenteData.telefone?.replace(/\D/g, '') || originalTemplate.pri_telefone || '';
-          const hasVariables = /\{\{\d+\}\}/.test(originalTemplate.conteudo || '');
-
-          // Build the same payload structure as frontend Templates.tsx triggerWebhooks
-          const webhookPayload = {
-            provider: 'meta_whatsapp',
-            action: 'create_message_template',
-            waba_id: '',
-            tem_variavel: hasVariables ? 'Sim' : 'Não',
-            payload: {
-              name: formatNameForMeta(newName),
-              language: 'pt_BR',
-              category: mapCategoriaToMeta(originalTemplate.categoria || 'marketing'),
-              components: buildMetaComponents(originalTemplate),
-            },
-            empresa_id: originalTemplate.empresa_id,
-            agente_id: originalTemplate.agente_id,
-            agente_nome: agenteData.nome,
-            pri_telefone: telefoneLimpo,
-            pri_dealer_id: agenteData.dealer_id || null,
-            pri_status: agenteData.ativo ? 'Ativo' : 'Inativo',
-            variable_mapping: originalTemplate.variable_mapping || {},
-          };
-
-          // Call trigger-webhook Edge Function (same as frontend does)
-          const triggerUrl = `${supabaseUrl}/functions/v1/trigger-webhook`;
-          const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
-          
-          const triggerResponse = await fetch(triggerUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${serviceRoleKey}`,
-              'apikey': serviceRoleKey,
-            },
-            body: JSON.stringify({
-              gatilho: 'novo_template_whatsapp',
-              dados: webhookPayload,
-            }),
-          });
-
-          const triggerResult = await triggerResponse.text();
-          console.log(`✅ trigger-webhook resposta (${triggerResponse.status}):`, triggerResult.substring(0, 500));
-
-          // Try to extract Meta IDs from response and update the duplicate template
-          try {
-            const parsed = JSON.parse(triggerResult);
-            const webhookResponse = parsed?.webhook_response;
-            if (webhookResponse) {
-              const updateData: Record<string, any> = {};
-              if (webhookResponse.template_id_pri) updateData.template_id_pri = webhookResponse.template_id_pri;
-              if (webhookResponse.id_meta) updateData.id_meta = webhookResponse.id_meta;
-              if (webhookResponse.status_meta) updateData.status_meta = webhookResponse.status_meta;
-              if (webhookResponse.category) updateData.category_meta = webhookResponse.category;
-
-              if (Object.keys(updateData).length > 0) {
-                for (const dupId of duplicatedTemplateIds) {
-                  await supabase
-                    .from('whatsapp_templates')
-                    .update(updateData)
-                    .eq('id', dupId);
-                }
-                console.log(`📝 Templates duplicados atualizados com IDs da Meta:`, updateData);
-              }
-            }
-          } catch (parseErr) {
-            console.warn('⚠️ Não foi possível extrair IDs da Meta da resposta:', parseErr);
-          }
-        } else {
-          console.warn('⚠️ Agente não encontrado para o template - webhook não disparado');
-        }
-      } catch (webhookErr) {
-        console.error('⚠️ Erro ao registrar na Meta (não-crítico):', webhookErr);
-      }
+      console.log(`📝 Log criado: ${logEntry?.id} (status: ${logStatus})`);
     }
 
     return new Response(
       JSON.stringify({
-        success: true,
+        success: webhookSuccess,
         templates_paused: templates.length,
         events_impacted: eventosImpactados.length,
         jobs_cancelled: prospeccaoIdsAfetados.size,
         duplicate_name: newName,
         duplicate_ids: duplicatedTemplateIds,
+        webhook_validated: webhookSuccess,
         log_id: logEntry?.id,
+        log_status: logStatus,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
