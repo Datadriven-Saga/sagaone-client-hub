@@ -65,37 +65,30 @@ const MultiSelectDropdown = ({
   loading: boolean;
   formatItem: (item: VapiResource) => string;
 }) => {
-  // "todos" = nenhum filtro explícito (selected vazio) OU todos marcados explicitamente
+  const allSelected = items.length > 0 && selected.length === items.length;
   const noneSelected = selected.length === 0;
-  const allExplicit = items.length > 0 && selected.length === items.length;
-  const allSelected = noneSelected || allExplicit;
   const [open, setOpen] = useState(false);
 
   const toggleAll = () => {
-    if (noneSelected) {
-      // Estava em modo "todos implícito" → selecionar todos explicitamente para permitir desmarcar
-      onSelectionChange(items.map(i => i.id));
-    } else if (allExplicit) {
-      // Todos marcados explicitamente → desmarcar todos
+    if (allSelected) {
       onSelectionChange([]);
-    } else {
-      // Parcialmente selecionado → selecionar todos
-      onSelectionChange(items.map(i => i.id));
+      return;
     }
+    onSelectionChange(items.map(i => i.id));
   };
 
   const toggleItem = (id: string) => {
     if (selected.includes(id)) {
-      const next = selected.filter(s => s !== id);
-      onSelectionChange(next);
-    } else {
-      onSelectionChange([...selected, id]);
+      onSelectionChange(selected.filter(s => s !== id));
+      return;
     }
+    onSelectionChange([...selected, id]);
   };
 
   const displayText = () => {
     if (loading) return "Carregando...";
-    if (allSelected || selected.length === 0) return `Todos (${items.length})`;
+    if (noneSelected) return `Nenhum (0)`;
+    if (allSelected) return `Todos (${items.length})`;
     if (selected.length === 1) {
       const item = items.find(i => i.id === selected[0]);
       return item ? formatItem(item) : selected[0].substring(0, 12);
