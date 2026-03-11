@@ -8,17 +8,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { cn, formatPhone } from "@/lib/utils";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, Activity, AlertTriangle
+  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, Activity, AlertTriangle, Eye
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
+import CallDetailModal from "./CallDetailModal";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -42,48 +43,56 @@ const TwilioCostsTab = () => {
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 7));
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [phone, setPhone] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [loadingCalls, setLoadingCalls] = useState(false);
   const [fetched, setFetched] = useState(false);
   const [calls, setCalls] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [dailyChart, setDailyChart] = useState<any[]>([]);
   const [page, setPage] = useState(0);
+  const [selectedCall, setSelectedCall] = useState<any>(null);
 
   const fetchData = async () => {
-    setLoading(true);
+    setLoadingSummary(true);
+    setLoadingCalls(true);
     setPage(0);
+    setFetched(true);
+
+    const body = {
+      startDate: format(startDate, "yyyy-MM-dd"),
+      endDate: format(endDate, "yyyy-MM-dd"),
+      phone: phone || undefined,
+    };
+
     try {
-      const { data, error } = await supabase.functions.invoke("fetch-twilio-metrics", {
-        body: {
-          startDate: format(startDate, "yyyy-MM-dd"),
-          endDate: format(endDate, "yyyy-MM-dd"),
-          phone: phone || undefined,
-        },
-      });
+      const { data, error } = await supabase.functions.invoke("fetch-twilio-metrics", { body });
       if (error) throw error;
-      setCalls(data?.calls || []);
+
       setSummary(data?.summary || null);
       setDailyChart(data?.dailyChart || []);
-      setFetched(true);
+      setLoadingSummary(false);
+
+      setCalls(data?.calls || []);
+      setLoadingCalls(false);
+
       if (data?.warnings?.length) {
         data.warnings.forEach((w: string) => toast.warning(w, { duration: 8000 }));
       }
     } catch (e: any) {
       toast.error("Erro Twilio: " + (e.message || "Erro desconhecido"));
-    } finally {
-      setLoading(false);
+      setLoadingSummary(false);
+      setLoadingCalls(false);
     }
   };
 
   const kpis = useMemo(() => {
-    if (!summary) return { totalCost: 0, totalMinutes: 0, totalCalls: 0, completedRate: 0, usageCost: null };
+    if (!summary) return { totalCost: 0, totalMinutes: 0, totalCalls: 0, completedRate: 0 };
     const totalMin = summary.totalDuration / 60;
     return {
       totalCost: summary.usageCost ?? summary.totalCost,
       totalMinutes: summary.usageMinutes ?? totalMin,
       totalCalls: summary.totalCalls,
       completedRate: summary.totalCalls > 0 ? (summary.completedCount / summary.totalCalls) * 100 : 0,
-      usageCost: summary.usageCost,
     };
   }, [summary]);
 
@@ -96,6 +105,7 @@ const TwilioCostsTab = () => {
 
   const paginatedCalls = calls.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
   const totalPages = Math.ceil(calls.length / ITEMS_PER_PAGE);
+  const loading = loadingSummary || loadingCalls;
 
   return (
     <div className="space-y-6">
@@ -149,21 +159,20 @@ const TwilioCostsTab = () => {
         </CardContent>
       </Card>
 
-      {/* Loading */}
-      {loading && (
+      {/* Loading Summary */}
+      {loadingSummary && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map(i => (
               <Card key={i}><CardContent className="pt-6"><Skeleton className="h-16 w-full" /></CardContent></Card>
             ))}
           </div>
           <Card><CardContent className="pt-6"><Skeleton className="h-64 w-full" /></CardContent></Card>
-          <Card><CardContent className="pt-6"><Skeleton className="h-48 w-full" /></CardContent></Card>
         </div>
       )}
 
       {/* KPIs */}
-      {fetched && !loading && (
+      {fetched && !loadingSummary && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: "Total Gasto (USD)", value: fmtUSD(kpis.totalCost), icon: DollarSign },
@@ -186,7 +195,7 @@ const TwilioCostsTab = () => {
       )}
 
       {/* Status breakdown */}
-      {fetched && !loading && summary && (
+      {fetched && !loadingSummary && summary && (
         <div className="flex flex-wrap gap-2">
           {[
             { label: "Completed", count: summary.completedCount, color: "bg-green-500/10 text-green-400 border-green-500/20" },
@@ -203,7 +212,7 @@ const TwilioCostsTab = () => {
       )}
 
       {/* Chart */}
-      {fetched && !loading && chartFormatted.length > 0 && (
+      {fetched && !loadingSummary && chartFormatted.length > 0 && (
         <Card>
           <CardHeader><CardTitle className="text-base">Custo Diário Twilio</CardTitle></CardHeader>
           <CardContent>
@@ -224,16 +233,20 @@ const TwilioCostsTab = () => {
       )}
 
       {/* Calls Table */}
-      {fetched && !loading && (
+      {fetched && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               Chamadas Twilio
-              <Badge variant="secondary" className="text-xs">{calls.length} registros</Badge>
+              {!loadingCalls && <Badge variant="secondary" className="text-xs">{calls.length} registros</Badge>}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {calls.length === 0 ? (
+            {loadingCalls ? (
+              <div className="space-y-2">
+                {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+              </div>
+            ) : calls.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Phone className="h-12 w-12 mx-auto mb-3 opacity-30" />
                 <p>Nenhuma chamada encontrada.</p>
@@ -251,6 +264,7 @@ const TwilioCostsTab = () => {
                         <TableHead>Status</TableHead>
                         <TableHead>Duração</TableHead>
                         <TableHead>Preço</TableHead>
+                        <TableHead className="w-10"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -260,8 +274,8 @@ const TwilioCostsTab = () => {
                           <TableCell className="whitespace-nowrap text-sm">
                             {call.date ? format(new Date(call.date), "dd/MM/yy HH:mm") : "—"}
                           </TableCell>
-                          <TableCell className="font-mono text-xs">{call.from || "—"}</TableCell>
-                          <TableCell className="font-mono text-xs">{call.to || "—"}</TableCell>
+                          <TableCell className="font-mono text-xs">{formatPhone(call.from) || call.from || "—"}</TableCell>
+                          <TableCell className="font-mono text-xs">{formatPhone(call.to) || call.to || "—"}</TableCell>
                           <TableCell>
                             <Badge
                               variant={(statusColors[call.status] || "secondary") as any}
@@ -272,6 +286,11 @@ const TwilioCostsTab = () => {
                           </TableCell>
                           <TableCell>{fmtDuration(call.duration)}</TableCell>
                           <TableCell className="font-mono">{fmtUSD(call.price)}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedCall(call)}>
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -291,6 +310,8 @@ const TwilioCostsTab = () => {
           </CardContent>
         </Card>
       )}
+
+      <CallDetailModal open={!!selectedCall} onOpenChange={() => setSelectedCall(null)} call={selectedCall} source="twilio" />
     </div>
   );
 };

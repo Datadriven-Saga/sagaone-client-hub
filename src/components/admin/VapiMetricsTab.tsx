@@ -1,18 +1,19 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { format, subDays } from "date-fns";
+import { cn, formatPhone } from "@/lib/utils";
+import { format, subDays, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity
+  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity, AlertTriangle, Eye
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -20,8 +21,10 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from "recharts";
+import CallDetailModal from "./CallDetailModal";
 
 const ITEMS_PER_PAGE = 20;
+const VAPI_RETENTION_DAYS = 14;
 const PIE_COLORS = [
   "hsl(var(--primary))",
   "hsl(210, 70%, 55%)",
@@ -35,9 +38,8 @@ const fmtDuration = (s: number) => {
   if (s < 60) return `${s}s`;
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
   if (h > 0) return `${h}h ${m}min`;
-  return sec > 0 ? `${m}min ${sec}s` : `${m}min`;
+  return `${m}min`;
 };
 
 const VapiMetricsTab = () => {
@@ -46,22 +48,69 @@ const VapiMetricsTab = () => {
   const [assistantId, setAssistantId] = useState("");
   const [phoneNumberId, setPhoneNumberId] = useState("");
   const [phoneSearch, setPhoneSearch] = useState("");
-  const [metadataKey, setMetadataKey] = useState("");
-  const [metadataValue, setMetadataValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
   const [calls, setCalls] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [dailyChart, setDailyChart] = useState<any[]>([]);
   const [page, setPage] = useState(0);
+  const [dateWarning, setDateWarning] = useState("");
+  const [selectedCall, setSelectedCall] = useState<any>(null);
+
+  // Dynamic dropdown data
+  const [vapiAssistants, setVapiAssistants] = useState<{ id: string; name: string }[]>([]);
+  const [vapiPhones, setVapiPhones] = useState<{ id: string; number: string }[]>([]);
+  const [loadingResources, setLoadingResources] = useState(false);
+
+  useEffect(() => {
+    const loadVapiResources = async () => {
+      setLoadingResources(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("fetch-vapi-metrics", {
+          body: { action: "list-resources" },
+        });
+        if (!error && data) {
+          setVapiAssistants(data.assistants || []);
+          setVapiPhones(data.phoneNumbers || []);
+        }
+      } catch {
+        // silent fail - dropdowns will be empty
+      } finally {
+        setLoadingResources(false);
+      }
+    };
+    loadVapiResources();
+  }, []);
+
+  const handleStartDateChange = (d: Date | undefined) => {
+    if (!d) return;
+    const minAllowed = subDays(new Date(), VAPI_RETENTION_DAYS);
+    if (d < minAllowed) {
+      setStartDate(minAllowed);
+      setDateWarning("Seu plano atual limita a consulta aos últimos 14 dias. Data ajustada automaticamente.");
+    } else {
+      setStartDate(d);
+      setDateWarning("");
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
     setPage(0);
+
+    // Enforce 14-day limit
+    const minAllowed = subDays(new Date(), VAPI_RETENTION_DAYS);
+    let effectiveStart = startDate;
+    if (startDate < minAllowed) {
+      effectiveStart = minAllowed;
+      setStartDate(minAllowed);
+      setDateWarning("Seu plano atual limita a consulta aos últimos 14 dias. Data ajustada automaticamente.");
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke("fetch-vapi-metrics", {
         body: {
-          startDate: format(startDate, "yyyy-MM-dd"),
+          startDate: format(effectiveStart, "yyyy-MM-dd"),
           endDate: format(endDate, "yyyy-MM-dd"),
           assistantId: assistantId || undefined,
           phoneNumberId: phoneNumberId || undefined,
@@ -95,7 +144,7 @@ const VapiMetricsTab = () => {
   }, [summary]);
 
   const pieData = useMemo(() => {
-    if (!summary) return [];
+    if (!summary?.costBreakdown) return [];
     const cb = summary.costBreakdown;
     return [
       { name: "STT", value: +cb.stt.toFixed(4) },
@@ -113,7 +162,6 @@ const VapiMetricsTab = () => {
     }));
   }, [dailyChart]);
 
-  // Client-side filters
   const filteredCalls = useMemo(() => {
     return calls.filter((c: any) => {
       if (phoneSearch && !c.customer?.includes(phoneSearch)) return false;
@@ -126,6 +174,14 @@ const VapiMetricsTab = () => {
 
   return (
     <div className="space-y-6">
+      {/* 14-day warning */}
+      {dateWarning && (
+        <div className="flex items-start gap-3 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 text-sm text-yellow-200">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-yellow-500" />
+          <span>{dateWarning}</span>
+        </div>
+      )}
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -140,7 +196,7 @@ const VapiMetricsTab = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={startDate} onSelect={d => d && setStartDate(d)} locale={ptBR} className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={startDate} onSelect={handleStartDateChange} locale={ptBR} className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>
@@ -163,22 +219,34 @@ const VapiMetricsTab = () => {
               Buscar dados
             </Button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">Assistant ID</Label>
-              <Input placeholder="Filtrar por assistente" value={assistantId} onChange={e => setAssistantId(e.target.value)} className="h-9 text-sm" />
+              <Label className="text-xs">Assistente</Label>
+              <Select value={assistantId} onValueChange={setAssistantId}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder={loadingResources ? "Carregando..." : "Todos os assistentes"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os assistentes</SelectItem>
+                  {vapiAssistants.map(a => (
+                    <SelectItem key={a.id} value={a.id}>{a.name || a.id.substring(0, 12)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Phone Number ID</Label>
-              <Input placeholder="Filtrar por telefone Vapi" value={phoneNumberId} onChange={e => setPhoneNumberId(e.target.value)} className="h-9 text-sm" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Metadata Key</Label>
-              <Input placeholder="Ex: campaignId" value={metadataKey} onChange={e => setMetadataKey(e.target.value)} className="h-9 text-sm" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Metadata Value</Label>
-              <Input placeholder="Ex: abc123" value={metadataValue} onChange={e => setMetadataValue(e.target.value)} className="h-9 text-sm" />
+              <Label className="text-xs">Número Vapi</Label>
+              <Select value={phoneNumberId} onValueChange={setPhoneNumberId}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder={loadingResources ? "Carregando..." : "Todos os números"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os números</SelectItem>
+                  {vapiPhones.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{formatPhone(p.number) || p.number}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -200,7 +268,7 @@ const VapiMetricsTab = () => {
         </div>
       )}
 
-      {/* KPI Cards - Funnel order: Volume → Duration → AvgCost/Min → Total Cost → Success Rate */}
+      {/* KPI Cards */}
       {fetched && !loading && (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           {[
@@ -303,6 +371,7 @@ const VapiMetricsTab = () => {
                         <TableHead>Duração</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Custo</TableHead>
+                        <TableHead className="w-10"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -311,8 +380,8 @@ const VapiMetricsTab = () => {
                           <TableCell className="whitespace-nowrap text-sm">
                             {call.date ? format(new Date(call.date), "dd/MM/yy HH:mm") : "—"}
                           </TableCell>
-                          <TableCell className="font-mono text-xs">{call.id?.substring(0, 12) || "—"}</TableCell>
-                          <TableCell className="font-mono text-xs">{call.customer || "—"}</TableCell>
+                          <TableCell className="font-mono text-xs">{formatPhone(call.agentPhone) || call.agentPhone || "—"}</TableCell>
+                          <TableCell className="font-mono text-xs">{formatPhone(call.customer) || call.customer || "—"}</TableCell>
                           <TableCell>{fmtDuration(call.duration)}</TableCell>
                           <TableCell>
                             <Badge variant={call.status === "ended" ? "outline" : "destructive"} className="text-xs">
@@ -320,6 +389,11 @@ const VapiMetricsTab = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="font-mono">{fmtUSD(call.cost)}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedCall(call)}>
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -339,6 +413,8 @@ const VapiMetricsTab = () => {
           </CardContent>
         </Card>
       )}
+
+      <CallDetailModal open={!!selectedCall} onOpenChange={() => setSelectedCall(null)} call={selectedCall} source="vapi" />
     </div>
   );
 };
