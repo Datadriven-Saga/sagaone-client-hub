@@ -556,22 +556,33 @@ const VapiMetricsTab = () => {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">Composição de Custos</CardTitle></CardHeader>
-            <CardContent className="flex items-center justify-center">
-              {pieData.length > 0 ? (
+            <CardHeader>
+              <CardTitle className="text-base flex items-center justify-between">
+                Composição de Custos
+                <span className="text-sm font-normal text-muted-foreground">{fmtUSD(costTotal)}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {costBarData.length > 0 && costTotal > 0 ? (
                 <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}
-                      label={({ name, value }) => `${name}: ${fmtUSD(value)}`}
-                    >
-                      {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip formatter={(v: number) => fmtUSD(v)} />
+                  <BarChart data={costBarData} layout="vertical" margin={{ left: 0, right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                    <XAxis type="number" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={v => `$${v}`} />
+                    <YAxis type="category" dataKey="name" hide />
+                    <Tooltip
+                      formatter={(v: number, name: string) => [fmtUSD(v), name]}
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
+                    />
                     <Legend />
-                  </PieChart>
+                    <Bar dataKey="STT" stackId="costs" fill={BAR_COLORS[0]} name="STT" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="LLM" stackId="costs" fill={BAR_COLORS[1]} name="LLM" />
+                    <Bar dataKey="TTS" stackId="costs" fill={BAR_COLORS[2]} name="TTS" />
+                    <Bar dataKey="Transport" stackId="costs" fill={BAR_COLORS[3]} name="Transport" />
+                    <Bar dataKey="Vapi" stackId="costs" fill={BAR_COLORS[4]} name="Vapi" radius={[0, 4, 4, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-sm text-muted-foreground">Sem dados de composição</p>
+                <p className="text-sm text-muted-foreground text-center py-8">Sem dados de composição</p>
               )}
             </CardContent>
           </Card>
