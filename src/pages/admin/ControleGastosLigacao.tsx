@@ -220,8 +220,17 @@ const ControleGastosLigacao = () => {
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-1">Controle de Gastos — Ligação</h1>
-            <p className="text-muted-foreground">Dashboard de custos e métricas de chamadas Twilio / Vapi</p>
+            <p className="text-muted-foreground">Dashboard de custos e métricas de chamadas</p>
           </div>
+
+          <Tabs defaultValue="geral" className="w-full">
+            <TabsList>
+              <TabsTrigger value="geral">Gastos Gerais</TabsTrigger>
+              <TabsTrigger value="ligacoes">Ligações (Vapi Metrics)</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="geral">
+              <div className="space-y-6">
 
           {/* Filters */}
           <Card>
