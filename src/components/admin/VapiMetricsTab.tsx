@@ -401,6 +401,14 @@ const VapiMetricsTab = () => {
 
   return (
     <div className="space-y-6">
+      {/* Data source indicator */}
+      {fetched && !loading && dataSource === "cache+vapi" && (
+        <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/30 bg-primary/5 text-sm">
+          <Database className="h-4 w-4 shrink-0 text-primary" />
+          <span>Histórico completo via Banco de Dados — dados além de 14 dias recuperados do cache local.</span>
+        </div>
+      )}
+
       {/* Warnings */}
       {dateWarning && (
         <div className="flex items-start gap-3 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 text-sm text-yellow-200">
