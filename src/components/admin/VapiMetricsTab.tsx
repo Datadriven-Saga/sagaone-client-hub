@@ -1,19 +1,20 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatPhone } from "@/lib/utils";
-import { format, subDays, differenceInDays } from "date-fns";
+import { format, subDays, addDays, differenceInDays, min as minDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity, AlertTriangle, Eye
+  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity, AlertTriangle, Eye, ChevronDown, ChevronsUpDown
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -24,7 +25,7 @@ import {
 import CallDetailModal from "./CallDetailModal";
 
 const ITEMS_PER_PAGE = 20;
-const VAPI_RETENTION_DAYS = 14;
+const BATCH_DAYS = 14;
 const PIE_COLORS = [
   "hsl(var(--primary))",
   "hsl(210, 70%, 55%)",
@@ -42,11 +43,177 @@ const fmtDuration = (s: number) => {
   return `${m}min`;
 };
 
+interface VapiResource {
+  id: string;
+  name: string;
+  number?: string;
+}
+
+// ── Multi-select dropdown component ──
+const MultiSelectDropdown = ({
+  label,
+  items,
+  selected,
+  onSelectionChange,
+  loading,
+  formatItem,
+}: {
+  label: string;
+  items: VapiResource[];
+  selected: string[];
+  onSelectionChange: (ids: string[]) => void;
+  loading: boolean;
+  formatItem: (item: VapiResource) => string;
+}) => {
+  const allSelected = selected.length === 0; // empty = all
+  const [open, setOpen] = useState(false);
+
+  const toggleAll = () => {
+    onSelectionChange([]);
+  };
+
+  const toggleItem = (id: string) => {
+    if (selected.includes(id)) {
+      const next = selected.filter(s => s !== id);
+      onSelectionChange(next);
+    } else {
+      onSelectionChange([...selected, id]);
+    }
+  };
+
+  const displayText = () => {
+    if (loading) return "Carregando...";
+    if (allSelected || selected.length === 0) return `Todos (${items.length})`;
+    if (selected.length === 1) {
+      const item = items.find(i => i.id === selected[0]);
+      return item ? formatItem(item) : selected[0].substring(0, 12);
+    }
+    return `${selected.length} selecionados`;
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="w-full justify-between h-9 text-sm font-normal">
+          <span className="truncate">{displayText()}</span>
+          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <ScrollArea className="max-h-[280px]">
+          <div className="p-2 space-y-0.5">
+            {/* Select All */}
+            <label className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer text-sm">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={toggleAll}
+              />
+              <span className="font-medium">Selecionar todos</span>
+              <Badge variant="secondary" className="ml-auto text-xs">{items.length}</Badge>
+            </label>
+            <div className="h-px bg-border my-1" />
+            {items.map(item => (
+              <label key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer text-sm">
+                <Checkbox
+                  checked={allSelected || selected.includes(item.id)}
+                  onCheckedChange={() => {
+                    if (allSelected) {
+                      // When "all" is selected and user clicks one item, select only that item
+                      onSelectionChange([item.id]);
+                    } else {
+                      toggleItem(item.id);
+                    }
+                  }}
+                />
+                <span className="truncate">{formatItem(item)}</span>
+              </label>
+            ))}
+            {items.length === 0 && !loading && (
+              <p className="text-xs text-muted-foreground px-2 py-3 text-center">Nenhum item encontrado</p>
+            )}
+          </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+// ── Batch fetching helpers ──
+function computeBatches(start: Date, end: Date): { startDate: string; endDate: string }[] {
+  const batches: { startDate: string; endDate: string }[] = [];
+  let current = new Date(start);
+  while (current <= end) {
+    const batchEnd = minDate([addDays(current, BATCH_DAYS - 1), end]);
+    batches.push({
+      startDate: format(current, "yyyy-MM-dd"),
+      endDate: format(batchEnd, "yyyy-MM-dd"),
+    });
+    current = addDays(batchEnd, 1);
+  }
+  return batches;
+}
+
+function mergeSummaries(results: any[]): any {
+  const merged = {
+    totalCalls: 0, totalCost: 0, totalDuration: 0, endedCount: 0,
+    costBreakdown: { stt: 0, llm: 0, tts: 0, transport: 0, vapi: 0 },
+    isPartial: false,
+  };
+  for (const r of results) {
+    if (!r?.summary) continue;
+    const s = r.summary;
+    merged.totalCalls += s.totalCalls || 0;
+    merged.totalCost += s.totalCost || 0;
+    merged.totalDuration += s.totalDuration || 0;
+    merged.endedCount += s.endedCount || 0;
+    if (s.isPartial) merged.isPartial = true;
+    if (s.costBreakdown) {
+      merged.costBreakdown.stt += s.costBreakdown.stt || 0;
+      merged.costBreakdown.llm += s.costBreakdown.llm || 0;
+      merged.costBreakdown.tts += s.costBreakdown.tts || 0;
+      merged.costBreakdown.transport += s.costBreakdown.transport || 0;
+      merged.costBreakdown.vapi += s.costBreakdown.vapi || 0;
+    }
+  }
+  return merged;
+}
+
+function mergeDailyCharts(results: any[]): any[] {
+  const map: Record<string, { cost: number; count: number }> = {};
+  for (const r of results) {
+    for (const d of (r?.dailyChart || [])) {
+      if (!map[d.date]) map[d.date] = { cost: 0, count: 0 };
+      map[d.date].cost += d.cost || 0;
+      map[d.date].count += d.count || 0;
+    }
+  }
+  return Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({ date, cost: +v.cost.toFixed(4), count: v.count }));
+}
+
+function mergeCalls(results: any[]): any[] {
+  const all: any[] = [];
+  for (const r of results) {
+    all.push(...(r?.calls || []));
+  }
+  // Deduplicate by id
+  const seen = new Set<string>();
+  const unique: any[] = [];
+  for (const c of all) {
+    if (c.id && seen.has(c.id)) continue;
+    if (c.id) seen.add(c.id);
+    unique.push(c);
+  }
+  return unique.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+// ── Main Component ──
 const VapiMetricsTab = () => {
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 7));
   const [endDate, setEndDate] = useState<Date>(new Date());
-  const [assistantId, setAssistantId] = useState("");
-  const [phoneNumberId, setPhoneNumberId] = useState("");
+  const [selectedAssistants, setSelectedAssistants] = useState<string[]>([]);
+  const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
   const [phoneSearch, setPhoneSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
@@ -56,10 +223,11 @@ const VapiMetricsTab = () => {
   const [page, setPage] = useState(0);
   const [dateWarning, setDateWarning] = useState("");
   const [selectedCall, setSelectedCall] = useState<any>(null);
+  const [batchProgress, setBatchProgress] = useState({ total: 0, completed: 0, days: 0 });
 
   // Dynamic dropdown data
-  const [vapiAssistants, setVapiAssistants] = useState<{ id: string; name: string }[]>([]);
-  const [vapiPhones, setVapiPhones] = useState<{ id: string; number: string }[]>([]);
+  const [vapiAssistants, setVapiAssistants] = useState<VapiResource[]>([]);
+  const [vapiPhones, setVapiPhones] = useState<VapiResource[]>([]);
   const [loadingResources, setLoadingResources] = useState(false);
 
   useEffect(() => {
@@ -70,11 +238,11 @@ const VapiMetricsTab = () => {
           body: { action: "list-resources" },
         });
         if (!error && data) {
-          setVapiAssistants(data.assistants || []);
-          setVapiPhones(data.phoneNumbers || []);
+          setVapiAssistants((data.assistants || []).map((a: any) => ({ id: a.id, name: a.name, number: undefined })));
+          setVapiPhones((data.phoneNumbers || []).map((p: any) => ({ id: p.id, name: p.name || "", number: p.number })));
         }
       } catch {
-        // silent fail - dropdowns will be empty
+        // silent fail
       } finally {
         setLoadingResources(false);
       }
@@ -82,52 +250,86 @@ const VapiMetricsTab = () => {
     loadVapiResources();
   }, []);
 
-  const handleStartDateChange = (d: Date | undefined) => {
-    if (!d) return;
-    const minAllowed = subDays(new Date(), VAPI_RETENTION_DAYS);
-    if (d < minAllowed) {
-      setStartDate(minAllowed);
-      setDateWarning("Seu plano atual limita a consulta aos últimos 14 dias. Data ajustada automaticamente.");
-    } else {
-      setStartDate(d);
-      setDateWarning("");
-    }
-  };
-
   const fetchData = async () => {
     setLoading(true);
     setPage(0);
+    setDateWarning("");
 
-    // Enforce 14-day limit
-    const minAllowed = subDays(new Date(), VAPI_RETENTION_DAYS);
-    let effectiveStart = startDate;
-    if (startDate < minAllowed) {
-      effectiveStart = minAllowed;
-      setStartDate(minAllowed);
-      setDateWarning("Seu plano atual limita a consulta aos últimos 14 dias. Data ajustada automaticamente.");
-    }
+    const totalDays = differenceInDays(endDate, startDate) + 1;
+    const batches = computeBatches(startDate, endDate);
+    const totalBatches = batches.length;
+
+    setBatchProgress({ total: totalBatches, completed: 0, days: totalDays });
+
+    // For each batch, we may need to query per-assistant and per-phone
+    // But the edge function handles single assistantId/phoneNumberId
+    // We'll send one request per batch, passing arrays
+    const allResults: any[] = [];
+    const allWarnings: string[] = [];
+    let retentionLimitHit = false;
 
     try {
-      const { data, error } = await supabase.functions.invoke("fetch-vapi-metrics", {
-        body: {
-          startDate: format(effectiveStart, "yyyy-MM-dd"),
-          endDate: format(endDate, "yyyy-MM-dd"),
-          assistantId: assistantId || undefined,
-          phoneNumberId: phoneNumberId || undefined,
-        },
-      });
-      if (error) throw error;
-      setCalls(data?.calls || []);
-      setSummary(data?.summary || null);
-      setDailyChart(data?.dailyChart || []);
-      setFetched(true);
-      if (data?.warnings?.length) {
-        data.warnings.forEach((w: string) => toast.warning(w, { duration: 8000 }));
+      // Run batches in parallel (max 3 concurrent to avoid overload)
+      const CONCURRENCY = 3;
+      for (let i = 0; i < batches.length; i += CONCURRENCY) {
+        if (retentionLimitHit) break;
+
+        const chunk = batches.slice(i, i + CONCURRENCY);
+        const promises = chunk.map(async (batch) => {
+          try {
+            const { data, error } = await supabase.functions.invoke("fetch-vapi-metrics", {
+              body: {
+                startDate: batch.startDate,
+                endDate: batch.endDate,
+                assistantIds: selectedAssistants.length > 0 ? selectedAssistants : undefined,
+                phoneNumberIds: selectedPhones.length > 0 ? selectedPhones : undefined,
+              },
+            });
+            if (error) throw error;
+
+            // Check for retention limit
+            const warnings: string[] = data?.warnings || [];
+            for (const w of warnings) {
+              if (w.toLowerCase().includes("subscription") || w.toLowerCase().includes("plan limit") || w.toLowerCase().includes("retenção")) {
+                retentionLimitHit = true;
+                setDateWarning("Dados limitados aos últimos 14 dias pelo seu plano Vapi.");
+              }
+            }
+            allWarnings.push(...warnings);
+            return data;
+          } catch (e: any) {
+            if (e.message?.includes("subscription") || e.message?.includes("plan limit")) {
+              retentionLimitHit = true;
+              setDateWarning("Dados limitados aos últimos 14 dias pelo seu plano Vapi.");
+            }
+            allWarnings.push(`Lote ${batch.startDate}: ${e.message}`);
+            return null;
+          }
+        });
+
+        const results = await Promise.all(promises);
+        allResults.push(...results.filter(Boolean));
+        setBatchProgress(prev => ({ ...prev, completed: Math.min(i + CONCURRENCY, batches.length) }));
       }
+
+      // Merge all results
+      const mergedSummary = mergeSummaries(allResults);
+      const mergedChart = mergeDailyCharts(allResults);
+      const mergedCalls = mergeCalls(allResults);
+
+      setSummary(mergedSummary);
+      setDailyChart(mergedChart);
+      setCalls(mergedCalls);
+      setFetched(true);
+
+      // Show unique warnings
+      const uniqueWarnings = [...new Set(allWarnings)];
+      uniqueWarnings.forEach(w => toast.warning(w, { duration: 8000 }));
     } catch (e: any) {
       toast.error("Erro Vapi: " + (e.message || "Erro desconhecido"));
     } finally {
       setLoading(false);
+      setBatchProgress({ total: 0, completed: 0, days: 0 });
     }
   };
 
@@ -164,7 +366,7 @@ const VapiMetricsTab = () => {
 
   const filteredCalls = useMemo(() => {
     return calls.filter((c: any) => {
-      if (phoneSearch && !c.customer?.includes(phoneSearch)) return false;
+      if (phoneSearch && !c.customer?.includes(phoneSearch) && !c.agentPhone?.includes(phoneSearch)) return false;
       return true;
     });
   }, [calls, phoneSearch]);
@@ -174,7 +376,7 @@ const VapiMetricsTab = () => {
 
   return (
     <div className="space-y-6">
-      {/* 14-day warning */}
+      {/* Warnings */}
       {dateWarning && (
         <div className="flex items-start gap-3 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 text-sm text-yellow-200">
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-yellow-500" />
@@ -196,7 +398,7 @@ const VapiMetricsTab = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={startDate} onSelect={handleStartDateChange} locale={ptBR} className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={startDate} onSelect={d => d && setStartDate(d)} locale={ptBR} className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>
@@ -221,38 +423,45 @@ const VapiMetricsTab = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">Assistente</Label>
-              <Select value={assistantId} onValueChange={setAssistantId}>
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder={loadingResources ? "Carregando..." : "Todos os assistentes"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os assistentes</SelectItem>
-                  {vapiAssistants.map(a => (
-                    <SelectItem key={a.id} value={a.id}>{a.name || a.id.substring(0, 12)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Assistentes</Label>
+              <MultiSelectDropdown
+                label="Assistentes"
+                items={vapiAssistants}
+                selected={selectedAssistants}
+                onSelectionChange={setSelectedAssistants}
+                loading={loadingResources}
+                formatItem={(item) => item.name || item.id.substring(0, 12)}
+              />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Número Vapi</Label>
-              <Select value={phoneNumberId} onValueChange={setPhoneNumberId}>
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder={loadingResources ? "Carregando..." : "Todos os números"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os números</SelectItem>
-                  {vapiPhones.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{formatPhone(p.number) || p.number}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Números Vapi</Label>
+              <MultiSelectDropdown
+                label="Números"
+                items={vapiPhones}
+                selected={selectedPhones}
+                onSelectionChange={setSelectedPhones}
+                loading={loadingResources}
+                formatItem={(item) => {
+                  const formatted = formatPhone(item.number) || item.number || item.id.substring(0, 12);
+                  return item.name ? `${item.name} — ${formatted}` : formatted;
+                }}
+              />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Loading */}
+      {/* Batch progress indicator */}
+      {loading && batchProgress.total > 1 && (
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-primary/30 bg-primary/5 text-sm">
+          <Loader2 className="h-4 w-4 animate-spin shrink-0 text-primary" />
+          <span>
+            Consultando histórico: Processando {batchProgress.completed}/{batchProgress.total} requisições para cobrir {batchProgress.days} dias de dados...
+          </span>
+        </div>
+      )}
+
+      {/* Loading skeletons */}
       {loading && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -346,7 +555,7 @@ const VapiMetricsTab = () => {
             </CardTitle>
             <div className="flex-shrink-0">
               <Input
-                placeholder="Buscar cliente..."
+                placeholder="Buscar telefone..."
                 value={phoneSearch}
                 onChange={e => { setPhoneSearch(e.target.value); setPage(0); }}
                 className="h-8 w-48 text-xs"
