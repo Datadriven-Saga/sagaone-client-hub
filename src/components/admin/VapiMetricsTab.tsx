@@ -65,7 +65,7 @@ const MultiSelectDropdown = ({
   loading: boolean;
   formatItem: (item: VapiResource) => string;
 }) => {
-  const allSelected = selected.length === 0; // empty = all
+  const allSelected = selected.length === 0 || (items.length > 0 && selected.length === items.length);
   const [open, setOpen] = useState(false);
 
   const toggleAll = () => {
