@@ -1429,6 +1429,11 @@ export default function EventoBase() {
       });
 
       if (error) throw error;
+      
+      // Verificar se o webhook retornou success: false (HTTP 200 mas falha lógica)
+      if (data && data.success === false) {
+        throw new Error(data.error || data.mensagem || 'Webhook retornou falha');
+      }
 
       console.log('✅ Resposta do disparo individual:', data);
 
