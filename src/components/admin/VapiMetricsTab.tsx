@@ -526,57 +526,23 @@ const VapiMetricsTab = () => {
 
       {/* Charts */}
       {fetched && !loading && chartData.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-2">
-            <CardHeader><CardTitle className="text-base">Evolução Diária de Custos</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="day" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                  <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={v => `$${v}`} />
-                  <Tooltip
-                    formatter={(v: number) => [fmtUSD(v), "Custo"]}
-                    contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                  />
-                  <Line type="monotone" dataKey="cost" name="Custo (USD)" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center justify-between">
-                Composição de Custos
-                <span className="text-sm font-normal text-muted-foreground">{fmtUSD(costTotal)}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {costBarData.length > 0 && costTotal > 0 ? (
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={costBarData} layout="vertical" margin={{ left: 0, right: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                    <XAxis type="number" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={v => `$${v}`} />
-                    <YAxis type="category" dataKey="name" hide />
-                    <Tooltip
-                      formatter={(v: number, name: string) => [fmtUSD(v), name]}
-                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                    />
-                    <Legend />
-                    <Bar dataKey="STT" stackId="costs" fill={BAR_COLORS[0]} name="STT" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="LLM" stackId="costs" fill={BAR_COLORS[1]} name="LLM" />
-                    <Bar dataKey="TTS" stackId="costs" fill={BAR_COLORS[2]} name="TTS" />
-                    <Bar dataKey="Transport" stackId="costs" fill={BAR_COLORS[3]} name="Transport" />
-                    <Bar dataKey="Vapi" stackId="costs" fill={BAR_COLORS[4]} name="Vapi" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">Sem dados de composição</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Evolução Diária de Custos</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="day" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={v => `$${v}`} />
+                <Tooltip
+                  formatter={(v: number) => [fmtUSD(v), "Custo"]}
+                  contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
+                />
+                <Line type="monotone" dataKey="cost" name="Custo (USD)" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       )}
 
       {/* Audit Table */}
