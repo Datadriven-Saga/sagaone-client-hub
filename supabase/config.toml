@@ -121,3 +121,6 @@ verify_jwt = false
 
 [functions.fetch-vapi-metrics]
 verify_jwt = true
+
+[functions.fetch-twilio-metrics]
+verify_jwt = true
