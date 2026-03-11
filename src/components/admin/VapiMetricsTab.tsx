@@ -65,15 +65,21 @@ const MultiSelectDropdown = ({
   loading: boolean;
   formatItem: (item: VapiResource) => string;
 }) => {
-  const allSelected = selected.length === 0 || (items.length > 0 && selected.length === items.length);
+  // "todos" = nenhum filtro explícito (selected vazio) OU todos marcados explicitamente
+  const noneSelected = selected.length === 0;
+  const allExplicit = items.length > 0 && selected.length === items.length;
+  const allSelected = noneSelected || allExplicit;
   const [open, setOpen] = useState(false);
 
   const toggleAll = () => {
-    if (allSelected) {
-      // Desmarcar todos
+    if (noneSelected) {
+      // Estava em modo "todos implícito" → selecionar todos explicitamente para permitir desmarcar
+      onSelectionChange(items.map(i => i.id));
+    } else if (allExplicit) {
+      // Todos marcados explicitamente → desmarcar todos
       onSelectionChange([]);
     } else {
-      // Selecionar todos
+      // Parcialmente selecionado → selecionar todos
       onSelectionChange(items.map(i => i.id));
     }
   };
