@@ -467,13 +467,15 @@ Deno.serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify({
-        success: true,
+        success: webhookSuccess,
         templates_paused: templates.length,
         events_impacted: eventosImpactados.length,
         jobs_cancelled: prospeccaoIdsAfetados.size,
         duplicate_name: newName,
         duplicate_ids: duplicatedTemplateIds,
+        webhook_validated: webhookSuccess,
         log_id: logEntry?.id,
+        log_status: logStatus,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
