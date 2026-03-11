@@ -65,11 +65,17 @@ const MultiSelectDropdown = ({
   loading: boolean;
   formatItem: (item: VapiResource) => string;
 }) => {
-  const allSelected = selected.length === 0; // empty = all
+  const allSelected = selected.length === 0 || (items.length > 0 && selected.length === items.length);
   const [open, setOpen] = useState(false);
 
   const toggleAll = () => {
-    onSelectionChange([]);
+    if (allSelected) {
+      // Desmarcar todos
+      onSelectionChange([]);
+    } else {
+      // Selecionar todos
+      onSelectionChange(items.map(i => i.id));
+    }
   };
 
   const toggleItem = (id: string) => {
@@ -100,39 +106,37 @@ const MultiSelectDropdown = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[320px] p-0" align="start">
-        <ScrollArea className="max-h-[280px]">
-          <div className="p-2 space-y-0.5">
-            {/* Select All */}
-            <label className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer text-sm">
+        <div className="overflow-y-auto max-h-[300px] p-2 space-y-0.5">
+          {/* Select All */}
+          <label className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer text-sm">
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={toggleAll}
+            />
+            <span className="font-medium">Selecionar todos</span>
+            <Badge variant="secondary" className="ml-auto text-xs">{items.length}</Badge>
+          </label>
+          <div className="h-px bg-border my-1" />
+          {items.map(item => (
+            <label key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer text-sm">
               <Checkbox
-                checked={allSelected}
-                onCheckedChange={toggleAll}
+                checked={allSelected || selected.includes(item.id)}
+                onCheckedChange={() => {
+                  if (allSelected) {
+                    // Deselect this one item: select all except this
+                    onSelectionChange(items.filter(i => i.id !== item.id).map(i => i.id));
+                  } else {
+                    toggleItem(item.id);
+                  }
+                }}
               />
-              <span className="font-medium">Selecionar todos</span>
-              <Badge variant="secondary" className="ml-auto text-xs">{items.length}</Badge>
+              <span className="truncate">{formatItem(item)}</span>
             </label>
-            <div className="h-px bg-border my-1" />
-            {items.map(item => (
-              <label key={item.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer text-sm">
-                <Checkbox
-                  checked={allSelected || selected.includes(item.id)}
-                  onCheckedChange={() => {
-                    if (allSelected) {
-                      // When "all" is selected and user clicks one item, select only that item
-                      onSelectionChange([item.id]);
-                    } else {
-                      toggleItem(item.id);
-                    }
-                  }}
-                />
-                <span className="truncate">{formatItem(item)}</span>
-              </label>
-            ))}
-            {items.length === 0 && !loading && (
-              <p className="text-xs text-muted-foreground px-2 py-3 text-center">Nenhum item encontrado</p>
-            )}
-          </div>
-        </ScrollArea>
+          ))}
+          {items.length === 0 && !loading && (
+            <p className="text-xs text-muted-foreground px-2 py-3 text-center">Nenhum item encontrado</p>
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );
