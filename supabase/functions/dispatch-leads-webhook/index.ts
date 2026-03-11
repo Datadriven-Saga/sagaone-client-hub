@@ -17,6 +17,16 @@ const normalizePhone = (phone: string | null): string => {
   return digits;
 };
 
+// Normaliza telefone para formato de discador: DDD + 8 dígitos (remove 9º dígito de celular)
+const normalizePhoneForDialer = (phone: string | null): string => {
+  let digits = normalizePhone(phone);
+  // Se tem 11 dígitos (DDD + 9 + 8 dígitos), remove o 9 extra
+  if (digits.length === 11 && digits[2] === '9') {
+    digits = digits.substring(0, 2) + digits.substring(3);
+  }
+  return digits;
+};
+
 interface Lead {
   id: string;
   lead_id: number | null;
