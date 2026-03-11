@@ -123,6 +123,18 @@ serve(async (req) => {
     const recentCalls: VapiCallRecord[] = [];
     const dailyCosts: Record<string, { cost: number; count: number }> = {};
 
+    // Filtro explícito vazio = nenhum resultado
+    if ((hasAssistantIds && effectiveAssistantIds.length === 0) || (hasPhoneNumberIds && effectivePhoneIds.length === 0)) {
+      return new Response(JSON.stringify({
+        calls: [],
+        summary,
+        dailyChart: [],
+        warnings: ["Nenhum item selecionado no filtro."],
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Build list of filter combos to query
     // If multiple phoneIds, query each separately (Vapi API only supports single phoneNumberId)
     const phoneQueries = effectivePhoneIds.length > 0 ? effectivePhoneIds : [undefined];
