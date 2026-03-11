@@ -4514,6 +4514,66 @@ export type Database = {
           },
         ]
       }
+      vapi_calls_cache: {
+        Row: {
+          agent_phone: string | null
+          assistant_id: string | null
+          call_id: string
+          cost: number | null
+          cost_llm: number | null
+          cost_stt: number | null
+          cost_transport: number | null
+          cost_tts: number | null
+          cost_vapi: number | null
+          customer_number: string | null
+          duration: number | null
+          id: string
+          phone_number_id: string | null
+          raw_data: Json | null
+          started_at: string | null
+          status: string | null
+          synced_at: string | null
+        }
+        Insert: {
+          agent_phone?: string | null
+          assistant_id?: string | null
+          call_id: string
+          cost?: number | null
+          cost_llm?: number | null
+          cost_stt?: number | null
+          cost_transport?: number | null
+          cost_tts?: number | null
+          cost_vapi?: number | null
+          customer_number?: string | null
+          duration?: number | null
+          id?: string
+          phone_number_id?: string | null
+          raw_data?: Json | null
+          started_at?: string | null
+          status?: string | null
+          synced_at?: string | null
+        }
+        Update: {
+          agent_phone?: string | null
+          assistant_id?: string | null
+          call_id?: string
+          cost?: number | null
+          cost_llm?: number | null
+          cost_stt?: number | null
+          cost_transport?: number | null
+          cost_tts?: number | null
+          cost_vapi?: number | null
+          customer_number?: string | null
+          duration?: number | null
+          id?: string
+          phone_number_id?: string | null
+          raw_data?: Json | null
+          started_at?: string | null
+          status?: string | null
+          synced_at?: string | null
+        }
+        Relationships: []
+      }
       vendas_prospeccao: {
         Row: {
           cliente_nome: string
