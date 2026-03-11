@@ -39,12 +39,39 @@ function mapCategoriaToMeta(categoria: string): string {
 }
 
 // Helper: build Meta-compatible components from template data
-function buildMetaComponents(template: {
+// Helper: fetch media URL and convert to base64 (same as frontend fetchMediaAsBase64)
+async function fetchMediaAsBase64(url: string): Promise<{ base64: string; mimeType: string; size: number } | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error(`❌ Erro ao baixar mídia: ${response.status} ${response.statusText}`);
+      return null;
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const mimeType = response.headers.get('content-type') || 'application/octet-stream';
+    
+    // Convert to base64
+    let binary = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const base64 = btoa(binary);
+    
+    return { base64, mimeType, size: uint8Array.length };
+  } catch (error) {
+    console.error('❌ Erro ao converter mídia para base64:', error);
+    return null;
+  }
+}
+
+// Helper: build Meta-compatible components from template data (with base64 media like frontend)
+async function buildMetaComponents(template: {
   conteudo: string | null;
   formato: string | null;
   card_data: any;
   variable_mapping: any;
-}): any[] {
+}): Promise<any[]> {
   const components: any[] = [];
 
   // BODY
@@ -54,26 +81,38 @@ function buildMetaComponents(template: {
 
   const cardData = template.card_data || {};
 
-  // HEADER (media)
+  // HEADER (media) - fetch base64 like frontend does
   if (cardData.videoUrl) {
+    console.log('📥 Baixando vídeo para base64...');
+    const mediaData = await fetchMediaAsBase64(cardData.videoUrl);
     components.push({
       type: 'HEADER',
       format: 'VIDEO',
       media_url: cardData.videoUrl,
+      media_base64: mediaData?.base64 || null,
+      media_mime_type: cardData.videoMimeType || mediaData?.mimeType || 'video/mp4',
       media_type: 'video',
     });
   } else if (cardData.imagemUrl) {
+    console.log('📥 Baixando imagem para base64...');
+    const mediaData = await fetchMediaAsBase64(cardData.imagemUrl);
     components.push({
       type: 'HEADER',
       format: 'IMAGE',
       media_url: cardData.imagemUrl,
+      media_base64: mediaData?.base64 || null,
+      media_mime_type: mediaData?.mimeType || null,
       media_type: 'image',
     });
   } else if (cardData.audioUrl) {
+    console.log('📥 Baixando áudio para base64...');
+    const mediaData = await fetchMediaAsBase64(cardData.audioUrl);
     components.push({
       type: 'HEADER',
       format: 'AUDIO',
       media_url: cardData.audioUrl,
+      media_base64: mediaData?.base64 || null,
+      media_mime_type: mediaData?.mimeType || null,
       media_type: 'audio',
     });
   } else if (cardData.textoCabecalho) {
