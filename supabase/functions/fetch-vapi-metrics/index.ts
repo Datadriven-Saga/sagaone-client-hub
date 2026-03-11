@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,13 +14,7 @@ interface VapiCallRecord {
   cost: number;
   status: string;
   date: string;
-  costBreakdown: {
-    stt: number;
-    llm: number;
-    tts: number;
-    transport: number;
-    vapi: number;
-  };
+  costBreakdown: { stt: number; llm: number; tts: number; transport: number; vapi: number };
 }
 
 interface VapiSummary {
@@ -27,17 +22,104 @@ interface VapiSummary {
   totalCost: number;
   totalDuration: number;
   endedCount: number;
-  costBreakdown: {
-    stt: number;
-    llm: number;
-    tts: number;
-    transport: number;
-    vapi: number;
-  };
+  costBreakdown: { stt: number; llm: number; tts: number; transport: number; vapi: number };
   isPartial: boolean;
 }
 
 const MAX_DISPLAY = 100;
+const VAPI_RETENTION_DAYS = 14;
+
+function parseCall(call: any): {
+  callId: string; assistantId: string; phoneNumberId: string;
+  customerNumber: string; agentPhone: string; duration: number;
+  cost: number; status: string; startedAt: string;
+  stt: number; llm: number; tts: number; transport: number; vapiCost: number;
+  isEnded: boolean;
+} {
+  const costVal = call.cost ?? call.costBreakdown?.total ?? 0;
+  const cost = typeof costVal === "number" ? costVal : parseFloat(costVal || "0");
+  const duration = call.endedAt && call.startedAt
+    ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000)
+    : call.duration || 0;
+  const statusVal = call.status || "unknown";
+  const endedReason = call.endedReason || "";
+  const isEnded = statusVal === "ended" && !endedReason.includes("error") && !endedReason.includes("failed");
+  const cb = call.costBreakdown || {};
+
+  return {
+    callId: call.id,
+    assistantId: call.assistantId || call.assistant?.id || "",
+    phoneNumberId: call.phoneNumberId || call.phoneNumber?.id || "",
+    customerNumber: call.customer?.number || call.customer?.name || "—",
+    agentPhone: call.phoneNumber?.number || call.phoneNumber?.twilioPhoneNumber || "",
+    duration,
+    cost,
+    status: isEnded ? "ended" : (endedReason || statusVal),
+    startedAt: call.startedAt || call.createdAt || "",
+    stt: parseFloat(cb.stt || "0"),
+    llm: parseFloat(cb.llm || "0"),
+    tts: parseFloat(cb.tts || "0"),
+    transport: parseFloat(cb.transport || "0"),
+    vapiCost: parseFloat(cb.vapi || "0"),
+    isEnded,
+  };
+}
+
+function buildResponse(
+  calls: VapiCallRecord[], summary: VapiSummary,
+  dailyCosts: Record<string, { cost: number; count: number }>,
+  warnings: string[], source: string,
+) {
+  calls.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const dailyChart = Object.entries(dailyCosts)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, data]) => ({ date, cost: +data.cost.toFixed(4), count: data.count }));
+
+  if (summary.totalCalls > MAX_DISPLAY) {
+    warnings.push(`Exibindo ${calls.length} de ${summary.totalCalls} chamadas na tabela.`);
+  }
+  console.log(`=== VAPI METRICS DONE (${source}): ${summary.totalCalls} calls, $${summary.totalCost.toFixed(4)} ===`);
+
+  return new Response(JSON.stringify({ calls, summary, dailyChart, warnings, source }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function addToSummary(
+  summary: VapiSummary, dailyCosts: Record<string, { cost: number; count: number }>,
+  recentCalls: VapiCallRecord[],
+  p: ReturnType<typeof parseCall>,
+) {
+  summary.totalCalls++;
+  summary.totalCost += p.cost;
+  summary.totalDuration += p.duration;
+  if (p.isEnded) summary.endedCount++;
+  summary.costBreakdown.stt += p.stt;
+  summary.costBreakdown.llm += p.llm;
+  summary.costBreakdown.tts += p.tts;
+  summary.costBreakdown.transport += p.transport;
+  summary.costBreakdown.vapi += p.vapiCost;
+
+  const dateStr = (p.startedAt || "").substring(0, 10);
+  if (dateStr) {
+    if (!dailyCosts[dateStr]) dailyCosts[dateStr] = { cost: 0, count: 0 };
+    dailyCosts[dateStr].cost += p.cost;
+    dailyCosts[dateStr].count++;
+  }
+
+  if (recentCalls.length < MAX_DISPLAY) {
+    recentCalls.push({
+      id: p.callId,
+      customer: p.customerNumber,
+      agentPhone: p.agentPhone,
+      duration: p.duration,
+      cost: p.cost,
+      status: p.status,
+      date: p.startedAt,
+      costBreakdown: { stt: p.stt, llm: p.llm, tts: p.tts, transport: p.transport, vapi: p.vapiCost },
+    });
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -48,9 +130,13 @@ serve(async (req) => {
     const apiKey = Deno.env.get("VAPI_API_KEY");
     if (!apiKey) throw new Error("VAPI_API_KEY not configured");
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
     const body = await req.json();
 
-    // Action: list resources (assistants + phone numbers) with names
+    // ── Action: list resources ──
     if (body.action === "list-resources") {
       const [assistantsRes, phonesRes] = await Promise.all([
         fetch("https://api.vapi.ai/assistant", { headers: { Authorization: `Bearer ${apiKey}` } }),
@@ -63,82 +149,102 @@ serve(async (req) => {
       if (assistantsRes.ok) {
         const raw = await assistantsRes.json();
         const list = Array.isArray(raw) ? raw : raw.results || raw.data || [];
-        for (const a of list) {
-          assistants.push({ id: a.id, name: a.name || a.id.substring(0, 12) });
-        }
-      } else {
-        await assistantsRes.text(); // consume body
-      }
+        for (const a of list) assistants.push({ id: a.id, name: a.name || a.id.substring(0, 12) });
+      } else { await assistantsRes.text(); }
 
       if (phonesRes.ok) {
         const raw = await phonesRes.json();
         const list = Array.isArray(raw) ? raw : raw.results || raw.data || [];
-        for (const p of list) {
-          phoneNumbers.push({
-            id: p.id,
-            number: p.number || p.twilioPhoneNumber || p.id,
-            name: p.name || p.friendlyName || "",
-          });
-        }
-      } else {
-        await phonesRes.text(); // consume body
-      }
+        for (const p of list) phoneNumbers.push({ id: p.id, number: p.number || p.twilioPhoneNumber || p.id, name: p.name || p.friendlyName || "" });
+      } else { await phonesRes.text(); }
 
       return new Response(JSON.stringify({ assistants, phoneNumbers }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Default action: fetch metrics
-    const { startDate, endDate, assistantId, phoneNumberId, assistantIds, phoneNumberIds } = body;
+    // ── Action: sync-and-query (default) ──
+    const { startDate, endDate, assistantId, phoneNumberId } = body;
     if (!startDate || !endDate) {
       return new Response(JSON.stringify({ error: "startDate and endDate required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const deadline = Date.now() + 50_000;
-    const startIso = new Date(startDate).toISOString();
-    const endIso = new Date(endDate + "T23:59:59").toISOString();
-
-    // Support both single and array params
     const hasAssistantIds = Array.isArray(body.assistantIds);
     const hasPhoneNumberIds = Array.isArray(body.phoneNumberIds);
+    const effectiveAssistantIds: string[] = hasAssistantIds ? body.assistantIds : (assistantId && assistantId !== "all" ? [assistantId] : []);
+    const effectivePhoneIds: string[] = hasPhoneNumberIds ? body.phoneNumberIds : (phoneNumberId && phoneNumberId !== "all" ? [phoneNumberId] : []);
 
-    const effectiveAssistantIds: string[] = hasAssistantIds
-      ? body.assistantIds
-      : (assistantId && assistantId !== "all" ? [assistantId] : []);
-
-    const effectivePhoneIds: string[] = hasPhoneNumberIds
-      ? body.phoneNumberIds
-      : (phoneNumberId && phoneNumberId !== "all" ? [phoneNumberId] : []);
-
-    const warnings: string[] = [];
-
-    const summary: VapiSummary = {
-      totalCalls: 0, totalCost: 0, totalDuration: 0, endedCount: 0,
-      costBreakdown: { stt: 0, llm: 0, tts: 0, transport: 0, vapi: 0 },
-      isPartial: false,
-    };
-    const recentCalls: VapiCallRecord[] = [];
-    const dailyCosts: Record<string, { cost: number; count: number }> = {};
-
-    // Filtro explícito vazio = nenhum resultado
+    // Empty explicit filter = no results
     if ((hasAssistantIds && effectiveAssistantIds.length === 0) || (hasPhoneNumberIds && effectivePhoneIds.length === 0)) {
-      return new Response(JSON.stringify({
-        calls: [],
-        summary,
-        dailyChart: [],
-        warnings: ["Nenhum item selecionado no filtro."],
-      }), {
+      const emptySummary: VapiSummary = { totalCalls: 0, totalCost: 0, totalDuration: 0, endedCount: 0, costBreakdown: { stt: 0, llm: 0, tts: 0, transport: 0, vapi: 0 }, isPartial: false };
+      return new Response(JSON.stringify({ calls: [], summary: emptySummary, dailyChart: [], warnings: ["Nenhum item selecionado no filtro."], source: "none" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Build list of filter combos to query
-    // If multiple phoneIds, query each separately (Vapi API only supports single phoneNumberId)
+    const startIso = new Date(startDate).toISOString();
+    const endIso = new Date(endDate + "T23:59:59").toISOString();
+    const now = new Date();
+    const vapiCutoff = new Date(now.getTime() - VAPI_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    const requestedStart = new Date(startDate);
+
+    const warnings: string[] = [];
+    const summary: VapiSummary = { totalCalls: 0, totalCost: 0, totalDuration: 0, endedCount: 0, costBreakdown: { stt: 0, llm: 0, tts: 0, transport: 0, vapi: 0 }, isPartial: false };
+    const recentCalls: VapiCallRecord[] = [];
+    const dailyCosts: Record<string, { cost: number; count: number }> = {};
+    const seenCallIds = new Set<string>();
+    let dataSource = "vapi";
+
+    // ── STEP 1: If period goes beyond Vapi retention, query cache first ──
+    if (requestedStart < vapiCutoff) {
+      dataSource = "cache+vapi";
+      console.log(`📦 Buscando dados do cache (${startDate} até ${endDate})...`);
+
+      let query = supabase
+        .from("vapi_calls_cache")
+        .select("*")
+        .gte("started_at", startIso)
+        .lte("started_at", endIso)
+        .order("started_at", { ascending: false })
+        .limit(5000);
+
+      if (effectiveAssistantIds.length > 0) query = query.in("assistant_id", effectiveAssistantIds);
+      if (effectivePhoneIds.length > 0) query = query.in("phone_number_id", effectivePhoneIds);
+
+      const { data: cachedCalls, error: cacheErr } = await query;
+      if (cacheErr) {
+        console.error("Cache query error:", cacheErr);
+      } else if (cachedCalls && cachedCalls.length > 0) {
+        console.log(`📦 ${cachedCalls.length} chamadas encontradas no cache`);
+        for (const cc of cachedCalls) {
+          if (seenCallIds.has(cc.call_id)) continue;
+          seenCallIds.add(cc.call_id);
+
+          const isEnded = cc.status === "ended";
+          const p = {
+            callId: cc.call_id, assistantId: cc.assistant_id || "", phoneNumberId: cc.phone_number_id || "",
+            customerNumber: cc.customer_number || "—", agentPhone: cc.agent_phone || "",
+            duration: cc.duration || 0, cost: Number(cc.cost) || 0, status: cc.status || "unknown",
+            startedAt: cc.started_at || "", stt: Number(cc.cost_stt) || 0, llm: Number(cc.cost_llm) || 0,
+            tts: Number(cc.cost_tts) || 0, transport: Number(cc.cost_transport) || 0, vapiCost: Number(cc.cost_vapi) || 0,
+            isEnded,
+          };
+          addToSummary(summary, dailyCosts, recentCalls, p);
+        }
+      }
+    }
+
+    // ── STEP 2: Fetch from Vapi API (only last 14 days or full range if within retention) ──
+    const vapiStartDate = requestedStart < vapiCutoff ? vapiCutoff : requestedStart;
+    const vapiStartIso = vapiStartDate.toISOString();
+    const deadline = Date.now() + 45_000;
+
     const phoneQueries = effectivePhoneIds.length > 0 ? effectivePhoneIds : [undefined];
     const assistantQueries = effectiveAssistantIds.length > 0 ? effectiveAssistantIds : [undefined];
+
+    const callsToCache: any[] = [];
 
     for (const aId of assistantQueries) {
       for (const pId of phoneQueries) {
@@ -154,7 +260,7 @@ serve(async (req) => {
 
           pageNum++;
           const params = new URLSearchParams();
-          params.set("createdAtGe", startIso);
+          params.set("createdAtGe", vapiStartIso);
           params.set("createdAtLe", endIso);
           params.set("limit", "1000");
           if (aId) params.set("assistantId", aId);
@@ -167,7 +273,6 @@ serve(async (req) => {
 
           if (!res.ok) {
             const text = await res.text();
-            // Check for subscription/retention error
             if (text.toLowerCase().includes("subscription") || text.toLowerCase().includes("plan limit")) {
               warnings.push("Dados limitados pelo plano Vapi atual.");
               summary.isPartial = true;
@@ -180,82 +285,62 @@ serve(async (req) => {
           const rawCalls = Array.isArray(rawData) ? rawData : rawData.results || rawData.data || [];
 
           for (const call of rawCalls) {
-            const costVal = call.cost ?? call.costBreakdown?.total ?? 0;
-            const cost = typeof costVal === "number" ? costVal : parseFloat(costVal || "0");
-            const duration = call.endedAt && call.startedAt
-              ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000)
-              : call.duration || 0;
+            const p = parseCall(call);
+            if (seenCallIds.has(p.callId)) continue;
+            seenCallIds.add(p.callId);
 
-            const status = call.status || "unknown";
-            const endedReason = call.endedReason || "";
-            const isEnded = status === "ended" && !endedReason.includes("error") && !endedReason.includes("failed");
+            addToSummary(summary, dailyCosts, recentCalls, p);
 
-            const cb = call.costBreakdown || {};
-            const stt = parseFloat(cb.stt || "0");
-            const llm = parseFloat(cb.llm || "0");
-            const tts = parseFloat(cb.tts || "0");
-            const transport = parseFloat(cb.transport || "0");
-            const vapiCost = parseFloat(cb.vapi || "0");
-
-            summary.totalCalls++;
-            summary.totalCost += cost;
-            summary.totalDuration += duration;
-            if (isEnded) summary.endedCount++;
-            summary.costBreakdown.stt += stt;
-            summary.costBreakdown.llm += llm;
-            summary.costBreakdown.tts += tts;
-            summary.costBreakdown.transport += transport;
-            summary.costBreakdown.vapi += vapiCost;
-
-            const dateStr = (call.startedAt || call.createdAt || "").substring(0, 10);
-            if (dateStr) {
-              if (!dailyCosts[dateStr]) dailyCosts[dateStr] = { cost: 0, count: 0 };
-              dailyCosts[dateStr].cost += cost;
-              dailyCosts[dateStr].count++;
-            }
-
-            if (recentCalls.length < MAX_DISPLAY) {
-              recentCalls.push({
-                id: call.id,
-                customer: call.customer?.number || call.customer?.name || "—",
-                agentPhone: call.phoneNumber?.number || call.phoneNumber?.twilioPhoneNumber || "",
-                duration,
-                cost,
-                status: isEnded ? "ended" : (endedReason || status),
-                date: call.startedAt || call.createdAt,
-                costBreakdown: { stt, llm, tts, transport, vapi: vapiCost },
-              });
-            }
+            // Queue for cache upsert
+            callsToCache.push({
+              call_id: p.callId,
+              assistant_id: p.assistantId || null,
+              phone_number_id: p.phoneNumberId || null,
+              customer_number: p.customerNumber,
+              agent_phone: p.agentPhone,
+              duration: p.duration,
+              cost: p.cost,
+              status: p.status,
+              started_at: p.startedAt || null,
+              cost_stt: p.stt,
+              cost_llm: p.llm,
+              cost_tts: p.tts,
+              cost_transport: p.transport,
+              cost_vapi: p.vapiCost,
+              raw_data: call,
+              synced_at: new Date().toISOString(),
+            });
           }
 
-          console.log(`Vapi metrics p${pageNum}: ${rawCalls.length} calls, total=${summary.totalCalls}`);
+          console.log(`Vapi API p${pageNum}: ${rawCalls.length} calls, total=${summary.totalCalls}`);
 
           if (rawCalls.length < 1000) break;
           const lastDate = rawCalls[rawCalls.length - 1]?.createdAt;
           if (!lastDate || lastDate === cursor) break;
           cursor = lastDate;
         }
-
         if (summary.isPartial) break;
       }
       if (summary.isPartial) break;
     }
 
-    recentCalls.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    const dailyChart = Object.entries(dailyCosts)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, data]) => ({ date, cost: +data.cost.toFixed(4), count: data.count }));
-
-    if (summary.totalCalls > MAX_DISPLAY) {
-      warnings.push(`Exibindo ${recentCalls.length} de ${summary.totalCalls} chamadas na tabela.`);
+    // ── STEP 3: Save new calls to cache (background, non-blocking) ──
+    if (callsToCache.length > 0) {
+      console.log(`💾 Salvando ${callsToCache.length} chamadas no cache...`);
+      // Upsert in batches of 200
+      for (let i = 0; i < callsToCache.length; i += 200) {
+        const batch = callsToCache.slice(i, i + 200);
+        const { error: upsertErr } = await supabase
+          .from("vapi_calls_cache")
+          .upsert(batch, { onConflict: "call_id", ignoreDuplicates: false });
+        if (upsertErr) {
+          console.error(`Cache upsert error (batch ${i}):`, upsertErr);
+        }
+      }
+      console.log(`✅ Cache atualizado`);
     }
 
-    console.log(`=== VAPI METRICS DONE: ${summary.totalCalls} calls, $${summary.totalCost.toFixed(4)} ===`);
-
-    return new Response(JSON.stringify({ calls: recentCalls, summary, dailyChart, warnings }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return buildResponse(recentCalls, summary, dailyCosts, warnings, dataSource);
   } catch (error) {
     console.error("fetch-vapi-metrics error:", error);
     return new Response(JSON.stringify({ error: error.message, calls: [], warnings: [error.message] }), {
