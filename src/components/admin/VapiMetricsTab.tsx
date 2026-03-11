@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,25 +14,17 @@ import { cn, formatPhone } from "@/lib/utils";
 import { format, subDays, addDays, differenceInDays, min as minDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity, AlertTriangle, Eye, ChevronDown, ChevronsUpDown, Database
+  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity, AlertTriangle, Eye, ChevronsUpDown, Database
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  Legend
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
 import CallDetailModal from "./CallDetailModal";
 
 const ITEMS_PER_PAGE = 20;
 const BATCH_DAYS = 14;
-const BAR_COLORS = [
-  "hsl(var(--primary))",
-  "hsl(210, 70%, 55%)",
-  "hsl(160, 60%, 45%)",
-  "hsl(var(--destructive))",
-  "hsl(45, 80%, 55%)",
-];
 
 const fmtUSD = (v: number) => `US$ ${v.toFixed(2)}`;
 const fmtDuration = (s: number) => {
@@ -271,15 +263,11 @@ const VapiMetricsTab = () => {
 
     setBatchProgress({ total: totalBatches, completed: 0, days: totalDays });
 
-    // For each batch, we may need to query per-assistant and per-phone
-    // But the edge function handles single assistantId/phoneNumberId
-    // We'll send one request per batch, passing arrays
     const allResults: any[] = [];
     const allWarnings: string[] = [];
     let retentionLimitHit = false;
 
     try {
-      // Run batches in parallel (max 3 concurrent to avoid overload)
       const CONCURRENCY = 3;
       for (let i = 0; i < batches.length; i += CONCURRENCY) {
         if (retentionLimitHit) break;
@@ -297,7 +285,6 @@ const VapiMetricsTab = () => {
             });
             if (error) throw error;
 
-            // Check for retention limit
             const warnings: string[] = data?.warnings || [];
             for (const w of warnings) {
               if (w.toLowerCase().includes("subscription") || w.toLowerCase().includes("plan limit") || w.toLowerCase().includes("retenção")) {
@@ -322,7 +309,6 @@ const VapiMetricsTab = () => {
         setBatchProgress(prev => ({ ...prev, completed: Math.min(i + CONCURRENCY, batches.length) }));
       }
 
-      // Merge all results
       const mergedSummary = mergeSummaries(allResults);
       const mergedChart = mergeDailyCharts(allResults);
       const mergedCalls = mergeCalls(allResults);
@@ -332,7 +318,6 @@ const VapiMetricsTab = () => {
       setCalls(mergedCalls);
       setFetched(true);
 
-      // Detect data source from results
       const sources = allResults.map(r => r?.source).filter(Boolean);
       if (sources.includes("cache+vapi")) {
         setDataSource("cache+vapi");
@@ -340,7 +325,6 @@ const VapiMetricsTab = () => {
         setDataSource("vapi");
       }
 
-      // Show unique warnings
       const uniqueWarnings = [...new Set(allWarnings)];
       uniqueWarnings.forEach(w => toast.warning(w, { duration: 8000 }));
     } catch (e: any) {
@@ -361,25 +345,6 @@ const VapiMetricsTab = () => {
       totalCost: summary.totalCost,
       successRate: summary.totalCalls > 0 ? (summary.endedCount / summary.totalCalls) * 100 : 0,
     };
-  }, [summary]);
-
-  const costBarData = useMemo(() => {
-    if (!summary?.costBreakdown) return [];
-    const cb = summary.costBreakdown;
-    return [{
-      name: "Custos",
-      STT: +cb.stt.toFixed(4),
-      LLM: +cb.llm.toFixed(4),
-      TTS: +cb.tts.toFixed(4),
-      Transport: +cb.transport.toFixed(4),
-      Vapi: +cb.vapi.toFixed(4),
-    }];
-  }, [summary]);
-
-  const costTotal = useMemo(() => {
-    if (!summary?.costBreakdown) return 0;
-    const cb = summary.costBreakdown;
-    return cb.stt + cb.llm + cb.tts + cb.transport + cb.vapi;
   }, [summary]);
 
   const chartData = useMemo(() => {
@@ -504,7 +469,6 @@ const VapiMetricsTab = () => {
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="lg:col-span-2"><CardContent className="pt-6"><Skeleton className="h-64 w-full" /></CardContent></Card>
-            <Card><CardContent className="pt-6"><Skeleton className="h-64 w-full" /></CardContent></Card>
           </div>
           <Card><CardContent className="pt-6"><Skeleton className="h-48 w-full" /></CardContent></Card>
         </div>
@@ -536,57 +500,23 @@ const VapiMetricsTab = () => {
 
       {/* Charts */}
       {fetched && !loading && chartData.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-2">
-            <CardHeader><CardTitle className="text-base">Evolução Diária de Custos</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="day" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                  <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={v => `$${v}`} />
-                  <Tooltip
-                    formatter={(v: number) => [fmtUSD(v), "Custo"]}
-                    contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                  />
-                  <Line type="monotone" dataKey="cost" name="Custo (USD)" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center justify-between">
-                Composição de Custos
-                <span className="text-sm font-normal text-muted-foreground">{fmtUSD(costTotal)}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {costBarData.length > 0 && costTotal > 0 ? (
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={costBarData} layout="vertical" margin={{ left: 0, right: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                    <XAxis type="number" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={v => `$${v}`} />
-                    <YAxis type="category" dataKey="name" hide />
-                    <Tooltip
-                      formatter={(v: number, name: string) => [fmtUSD(v), name]}
-                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                    />
-                    <Legend />
-                    <Bar dataKey="STT" stackId="costs" fill={BAR_COLORS[0]} name="STT" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="LLM" stackId="costs" fill={BAR_COLORS[1]} name="LLM" />
-                    <Bar dataKey="TTS" stackId="costs" fill={BAR_COLORS[2]} name="TTS" />
-                    <Bar dataKey="Transport" stackId="costs" fill={BAR_COLORS[3]} name="Transport" />
-                    <Bar dataKey="Vapi" stackId="costs" fill={BAR_COLORS[4]} name="Vapi" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">Sem dados de composição</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Evolução Diária de Custos</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="day" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={v => `$${v}`} />
+                <Tooltip
+                  formatter={(v: number) => [fmtUSD(v), "Custo"]}
+                  contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
+                />
+                <Line type="monotone" dataKey="cost" name="Custo (USD)" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       )}
 
       {/* Audit Table */}
