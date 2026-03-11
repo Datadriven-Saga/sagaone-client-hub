@@ -224,7 +224,7 @@ Deno.serve(async (req: Request) => {
     // 1. Find ALL whatsapp_templates with this id_meta (across all empresas)
     const { data: templates, error: templatesErr } = await supabase
       .from('whatsapp_templates')
-      .select('id, nome, empresa_id, pri_telefone, conteudo, formato, categoria, card_data, variable_mapping, agente_id, departamento_id, template_id_pri, category_meta')
+      .select('id, nome, empresa_id, pri_telefone, conteudo, formato, categoria, card_data, variable_mapping, agente_id, departamento_id, template_id_pri, category_meta, exemplos_variaveis')
       .eq('id_meta', id_meta);
 
     if (templatesErr) throw templatesErr;
