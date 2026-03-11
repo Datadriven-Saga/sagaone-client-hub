@@ -102,8 +102,16 @@ serve(async (req) => {
     const endIso = new Date(endDate + "T23:59:59").toISOString();
 
     // Support both single and array params
-    const effectiveAssistantIds: string[] = assistantIds || (assistantId && assistantId !== "all" ? [assistantId] : []);
-    const effectivePhoneIds: string[] = phoneNumberIds || (phoneNumberId && phoneNumberId !== "all" ? [phoneNumberId] : []);
+    const hasAssistantIds = Array.isArray(body.assistantIds);
+    const hasPhoneNumberIds = Array.isArray(body.phoneNumberIds);
+
+    const effectiveAssistantIds: string[] = hasAssistantIds
+      ? body.assistantIds
+      : (assistantId && assistantId !== "all" ? [assistantId] : []);
+
+    const effectivePhoneIds: string[] = hasPhoneNumberIds
+      ? body.phoneNumberIds
+      : (phoneNumberId && phoneNumberId !== "all" ? [phoneNumberId] : []);
 
     const warnings: string[] = [];
 
