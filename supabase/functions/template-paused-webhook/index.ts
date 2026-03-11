@@ -357,6 +357,8 @@ Deno.serve(async (req: Request) => {
         pri_dealer_id: agenteData.dealer_id || null,
         pri_status: agenteData.ativo ? 'Ativo' : 'Inativo',
         variable_mapping: sourceTemplate.variable_mapping || {},
+        // ID do template original na PRI para reutilizar mídia já enviada à Meta
+        template_id_pri_original: sourceTemplate.template_id_pri || null,
       };
 
       // Chamar trigger-webhook (mesmo fluxo do frontend)
