@@ -131,15 +131,30 @@ async function buildMetaComponents(template: {
   formato: string | null;
   card_data: any;
   variable_mapping: any;
-}): Promise<any[]> {
+  exemplos_variaveis?: any;
+}, options?: { tweakText?: boolean }): Promise<any[]> {
   const components: any[] = [];
 
   // BODY
   if (template.conteudo) {
-    components.push({ type: 'BODY', text: template.conteudo });
-  }
+    const bodyText = options?.tweakText ? tweakBodyText(template.conteudo) : template.conteudo;
+    const bodyComponent: any = { type: 'BODY', text: bodyText };
 
-  const cardData = template.card_data || {};
+    // Add variable examples if template has variables
+    const varExamples = buildVariableExamples(
+      template.variable_mapping,
+      template.exemplos_variaveis,
+    );
+    if (Object.keys(varExamples).length > 0) {
+      // Meta expects example.body_text as array of arrays
+      const sortedValues = Object.keys(varExamples)
+        .sort((a, b) => parseInt(a) - parseInt(b))
+        .map(k => varExamples[k]);
+      bodyComponent.example = { body_text: [sortedValues] };
+    }
+
+    components.push(bodyComponent);
+  }
 
   // HEADER (media) - fetch base64 like frontend does
   if (cardData.videoUrl) {
