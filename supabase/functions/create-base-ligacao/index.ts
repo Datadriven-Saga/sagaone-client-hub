@@ -5,7 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Webhook externo para sincronização
+// Webhooks externos para sincronização
+const WEBHOOK_CRIA_EVENTO = 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-evento-ligacao';
 const WEBHOOK_CRIA_BASE = 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-base-ligacao';
 
 interface ContatoInput {
@@ -368,6 +369,105 @@ Deno.serve(async (req: Request) => {
       }
 
       console.log(`✅ [${requestId}] ${totalUpserted}/${contatosValidos.length} salvos em prospect_pri_voz`);
+    }
+
+    // =====================================================
+    // ETAPA 2.5: CHAMAR cria-evento-ligacao ANTES de cria-base-ligacao
+    // Garante que o evento exista no sistema externo antes de enviar contatos
+    // =====================================================
+    if (sync_external && id_evento && empresa_id) {
+      console.log(`\n📞 [${requestId}] ETAPA 2.5: Chamando cria-evento-ligacao para garantir evento externo...`);
+      
+      try {
+        const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+        
+        // Buscar dados do evento em eventos_pri_voz
+        const { data: evtData } = await supabase
+          .from('eventos_pri_voz')
+          .select('*')
+          .eq('id_evento', id_evento)
+          .eq('empresa_id', empresa_id)
+          .maybeSingle();
+        
+        // Buscar dados completos da empresa
+        const { data: empresaCompleta } = await supabase
+          .from('empresas')
+          .select('id, nome_empresa, cnpj, crm_id, uf, marca, cidade, endereco')
+          .eq('id', empresa_id)
+          .single();
+        
+        const dealerId = (empresaCompleta?.crm_id || '').trim();
+        
+        // Buscar telefone Pri WhatsApp
+        let telefonePriWhatsapp = '';
+        const { data: agentesVinculados } = await supabase
+          .from('agente_empresas')
+          .select('agente_id, agentes_ia(id, nome, telefone, ativo)')
+          .eq('empresa_id', empresa_id);
+        
+        const agentes = (agentesVinculados || [])
+          .map((ae: any) => ae.agentes_ia)
+          .filter((a: any) => a && a.ativo);
+        
+        const searchPatternsWhatsapp = ['pri - whatsapp', 'pri whatsapp', 'pri-whatsapp'];
+        const agentePriWhatsapp = agentes.find((a: any) => {
+          const nome = String(a?.nome || '').toLowerCase();
+          return searchPatternsWhatsapp.some(pattern => nome.includes(pattern)) && a?.telefone;
+        });
+        if (agentePriWhatsapp?.telefone) {
+          telefonePriWhatsapp = agentePriWhatsapp.telefone.replace(/\D/g, '');
+        }
+        
+        // Buscar prospecção para dados extras
+        const { data: prospData } = await supabase
+          .from('prospeccoes')
+          .select('titulo, descricao, data_inicio, data_fim, uf, cidade, endereco')
+          .eq('event_id_pri', String(id_evento))
+          .eq('empresa_id', empresa_id)
+          .eq('canal', 'Ligação')
+          .maybeSingle();
+        
+        const eventoPayload = {
+          id_evento: id_evento,
+          nome: evtData?.nome || prospData?.titulo || `Evento Ligação ${id_evento}`,
+          descricao: evtData?.descricao || prospData?.descricao || '',
+          categoria: 'evento',
+          marca: empresaCompleta?.marca || empresaCompleta?.nome_empresa || '',
+          dealerid: dealerId,
+          telefone_pri: telefonePriNormalizado,
+          telefone_pri_whatsapp: telefonePriWhatsapp || evtData?.telefone_pri_whatsapp || '',
+          pri_dealer_id: dealerId,
+          uf: evtData?.uf || prospData?.uf || empresaCompleta?.uf || '',
+          cidade: evtData?.cidade || prospData?.cidade || empresaCompleta?.cidade || '',
+          endereco: evtData?.endereco || prospData?.endereco || empresaCompleta?.endereco || '',
+          data_inicio: evtData?.data_inicio || prospData?.data_inicio || '',
+          data_fim: evtData?.data_fim || prospData?.data_fim || '',
+          evt_status: evtData?.evt_status || 'ativo',
+          criado_em: new Date().toISOString(),
+          atualizado_em: new Date().toISOString(),
+        };
+        
+        console.log(`📤 [${requestId}] Payload cria-evento-ligacao: id_evento=${id_evento}, nome="${eventoPayload.nome}", dealer="${dealerId}"`);
+        
+        const evtResponse = await fetch(WEBHOOK_CRIA_EVENTO, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+          },
+          body: JSON.stringify({ evento: eventoPayload }),
+        });
+        
+        const evtResponseText = await evtResponse.text();
+        
+        if (evtResponse.ok) {
+          console.log(`✅ [${requestId}] cria-evento-ligacao OK (status ${evtResponse.status})`);
+        } else {
+          console.warn(`⚠️ [${requestId}] cria-evento-ligacao falhou (status ${evtResponse.status}): ${evtResponseText.substring(0, 300)}`);
+        }
+      } catch (evtError) {
+        console.error(`⚠️ [${requestId}] Erro ao chamar cria-evento-ligacao (não crítico):`, evtError);
+      }
     }
 
     // =====================================================
