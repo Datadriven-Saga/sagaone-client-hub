@@ -38,6 +38,66 @@ function mapCategoriaToMeta(categoria: string): string {
   return mapping[categoria] || 'MARKETING';
 }
 
+// Helper: default example values for known variable names
+const DEFAULT_VARIABLE_EXAMPLES: Record<string, string> = {
+  nome: 'João',
+  nome_cliente: 'João',
+  primeiro_nome: 'João',
+  email: 'cliente@email.com',
+  telefone: '11999999999',
+  empresa: 'Empresa Exemplo',
+  loja: 'Loja Centro',
+  marca: 'Toyota',
+  modelo: 'Corolla',
+  vendedor: 'Carlos',
+  data: '15/03/2026',
+  horario: '14:00',
+};
+
+// Helper: build variable examples from variable_mapping + stored examples
+function buildVariableExamples(
+  variableMapping: Record<string, string> | null,
+  exemplosVarDb: Record<string, string> | null,
+): Record<string, string> {
+  const examples: Record<string, string> = {};
+  if (!variableMapping) return examples;
+
+  for (const [position, fieldName] of Object.entries(variableMapping)) {
+    // Priority: 1) stored example from DB, 2) default by field name, 3) generic
+    if (exemplosVarDb && exemplosVarDb[position]) {
+      examples[position] = exemplosVarDb[position];
+    } else {
+      const normalizedField = (fieldName || '').toLowerCase().replace(/[^a-z_]/g, '');
+      examples[position] = DEFAULT_VARIABLE_EXAMPLES[normalizedField] || `Exemplo ${position}`;
+    }
+  }
+  return examples;
+}
+
+// Helper: slightly modify template body text to avoid Meta duplicate rejection
+function tweakBodyText(text: string): string {
+  if (!text) return text;
+
+  let modified = text;
+
+  // 1. Remove emojis (unicode emoji ranges)
+  const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu;
+  modified = modified.replace(emojiRegex, '').replace(/  +/g, ' ').trim();
+
+  // 2. If text has sentences (period followed by space+capital), add a line break after the first one
+  const sentenceBreak = modified.replace(/(\.\s)(?=[A-ZÀ-Ú])/, '.\n');
+  if (sentenceBreak !== modified) {
+    modified = sentenceBreak;
+  }
+
+  // 3. If nothing changed at all, append a subtle zero-impact change
+  if (modified === text) {
+    modified = modified + ' ';
+  }
+
+  return modified;
+}
+
 // Helper: build Meta-compatible components from template data
 // Helper: fetch media URL and convert to base64 (same as frontend fetchMediaAsBase64)
 async function fetchMediaAsBase64(url: string): Promise<{ base64: string; mimeType: string; size: number } | null> {
