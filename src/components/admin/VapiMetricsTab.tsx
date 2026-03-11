@@ -290,8 +290,8 @@ const VapiMetricsTab = () => {
               body: {
                 startDate: batch.startDate,
                 endDate: batch.endDate,
-                assistantIds: selectedAssistants.length > 0 ? selectedAssistants : undefined,
-                phoneNumberIds: selectedPhones.length > 0 ? selectedPhones : undefined,
+                assistantIds: selectedAssistants,
+                phoneNumberIds: selectedPhones,
               },
             });
             if (error) throw error;
