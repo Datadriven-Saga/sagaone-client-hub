@@ -406,14 +406,30 @@ serve(async (req) => {
       try {
         const fetchStartTime = Date.now();
         
-        const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
-          },
-          body: JSON.stringify(payloadLigacao)
-        });
+        // Timeout de 30s para evitar travamento
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
+        console.log(`📡 [${requestId}] Enviando payload ao webhook: ${JSON.stringify(payloadLigacao).substring(0, 500)}`);
+        
+        let response: Response;
+        try {
+          response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+            },
+            body: JSON.stringify(payloadLigacao),
+            signal: controller.signal,
+          });
+        } catch (fetchErr: any) {
+          clearTimeout(timeoutId);
+          const isTimeout = fetchErr.name === 'AbortError';
+          console.error(`❌ [${requestId}] Fetch falhou (${isTimeout ? 'TIMEOUT 30s' : fetchErr.message})`);
+          throw new Error(isTimeout ? 'Timeout de 30s ao chamar webhook externo' : fetchErr.message);
+        }
+        clearTimeout(timeoutId);
         
         const fetchDuration = Date.now() - fetchStartTime;
         
