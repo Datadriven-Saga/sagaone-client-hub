@@ -390,7 +390,7 @@ serve(async (req) => {
       
       // Preparar array de contatos para o webhook - SEMPRE como array
       const contatosArray = leads.map(lead => ({
-        telefone_lead: normalizePhone(lead.telefone),
+        telefone_lead: normalizePhoneForDialer(lead.telefone),
         nome: lead.nome,
       }));
 
