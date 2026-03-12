@@ -456,6 +456,7 @@ export const DashboardWhatsAppTab = ({
       {
         label: "Taxa agendamento",
         value: pctFmt(m.taxaAgendBase),
+        pctVal: m.taxaAgendBase,
         hint: taxaAgendPct > 3 ? "✓ Acima de 3%" : "✕ Abaixo de 3%",
         threshold: 0.03,
         useValueColor: true,
