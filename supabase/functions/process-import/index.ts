@@ -391,17 +391,41 @@ Deno.serve(async (req: Request) => {
         if (prospeccao && prospeccao.canal === 'Ligação' && prospeccao.event_id_pri) {
           console.log(`📞 IA Ligação detected - syncing with create-base-ligacao webhook...`);
 
-          // Get Pri agent phone for this company
-          const { data: agente } = await supabaseAdmin
-            .from('agentes_ia')
-            .select('telefone')
-            .eq('empresa_id', log.empresa_id)
-            .eq('nome', 'Pri')
-            .not('telefone', 'is', null)
-            .limit(1)
-            .single();
+          // Get Pri agent phone for this company via agente_empresas
+          let telefonePri = '';
+          const { data: agentesVinculados } = await supabaseAdmin
+            .from('agente_empresas')
+            .select('agente_id, agentes_ia(id, nome, telefone, ativo)')
+            .eq('empresa_id', log.empresa_id);
 
-          const telefonePri = (agente?.telefone || '').replace(/\D/g, '');
+          const agentesAtivos = (agentesVinculados || [])
+            .map((ae: any) => ae.agentes_ia)
+            .filter((a: any) => a && a.ativo && a.telefone);
+
+          // Search for voice Pri agent (exclude WhatsApp variants)
+          const searchPatternsVoz = ['pri - ligação', 'pri - ligacao', 'pri ligação', 'pri ligacao', 'pri-ligação', 'pri-ligacao'];
+          const agentePriVoz = agentesAtivos.find((a: any) => {
+            const nome = String(a?.nome || '').toLowerCase();
+            return searchPatternsVoz.some(pattern => nome.includes(pattern));
+          });
+
+          if (agentePriVoz?.telefone) {
+            telefonePri = agentePriVoz.telefone.replace(/\D/g, '');
+          } else {
+            // Fallback: search for generic "Pri" (not WhatsApp)
+            const whatsappPatterns = ['whatsapp', 'wpp', 'zap'];
+            const agentePriGeneric = agentesAtivos.find((a: any) => {
+              const nome = String(a?.nome || '').toLowerCase().trim();
+              const isPri = nome === 'pri' || nome.startsWith('pri ') || nome.startsWith('pri-');
+              const isWhatsapp = whatsappPatterns.some(p => nome.includes(p));
+              return isPri && !isWhatsapp;
+            });
+            if (agentePriGeneric?.telefone) {
+              telefonePri = agentePriGeneric.telefone.replace(/\D/g, '');
+            }
+          }
+
+          console.log(`📞 telefone_pri resolved: "${telefonePri}"`);
 
           // Fetch all contacts linked to this event
           const allContatos: { nome: string; telefone: string; lead_id: number | null }[] = [];
