@@ -388,7 +388,7 @@ Deno.serve(async (req: Request) => {
           .eq('id', log.prospeccao_id)
           .single();
 
-        if (prospeccao && prospeccao.canal === 'IA Ligação' && prospeccao.event_id_pri) {
+        if (prospeccao && prospeccao.canal === 'Ligação' && prospeccao.event_id_pri) {
           console.log(`📞 IA Ligação detected - syncing with create-base-ligacao webhook...`);
 
           // Get Pri agent phone for this company
