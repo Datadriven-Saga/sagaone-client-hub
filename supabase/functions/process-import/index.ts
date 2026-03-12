@@ -459,12 +459,12 @@ Deno.serve(async (req: Request) => {
 
           console.log(`📤 Sending ${importedContatos.length} imported contacts to create-base-ligacao (from ${importedPhones.length} phones)`);
 
-          if (allContatos.length > 0) {
+          if (importedContatos.length > 0) {
             const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
             const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
             const webhookPayload = {
-              contatos: allContatos.map(c => ({
+              contatos: importedContatos.map(c => ({
                 nome: c.nome,
                 telefone: c.telefone,
               })),
