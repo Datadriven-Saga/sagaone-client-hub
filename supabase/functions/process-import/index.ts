@@ -427,43 +427,44 @@ Deno.serve(async (req: Request) => {
 
           console.log(`📞 telefone_pri resolved: "${telefonePri}"`);
 
-          // Fetch all contacts linked to this event
-          const allContatos: { nome: string; telefone: string; lead_id: number | null }[] = [];
-          let fetchOffset = 0;
-          const FETCH_LIMIT = 1000;
-
-          while (true) {
+          // Fetch only the contacts from THIS import (by base_id or phones collected)
+          const importedContatos: { nome: string; telefone: string; lead_id: number | null }[] = [];
+          const importedPhones = [...seenPhones]; // phones processed in this import run
+          
+          // Query in chunks of 200 phones
+          const PHONE_CHUNK = 200;
+          for (let ci = 0; ci < importedPhones.length; ci += PHONE_CHUNK) {
+            const phoneChunk = importedPhones.slice(ci, ci + PHONE_CHUNK);
             const { data: rows, error: fetchErr } = await supabaseAdmin
-              .from('eventos_prospeccao')
-              .select('contato_id, contatos!inner(nome, telefone, lead_id)')
-              .eq('prospeccao_id', log.prospeccao_id)
-              .range(fetchOffset, fetchOffset + FETCH_LIMIT - 1);
+              .from('contatos')
+              .select('nome, telefone, lead_id')
+              .eq('empresa_id', log.empresa_id)
+              .in('telefone', phoneChunk);
 
-            if (fetchErr || !rows || rows.length === 0) break;
+            if (fetchErr) {
+              console.error('⚠️ Error fetching imported contacts:', fetchErr.message);
+              continue;
+            }
 
-            for (const row of rows) {
-              const c = (row as any).contatos;
-              if (c && c.telefone) {
-                allContatos.push({
+            for (const c of (rows || [])) {
+              if (c.telefone) {
+                importedContatos.push({
                   nome: c.nome || '',
                   telefone: c.telefone,
                   lead_id: c.lead_id || null,
                 });
               }
             }
-
-            if (rows.length < FETCH_LIMIT) break;
-            fetchOffset += FETCH_LIMIT;
           }
 
-          console.log(`📤 Sending ${allContatos.length} contacts to create-base-ligacao`);
+          console.log(`📤 Sending ${importedContatos.length} imported contacts to create-base-ligacao (from ${importedPhones.length} phones)`);
 
-          if (allContatos.length > 0) {
+          if (importedContatos.length > 0) {
             const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
             const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
             const webhookPayload = {
-              contatos: allContatos.map(c => ({
+              contatos: importedContatos.map(c => ({
                 nome: c.nome,
                 telefone: c.telefone,
               })),
