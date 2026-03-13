@@ -252,15 +252,13 @@ export const DashboardLigacaoTab = ({
         apiFilters.search = filters.search;
       }
       
-      // Filtro de status (atendidos, agendados, em fila, whatsapp)
+      // Filtro de status (atendidos, agendados, em fila)
       if (filters.showOnlyAtendidos) {
         apiFilters.status_ligacao = 'atendido';
       } else if (filters.showOnlyAgendados) {
         apiFilters.status_ligacao = 'agendado';
       } else if (filters.showOnlyEmFila) {
         apiFilters.status_ligacao = 'em_fila';
-      } else if (filters.showOnlyWhatsapp) {
-        apiFilters.status_ligacao = 'whatsapp';
       }
       
       // Filtro de tentativas
