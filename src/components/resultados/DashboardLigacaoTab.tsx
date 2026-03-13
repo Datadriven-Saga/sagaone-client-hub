@@ -222,7 +222,7 @@ export const DashboardLigacaoTab = ({
 
       if (!data?.success || !data?.contatos || data.contatos.length === 0) {
         setLeads([]);
-        setMetricas({ totalLeads: 0, totalLigacoes: 0, leadsAtendidos: 0, leadsAgendados: 0 });
+        setMetricas({ totalLeads: 0, totalLigacoes: 0, leadsAtendidos: 0, leadsAgendados: 0, enviadoWhatsapp: 0 });
         if (!selectedLoja) toast.info('Nenhum dado encontrado. Clique em "Sincronizar" para buscar dados.');
         setLastAppUpdate(new Date().toLocaleString('pt-BR'));
         return;
