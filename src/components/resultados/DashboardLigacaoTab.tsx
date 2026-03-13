@@ -413,9 +413,6 @@ export const DashboardLigacaoTab = ({
     if (lead.ligacao_erro) {
       return <X className="h-4 w-4 text-destructive" />;
     }
-    if (lead.enviado_whatsapp) {
-      return <MessageSquare className="h-4 w-4 text-emerald-600" />;
-    }
     return <Phone className="h-4 w-4 text-muted-foreground" />;
   };
 
