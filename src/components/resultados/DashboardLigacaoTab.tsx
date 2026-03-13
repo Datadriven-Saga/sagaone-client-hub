@@ -338,7 +338,6 @@ export const DashboardLigacaoTab = ({
           totalLigacoes: leadsContatados,
           leadsAtendidos: data.metricas.atendidos,
           leadsAgendados: data.metricas.agendados,
-          mensagensEnviadas: data.metricas.whatsappEnviado,
         });
       } else {
         // Fallback
@@ -347,7 +346,6 @@ export const DashboardLigacaoTab = ({
           totalLigacoes: leadsContatados,
           leadsAtendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
           leadsAgendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
-          mensagensEnviadas: processedLeads.filter((l: LeadData) => l.enviado_whatsapp).length,
         });
       }
       
