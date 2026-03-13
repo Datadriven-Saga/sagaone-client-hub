@@ -488,15 +488,10 @@ serve(async (req) => {
         if (successLeadIds.length > 0) {
           const dataDisparoIA = new Date().toISOString();
           
-          // Atualizar contatos e eventos_prospeccao em sub-lotes de 100
-          for (let i = 0; i < successLeadIds.length; i += 100) {
-            const chunk = successLeadIds.slice(i, i + 100);
-            await supabase.from('contatos').update({ data_disparo_ia: dataDisparoIA }).in('id', chunk);
-            await supabase.from('eventos_prospeccao').update({ data_disparo_ia: dataDisparoIA }).eq('prospeccao_id', job.prospeccao_id).in('contato_id', chunk);
-          }
-
-          // Backup cadencia_pri_voz para ligação (apenas leads com sucesso)
           if (isIALigacao) {
+            // IA Ligação: IDs são de prospect_pri_voz, não de contatos
+            // Não atualizar contatos/eventos_prospeccao diretamente (IDs não correspondem)
+            // Backup cadencia_pri_voz para registro de tentativas
             const successLeadSet = new Set(successLeadIds);
             const cadenciasBackup = leads
               .filter((lead: any) => successLeadSet.has(lead.id))
@@ -513,6 +508,13 @@ serve(async (req) => {
               }));
             for (let i = 0; i < cadenciasBackup.length; i += 100) {
               await supabase.from('cadencia_pri_voz').upsert(cadenciasBackup.slice(i, i + 100), { onConflict: 'telefone_lead,id_evento' });
+            }
+          } else {
+            // WhatsApp: atualizar contatos e eventos_prospeccao em sub-lotes de 100
+            for (let i = 0; i < successLeadIds.length; i += 100) {
+              const chunk = successLeadIds.slice(i, i + 100);
+              await supabase.from('contatos').update({ data_disparo_ia: dataDisparoIA }).in('id', chunk);
+              await supabase.from('eventos_prospeccao').update({ data_disparo_ia: dataDisparoIA }).eq('prospeccao_id', job.prospeccao_id).in('contato_id', chunk);
             }
           }
         }
