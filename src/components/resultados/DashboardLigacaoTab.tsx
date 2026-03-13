@@ -301,9 +301,10 @@ export const DashboardLigacaoTab = ({
         totalLeads: filteredLeads.length, totalLigacoes: leadsContatados,
         leadsAtendidos: filteredLeads.filter(l => l.ligacao_atendida).length,
         leadsAgendados: filteredLeads.filter(l => l.status_agendado).length,
+        enviadoWhatsapp: filteredLeads.filter(l => l.enviado_whatsapp).length,
       };
     }
-    return metricas || { totalLeads: 0, totalLigacoes: 0, leadsAtendidos: 0, leadsAgendados: 0 };
+    return metricas || { totalLeads: 0, totalLigacoes: 0, leadsAtendidos: 0, leadsAgendados: 0, enviadoWhatsapp: 0 };
   }, [filteredLeads, metricas, filters.search, filters.status]);
 
   const paginatedLeads = useMemo(() => {
