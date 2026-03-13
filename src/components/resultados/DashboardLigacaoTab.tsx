@@ -490,6 +490,8 @@ export const DashboardLigacaoTab = ({
                 <span>→</span>
                 <span className="px-2 py-0.5 rounded bg-green-500/10 text-green-500">Atendidos</span>
                 <span>→</span>
+                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500">WhatsApp</span>
+                <span>→</span>
                 <span className="px-2 py-0.5 rounded bg-[#04bbda]/10 text-[#04bbda]">Agendados</span>
               </div>
             </div>
