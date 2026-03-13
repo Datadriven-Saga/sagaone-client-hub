@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Loader2, Phone, X, RefreshCw, PhoneCall, CalendarCheck, Users, Plus, Minus, Filter, TrendingUp } from 'lucide-react';
+import { Search, Loader2, Phone, X, RefreshCw, PhoneCall, CalendarCheck, Users, Plus, Minus, Filter, TrendingUp, MessageSquare } from 'lucide-react';
 import { SyncButton } from './SyncButton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
