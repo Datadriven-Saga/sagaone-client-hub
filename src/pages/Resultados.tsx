@@ -151,6 +151,14 @@ const Resultados = () => {
         );
 
       case "dashboard-whatsapp":
+        // EMPRESA ADMIN gets the admin aggregated view
+        if (isEmpresaAdmin) {
+          return (
+            <Suspense fallback={<ResultadosGenericSkeleton />}>
+              <AdminDashboardWhatsApp />
+            </Suspense>
+          );
+        }
         return (
           <Suspense fallback={<ResultadosGenericSkeleton />}>
             {selectedWhatsAppEventId && selectedWhatsAppEventIdPri ? (
