@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Loader2, Phone, MessageSquare, X, RefreshCw, Calendar, PhoneCall, PhoneOff, CalendarCheck, Users, Plus, Minus, Filter } from 'lucide-react';
+import { Search, Loader2, Phone, X, RefreshCw, Calendar, PhoneCall, PhoneOff, CalendarCheck, Users, Plus, Minus, Filter } from 'lucide-react';
 import { SyncButton } from './SyncButton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,7 +43,6 @@ interface LeadData {
   ligacao_atendida?: boolean;
   status_agendado?: boolean;
   ligacao_erro?: boolean;
-  enviado_whatsapp?: boolean;
 }
 
 interface EventData {
@@ -61,7 +60,6 @@ interface Metricas {
   totalLigacoes: number;
   leadsAtendidos: number;
   leadsAgendados: number;
-  mensagensEnviadas: number;
 }
 
 interface LojaInfo {
@@ -74,47 +72,40 @@ const FETCH_ALL = 10000; // Buscar todos os registros para filtragem correta
 
 // Configuração das métricas com cores e ícones
 const metricsConfig = [
-  { 
-    key: 'totalLeads' as const, 
-    label: 'Total Leads', 
+  {
+    key: 'totalLeads' as const,
+    label: 'Total Leads',
     icon: Users,
     borderColor: 'border-l-primary',
     iconColor: 'text-primary'
   },
-  { 
-    key: 'totalLigacoes' as const, 
-    label: 'Leads Contatados', 
+  {
+    key: 'totalLigacoes' as const,
+    label: 'Leads Contatados',
     icon: Phone,
     borderColor: 'border-l-blue-500',
     iconColor: 'text-blue-600'
   },
-  { 
-    key: 'leadsAtendidos' as const, 
-    label: 'Atendidos', 
+  {
+    key: 'leadsAtendidos' as const,
+    label: 'Atendidos',
     icon: PhoneCall,
     borderColor: 'border-l-green-500',
     iconColor: 'text-green-600'
   },
-  { 
-    key: 'leadsAgendados' as const, 
-    label: 'Agendados', 
+  {
+    key: 'leadsAgendados' as const,
+    label: 'Agendados',
     icon: CalendarCheck,
     borderColor: 'border-l-[#04bbda]',
     iconColor: 'text-[#04bbda]'
   },
-  { 
-    key: 'mensagensEnviadas' as const, 
-    label: 'WhatsApp', 
-    icon: MessageSquare,
-    borderColor: 'border-l-emerald-500',
-    iconColor: 'text-emerald-600'
-  },
 ];
 
-export const DashboardLigacaoTab = ({ 
-  selectedEventId, 
+export const DashboardLigacaoTab = ({
+  selectedEventId,
   selectedAgentPhone,
-  onEventChange 
+  onEventChange
 }: DashboardLigacaoTabProps) => {
   const { activeCompany } = useCompany();
   const [selectedLoja, setSelectedLoja] = useState<string>(''); // Loja principal selecionada
@@ -126,7 +117,6 @@ export const DashboardLigacaoTab = ({
     showOnlyAtendidos: false,
     showOnlyAgendados: false,
     showOnlyEmFila: false,
-    showOnlyWhatsapp: false,
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [leads, setLeads] = useState<LeadData[]>([]);
@@ -190,7 +180,7 @@ export const DashboardLigacaoTab = ({
     if (selectedEventId && selectedAgentPhone && activeCompany?.id) {
       fetchDashboardData();
     }
-  }, [selectedLoja, filters.showOnlyAtendidos, filters.showOnlyAgendados, filters.showOnlyEmFila, filters.showOnlyWhatsapp, filters.tentativas]);
+  }, [selectedLoja, filters.showOnlyAtendidos, filters.showOnlyAgendados, filters.showOnlyEmFila, filters.tentativas]);
 
   const loadAvailableEvents = async () => {
     if (!selectedAgentPhone || !companyDealerId) return;
@@ -262,15 +252,13 @@ export const DashboardLigacaoTab = ({
         apiFilters.search = filters.search;
       }
       
-      // Filtro de status (atendidos, agendados, em fila, whatsapp)
+      // Filtro de status (atendidos, agendados, em fila)
       if (filters.showOnlyAtendidos) {
         apiFilters.status_ligacao = 'atendido';
       } else if (filters.showOnlyAgendados) {
         apiFilters.status_ligacao = 'agendado';
       } else if (filters.showOnlyEmFila) {
         apiFilters.status_ligacao = 'em_fila';
-      } else if (filters.showOnlyWhatsapp) {
-        apiFilters.status_ligacao = 'whatsapp';
       }
       
       // Filtro de tentativas
@@ -288,6 +276,7 @@ export const DashboardLigacaoTab = ({
           loja: selectedLoja || undefined,
           page: 1,
           page_size: FETCH_ALL, // Buscar todos para permitir paginação local
+          apenas_ligacao: true,
           filters: Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
         },
       });
@@ -312,7 +301,6 @@ export const DashboardLigacaoTab = ({
           totalLigacoes: 0,
           leadsAtendidos: 0,
           leadsAgendados: 0,
-          mensagensEnviadas: 0,
         });
         if (!selectedLoja) {
           toast.info('Nenhum dado encontrado. Clique em "Sincronizar" para buscar dados do n8n.');
@@ -337,7 +325,6 @@ export const DashboardLigacaoTab = ({
         ligacao_atendida: lead.ligacao_atendida ?? false,
         status_agendado: lead.status_agendado ?? false,
         ligacao_erro: lead.ligacao_erro ?? false,
-        enviado_whatsapp: lead.enviado_whatsapp ?? false,
       }));
       
       setLeads(processedLeads);
@@ -352,7 +339,6 @@ export const DashboardLigacaoTab = ({
           totalLigacoes: leadsContatados,
           leadsAtendidos: data.metricas.atendidos,
           leadsAgendados: data.metricas.agendados,
-          mensagensEnviadas: data.metricas.whatsappEnviado,
         });
       } else {
         // Fallback
@@ -361,7 +347,6 @@ export const DashboardLigacaoTab = ({
           totalLigacoes: leadsContatados,
           leadsAtendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
           leadsAgendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
-          mensagensEnviadas: processedLeads.filter((l: LeadData) => l.enviado_whatsapp).length,
         });
       }
       
@@ -388,31 +373,26 @@ export const DashboardLigacaoTab = ({
     if (lead.status_agendado) return 'agendado';
     if (lead.ligacao_atendida) return 'atendido';
     if (lead.ligacao_erro) return 'em fila';
-    if (lead.enviado_whatsapp) return 'não agendado';
     return 'pendente';
   };
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; className: string }> = {
-      'pendente': { 
-        label: 'Pendente', 
-        className: 'bg-muted text-muted-foreground border-border' 
+      'pendente': {
+        label: 'Pendente',
+        className: 'bg-muted text-muted-foreground border-border'
       },
-      'atendido': { 
-        label: 'Atendido', 
-        className: 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700' 
+      'atendido': {
+        label: 'Atendido',
+        className: 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700'
       },
-      'agendado': { 
-        label: 'Agendado', 
-        className: 'bg-[#04bbda]/10 text-[#04bbda] border-[#04bbda]/30' 
+      'agendado': {
+        label: 'Agendado',
+        className: 'bg-[#04bbda]/10 text-[#04bbda] border-[#04bbda]/30'
       },
-      'em fila': { 
-        label: 'Em Fila', 
-        className: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700' 
-      },
-      'não agendado': { 
-        label: 'Não Agendado', 
-        className: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700' 
+      'em fila': {
+        label: 'Em Fila',
+        className: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700'
       },
     };
     
@@ -434,9 +414,6 @@ export const DashboardLigacaoTab = ({
     if (lead.ligacao_erro) {
       return <X className="h-4 w-4 text-destructive" />;
     }
-    if (lead.enviado_whatsapp) {
-      return <MessageSquare className="h-4 w-4 text-emerald-600" />;
-    }
     return <Phone className="h-4 w-4 text-muted-foreground" />;
   };
 
@@ -455,7 +432,7 @@ export const DashboardLigacaoTab = ({
   };
 
   // Status options
-  const statusOptions = ['pendente', 'atendido', 'agendado', 'em fila', 'não agendado'];
+  const statusOptions = ['pendente', 'atendido', 'agendado', 'em fila'];
 
   // Filtros locais - apenas busca por texto e status (os filtros rápidos já foram aplicados na API)
   const filteredLeads = useMemo(() => {
@@ -485,17 +462,15 @@ export const DashboardLigacaoTab = ({
         totalLigacoes: leadsContatados,
         leadsAtendidos: filteredLeads.filter(l => l.ligacao_atendida).length,
         leadsAgendados: filteredLeads.filter(l => l.status_agendado).length,
-        mensagensEnviadas: filteredLeads.filter(l => l.enviado_whatsapp).length,
       };
     }
-    
+
     // Sem filtros locais, usar as métricas da API (que já consideram filtros do servidor)
     return metricas || {
       totalLeads: 0,
       totalLigacoes: 0,
       leadsAtendidos: 0,
       leadsAgendados: 0,
-      mensagensEnviadas: 0,
     };
   }, [filteredLeads, metricas, filters.search, filters.status]);
 
@@ -532,7 +507,6 @@ export const DashboardLigacaoTab = ({
       showOnlyAtendidos: false,
       showOnlyAgendados: false,
       showOnlyEmFila: false,
-      showOnlyWhatsapp: false,
     });
     setSelectedLoja(''); // Também limpa a loja selecionada
   };
@@ -545,7 +519,6 @@ export const DashboardLigacaoTab = ({
     filters.showOnlyAtendidos ? 'atendidos' : '',
     filters.showOnlyAgendados ? 'agendados' : '',
     filters.showOnlyEmFila ? 'emfila' : '',
-    filters.showOnlyWhatsapp ? 'whatsapp' : '',
   ].filter(Boolean).length;
 
   if (!selectedAgentPhone) {
@@ -728,20 +701,18 @@ export const DashboardLigacaoTab = ({
           </div>
           
           {/* Status dropdown com ícones */}
-          <Select 
+          <Select
             value={
               filters.showOnlyAtendidos ? 'atendidos' :
               filters.showOnlyAgendados ? 'agendados' :
-              filters.showOnlyEmFila ? 'emfila' :
-              filters.showOnlyWhatsapp ? 'whatsapp' : '__all__'
-            } 
+              filters.showOnlyEmFila ? 'emfila' : '__all__'
+            }
             onValueChange={(value) => {
               setFilters(prev => ({
                 ...prev,
                 showOnlyAtendidos: value === 'atendidos',
                 showOnlyAgendados: value === 'agendados',
                 showOnlyEmFila: value === 'emfila',
-                showOnlyWhatsapp: value === 'whatsapp',
               }));
             }}
           >
@@ -771,12 +742,6 @@ export const DashboardLigacaoTab = ({
                 <span className="flex items-center gap-2">
                   <PhoneOff className="h-3.5 w-3.5 text-orange-600" />
                   Em Fila
-                </span>
-              </SelectItem>
-              <SelectItem value="whatsapp">
-                <span className="flex items-center gap-2">
-                  <MessageSquare className="h-3.5 w-3.5 text-emerald-600" />
-                  WhatsApp
                 </span>
               </SelectItem>
             </SelectContent>

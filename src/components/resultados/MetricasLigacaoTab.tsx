@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { ResultadosLigacaoSkeleton } from '@/components/resultados/ResultadosSkeleton';
-import { 
-  Loader2, Phone, PhoneCall, CalendarCheck, MessageSquare,
+import {
+  Loader2, Phone, PhoneCall, CalendarCheck,
   RefreshCw, Users, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -35,7 +35,6 @@ interface EventMetrics {
     ligacoesFeitas: number;
     encerrados: number;
     agendados: number;
-    whatsappEnviado: number;
     atendidos: number;
   };
 }
@@ -113,12 +112,13 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       const metricsPromises = events.map(async (event) => {
         try {
           const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
-            body: { 
+            body: {
               id_evento: event.id_evento,
               empresa_id: activeCompany?.id,
               telefone_pri: event.telefone_pri,
               page: 1,
               page_size: 10000,
+              apenas_ligacao: true,
             },
           });
           
@@ -141,7 +141,6 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
               ligacoesFeitas: metricas.disparados1 || 0,
               encerrados: metricas.encerrados || 0,
               agendados: metricas.agendados || 0,
-              whatsappEnviado: metricas.whatsappEnviado || 0,
               atendidos: metricas.atendidos || 0,
             },
           } as EventMetrics;
@@ -180,7 +179,6 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       ligacoesFeitas: acc.ligacoesFeitas + event.metricas.ligacoesFeitas,
       encerrados: acc.encerrados + event.metricas.encerrados,
       agendados: acc.agendados + event.metricas.agendados,
-      whatsappEnviado: acc.whatsappEnviado + event.metricas.whatsappEnviado,
       atendidos: acc.atendidos + event.metricas.atendidos,
       totalEventos: acc.totalEventos + 1,
     }), {
@@ -189,7 +187,6 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       ligacoesFeitas: 0,
       encerrados: 0,
       agendados: 0,
-      whatsappEnviado: 0,
       atendidos: 0,
       totalEventos: 0,
     });
@@ -203,7 +200,6 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       { name: "Leads Contatados", count: m.leadsContatados, desc: "Leads que receberam pelo menos 1 ligação", key: "contatados" },
       { name: "Atendidos", count: m.atendidos, desc: "Leads que atenderam a ligação", key: "atendidos" },
       { name: "Agendados", count: m.agendados, desc: "Leads que agendaram visita", key: "agendados" },
-      { name: "WhatsApp Enviado", count: m.whatsappEnviado, desc: "Leads que receberam WhatsApp", key: "whatsapp" },
     ];
   }, [aggregatedMetrics]);
 
@@ -249,13 +245,6 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
         pctSuffix: "da base",
         threshold: 0.03,
         icon: <CalendarCheck className="h-4 w-4" />,
-      },
-      {
-        label: "WhatsApp Enviado",
-        value: numFmt(m.whatsappEnviado),
-        pctVal: safeDiv(m.whatsappEnviado, m.total),
-        pctSuffix: "da base",
-        icon: <MessageSquare className="h-4 w-4" />,
       },
     ];
   }, [aggregatedMetrics]);
@@ -354,7 +343,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-sm font-bold">Funil de leads</CardTitle>
             <Badge variant="outline" className="text-xs">
-              Base → Contatados → Atendidos → Agendados → WhatsApp
+              Base → Contatados → Atendidos → Agendados
             </Badge>
           </div>
         </CardHeader>
