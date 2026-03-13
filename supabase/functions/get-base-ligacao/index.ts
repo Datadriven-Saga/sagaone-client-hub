@@ -14,6 +14,7 @@ interface RequestBody {
   dealerid?: string; // CRM ID da loja (apenas para referência, busca do evento)
   page?: number;
   page_size?: number;
+  fetch_all_pendentes?: boolean; // Retorna TODOS os pendentes sem paginação (para disparo)
   filters?: {
     search?: string;
     loja?: string; // Filtro por loja
