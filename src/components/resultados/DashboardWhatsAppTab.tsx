@@ -34,7 +34,6 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
-import { useAuth } from "@/contexts/AuthContext";
 
 interface DashboardWhatsAppTabProps {
   selectedEventId: string;
@@ -113,7 +112,6 @@ export const DashboardWhatsAppTab = ({
   onEventChange,
 }: DashboardWhatsAppTabProps) => {
   const { activeCompany } = useCompany();
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -175,95 +173,69 @@ export const DashboardWhatsAppTab = ({
     fetchAgent();
   }, [activeCompany?.id]);
 
-  // Fetch events when agent is available
+  // Fetch events only for active company (evita mistura de lojas)
   useEffect(() => {
     const fetchEvents = async () => {
-      if (!agent?.telefone || !user?.id) {
+      if (!agent?.telefone || !activeCompany?.id) {
         setEvents([]);
+        setSelectedEventIds([]);
         return;
       }
 
       try {
         setLoadingEvents(true);
 
-        const cleanPhone = agent.telefone.replace(/\D/g, "");
-
-        const { data: userEmpresas, error: userEmpresasError } = await supabase
-          .from("user_empresas")
-          .select("empresa_id")
-          .eq("user_id", user.id);
-
-        if (userEmpresasError) {
-          console.error("Erro ao buscar user_empresas:", userEmpresasError);
-          return;
-        }
-
-        const empresaIds = userEmpresas?.map((ue) => ue.empresa_id) || [];
-
-        if (empresaIds.length === 0) {
-          setEvents([]);
-          return;
-        }
-
-        const { data: agentesEmpresas, error: agentesError } = await supabase
-          .from("agente_empresas")
-          .select("empresa_id, agentes_ia!inner(telefone, nome, ativo)")
-          .in("empresa_id", empresaIds);
-
-        if (agentesError) {
-          console.error("Erro ao buscar agente_empresas:", agentesError);
-        }
-
-        const empresasComMesmoAgente = (agentesEmpresas || [])
-          .filter((ae: any) => {
-            const agentData = ae.agentes_ia;
-            if (!agentData) return false;
-            const nome = (agentData.nome || "").toLowerCase();
-            const isWhatsApp = nome.includes("whatsapp") || nome.includes("wpp") || nome.includes("zap");
-            const telefoneAgente = (agentData.telefone || "").replace(/\D/g, "");
-            return isWhatsApp && telefoneAgente === cleanPhone && agentData.ativo;
-          })
-          .map((ae: any) => ae.empresa_id);
-
-        if (empresasComMesmoAgente.length === 0) {
-          setEvents([]);
-          return;
-        }
-
         const { data: prospeccoes, error: prospError } = await supabase
           .from("prospeccoes")
           .select(
             `
-            id, 
-            titulo, 
-            event_id_pri, 
-            data_inicio, 
+            id,
+            titulo,
+            event_id_pri,
+            data_inicio,
             data_fim,
-            empresa_id,
             empresas!inner(nome_empresa)
           `,
           )
+          .eq("empresa_id", activeCompany.id)
           .eq("canal", "Whatsapp")
           .not("event_id_pri", "is", null)
-          .in("empresa_id", empresasComMesmoAgente)
           .order("data_inicio", { ascending: false });
 
         if (prospError) {
-          console.error("Erro ao buscar prospeccoes:", prospError);
+          console.error("Erro ao buscar prospecções WhatsApp:", prospError);
           toast.error("Erro ao buscar eventos");
           return;
         }
 
-        const eventsList: EventOption[] = (prospeccoes || []).map((p: any) => ({
-          id_evento: Number(p.event_id_pri),
-          nome: p.titulo || `Evento ${p.event_id_pri}`,
-          empresa_nome: p.empresas?.nome_empresa || "",
-          prospeccao_id: p.id,
-        }));
+        const eventsList: EventOption[] = (prospeccoes || [])
+          .map((p: any) => ({
+            id_evento: Number(p.event_id_pri),
+            nome: p.titulo || `Evento ${p.event_id_pri}`,
+            empresa_nome: p.empresas?.nome_empresa || "",
+            prospeccao_id: p.id,
+          }))
+          .filter((e) => Number.isFinite(e.id_evento) && e.id_evento > 0);
 
         setEvents(eventsList);
+
+        setSelectedEventIds((prev) => {
+          const availableIds = new Set(eventsList.map((e) => e.id_evento));
+          const preferredId = Number(selectedEventIdPri);
+
+          if (Number.isFinite(preferredId) && availableIds.has(preferredId)) {
+            return [preferredId];
+          }
+
+          const stillValid = prev.filter((id) => availableIds.has(id));
+          if (stillValid.length > 0) {
+            return stillValid;
+          }
+
+          return eventsList[0] ? [eventsList[0].id_evento] : [];
+        });
       } catch (error) {
-        console.error("Error:", error);
+        console.error("Erro ao carregar eventos WhatsApp:", error);
         toast.error("Erro ao carregar eventos");
       } finally {
         setLoadingEvents(false);
@@ -271,7 +243,7 @@ export const DashboardWhatsAppTab = ({
     };
 
     fetchEvents();
-  }, [agent?.telefone, user?.id]);
+  }, [agent?.telefone, activeCompany?.id, selectedEventIdPri]);
 
   // Fetch dashboard data when selected events change
   useEffect(() => {
@@ -290,32 +262,74 @@ export const DashboardWhatsAppTab = ({
 
       console.log("📊 Fetching WhatsApp dashboard for events:", selectedEventIds);
 
+      const cleanPhone = agent?.telefone ? agent.telefone.replace(/\D/g, "") : "";
+
+      let dealerId = "";
+      if (activeCompany?.id) {
+        const { data: empresaData, error: empresaError } = await supabase
+          .from("empresas")
+          .select("crm_id")
+          .eq("id", activeCompany.id)
+          .maybeSingle();
+
+        if (empresaError) {
+          console.warn("Não foi possível buscar crm_id da empresa ativa:", empresaError);
+        } else {
+          dealerId = String(empresaData?.crm_id || "").trim();
+        }
+      }
+
+      const integrationErrors: string[] = [];
+
       const allResponses = await Promise.all(
         selectedEventIds.map(async (eventId) => {
+          const payload: Record<string, unknown> = {
+            endpoint: "dashboard-evento-pri-whats",
+            id_evento: eventId,
+            event_id: eventId,
+            evento_id: eventId,
+            empresa_id: activeCompany?.id ?? null,
+          };
+
+          if (cleanPhone) {
+            payload.telefone_pri = cleanPhone;
+          }
+
+          if (dealerId) {
+            payload.dealer_id = dealerId;
+            payload.dealerid = dealerId;
+          }
+
           const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
-            body: {
-              endpoint: "dashboard-evento-pri-whats",
-              id_evento: eventId,
-            },
+            body: payload,
           });
 
           if (error) {
-            console.error(`Error fetching event ${eventId}:`, error);
+            console.error(`Erro ao buscar métricas do evento ${eventId}:`, error);
+            integrationErrors.push(`Evento ${eventId}: erro de integração`);
             return null;
           }
 
-          if (Array.isArray(data)) {
-            return data[0] as WebhookResponse | undefined;
+          if (Array.isArray(data) && data[0] && typeof data[0] === "object" && "total_base" in data[0]) {
+            return data[0] as WebhookResponse;
           }
+
           if (data && typeof data === "object" && "total_base" in data) {
             return data as WebhookResponse;
           }
-          console.warn(`Unexpected response format for event ${eventId}:`, data);
+
+          const message =
+            data && typeof data === "object" && "message" in data
+              ? String((data as { message?: unknown }).message || "erro no workflow")
+              : "formato de resposta inválido";
+
+          integrationErrors.push(`Evento ${eventId}: ${message}`);
+          console.warn(`Resposta inesperada do evento ${eventId}:`, data);
           return null;
         }),
       );
 
-      // Aggregate all responses
+      // Aggregate external responses
       const aggregated: DashboardData = {
         total_base: 0,
         msg_enviada: 0,
@@ -345,13 +359,11 @@ export const DashboardWhatsAppTab = ({
         aggregated.optout += Number(resp.optout) || 0;
         aggregated.negativa_clara += Number(resp.negativa_clara) || 0;
 
-        // Use new USD/BRL fields, fallback to legacy gasto_total as BRL
         const gastoUSD = Number(resp.gasto_total_dolar) || 0;
         const gastoBRL = Number(resp.gasto_total_real) || Number(resp.gasto_total) || 0;
         aggregated.gasto_total_dolar += gastoUSD;
         aggregated.gasto_total_real += gastoBRL;
 
-        // Capture rates from last response that has them
         if (resp.rates?.BRL) {
           aggregated.rates_brl = Number(resp.rates.BRL) || null;
         }
@@ -380,6 +392,37 @@ export const DashboardWhatsAppTab = ({
 
       aggregated.templates = Array.from(templateMap.values());
 
+      // Base oficial do evento: eventos_prospeccao (evita inconsistência entre tela de evento e dashboard)
+      const selectedProspeccaoIds = events
+        .filter((e) => selectedEventIds.includes(e.id_evento) && e.prospeccao_id)
+        .map((e) => e.prospeccao_id as string);
+
+      if (selectedProspeccaoIds.length > 0) {
+        const { count, error: baseCountError } = await supabase
+          .from("eventos_prospeccao")
+          .select("id", { count: "exact", head: true })
+          .in("prospeccao_id", selectedProspeccaoIds);
+
+        if (baseCountError) {
+          console.error("Erro ao calcular base local dos eventos:", baseCountError);
+        } else if (typeof count === "number") {
+          if (aggregated.total_base !== count) {
+            console.warn("⚠️ Divergência detectada na base do dashboard WhatsApp", {
+              baseWebhook: aggregated.total_base,
+              baseLocal: count,
+              selectedEventIds,
+            });
+          }
+          aggregated.total_base = count;
+        }
+      }
+
+      if (integrationErrors.length === selectedEventIds.length) {
+        toast.error("Falha na API externa; exibindo base oficial do evento.");
+      } else if (integrationErrors.length > 0) {
+        toast.warning("Parte das métricas externas falhou; base local foi priorizada.");
+      }
+
       console.log("📊 Dashboard WhatsApp aggregated:", aggregated);
 
       setDashboardData(aggregated);
@@ -390,7 +433,7 @@ export const DashboardWhatsAppTab = ({
     } finally {
       setLoading(false);
     }
-  }, [selectedEventIds]);
+  }, [selectedEventIds, activeCompany?.id, agent?.telefone, events]);
 
   const toggleEventSelection = (eventId: number) => {
     setSelectedEventIds((prev) => {
