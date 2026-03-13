@@ -169,6 +169,13 @@ const Administracao = () => {
       route: "/administracao/quarentena",
       permissionKey: "canGovernancaDados",
     },
+    {
+      title: "Criar Integração",
+      description: "Configurar e gerenciar integrações com sistemas externos",
+      icon: Plug,
+      route: "/administracao/integracoes",
+      permissionKey: "canAccessAgentesIA",
+    },
   ];
 
   // MFA Master module
