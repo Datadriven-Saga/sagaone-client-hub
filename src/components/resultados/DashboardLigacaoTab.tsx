@@ -233,7 +233,7 @@ export const DashboardLigacaoTab = ({
         loja: lead.loja, status: lead.status_calculado || calculateLeadStatus(lead), proposal_id: lead.proposal_id,
         num_tentativas: lead.num_tentativas ?? 0, ultima_atualizacao: lead.atualizado_em,
         ligacao_atendida: lead.ligacao_atendida ?? false, status_agendado: lead.status_agendado ?? false,
-        ligacao_erro: lead.ligacao_erro ?? false,
+        ligacao_erro: lead.ligacao_erro ?? false, enviado_whatsapp: lead.enviado_whatsapp ?? false,
       }));
       setLeads(processedLeads);
 
