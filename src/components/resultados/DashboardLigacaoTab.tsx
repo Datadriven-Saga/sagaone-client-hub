@@ -239,7 +239,7 @@ export const DashboardLigacaoTab = ({
 
       const leadsContatados = processedLeads.filter((l: LeadData) => (l.num_tentativas || 0) > 0).length;
       if (data.metricas) {
-        setMetricas({ totalLeads: data.metricas.total, totalLigacoes: leadsContatados, leadsAtendidos: data.metricas.atendidos, leadsAgendados: data.metricas.agendados, enviadoWhatsapp: data.metricas.enviado_whatsapp || 0 });
+        setMetricas({ totalLeads: data.metricas.total, totalLigacoes: leadsContatados, leadsAtendidos: data.metricas.atendidos, leadsAgendados: data.metricas.agendados, enviadoWhatsapp: data.metricas.whatsappEnviado || 0 });
       } else {
         setMetricas({
           totalLeads: processedLeads.length, totalLigacoes: leadsContatados,
