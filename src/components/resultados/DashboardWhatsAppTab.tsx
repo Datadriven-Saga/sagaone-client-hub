@@ -19,6 +19,7 @@ import {
   Store,
   AlertTriangle,
   ArrowRight,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +30,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -41,6 +44,7 @@ interface DashboardWhatsAppTabProps {
 
 interface TemplateData {
   template_nome: string;
+  valor_em_dolar: number;
   valor_em_real: number;
   tipo_disparo: string;
 }
@@ -54,8 +58,17 @@ interface WebhookResponse {
   agendado: string;
   optout: string;
   negativa_clara: string;
-  gasto_total: string;
-  templates: TemplateData[];
+  gasto_total?: string;
+  gasto_total_dolar?: string;
+  gasto_total_real?: string;
+  rates?: { BRL?: string };
+  data_conversao?: string;
+  templates: Array<{
+    template_nome: string;
+    valor_em_dolar?: number;
+    valor_em_real?: number;
+    tipo_disparo: string;
+  }>;
 }
 
 interface DashboardData {
@@ -67,7 +80,10 @@ interface DashboardData {
   agendado: number;
   optout: number;
   negativa_clara: number;
-  gasto_total: number;
+  gasto_total_dolar: number;
+  gasto_total_real: number;
+  rates_brl: number | null;
+  data_conversao: string | null;
   templates: TemplateData[];
 }
 
@@ -85,7 +101,8 @@ interface AgentWhatsApp {
 }
 
 // Helper functions
-const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtBRL = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtUSD = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 const pctFmt = (n: number) => (n * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + "%";
 const numFmt = (n: number) => n.toLocaleString("pt-BR");
 const safeDiv = (a: number, b: number) => (b === 0 ? 0 : a / b);
@@ -105,6 +122,12 @@ export const DashboardWhatsAppTab = ({
   const [selectedEventIds, setSelectedEventIds] = useState<number[]>([Number(selectedEventIdPri)]);
   const [agent, setAgent] = useState<AgentWhatsApp | null>(null);
   const [eventsPopoverOpen, setEventsPopoverOpen] = useState(false);
+  const [showBRL, setShowBRL] = useState(false);
+
+  // Currency formatter based on toggle
+  const fmtMoney = useCallback((usdVal: number, brlVal: number) => {
+    return showBRL ? fmtBRL(brlVal) : fmtUSD(usdVal);
+  }, [showBRL]);
 
   // Fetch WhatsApp agent for the company
   useEffect(() => {
@@ -239,8 +262,6 @@ export const DashboardWhatsAppTab = ({
         }));
 
         setEvents(eventsList);
-
-        // Don't auto-select - respect the prop-initialized value
       } catch (error) {
         console.error("Error:", error);
         toast.error("Erro ao carregar eventos");
@@ -269,7 +290,6 @@ export const DashboardWhatsAppTab = ({
 
       console.log("📊 Fetching WhatsApp dashboard for events:", selectedEventIds);
 
-      // Fetch and aggregate data for all selected events
       const allResponses = await Promise.all(
         selectedEventIds.map(async (eventId) => {
           const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
@@ -284,7 +304,6 @@ export const DashboardWhatsAppTab = ({
             return null;
           }
 
-          // Response can be an array or a single object
           if (Array.isArray(data)) {
             return data[0] as WebhookResponse | undefined;
           }
@@ -306,7 +325,10 @@ export const DashboardWhatsAppTab = ({
         agendado: 0,
         optout: 0,
         negativa_clara: 0,
-        gasto_total: 0,
+        gasto_total_dolar: 0,
+        gasto_total_real: 0,
+        rates_brl: null,
+        data_conversao: null,
         templates: [],
       };
 
@@ -322,17 +344,34 @@ export const DashboardWhatsAppTab = ({
         aggregated.agendado += Number(resp.agendado) || 0;
         aggregated.optout += Number(resp.optout) || 0;
         aggregated.negativa_clara += Number(resp.negativa_clara) || 0;
-        aggregated.gasto_total += Number(resp.gasto_total) || 0;
+
+        // Use new USD/BRL fields, fallback to legacy gasto_total as BRL
+        const gastoUSD = Number(resp.gasto_total_dolar) || 0;
+        const gastoBRL = Number(resp.gasto_total_real) || Number(resp.gasto_total) || 0;
+        aggregated.gasto_total_dolar += gastoUSD;
+        aggregated.gasto_total_real += gastoBRL;
+
+        // Capture rates from last response that has them
+        if (resp.rates?.BRL) {
+          aggregated.rates_brl = Number(resp.rates.BRL) || null;
+        }
+        if (resp.data_conversao) {
+          aggregated.data_conversao = resp.data_conversao;
+        }
 
         (resp.templates || []).forEach((t) => {
           const key = t.template_nome;
           const existing = templateMap.get(key);
+          const tplUSD = Number(t.valor_em_dolar) || 0;
+          const tplBRL = Number(t.valor_em_real) || 0;
           if (existing) {
-            existing.valor_em_real += Number(t.valor_em_real) || 0;
+            existing.valor_em_dolar += tplUSD;
+            existing.valor_em_real += tplBRL;
           } else {
             templateMap.set(key, {
               template_nome: t.template_nome,
-              valor_em_real: Number(t.valor_em_real) || 0,
+              valor_em_dolar: tplUSD,
+              valor_em_real: tplBRL,
               tipo_disparo: t.tipo_disparo,
             });
           }
@@ -375,18 +414,21 @@ export const DashboardWhatsAppTab = ({
     if (!dashboardData) return null;
     const d = dashboardData;
 
+    const gastoAtivo = showBRL ? d.gasto_total_real : d.gasto_total_dolar;
+
     const taxaEntrega = safeDiv(d.msg_entregue, d.msg_enviada);
     const taxaResposta = safeDiv(d.msg_respondida, d.msg_lida);
     const taxaLeituraBase = safeDiv(d.msg_lida, d.msg_entregue);
     const taxaAgendBase = safeDiv(d.agendado, d.total_base);
     const taxaAgendResp = safeDiv(d.agendado, d.msg_respondida);
 
-    const cpoEntregue = safeDiv(d.gasto_total, d.msg_entregue);
-    const cpoRespondido = safeDiv(d.gasto_total, d.msg_respondida);
-    const cpoAgendado = safeDiv(d.gasto_total, d.agendado);
+    const cpoEntregue = safeDiv(gastoAtivo, d.msg_entregue);
+    const cpoRespondido = safeDiv(gastoAtivo, d.msg_respondida);
+    const cpoAgendado = safeDiv(gastoAtivo, d.agendado);
 
     return {
       ...d,
+      gastoAtivo,
       taxaEntrega,
       taxaResposta,
       taxaLeituraBase,
@@ -396,7 +438,16 @@ export const DashboardWhatsAppTab = ({
       cpoRespondido,
       cpoAgendado,
     };
-  }, [dashboardData]);
+  }, [dashboardData, showBRL]);
+
+  // Currency format helper for active currency
+  const money = useCallback((usd: number, brl: number) => {
+    return showBRL ? fmtBRL(brl) : fmtUSD(usd);
+  }, [showBRL]);
+
+  const moneyVal = useCallback((val: number) => {
+    return showBRL ? fmtBRL(val) : fmtUSD(val);
+  }, [showBRL]);
 
   // KPI cards
   const kpiCards = useMemo(() => {
@@ -416,7 +467,7 @@ export const DashboardWhatsAppTab = ({
         value: numFmt(m.msg_entregue),
         pctVal: m.taxaEntrega,
         pctSuffix: "das enviadas",
-        hint: `Custo/entregue: ${brl(m.cpoEntregue)}`,
+        hint: `Custo/entregue: ${moneyVal(m.cpoEntregue)}`,
         icon: <CheckCircle2 className="h-4 w-4" />,
       },
       {
@@ -424,21 +475,21 @@ export const DashboardWhatsAppTab = ({
         value: numFmt(m.msg_respondida),
         pctVal: m.taxaResposta,
         pctSuffix: "das lidas",
-        hint: `Custo/respondido: ${brl(m.cpoRespondido)}`,
+        hint: `Custo/respondido: ${moneyVal(m.cpoRespondido)}`,
         icon: <MessageCircle className="h-4 w-4" />,
       },
       {
         label: "Leads agendados",
         value: numFmt(m.agendado),
         pctVal: m.taxaAgendBase,
-        hint: `CPL agendado: ${brl(m.cpoAgendado)}`,
+        hint: `CPL agendado: ${moneyVal(m.cpoAgendado)}`,
         threshold: 0.03,
         icon: <CalendarCheck className="h-4 w-4" />,
       },
       {
-        label: "Gasto total",
-        value: brl(m.gasto_total),
-        hint: `Custo/entregue: ${brl(m.cpoEntregue)}`,
+        label: `Gasto total (${showBRL ? "BRL" : "USD"})`,
+        value: money(m.gasto_total_dolar, m.gasto_total_real),
+        hint: `Custo/entregue: ${moneyVal(m.cpoEntregue)}`,
         icon: <DollarSign className="h-4 w-4" />,
       },
       {
@@ -463,7 +514,7 @@ export const DashboardWhatsAppTab = ({
         icon: <BarChart3 className="h-4 w-4" />,
       },
     ];
-  }, [metrics]);
+  }, [metrics, showBRL, money, moneyVal]);
 
   // Funnel steps
   const funnelSteps = useMemo(() => {
@@ -520,10 +571,14 @@ export const DashboardWhatsAppTab = ({
   }
 
   const leadBase = metrics?.total_base || 1;
-  const sortedTemplates = metrics ? [...metrics.templates].sort((a, b) => b.valor_em_real - a.valor_em_real) : [];
-  const totalTplSpent = sortedTemplates.reduce((sum, t) => sum + t.valor_em_real, 0);
-  const maxTplSpent = sortedTemplates.length > 0 ? sortedTemplates[0].valor_em_real : 1;
-  const spentDiff = metrics ? metrics.gasto_total - totalTplSpent : 0;
+  const sortedTemplates = metrics
+    ? [...metrics.templates].sort((a, b) =>
+        showBRL ? b.valor_em_real - a.valor_em_real : b.valor_em_dolar - a.valor_em_dolar,
+      )
+    : [];
+  const totalTplSpent = sortedTemplates.reduce((sum, t) => sum + (showBRL ? t.valor_em_real : t.valor_em_dolar), 0);
+  const maxTplSpent = sortedTemplates.length > 0 ? (showBRL ? sortedTemplates[0].valor_em_real : sortedTemplates[0].valor_em_dolar) : 1;
+  const spentDiff = metrics ? metrics.gastoAtivo - totalTplSpent : 0;
 
   return (
     <div className="space-y-6">
@@ -545,6 +600,32 @@ export const DashboardWhatsAppTab = ({
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          {/* USD/BRL Toggle */}
+          <TooltipProvider>
+            <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5 bg-muted/30">
+              <span className={`text-xs font-bold ${!showBRL ? "text-primary" : "text-muted-foreground"}`}>USD</span>
+              <Switch
+                checked={showBRL}
+                onCheckedChange={setShowBRL}
+                className="data-[state=checked]:bg-primary"
+              />
+              <span className={`text-xs font-bold ${showBRL ? "text-primary" : "text-muted-foreground"}`}>BRL</span>
+              {dashboardData?.rates_brl && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="text-xs">
+                      Cotação utilizada para conversão: 1 USD = R$ {Number(dashboardData.rates_brl).toLocaleString("pt-BR", { minimumFractionDigits: 4 })}
+                      {dashboardData.data_conversao && `, data: ${dashboardData.data_conversao}`}.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </TooltipProvider>
+
           {/* Multi-select Events Popover */}
           <Popover open={eventsPopoverOpen} onOpenChange={setEventsPopoverOpen}>
             <PopoverTrigger asChild>
@@ -768,7 +849,7 @@ export const DashboardWhatsAppTab = ({
           <Card className="border-border/50">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <CardTitle className="text-sm font-bold">Gastos por template</CardTitle>
+                <CardTitle className="text-sm font-bold">Gastos por template ({showBRL ? "BRL" : "USD"})</CardTitle>
                 <Badge variant="outline" className="text-xs">
                   Detalhamento
                 </Badge>
@@ -790,8 +871,9 @@ export const DashboardWhatsAppTab = ({
                     </TableHeader>
                     <TableBody>
                       {sortedTemplates.map((t) => {
-                        const pctOfTotal = safeDiv(t.valor_em_real, totalTplSpent);
-                        const barWidth = safeDiv(t.valor_em_real, maxTplSpent) * 100;
+                        const tplVal = showBRL ? t.valor_em_real : t.valor_em_dolar;
+                        const pctOfTotal = safeDiv(tplVal, totalTplSpent);
+                        const barWidth = safeDiv(tplVal, maxTplSpent) * 100;
                         return (
                           <TableRow key={t.template_nome}>
                             <TableCell className="py-3">
@@ -804,7 +886,7 @@ export const DashboardWhatsAppTab = ({
                               </div>
                             </TableCell>
                             <TableCell className="text-sm py-3">{t.tipo_disparo || "—"}</TableCell>
-                            <TableCell className="text-sm py-3 text-right">{brl(t.valor_em_real)}</TableCell>
+                            <TableCell className="text-sm py-3 text-right">{moneyVal(tplVal)}</TableCell>
                             <TableCell className="text-sm py-3 text-right">{pctFmt(pctOfTotal)}</TableCell>
                           </TableRow>
                         );
@@ -814,7 +896,7 @@ export const DashboardWhatsAppTab = ({
                       <TableRow>
                         <TableCell className="font-bold">Total</TableCell>
                         <TableCell />
-                        <TableCell className="font-bold text-right">{brl(totalTplSpent)}</TableCell>
+                        <TableCell className="font-bold text-right">{moneyVal(totalTplSpent)}</TableCell>
                         <TableCell className="font-bold text-right">100%</TableCell>
                       </TableRow>
                     </TableFooter>
@@ -823,8 +905,8 @@ export const DashboardWhatsAppTab = ({
                   {Math.abs(spentDiff) > 0.02 && (
                     <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
                       <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                      Diferença entre gasto total ({brl(metrics.gasto_total)}) e soma dos templates (
-                      {brl(totalTplSpent)}): {brl(spentDiff)}
+                      Diferença entre gasto total ({moneyVal(metrics.gastoAtivo)}) e soma dos templates (
+                      {moneyVal(totalTplSpent)}): {moneyVal(spentDiff)}
                     </p>
                   )}
                 </>
