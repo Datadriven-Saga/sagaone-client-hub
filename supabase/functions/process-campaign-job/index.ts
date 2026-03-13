@@ -12,8 +12,13 @@ const MAX_RETRIES = 3;
 const normalizePhone = (phone: string | null): string => {
   if (!phone) return '';
   let digits = phone.replace(/\D/g, '');
-  if (digits.length > 11 && digits.startsWith('55')) {
-    digits = digits.substring(2);
+  // Remove DDI 55 se existir
+  if (digits.startsWith('55') && digits.length > 11) {
+    digits = digits.slice(2);
+  }
+  // Normalizar para 10 dígitos: se tem 11 dígitos e o 3º é 9, remove o 9
+  if (digits.length === 11 && digits[2] === '9') {
+    digits = digits.slice(0, 2) + digits.slice(3);
   }
   return digits;
 };
