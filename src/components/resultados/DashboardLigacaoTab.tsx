@@ -372,31 +372,26 @@ export const DashboardLigacaoTab = ({
     if (lead.status_agendado) return 'agendado';
     if (lead.ligacao_atendida) return 'atendido';
     if (lead.ligacao_erro) return 'em fila';
-    if (lead.enviado_whatsapp) return 'não agendado';
     return 'pendente';
   };
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; className: string }> = {
-      'pendente': { 
-        label: 'Pendente', 
-        className: 'bg-muted text-muted-foreground border-border' 
+      'pendente': {
+        label: 'Pendente',
+        className: 'bg-muted text-muted-foreground border-border'
       },
-      'atendido': { 
-        label: 'Atendido', 
-        className: 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700' 
+      'atendido': {
+        label: 'Atendido',
+        className: 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700'
       },
-      'agendado': { 
-        label: 'Agendado', 
-        className: 'bg-[#04bbda]/10 text-[#04bbda] border-[#04bbda]/30' 
+      'agendado': {
+        label: 'Agendado',
+        className: 'bg-[#04bbda]/10 text-[#04bbda] border-[#04bbda]/30'
       },
-      'em fila': { 
-        label: 'Em Fila', 
-        className: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700' 
-      },
-      'não agendado': { 
-        label: 'Não Agendado', 
-        className: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700' 
+      'em fila': {
+        label: 'Em Fila',
+        className: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700'
       },
     };
     
