@@ -72,7 +72,7 @@ interface LojaInfo {
 const PAGE_SIZE = 10;
 const FETCH_ALL = 10000;
 
-// Configuração das métricas
+// Configuração das métricas em formato de funil (maior → menor)
 const metricsConfig = [
   {
     key: 'totalLeads' as const,
@@ -99,6 +99,15 @@ const metricsConfig = [
     iconBg: 'bg-green-500/10',
     subLabel: (m: Metricas) => m.totalLigacoes > 0 ? `${((m.leadsAtendidos / m.totalLigacoes) * 100).toFixed(2)}% dos contatados` : null,
     subColor: 'text-blue-400',
+  },
+  {
+    key: 'enviadoWhatsapp' as const,
+    label: 'Enviado WhatsApp',
+    icon: MessageSquare,
+    iconColor: 'text-emerald-500',
+    iconBg: 'bg-emerald-500/10',
+    subLabel: (m: Metricas) => m.totalLigacoes > 0 ? `${((m.enviadoWhatsapp / m.totalLigacoes) * 100).toFixed(2)}% dos contatados` : null,
+    subColor: 'text-emerald-400',
   },
   {
     key: 'leadsAgendados' as const,
