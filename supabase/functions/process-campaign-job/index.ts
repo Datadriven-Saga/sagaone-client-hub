@@ -381,7 +381,7 @@ serve(async (req) => {
             } catch (err: any) {
               failedLeadIds.push(...subIds);
               const isTimeout = err.name === 'AbortError';
-              console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: ${isTimeout ? 'Timeout (30s)' : 'Network error'}: ${err.message}`);
+              console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: ${isTimeout ? `Timeout (${LIGACAO_TIMEOUT_MS / 1000}s)` : 'Network error'}: ${err.message}`);
             }
 
             // *** PROGRESSO GRANULAR: atualizar após cada sub-lote de 100 (Ligação) ***
