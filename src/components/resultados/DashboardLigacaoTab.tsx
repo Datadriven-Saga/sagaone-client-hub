@@ -324,7 +324,6 @@ export const DashboardLigacaoTab = ({
         ligacao_atendida: lead.ligacao_atendida ?? false,
         status_agendado: lead.status_agendado ?? false,
         ligacao_erro: lead.ligacao_erro ?? false,
-        enviado_whatsapp: lead.enviado_whatsapp ?? false,
       }));
       
       setLeads(processedLeads);
