@@ -966,9 +966,54 @@ export default function EventoBase() {
     console.log('   ├─ prospeccao_id:', eventoId);
     console.log('   └─ canal:', prospeccao?.canal, '(isLigação:', isLigacao, ')');
     
-    // ETAPA 1: Buscar contato_ids da tabela eventos_prospeccao
-    // Para IA Ligação: buscar TODOS os contatos (a filtragem real é feita com dados externos na ETAPA 3)
-    // Para WhatsApp: buscar apenas pendentes (data_disparo_ia IS NULL)
+    // =====================================================
+    // IA LIGAÇÃO: buscar de prospect_pri_voz via get-base-ligacao
+    // Essa é a fonte de verdade para eventos de ligação
+    // =====================================================
+    if (isLigacao && prospeccao?.event_id_pri) {
+      console.log('📞 Buscando pendentes de prospect_pri_voz via get-base-ligacao...');
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
+          body: {
+            id_evento: parseInt(String(prospeccao.event_id_pri), 10),
+            empresa_id: activeCompany.id,
+            prospeccao_id: eventoId,
+            fetch_all_pendentes: true,
+          }
+        });
+
+        if (error) throw error;
+
+        if (data?.success && data?.pendentes) {
+          const pendentes: ContatoEvento[] = data.pendentes.map((p: any) => ({
+            id: p.id,
+            lead_id: p.lead_id ? parseInt(String(p.lead_id), 10) : null,
+            nome: p.nome || '',
+            telefone: p.telefone_lead || '',
+            email: null,
+            status: 'Novo',
+            origem: 'Ligação',
+            created_at: null,
+            updated_at: null,
+            data_disparo_ia: null,
+            responsavel_email: null,
+            vendedor_nome: null,
+          }));
+          
+          console.log(`🎯 Total de contatos PENDENTES de prospect_pri_voz: ${pendentes.length}`);
+          return pendentes;
+        }
+        
+        console.warn('⚠️ get-base-ligacao retornou sem dados pendentes, tentando fallback local...');
+      } catch (err) {
+        console.warn('⚠️ Erro ao buscar pendentes de prospect_pri_voz, tentando fallback local:', err);
+      }
+    }
+
+    // =====================================================
+    // WHATSAPP / FALLBACK: buscar de eventos_prospeccao + contatos
+    // =====================================================
     const BATCH_SIZE = 1000;
     let allContatoIds: string[] = [];
     let offset = 0;
@@ -982,7 +1027,6 @@ export default function EventoBase() {
         .not('contato_id', 'is', null);
       
       // Para WhatsApp, filtrar por data_disparo_ia IS NULL (fonte de verdade local)
-      // Para IA Ligação, NÃO filtrar aqui - a fonte de verdade são os dados externos
       if (!isLigacao) {
         query = query.is('data_disparo_ia', null);
       }
@@ -1033,42 +1077,6 @@ export default function EventoBase() {
         })) as ContatoEvento[];
         allContatos = [...allContatos, ...cleanData];
         console.log(`   ✅ Batch ${Math.ceil(i / CONTATO_BATCH_SIZE) + 1}: ${contatosData.length} contatos carregados (total: ${allContatos.length})`);
-      }
-    }
-
-    // ETAPA 3: Para IA Ligação, filtrar contatos que já estão encerrados ou em fila
-    // Apenas pendentes reais (nunca disparados e não encerrados)
-    if (isLigacao && contatosExternos.size > 0) {
-      const totalAntes = allContatos.length;
-      allContatos = allContatos.filter(contato => {
-        const telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
-        let telSem55 = telefoneNormalizado;
-        if (telefoneNormalizado.length > 11 && telefoneNormalizado.startsWith('55')) {
-          telSem55 = telefoneNormalizado.slice(2);
-        }
-        
-        const dadosExternos = contatosExternos.get(telefoneNormalizado) || contatosExternos.get(telSem55);
-        
-        if (!dadosExternos) return true; // Sem dados externos = nunca disparado = pendente
-        
-        // Encerrado se: status_agendado || enviado_whatsapp || ligacao_atendida
-        const isEncerrado = dadosExternos.status_agendado || 
-                            dadosExternos.enviado_whatsapp || 
-                            dadosExternos.ligacao_atendida;
-        
-        // Em Fila se: ligacao_erro = true E não encerrado (já foi tentado, aguardando retry)
-        const isEmFila = dadosExternos.ligacao_erro === true && !isEncerrado;
-        
-        // Só é pendente se: num_tentativas = 0 E não encerrado E não em fila
-        const numTentativas = dadosExternos.num_tentativas || 0;
-        const isPendente = numTentativas === 0 && !isEncerrado && !isEmFila;
-        
-        return isPendente;
-      });
-      
-      const filtrados = totalAntes - allContatos.length;
-      if (filtrados > 0) {
-        console.log(`🚫 ${filtrados} contatos removidos (encerrados ou já tentados/em fila)`);
       }
     }
 
