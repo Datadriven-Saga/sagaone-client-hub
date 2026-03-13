@@ -700,20 +700,18 @@ export const DashboardLigacaoTab = ({
           </div>
           
           {/* Status dropdown com ícones */}
-          <Select 
+          <Select
             value={
               filters.showOnlyAtendidos ? 'atendidos' :
               filters.showOnlyAgendados ? 'agendados' :
-              filters.showOnlyEmFila ? 'emfila' :
-              filters.showOnlyWhatsapp ? 'whatsapp' : '__all__'
-            } 
+              filters.showOnlyEmFila ? 'emfila' : '__all__'
+            }
             onValueChange={(value) => {
               setFilters(prev => ({
                 ...prev,
                 showOnlyAtendidos: value === 'atendidos',
                 showOnlyAgendados: value === 'agendados',
                 showOnlyEmFila: value === 'emfila',
-                showOnlyWhatsapp: value === 'whatsapp',
               }));
             }}
           >
@@ -743,12 +741,6 @@ export const DashboardLigacaoTab = ({
                 <span className="flex items-center gap-2">
                   <PhoneOff className="h-3.5 w-3.5 text-orange-600" />
                   Em Fila
-                </span>
-              </SelectItem>
-              <SelectItem value="whatsapp">
-                <span className="flex items-center gap-2">
-                  <MessageSquare className="h-3.5 w-3.5 text-emerald-600" />
-                  WhatsApp
                 </span>
               </SelectItem>
             </SelectContent>
