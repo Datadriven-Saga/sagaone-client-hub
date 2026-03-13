@@ -47,6 +47,7 @@ const LogsDisparos = lazy(() => import("./pages/admin/LogsDisparos"));
 const ControleGastosLigacao = lazy(() => import("./pages/admin/ControleGastosLigacao"));
 const FeatureFlags = lazy(() => import("./pages/admin/FeatureFlags"));
 const Quarentena = lazy(() => import("./pages/admin/Quarentena"));
+const Integracoes = lazy(() => import("./pages/admin/Integracoes"));
 const Instancias = lazy(() => import("./pages/agentes-ia/Instancias"));
 
 // QueryClient with optimized defaults
