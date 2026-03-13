@@ -239,12 +239,13 @@ export const DashboardLigacaoTab = ({
 
       const leadsContatados = processedLeads.filter((l: LeadData) => (l.num_tentativas || 0) > 0).length;
       if (data.metricas) {
-        setMetricas({ totalLeads: data.metricas.total, totalLigacoes: leadsContatados, leadsAtendidos: data.metricas.atendidos, leadsAgendados: data.metricas.agendados });
+        setMetricas({ totalLeads: data.metricas.total, totalLigacoes: leadsContatados, leadsAtendidos: data.metricas.atendidos, leadsAgendados: data.metricas.agendados, enviadoWhatsapp: data.metricas.enviado_whatsapp || 0 });
       } else {
         setMetricas({
           totalLeads: processedLeads.length, totalLigacoes: leadsContatados,
           leadsAtendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
           leadsAgendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
+          enviadoWhatsapp: processedLeads.filter((l: LeadData) => l.enviado_whatsapp).length,
         });
       }
       setLastAppUpdate(new Date().toLocaleString('pt-BR'));
