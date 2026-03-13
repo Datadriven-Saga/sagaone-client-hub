@@ -276,6 +276,7 @@ export const DashboardLigacaoTab = ({
           loja: selectedLoja || undefined,
           page: 1,
           page_size: FETCH_ALL, // Buscar todos para permitir paginação local
+          apenas_ligacao: true,
           filters: Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
         },
       });
