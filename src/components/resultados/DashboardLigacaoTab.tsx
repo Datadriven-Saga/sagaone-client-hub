@@ -461,17 +461,15 @@ export const DashboardLigacaoTab = ({
         totalLigacoes: leadsContatados,
         leadsAtendidos: filteredLeads.filter(l => l.ligacao_atendida).length,
         leadsAgendados: filteredLeads.filter(l => l.status_agendado).length,
-        mensagensEnviadas: filteredLeads.filter(l => l.enviado_whatsapp).length,
       };
     }
-    
+
     // Sem filtros locais, usar as métricas da API (que já consideram filtros do servidor)
     return metricas || {
       totalLeads: 0,
       totalLigacoes: 0,
       leadsAtendidos: 0,
       leadsAgendados: 0,
-      mensagensEnviadas: 0,
     };
   }, [filteredLeads, metricas, filters.search, filters.status]);
 
