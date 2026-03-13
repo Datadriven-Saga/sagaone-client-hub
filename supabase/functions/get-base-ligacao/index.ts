@@ -178,6 +178,7 @@ Deno.serve(async (req: Request) => {
         .from('cadencia_pri_voz')
         .select('telefone_lead, telefone_pri, id_evento, num_tentativas, hora_primeira_tentativa, hora_ultima_tentativa')
         .eq('id_evento', id_evento)
+        .eq('empresa_id', empresa_id)
         .range(cadenciaOffset, cadenciaOffset + batchSize - 1);
       
       if (batchError) {
