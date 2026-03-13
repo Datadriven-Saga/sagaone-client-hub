@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Loader2, Phone, X, RefreshCw, PhoneCall, CalendarCheck, Users, Plus, Minus, Filter, TrendingUp } from 'lucide-react';
+import { Search, Loader2, Phone, X, RefreshCw, PhoneCall, CalendarCheck, Users, Plus, Minus, Filter, TrendingUp, MessageSquare } from 'lucide-react';
 import { SyncButton } from './SyncButton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -44,6 +44,7 @@ interface LeadData {
   ligacao_atendida?: boolean;
   status_agendado?: boolean;
   ligacao_erro?: boolean;
+  enviado_whatsapp?: boolean;
 }
 
 interface EventData {
@@ -61,6 +62,7 @@ interface Metricas {
   totalLigacoes: number;
   leadsAtendidos: number;
   leadsAgendados: number;
+  enviadoWhatsapp: number;
 }
 
 interface LojaInfo {
@@ -71,7 +73,7 @@ interface LojaInfo {
 const PAGE_SIZE = 10;
 const FETCH_ALL = 10000;
 
-// Configuração das métricas
+// Configuração das métricas em formato de funil (maior → menor)
 const metricsConfig = [
   {
     key: 'totalLeads' as const,
@@ -98,6 +100,15 @@ const metricsConfig = [
     iconBg: 'bg-green-500/10',
     subLabel: (m: Metricas) => m.totalLigacoes > 0 ? `${((m.leadsAtendidos / m.totalLigacoes) * 100).toFixed(2)}% dos contatados` : null,
     subColor: 'text-blue-400',
+  },
+  {
+    key: 'enviadoWhatsapp' as const,
+    label: 'Enviado WhatsApp',
+    icon: MessageSquare,
+    iconColor: 'text-emerald-500',
+    iconBg: 'bg-emerald-500/10',
+    subLabel: (m: Metricas) => m.totalLigacoes > 0 ? `${((m.enviadoWhatsapp / m.totalLigacoes) * 100).toFixed(2)}% dos contatados` : null,
+    subColor: 'text-emerald-400',
   },
   {
     key: 'leadsAgendados' as const,
@@ -211,7 +222,7 @@ export const DashboardLigacaoTab = ({
 
       if (!data?.success || !data?.contatos || data.contatos.length === 0) {
         setLeads([]);
-        setMetricas({ totalLeads: 0, totalLigacoes: 0, leadsAtendidos: 0, leadsAgendados: 0 });
+        setMetricas({ totalLeads: 0, totalLigacoes: 0, leadsAtendidos: 0, leadsAgendados: 0, enviadoWhatsapp: 0 });
         if (!selectedLoja) toast.info('Nenhum dado encontrado. Clique em "Sincronizar" para buscar dados.');
         setLastAppUpdate(new Date().toLocaleString('pt-BR'));
         return;
@@ -222,18 +233,19 @@ export const DashboardLigacaoTab = ({
         loja: lead.loja, status: lead.status_calculado || calculateLeadStatus(lead), proposal_id: lead.proposal_id,
         num_tentativas: lead.num_tentativas ?? 0, ultima_atualizacao: lead.atualizado_em,
         ligacao_atendida: lead.ligacao_atendida ?? false, status_agendado: lead.status_agendado ?? false,
-        ligacao_erro: lead.ligacao_erro ?? false,
+        ligacao_erro: lead.ligacao_erro ?? false, enviado_whatsapp: lead.enviado_whatsapp ?? false,
       }));
       setLeads(processedLeads);
 
       const leadsContatados = processedLeads.filter((l: LeadData) => (l.num_tentativas || 0) > 0).length;
       if (data.metricas) {
-        setMetricas({ totalLeads: data.metricas.total, totalLigacoes: leadsContatados, leadsAtendidos: data.metricas.atendidos, leadsAgendados: data.metricas.agendados });
+        setMetricas({ totalLeads: data.metricas.total, totalLigacoes: leadsContatados, leadsAtendidos: data.metricas.atendidos, leadsAgendados: data.metricas.agendados, enviadoWhatsapp: data.metricas.whatsappEnviado || 0 });
       } else {
         setMetricas({
           totalLeads: processedLeads.length, totalLigacoes: leadsContatados,
           leadsAtendidos: processedLeads.filter((l: LeadData) => l.ligacao_atendida).length,
           leadsAgendados: processedLeads.filter((l: LeadData) => l.status_agendado).length,
+          enviadoWhatsapp: processedLeads.filter((l: LeadData) => l.enviado_whatsapp).length,
         });
       }
       setLastAppUpdate(new Date().toLocaleString('pt-BR'));
@@ -289,9 +301,10 @@ export const DashboardLigacaoTab = ({
         totalLeads: filteredLeads.length, totalLigacoes: leadsContatados,
         leadsAtendidos: filteredLeads.filter(l => l.ligacao_atendida).length,
         leadsAgendados: filteredLeads.filter(l => l.status_agendado).length,
+        enviadoWhatsapp: filteredLeads.filter(l => l.enviado_whatsapp).length,
       };
     }
-    return metricas || { totalLeads: 0, totalLigacoes: 0, leadsAtendidos: 0, leadsAgendados: 0 };
+    return metricas || { totalLeads: 0, totalLigacoes: 0, leadsAtendidos: 0, leadsAgendados: 0, enviadoWhatsapp: 0 };
   }, [filteredLeads, metricas, filters.search, filters.status]);
 
   const paginatedLeads = useMemo(() => {
@@ -431,7 +444,7 @@ export const DashboardLigacaoTab = ({
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {metricsConfig.map((metric) => {
           const value = displayMetrics[metric.key];
           const Icon = metric.icon;
@@ -476,6 +489,8 @@ export const DashboardLigacaoTab = ({
                 <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500">Contatados</span>
                 <span>→</span>
                 <span className="px-2 py-0.5 rounded bg-green-500/10 text-green-500">Atendidos</span>
+                <span>→</span>
+                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500">WhatsApp</span>
                 <span>→</span>
                 <span className="px-2 py-0.5 rounded bg-[#04bbda]/10 text-[#04bbda]">Agendados</span>
               </div>

@@ -343,7 +343,7 @@ Deno.serve(async (req: Request) => {
       
       // Detalhes de sucesso
       if (p.status_agendado) metricas.agendados++;
-      if (!apenas_ligacao && p.enviado_whatsapp) metricas.whatsappEnviado++;
+      if (p.enviado_whatsapp) metricas.whatsappEnviado++;
       if (p.ligacao_atendida) metricas.atendidos++;
     });
 
@@ -409,7 +409,7 @@ Deno.serve(async (req: Request) => {
       emFila: filteredProspects.filter(p => p.status_calculado === 'em_fila').length,
       encerrados: filteredProspects.filter(p => p.status_calculado === 'encerrado').length,
       agendados: filteredProspects.filter(p => p.status_agendado).length,
-      whatsappEnviado: apenas_ligacao ? 0 : filteredProspects.filter(p => p.enviado_whatsapp).length,
+      whatsappEnviado: filteredProspects.filter(p => p.enviado_whatsapp).length,
       atendidos: filteredProspects.filter(p => p.ligacao_atendida).length,
       elegiveisDisparo: filteredProspects.filter(p => p.status_calculado === 'pendente' || p.status_calculado === 'em_fila').length,
     } : metricas;
