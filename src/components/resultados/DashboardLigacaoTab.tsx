@@ -61,6 +61,7 @@ interface Metricas {
   totalLigacoes: number;
   leadsAtendidos: number;
   leadsAgendados: number;
+  enviadoWhatsapp: number;
 }
 
 interface LojaInfo {
