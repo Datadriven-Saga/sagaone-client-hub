@@ -40,6 +40,9 @@ const DashboardWhatsAppTab = lazy(() =>
 const EventoSelectorWhatsApp = lazy(() => 
   import("@/components/resultados/EventoSelectorWhatsApp").then(m => ({ default: m.EventoSelectorWhatsApp }))
 );
+const AdminDashboardWhatsApp = lazy(() => 
+  import("@/components/resultados/AdminDashboardWhatsApp").then(m => ({ default: m.AdminDashboardWhatsApp }))
+);
 
 interface Prospeccao {
   id: string;
