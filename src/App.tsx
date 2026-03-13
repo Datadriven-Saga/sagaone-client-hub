@@ -47,6 +47,7 @@ const LogsDisparos = lazy(() => import("./pages/admin/LogsDisparos"));
 const ControleGastosLigacao = lazy(() => import("./pages/admin/ControleGastosLigacao"));
 const FeatureFlags = lazy(() => import("./pages/admin/FeatureFlags"));
 const Quarentena = lazy(() => import("./pages/admin/Quarentena"));
+const Integracoes = lazy(() => import("./pages/admin/Integracoes"));
 const Instancias = lazy(() => import("./pages/agentes-ia/Instancias"));
 
 // QueryClient with optimized defaults
@@ -129,6 +130,7 @@ const AppRoutes = () => {
         <Route path="/administracao/gastos-ligacao" element={<PermissionProtectedRoute permissionKey="canAccessFinancialReports"><ControleGastosLigacao /></PermissionProtectedRoute>} />
         <Route path="/administracao/feature-flags" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><FeatureFlags /></PermissionProtectedRoute>} />
         <Route path="/administracao/quarentena" element={<PermissionProtectedRoute permissionKey={["canGovernancaDados", "canAccessAdminConfig"]}><Quarentena /></PermissionProtectedRoute>} />
+        <Route path="/administracao/integracoes" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><Integracoes /></PermissionProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>

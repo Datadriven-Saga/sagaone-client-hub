@@ -16,7 +16,8 @@ import {
   DollarSign,
   PhoneCall,
   Flag,
-  ShieldBan
+  ShieldBan,
+  Plug
 } from "lucide-react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
@@ -167,6 +168,13 @@ const Administracao = () => {
       icon: ShieldBan,
       route: "/administracao/quarentena",
       permissionKey: "canGovernancaDados",
+    },
+    {
+      title: "Criar Integração",
+      description: "Configurar e gerenciar integrações com sistemas externos",
+      icon: Plug,
+      route: "/administracao/integracoes",
+      permissionKey: "canAccessAgentesIA",
     },
   ];
 
