@@ -59,9 +59,10 @@ Deno.serve(async (req: Request) => {
       loja: lojaParam,
       telefone_pri,
       dealerid: dealerIdParam,
-      page = 1, 
+      page = 1,
       page_size = 20,
       fetch_all_pendentes = false,
+      apenas_ligacao = false,
       filters = {}
     } = body;
     
