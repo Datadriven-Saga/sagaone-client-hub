@@ -2486,7 +2486,7 @@ export default function EventoBase() {
         onConfirm={executarDisparoConfirmado}
         eventoNome={prospeccao?.titulo || 'Evento'}
         canalEvento={prospeccao?.canal || ''}
-        totalContatos={custoModal.quantidade || (isIALigacaoLocal && metricasLigacao ? metricasLigacao.pendentes : metricas.pendentes)}
+        totalContatos={custoModal.quantidade || (isIALigacaoLocal && metricasLigacao ? metricasLigacao.elegiveisDisparo : metricas.pendentes)}
       />
     </DashboardLayout>
   );
