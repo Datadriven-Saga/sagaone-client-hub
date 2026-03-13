@@ -16,7 +16,8 @@ import {
   DollarSign,
   PhoneCall,
   Flag,
-  ShieldBan
+  ShieldBan,
+  Plug
 } from "lucide-react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
