@@ -200,7 +200,6 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       { name: "Leads Contatados", count: m.leadsContatados, desc: "Leads que receberam pelo menos 1 ligação", key: "contatados" },
       { name: "Atendidos", count: m.atendidos, desc: "Leads que atenderam a ligação", key: "atendidos" },
       { name: "Agendados", count: m.agendados, desc: "Leads que agendaram visita", key: "agendados" },
-      { name: "WhatsApp Enviado", count: m.whatsappEnviado, desc: "Leads que receberam WhatsApp", key: "whatsapp" },
     ];
   }, [aggregatedMetrics]);
 
