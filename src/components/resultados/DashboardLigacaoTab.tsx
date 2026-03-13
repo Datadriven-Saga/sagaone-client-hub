@@ -180,7 +180,7 @@ export const DashboardLigacaoTab = ({
     if (selectedEventId && selectedAgentPhone && activeCompany?.id) {
       fetchDashboardData();
     }
-  }, [selectedLoja, filters.showOnlyAtendidos, filters.showOnlyAgendados, filters.showOnlyEmFila, filters.showOnlyWhatsapp, filters.tentativas]);
+  }, [selectedLoja, filters.showOnlyAtendidos, filters.showOnlyAgendados, filters.showOnlyEmFila, filters.tentativas]);
 
   const loadAvailableEvents = async () => {
     if (!selectedAgentPhone || !companyDealerId) return;
