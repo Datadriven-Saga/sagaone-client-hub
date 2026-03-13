@@ -179,7 +179,6 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       ligacoesFeitas: acc.ligacoesFeitas + event.metricas.ligacoesFeitas,
       encerrados: acc.encerrados + event.metricas.encerrados,
       agendados: acc.agendados + event.metricas.agendados,
-      whatsappEnviado: acc.whatsappEnviado + event.metricas.whatsappEnviado,
       atendidos: acc.atendidos + event.metricas.atendidos,
       totalEventos: acc.totalEventos + 1,
     }), {
@@ -188,7 +187,6 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       ligacoesFeitas: 0,
       encerrados: 0,
       agendados: 0,
-      whatsappEnviado: 0,
       atendidos: 0,
       totalEventos: 0,
     });
