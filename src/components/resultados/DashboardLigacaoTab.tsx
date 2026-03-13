@@ -506,7 +506,6 @@ export const DashboardLigacaoTab = ({
       showOnlyAtendidos: false,
       showOnlyAgendados: false,
       showOnlyEmFila: false,
-      showOnlyWhatsapp: false,
     });
     setSelectedLoja(''); // Também limpa a loja selecionada
   };
@@ -519,7 +518,6 @@ export const DashboardLigacaoTab = ({
     filters.showOnlyAtendidos ? 'atendidos' : '',
     filters.showOnlyAgendados ? 'agendados' : '',
     filters.showOnlyEmFila ? 'emfila' : '',
-    filters.showOnlyWhatsapp ? 'whatsapp' : '',
   ].filter(Boolean).length;
 
   if (!selectedAgentPhone) {
