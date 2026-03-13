@@ -44,6 +44,7 @@ interface LeadData {
   ligacao_atendida?: boolean;
   status_agendado?: boolean;
   ligacao_erro?: boolean;
+  enviado_whatsapp?: boolean;
 }
 
 interface EventData {
