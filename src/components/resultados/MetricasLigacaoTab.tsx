@@ -112,12 +112,13 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       const metricsPromises = events.map(async (event) => {
         try {
           const { data, error } = await supabase.functions.invoke('get-base-ligacao', {
-            body: { 
+            body: {
               id_evento: event.id_evento,
               empresa_id: activeCompany?.id,
               telefone_pri: event.telefone_pri,
               page: 1,
               page_size: 10000,
+              apenas_ligacao: true,
             },
           });
           
