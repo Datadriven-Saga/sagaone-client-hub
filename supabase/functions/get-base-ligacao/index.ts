@@ -243,8 +243,9 @@ Deno.serve(async (req: Request) => {
     // Usado pelo disparo em massa para obter IDs de prospect_pri_voz
     // =====================================================
     if (fetch_all_pendentes) {
-      const pendentes = enrichedProspects.filter(p => p.status_calculado === 'pendente');
-      console.log(`🚀 [${requestId}] fetch_all_pendentes: retornando ${pendentes.length} pendentes de ${enrichedProspects.length} total`);
+      // Incluir pendentes E em_fila (elegíveis para disparo)
+      const pendentes = enrichedProspects.filter(p => p.status_calculado === 'pendente' || p.status_calculado === 'em_fila');
+      console.log(`🚀 [${requestId}] fetch_all_pendentes: retornando ${pendentes.length} elegíveis (pendente+em_fila) de ${enrichedProspects.length} total`);
       return new Response(
         JSON.stringify({
           success: true,

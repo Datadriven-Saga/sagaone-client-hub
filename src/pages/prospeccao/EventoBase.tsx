@@ -2161,7 +2161,7 @@ export default function EventoBase() {
                             )}
                             Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({(
                               isIALigacao && metricasLigacao 
-                                ? metricasLigacao.pendentes 
+                                ? metricasLigacao.elegiveisDisparo 
                                 : metricas.pendentes
                             ).toLocaleString()})
                           </Button>
