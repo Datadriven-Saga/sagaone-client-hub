@@ -173,95 +173,69 @@ export const DashboardWhatsAppTab = ({
     fetchAgent();
   }, [activeCompany?.id]);
 
-  // Fetch events when agent is available
+  // Fetch events only for active company (evita mistura de lojas)
   useEffect(() => {
     const fetchEvents = async () => {
-      if (!agent?.telefone || !user?.id) {
+      if (!agent?.telefone || !activeCompany?.id) {
         setEvents([]);
+        setSelectedEventIds([]);
         return;
       }
 
       try {
         setLoadingEvents(true);
 
-        const cleanPhone = agent.telefone.replace(/\D/g, "");
-
-        const { data: userEmpresas, error: userEmpresasError } = await supabase
-          .from("user_empresas")
-          .select("empresa_id")
-          .eq("user_id", user.id);
-
-        if (userEmpresasError) {
-          console.error("Erro ao buscar user_empresas:", userEmpresasError);
-          return;
-        }
-
-        const empresaIds = userEmpresas?.map((ue) => ue.empresa_id) || [];
-
-        if (empresaIds.length === 0) {
-          setEvents([]);
-          return;
-        }
-
-        const { data: agentesEmpresas, error: agentesError } = await supabase
-          .from("agente_empresas")
-          .select("empresa_id, agentes_ia!inner(telefone, nome, ativo)")
-          .in("empresa_id", empresaIds);
-
-        if (agentesError) {
-          console.error("Erro ao buscar agente_empresas:", agentesError);
-        }
-
-        const empresasComMesmoAgente = (agentesEmpresas || [])
-          .filter((ae: any) => {
-            const agentData = ae.agentes_ia;
-            if (!agentData) return false;
-            const nome = (agentData.nome || "").toLowerCase();
-            const isWhatsApp = nome.includes("whatsapp") || nome.includes("wpp") || nome.includes("zap");
-            const telefoneAgente = (agentData.telefone || "").replace(/\D/g, "");
-            return isWhatsApp && telefoneAgente === cleanPhone && agentData.ativo;
-          })
-          .map((ae: any) => ae.empresa_id);
-
-        if (empresasComMesmoAgente.length === 0) {
-          setEvents([]);
-          return;
-        }
-
         const { data: prospeccoes, error: prospError } = await supabase
           .from("prospeccoes")
           .select(
             `
-            id, 
-            titulo, 
-            event_id_pri, 
-            data_inicio, 
+            id,
+            titulo,
+            event_id_pri,
+            data_inicio,
             data_fim,
-            empresa_id,
             empresas!inner(nome_empresa)
           `,
           )
+          .eq("empresa_id", activeCompany.id)
           .eq("canal", "Whatsapp")
           .not("event_id_pri", "is", null)
-          .in("empresa_id", empresasComMesmoAgente)
           .order("data_inicio", { ascending: false });
 
         if (prospError) {
-          console.error("Erro ao buscar prospeccoes:", prospError);
+          console.error("Erro ao buscar prospecções WhatsApp:", prospError);
           toast.error("Erro ao buscar eventos");
           return;
         }
 
-        const eventsList: EventOption[] = (prospeccoes || []).map((p: any) => ({
-          id_evento: Number(p.event_id_pri),
-          nome: p.titulo || `Evento ${p.event_id_pri}`,
-          empresa_nome: p.empresas?.nome_empresa || "",
-          prospeccao_id: p.id,
-        }));
+        const eventsList: EventOption[] = (prospeccoes || [])
+          .map((p: any) => ({
+            id_evento: Number(p.event_id_pri),
+            nome: p.titulo || `Evento ${p.event_id_pri}`,
+            empresa_nome: p.empresas?.nome_empresa || "",
+            prospeccao_id: p.id,
+          }))
+          .filter((e) => Number.isFinite(e.id_evento) && e.id_evento > 0);
 
         setEvents(eventsList);
+
+        setSelectedEventIds((prev) => {
+          const availableIds = new Set(eventsList.map((e) => e.id_evento));
+          const preferredId = Number(selectedEventIdPri);
+
+          if (Number.isFinite(preferredId) && availableIds.has(preferredId)) {
+            return [preferredId];
+          }
+
+          const stillValid = prev.filter((id) => availableIds.has(id));
+          if (stillValid.length > 0) {
+            return stillValid;
+          }
+
+          return eventsList[0] ? [eventsList[0].id_evento] : [];
+        });
       } catch (error) {
-        console.error("Error:", error);
+        console.error("Erro ao carregar eventos WhatsApp:", error);
         toast.error("Erro ao carregar eventos");
       } finally {
         setLoadingEvents(false);
@@ -269,7 +243,7 @@ export const DashboardWhatsAppTab = ({
     };
 
     fetchEvents();
-  }, [agent?.telefone, user?.id]);
+  }, [agent?.telefone, activeCompany?.id, selectedEventIdPri]);
 
   // Fetch dashboard data when selected events change
   useEffect(() => {
