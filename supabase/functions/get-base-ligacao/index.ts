@@ -319,7 +319,9 @@ Deno.serve(async (req: Request) => {
 
     prospectsForMetrics.forEach(p => {
       const numTentativas = p.num_tentativas || 0;
-      const isSuccessEncerrado = p.status_agendado || p.enviado_whatsapp || p.ligacao_atendida;
+      const isSuccessEncerrado = apenas_ligacao
+        ? (p.status_agendado || p.ligacao_atendida)
+        : (p.status_agendado || p.enviado_whatsapp || p.ligacao_atendida);
       
       // Contagem por tentativas (CUMULATIVO)
       // Pendentes = 0 tentativas
