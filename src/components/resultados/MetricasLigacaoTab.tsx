@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { ResultadosLigacaoSkeleton } from '@/components/resultados/ResultadosSkeleton';
-import { 
-  Loader2, Phone, PhoneCall, CalendarCheck, MessageSquare,
+import {
+  Loader2, Phone, PhoneCall, CalendarCheck,
   RefreshCw, Users, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -35,7 +35,6 @@ interface EventMetrics {
     ligacoesFeitas: number;
     encerrados: number;
     agendados: number;
-    whatsappEnviado: number;
     atendidos: number;
   };
 }
