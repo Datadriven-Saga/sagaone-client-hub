@@ -343,7 +343,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-sm font-bold">Funil de leads</CardTitle>
             <Badge variant="outline" className="text-xs">
-              Base → Contatados → Atendidos → Agendados → WhatsApp
+              Base → Contatados → Atendidos → Agendados
             </Badge>
           </div>
         </CardHeader>
