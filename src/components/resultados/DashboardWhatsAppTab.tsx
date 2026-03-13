@@ -34,7 +34,6 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
-import { useAuth } from "@/contexts/AuthContext";
 
 interface DashboardWhatsAppTabProps {
   selectedEventId: string;
