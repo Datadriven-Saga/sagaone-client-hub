@@ -89,6 +89,9 @@ const Resultados = () => {
   const [selectedProspeccoes, setSelectedProspeccoes] = useState<string[]>([]);
   const { activeCompany } = useCompany();
   
+  // Check if active company is EMPRESA ADMIN
+  const isEmpresaAdmin = activeCompany?.nome_empresa === "EMPRESA ADMIN";
+  
   // State for Ligação tab
   const [selectedAgentPhone, setSelectedAgentPhone] = useState<string | null>(null);
   
