@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Loader2, Phone, MessageSquare, X, RefreshCw, Calendar, PhoneCall, PhoneOff, CalendarCheck, Users, Plus, Minus, Filter } from 'lucide-react';
+import { Search, Loader2, Phone, X, RefreshCw, Calendar, PhoneCall, PhoneOff, CalendarCheck, Users, Plus, Minus, Filter } from 'lucide-react';
 import { SyncButton } from './SyncButton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,7 +43,6 @@ interface LeadData {
   ligacao_atendida?: boolean;
   status_agendado?: boolean;
   ligacao_erro?: boolean;
-  enviado_whatsapp?: boolean;
 }
 
 interface EventData {
@@ -61,7 +60,6 @@ interface Metricas {
   totalLigacoes: number;
   leadsAtendidos: number;
   leadsAgendados: number;
-  mensagensEnviadas: number;
 }
 
 interface LojaInfo {
@@ -74,47 +72,40 @@ const FETCH_ALL = 10000; // Buscar todos os registros para filtragem correta
 
 // Configuração das métricas com cores e ícones
 const metricsConfig = [
-  { 
-    key: 'totalLeads' as const, 
-    label: 'Total Leads', 
+  {
+    key: 'totalLeads' as const,
+    label: 'Total Leads',
     icon: Users,
     borderColor: 'border-l-primary',
     iconColor: 'text-primary'
   },
-  { 
-    key: 'totalLigacoes' as const, 
-    label: 'Leads Contatados', 
+  {
+    key: 'totalLigacoes' as const,
+    label: 'Leads Contatados',
     icon: Phone,
     borderColor: 'border-l-blue-500',
     iconColor: 'text-blue-600'
   },
-  { 
-    key: 'leadsAtendidos' as const, 
-    label: 'Atendidos', 
+  {
+    key: 'leadsAtendidos' as const,
+    label: 'Atendidos',
     icon: PhoneCall,
     borderColor: 'border-l-green-500',
     iconColor: 'text-green-600'
   },
-  { 
-    key: 'leadsAgendados' as const, 
-    label: 'Agendados', 
+  {
+    key: 'leadsAgendados' as const,
+    label: 'Agendados',
     icon: CalendarCheck,
     borderColor: 'border-l-[#04bbda]',
     iconColor: 'text-[#04bbda]'
   },
-  { 
-    key: 'mensagensEnviadas' as const, 
-    label: 'WhatsApp', 
-    icon: MessageSquare,
-    borderColor: 'border-l-emerald-500',
-    iconColor: 'text-emerald-600'
-  },
 ];
 
-export const DashboardLigacaoTab = ({ 
-  selectedEventId, 
+export const DashboardLigacaoTab = ({
+  selectedEventId,
   selectedAgentPhone,
-  onEventChange 
+  onEventChange
 }: DashboardLigacaoTabProps) => {
   const { activeCompany } = useCompany();
   const [selectedLoja, setSelectedLoja] = useState<string>(''); // Loja principal selecionada
@@ -126,7 +117,6 @@ export const DashboardLigacaoTab = ({
     showOnlyAtendidos: false,
     showOnlyAgendados: false,
     showOnlyEmFila: false,
-    showOnlyWhatsapp: false,
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [leads, setLeads] = useState<LeadData[]>([]);
