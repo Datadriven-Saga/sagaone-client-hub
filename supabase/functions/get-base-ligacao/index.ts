@@ -409,7 +409,7 @@ Deno.serve(async (req: Request) => {
       emFila: filteredProspects.filter(p => p.status_calculado === 'em_fila').length,
       encerrados: filteredProspects.filter(p => p.status_calculado === 'encerrado').length,
       agendados: filteredProspects.filter(p => p.status_agendado).length,
-      whatsappEnviado: apenas_ligacao ? 0 : filteredProspects.filter(p => p.enviado_whatsapp).length,
+      whatsappEnviado: filteredProspects.filter(p => p.enviado_whatsapp).length,
       atendidos: filteredProspects.filter(p => p.ligacao_atendida).length,
       elegiveisDisparo: filteredProspects.filter(p => p.status_calculado === 'pendente' || p.status_calculado === 'em_fila').length,
     } : metricas;
