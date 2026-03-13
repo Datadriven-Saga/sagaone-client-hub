@@ -372,7 +372,7 @@ Deno.serve(async (req: Request) => {
       filteredProspects = filteredProspects.filter(p => {
         switch (filters.status_ligacao) {
           case 'agendado': return p.status_agendado;
-          case 'whatsapp': return p.enviado_whatsapp;
+          case 'whatsapp': return apenas_ligacao ? false : p.enviado_whatsapp;
           case 'atendido': return p.ligacao_atendida;
           case 'em_fila': return p.status_calculado === 'em_fila';
           case 'elegivel': return p.status_calculado === 'pendente' || p.status_calculado === 'em_fila';
