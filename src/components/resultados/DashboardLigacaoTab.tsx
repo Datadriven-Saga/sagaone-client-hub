@@ -300,7 +300,6 @@ export const DashboardLigacaoTab = ({
           totalLigacoes: 0,
           leadsAtendidos: 0,
           leadsAgendados: 0,
-          mensagensEnviadas: 0,
         });
         if (!selectedLoja) {
           toast.info('Nenhum dado encontrado. Clique em "Sincronizar" para buscar dados do n8n.');
