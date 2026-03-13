@@ -3890,6 +3890,30 @@ export type Database = {
           },
         ]
       }
+      quarentena_exclusoes: {
+        Row: {
+          created_at: string
+          criado_por: string | null
+          id: string
+          motivo: string | null
+          telefone_normalizado: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          motivo?: string | null
+          telefone_normalizado: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          motivo?: string | null
+          telefone_normalizado?: string
+        }
+        Relationships: []
+      }
       quarentena_logs: {
         Row: {
           acao: string
