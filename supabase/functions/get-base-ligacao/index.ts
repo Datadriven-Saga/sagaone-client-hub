@@ -225,7 +225,9 @@ Deno.serve(async (req: Request) => {
       const numTentativas = cadencia?.num_tentativas || 0;
       
       // Encerrado = atingiu objetivo OU >= 2 tentativas
-      const isSuccessEncerrado = p.status_agendado || p.enviado_whatsapp || p.ligacao_atendida;
+      const isSuccessEncerrado = apenas_ligacao
+        ? (p.status_agendado || p.ligacao_atendida)
+        : (p.status_agendado || p.enviado_whatsapp || p.ligacao_atendida);
       const isEncerrado = isSuccessEncerrado || numTentativas >= 2;
       
       // Em Fila = ligacao_erro=true E tentativas < 2 E não encerrado por sucesso
