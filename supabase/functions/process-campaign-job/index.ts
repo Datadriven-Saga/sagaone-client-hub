@@ -249,19 +249,50 @@ serve(async (req) => {
       const leadIds: string[] = Array.isArray(batch.lead_ids) ? batch.lead_ids : JSON.parse(String(batch.lead_ids));
 
       try {
-        // Buscar dados dos leads em sub-batches menores (100 para evitar limite de URL do PostgREST)
+        // Buscar dados dos leads
+        // Para IA Ligação: buscar de prospect_pri_voz (fonte de verdade)
+        // Para WhatsApp: buscar de contatos (tabela local)
         const leads: any[] = [];
         const SUB_BATCH = 100;
-        for (let i = 0; i < leadIds.length; i += SUB_BATCH) {
-          const batchIds = leadIds.slice(i, i + SUB_BATCH);
-          const { data: leadsData, error: leadsError } = await supabase
-            .from('contatos')
-            .select('id, lead_id, nome, telefone, email, status, origem, vendedor_nome')
-            .in('id', batchIds);
-          if (leadsError) {
-            console.error(`⚠️ Erro ao buscar leads sub-batch ${Math.floor(i / SUB_BATCH)}:`, leadsError.message);
+
+        if (isIALigacao) {
+          // IA Ligação: IDs vêm de prospect_pri_voz
+          for (let i = 0; i < leadIds.length; i += SUB_BATCH) {
+            const batchIds = leadIds.slice(i, i + SUB_BATCH);
+            const { data: prospectsData, error: prospectsError } = await supabase
+              .from('prospect_pri_voz')
+              .select('id, telefone_lead, nome, lead_id')
+              .in('id', batchIds);
+            if (prospectsError) {
+              console.error(`⚠️ Erro ao buscar prospects sub-batch ${Math.floor(i / SUB_BATCH)}:`, prospectsError.message);
+            }
+            if (prospectsData) {
+              // Map prospect_pri_voz fields to expected lead format
+              leads.push(...prospectsData.map((p: any) => ({
+                id: p.id,
+                lead_id: p.lead_id,
+                nome: p.nome || '',
+                telefone: p.telefone_lead || '',
+                email: '',
+                status: 'Novo',
+                origem: 'Ligação',
+                vendedor_nome: '',
+              })));
+            }
           }
-          if (leadsData) leads.push(...leadsData);
+        } else {
+          // WhatsApp: buscar de contatos
+          for (let i = 0; i < leadIds.length; i += SUB_BATCH) {
+            const batchIds = leadIds.slice(i, i + SUB_BATCH);
+            const { data: leadsData, error: leadsError } = await supabase
+              .from('contatos')
+              .select('id, lead_id, nome, telefone, email, status, origem, vendedor_nome')
+              .in('id', batchIds);
+            if (leadsError) {
+              console.error(`⚠️ Erro ao buscar leads sub-batch ${Math.floor(i / SUB_BATCH)}:`, leadsError.message);
+            }
+            if (leadsData) leads.push(...leadsData);
+          }
         }
 
         if (leads.length === 0) {
