@@ -323,6 +323,9 @@ serve(async (req) => {
           }));
 
           const LIGACAO_SUB_BATCH = 100;
+          // Timeout de 120s por sub-lote: o webhook externo processa todos os contatos
+          // antes de retornar, então precisa de tempo suficiente para lotes de 100
+          const LIGACAO_TIMEOUT_MS = 120000;
 
           for (let i = 0; i < contatosWithIds.length; i += LIGACAO_SUB_BATCH) {
             const subContatos = contatosWithIds.slice(i, i + LIGACAO_SUB_BATCH);
@@ -341,7 +344,7 @@ serve(async (req) => {
 
             try {
               const controller = new AbortController();
-              const timeout = setTimeout(() => controller.abort(), 30000);
+              const timeout = setTimeout(() => controller.abort(), LIGACAO_TIMEOUT_MS);
               
               const response = await fetch(webhookUrl, {
                 method: 'POST',
