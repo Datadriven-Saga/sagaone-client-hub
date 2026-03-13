@@ -246,13 +246,6 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
         threshold: 0.03,
         icon: <CalendarCheck className="h-4 w-4" />,
       },
-      {
-        label: "WhatsApp Enviado",
-        value: numFmt(m.whatsappEnviado),
-        pctVal: safeDiv(m.whatsappEnviado, m.total),
-        pctSuffix: "da base",
-        icon: <MessageSquare className="h-4 w-4" />,
-      },
     ];
   }, [aggregatedMetrics]);
 
