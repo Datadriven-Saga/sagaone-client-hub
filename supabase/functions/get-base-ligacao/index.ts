@@ -343,7 +343,7 @@ Deno.serve(async (req: Request) => {
       
       // Detalhes de sucesso
       if (p.status_agendado) metricas.agendados++;
-      if (!apenas_ligacao && p.enviado_whatsapp) metricas.whatsappEnviado++;
+      if (p.enviado_whatsapp) metricas.whatsappEnviado++;
       if (p.ligacao_atendida) metricas.atendidos++;
     });
 
