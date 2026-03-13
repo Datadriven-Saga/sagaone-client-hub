@@ -138,6 +138,7 @@ Deno.serve(async (req: Request) => {
         .from('prospect_pri_voz')
         .select('*', { count: 'exact' })
         .eq('id_evento', id_evento)
+        .eq('empresa_id', empresa_id)
         .range(offset, offset + batchSize - 1)
         .order('criado_em', { ascending: false });
       
