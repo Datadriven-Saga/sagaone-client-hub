@@ -262,32 +262,74 @@ export const DashboardWhatsAppTab = ({
 
       console.log("📊 Fetching WhatsApp dashboard for events:", selectedEventIds);
 
+      const cleanPhone = agent?.telefone ? agent.telefone.replace(/\D/g, "") : "";
+
+      let dealerId = "";
+      if (activeCompany?.id) {
+        const { data: empresaData, error: empresaError } = await supabase
+          .from("empresas")
+          .select("crm_id")
+          .eq("id", activeCompany.id)
+          .maybeSingle();
+
+        if (empresaError) {
+          console.warn("Não foi possível buscar crm_id da empresa ativa:", empresaError);
+        } else {
+          dealerId = String(empresaData?.crm_id || "").trim();
+        }
+      }
+
+      const integrationErrors: string[] = [];
+
       const allResponses = await Promise.all(
         selectedEventIds.map(async (eventId) => {
+          const payload: Record<string, unknown> = {
+            endpoint: "dashboard-evento-pri-whats",
+            id_evento: eventId,
+            event_id: eventId,
+            evento_id: eventId,
+            empresa_id: activeCompany?.id ?? null,
+          };
+
+          if (cleanPhone) {
+            payload.telefone_pri = cleanPhone;
+          }
+
+          if (dealerId) {
+            payload.dealer_id = dealerId;
+            payload.dealerid = dealerId;
+          }
+
           const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
-            body: {
-              endpoint: "dashboard-evento-pri-whats",
-              id_evento: eventId,
-            },
+            body: payload,
           });
 
           if (error) {
-            console.error(`Error fetching event ${eventId}:`, error);
+            console.error(`Erro ao buscar métricas do evento ${eventId}:`, error);
+            integrationErrors.push(`Evento ${eventId}: erro de integração`);
             return null;
           }
 
-          if (Array.isArray(data)) {
-            return data[0] as WebhookResponse | undefined;
+          if (Array.isArray(data) && data[0] && typeof data[0] === "object" && "total_base" in data[0]) {
+            return data[0] as WebhookResponse;
           }
+
           if (data && typeof data === "object" && "total_base" in data) {
             return data as WebhookResponse;
           }
-          console.warn(`Unexpected response format for event ${eventId}:`, data);
+
+          const message =
+            data && typeof data === "object" && "message" in data
+              ? String((data as { message?: unknown }).message || "erro no workflow")
+              : "formato de resposta inválido";
+
+          integrationErrors.push(`Evento ${eventId}: ${message}`);
+          console.warn(`Resposta inesperada do evento ${eventId}:`, data);
           return null;
         }),
       );
 
-      // Aggregate all responses
+      // Aggregate external responses
       const aggregated: DashboardData = {
         total_base: 0,
         msg_enviada: 0,
@@ -317,13 +359,11 @@ export const DashboardWhatsAppTab = ({
         aggregated.optout += Number(resp.optout) || 0;
         aggregated.negativa_clara += Number(resp.negativa_clara) || 0;
 
-        // Use new USD/BRL fields, fallback to legacy gasto_total as BRL
         const gastoUSD = Number(resp.gasto_total_dolar) || 0;
         const gastoBRL = Number(resp.gasto_total_real) || Number(resp.gasto_total) || 0;
         aggregated.gasto_total_dolar += gastoUSD;
         aggregated.gasto_total_real += gastoBRL;
 
-        // Capture rates from last response that has them
         if (resp.rates?.BRL) {
           aggregated.rates_brl = Number(resp.rates.BRL) || null;
         }
@@ -352,6 +392,37 @@ export const DashboardWhatsAppTab = ({
 
       aggregated.templates = Array.from(templateMap.values());
 
+      // Base oficial do evento: eventos_prospeccao (evita inconsistência entre tela de evento e dashboard)
+      const selectedProspeccaoIds = events
+        .filter((e) => selectedEventIds.includes(e.id_evento) && e.prospeccao_id)
+        .map((e) => e.prospeccao_id as string);
+
+      if (selectedProspeccaoIds.length > 0) {
+        const { count, error: baseCountError } = await supabase
+          .from("eventos_prospeccao")
+          .select("id", { count: "exact", head: true })
+          .in("prospeccao_id", selectedProspeccaoIds);
+
+        if (baseCountError) {
+          console.error("Erro ao calcular base local dos eventos:", baseCountError);
+        } else if (typeof count === "number") {
+          if (aggregated.total_base !== count) {
+            console.warn("⚠️ Divergência detectada na base do dashboard WhatsApp", {
+              baseWebhook: aggregated.total_base,
+              baseLocal: count,
+              selectedEventIds,
+            });
+          }
+          aggregated.total_base = count;
+        }
+      }
+
+      if (integrationErrors.length === selectedEventIds.length) {
+        toast.error("Falha na API externa; exibindo base oficial do evento.");
+      } else if (integrationErrors.length > 0) {
+        toast.warning("Parte das métricas externas falhou; base local foi priorizada.");
+      }
+
       console.log("📊 Dashboard WhatsApp aggregated:", aggregated);
 
       setDashboardData(aggregated);
@@ -362,7 +433,7 @@ export const DashboardWhatsAppTab = ({
     } finally {
       setLoading(false);
     }
-  }, [selectedEventIds]);
+  }, [selectedEventIds, activeCompany?.id, agent?.telefone, events]);
 
   const toggleEventSelection = (eventId: number) => {
     setSelectedEventIds((prev) => {
