@@ -304,18 +304,33 @@ export const DashboardWhatsAppTab = ({
             body: payload,
           });
 
+          console.log(`📊 WhatsApp evento ${eventId} response:`, JSON.stringify(data)?.substring(0, 500));
+
           if (error) {
             console.error(`Erro ao buscar métricas do evento ${eventId}:`, error);
             integrationErrors.push(`Evento ${eventId}: erro de integração`);
             return null;
           }
 
-          if (Array.isArray(data) && data[0] && typeof data[0] === "object" && "total_base" in data[0]) {
-            return data[0] as WebhookResponse;
+          // Try multiple response formats
+          if (Array.isArray(data) && data.length > 0 && typeof data[0] === "object") {
+            const item = data[0];
+            if ("total_base" in item || "msg_enviada" in item) {
+              return item as WebhookResponse;
+            }
           }
 
-          if (data && typeof data === "object" && "total_base" in data) {
-            return data as WebhookResponse;
+          if (data && typeof data === "object" && !Array.isArray(data)) {
+            if ("total_base" in data || "msg_enviada" in data) {
+              return data as WebhookResponse;
+            }
+            // Handle nested data object
+            if ("data" in data && typeof (data as any).data === "object") {
+              const nested = (data as any).data;
+              if ("total_base" in nested || "msg_enviada" in nested) {
+                return nested as WebhookResponse;
+              }
+            }
           }
 
           const message =
