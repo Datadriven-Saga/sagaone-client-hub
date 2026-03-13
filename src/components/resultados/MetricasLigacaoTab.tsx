@@ -141,7 +141,6 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
               ligacoesFeitas: metricas.disparados1 || 0,
               encerrados: metricas.encerrados || 0,
               agendados: metricas.agendados || 0,
-              whatsappEnviado: metricas.whatsappEnviado || 0,
               atendidos: metricas.atendidos || 0,
             },
           } as EventMetrics;
