@@ -239,6 +239,28 @@ Deno.serve(async (req: Request) => {
     });
 
     // =====================================================
+    // FAST PATH: fetch_all_pendentes - retorna TODOS os pendentes sem paginação
+    // Usado pelo disparo em massa para obter IDs de prospect_pri_voz
+    // =====================================================
+    if (fetch_all_pendentes) {
+      const pendentes = enrichedProspects.filter(p => p.status_calculado === 'pendente');
+      console.log(`🚀 [${requestId}] fetch_all_pendentes: retornando ${pendentes.length} pendentes de ${enrichedProspects.length} total`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          pendentes: pendentes.map(p => ({
+            id: p.id,
+            telefone_lead: p.telefone_lead,
+            nome: p.nome,
+            lead_id: p.lead_id,
+          })),
+          total_pendentes: pendentes.length,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    //
     // FILTRAR POR LOJA SE ESPECIFICADA (antes de calcular métricas)
     // =====================================================
     let prospectsForMetrics = enrichedProspects;
