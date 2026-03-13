@@ -112,7 +112,6 @@ export const DashboardWhatsAppTab = ({
   onEventChange,
 }: DashboardWhatsAppTabProps) => {
   const { activeCompany } = useCompany();
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
