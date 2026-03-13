@@ -1147,8 +1147,9 @@ export default function EventoBase() {
         return;
       }
 
-      // Para IA Ligação: filtrar leads encerrados
-      if (isLigacao && contatosExternos.size > 0) {
+      // Para IA Ligação: filtragem já foi feita em fetchContatosPendentes via get-base-ligacao
+      // Apenas verificar encerrados como fallback para dados locais
+      if (isLigacao && contatosExternos.size > 0 && !prospeccao?.event_id_pri) {
         const totalAntes = contatosPendentes.length;
         contatosPendentes = contatosPendentes.filter(contato => {
           const telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
