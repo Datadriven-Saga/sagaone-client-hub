@@ -2068,9 +2068,9 @@ export default function EventoBase() {
                                   ) : (
                                     <MessageCircle className="mr-2 h-4 w-4" />
                                   )}
-                                  Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({(
+                                   Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({(
                                     isIALigacao && metricasLigacao 
-                                      ? metricasLigacao.pendentes 
+                                      ? metricasLigacao.elegiveisDisparo 
                                       : metricas.pendentes
                                   ).toLocaleString()})
                                 </>
@@ -2161,7 +2161,7 @@ export default function EventoBase() {
                             )}
                             Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({(
                               isIALigacao && metricasLigacao 
-                                ? metricasLigacao.pendentes 
+                                ? metricasLigacao.elegiveisDisparo 
                                 : metricas.pendentes
                             ).toLocaleString()})
                           </Button>
@@ -2486,7 +2486,7 @@ export default function EventoBase() {
         onConfirm={executarDisparoConfirmado}
         eventoNome={prospeccao?.titulo || 'Evento'}
         canalEvento={prospeccao?.canal || ''}
-        totalContatos={custoModal.quantidade || (isIALigacaoLocal && metricasLigacao ? metricasLigacao.pendentes : metricas.pendentes)}
+        totalContatos={custoModal.quantidade || (isIALigacaoLocal && metricasLigacao ? metricasLigacao.elegiveisDisparo : metricas.pendentes)}
       />
     </DashboardLayout>
   );
