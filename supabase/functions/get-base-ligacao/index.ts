@@ -60,6 +60,7 @@ Deno.serve(async (req: Request) => {
       dealerid: dealerIdParam,
       page = 1, 
       page_size = 20,
+      fetch_all_pendentes = false,
       filters = {}
     } = body;
     
