@@ -241,32 +241,33 @@ serve(async (req) => {
     const vapiStartIso = vapiStartDate.toISOString();
     const deadline = Date.now() + 45_000;
 
-    const phoneQueries = effectivePhoneIds.length > 0 ? effectivePhoneIds : [undefined];
-    const assistantQueries = effectiveAssistantIds.length > 0 ? effectiveAssistantIds : [undefined];
+    // IMPORTANT: Don't iterate over each assistant×phone combination — it creates N×M API calls
+    // Instead, make a single query stream and filter results client-side
+    // The Vapi API /call endpoint doesn't support multiple IDs, so we query ALL and filter
+    const assistantIdSet = new Set(effectiveAssistantIds);
+    const phoneIdSet = new Set(effectivePhoneIds);
+    const filterByAssistant = effectiveAssistantIds.length > 0;
+    const filterByPhone = effectivePhoneIds.length > 0;
 
-    const callsToCache: any[] = [];
+    {
+      let cursor: string | null = null;
+      let pageNum = 0;
 
-    for (const aId of assistantQueries) {
-      for (const pId of phoneQueries) {
-        let cursor: string | null = null;
-        let pageNum = 0;
+      while (true) {
+        if (Date.now() > deadline) {
+          summary.isPartial = true;
+          warnings.push(`Resultado parcial (${summary.totalCalls} chamadas). Reduza o período.`);
+          break;
+        }
 
-        while (true) {
-          if (Date.now() > deadline) {
-            summary.isPartial = true;
-            warnings.push(`Resultado parcial (${summary.totalCalls} chamadas). Reduza o período.`);
-            break;
-          }
+        pageNum++;
+        const params = new URLSearchParams();
+        params.set("createdAtGe", vapiStartIso);
+        params.set("createdAtLe", endIso);
+        params.set("limit", "1000");
+        if (cursor) params.set("createdAtLt", cursor);
 
-          pageNum++;
-          const params = new URLSearchParams();
-          params.set("createdAtGe", vapiStartIso);
-          params.set("createdAtLe", endIso);
-          params.set("limit", "1000");
-          if (aId) params.set("assistantId", aId);
-          if (pId) params.set("phoneNumberId", pId);
-          if (cursor) params.set("createdAtLt", cursor);
-
+        try {
           const res = await fetch(`https://api.vapi.ai/call?${params.toString()}`, {
             headers: { Authorization: `Bearer ${apiKey}` },
           });
@@ -287,8 +288,12 @@ serve(async (req) => {
           for (const call of rawCalls) {
             const p = parseCall(call);
             if (seenCallIds.has(p.callId)) continue;
-            seenCallIds.add(p.callId);
 
+            // Client-side filtering by assistant and phone
+            if (filterByAssistant && !assistantIdSet.has(p.assistantId)) continue;
+            if (filterByPhone && !phoneIdSet.has(p.phoneNumberId)) continue;
+
+            seenCallIds.add(p.callId);
             addToSummary(summary, dailyCosts, recentCalls, p);
 
             // Queue for cache upsert
@@ -312,16 +317,22 @@ serve(async (req) => {
             });
           }
 
-          console.log(`Vapi API p${pageNum}: ${rawCalls.length} calls, total=${summary.totalCalls}`);
+          console.log(`Vapi API p${pageNum}: ${rawCalls.length} calls, matched=${summary.totalCalls}`);
 
           if (rawCalls.length < 1000) break;
           const lastDate = rawCalls[rawCalls.length - 1]?.createdAt;
           if (!lastDate || lastDate === cursor) break;
           cursor = lastDate;
+        } catch (e: any) {
+          if (e.message?.includes("subscription") || e.message?.includes("plan limit")) {
+            warnings.push("Dados limitados pelo plano Vapi atual.");
+            summary.isPartial = true;
+          } else {
+            throw e;
+          }
+          break;
         }
-        if (summary.isPartial) break;
       }
-      if (summary.isPartial) break;
     }
 
     // ── STEP 3: Save new calls to cache (background, non-blocking) ──
