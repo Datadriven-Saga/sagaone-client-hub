@@ -2068,9 +2068,9 @@ export default function EventoBase() {
                                   ) : (
                                     <MessageCircle className="mr-2 h-4 w-4" />
                                   )}
-                                  Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({(
+                                   Disparar {isIALigacao ? 'Ligações' : 'WhatsApp'} ({(
                                     isIALigacao && metricasLigacao 
-                                      ? metricasLigacao.pendentes 
+                                      ? metricasLigacao.elegiveisDisparo 
                                       : metricas.pendentes
                                   ).toLocaleString()})
                                 </>
