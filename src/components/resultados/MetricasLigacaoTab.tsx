@@ -59,7 +59,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
   }, [selectedAgentPhone, activeCompany?.id]);
 
   const fetchAllMetrics = async (skipSync = false) => {
-    if (!selectedAgentPhone) return;
+    if (!selectedAgentPhone || !activeCompany?.id) return;
     
     try {
       setLoading(true);
