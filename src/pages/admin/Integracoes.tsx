@@ -1,6 +1,7 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
-import { Plug } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CriarCaixaCWTab } from "@/components/integracoes/CriarCaixaCWTab";
 
 const Integracoes = () => {
   return (
@@ -16,13 +17,15 @@ const Integracoes = () => {
             </p>
           </div>
 
-          <div className="bg-card border rounded-lg p-8 text-center">
-            <Plug className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Em breve</h3>
-            <p className="text-sm text-muted-foreground">
-              O módulo de integrações está sendo desenvolvido. Em breve você poderá configurar conexões com sistemas externos diretamente por aqui.
-            </p>
-          </div>
+          <Tabs defaultValue="criar-caixa-cw" className="w-full">
+            <TabsList>
+              <TabsTrigger value="criar-caixa-cw">Criar Caixa CW</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="criar-caixa-cw">
+              <CriarCaixaCWTab />
+            </TabsContent>
+          </Tabs>
         </div>
       </ScrollIndicator>
     </DashboardLayout>
