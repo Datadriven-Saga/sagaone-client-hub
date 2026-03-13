@@ -40,6 +40,9 @@ const DashboardWhatsAppTab = lazy(() =>
 const EventoSelectorWhatsApp = lazy(() => 
   import("@/components/resultados/EventoSelectorWhatsApp").then(m => ({ default: m.EventoSelectorWhatsApp }))
 );
+const AdminDashboardWhatsApp = lazy(() => 
+  import("@/components/resultados/AdminDashboardWhatsApp").then(m => ({ default: m.AdminDashboardWhatsApp }))
+);
 
 interface Prospeccao {
   id: string;
@@ -85,6 +88,9 @@ const Resultados = () => {
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
   const [selectedProspeccoes, setSelectedProspeccoes] = useState<string[]>([]);
   const { activeCompany } = useCompany();
+  
+  // Check if active company is EMPRESA ADMIN
+  const isEmpresaAdmin = activeCompany?.nome_empresa === "EMPRESA ADMIN";
   
   // State for Ligação tab
   const [selectedAgentPhone, setSelectedAgentPhone] = useState<string | null>(null);
@@ -145,6 +151,14 @@ const Resultados = () => {
         );
 
       case "dashboard-whatsapp":
+        // EMPRESA ADMIN gets the admin aggregated view
+        if (isEmpresaAdmin) {
+          return (
+            <Suspense fallback={<ResultadosGenericSkeleton />}>
+              <AdminDashboardWhatsApp />
+            </Suspense>
+          );
+        }
         return (
           <Suspense fallback={<ResultadosGenericSkeleton />}>
             {selectedWhatsAppEventId && selectedWhatsAppEventIdPri ? (
