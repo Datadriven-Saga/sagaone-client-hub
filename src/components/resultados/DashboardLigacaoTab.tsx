@@ -431,7 +431,7 @@ export const DashboardLigacaoTab = ({
   };
 
   // Status options
-  const statusOptions = ['pendente', 'atendido', 'agendado', 'em fila', 'não agendado'];
+  const statusOptions = ['pendente', 'atendido', 'agendado', 'em fila'];
 
   // Filtros locais - apenas busca por texto e status (os filtros rápidos já foram aplicados na API)
   const filteredLeads = useMemo(() => {
