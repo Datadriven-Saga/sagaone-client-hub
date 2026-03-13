@@ -105,6 +105,18 @@ Deno.serve(async (req: Request) => {
       console.log(`✅ [${requestId}] Evento encontrado: "${eventoData.nome}", dealerid=${eventoData.dealerid}, telefone_pri=${eventoData.telefone_pri}, empresa_id=${eventoData.empresa_id}`);
     } else {
       console.log(`⚠️ [${requestId}] Evento ${id_evento} não encontrado em eventos_pri_voz`);
+      return new Response(
+        JSON.stringify({ success: false, error: `Evento ${id_evento} não encontrado para a empresa informada` }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (eventoData.empresa_id !== empresa_id) {
+      console.warn(`🚫 [${requestId}] Bloqueado: evento ${id_evento} pertence à empresa ${eventoData.empresa_id}, mas a requisição veio com empresa ${empresa_id}`);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Evento não pertence à empresa ativa' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // =====================================================
@@ -126,6 +138,7 @@ Deno.serve(async (req: Request) => {
         .from('prospect_pri_voz')
         .select('*', { count: 'exact' })
         .eq('id_evento', id_evento)
+        .eq('empresa_id', empresa_id)
         .range(offset, offset + batchSize - 1)
         .order('criado_em', { ascending: false });
       
@@ -165,6 +178,7 @@ Deno.serve(async (req: Request) => {
         .from('cadencia_pri_voz')
         .select('telefone_lead, telefone_pri, id_evento, num_tentativas, hora_primeira_tentativa, hora_ultima_tentativa')
         .eq('id_evento', id_evento)
+        .eq('empresa_id', empresa_id)
         .range(cadenciaOffset, cadenciaOffset + batchSize - 1);
       
       if (batchError) {

@@ -59,7 +59,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
   }, [selectedAgentPhone, activeCompany?.id]);
 
   const fetchAllMetrics = async (skipSync = false) => {
-    if (!selectedAgentPhone) return;
+    if (!selectedAgentPhone || !activeCompany?.id) return;
     
     try {
       setLoading(true);
@@ -69,8 +69,9 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabPro
       console.time('[Ligação] fetch-eventos-db');
       const { data: eventsFromDb, error: eventsDbError } = await supabase
         .from('eventos_pri_voz')
-        .select('id_evento, nome, marca, uf, cidade, telefone_pri')
+        .select('id_evento, nome, marca, uf, cidade, telefone_pri, empresa_id')
         .eq('telefone_pri', selectedAgentPhone)
+        .eq('empresa_id', activeCompany.id)
         .order('data_inicio', { ascending: false });
       console.timeEnd('[Ligação] fetch-eventos-db');
       
