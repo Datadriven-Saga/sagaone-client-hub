@@ -15,6 +15,7 @@ interface RequestBody {
   page?: number;
   page_size?: number;
   fetch_all_pendentes?: boolean; // Retorna TODOS os pendentes sem paginação (para disparo)
+  apenas_ligacao?: boolean; // Ignora campos de WhatsApp nos cálculos (dashboard ligação)
   filters?: {
     search?: string;
     loja?: string; // Filtro por loja
