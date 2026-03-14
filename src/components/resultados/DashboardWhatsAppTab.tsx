@@ -407,30 +407,7 @@ export const DashboardWhatsAppTab = ({
 
       aggregated.templates = Array.from(templateMap.values());
 
-      // Base oficial do evento: eventos_prospeccao (evita inconsistência entre tela de evento e dashboard)
-      const selectedProspeccaoIds = events
-        .filter((e) => selectedEventIds.includes(e.id_evento) && e.prospeccao_id)
-        .map((e) => e.prospeccao_id as string);
-
-      if (selectedProspeccaoIds.length > 0) {
-        const { count, error: baseCountError } = await supabase
-          .from("eventos_prospeccao")
-          .select("id", { count: "exact", head: true })
-          .in("prospeccao_id", selectedProspeccaoIds);
-
-        if (baseCountError) {
-          console.error("Erro ao calcular base local dos eventos:", baseCountError);
-        } else if (typeof count === "number") {
-          if (aggregated.total_base !== count) {
-            console.warn("⚠️ Divergência detectada na base do dashboard WhatsApp", {
-              baseWebhook: aggregated.total_base,
-              baseLocal: count,
-              selectedEventIds,
-            });
-          }
-          aggregated.total_base = count;
-        }
-      }
+      // Total base usa o valor retornado pelo webhook (fonte de verdade para o dashboard WhatsApp)
 
       if (integrationErrors.length === selectedEventIds.length) {
         toast.error("Falha na API externa; exibindo base oficial do evento.");
