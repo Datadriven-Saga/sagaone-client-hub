@@ -31,9 +31,7 @@ const TwilioCostsTab = () => {
   const [dailyChart, setDailyChart] = useState<any[]>([]);
 
   const fetchData = async () => {
-    setLoadingSummary(true);
-    setLoadingCalls(true);
-    setPage(0);
+    setLoading(true);
     setFetched(true);
 
     const body = {
@@ -48,18 +46,14 @@ const TwilioCostsTab = () => {
 
       setSummary(data?.summary || null);
       setDailyChart(data?.dailyChart || []);
-      setLoadingSummary(false);
-
-      setCalls(data?.calls || []);
-      setLoadingCalls(false);
 
       if (data?.warnings?.length) {
         data.warnings.forEach((w: string) => toast.warning(w, { duration: 8000 }));
       }
     } catch (e: any) {
       toast.error("Erro Twilio: " + (e.message || "Erro desconhecido"));
-      setLoadingSummary(false);
-      setLoadingCalls(false);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -80,10 +74,6 @@ const TwilioCostsTab = () => {
       day: d.date?.length >= 10 ? format(new Date(d.date + "T00:00:00"), "dd/MM") : d.date,
     }));
   }, [dailyChart]);
-
-  const paginatedCalls = calls.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
-  const totalPages = Math.ceil(calls.length / ITEMS_PER_PAGE);
-  const loading = loadingSummary || loadingCalls;
 
   return (
     <div className="space-y-6">
@@ -137,8 +127,8 @@ const TwilioCostsTab = () => {
         </CardContent>
       </Card>
 
-      {/* Loading Summary */}
-      {loadingSummary && (
+      {/* Loading */}
+      {loading && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map(i => (
@@ -150,7 +140,7 @@ const TwilioCostsTab = () => {
       )}
 
       {/* KPIs */}
-      {fetched && !loadingSummary && (
+      {fetched && !loading && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: "Total Gasto (USD)", value: fmtUSD(kpis.totalCost), icon: DollarSign },
@@ -173,7 +163,7 @@ const TwilioCostsTab = () => {
       )}
 
       {/* Status breakdown */}
-      {fetched && !loadingSummary && summary && (
+      {fetched && !loading && summary && (
         <div className="flex flex-wrap gap-2">
           {[
             { label: "Completed", count: summary.completedCount, color: "bg-green-500/10 text-green-400 border-green-500/20" },
@@ -190,7 +180,7 @@ const TwilioCostsTab = () => {
       )}
 
       {/* Chart */}
-      {fetched && !loadingSummary && chartFormatted.length > 0 && (
+      {fetched && !loading && chartFormatted.length > 0 && (
         <Card>
           <CardHeader><CardTitle className="text-base">Custo Diário Twilio</CardTitle></CardHeader>
           <CardContent>
@@ -210,7 +200,7 @@ const TwilioCostsTab = () => {
         </Card>
       )}
 
-      {fetched && !loadingSummary && chartFormatted.length === 0 && !loadingCalls && (
+      {fetched && !loading && chartFormatted.length === 0 && (
         <Card>
           <CardContent className="py-16 text-center text-muted-foreground">
             <Phone className="h-12 w-12 mx-auto mb-3 opacity-30" />
