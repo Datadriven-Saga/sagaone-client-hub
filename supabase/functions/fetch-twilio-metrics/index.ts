@@ -194,7 +194,7 @@ serve(async (req) => {
         for (const call of pageCalls) {
           const from = call.from || "";
           const to = call.to || "";
-          if (phoneDigits && !normalizeDigits(from).includes(phoneDigits) && !normalizeDigits(to).includes(phoneDigits)) continue;
+          
 
           const status = call.status || "unknown";
           if (hasSpecificStatusFilter && !statusFilters.includes(status)) continue;
