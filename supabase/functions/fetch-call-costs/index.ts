@@ -201,7 +201,7 @@ async function streamVapiCalls(
       const params = new URLSearchParams();
       params.set("createdAtGe", startIso);
       params.set("createdAtLe", endIso);
-      params.set("limit", "1000");
+      params.set("limit", "100");
       if (pid) params.set("phoneNumberId", pid);
       if (cursor) params.set("createdAtLt", cursor);
 
