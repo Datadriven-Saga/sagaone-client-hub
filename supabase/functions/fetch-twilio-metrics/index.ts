@@ -197,7 +197,7 @@ serve(async (req) => {
           if (phoneDigits && !normalizeDigits(from).includes(phoneDigits) && !normalizeDigits(to).includes(phoneDigits)) continue;
 
           const status = call.status || "unknown";
-          if (statusFilters.length > 0 && !statusFilters.includes(status)) continue;
+          if (hasSpecificStatusFilter && !statusFilters.includes(status)) continue;
 
           const cost = Math.abs(parseFloat(call.price || "0"));
           const duration = parseInt(call.duration || "0", 10);
