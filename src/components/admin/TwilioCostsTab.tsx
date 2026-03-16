@@ -30,6 +30,22 @@ const TwilioCostsTab = () => {
   const [summary, setSummary] = useState<any>(null);
   const [dailyChart, setDailyChart] = useState<any[]>([]);
 
+  const invokeWithRetry = async (functionName: string, body: any) => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const { data, error } = await supabase.functions.invoke(functionName, { body });
+      if (!error) return data;
+      if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 800));
+    }
+    // Final fallback: direct GET
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(body)) {
+      if (v !== undefined && v !== null) params.set(k, String(v));
+    }
+    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}?${params.toString()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  };
+
   const fetchData = async () => {
     setLoading(true);
     setFetched(true);
@@ -41,8 +57,7 @@ const TwilioCostsTab = () => {
     };
 
     try {
-      const { data, error } = await supabase.functions.invoke("fetch-twilio-metrics", { body });
-      if (error) throw error;
+      const data = await invokeWithRetry("fetch-twilio-metrics", body);
 
       setSummary(data?.summary || null);
       setDailyChart(data?.dailyChart || []);
