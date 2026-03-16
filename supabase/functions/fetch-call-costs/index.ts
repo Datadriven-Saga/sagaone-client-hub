@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface Summary {
@@ -17,6 +18,26 @@ interface Summary {
   isPartial: boolean;
 }
 
+interface RequestPayload {
+  phone: string;
+  startDate: string;
+  endDate: string;
+  source: "twilio" | "vapi" | "unified";
+}
+
+const VAPI_MAX_PAGES = 3;
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 function encodeBasicAuth(username: string, password: string): string {
   const data = new TextEncoder().encode(`${username}:${password}`);
   let binary = "";
@@ -28,34 +49,61 @@ function normalizeDigits(phone: string): string {
   return phone.replace(/\D/g, "");
 }
 
-// ========== TWILIO: Usage Records API (aggregated, FAST) ==========
+async function parsePayload(req: Request): Promise<RequestPayload> {
+  if (req.method === "GET") {
+    const url = new URL(req.url);
+    return {
+      phone: url.searchParams.get("phone") ?? "",
+      startDate: url.searchParams.get("startDate") ?? "",
+      endDate: url.searchParams.get("endDate") ?? "",
+      source: ((url.searchParams.get("source") ?? "unified") as RequestPayload["source"]),
+    };
+  }
+
+  const body = await req.json();
+  return {
+    phone: body?.phone ?? "",
+    startDate: body?.startDate ?? "",
+    endDate: body?.endDate ?? "",
+    source: (body?.source ?? "unified") as RequestPayload["source"],
+  };
+}
+
 async function fetchTwilioAggregated(
-  startDate: string, endDate: string,
-  summary: Summary, dailyCosts: Record<string, { twilio: number; vapi: number }>,
+  startDate: string,
+  endDate: string,
+  summary: Summary,
+  dailyCosts: Record<string, { twilio: number; vapi: number }>,
 ): Promise<string[]> {
   const sid = Deno.env.get("TWILIO_ACCOUNT_SID")?.trim();
   const token = Deno.env.get("TWILIO_AUTH_TOKEN")?.trim();
   const warnings: string[] = [];
 
-  if (!sid || !token) { warnings.push("Twilio: credenciais não configuradas"); return warnings; }
+  if (!sid || !token) {
+    warnings.push("Twilio: credenciais não configuradas");
+    return warnings;
+  }
 
   const auth = encodeBasicAuth(sid, token);
 
-  // 1) Get daily usage records — single API call, returns aggregated data per day
   try {
     const usageParams = new URLSearchParams({
-      "StartDate": startDate,
-      "EndDate": endDate,
-      "Category": "calls",
-      "IncludeSubaccounts": "false",
+      StartDate: startDate,
+      EndDate: endDate,
+      Category: "calls",
+      IncludeSubaccounts: "false",
     });
-    const usageUrl = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Usage/Records/Daily.json?${usageParams.toString()}`;
 
+    const usageUrl = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Usage/Records/Daily.json?${usageParams.toString()}`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 12000);
     let res: Response;
+
     try {
-      res = await fetch(usageUrl, { headers: { Authorization: `Basic ${auth}` }, signal: controller.signal });
+      res = await fetch(usageUrl, {
+        headers: { Authorization: `Basic ${auth}` },
+        signal: controller.signal,
+      });
     } finally {
       clearTimeout(timeout);
     }
@@ -90,49 +138,21 @@ async function fetchTwilioAggregated(
     console.error("Twilio Usage error:", e);
   }
 
-  // 2) Get total duration from a separate usage call for "calls" category
-  try {
-    const durationParams = new URLSearchParams({
-      "StartDate": startDate,
-      "EndDate": endDate,
-      "Category": "calls",
-    });
-    const durationUrl = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Usage/Records.json?${durationParams.toString()}`;
-    
-    const controller2 = new AbortController();
-    const timeout2 = setTimeout(() => controller2.abort(), 10000);
-    let res2: Response;
-    try {
-      res2 = await fetch(durationUrl, { headers: { Authorization: `Basic ${auth}` }, signal: controller2.signal });
-    } finally {
-      clearTimeout(timeout2);
-    }
-
-    if (res2.ok) {
-      const data2 = await res2.json();
-      for (const rec of (data2.usage_records || [])) {
-        summary.totalDuration += parseInt(rec.usage || "0", 10);
-      }
-    }
-  } catch (_e) {
-    // Non-critical, skip
-  }
-
   return warnings;
 }
 
-// ========== VAPI: Lightweight aggregation (max 3 pages) ==========
-const VAPI_MAX_PAGES = 3;
-
 async function fetchVapiAggregated(
-  phone: string, startDate: string, endDate: string,
-  summary: Summary, dailyCosts: Record<string, { twilio: number; vapi: number }>, deadline: number,
+  phone: string,
+  startDate: string,
+  endDate: string,
+  summary: Summary,
+  dailyCosts: Record<string, { twilio: number; vapi: number }>,
+  deadline: number,
 ): Promise<string[]> {
   const apiKey = Deno.env.get("VAPI_API_KEY");
   if (!apiKey) return ["VAPI_API_KEY não configurada"];
   const warnings: string[] = [];
 
-  // 14-day retention clamp
   const minAllowed = new Date();
   minAllowed.setDate(minAllowed.getDate() - 14);
   minAllowed.setHours(0, 0, 0, 0);
@@ -143,7 +163,7 @@ async function fetchVapiAggregated(
     warnings.push(`Vapi: dados limitados aos últimos 14 dias (a partir de ${effStart.toISOString().split("T")[0]}).`);
   }
 
-  const endObj = new Date(endDate + "T23:59:59");
+  const endObj = new Date(`${endDate}T23:59:59`);
   if (effStart > endObj) {
     warnings.push("Vapi: período fora da janela de retenção.");
     return warnings;
@@ -153,14 +173,17 @@ async function fetchVapiAggregated(
   const endIso = endObj.toISOString();
   const phoneDigits = normalizeDigits(phone);
 
-  // Resolve phone IDs if filter provided
   let phoneIds: string[] = [];
   if (phoneDigits) {
     try {
       const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), 8000);
-      const res = await fetch("https://api.vapi.ai/phone-number", { headers: { Authorization: `Bearer ${apiKey}` }, signal: controller.signal });
-      clearTimeout(t);
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch("https://api.vapi.ai/phone-number", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
       if (res.ok) {
         const phones = await res.json();
         const list = Array.isArray(phones) ? phones : phones.results || [];
@@ -169,7 +192,10 @@ async function fetchVapiAggregated(
           if (digits.includes(phoneDigits) || phoneDigits.includes(digits)) phoneIds.push(p.id);
         }
       }
-    } catch (_e) { /* skip */ }
+    } catch {
+      // no-op
+    }
+
     if (phoneIds.length === 0) {
       warnings.push(`Vapi: telefone ${phone} não encontrado`);
       return warnings;
@@ -190,6 +216,7 @@ async function fetchVapiAggregated(
       }
 
       pageNum++;
+
       const params = new URLSearchParams();
       params.set("createdAtGe", startIso);
       params.set("createdAtLe", endIso);
@@ -201,13 +228,14 @@ async function fetchVapiAggregated(
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 12000);
         const res = await fetch(`https://api.vapi.ai/call?${params.toString()}`, {
-          headers: { Authorization: `Bearer ${apiKey}` }, signal: controller.signal,
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: controller.signal,
         });
         clearTimeout(timeout);
 
         if (!res.ok) {
           const text = await res.text();
-          warnings.push(`Vapi [${res.status}]: ${text.substring(0, 100)}`);
+          warnings.push(`Vapi [${res.status}]: ${text.substring(0, 120)}`);
           break;
         }
 
@@ -220,6 +248,7 @@ async function fetchVapiAggregated(
           const duration = call.endedAt && call.startedAt
             ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000)
             : call.duration || 0;
+
           const endedReason = call.endedReason || "";
           const isFailed = endedReason.includes("error") || endedReason.includes("failed");
 
@@ -259,63 +288,58 @@ async function fetchVapiAggregated(
   return warnings;
 }
 
-// ========== MAIN ==========
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (req.method !== "GET" && req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   try {
-    const { phone, startDate, endDate, source } = await req.json();
+    const { phone, startDate, endDate, source } = await parsePayload(req);
+
     if (!startDate || !endDate) {
-      return new Response(JSON.stringify({ error: "startDate and endDate are required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "startDate and endDate are required", warnings: [], summary: null, dailyCosts: {} }, 400);
     }
 
-    const deadline = Date.now() + 45_000; // 45s budget
+    const deadline = Date.now() + 40_000;
     const summary: Summary = {
-      totalCalls: 0, totalCost: 0, totalDuration: 0,
-      twilioCost: 0, vapiCost: 0, twilioCount: 0, vapiCount: 0,
-      errorCount: 0, isPartial: false,
+      totalCalls: 0,
+      totalCost: 0,
+      totalDuration: 0,
+      twilioCost: 0,
+      vapiCost: 0,
+      twilioCount: 0,
+      vapiCount: 0,
+      errorCount: 0,
+      isPartial: false,
     };
+
     const dailyCosts: Record<string, { twilio: number; vapi: number }> = {};
     const warnings: string[] = [];
 
-    // Twilio: use Usage Records API (fast, aggregated)
     if (source === "twilio" || source === "unified") {
-      try {
-        const w = await fetchTwilioAggregated(startDate, endDate, summary, dailyCosts);
-        warnings.push(...w);
-      } catch (e) {
-        console.error("Twilio error:", e);
-        warnings.push(`Twilio: ${e.message}`);
-      }
+      warnings.push(...await fetchTwilioAggregated(startDate, endDate, summary, dailyCosts));
     }
 
-    // Vapi: lightweight pagination
     if (source === "vapi" || source === "unified") {
-      try {
-        const w = await fetchVapiAggregated(phone || "", startDate, endDate, summary, dailyCosts, deadline);
-        warnings.push(...w);
-      } catch (e) {
-        console.error("Vapi error:", e);
-        warnings.push(`Vapi: ${e.message}`);
-      }
+      warnings.push(...await fetchVapiAggregated(phone || "", startDate, endDate, summary, dailyCosts, deadline));
     }
 
     console.log("=== FINAL ===");
     console.log(`Twilio: ${summary.twilioCount} ($${summary.twilioCost.toFixed(4)}) | Vapi: ${summary.vapiCount} ($${summary.vapiCost.toFixed(4)})`);
     console.log(`TOTAL: ${summary.totalCalls} calls, $${summary.totalCost.toFixed(4)} | Partial: ${summary.isPartial}`);
 
-    // Lightweight response — only summary + dailyCosts for charts
-    return new Response(JSON.stringify({ warnings, summary, dailyCosts }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ warnings, summary, dailyCosts });
   } catch (error) {
     console.error("fetch-call-costs error:", error);
-    return new Response(JSON.stringify({ error: error.message, warnings: [error.message], summary: null, dailyCosts: {} }), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return jsonResponse({
+      error: error.message || "Erro inesperado",
+      warnings: [error.message || "Erro inesperado"],
+      summary: null,
+      dailyCosts: {},
     });
   }
 });
