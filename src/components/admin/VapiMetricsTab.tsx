@@ -204,15 +204,13 @@ const VapiMetricsTab = () => {
   const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
   const [metadataKey, setMetadataKey] = useState("");
   const [metadataValue, setMetadataValue] = useState("");
-  const [phoneSearch, setPhoneSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
-  const [calls, setCalls] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [dailyChart, setDailyChart] = useState<any[]>([]);
-  const [page, setPage] = useState(0);
   const [dateWarning, setDateWarning] = useState("");
-  const [selectedCall, setSelectedCall] = useState<any>(null);
+  const [batchProgress, setBatchProgress] = useState({ total: 0, completed: 0, days: 0 });
+  const [dataSource, setDataSource] = useState<string>("");
   const [batchProgress, setBatchProgress] = useState({ total: 0, completed: 0, days: 0 });
   const [dataSource, setDataSource] = useState<string>("");
 
