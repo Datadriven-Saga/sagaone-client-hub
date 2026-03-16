@@ -66,15 +66,30 @@ function parseCall(call: any): {
   };
 }
 
+interface DailyBucket {
+  cost: number; count: number; duration: number;
+  stt: number; llm: number; tts: number; transport: number; vapi: number;
+}
+
 function buildResponse(
   calls: VapiCallRecord[], summary: VapiSummary,
-  dailyCosts: Record<string, { cost: number; count: number }>,
+  dailyCosts: Record<string, DailyBucket>,
   warnings: string[], source: string,
 ) {
   calls.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const dailyChart = Object.entries(dailyCosts)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, data]) => ({ date, cost: +data.cost.toFixed(4), count: data.count }));
+    .map(([date, d]) => ({
+      date,
+      cost: +d.cost.toFixed(4),
+      count: d.count,
+      duration: d.duration,
+      stt: +d.stt.toFixed(4),
+      llm: +d.llm.toFixed(4),
+      tts: +d.tts.toFixed(4),
+      transport: +d.transport.toFixed(4),
+      vapi: +d.vapi.toFixed(4),
+    }));
 
   if (summary.totalCalls > MAX_DISPLAY) {
     warnings.push(`Exibindo ${calls.length} de ${summary.totalCalls} chamadas na tabela.`);
@@ -87,7 +102,7 @@ function buildResponse(
 }
 
 function addToSummary(
-  summary: VapiSummary, dailyCosts: Record<string, { cost: number; count: number }>,
+  summary: VapiSummary, dailyCosts: Record<string, DailyBucket>,
   recentCalls: VapiCallRecord[],
   p: ReturnType<typeof parseCall>,
 ) {
@@ -103,9 +118,16 @@ function addToSummary(
 
   const dateStr = (p.startedAt || "").substring(0, 10);
   if (dateStr) {
-    if (!dailyCosts[dateStr]) dailyCosts[dateStr] = { cost: 0, count: 0 };
-    dailyCosts[dateStr].cost += p.cost;
-    dailyCosts[dateStr].count++;
+    if (!dailyCosts[dateStr]) dailyCosts[dateStr] = { cost: 0, count: 0, duration: 0, stt: 0, llm: 0, tts: 0, transport: 0, vapi: 0 };
+    const b = dailyCosts[dateStr];
+    b.cost += p.cost;
+    b.count++;
+    b.duration += p.duration;
+    b.stt += p.stt;
+    b.llm += p.llm;
+    b.tts += p.tts;
+    b.transport += p.transport;
+    b.vapi += p.vapiCost;
   }
 
   if (recentCalls.length < MAX_DISPLAY) {
@@ -195,7 +217,7 @@ serve(async (req) => {
     const warnings: string[] = [];
     const summary: VapiSummary = { totalCalls: 0, totalCost: 0, totalDuration: 0, endedCount: 0, costBreakdown: { stt: 0, llm: 0, tts: 0, transport: 0, vapi: 0 }, isPartial: false };
     const recentCalls: VapiCallRecord[] = [];
-    const dailyCosts: Record<string, { cost: number; count: number }> = {};
+    const dailyCosts: Record<string, DailyBucket> = {};
     const seenCallIds = new Set<string>();
     const callsToCache: any[] = [];
     let dataSource = "vapi";
