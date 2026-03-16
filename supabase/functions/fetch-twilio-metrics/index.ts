@@ -265,11 +265,7 @@ serve(async (req) => {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, d]) => ({ date, cost: +d.cost.toFixed(4), count: d.count, duration: d.duration }));
 
-    if (finalSummary.totalCalls > MAX_DISPLAY) {
-      warnings.push(`Exibindo ${recentCalls.length} de ${finalSummary.totalCalls} chamadas na tabela.`);
-    }
-
-    warnings.push("Os custos de chamadas recentes na Twilio podem levar alguns minutos para serem processados.");
+    // A tabela sempre exibe apenas as chamadas mais recentes para manter performance da UI.
 
     console.log(`=== TWILIO METRICS DONE: ${finalSummary.totalCalls} calls, $${finalSummary.totalCost.toFixed(4)} ===`);
 
