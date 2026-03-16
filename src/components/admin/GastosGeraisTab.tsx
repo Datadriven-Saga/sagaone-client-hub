@@ -63,7 +63,7 @@ const GastosGeraisTab = () => {
         },
       });
       if (error) throw error;
-      setCalls(data?.dailyCosts || data?.calls || []);
+      setCalls(data?.dailyCosts || {});
       setServerSummary(data?.summary || null);
       setFetched(true);
       if (data?.warnings?.length) {
