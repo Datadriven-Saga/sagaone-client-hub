@@ -207,7 +207,14 @@ async function streamVapiCalls(
 
       try {
         const url = `https://api.vapi.ai/call?${params.toString()}`;
-        const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+        let res: Response;
+        try {
+          res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` }, signal: controller.signal });
+        } finally {
+          clearTimeout(timeout);
+        }
         if (!res.ok) {
           const text = await res.text();
           throw new Error(`Vapi [${res.status}]: ${text}`);
