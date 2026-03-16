@@ -207,10 +207,10 @@ async function fetchVapiAggregated(
     let cursor: string | null = null;
     let pageNum = 0;
 
-    while (pageNum < VAPI_MAX_PAGES) {
+    while (true) {
       if (Date.now() > deadline) {
         summary.isPartial = true;
-        warnings.push(`Vapi: resultado parcial (${summary.vapiCount} chamadas).`);
+        warnings.push(`Vapi: resultado parcial (${summary.vapiCount} chamadas). Reduza o período.`);
         return warnings;
       }
 
