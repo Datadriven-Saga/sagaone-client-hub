@@ -175,7 +175,7 @@ const TwilioCostsTab = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: "Total Gasto (USD)", value: fmtUSD(kpis.totalCost), icon: DollarSign },
-            { label: "Total de Minutos", value: `${kpis.totalMinutes.toFixed(1)} min`, icon: Clock },
+            { label: "Total de Minutos", value: fmtMinutes(kpis.totalMinutes), icon: Clock },
             { label: "Volume de Chamadas", value: kpis.totalCalls.toLocaleString("pt-BR"), icon: Phone },
             { label: "Taxa de Conectividade", value: `${kpis.completedRate.toFixed(1)}%`, icon: Activity },
           ].map(kpi => (
