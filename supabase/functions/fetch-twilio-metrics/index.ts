@@ -142,23 +142,24 @@ serve(async (req) => {
       warnings.push(`Twilio Usage: ${e?.message || "erro"}`);
     }
 
-    // 2. Fetch individual calls for recent display table (only 2 pages max = 200 calls)
-    // If phone filter is applied, we need individual calls for filtering
-    const needsIndividualCalls = phoneDigits || statusFilters.length > 0;
-    const maxCallPages = needsIndividualCalls ? 5 : 2;
+    // 2. Fetch individual calls for recent display table + status cards.
+    // KPIs and chart are always complete via Usage Records.
+    const hasSpecificStatusFilter = statusFilters.length > 0 && statusFilters.length < SUPPORTED_STATUSES.length;
+    const needsFilteredScan = hasSpecificStatusFilter;
+    const maxCallPages = needsFilteredScan ? 40 : 1;
 
     const callParams = new URLSearchParams();
     callParams.set("StartTime>=", `${startDate}T00:00:00Z`);
     callParams.set("StartTime<=", `${endDate}T23:59:59Z`);
-    callParams.set("PageSize", "1000");
+    callParams.set("PageSize", needsFilteredScan ? "500" : "100");
     let nextPageUrl: string | null = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json?${callParams.toString()}`;
     let pageNum = 0;
 
-    // If filtering by phone/status, we override summary with filtered data
+    // If filtering by status, we override summary with filtered totals
     let filteredSummary: TwilioSummary | null = null;
     const filteredDailyCosts: Record<string, { cost: number; count: number; duration: number }> = {};
 
-    if (needsIndividualCalls) {
+    if (needsFilteredScan) {
       filteredSummary = {
         totalCalls: 0, totalCost: 0, totalDuration: 0,
         completedCount: 0, busyCount: 0, failedCount: 0,
