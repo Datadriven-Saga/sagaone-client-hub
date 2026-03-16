@@ -43,7 +43,7 @@ function normalizeDigits(phone: string): string {
 }
 
 const MAX_DISPLAY = 100;
-const MAX_PAGES = 5;
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
