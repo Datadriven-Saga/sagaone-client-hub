@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,12 +10,24 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatPhone } from "@/lib/utils";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Search, DollarSign, Phone, Clock, Loader2, Cpu, Calculator } from "lucide-react";
+import { CalendarIcon, Search, DollarSign, Phone, Loader2, Cpu, Calculator } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
-} from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+
+type DailyCostsMap = Record<string, { twilio: number; vapi: number }>;
+
+interface CostSummary {
+  totalCalls: number;
+  totalCost: number;
+  totalDuration: number;
+  twilioCost: number;
+  vapiCost: number;
+  twilioCount: number;
+  vapiCount: number;
+  errorCount: number;
+  isPartial: boolean;
+}
 
 const fmtUSD = (v: number) => `US$ ${v.toFixed(2)}`;
 
@@ -23,8 +36,8 @@ const GastosGeraisTab = () => {
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
-  const [serverSummary, setServerSummary] = useState<any>(null);
-  const [calls, setCalls] = useState<any[]>([]);
+  const [serverSummary, setServerSummary] = useState<CostSummary | null>(null);
+  const [dailyCosts, setDailyCosts] = useState<DailyCostsMap>({});
   const [agentPhones, setAgentPhones] = useState<{ telefone: string; nome: string; display: string }[]>([]);
   const [phone, setPhone] = useState("");
 
@@ -35,53 +48,75 @@ const GastosGeraisTab = () => {
         .select("telefone, nome")
         .ilike("nome", "%Ligação%")
         .not("telefone", "is", null);
-      if (data) {
-        const seen = new Set<string>();
-        const unique: { telefone: string; nome: string; display: string }[] = [];
-        for (const a of data) {
-          if (!a.telefone) continue;
-          const digits = a.telefone.replace(/\D/g, "");
-          if (digits.length < 10 || seen.has(digits)) continue;
-          seen.add(digits);
-          unique.push({ telefone: digits, nome: a.nome, display: formatPhone(a.telefone) || a.telefone });
-        }
-        setAgentPhones(unique);
+
+      if (!data) return;
+
+      const seen = new Set<string>();
+      const unique: { telefone: string; nome: string; display: string }[] = [];
+
+      for (const a of data) {
+        if (!a.telefone) continue;
+        const digits = a.telefone.replace(/\D/g, "");
+        if (digits.length < 10 || seen.has(digits)) continue;
+        seen.add(digits);
+        unique.push({ telefone: digits, nome: a.nome, display: formatPhone(a.telefone) || a.telefone });
       }
+
+      setAgentPhones(unique);
     };
+
     loadAgentPhones();
   }, []);
 
+  const invokeWithFallback = async (payload: { phone: string; startDate: string; endDate: string; source: "unified" }) => {
+    const { data, error } = await supabase.functions.invoke("fetch-call-costs", { body: payload });
+    if (!error) return data;
+
+    const params = new URLSearchParams({
+      phone: payload.phone,
+      startDate: payload.startDate,
+      endDate: payload.endDate,
+      source: payload.source,
+    });
+
+    const fallbackRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-call-costs?${params.toString()}`);
+    if (!fallbackRes.ok) {
+      throw new Error(`Edge fallback HTTP ${fallbackRes.status}`);
+    }
+
+    return await fallbackRes.json();
+  };
+
   const fetchData = async () => {
     setLoading(true);
+
     const payload = {
       phone: phone === "all" ? "" : phone,
       startDate: format(startDate, "yyyy-MM-dd"),
       endDate: format(endDate, "yyyy-MM-dd"),
-      source: "unified",
+      source: "unified" as const,
     };
 
     try {
-      let lastError: any = null;
       let responseData: any = null;
+      let lastError: unknown = null;
 
       for (let attempt = 1; attempt <= 3; attempt++) {
-        const { data, error } = await supabase.functions.invoke("fetch-call-costs", { body: payload });
-
-        if (!error) {
-          responseData = data;
+        try {
+          responseData = await invokeWithFallback(payload);
           lastError = null;
           break;
-        }
-
-        lastError = error;
-        if (attempt < 3) {
-          await new Promise((resolve) => setTimeout(resolve, attempt * 900));
+        } catch (error) {
+          lastError = error;
+          if (attempt < 3) {
+            await new Promise((resolve) => setTimeout(resolve, attempt * 800));
+          }
         }
       }
 
       if (lastError) throw lastError;
 
-      setCalls(responseData?.dailyCosts || {});
+      setDailyCosts(responseData?.dailyCosts || {});
       setServerSummary(responseData?.summary || null);
       setFetched(true);
 
@@ -96,33 +131,32 @@ const GastosGeraisTab = () => {
   };
 
   const kpis = useMemo(() => {
-    if (!serverSummary) return { totalCost: 0, vapiCost: 0, twilioCost: 0, avgCostPerCall: 0, totalCalls: 0, totalDuration: 0 };
+    if (!serverSummary) {
+      return { totalCost: 0, vapiCost: 0, twilioCost: 0, avgCostPerCall: 0 };
+    }
+
     const avg = serverSummary.totalCalls > 0 ? serverSummary.totalCost / serverSummary.totalCalls : 0;
     return {
       totalCost: serverSummary.totalCost || 0,
       vapiCost: serverSummary.vapiCost || 0,
       twilioCost: serverSummary.twilioCost || 0,
       avgCostPerCall: avg,
-      totalCalls: serverSummary.totalCalls || 0,
-      totalDuration: serverSummary.totalDuration || 0,
     };
   }, [serverSummary]);
 
   const chartData = useMemo(() => {
-    // calls now holds dailyCosts object { "2026-03-10": { twilio: X, vapi: Y }, ... }
-    if (!calls || typeof calls !== "object" || Array.isArray(calls)) return [];
-    return Object.entries(calls as Record<string, { twilio: number; vapi: number }>)
+    return Object.entries(dailyCosts)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([day, v]) => ({
-        day: format(new Date(day + "T12:00:00"), "dd/MM"),
-        Twilio: +v.twilio.toFixed(4),
-        Vapi: +v.vapi.toFixed(4),
+      .map(([day, values]) => ({
+        day: format(new Date(`${day}T12:00:00`), "dd/MM"),
+        Twilio: +(values.twilio || 0).toFixed(4),
+        Vapi: +(values.vapi || 0).toFixed(4),
+        Total: +((values.twilio || 0) + (values.vapi || 0)).toFixed(4),
       }));
-  }, [calls]);
+  }, [dailyCosts]);
 
   return (
     <div className="space-y-6">
-      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
@@ -138,6 +172,7 @@ const GastosGeraisTab = () => {
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-1.5">
               <Label>Data inicial</Label>
               <Popover>
@@ -148,10 +183,11 @@ const GastosGeraisTab = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={startDate} onSelect={d => d && setStartDate(d)} locale={ptBR} className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={startDate} onSelect={(d) => d && setStartDate(d)} locale={ptBR} className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>
+
             <div className="space-y-1.5">
               <Label>Data final</Label>
               <Popover>
@@ -162,10 +198,11 @@ const GastosGeraisTab = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={endDate} onSelect={d => d && setEndDate(d)} locale={ptBR} className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={endDate} onSelect={(d) => d && setEndDate(d)} locale={ptBR} className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>
+
             <Button onClick={fetchData} disabled={loading} className="gap-2">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               Buscar dados
@@ -174,11 +211,10 @@ const GastosGeraisTab = () => {
         </CardContent>
       </Card>
 
-      {/* Loading */}
       {loading && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => (
+            {[1, 2, 3, 4].map((i) => (
               <Card key={i}><CardContent className="pt-6"><Skeleton className="h-16 w-full" /></CardContent></Card>
             ))}
           </div>
@@ -186,7 +222,6 @@ const GastosGeraisTab = () => {
         </div>
       )}
 
-      {/* KPIs - 4 cards */}
       {fetched && !loading && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
@@ -194,7 +229,7 @@ const GastosGeraisTab = () => {
             { label: "Custo Vapi", value: fmtUSD(kpis.vapiCost), icon: Cpu },
             { label: "Custo Twilio", value: fmtUSD(kpis.twilioCost), icon: Phone },
             { label: "Custo Médio p/ Ligação", value: fmtUSD(kpis.avgCostPerCall), icon: Calculator },
-          ].map(kpi => (
+          ].map((kpi) => (
             <Card key={kpi.label}>
               <CardHeader className="pb-2 pt-4 px-4">
                 <CardTitle className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
@@ -209,27 +244,44 @@ const GastosGeraisTab = () => {
         </div>
       )}
 
-      {/* Stacked Bar Chart */}
       {fetched && !loading && chartData.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Custo Diário — Vapi vs Twilio</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <CardTitle className="text-base">Evolução diária de custos — Twilio x Vapi</CardTitle>
+            {serverSummary?.isPartial && <Badge variant="outline">Resultado parcial</Badge>}
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={chartData}>
+            <ResponsiveContainer width="100%" height={340}>
+              <LineChart data={chartData} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="day" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={v => `$${v}`} />
+                <YAxis
+                  yAxisId="twilio"
+                  orientation="left"
+                  fontSize={12}
+                  tick={{ fill: "hsl(var(--muted-foreground))" }}
+                  tickFormatter={(v) => `$${v}`}
+                />
+                <YAxis
+                  yAxisId="vapi"
+                  orientation="right"
+                  fontSize={12}
+                  tick={{ fill: "hsl(var(--muted-foreground))" }}
+                  tickFormatter={(v) => `$${v}`}
+                />
                 <Tooltip
                   formatter={(v: number, name: string) => [fmtUSD(v), name]}
-                  contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: 8,
+                  }}
                   labelStyle={{ color: "hsl(var(--foreground))" }}
                 />
                 <Legend />
-                <Bar dataKey="Vapi" stackId="cost" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="Twilio" stackId="cost" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Line yAxisId="twilio" type="monotone" dataKey="Twilio" stroke="hsl(var(--destructive))" strokeWidth={2.5} dot={{ r: 2 }} activeDot={{ r: 5 }} />
+                <Line yAxisId="vapi" type="monotone" dataKey="Vapi" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={{ r: 2 }} activeDot={{ r: 5 }} />
+              </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
