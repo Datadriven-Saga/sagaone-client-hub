@@ -20,6 +20,14 @@ import {
 } from "recharts";
 
 const fmtUSD = (v: number) => `US$ ${v.toFixed(2)}`;
+const fmtMinutes = (v: number) => {
+  if (v >= 60) {
+    const h = Math.floor(v / 60);
+    const m = Math.round(v % 60);
+    return m > 0 ? `${h.toLocaleString("pt-BR")}h ${m}min` : `${h.toLocaleString("pt-BR")}h`;
+  }
+  return `${v.toFixed(1)} min`;
+};
 
 const TwilioCostsTab = () => {
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 7));
