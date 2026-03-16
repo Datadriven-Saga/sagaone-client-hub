@@ -43,6 +43,7 @@ function normalizeDigits(phone: string): string {
 }
 
 const MAX_DISPLAY = 100;
+const SUPPORTED_STATUSES = ["completed", "busy", "failed", "no-answer", "canceled"] as const;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -54,7 +55,23 @@ serve(async (req) => {
     const token = Deno.env.get("TWILIO_AUTH_TOKEN")?.trim();
     if (!sid || !token) throw new Error("Twilio credentials not configured");
 
-    const { startDate, endDate, phone, statusFilter } = await req.json();
+    let startDate: string | null = null;
+    let endDate: string | null = null;
+    let statusFilter: string[] | string | null = null;
+
+    if (req.method === "GET") {
+      const url = new URL(req.url);
+      startDate = url.searchParams.get("startDate");
+      endDate = url.searchParams.get("endDate");
+      const statusParams = url.searchParams.getAll("statusFilter");
+      statusFilter = statusParams.length > 1 ? statusParams : statusParams[0] ?? null;
+    } else {
+      const body = await req.json().catch(() => ({}));
+      startDate = body?.startDate ?? null;
+      endDate = body?.endDate ?? null;
+      statusFilter = body?.statusFilter ?? null;
+    }
+
     if (!startDate || !endDate) {
       return new Response(JSON.stringify({ error: "startDate and endDate required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -62,7 +79,6 @@ serve(async (req) => {
     }
 
     const auth = encodeBasicAuth(sid, token);
-    const phoneDigits = normalizeDigits(phone || "");
     const statusFilters: string[] = statusFilter ? (Array.isArray(statusFilter) ? statusFilter : [statusFilter]) : [];
 
     const summary: TwilioSummary = {
@@ -126,23 +142,24 @@ serve(async (req) => {
       warnings.push(`Twilio Usage: ${e?.message || "erro"}`);
     }
 
-    // 2. Fetch individual calls for recent display table (only 2 pages max = 200 calls)
-    // If phone filter is applied, we need individual calls for filtering
-    const needsIndividualCalls = phoneDigits || statusFilters.length > 0;
-    const maxCallPages = needsIndividualCalls ? 5 : 2;
+    // 2. Fetch individual calls for recent display table + status cards.
+    // KPIs and chart are always complete via Usage Records.
+    const hasSpecificStatusFilter = statusFilters.length > 0 && statusFilters.length < SUPPORTED_STATUSES.length;
+    const needsFilteredScan = hasSpecificStatusFilter;
+    const maxCallPages = needsFilteredScan ? 40 : 1;
 
     const callParams = new URLSearchParams();
     callParams.set("StartTime>=", `${startDate}T00:00:00Z`);
     callParams.set("StartTime<=", `${endDate}T23:59:59Z`);
-    callParams.set("PageSize", "1000");
+    callParams.set("PageSize", needsFilteredScan ? "500" : "100");
     let nextPageUrl: string | null = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json?${callParams.toString()}`;
     let pageNum = 0;
 
-    // If filtering by phone/status, we override summary with filtered data
+    // If filtering by status, we override summary with filtered totals
     let filteredSummary: TwilioSummary | null = null;
     const filteredDailyCosts: Record<string, { cost: number; count: number; duration: number }> = {};
 
-    if (needsIndividualCalls) {
+    if (needsFilteredScan) {
       filteredSummary = {
         totalCalls: 0, totalCost: 0, totalDuration: 0,
         completedCount: 0, busyCount: 0, failedCount: 0,
@@ -155,9 +172,10 @@ serve(async (req) => {
 
     while (nextPageUrl && pageNum < maxCallPages) {
       if (Date.now() > deadline) {
-        if (filteredSummary) filteredSummary.isPartial = true;
-        else summary.isPartial = true;
-        warnings.push(`Resultado parcial. Reduza o período ou remova filtros.`);
+        if (filteredSummary) {
+          filteredSummary.isPartial = true;
+          warnings.push(`Resultado parcial para filtro de status. Reduza o período.`);
+        }
         break;
       }
 
@@ -179,7 +197,7 @@ serve(async (req) => {
           if (phoneDigits && !normalizeDigits(from).includes(phoneDigits) && !normalizeDigits(to).includes(phoneDigits)) continue;
 
           const status = call.status || "unknown";
-          if (statusFilters.length > 0 && !statusFilters.includes(status)) continue;
+          if (hasSpecificStatusFilter && !statusFilters.includes(status)) continue;
 
           const cost = Math.abs(parseFloat(call.price || "0"));
           const duration = parseInt(call.duration || "0", 10);
@@ -237,9 +255,9 @@ serve(async (req) => {
       }
     }
 
-    // Use filtered summary if we had phone/status filters
+    // Use filtered summary only when explicit status filter is applied
     const finalSummary = filteredSummary || summary;
-    const finalDailyCosts = needsIndividualCalls ? filteredDailyCosts : dailyCosts;
+    const finalDailyCosts = needsFilteredScan ? filteredDailyCosts : dailyCosts;
 
     recentCalls.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -247,11 +265,7 @@ serve(async (req) => {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, d]) => ({ date, cost: +d.cost.toFixed(4), count: d.count, duration: d.duration }));
 
-    if (finalSummary.totalCalls > MAX_DISPLAY) {
-      warnings.push(`Exibindo ${recentCalls.length} de ${finalSummary.totalCalls} chamadas na tabela.`);
-    }
-
-    warnings.push("Os custos de chamadas recentes na Twilio podem levar alguns minutos para serem processados.");
+    // A tabela sempre exibe apenas as chamadas mais recentes para manter performance da UI.
 
     console.log(`=== TWILIO METRICS DONE: ${finalSummary.totalCalls} calls, $${finalSummary.totalCost.toFixed(4)} ===`);
 
