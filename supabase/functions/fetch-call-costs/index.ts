@@ -5,17 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-interface CallRecord {
-  id: string;
-  phoneFrom: string;
-  phoneTo: string;
-  duration: number;
-  cost: number;
-  source: "twilio" | "vapi";
-  date: string;
-  status?: string;
-}
-
 interface Summary {
   totalCalls: number;
   totalCost: number;
@@ -25,17 +14,7 @@ interface Summary {
   twilioCount: number;
   vapiCount: number;
   errorCount: number;
-  pagesProcessed: number;
-  callsWithoutPrice: number;
-  callsNegativePrice: number;
   isPartial: boolean;
-}
-
-const MAX_DISPLAY = 50;
-const MAX_PAGES = 5;
-
-function normalizeDigits(phone: string): string {
-  return phone.replace(/\D/g, "");
 }
 
 function encodeBasicAuth(username: string, password: string): string {
@@ -45,106 +24,112 @@ function encodeBasicAuth(username: string, password: string): string {
   return btoa(binary);
 }
 
-function validateTwilioSid(sid: string): boolean {
-  return /^AC[0-9a-fA-F]{32}$/.test(sid);
+function normalizeDigits(phone: string): string {
+  return phone.replace(/\D/g, "");
 }
 
-// ========== TWILIO: STREAMING AGGREGATION ==========
-async function streamTwilioCalls(
-  phone: string, startDate: string, endDate: string,
-  summary: Summary, recentCalls: CallRecord[], dailyCosts: Record<string, { twilio: number; vapi: number }>, deadline: number
+// ========== TWILIO: Usage Records API (aggregated, FAST) ==========
+async function fetchTwilioAggregated(
+  startDate: string, endDate: string,
+  summary: Summary, dailyCosts: Record<string, { twilio: number; vapi: number }>,
 ): Promise<string[]> {
   const sid = Deno.env.get("TWILIO_ACCOUNT_SID")?.trim();
   const token = Deno.env.get("TWILIO_AUTH_TOKEN")?.trim();
   const warnings: string[] = [];
 
-  if (!sid || !token) throw new Error("Twilio credentials not configured");
-  if (!validateTwilioSid(sid)) throw new Error("Twilio SID invalid format");
+  if (!sid || !token) { warnings.push("Twilio: credenciais não configuradas"); return warnings; }
 
   const auth = encodeBasicAuth(sid, token);
-  const phoneDigits = normalizeDigits(phone);
 
-  const params = new URLSearchParams();
-  params.set("StartTime>=", `${startDate}T00:00:00Z`);
-  params.set("StartTime<=", `${endDate}T23:59:59Z`);
-  params.set("PageSize", "1000");
-  let nextPageUrl: string | null = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json?${params.toString()}`;
-  let pagesUsed = 0;
+  // 1) Get daily usage records — single API call, returns aggregated data per day
+  try {
+    const usageParams = new URLSearchParams({
+      "StartDate": startDate,
+      "EndDate": endDate,
+      "Category": "calls",
+      "IncludeSubaccounts": "false",
+    });
+    const usageUrl = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Usage/Records/Daily.json?${usageParams.toString()}`;
 
-  while (nextPageUrl) {
-    if (Date.now() > deadline || pagesUsed >= MAX_PAGES) {
-      summary.isPartial = true;
-      warnings.push(`Twilio: resultado parcial (${summary.twilioCount} chamadas). Reduza o período ou use filtro de telefone.`);
-      break;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let res: Response;
+    try {
+      res = await fetch(usageUrl, { headers: { Authorization: `Basic ${auth}` }, signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
     }
 
-    pagesUsed++;
-    summary.pagesProcessed++;
-    const res = await fetch(nextPageUrl, { headers: { Authorization: `Basic ${auth}` } });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Twilio API error [${res.status}]: ${text}`);
+      throw new Error(`Twilio Usage API [${res.status}]: ${text}`);
     }
 
     const data = await res.json();
-    const pageCalls = data.calls || [];
-    let pageCost = 0;
-    let pageMatched = 0;
+    const records = data.usage_records || [];
 
-    for (const call of pageCalls) {
-      const from = call.from || "";
-      const to = call.to || "";
-      if (phoneDigits && !normalizeDigits(from).includes(phoneDigits) && !normalizeDigits(to).includes(phoneDigits)) continue;
+    for (const record of records) {
+      const cost = Math.abs(parseFloat(record.price || "0"));
+      const count = parseInt(record.count || "0", 10);
+      const dateStr = record.start_date || "";
 
-      const cost = Math.abs(parseFloat(call.price || "0"));
-      const duration = parseInt(call.duration || "0", 10);
-      pageCost += cost;
-      pageMatched++;
-
-      summary.totalCalls++;
-      summary.totalCost += cost;
-      summary.totalDuration += duration;
-      summary.twilioCount++;
+      summary.twilioCount += count;
       summary.twilioCost += cost;
-      if (cost === 0 && duration > 0) summary.callsWithoutPrice++;
-      if (cost < 0) summary.callsNegativePrice++;
+      summary.totalCalls += count;
+      summary.totalCost += cost;
 
-      const dateStr = (call.start_time || call.date_created || "").substring(0, 10);
       if (dateStr) {
         if (!dailyCosts[dateStr]) dailyCosts[dateStr] = { twilio: 0, vapi: 0 };
         dailyCosts[dateStr].twilio += cost;
       }
-
-      if (recentCalls.length < MAX_DISPLAY) {
-        recentCalls.push({
-          id: call.sid, phoneFrom: from, phoneTo: to,
-          duration, cost, source: "twilio",
-          date: call.start_time || call.date_created,
-        });
-      }
     }
 
-    console.log(`Twilio p${summary.pagesProcessed}: +${pageMatched} matched, $${pageCost.toFixed(2)}, total=${summary.twilioCount}`);
-
-    // Follow pagination
-    nextPageUrl = data.next_page_uri ? `https://api.twilio.com${data.next_page_uri}` : null;
-
-    // Release page memory explicitly
-    // deno-lint-ignore no-explicit-any
-    (data as any).calls = null;
+    console.log(`Twilio Usage Records: ${records.length} days, ${summary.twilioCount} calls, $${summary.twilioCost.toFixed(4)}`);
+  } catch (e) {
+    warnings.push(`Twilio: ${e.message}`);
+    console.error("Twilio Usage error:", e);
   }
 
-  console.log(`Twilio DONE: ${summary.twilioCount} calls, $${summary.twilioCost.toFixed(4)}`);
+  // 2) Get total duration from a separate usage call for "calls" category
+  try {
+    const durationParams = new URLSearchParams({
+      "StartDate": startDate,
+      "EndDate": endDate,
+      "Category": "calls",
+    });
+    const durationUrl = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Usage/Records.json?${durationParams.toString()}`;
+    
+    const controller2 = new AbortController();
+    const timeout2 = setTimeout(() => controller2.abort(), 10000);
+    let res2: Response;
+    try {
+      res2 = await fetch(durationUrl, { headers: { Authorization: `Basic ${auth}` }, signal: controller2.signal });
+    } finally {
+      clearTimeout(timeout2);
+    }
+
+    if (res2.ok) {
+      const data2 = await res2.json();
+      for (const rec of (data2.usage_records || [])) {
+        summary.totalDuration += parseInt(rec.usage || "0", 10);
+      }
+    }
+  } catch (_e) {
+    // Non-critical, skip
+  }
+
   return warnings;
 }
 
-// ========== VAPI: STREAMING AGGREGATION ==========
-async function streamVapiCalls(
+// ========== VAPI: Lightweight aggregation (max 3 pages) ==========
+const VAPI_MAX_PAGES = 3;
+
+async function fetchVapiAggregated(
   phone: string, startDate: string, endDate: string,
-  summary: Summary, recentCalls: CallRecord[], dailyCosts: Record<string, { twilio: number; vapi: number }>, deadline: number
+  summary: Summary, dailyCosts: Record<string, { twilio: number; vapi: number }>, deadline: number,
 ): Promise<string[]> {
   const apiKey = Deno.env.get("VAPI_API_KEY");
-  if (!apiKey) throw new Error("VAPI_API_KEY not configured");
+  if (!apiKey) return ["VAPI_API_KEY não configurada"];
   const warnings: string[] = [];
 
   // 14-day retention clamp
@@ -168,21 +153,23 @@ async function streamVapiCalls(
   const endIso = endObj.toISOString();
   const phoneDigits = normalizeDigits(phone);
 
-  // Resolve phone IDs
+  // Resolve phone IDs if filter provided
   let phoneIds: string[] = [];
   if (phoneDigits) {
-    const res = await fetch("https://api.vapi.ai/phone-number", { headers: { Authorization: `Bearer ${apiKey}` } });
-    if (res.ok) {
-      const phones = await res.json();
-      const list = Array.isArray(phones) ? phones : phones.results || [];
-      for (const p of list) {
-        const digits = normalizeDigits(p.number || p.twilioPhoneNumber || "");
-        if (digits.includes(phoneDigits) || phoneDigits.includes(digits)) {
-          phoneIds.push(p.id);
-          console.log(`Vapi phone resolved: ${p.number || p.twilioPhoneNumber} -> ${p.id}`);
+    try {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch("https://api.vapi.ai/phone-number", { headers: { Authorization: `Bearer ${apiKey}` }, signal: controller.signal });
+      clearTimeout(t);
+      if (res.ok) {
+        const phones = await res.json();
+        const list = Array.isArray(phones) ? phones : phones.results || [];
+        for (const p of list) {
+          const digits = normalizeDigits(p.number || p.twilioPhoneNumber || "");
+          if (digits.includes(phoneDigits) || phoneDigits.includes(digits)) phoneIds.push(p.id);
         }
       }
-    }
+    } catch (_e) { /* skip */ }
     if (phoneIds.length === 0) {
       warnings.push(`Vapi: telefone ${phone} não encontrado`);
       return warnings;
@@ -195,15 +182,14 @@ async function streamVapiCalls(
     let cursor: string | null = null;
     let pageNum = 0;
 
-    while (true) {
+    while (pageNum < VAPI_MAX_PAGES) {
       if (Date.now() > deadline) {
         summary.isPartial = true;
-        warnings.push(`Vapi: resultado parcial (${summary.vapiCount} chamadas). Reduza o período.`);
+        warnings.push(`Vapi: resultado parcial (${summary.vapiCount} chamadas).`);
         return warnings;
       }
 
       pageNum++;
-      summary.pagesProcessed++;
       const params = new URLSearchParams();
       params.set("createdAtGe", startIso);
       params.set("createdAtLe", endIso);
@@ -212,77 +198,60 @@ async function streamVapiCalls(
       if (cursor) params.set("createdAtLt", cursor);
 
       try {
-        const url = `https://api.vapi.ai/call?${params.toString()}`;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-        let res: Response;
-        try {
-          res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` }, signal: controller.signal });
-        } finally {
-          clearTimeout(timeout);
-        }
+        const timeout = setTimeout(() => controller.abort(), 12000);
+        const res = await fetch(`https://api.vapi.ai/call?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${apiKey}` }, signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
         if (!res.ok) {
           const text = await res.text();
-          throw new Error(`Vapi [${res.status}]: ${text}`);
+          warnings.push(`Vapi [${res.status}]: ${text.substring(0, 100)}`);
+          break;
         }
+
         const rawData = await res.json();
         const rawCalls = Array.isArray(rawData) ? rawData : rawData.results || rawData.data || [];
-        let pageCost = 0;
 
         for (const call of rawCalls) {
-          const endedReason = call.endedReason || "";
-          const isFailed = endedReason.includes("error") || endedReason.includes("failed");
           const costVal = call.cost ?? call.costBreakdown?.total ?? 0;
           const cost = typeof costVal === "number" ? costVal : parseFloat(costVal || "0");
           const duration = call.endedAt && call.startedAt
             ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000)
             : call.duration || 0;
+          const endedReason = call.endedReason || "";
+          const isFailed = endedReason.includes("error") || endedReason.includes("failed");
 
-          pageCost += cost;
           summary.totalCalls++;
           summary.totalCost += cost;
           summary.totalDuration += duration;
           summary.vapiCount++;
           summary.vapiCost += cost;
           if (isFailed) summary.errorCount++;
-          if (cost === 0 && duration > 0) summary.callsWithoutPrice++;
-          if (cost < 0) summary.callsNegativePrice++;
 
           const dateStr = (call.startedAt || call.createdAt || "").substring(0, 10);
           if (dateStr) {
             if (!dailyCosts[dateStr]) dailyCosts[dateStr] = { twilio: 0, vapi: 0 };
             dailyCosts[dateStr].vapi += cost;
           }
-
-          if (recentCalls.length < MAX_DISPLAY) {
-            recentCalls.push({
-              id: call.id,
-              phoneFrom: call.phoneNumber?.number || call.phoneNumberId || "",
-              phoneTo: call.customer?.number || "",
-              duration, cost, source: "vapi",
-              date: call.startedAt || call.createdAt,
-              status: isFailed ? `erro: ${endedReason}` : (call.status || "completed"),
-            });
-          }
         }
 
-        console.log(`Vapi p${pageNum}${pid ? ` (${pid.substring(0,8)})` : ""}: ${rawCalls.length}, $${pageCost.toFixed(2)}, total=${summary.vapiCount}`);
+        console.log(`Vapi p${pageNum}: ${rawCalls.length} calls, total=${summary.vapiCount}`);
 
         if (rawCalls.length < 100) break;
         const lastDate = rawCalls[rawCalls.length - 1]?.createdAt;
         if (!lastDate || lastDate === cursor) break;
         cursor = lastDate;
-
-        // Limit total pages to avoid timeout
-        if (pageNum >= 10) {
-          summary.isPartial = true;
-          warnings.push(`Vapi: resultado parcial (${summary.vapiCount} chamadas).`);
-          break;
-        }
       } catch (e) {
-        warnings.push(`Vapi: erro p${pageNum}: ${e.message}`);
+        warnings.push(`Vapi p${pageNum}: ${e.message}`);
         break;
       }
+    }
+
+    if (pageNum >= VAPI_MAX_PAGES) {
+      summary.isPartial = true;
+      warnings.push(`Vapi: resultado parcial (${summary.vapiCount} chamadas em ${VAPI_MAX_PAGES} páginas).`);
     }
   }
 
@@ -304,22 +273,19 @@ serve(async (req) => {
       });
     }
 
-    // 50s budget total — run SEQUENTIALLY to minimize memory
-    const deadline = Date.now() + 50_000;
+    const deadline = Date.now() + 45_000; // 45s budget
     const summary: Summary = {
       totalCalls: 0, totalCost: 0, totalDuration: 0,
       twilioCost: 0, vapiCost: 0, twilioCount: 0, vapiCount: 0,
-      errorCount: 0, pagesProcessed: 0,
-      callsWithoutPrice: 0, callsNegativePrice: 0, isPartial: false,
+      errorCount: 0, isPartial: false,
     };
-    const recentCalls: CallRecord[] = [];
     const dailyCosts: Record<string, { twilio: number; vapi: number }> = {};
     const warnings: string[] = [];
 
-    // SEQUENTIAL to avoid memory pressure
+    // Twilio: use Usage Records API (fast, aggregated)
     if (source === "twilio" || source === "unified") {
       try {
-        const w = await streamTwilioCalls(phone || "", startDate, endDate, summary, recentCalls, dailyCosts, deadline);
+        const w = await fetchTwilioAggregated(startDate, endDate, summary, dailyCosts);
         warnings.push(...w);
       } catch (e) {
         console.error("Twilio error:", e);
@@ -327,9 +293,10 @@ serve(async (req) => {
       }
     }
 
+    // Vapi: lightweight pagination
     if (source === "vapi" || source === "unified") {
       try {
-        const w = await streamVapiCalls(phone || "", startDate, endDate, summary, recentCalls, dailyCosts, deadline);
+        const w = await fetchVapiAggregated(phone || "", startDate, endDate, summary, dailyCosts, deadline);
         warnings.push(...w);
       } catch (e) {
         console.error("Vapi error:", e);
@@ -337,19 +304,17 @@ serve(async (req) => {
       }
     }
 
-    // Sort display calls
-    recentCalls.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
     console.log("=== FINAL ===");
-    console.log(`Pages: ${summary.pagesProcessed} | Twilio: ${summary.twilioCount} ($${summary.twilioCost.toFixed(4)}) | Vapi: ${summary.vapiCount} ($${summary.vapiCost.toFixed(4)})`);
-    console.log(`TOTAL: ${summary.totalCalls} calls, $${summary.totalCost.toFixed(4)}, ${summary.totalDuration}s | Partial: ${summary.isPartial}`);
+    console.log(`Twilio: ${summary.twilioCount} ($${summary.twilioCost.toFixed(4)}) | Vapi: ${summary.vapiCount} ($${summary.vapiCost.toFixed(4)})`);
+    console.log(`TOTAL: ${summary.totalCalls} calls, $${summary.totalCost.toFixed(4)} | Partial: ${summary.isPartial}`);
 
-    return new Response(JSON.stringify({ calls: recentCalls, warnings, summary, dailyCosts }), {
+    // Lightweight response — only summary + dailyCosts for charts
+    return new Response(JSON.stringify({ warnings, summary, dailyCosts }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("fetch-call-costs error:", error);
-    return new Response(JSON.stringify({ error: error.message, calls: [], warnings: [error.message] }), {
+    return new Response(JSON.stringify({ error: error.message, warnings: [error.message], summary: null, dailyCosts: {} }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
