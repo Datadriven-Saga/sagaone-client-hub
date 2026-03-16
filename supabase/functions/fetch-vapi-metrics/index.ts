@@ -224,29 +224,43 @@ serve(async (req) => {
     let dataSource = "vapi";
     let latestCachedStartedAt: string | null = null;
 
-    // ── STEP 1: If period goes beyond Vapi retention, query cache first ──
+    // ── STEP 1: If period goes beyond Vapi retention, query cache first (paginated, sem limite) ──
     if (requestedStart < vapiCutoff) {
       dataSource = "cache+vapi";
       console.log(`📦 Buscando dados do cache (${startDate} até ${endDate})...`);
 
-      let query = supabase
-        .from("vapi_calls_cache")
-        .select("*")
-        .gte("started_at", startIso)
-        .lte("started_at", endIso)
-        .order("started_at", { ascending: false })
-        .limit(1000);
+      let from = 0;
 
-      if (effectiveAssistantIds.length > 0) query = query.in("assistant_id", effectiveAssistantIds);
-      if (effectivePhoneIds.length > 0) query = query.in("phone_number_id", effectivePhoneIds);
+      while (true) {
+        let query = supabase
+          .from("vapi_calls_cache")
+          .select("*")
+          .gte("started_at", startIso)
+          .lte("started_at", endIso)
+          .order("started_at", { ascending: true })
+          .range(from, from + CACHE_PAGE_SIZE - 1);
 
-      const { data: cachedCalls, error: cacheErr } = await query;
-      if (cacheErr) {
-        console.error("Cache query error:", cacheErr);
-      } else if (cachedCalls && cachedCalls.length > 0) {
-        console.log(`📦 ${cachedCalls.length} chamadas encontradas no cache`);
+        if (effectiveAssistantIds.length > 0) query = query.in("assistant_id", effectiveAssistantIds);
+        if (effectivePhoneIds.length > 0) query = query.in("phone_number_id", effectivePhoneIds);
+
+        const { data: cachedCalls, error: cacheErr } = await query;
+        if (cacheErr) {
+          console.error("Cache query error:", cacheErr);
+          break;
+        }
+
+        if (!cachedCalls || cachedCalls.length === 0) {
+          break;
+        }
+
+        console.log(`📦 Cache page: ${cachedCalls.length} chamadas (offset ${from})`);
+
         for (const cc of cachedCalls) {
           if (seenCallIds.has(cc.call_id)) continue;
+
+          if (!latestCachedStartedAt || (cc.started_at && cc.started_at > latestCachedStartedAt)) {
+            latestCachedStartedAt = cc.started_at;
+          }
 
           // Metadata filter on cached raw_data
           if (filterByMetadata && cc.raw_data) {
@@ -269,6 +283,9 @@ serve(async (req) => {
           };
           addToSummary(summary, dailyCosts, recentCalls, p);
         }
+
+        if (cachedCalls.length < CACHE_PAGE_SIZE) break;
+        from += CACHE_PAGE_SIZE;
       }
     }
 
