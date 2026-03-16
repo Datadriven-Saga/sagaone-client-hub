@@ -1964,7 +1964,7 @@ export const useContatoData = () => {
 
       // Buscar dados dos contatos não disparados
       const IN_BATCH_SIZE = 200;
-      let contatosNaoDisparados: { id: string; lead_id: number | null; nome: string; telefone: string; email: string | null; status: string; origem: string | null }[] = [];
+      let contatosNaoDisparados: { id: string; lead_id: number | null; nome: string; telefone: string; email: string | null; status: string; origem: string | null; codigo_proposta: string | null }[] = [];
       
       for (let i = 0; i < contatoIdsNaoDisparados.length; i += IN_BATCH_SIZE) {
         const batchIds = contatoIdsNaoDisparados.slice(i, i + IN_BATCH_SIZE);
