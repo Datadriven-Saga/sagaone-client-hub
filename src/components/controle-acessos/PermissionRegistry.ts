@@ -339,7 +339,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canGovernancaDados = isAdmin || isTI || isCRM; // CRM gerencia governança de dados
 
   // ── Recepção ──
-  defaults.canAccessRecepcao = isAdmin || isRecepcionista;
+  defaults.canAccessRecepcao = isAdmin || isRecepcionista || isGerente || isCRM;
   defaults.canReadQRCode = isAdmin || isRecepcionista;
 
   // ── Convites ──
