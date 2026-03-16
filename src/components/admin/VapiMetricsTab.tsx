@@ -252,7 +252,6 @@ const VapiMetricsTab = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    setPage(0);
     setDateWarning("");
 
     const totalDays = differenceInDays(endDate, startDate) + 1;
