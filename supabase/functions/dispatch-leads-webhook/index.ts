@@ -36,6 +36,7 @@ interface Lead {
   status: string | null;
   origem: string | null;
   vendedor_nome?: string | null;
+  codigo_proposta?: string | null;
 }
 
 interface RequestBody {
