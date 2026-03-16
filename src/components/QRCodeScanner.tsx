@@ -227,7 +227,7 @@ export function QRCodeScanner({
       }
 
       // Limpar qualquer conteúdo anterior do container
-      container.innerHTML = '';
+      container.textContent = '';
 
       const html5QrCode = new Html5Qrcode('qr-reader-container');
       scannerRef.current = html5QrCode;
