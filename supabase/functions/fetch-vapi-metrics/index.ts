@@ -313,7 +313,8 @@ serve(async (req) => {
             seenCallIds.add(p.callId);
             addToSummary(summary, dailyCosts, recentCalls, p);
 
-            // Queue for cache upsert
+            // Queue for cache upsert — only keep metadata to save memory
+            const metaOnly = call.metadata || call.assistantOverrides?.metadata;
             callsToCache.push({
               call_id: p.callId,
               assistant_id: p.assistantId || null,
@@ -329,14 +330,20 @@ serve(async (req) => {
               cost_tts: p.tts,
               cost_transport: p.transport,
               cost_vapi: p.vapiCost,
-              raw_data: call,
+              raw_data: metaOnly ? { metadata: metaOnly } : null,
               synced_at: new Date().toISOString(),
             });
+
+            // Flush cache periodically to free memory
+            if (callsToCache.length >= 200) {
+              const batch = callsToCache.splice(0, 200);
+              await supabase.from("vapi_calls_cache").upsert(batch, { onConflict: "call_id", ignoreDuplicates: false });
+            }
           }
 
           console.log(`Vapi API p${pageNum}: ${rawCalls.length} calls, matched=${summary.totalCalls}`);
 
-          if (rawCalls.length < 1000) break;
+          if (rawCalls.length < 500) break;
           const lastDate = rawCalls[rawCalls.length - 1]?.createdAt;
           if (!lastDate || lastDate === cursor) break;
           cursor = lastDate;
