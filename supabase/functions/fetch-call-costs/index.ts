@@ -32,6 +32,7 @@ interface Summary {
 }
 
 const MAX_DISPLAY = 50;
+const MAX_PAGES = 5;
 
 function normalizeDigits(phone: string): string {
   return phone.replace(/\D/g, "");
