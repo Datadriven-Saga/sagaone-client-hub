@@ -7,19 +7,19 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-
-
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatPhone } from "@/lib/utils";
-import { format, subDays, addDays, differenceInDays, min as minDate } from "date-fns";
+import { format, subDays, addDays, differenceInDays, min as minDate, startOfWeek, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity, AlertTriangle, ChevronsUpDown, Database
+  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity,
+  AlertTriangle, ChevronsUpDown, Database, TrendingUp
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+  ResponsiveContainer
 } from "recharts";
 
 
