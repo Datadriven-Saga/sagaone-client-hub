@@ -222,6 +222,15 @@ serve(async (req) => {
         console.log(`📦 ${cachedCalls.length} chamadas encontradas no cache`);
         for (const cc of cachedCalls) {
           if (seenCallIds.has(cc.call_id)) continue;
+
+          // Metadata filter on cached raw_data
+          if (filterByMetadata && cc.raw_data) {
+            const rawMeta = (cc.raw_data as any)?.metadata || (cc.raw_data as any)?.assistantOverrides?.metadata;
+            if (!rawMeta || String(rawMeta[metadataKey] ?? "") !== String(metadataValue ?? "")) continue;
+          } else if (filterByMetadata) {
+            continue; // no raw_data to check
+          }
+
           seenCallIds.add(cc.call_id);
 
           const isEnded = cc.status === "ended";
