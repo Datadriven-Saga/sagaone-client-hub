@@ -65,10 +65,11 @@ async function streamTwilioCalls(
   const phoneDigits = normalizeDigits(phone);
 
   const params = new URLSearchParams();
-  params.set("StartTime>", startDate);
-  params.set("StartTime<", endDate);
+  params.set("StartTime>=", `${startDate}T00:00:00Z`);
+  params.set("StartTime<=", `${endDate}T23:59:59Z`);
   params.set("PageSize", "1000");
   let nextPageUrl: string | null = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json?${params.toString()}`;
+  let pagesUsed = 0;
 
   while (nextPageUrl) {
     if (Date.now() > deadline) {
