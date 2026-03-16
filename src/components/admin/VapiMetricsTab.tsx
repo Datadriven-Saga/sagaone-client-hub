@@ -283,6 +283,7 @@ const VapiMetricsTab = () => {
                 endDate: batch.endDate,
                 assistantIds: selectedAssistants,
                 phoneNumberIds: selectedPhones,
+                ...(metadataKey.trim() ? { metadataKey: metadataKey.trim(), metadataValue: metadataValue.trim() } : {}),
               },
             });
             if (error) throw error;
