@@ -108,7 +108,6 @@ const StatusBadge = ({
 const TwilioCostsTab = () => {
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 7));
   const [endDate, setEndDate] = useState<Date>(new Date());
-  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
   const [summary, setSummary] = useState<any>(null);
@@ -136,7 +135,6 @@ const TwilioCostsTab = () => {
     const body = {
       startDate: format(startDate, "yyyy-MM-dd"),
       endDate: format(endDate, "yyyy-MM-dd"),
-      phone: phone || undefined,
     };
 
     try {
