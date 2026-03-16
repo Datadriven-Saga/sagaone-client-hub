@@ -222,6 +222,7 @@ serve(async (req) => {
     const seenCallIds = new Set<string>();
     const callsToCache: any[] = [];
     let dataSource = "vapi";
+    let latestCachedStartedAt: string | null = null;
 
     // ── STEP 1: If period goes beyond Vapi retention, query cache first ──
     if (requestedStart < vapiCutoff) {
