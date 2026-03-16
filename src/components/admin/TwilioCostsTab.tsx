@@ -20,6 +20,14 @@ import {
 } from "recharts";
 
 const fmtUSD = (v: number) => `US$ ${v.toFixed(2)}`;
+const fmtMinutes = (v: number) => {
+  if (v >= 60) {
+    const h = Math.floor(v / 60);
+    const m = Math.round(v % 60);
+    return m > 0 ? `${h.toLocaleString("pt-BR")}h ${m}min` : `${h.toLocaleString("pt-BR")}h`;
+  }
+  return `${v.toFixed(1)} min`;
+};
 
 const TwilioCostsTab = () => {
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 7));
@@ -167,7 +175,7 @@ const TwilioCostsTab = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: "Total Gasto (USD)", value: fmtUSD(kpis.totalCost), icon: DollarSign },
-            { label: "Total de Minutos", value: `${kpis.totalMinutes.toFixed(1)} min`, icon: Clock },
+            { label: "Total de Minutos", value: fmtMinutes(kpis.totalMinutes), icon: Clock },
             { label: "Volume de Chamadas", value: kpis.totalCalls.toLocaleString("pt-BR"), icon: Phone },
             { label: "Taxa de Conectividade", value: `${kpis.completedRate.toFixed(1)}%`, icon: Activity },
           ].map(kpi => (
