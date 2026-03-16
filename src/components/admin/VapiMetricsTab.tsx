@@ -179,21 +179,6 @@ function mergeDailyCharts(results: any[]): any[] {
     .map(([date, v]) => ({ date, cost: +v.cost.toFixed(4), count: v.count }));
 }
 
-function mergeCalls(results: any[]): any[] {
-  const all: any[] = [];
-  for (const r of results) {
-    all.push(...(r?.calls || []));
-  }
-  // Deduplicate by id
-  const seen = new Set<string>();
-  const unique: any[] = [];
-  for (const c of all) {
-    if (c.id && seen.has(c.id)) continue;
-    if (c.id) seen.add(c.id);
-    unique.push(c);
-  }
-  return unique.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-}
 
 // ── Main Component ──
 const VapiMetricsTab = () => {
