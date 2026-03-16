@@ -1399,7 +1399,8 @@ export default function EventoBase() {
         telefone: contato.telefone,
         email: contato.email,
         status: contato.status,
-        origem: contato.origem
+        origem: contato.origem,
+        codigo_proposta: (contato as any).codigo_proposta || null
       }];
 
       console.log('🚀 Disparando contato individual:', { 
