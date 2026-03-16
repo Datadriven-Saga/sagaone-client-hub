@@ -32,6 +32,7 @@ interface Summary {
 }
 
 const MAX_DISPLAY = 50;
+const MAX_PAGES = 5;
 
 function normalizeDigits(phone: string): string {
   return phone.replace(/\D/g, "");
@@ -64,18 +65,20 @@ async function streamTwilioCalls(
   const phoneDigits = normalizeDigits(phone);
 
   const params = new URLSearchParams();
-  params.set("StartTime>", startDate);
-  params.set("StartTime<", endDate);
+  params.set("StartTime>=", `${startDate}T00:00:00Z`);
+  params.set("StartTime<=", `${endDate}T23:59:59Z`);
   params.set("PageSize", "1000");
   let nextPageUrl: string | null = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json?${params.toString()}`;
+  let pagesUsed = 0;
 
   while (nextPageUrl) {
-    if (Date.now() > deadline) {
+    if (Date.now() > deadline || pagesUsed >= MAX_PAGES) {
       summary.isPartial = true;
-      warnings.push(`Twilio: resultado parcial (${summary.twilioCount} chamadas). Reduza o período para dados completos.`);
+      warnings.push(`Twilio: resultado parcial (${summary.twilioCount} chamadas). Reduza o período ou use filtro de telefone.`);
       break;
     }
 
+    pagesUsed++;
     summary.pagesProcessed++;
     const res = await fetch(nextPageUrl, { headers: { Authorization: `Basic ${auth}` } });
     if (!res.ok) {
