@@ -195,6 +195,7 @@ serve(async (req) => {
     const recentCalls: VapiCallRecord[] = [];
     const dailyCosts: Record<string, { cost: number; count: number }> = {};
     const seenCallIds = new Set<string>();
+    const callsToCache: any[] = [];
     let dataSource = "vapi";
 
     // ── STEP 1: If period goes beyond Vapi retention, query cache first ──
