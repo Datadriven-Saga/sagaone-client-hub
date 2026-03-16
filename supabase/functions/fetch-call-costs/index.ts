@@ -248,6 +248,12 @@ async function streamVapiCalls(
           if (cost === 0 && duration > 0) summary.callsWithoutPrice++;
           if (cost < 0) summary.callsNegativePrice++;
 
+          const dateStr = (call.startedAt || call.createdAt || "").substring(0, 10);
+          if (dateStr) {
+            if (!dailyCosts[dateStr]) dailyCosts[dateStr] = { twilio: 0, vapi: 0 };
+            dailyCosts[dateStr].vapi += cost;
+          }
+
           if (recentCalls.length < MAX_DISPLAY) {
             recentCalls.push({
               id: call.id,
