@@ -286,9 +286,8 @@ serve(async (req) => {
     {
       let cursor: string | null = null;
       let pageNum = 0;
-      const MAX_PAGES = 10; // Hard limit to prevent memory explosion
 
-      while (pageNum < MAX_PAGES) {
+      while (true) {
         if (Date.now() > deadline) {
           summary.isPartial = true;
           warnings.push(`Resultado parcial (${summary.totalCalls} chamadas). Reduza o período.`);

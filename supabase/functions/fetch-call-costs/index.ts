@@ -277,10 +277,6 @@ async function fetchVapiAggregated(
       }
     }
 
-    if (pageNum >= VAPI_MAX_PAGES) {
-      summary.isPartial = true;
-      warnings.push(`Vapi: resultado parcial (${summary.vapiCount} chamadas em ${VAPI_MAX_PAGES} páginas).`);
-    }
   }
 
   console.log(`Vapi DONE: ${summary.vapiCount} calls, $${summary.vapiCost.toFixed(4)}`);
