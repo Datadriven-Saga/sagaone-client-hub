@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
-import CallDetailModal from "./CallDetailModal";
+
 
 const ITEMS_PER_PAGE = 20;
 const BATCH_DAYS = 14;

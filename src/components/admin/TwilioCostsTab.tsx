@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
-import CallDetailModal from "./CallDetailModal";
+
 
 const ITEMS_PER_PAGE = 20;
 
