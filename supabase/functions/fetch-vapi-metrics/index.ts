@@ -145,6 +145,104 @@ function addToSummary(
   }
 }
 
+// ── Sync only the recent delta from Vapi API to cache ──
+async function syncRecentToCache(
+  apiKey: string,
+  supabase: any,
+  syncStartIso: string,
+  endIso: string,
+  seenCallIds: Set<string>,
+): Promise<{ newCalls: number; warnings: string[] }> {
+  const warnings: string[] = [];
+  let newCalls = 0;
+  let cursor: string | null = null;
+  let pageNum = 0;
+  const deadline = Date.now() + 25_000; // Max 25s for sync
+
+  while (true) {
+    if (Date.now() > deadline) {
+      warnings.push("Sincronização parcial com Vapi API. Dados do cache podem estar levemente desatualizados.");
+      break;
+    }
+
+    pageNum++;
+    const params = new URLSearchParams();
+    params.set("createdAtGe", syncStartIso);
+    params.set("createdAtLe", endIso);
+    params.set("limit", "100");
+    if (cursor) params.set("createdAtLt", cursor);
+
+    try {
+      const res = await fetch(`https://api.vapi.ai/call?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        if (text.toLowerCase().includes("subscription") || text.toLowerCase().includes("plan limit")) {
+          warnings.push("Dados limitados pelo plano Vapi atual.");
+        } else {
+          warnings.push(`Vapi API [${res.status}]: ${text.substring(0, 120)}`);
+        }
+        break;
+      }
+
+      const rawData = await res.json();
+      const rawCalls: any[] = Array.isArray(rawData) ? rawData : rawData.results || rawData.data || [];
+      const batch: any[] = [];
+      let lastCreatedAt: string | null = null;
+
+      for (const call of rawCalls) {
+        lastCreatedAt = call.createdAt || lastCreatedAt;
+        if (seenCallIds.has(call.id)) continue;
+
+        const p = parseCall(call);
+        const metaOnly = call.metadata || call.assistantOverrides?.metadata;
+
+        batch.push({
+          call_id: p.callId,
+          assistant_id: p.assistantId || null,
+          phone_number_id: p.phoneNumberId || null,
+          customer_number: p.customerNumber,
+          agent_phone: p.agentPhone,
+          duration: p.duration,
+          cost: p.cost,
+          status: p.status,
+          started_at: p.startedAt || null,
+          cost_stt: p.stt,
+          cost_llm: p.llm,
+          cost_tts: p.tts,
+          cost_transport: p.transport,
+          cost_vapi: p.vapiCost,
+          raw_data: metaOnly ? { metadata: metaOnly } : null,
+          synced_at: new Date().toISOString(),
+        });
+
+        seenCallIds.add(call.id);
+        newCalls++;
+      }
+
+      if (batch.length > 0) {
+        const { error } = await supabase.from("vapi_calls_cache").upsert(batch, {
+          onConflict: "call_id",
+          ignoreDuplicates: false,
+        });
+        if (error) warnings.push(`Cache upsert: ${error.message}`);
+      }
+
+      console.log(`Vapi sync p${pageNum}: ${rawCalls.length} calls, ${batch.length} new`);
+
+      if (rawCalls.length < 100 || !lastCreatedAt || lastCreatedAt === cursor) break;
+      cursor = lastCreatedAt;
+    } catch (e: any) {
+      warnings.push(`Vapi sync p${pageNum}: ${e?.message || "erro"}`);
+      break;
+    }
+  }
+
+  return { newCalls, warnings };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -213,220 +311,107 @@ serve(async (req) => {
     const endIso = new Date(endDate + "T23:59:59").toISOString();
     const now = new Date();
     const vapiCutoff = new Date(now.getTime() - VAPI_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    const requestedStart = new Date(startDate);
 
     const warnings: string[] = [];
     const summary: VapiSummary = { totalCalls: 0, totalCost: 0, totalDuration: 0, endedCount: 0, costBreakdown: { stt: 0, llm: 0, tts: 0, transport: 0, vapi: 0 }, isPartial: false };
     const recentCalls: VapiCallRecord[] = [];
     const dailyCosts: Record<string, DailyBucket> = {};
     const seenCallIds = new Set<string>();
-    const callsToCache: any[] = [];
-    let dataSource = "vapi";
-    let latestCachedStartedAt: string | null = null;
+    let dataSource = "cache";
 
-    // ── STEP 1: If period goes beyond Vapi retention, query cache first (paginated, sem limite) ──
-    if (requestedStart < vapiCutoff) {
-      dataSource = "cache+vapi";
-      console.log(`📦 Buscando dados do cache (${startDate} até ${endDate})...`);
+    // ── STEP 1: Sync only delta from Vapi API (last 6 hours or since latest cache) ──
+    {
+      // Find the latest cached call to know where to start syncing
+      const { data: latestRow } = await supabase
+        .from("vapi_calls_cache")
+        .select("started_at")
+        .order("started_at", { ascending: false })
+        .limit(1);
 
-      let from = 0;
+      const latestCached = latestRow?.[0]?.started_at;
 
-      while (true) {
-        let query = supabase
-          .from("vapi_calls_cache")
-          .select("*")
-          .gte("started_at", startIso)
-          .lte("started_at", endIso)
-          .order("started_at", { ascending: true })
-          .range(from, from + CACHE_PAGE_SIZE - 1);
+      // Determine sync window: from latest cached - 1h overlap, or from retention cutoff
+      let syncStart: Date;
+      if (latestCached) {
+        syncStart = new Date(latestCached);
+        syncStart.setHours(syncStart.getHours() - 1); // 1h overlap for safety
+      } else {
+        syncStart = vapiCutoff;
+      }
 
-        if (effectiveAssistantIds.length > 0) query = query.in("assistant_id", effectiveAssistantIds);
-        if (effectivePhoneIds.length > 0) query = query.in("phone_number_id", effectivePhoneIds);
-
-        const { data: cachedCalls, error: cacheErr } = await query;
-        if (cacheErr) {
-          console.error("Cache query error:", cacheErr);
-          break;
+      const requestedEnd = new Date(endDate + "T23:59:59");
+      if (syncStart < requestedEnd) {
+        console.log(`🔄 Syncing Vapi API from ${syncStart.toISOString()} to ${endIso}`);
+        const syncResult = await syncRecentToCache(apiKey, supabase, syncStart.toISOString(), endIso, seenCallIds);
+        warnings.push(...syncResult.warnings);
+        if (syncResult.newCalls > 0) {
+          console.log(`✅ ${syncResult.newCalls} novas chamadas sincronizadas ao cache`);
         }
-
-        if (!cachedCalls || cachedCalls.length === 0) {
-          break;
-        }
-
-        console.log(`📦 Cache page: ${cachedCalls.length} chamadas (offset ${from})`);
-
-        for (const cc of cachedCalls) {
-          if (seenCallIds.has(cc.call_id)) continue;
-
-          if (!latestCachedStartedAt || (cc.started_at && cc.started_at > latestCachedStartedAt)) {
-            latestCachedStartedAt = cc.started_at;
-          }
-
-          // Metadata filter on cached raw_data
-          if (filterByMetadata && cc.raw_data) {
-            const rawMeta = (cc.raw_data as any)?.metadata || (cc.raw_data as any)?.assistantOverrides?.metadata;
-            if (!rawMeta || String(rawMeta[metadataKey] ?? "") !== String(metadataValue ?? "")) continue;
-          } else if (filterByMetadata) {
-            continue; // no raw_data to check
-          }
-
-          seenCallIds.add(cc.call_id);
-
-          const isEnded = cc.status === "ended";
-          const p = {
-            callId: cc.call_id, assistantId: cc.assistant_id || "", phoneNumberId: cc.phone_number_id || "",
-            customerNumber: cc.customer_number || "—", agentPhone: cc.agent_phone || "",
-            duration: cc.duration || 0, cost: Number(cc.cost) || 0, status: cc.status || "unknown",
-            startedAt: cc.started_at || "", stt: Number(cc.cost_stt) || 0, llm: Number(cc.cost_llm) || 0,
-            tts: Number(cc.cost_tts) || 0, transport: Number(cc.cost_transport) || 0, vapiCost: Number(cc.cost_vapi) || 0,
-            isEnded,
-          };
-          addToSummary(summary, dailyCosts, recentCalls, p);
-        }
-
-        if (cachedCalls.length < CACHE_PAGE_SIZE) break;
-        from += CACHE_PAGE_SIZE;
+        dataSource = "cache+vapi";
       }
     }
 
-    // ── STEP 2: Fetch from Vapi API (only last 14 days or full range if within retention) ──
-    const vapiStartDate = requestedStart < vapiCutoff ? vapiCutoff : requestedStart;
-    let vapiStartIso = vapiStartDate.toISOString();
-    const deadline = Date.now() + 50_000;
+    // Reset seenCallIds for the reading phase
+    seenCallIds.clear();
 
-    if (latestCachedStartedAt) {
-      const rewind = new Date(latestCachedStartedAt);
-      rewind.setMinutes(rewind.getMinutes() - 30);
-      if (rewind > vapiStartDate) {
-        vapiStartIso = rewind.toISOString();
-      }
-    }
-
-    // IMPORTANT: Don't iterate over each assistant×phone combination — it creates N×M API calls
-    // Instead, make a single query stream and filter results client-side
-    // The Vapi API /call endpoint doesn't support multiple IDs, so we query ALL and filter
+    // ── STEP 2: Read ALL data from cache (fast, paginated, no external API calls) ──
     const assistantIdSet = new Set(effectiveAssistantIds);
     const phoneIdSet = new Set(effectivePhoneIds);
     const filterByAssistant = effectiveAssistantIds.length > 0;
     const filterByPhone = effectivePhoneIds.length > 0;
 
-    {
-      let cursor: string | null = null;
-      let pageNum = 0;
+    let from = 0;
 
-      while (true) {
-        if (Date.now() > deadline) {
-          summary.isPartial = true;
-          warnings.push(`Resultado parcial (${summary.totalCalls} chamadas). Reduza o período.`);
-          break;
-        }
+    while (true) {
+      let query = supabase
+        .from("vapi_calls_cache")
+        .select("*")
+        .gte("started_at", startIso)
+        .lte("started_at", endIso)
+        .order("started_at", { ascending: true })
+        .range(from, from + CACHE_PAGE_SIZE - 1);
 
-        pageNum++;
-        const params = new URLSearchParams();
-        params.set("createdAtGe", vapiStartIso);
-        params.set("createdAtLe", endIso);
-        params.set("limit", "100");
-        if (cursor) params.set("createdAtLt", cursor);
+      if (effectiveAssistantIds.length > 0) query = query.in("assistant_id", effectiveAssistantIds);
+      if (effectivePhoneIds.length > 0) query = query.in("phone_number_id", effectivePhoneIds);
 
-        try {
-          const res = await fetch(`https://api.vapi.ai/call?${params.toString()}`, {
-            headers: { Authorization: `Bearer ${apiKey}` },
-          });
-
-          if (!res.ok) {
-            const text = await res.text();
-            if (text.toLowerCase().includes("subscription") || text.toLowerCase().includes("plan limit")) {
-              warnings.push("Dados limitados pelo plano Vapi atual.");
-              summary.isPartial = true;
-              break;
-            }
-            throw new Error(`Vapi API [${res.status}]: ${text}`);
-          }
-
-          const rawData = await res.json();
-          const rawCalls: any[] = Array.isArray(rawData) ? rawData : rawData.results || rawData.data || [];
-          const pageLen = rawCalls.length;
-          let lastCreatedAt: string | null = null;
-
-          // Process each call and immediately discard the raw object
-          for (let i = 0; i < rawCalls.length; i++) {
-            const call = rawCalls[i];
-            lastCreatedAt = call.createdAt || lastCreatedAt;
-            rawCalls[i] = null; // Free memory immediately
-
-            const p = parseCall(call);
-            if (seenCallIds.has(p.callId)) continue;
-
-            if (filterByAssistant && !assistantIdSet.has(p.assistantId)) continue;
-            if (filterByPhone && !phoneIdSet.has(p.phoneNumberId)) continue;
-
-            if (filterByMetadata) {
-              const callMeta = call.metadata || call.assistantOverrides?.metadata;
-              if (!callMeta || String(callMeta[metadataKey] ?? "") !== String(metadataValue ?? "")) continue;
-            }
-
-            seenCallIds.add(p.callId);
-            addToSummary(summary, dailyCosts, recentCalls, p);
-
-            // Lightweight cache record (no raw_data to save memory)
-            const metaOnly = call.metadata || call.assistantOverrides?.metadata;
-            callsToCache.push({
-              call_id: p.callId,
-              assistant_id: p.assistantId || null,
-              phone_number_id: p.phoneNumberId || null,
-              customer_number: p.customerNumber,
-              agent_phone: p.agentPhone,
-              duration: p.duration,
-              cost: p.cost,
-              status: p.status,
-              started_at: p.startedAt || null,
-              cost_stt: p.stt,
-              cost_llm: p.llm,
-              cost_tts: p.tts,
-              cost_transport: p.transport,
-              cost_vapi: p.vapiCost,
-              raw_data: metaOnly ? { metadata: metaOnly } : null,
-              synced_at: new Date().toISOString(),
-            });
-
-            // Flush to DB to free memory
-            if (callsToCache.length >= 100) {
-              const batch = callsToCache.splice(0, callsToCache.length);
-              await supabase.from("vapi_calls_cache").upsert(batch, { onConflict: "call_id", ignoreDuplicates: false });
-            }
-          }
-
-          console.log(`Vapi p${pageNum}: ${pageLen} calls, matched=${summary.totalCalls}`);
-
-          if (pageLen < 100) break;
-          if (!lastCreatedAt || lastCreatedAt === cursor) break;
-          cursor = lastCreatedAt;
-        } catch (e: any) {
-          if (e.message?.includes("subscription") || e.message?.includes("plan limit")) {
-            warnings.push("Dados limitados pelo plano Vapi atual.");
-            summary.isPartial = true;
-          } else {
-            throw e;
-          }
-          break;
-        }
+      const { data: cachedCalls, error: cacheErr } = await query;
+      if (cacheErr) {
+        console.error("Cache query error:", cacheErr);
+        warnings.push(`Erro no cache: ${cacheErr.message}`);
+        break;
       }
-    }
 
-    // ── STEP 3: Save new calls to cache (background, non-blocking) ──
-    if (callsToCache.length > 0) {
-      console.log(`💾 Salvando ${callsToCache.length} chamadas no cache...`);
-      // Upsert in batches of 200
-      for (let i = 0; i < callsToCache.length; i += 200) {
-        const batch = callsToCache.slice(i, i + 200);
-        const { error: upsertErr } = await supabase
-          .from("vapi_calls_cache")
-          .upsert(batch, { onConflict: "call_id", ignoreDuplicates: false });
-        if (upsertErr) {
-          console.error(`Cache upsert error (batch ${i}):`, upsertErr);
+      if (!cachedCalls || cachedCalls.length === 0) break;
+
+      console.log(`📦 Cache page: ${cachedCalls.length} chamadas (offset ${from})`);
+
+      for (const cc of cachedCalls) {
+        if (seenCallIds.has(cc.call_id)) continue;
+
+        // Metadata filter on cached raw_data
+        if (filterByMetadata && cc.raw_data) {
+          const rawMeta = (cc.raw_data as any)?.metadata || (cc.raw_data as any)?.assistantOverrides?.metadata;
+          if (!rawMeta || String(rawMeta[metadataKey] ?? "") !== String(metadataValue ?? "")) continue;
+        } else if (filterByMetadata) {
+          continue;
         }
+
+        seenCallIds.add(cc.call_id);
+
+        const isEnded = cc.status === "ended";
+        const p = {
+          callId: cc.call_id, assistantId: cc.assistant_id || "", phoneNumberId: cc.phone_number_id || "",
+          customerNumber: cc.customer_number || "—", agentPhone: cc.agent_phone || "",
+          duration: cc.duration || 0, cost: Number(cc.cost) || 0, status: cc.status || "unknown",
+          startedAt: cc.started_at || "", stt: Number(cc.cost_stt) || 0, llm: Number(cc.cost_llm) || 0,
+          tts: Number(cc.cost_tts) || 0, transport: Number(cc.cost_transport) || 0, vapiCost: Number(cc.cost_vapi) || 0,
+          isEnded,
+        };
+        addToSummary(summary, dailyCosts, recentCalls, p);
       }
-      console.log(`✅ Cache atualizado`);
+
+      if (cachedCalls.length < CACHE_PAGE_SIZE) break;
+      from += CACHE_PAGE_SIZE;
     }
 
     return buildResponse(recentCalls, summary, dailyCosts, warnings, dataSource);
