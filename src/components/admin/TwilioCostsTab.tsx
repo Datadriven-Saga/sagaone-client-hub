@@ -190,16 +190,7 @@ const TwilioCostsTab = () => {
       {/* Filters */}
       <Card className="border-border/50 bg-card/60 backdrop-blur-sm">
         <CardContent className="pt-5 pb-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">Buscar por telefone</Label>
-              <Input
-                placeholder="Ex: 11999998888"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                className="bg-background/50 border-border/60"
-              />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">Data inicial</Label>
               <Popover>
