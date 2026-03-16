@@ -43,13 +43,24 @@ const columnMappings: Record<string, string[]> = {
   telefone: ['telefone', 'phone', 'celular', 'cel', 'whatsapp', 'fone', 'tel'],
   email: ['email', 'e-mail', 'mail'],
   responsavel: ['responsavel', 'vendedor', 'atendente', 'consultor', 'responsavel email'],
+  codigo_proposta: ['codigo_proposta', 'codigo proposta', 'codigoproposta', 'proposalid', 'proposal_id', 'proposal id'],
 };
+
+// Normalize for matching: lowercase, remove accents, remove spaces and underscores
+function normalizeForMatching(name: string): string {
+  return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s_]+/g, '').trim();
+}
 
 function findColumnIndex(headers: string[], fieldName: string): number {
   const possibleNames = columnMappings[fieldName] || [fieldName];
   for (let i = 0; i < headers.length; i++) {
     const h = normalizeColumnName(headers[i] || '');
-    if (possibleNames.some(name => h === normalizeColumnName(name) || h.includes(normalizeColumnName(name)))) {
+    const hStripped = normalizeForMatching(headers[i] || '');
+    if (possibleNames.some(name => {
+      const nc = normalizeColumnName(name);
+      const ns = normalizeForMatching(name);
+      return h === nc || h.includes(nc) || hStripped === ns;
+    })) {
       return i;
     }
   }
@@ -162,6 +173,7 @@ Deno.serve(async (req: Request) => {
       telefone: findColumnIndex(headers, 'telefone'),
       email: findColumnIndex(headers, 'email'),
       responsavel: findColumnIndex(headers, 'responsavel'),
+      codigo_proposta: findColumnIndex(headers, 'codigo_proposta'),
     };
 
     if (colIndices.telefone === -1) {
@@ -257,6 +269,7 @@ Deno.serve(async (req: Request) => {
         observacoes: null,
         responsavel_email: colIndices.responsavel >= 0 ? (row[colIndices.responsavel] || '').trim() || null : null,
         base_id: log.base_id || null,
+        codigo_proposta: colIndices.codigo_proposta >= 0 ? (row[colIndices.codigo_proposta] || '').trim() || null : null,
       });
 
       if (batch.length >= BATCH_SIZE) {

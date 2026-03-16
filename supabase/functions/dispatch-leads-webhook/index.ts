@@ -36,6 +36,7 @@ interface Lead {
   status: string | null;
   origem: string | null;
   vendedor_nome?: string | null;
+  codigo_proposta?: string | null;
 }
 
 interface RequestBody {
@@ -619,7 +620,7 @@ serve(async (req) => {
         }
 
         // Payload para IA Whatsapp - com variable_mapping resolvido
-        const payload = {
+        const payload: Record<string, any> = {
           ...dadosComuns,
           id: lead.id,
           lead_id: lead.lead_id,
@@ -633,6 +634,11 @@ serve(async (req) => {
           // Substituir o mapping original pelo resolvido com valores reais
           variable_mapping: resolvedVariableMapping,
         };
+
+        // Include proposalId only if codigo_proposta is non-empty
+        if (lead.codigo_proposta) {
+          payload.proposalId = lead.codigo_proposta;
+        }
 
         const leadNum = batchStart + leadIndex + 1;
         console.log(`   [${requestId}] Lead #${leadNum}: ${lead.nome} (Tel: ${normalizePhone(lead.telefone) || 'N/A'})`);
