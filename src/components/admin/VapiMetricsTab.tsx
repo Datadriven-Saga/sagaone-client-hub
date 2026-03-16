@@ -234,6 +234,22 @@ const VapiMetricsTab = () => {
     }
   }, [vapiPhones]);
 
+  const invokeWithRetry = async (body: any) => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const { data, error } = await supabase.functions.invoke("fetch-vapi-metrics", { body });
+      if (!error) return data;
+      if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 800));
+    }
+    // Final fallback: direct fetch
+    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-vapi-metrics`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  };
+
   const fetchData = async () => {
     setLoading(true);
     setDateWarning("");
@@ -256,16 +272,13 @@ const VapiMetricsTab = () => {
         const chunk = batches.slice(i, i + CONCURRENCY);
         const promises = chunk.map(async (batch) => {
           try {
-            const { data, error } = await supabase.functions.invoke("fetch-vapi-metrics", {
-              body: {
+            const data = await invokeWithRetry({
                 startDate: batch.startDate,
                 endDate: batch.endDate,
                 assistantIds: selectedAssistants,
                 phoneNumberIds: selectedPhones,
                 ...(metadataKey.trim() ? { metadataKey: metadataKey.trim(), metadataValue: metadataValue.trim() } : {}),
-              },
             });
-            if (error) throw error;
 
             const warnings: string[] = data?.warnings || [];
             for (const w of warnings) {
