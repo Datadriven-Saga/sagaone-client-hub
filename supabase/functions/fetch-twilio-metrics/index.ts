@@ -255,9 +255,9 @@ serve(async (req) => {
       }
     }
 
-    // Use filtered summary if we had phone/status filters
+    // Use filtered summary only when explicit status filter is applied
     const finalSummary = filteredSummary || summary;
-    const finalDailyCosts = needsIndividualCalls ? filteredDailyCosts : dailyCosts;
+    const finalDailyCosts = needsFilteredScan ? filteredDailyCosts : dailyCosts;
 
     recentCalls.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
