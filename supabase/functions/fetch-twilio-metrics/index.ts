@@ -63,7 +63,7 @@ serve(async (req) => {
     }
 
     const auth = encodeBasicAuth(sid, token);
-    const deadline = Date.now() + 50_000;
+    const deadline = Date.now() + 55_000;
     const phoneDigits = normalizeDigits(phone || "");
     const statusFilters: string[] = statusFilter ? (Array.isArray(statusFilter) ? statusFilter : [statusFilter]) : [];
 
