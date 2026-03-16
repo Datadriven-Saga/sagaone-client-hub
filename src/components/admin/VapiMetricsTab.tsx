@@ -448,6 +448,27 @@ const VapiMetricsTab = () => {
               />
             </div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Metadata — Chave</Label>
+              <Input
+                placeholder="Ex: dealerId, campaignId..."
+                value={metadataKey}
+                onChange={e => setMetadataKey(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Metadata — Valor</Label>
+              <Input
+                placeholder="Ex: 12345"
+                value={metadataValue}
+                onChange={e => setMetadataValue(e.target.value)}
+                className="h-9 text-sm"
+                disabled={!metadataKey.trim()}
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
