@@ -53,21 +53,40 @@ const GastosGeraisTab = () => {
 
   const fetchData = async () => {
     setLoading(true);
+    const payload = {
+      phone: phone === "all" ? "" : phone,
+      startDate: format(startDate, "yyyy-MM-dd"),
+      endDate: format(endDate, "yyyy-MM-dd"),
+      source: "unified",
+    };
+
     try {
-      const { data, error } = await supabase.functions.invoke("fetch-call-costs", {
-        body: {
-          phone: phone === "all" ? "" : phone,
-          startDate: format(startDate, "yyyy-MM-dd"),
-          endDate: format(endDate, "yyyy-MM-dd"),
-          source: "unified",
-        },
-      });
-      if (error) throw error;
-      setCalls(data?.dailyCosts || {});
-      setServerSummary(data?.summary || null);
+      let lastError: any = null;
+      let responseData: any = null;
+
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const { data, error } = await supabase.functions.invoke("fetch-call-costs", { body: payload });
+
+        if (!error) {
+          responseData = data;
+          lastError = null;
+          break;
+        }
+
+        lastError = error;
+        if (attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 900));
+        }
+      }
+
+      if (lastError) throw lastError;
+
+      setCalls(responseData?.dailyCosts || {});
+      setServerSummary(responseData?.summary || null);
       setFetched(true);
-      if (data?.warnings?.length) {
-        data.warnings.forEach((w: string) => toast.warning(w, { duration: 8000 }));
+
+      if (responseData?.warnings?.length) {
+        responseData.warnings.forEach((w: string) => toast.warning(w, { duration: 8000 }));
       }
     } catch (e: any) {
       toast.error("Erro ao buscar dados: " + (e.message || "Erro desconhecido"));
