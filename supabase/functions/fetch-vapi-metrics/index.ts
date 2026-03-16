@@ -430,9 +430,10 @@ serve(async (req) => {
     }
 
     return buildResponse(recentCalls, summary, dailyCosts, warnings, dataSource);
-  } catch (error) {
+  } catch (error: any) {
     console.error("fetch-vapi-metrics error:", error);
-    return new Response(JSON.stringify({ error: error.message, calls: [], warnings: [error.message] }), {
+    const message = error?.message || "Erro inesperado";
+    return new Response(JSON.stringify({ error: message, calls: [], warnings: [message] }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
