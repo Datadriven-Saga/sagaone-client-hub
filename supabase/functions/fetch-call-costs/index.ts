@@ -52,7 +52,7 @@ function validateTwilioSid(sid: string): boolean {
 // ========== TWILIO: STREAMING AGGREGATION ==========
 async function streamTwilioCalls(
   phone: string, startDate: string, endDate: string,
-  summary: Summary, recentCalls: CallRecord[], deadline: number
+  summary: Summary, recentCalls: CallRecord[], dailyCosts: Record<string, { twilio: number; vapi: number }>, deadline: number
 ): Promise<string[]> {
   const sid = Deno.env.get("TWILIO_ACCOUNT_SID")?.trim();
   const token = Deno.env.get("TWILIO_AUTH_TOKEN")?.trim();
