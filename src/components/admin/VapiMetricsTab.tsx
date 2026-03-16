@@ -14,7 +14,7 @@ import { cn, formatPhone } from "@/lib/utils";
 import { format, subDays, addDays, differenceInDays, min as minDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity, AlertTriangle, Eye, ChevronsUpDown, Database
+  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity, AlertTriangle, ChevronsUpDown, Database
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
