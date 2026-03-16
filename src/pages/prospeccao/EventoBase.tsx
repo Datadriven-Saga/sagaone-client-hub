@@ -595,7 +595,7 @@ export default function EventoBase() {
         .select(`
           id, lead_id, nome, telefone, email, status, origem, 
           created_at, updated_at, 
-          responsavel_email, vendedor_nome,
+          responsavel_email, vendedor_nome, codigo_proposta,
           eventos_prospeccao!inner(prospeccao_id, data_disparo_ia)
         `)
         .eq('empresa_id', activeCompany.id)
