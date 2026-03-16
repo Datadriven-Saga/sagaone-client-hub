@@ -202,6 +202,8 @@ const VapiMetricsTab = () => {
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [selectedAssistants, setSelectedAssistants] = useState<string[]>([]);
   const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
+  const [metadataKey, setMetadataKey] = useState("");
+  const [metadataValue, setMetadataValue] = useState("");
   const [phoneSearch, setPhoneSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
