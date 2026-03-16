@@ -2001,7 +2001,8 @@ export const useContatoData = () => {
         telefone: c.telefone,
         email: c.email,
         status: c.status,
-        origem: c.origem
+        origem: c.origem,
+        codigo_proposta: c.codigo_proposta || null
       }));
 
       // DIVIDIR EM BATCHES DE 500 PARA EVITAR TIMEOUT DA EDGE FUNCTION
