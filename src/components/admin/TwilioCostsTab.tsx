@@ -6,13 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn, formatPhone } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, Activity, AlertTriangle, Eye
+  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, Activity, AlertTriangle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -20,37 +19,16 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
 
-
-const ITEMS_PER_PAGE = 20;
-
 const fmtUSD = (v: number) => `US$ ${v.toFixed(2)}`;
-const fmtDuration = (s: number) => {
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return sec > 0 ? `${m}min ${sec}s` : `${m}min`;
-};
-
-const statusColors: Record<string, string> = {
-  completed: "outline",
-  busy: "secondary",
-  failed: "destructive",
-  "no-answer": "secondary",
-  canceled: "secondary",
-};
 
 const TwilioCostsTab = () => {
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 7));
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [phone, setPhone] = useState("");
-  const [loadingSummary, setLoadingSummary] = useState(false);
-  const [loadingCalls, setLoadingCalls] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
-  const [calls, setCalls] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [dailyChart, setDailyChart] = useState<any[]>([]);
-  const [page, setPage] = useState(0);
-  const [selectedCall, setSelectedCall] = useState<any>(null);
 
   const fetchData = async () => {
     setLoadingSummary(true);

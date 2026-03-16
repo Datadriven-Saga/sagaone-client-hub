@@ -23,7 +23,6 @@ import {
 } from "recharts";
 
 
-const ITEMS_PER_PAGE = 20;
 const BATCH_DAYS = 14;
 
 const fmtUSD = (v: number) => `US$ ${v.toFixed(2)}`;
