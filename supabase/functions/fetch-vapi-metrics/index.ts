@@ -29,6 +29,7 @@ interface VapiSummary {
 
 const MAX_DISPLAY = 100;
 const VAPI_RETENTION_DAYS = 14;
+const CACHE_PAGE_SIZE = 2000;
 
 function parseCall(call: any): {
   callId: string; assistantId: string; phoneNumberId: string;
