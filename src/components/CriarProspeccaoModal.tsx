@@ -100,8 +100,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   
   // Metas Individuais
   const [metasIndividuais, setMetasIndividuais] = useState<Record<string, { meta_vendas: number; meta_checkins: number; meta_confirmacoes: number; meta_convites: number }>>({});
-  const [usersComAcesso, setUsersComAcesso] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null }[]>([]);
+  const [usersComAcesso, setUsersComAcesso] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; departamento: string | null; status: string | null }[]>([]);
   const [metasIndividuaisFilter, setMetasIndividuaisFilter] = useState("");
+  const [membrosFilterNome, setMembrosFilterNome] = useState("");
+  const [membrosFilterTipoAcesso, setMembrosFilterTipoAcesso] = useState<string>("all");
+  const [membrosFilterDepartamento, setMembrosFilterDepartamento] = useState<string>("all");
   
   // Equipes
   interface Equipe {
