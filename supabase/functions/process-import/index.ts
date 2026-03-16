@@ -43,6 +43,7 @@ const columnMappings: Record<string, string[]> = {
   telefone: ['telefone', 'phone', 'celular', 'cel', 'whatsapp', 'fone', 'tel'],
   email: ['email', 'e-mail', 'mail'],
   responsavel: ['responsavel', 'vendedor', 'atendente', 'consultor', 'responsavel email'],
+  codigo_proposta: ['codigo_proposta', 'codigo proposta', 'codigoproposta', 'proposalid', 'proposal_id', 'proposal id'],
 };
 
 function findColumnIndex(headers: string[], fieldName: string): number {
