@@ -46,11 +46,21 @@ const columnMappings: Record<string, string[]> = {
   codigo_proposta: ['codigo_proposta', 'codigo proposta', 'codigoproposta', 'proposalid', 'proposal_id', 'proposal id'],
 };
 
+// Normalize for matching: lowercase, remove accents, remove spaces and underscores
+function normalizeForMatching(name: string): string {
+  return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s_]+/g, '').trim();
+}
+
 function findColumnIndex(headers: string[], fieldName: string): number {
   const possibleNames = columnMappings[fieldName] || [fieldName];
   for (let i = 0; i < headers.length; i++) {
     const h = normalizeColumnName(headers[i] || '');
-    if (possibleNames.some(name => h === normalizeColumnName(name) || h.includes(normalizeColumnName(name)))) {
+    const hStripped = normalizeForMatching(headers[i] || '');
+    if (possibleNames.some(name => {
+      const nc = normalizeColumnName(name);
+      const ns = normalizeForMatching(name);
+      return h === nc || h.includes(nc) || hStripped === ns;
+    })) {
       return i;
     }
   }
