@@ -90,17 +90,15 @@ const GastosGeraisTab = () => {
   }, [serverSummary]);
 
   const chartData = useMemo(() => {
-    const map: Record<string, { twilio: number; vapi: number }> = {};
-    calls.forEach((c: any) => {
-      const day = c.date ? format(new Date(c.date), "yyyy-MM-dd") : "N/A";
-      if (!map[day]) map[day] = { twilio: 0, vapi: 0 };
-      map[day][c.source as "twilio" | "vapi"] += c.cost;
-    });
-    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([day, v]) => ({
-      day: format(new Date(day), "dd/MM"),
-      Twilio: +v.twilio.toFixed(4),
-      Vapi: +v.vapi.toFixed(4),
-    }));
+    // calls now holds dailyCosts object { "2026-03-10": { twilio: X, vapi: Y }, ... }
+    if (!calls || typeof calls !== "object" || Array.isArray(calls)) return [];
+    return Object.entries(calls as Record<string, { twilio: number; vapi: number }>)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, v]) => ({
+        day: format(new Date(day + "T12:00:00"), "dd/MM"),
+        Twilio: +v.twilio.toFixed(4),
+        Vapi: +v.vapi.toFixed(4),
+      }));
   }, [calls]);
 
   return (
