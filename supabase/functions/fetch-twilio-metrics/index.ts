@@ -105,8 +105,8 @@ serve(async (req) => {
 
     // 2. Fetch Calls for detailed listing
     const callParams = new URLSearchParams();
-    callParams.set("StartTime>", startDate);
-    callParams.set("StartTime<", endDate);
+    callParams.set("StartTime>=", `${startDate}T00:00:00Z`);
+    callParams.set("StartTime<=", `${endDate}T23:59:59Z`);
     callParams.set("PageSize", "1000");
     let nextPageUrl: string | null = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json?${callParams.toString()}`;
     let pageNum = 0;
