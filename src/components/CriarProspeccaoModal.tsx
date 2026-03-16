@@ -100,8 +100,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   
   // Metas Individuais
   const [metasIndividuais, setMetasIndividuais] = useState<Record<string, { meta_vendas: number; meta_checkins: number; meta_confirmacoes: number; meta_convites: number }>>({});
-  const [usersComAcesso, setUsersComAcesso] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null }[]>([]);
+  const [usersComAcesso, setUsersComAcesso] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; departamento: string | null; status: string | null }[]>([]);
   const [metasIndividuaisFilter, setMetasIndividuaisFilter] = useState("");
+  const [membrosFilterNome, setMembrosFilterNome] = useState("");
+  const [membrosFilterTipoAcesso, setMembrosFilterTipoAcesso] = useState<string>("all");
+  const [membrosFilterDepartamento, setMembrosFilterDepartamento] = useState<string>("all");
   
   // Equipes
   interface Equipe {
@@ -524,13 +527,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         return;
       }
       
-      // Buscar profiles dos usuários com status ativo vinculados à loja
+      // Buscar profiles dos usuários vinculados à loja (SDR, Vendedor e Gestores)
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, nome_completo, tipo_acesso, status')
+        .select('id, nome_completo, tipo_acesso, status, departamento')
         .in('id', userIds)
-        .eq('status', 'Ativo')
-        .in('tipo_acesso', ['SDR', 'Vendedor', 'CRM', 'Gerente de Loja', 'Gerente de Leads', 'Coordenadora de Leads', 'Recepcionista', 'Diretor', 'Administrador', 'TI', 'Master', 'Proprietário']);
+        .in('tipo_acesso', ['SDR', 'Vendedor', 'Gerente de Loja', 'Gerente de Leads', 'Coordenadora de Leads']);
       
       if (profilesError) {
         console.error('Erro ao buscar profiles:', profilesError);
@@ -3879,29 +3881,65 @@ ${localEvento}`;
                   
                   <div>
                     <Label className="text-xs">Integrantes</Label>
-                    <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
-                      {usersComAcesso.map((userItem) => {
-                        const jaEmOutraEquipe = equipes.some(eq => eq.membros.includes(userItem.id));
-                        
-                        return (
-                          <label key={userItem.id} className={`flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer ${jaEmOutraEquipe ? 'opacity-50' : ''}`}>
-                            <Checkbox
-                              checked={novaEquipeMembros.includes(userItem.id)}
-                              disabled={jaEmOutraEquipe}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setNovaEquipeMembros([...novaEquipeMembros, userItem.id]);
-                                } else {
-                                  setNovaEquipeMembros(novaEquipeMembros.filter(id => id !== userItem.id));
-                                }
-                              }}
-                              className="rounded border-primary"
-                            />
-                            <span className="text-sm">{userItem.nome_completo}</span>
-                            {jaEmOutraEquipe && <span className="text-xs text-muted-foreground">- já em outra equipe</span>}
-                          </label>
-                        );
-                      })}
+                    <div className="mt-2 space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Buscar por nome..."
+                          value={membrosFilterNome}
+                          onChange={(e) => setMembrosFilterNome(e.target.value)}
+                          className="h-8 text-xs flex-1"
+                        />
+                        <Select value={membrosFilterTipoAcesso} onValueChange={setMembrosFilterTipoAcesso}>
+                          <SelectTrigger className="h-8 text-xs w-36"><SelectValue placeholder="Acesso" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos Acessos</SelectItem>
+                            {[...new Set(usersComAcesso.map(u => u.tipo_acesso).filter(Boolean))].sort().map(t => (
+                              <SelectItem key={t!} value={t!}>{t}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={membrosFilterDepartamento} onValueChange={setMembrosFilterDepartamento}>
+                          <SelectTrigger className="h-8 text-xs w-36"><SelectValue placeholder="Depto" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos Deptos</SelectItem>
+                            {[...new Set(usersComAcesso.map(u => u.departamento).filter(Boolean))].sort().map(d => (
+                              <SelectItem key={d!} value={d!}>{d}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
+                        {usersComAcesso
+                          .filter(u => {
+                            if (membrosFilterNome && !u.nome_completo.toLowerCase().includes(membrosFilterNome.toLowerCase())) return false;
+                            if (membrosFilterTipoAcesso !== "all" && u.tipo_acesso !== membrosFilterTipoAcesso) return false;
+                            if (membrosFilterDepartamento !== "all" && u.departamento !== membrosFilterDepartamento) return false;
+                            return true;
+                          })
+                          .map((userItem) => {
+                          const jaEmOutraEquipe = equipes.some(eq => eq.membros.includes(userItem.id));
+                          
+                          return (
+                            <label key={userItem.id} className={`flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer ${jaEmOutraEquipe ? 'opacity-50' : ''}`}>
+                              <Checkbox
+                                checked={novaEquipeMembros.includes(userItem.id)}
+                                disabled={jaEmOutraEquipe}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setNovaEquipeMembros([...novaEquipeMembros, userItem.id]);
+                                  } else {
+                                    setNovaEquipeMembros(novaEquipeMembros.filter(id => id !== userItem.id));
+                                  }
+                                }}
+                                className="rounded border-primary"
+                              />
+                              <span className="text-sm">{userItem.nome_completo}</span>
+                              <span className="text-xs text-muted-foreground ml-auto">{userItem.tipo_acesso}</span>
+                              {jaEmOutraEquipe && <span className="text-xs text-muted-foreground">- já em outra equipe</span>}
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3955,31 +3993,67 @@ ${localEvento}`;
                         
                         <div>
                           <Label className="text-xs">Integrantes</Label>
-                          <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
-                            {usersComAcesso.map((userItem) => {
-                              const jaEmOutraEquipe = equipes.some((eq, i) => i !== index && eq.membros.includes(userItem.id));
-                              
-                              return (
-                                <label key={userItem.id} className={`flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer ${jaEmOutraEquipe ? 'opacity-50' : ''}`}>
-                                  <Checkbox
-                                    checked={equipe.membros.includes(userItem.id)}
-                                    disabled={jaEmOutraEquipe}
-                                    onCheckedChange={(checked) => {
-                                      const updated = [...equipes];
-                                      if (checked) {
-                                        updated[index].membros = [...updated[index].membros, userItem.id];
-                                      } else {
-                                        updated[index].membros = updated[index].membros.filter(id => id !== userItem.id);
-                                      }
-                                      setEquipes(updated);
-                                    }}
-                                    className="rounded border-primary"
-                                  />
-                                  <span className="text-sm">{userItem.nome_completo}</span>
-                                  {jaEmOutraEquipe && <span className="text-xs text-muted-foreground">- já em outra equipe</span>}
-                                </label>
-                              );
-                            })}
+                          <div className="mt-2 space-y-2">
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="Buscar por nome..."
+                                value={membrosFilterNome}
+                                onChange={(e) => setMembrosFilterNome(e.target.value)}
+                                className="h-8 text-xs flex-1"
+                              />
+                              <Select value={membrosFilterTipoAcesso} onValueChange={setMembrosFilterTipoAcesso}>
+                                <SelectTrigger className="h-8 text-xs w-36"><SelectValue placeholder="Acesso" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Todos Acessos</SelectItem>
+                                  {[...new Set(usersComAcesso.map(u => u.tipo_acesso).filter(Boolean))].sort().map(t => (
+                                    <SelectItem key={t!} value={t!}>{t}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Select value={membrosFilterDepartamento} onValueChange={setMembrosFilterDepartamento}>
+                                <SelectTrigger className="h-8 text-xs w-36"><SelectValue placeholder="Depto" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Todos Deptos</SelectItem>
+                                  {[...new Set(usersComAcesso.map(u => u.departamento).filter(Boolean))].sort().map(d => (
+                                    <SelectItem key={d!} value={d!}>{d}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
+                              {usersComAcesso
+                                .filter(u => {
+                                  if (membrosFilterNome && !u.nome_completo.toLowerCase().includes(membrosFilterNome.toLowerCase())) return false;
+                                  if (membrosFilterTipoAcesso !== "all" && u.tipo_acesso !== membrosFilterTipoAcesso) return false;
+                                  if (membrosFilterDepartamento !== "all" && u.departamento !== membrosFilterDepartamento) return false;
+                                  return true;
+                                })
+                                .map((userItem) => {
+                                const jaEmOutraEquipe = equipes.some((eq, i) => i !== index && eq.membros.includes(userItem.id));
+                                
+                                return (
+                                  <label key={userItem.id} className={`flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer ${jaEmOutraEquipe ? 'opacity-50' : ''}`}>
+                                    <Checkbox
+                                      checked={equipe.membros.includes(userItem.id)}
+                                      disabled={jaEmOutraEquipe}
+                                      onCheckedChange={(checked) => {
+                                        const updated = [...equipes];
+                                        if (checked) {
+                                          updated[index].membros = [...updated[index].membros, userItem.id];
+                                        } else {
+                                          updated[index].membros = updated[index].membros.filter(id => id !== userItem.id);
+                                        }
+                                        setEquipes(updated);
+                                      }}
+                                      className="rounded border-primary"
+                                    />
+                                    <span className="text-sm">{userItem.nome_completo}</span>
+                                    <span className="text-xs text-muted-foreground ml-auto">{userItem.tipo_acesso}</span>
+                                    {jaEmOutraEquipe && <span className="text-xs text-muted-foreground">- já em outra equipe</span>}
+                                  </label>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                         
