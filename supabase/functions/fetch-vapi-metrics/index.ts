@@ -275,7 +275,7 @@ serve(async (req) => {
         const params = new URLSearchParams();
         params.set("createdAtGe", vapiStartIso);
         params.set("createdAtLe", endIso);
-        params.set("limit", "1000");
+        params.set("limit", "500");
         if (cursor) params.set("createdAtLt", cursor);
 
         try {
