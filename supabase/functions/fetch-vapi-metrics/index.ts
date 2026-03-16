@@ -263,8 +263,9 @@ serve(async (req) => {
     {
       let cursor: string | null = null;
       let pageNum = 0;
+      const MAX_PAGES = 10; // Hard limit to prevent memory explosion
 
-      while (true) {
+      while (pageNum < MAX_PAGES) {
         if (Date.now() > deadline) {
           summary.isPartial = true;
           warnings.push(`Resultado parcial (${summary.totalCalls} chamadas). Reduza o período.`);
@@ -275,7 +276,7 @@ serve(async (req) => {
         const params = new URLSearchParams();
         params.set("createdAtGe", vapiStartIso);
         params.set("createdAtLe", endIso);
-        params.set("limit", "500");
+        params.set("limit", "100");
         if (cursor) params.set("createdAtLt", cursor);
 
         try {
@@ -294,17 +295,22 @@ serve(async (req) => {
           }
 
           const rawData = await res.json();
-          const rawCalls = Array.isArray(rawData) ? rawData : rawData.results || rawData.data || [];
+          const rawCalls: any[] = Array.isArray(rawData) ? rawData : rawData.results || rawData.data || [];
+          const pageLen = rawCalls.length;
+          let lastCreatedAt: string | null = null;
 
-          for (const call of rawCalls) {
+          // Process each call and immediately discard the raw object
+          for (let i = 0; i < rawCalls.length; i++) {
+            const call = rawCalls[i];
+            lastCreatedAt = call.createdAt || lastCreatedAt;
+            rawCalls[i] = null; // Free memory immediately
+
             const p = parseCall(call);
             if (seenCallIds.has(p.callId)) continue;
 
-            // Client-side filtering by assistant and phone
             if (filterByAssistant && !assistantIdSet.has(p.assistantId)) continue;
             if (filterByPhone && !phoneIdSet.has(p.phoneNumberId)) continue;
 
-            // Client-side filtering by metadata
             if (filterByMetadata) {
               const callMeta = call.metadata || call.assistantOverrides?.metadata;
               if (!callMeta || String(callMeta[metadataKey] ?? "") !== String(metadataValue ?? "")) continue;
@@ -313,7 +319,7 @@ serve(async (req) => {
             seenCallIds.add(p.callId);
             addToSummary(summary, dailyCosts, recentCalls, p);
 
-            // Queue for cache upsert — only keep metadata to save memory
+            // Lightweight cache record (no raw_data to save memory)
             const metaOnly = call.metadata || call.assistantOverrides?.metadata;
             callsToCache.push({
               call_id: p.callId,
@@ -334,19 +340,18 @@ serve(async (req) => {
               synced_at: new Date().toISOString(),
             });
 
-            // Flush cache periodically to free memory
-            if (callsToCache.length >= 200) {
-              const batch = callsToCache.splice(0, 200);
+            // Flush to DB to free memory
+            if (callsToCache.length >= 100) {
+              const batch = callsToCache.splice(0, callsToCache.length);
               await supabase.from("vapi_calls_cache").upsert(batch, { onConflict: "call_id", ignoreDuplicates: false });
             }
           }
 
-          console.log(`Vapi API p${pageNum}: ${rawCalls.length} calls, matched=${summary.totalCalls}`);
+          console.log(`Vapi p${pageNum}: ${pageLen} calls, matched=${summary.totalCalls}`);
 
-          if (rawCalls.length < 500) break;
-          const lastDate = rawCalls[rawCalls.length - 1]?.createdAt;
-          if (!lastDate || lastDate === cursor) break;
-          cursor = lastDate;
+          if (pageLen < 100) break;
+          if (!lastCreatedAt || lastCreatedAt === cursor) break;
+          cursor = lastCreatedAt;
         } catch (e: any) {
           if (e.message?.includes("subscription") || e.message?.includes("plan limit")) {
             warnings.push("Dados limitados pelo plano Vapi atual.");
