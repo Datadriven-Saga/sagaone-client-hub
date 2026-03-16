@@ -3993,31 +3993,67 @@ ${localEvento}`;
                         
                         <div>
                           <Label className="text-xs">Integrantes</Label>
-                          <div className="mt-2 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
-                            {usersComAcesso.map((userItem) => {
-                              const jaEmOutraEquipe = equipes.some((eq, i) => i !== index && eq.membros.includes(userItem.id));
-                              
-                              return (
-                                <label key={userItem.id} className={`flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer ${jaEmOutraEquipe ? 'opacity-50' : ''}`}>
-                                  <Checkbox
-                                    checked={equipe.membros.includes(userItem.id)}
-                                    disabled={jaEmOutraEquipe}
-                                    onCheckedChange={(checked) => {
-                                      const updated = [...equipes];
-                                      if (checked) {
-                                        updated[index].membros = [...updated[index].membros, userItem.id];
-                                      } else {
-                                        updated[index].membros = updated[index].membros.filter(id => id !== userItem.id);
-                                      }
-                                      setEquipes(updated);
-                                    }}
-                                    className="rounded border-primary"
-                                  />
-                                  <span className="text-sm">{userItem.nome_completo}</span>
-                                  {jaEmOutraEquipe && <span className="text-xs text-muted-foreground">- já em outra equipe</span>}
-                                </label>
-                              );
-                            })}
+                          <div className="mt-2 space-y-2">
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="Buscar por nome..."
+                                value={membrosFilterNome}
+                                onChange={(e) => setMembrosFilterNome(e.target.value)}
+                                className="h-8 text-xs flex-1"
+                              />
+                              <Select value={membrosFilterTipoAcesso} onValueChange={setMembrosFilterTipoAcesso}>
+                                <SelectTrigger className="h-8 text-xs w-36"><SelectValue placeholder="Acesso" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Todos Acessos</SelectItem>
+                                  {[...new Set(usersComAcesso.map(u => u.tipo_acesso).filter(Boolean))].sort().map(t => (
+                                    <SelectItem key={t!} value={t!}>{t}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Select value={membrosFilterDepartamento} onValueChange={setMembrosFilterDepartamento}>
+                                <SelectTrigger className="h-8 text-xs w-36"><SelectValue placeholder="Depto" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Todos Deptos</SelectItem>
+                                  {[...new Set(usersComAcesso.map(u => u.departamento).filter(Boolean))].sort().map(d => (
+                                    <SelectItem key={d!} value={d!}>{d}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
+                              {usersComAcesso
+                                .filter(u => {
+                                  if (membrosFilterNome && !u.nome_completo.toLowerCase().includes(membrosFilterNome.toLowerCase())) return false;
+                                  if (membrosFilterTipoAcesso !== "all" && u.tipo_acesso !== membrosFilterTipoAcesso) return false;
+                                  if (membrosFilterDepartamento !== "all" && u.departamento !== membrosFilterDepartamento) return false;
+                                  return true;
+                                })
+                                .map((userItem) => {
+                                const jaEmOutraEquipe = equipes.some((eq, i) => i !== index && eq.membros.includes(userItem.id));
+                                
+                                return (
+                                  <label key={userItem.id} className={`flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer ${jaEmOutraEquipe ? 'opacity-50' : ''}`}>
+                                    <Checkbox
+                                      checked={equipe.membros.includes(userItem.id)}
+                                      disabled={jaEmOutraEquipe}
+                                      onCheckedChange={(checked) => {
+                                        const updated = [...equipes];
+                                        if (checked) {
+                                          updated[index].membros = [...updated[index].membros, userItem.id];
+                                        } else {
+                                          updated[index].membros = updated[index].membros.filter(id => id !== userItem.id);
+                                        }
+                                        setEquipes(updated);
+                                      }}
+                                      className="rounded border-primary"
+                                    />
+                                    <span className="text-sm">{userItem.nome_completo}</span>
+                                    <span className="text-xs text-muted-foreground ml-auto">{userItem.tipo_acesso}</span>
+                                    {jaEmOutraEquipe && <span className="text-xs text-muted-foreground">- já em outra equipe</span>}
+                                  </label>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                         
