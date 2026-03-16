@@ -164,7 +164,7 @@ serve(async (req) => {
     }
 
     // ── Action: sync-and-query (default) ──
-    const { startDate, endDate, assistantId, phoneNumberId } = body;
+    const { startDate, endDate, assistantId, phoneNumberId, metadataKey, metadataValue } = body;
     if (!startDate || !endDate) {
       return new Response(JSON.stringify({ error: "startDate and endDate required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -175,6 +175,7 @@ serve(async (req) => {
     const hasPhoneNumberIds = Array.isArray(body.phoneNumberIds);
     const effectiveAssistantIds: string[] = hasAssistantIds ? body.assistantIds : (assistantId && assistantId !== "all" ? [assistantId] : []);
     const effectivePhoneIds: string[] = hasPhoneNumberIds ? body.phoneNumberIds : (phoneNumberId && phoneNumberId !== "all" ? [phoneNumberId] : []);
+    const filterByMetadata = !!metadataKey;
 
     // Empty explicit filter = no results
     if ((hasAssistantIds && effectiveAssistantIds.length === 0) || (hasPhoneNumberIds && effectivePhoneIds.length === 0)) {
