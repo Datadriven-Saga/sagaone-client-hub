@@ -35,15 +35,15 @@ const ControleGastosLigacao = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="geral">
+            <TabsContent value="geral" forceMount className="data-[state=inactive]:hidden">
               <GastosGeraisTab />
             </TabsContent>
 
-            <TabsContent value="vapi">
+            <TabsContent value="vapi" forceMount className="data-[state=inactive]:hidden">
               <VapiMetricsTab />
             </TabsContent>
 
-            <TabsContent value="twilio">
+            <TabsContent value="twilio" forceMount className="data-[state=inactive]:hidden">
               <TwilioCostsTab />
             </TabsContent>
           </Tabs>
