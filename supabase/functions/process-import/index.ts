@@ -173,6 +173,7 @@ Deno.serve(async (req: Request) => {
       telefone: findColumnIndex(headers, 'telefone'),
       email: findColumnIndex(headers, 'email'),
       responsavel: findColumnIndex(headers, 'responsavel'),
+      codigo_proposta: findColumnIndex(headers, 'codigo_proposta'),
     };
 
     if (colIndices.telefone === -1) {
