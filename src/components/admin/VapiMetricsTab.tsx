@@ -211,8 +211,6 @@ const VapiMetricsTab = () => {
   const [dateWarning, setDateWarning] = useState("");
   const [batchProgress, setBatchProgress] = useState({ total: 0, completed: 0, days: 0 });
   const [dataSource, setDataSource] = useState<string>("");
-  const [batchProgress, setBatchProgress] = useState({ total: 0, completed: 0, days: 0 });
-  const [dataSource, setDataSource] = useState<string>("");
 
   // Dynamic dropdown data
   const [vapiAssistants, setVapiAssistants] = useState<VapiResource[]>([]);
