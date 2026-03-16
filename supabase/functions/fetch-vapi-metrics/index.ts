@@ -291,8 +291,16 @@ serve(async (req) => {
 
     // ── STEP 2: Fetch from Vapi API (only last 14 days or full range if within retention) ──
     const vapiStartDate = requestedStart < vapiCutoff ? vapiCutoff : requestedStart;
-    const vapiStartIso = vapiStartDate.toISOString();
+    let vapiStartIso = vapiStartDate.toISOString();
     const deadline = Date.now() + 50_000;
+
+    if (latestCachedStartedAt) {
+      const rewind = new Date(latestCachedStartedAt);
+      rewind.setMinutes(rewind.getMinutes() - 30);
+      if (rewind > vapiStartDate) {
+        vapiStartIso = rewind.toISOString();
+      }
+    }
 
     // IMPORTANT: Don't iterate over each assistant×phone combination — it creates N×M API calls
     // Instead, make a single query stream and filter results client-side
