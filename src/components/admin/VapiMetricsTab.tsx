@@ -8,22 +8,21 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatPhone } from "@/lib/utils";
 import { format, subDays, addDays, differenceInDays, min as minDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity, AlertTriangle, Eye, ChevronsUpDown, Database
+  CalendarIcon, Search, Loader2, Phone, DollarSign, Clock, BarChart3, Activity, AlertTriangle, ChevronsUpDown, Database
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
-import CallDetailModal from "./CallDetailModal";
 
-const ITEMS_PER_PAGE = 20;
+
 const BATCH_DAYS = 14;
 
 const fmtUSD = (v: number) => `US$ ${v.toFixed(2)}`;
@@ -180,21 +179,6 @@ function mergeDailyCharts(results: any[]): any[] {
     .map(([date, v]) => ({ date, cost: +v.cost.toFixed(4), count: v.count }));
 }
 
-function mergeCalls(results: any[]): any[] {
-  const all: any[] = [];
-  for (const r of results) {
-    all.push(...(r?.calls || []));
-  }
-  // Deduplicate by id
-  const seen = new Set<string>();
-  const unique: any[] = [];
-  for (const c of all) {
-    if (c.id && seen.has(c.id)) continue;
-    if (c.id) seen.add(c.id);
-    unique.push(c);
-  }
-  return unique.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-}
 
 // ── Main Component ──
 const VapiMetricsTab = () => {
@@ -204,15 +188,11 @@ const VapiMetricsTab = () => {
   const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
   const [metadataKey, setMetadataKey] = useState("");
   const [metadataValue, setMetadataValue] = useState("");
-  const [phoneSearch, setPhoneSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
-  const [calls, setCalls] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [dailyChart, setDailyChart] = useState<any[]>([]);
-  const [page, setPage] = useState(0);
   const [dateWarning, setDateWarning] = useState("");
-  const [selectedCall, setSelectedCall] = useState<any>(null);
   const [batchProgress, setBatchProgress] = useState({ total: 0, completed: 0, days: 0 });
   const [dataSource, setDataSource] = useState<string>("");
 
@@ -256,7 +236,6 @@ const VapiMetricsTab = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    setPage(0);
     setDateWarning("");
 
     const totalDays = differenceInDays(endDate, startDate) + 1;
@@ -312,13 +291,8 @@ const VapiMetricsTab = () => {
         setBatchProgress(prev => ({ ...prev, completed: Math.min(i + CONCURRENCY, batches.length) }));
       }
 
-      const mergedSummary = mergeSummaries(allResults);
-      const mergedChart = mergeDailyCharts(allResults);
-      const mergedCalls = mergeCalls(allResults);
-
-      setSummary(mergedSummary);
-      setDailyChart(mergedChart);
-      setCalls(mergedCalls);
+      setSummary(mergeSummaries(allResults));
+      setDailyChart(mergeDailyCharts(allResults));
       setFetched(true);
 
       const sources = allResults.map(r => r?.source).filter(Boolean);
@@ -357,15 +331,6 @@ const VapiMetricsTab = () => {
     }));
   }, [dailyChart]);
 
-  const filteredCalls = useMemo(() => {
-    return calls.filter((c: any) => {
-      if (phoneSearch && !c.customer?.includes(phoneSearch) && !c.agentPhone?.includes(phoneSearch)) return false;
-      return true;
-    });
-  }, [calls, phoneSearch]);
-
-  const paginatedCalls = filteredCalls.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
-  const totalPages = Math.ceil(filteredCalls.length / ITEMS_PER_PAGE);
 
   return (
     <div className="space-y-6">
@@ -543,85 +508,14 @@ const VapiMetricsTab = () => {
         </Card>
       )}
 
-      {/* Audit Table */}
-      {fetched && !loading && (
+      {fetched && !loading && chartData.length === 0 && (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <CardTitle className="text-base flex items-center gap-2">
-              Auditoria Detalhada
-              <Badge variant="secondary" className="text-xs">{filteredCalls.length} chamadas</Badge>
-            </CardTitle>
-            <div className="flex-shrink-0">
-              <Input
-                placeholder="Buscar telefone..."
-                value={phoneSearch}
-                onChange={e => { setPhoneSearch(e.target.value); setPage(0); }}
-                className="h-8 w-48 text-xs"
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {filteredCalls.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Phone className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p>Nenhuma chamada encontrada.</p>
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Nº Agente</TableHead>
-                        <TableHead>Nº Cliente</TableHead>
-                        <TableHead>Duração</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Custo</TableHead>
-                        <TableHead className="w-10"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedCalls.map((call: any) => (
-                        <TableRow key={call.id}>
-                          <TableCell className="whitespace-nowrap text-sm">
-                            {call.date ? format(new Date(call.date), "dd/MM/yy HH:mm") : "—"}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">{formatPhone(call.agentPhone) || call.agentPhone || "—"}</TableCell>
-                          <TableCell className="font-mono text-xs">{formatPhone(call.customer) || call.customer || "—"}</TableCell>
-                          <TableCell>{fmtDuration(call.duration)}</TableCell>
-                          <TableCell>
-                            <Badge variant={call.status === "ended" ? "outline" : "destructive"} className="text-xs">
-                              {call.status === "ended" ? "Sucesso" : call.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="font-mono">{fmtUSD(call.cost)}</TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedCall(call)}>
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-4">
-                    <p className="text-sm text-muted-foreground">Página {page + 1} de {totalPages}</p>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Anterior</Button>
-                      <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Próxima</Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+          <CardContent className="py-16 text-center text-muted-foreground">
+            <Phone className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p>Nenhum dado encontrado para o período selecionado.</p>
           </CardContent>
         </Card>
       )}
-
-      <CallDetailModal open={!!selectedCall} onOpenChange={() => setSelectedCall(null)} call={selectedCall} source="vapi" />
     </div>
   );
 };
