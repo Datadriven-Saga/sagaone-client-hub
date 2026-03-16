@@ -347,7 +347,7 @@ async function fetchVapiAggregated(
     }
   }
 
-  const CACHE_PAGE_SIZE = 2000;
+  const CACHE_PAGE_SIZE = 1000;
   let from = 0;
 
   while (true) {
