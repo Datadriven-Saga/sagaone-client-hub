@@ -273,7 +273,7 @@ serve(async (req) => {
     // ── STEP 2: Fetch from Vapi API (only last 14 days or full range if within retention) ──
     const vapiStartDate = requestedStart < vapiCutoff ? vapiCutoff : requestedStart;
     const vapiStartIso = vapiStartDate.toISOString();
-    const deadline = Date.now() + 25_000;
+    const deadline = Date.now() + 50_000;
 
     // IMPORTANT: Don't iterate over each assistant×phone combination — it creates N×M API calls
     // Instead, make a single query stream and filter results client-side
@@ -286,9 +286,8 @@ serve(async (req) => {
     {
       let cursor: string | null = null;
       let pageNum = 0;
-      const MAX_PAGES = 10; // Hard limit to prevent memory explosion
 
-      while (pageNum < MAX_PAGES) {
+      while (true) {
         if (Date.now() > deadline) {
           summary.isPartial = true;
           warnings.push(`Resultado parcial (${summary.totalCalls} chamadas). Reduza o período.`);

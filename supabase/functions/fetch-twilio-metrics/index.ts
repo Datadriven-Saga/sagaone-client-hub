@@ -43,7 +43,7 @@ function normalizeDigits(phone: string): string {
 }
 
 const MAX_DISPLAY = 100;
-const MAX_PAGES = 5;
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -63,7 +63,7 @@ serve(async (req) => {
     }
 
     const auth = encodeBasicAuth(sid, token);
-    const deadline = Date.now() + 50_000;
+    const deadline = Date.now() + 55_000;
     const phoneDigits = normalizeDigits(phone || "");
     const statusFilters: string[] = statusFilter ? (Array.isArray(statusFilter) ? statusFilter : [statusFilter]) : [];
 
@@ -114,13 +114,9 @@ serve(async (req) => {
     let pageNum = 0;
 
     while (nextPageUrl) {
-      if (Date.now() > deadline || pageNum >= MAX_PAGES) {
+      if (Date.now() > deadline) {
         summary.isPartial = true;
-        if (pageNum >= MAX_PAGES) {
-          warnings.push(`Exibindo dados das ${pageNum} primeiras páginas (${summary.totalCalls} chamadas). Use filtros ou reduza o período para resultados completos.`);
-        } else {
-          warnings.push(`Resultado parcial (${summary.totalCalls} chamadas). Reduza o período.`);
-        }
+        warnings.push(`Resultado parcial (${summary.totalCalls} chamadas). Reduza o período.`);
         break;
       }
 
