@@ -133,8 +133,8 @@ async function fetchTwilioAggregated(
     }
 
     console.log(`Twilio Usage Records: ${records.length} days, ${summary.twilioCount} calls, $${summary.twilioCost.toFixed(4)}`);
-  } catch (e) {
-    warnings.push(`Twilio: ${e.message}`);
+  } catch (e: any) {
+    warnings.push(`Twilio: ${e?.message || "erro inesperado"}`);
     console.error("Twilio Usage error:", e);
   }
 
