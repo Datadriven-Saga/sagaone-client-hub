@@ -307,13 +307,8 @@ const VapiMetricsTab = () => {
         setBatchProgress(prev => ({ ...prev, completed: Math.min(i + CONCURRENCY, batches.length) }));
       }
 
-      const mergedSummary = mergeSummaries(allResults);
-      const mergedChart = mergeDailyCharts(allResults);
-      const mergedCalls = mergeCalls(allResults);
-
       setSummary(mergedSummary);
       setDailyChart(mergedChart);
-      setCalls(mergedCalls);
       setFetched(true);
 
       const sources = allResults.map(r => r?.source).filter(Boolean);
