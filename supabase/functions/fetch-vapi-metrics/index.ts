@@ -304,6 +304,12 @@ serve(async (req) => {
             if (filterByAssistant && !assistantIdSet.has(p.assistantId)) continue;
             if (filterByPhone && !phoneIdSet.has(p.phoneNumberId)) continue;
 
+            // Client-side filtering by metadata
+            if (filterByMetadata) {
+              const callMeta = call.metadata || call.assistantOverrides?.metadata;
+              if (!callMeta || String(callMeta[metadataKey] ?? "") !== String(metadataValue ?? "")) continue;
+            }
+
             seenCallIds.add(p.callId);
             addToSummary(summary, dailyCosts, recentCalls, p);
 
