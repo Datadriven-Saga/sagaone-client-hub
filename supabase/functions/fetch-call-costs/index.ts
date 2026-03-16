@@ -421,7 +421,6 @@ serve(async (req) => {
       return jsonResponse({ error: "startDate and endDate are required", warnings: [], summary: null, dailyCosts: {} }, 400);
     }
 
-    const deadline = Date.now() + 40_000;
     const summary: Summary = {
       totalCalls: 0,
       totalCost: 0,
@@ -442,7 +441,7 @@ serve(async (req) => {
     }
 
     if (source === "vapi" || source === "unified") {
-      warnings.push(...await fetchVapiAggregated(phone || "", startDate, endDate, summary, dailyCosts, deadline));
+      warnings.push(...await fetchVapiAggregated(phone || "", startDate, endDate, summary, dailyCosts));
     }
 
     console.log("=== FINAL ===");
