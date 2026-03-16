@@ -43,6 +43,7 @@ function normalizeDigits(phone: string): string {
 }
 
 const MAX_DISPLAY = 100;
+const SUPPORTED_STATUSES = ["completed", "busy", "failed", "no-answer", "canceled"] as const;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -54,7 +55,23 @@ serve(async (req) => {
     const token = Deno.env.get("TWILIO_AUTH_TOKEN")?.trim();
     if (!sid || !token) throw new Error("Twilio credentials not configured");
 
-    const { startDate, endDate, phone, statusFilter } = await req.json();
+    let startDate: string | null = null;
+    let endDate: string | null = null;
+    let statusFilter: string[] | string | null = null;
+
+    if (req.method === "GET") {
+      const url = new URL(req.url);
+      startDate = url.searchParams.get("startDate");
+      endDate = url.searchParams.get("endDate");
+      const statusParams = url.searchParams.getAll("statusFilter");
+      statusFilter = statusParams.length > 1 ? statusParams : statusParams[0] ?? null;
+    } else {
+      const body = await req.json().catch(() => ({}));
+      startDate = body?.startDate ?? null;
+      endDate = body?.endDate ?? null;
+      statusFilter = body?.statusFilter ?? null;
+    }
+
     if (!startDate || !endDate) {
       return new Response(JSON.stringify({ error: "startDate and endDate required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -62,7 +79,6 @@ serve(async (req) => {
     }
 
     const auth = encodeBasicAuth(sid, token);
-    const phoneDigits = normalizeDigits(phone || "");
     const statusFilters: string[] = statusFilter ? (Array.isArray(statusFilter) ? statusFilter : [statusFilter]) : [];
 
     const summary: TwilioSummary = {
