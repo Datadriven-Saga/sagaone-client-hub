@@ -286,7 +286,7 @@ serve(async (req) => {
             const batchIds = leadIds.slice(i, i + SUB_BATCH);
             const { data: leadsData, error: leadsError } = await supabase
               .from('contatos')
-              .select('id, lead_id, nome, telefone, email, status, origem, vendedor_nome')
+              .select('id, lead_id, nome, telefone, email, status, origem, vendedor_nome, codigo_proposta')
               .in('id', batchIds);
             if (leadsError) {
               console.error(`⚠️ Erro ao buscar leads sub-batch ${Math.floor(i / SUB_BATCH)}:`, leadsError.message);
