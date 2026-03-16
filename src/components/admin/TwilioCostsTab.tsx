@@ -84,10 +84,18 @@ const TwilioCostsTab = () => {
   }, [summary]);
 
   const chartFormatted = useMemo(() => {
-    return dailyChart.map((d: any) => ({
-      ...d,
-      day: d.date?.length >= 10 ? format(new Date(d.date + "T00:00:00"), "dd/MM") : d.date,
-    }));
+    return dailyChart.map((d: any) => {
+      let day = d.date || "";
+      try {
+        if (day.length >= 10) {
+          const parsed = new Date(day + "T00:00:00");
+          if (!isNaN(parsed.getTime())) {
+            day = format(parsed, "dd/MM");
+          }
+        }
+      } catch { /* keep raw */ }
+      return { ...d, day };
+    });
   }, [dailyChart]);
 
   return (
