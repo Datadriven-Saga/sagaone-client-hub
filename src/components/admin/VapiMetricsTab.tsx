@@ -347,15 +347,6 @@ const VapiMetricsTab = () => {
     }));
   }, [dailyChart]);
 
-  const filteredCalls = useMemo(() => {
-    return calls.filter((c: any) => {
-      if (phoneSearch && !c.customer?.includes(phoneSearch) && !c.agentPhone?.includes(phoneSearch)) return false;
-      return true;
-    });
-  }, [calls, phoneSearch]);
-
-  const paginatedCalls = filteredCalls.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
-  const totalPages = Math.ceil(filteredCalls.length / ITEMS_PER_PAGE);
 
   return (
     <div className="space-y-6">
