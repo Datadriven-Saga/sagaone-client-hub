@@ -412,7 +412,7 @@ serve(async (req) => {
                 prospeccao
               );
 
-              const payload = {
+              const payload: Record<string, any> = {
                 ...dadosComuns,
                 id: lead.id,
                 lead_id: lead.lead_id,
@@ -425,6 +425,11 @@ serve(async (req) => {
                 tipo_importacao: 'planilha',
                 variable_mapping: resolvedMapping,
               };
+
+              // Include proposalId only if codigo_proposta is non-empty
+              if (lead.codigo_proposta) {
+                payload.proposalId = lead.codigo_proposta;
+              }
 
               const controller = new AbortController();
               const timeout = setTimeout(() => controller.abort(), 30000);
