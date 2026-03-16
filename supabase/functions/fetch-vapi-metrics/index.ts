@@ -210,7 +210,7 @@ serve(async (req) => {
         .gte("started_at", startIso)
         .lte("started_at", endIso)
         .order("started_at", { ascending: false })
-        .limit(5000);
+        .limit(1000);
 
       if (effectiveAssistantIds.length > 0) query = query.in("assistant_id", effectiveAssistantIds);
       if (effectivePhoneIds.length > 0) query = query.in("phone_number_id", effectivePhoneIds);
