@@ -141,7 +141,7 @@ async function streamTwilioCalls(
 // ========== VAPI: STREAMING AGGREGATION ==========
 async function streamVapiCalls(
   phone: string, startDate: string, endDate: string,
-  summary: Summary, recentCalls: CallRecord[], deadline: number
+  summary: Summary, recentCalls: CallRecord[], dailyCosts: Record<string, { twilio: number; vapi: number }>, deadline: number
 ): Promise<string[]> {
   const apiKey = Deno.env.get("VAPI_API_KEY");
   if (!apiKey) throw new Error("VAPI_API_KEY not configured");
