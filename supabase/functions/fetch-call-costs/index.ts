@@ -449,11 +449,12 @@ serve(async (req) => {
     console.log(`TOTAL: ${summary.totalCalls} calls, $${summary.totalCost.toFixed(4)} | Partial: ${summary.isPartial}`);
 
     return jsonResponse({ warnings, summary, dailyCosts });
-  } catch (error) {
+  } catch (error: any) {
     console.error("fetch-call-costs error:", error);
+    const message = error?.message || "Erro inesperado";
     return jsonResponse({
-      error: error.message || "Erro inesperado",
-      warnings: [error.message || "Erro inesperado"],
+      error: message,
+      warnings: [message],
       summary: null,
       dailyCosts: {},
     });
