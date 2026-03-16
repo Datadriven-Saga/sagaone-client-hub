@@ -166,17 +166,34 @@ function mergeSummaries(results: any[]): any {
 }
 
 function mergeDailyCharts(results: any[]): any[] {
-  const map: Record<string, { cost: number; count: number }> = {};
+  const map: Record<string, { cost: number; count: number; duration: number; stt: number; llm: number; tts: number; transport: number; vapi: number }> = {};
   for (const r of results) {
     for (const d of (r?.dailyChart || [])) {
-      if (!map[d.date]) map[d.date] = { cost: 0, count: 0 };
-      map[d.date].cost += d.cost || 0;
-      map[d.date].count += d.count || 0;
+      if (!map[d.date]) map[d.date] = { cost: 0, count: 0, duration: 0, stt: 0, llm: 0, tts: 0, transport: 0, vapi: 0 };
+      const b = map[d.date];
+      b.cost += d.cost || 0;
+      b.count += d.count || 0;
+      b.duration += d.duration || 0;
+      b.stt += d.stt || 0;
+      b.llm += d.llm || 0;
+      b.tts += d.tts || 0;
+      b.transport += d.transport || 0;
+      b.vapi += d.vapi || 0;
     }
   }
   return Object.entries(map)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, v]) => ({ date, cost: +v.cost.toFixed(4), count: v.count }));
+    .map(([date, v]) => ({
+      date,
+      cost: +v.cost.toFixed(4),
+      count: v.count,
+      duration: v.duration,
+      stt: +v.stt.toFixed(4),
+      llm: +v.llm.toFixed(4),
+      tts: +v.tts.toFixed(4),
+      transport: +v.transport.toFixed(4),
+      vapi: +v.vapi.toFixed(4),
+    }));
 }
 
 
