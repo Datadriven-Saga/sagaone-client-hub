@@ -25,7 +25,7 @@ interface RequestPayload {
   source: "twilio" | "vapi" | "unified";
 }
 
-const VAPI_MAX_PAGES = 10;
+
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
