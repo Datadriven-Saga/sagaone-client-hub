@@ -1970,7 +1970,7 @@ export const useContatoData = () => {
         const batchIds = contatoIdsNaoDisparados.slice(i, i + IN_BATCH_SIZE);
         const { data: batchData, error: batchError } = await supabase
           .from('contatos')
-          .select('id, lead_id, nome, telefone, email, status, origem')
+          .select('id, lead_id, nome, telefone, email, status, origem, codigo_proposta')
           .in('id', batchIds)
           .eq('empresa_id', activeCompany.id);
         
