@@ -313,12 +313,13 @@ serve(async (req) => {
       callsWithoutPrice: 0, callsNegativePrice: 0, isPartial: false,
     };
     const recentCalls: CallRecord[] = [];
+    const dailyCosts: Record<string, { twilio: number; vapi: number }> = {};
     const warnings: string[] = [];
 
     // SEQUENTIAL to avoid memory pressure
     if (source === "twilio" || source === "unified") {
       try {
-        const w = await streamTwilioCalls(phone || "", startDate, endDate, summary, recentCalls, deadline);
+        const w = await streamTwilioCalls(phone || "", startDate, endDate, summary, recentCalls, dailyCosts, deadline);
         warnings.push(...w);
       } catch (e) {
         console.error("Twilio error:", e);
@@ -328,7 +329,7 @@ serve(async (req) => {
 
     if (source === "vapi" || source === "unified") {
       try {
-        const w = await streamVapiCalls(phone || "", startDate, endDate, summary, recentCalls, deadline);
+        const w = await streamVapiCalls(phone || "", startDate, endDate, summary, recentCalls, dailyCosts, deadline);
         warnings.push(...w);
       } catch (e) {
         console.error("Vapi error:", e);
@@ -338,10 +339,6 @@ serve(async (req) => {
 
     // Sort display calls
     recentCalls.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    if (summary.totalCalls > MAX_DISPLAY) {
-      warnings.push(`Exibindo ${recentCalls.length} de ${summary.totalCalls} chamadas. Métricas refletem o total completo.`);
-    }
 
     console.log("=== FINAL ===");
     console.log(`Pages: ${summary.pagesProcessed} | Twilio: ${summary.twilioCount} ($${summary.twilioCost.toFixed(4)}) | Vapi: ${summary.vapiCount} ($${summary.vapiCost.toFixed(4)})`);
