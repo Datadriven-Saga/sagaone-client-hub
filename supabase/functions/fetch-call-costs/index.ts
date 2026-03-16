@@ -72,12 +72,13 @@ async function streamTwilioCalls(
   let pagesUsed = 0;
 
   while (nextPageUrl) {
-    if (Date.now() > deadline) {
+    if (Date.now() > deadline || pagesUsed >= MAX_PAGES) {
       summary.isPartial = true;
-      warnings.push(`Twilio: resultado parcial (${summary.twilioCount} chamadas). Reduza o período para dados completos.`);
+      warnings.push(`Twilio: resultado parcial (${summary.twilioCount} chamadas). Reduza o período ou use filtro de telefone.`);
       break;
     }
 
+    pagesUsed++;
     summary.pagesProcessed++;
     const res = await fetch(nextPageUrl, { headers: { Authorization: `Basic ${auth}` } });
     if (!res.ok) {
