@@ -344,7 +344,7 @@ serve(async (req) => {
     console.log(`Pages: ${summary.pagesProcessed} | Twilio: ${summary.twilioCount} ($${summary.twilioCost.toFixed(4)}) | Vapi: ${summary.vapiCount} ($${summary.vapiCost.toFixed(4)})`);
     console.log(`TOTAL: ${summary.totalCalls} calls, $${summary.totalCost.toFixed(4)}, ${summary.totalDuration}s | Partial: ${summary.isPartial}`);
 
-    return new Response(JSON.stringify({ calls: recentCalls, warnings, summary }), {
+    return new Response(JSON.stringify({ calls: recentCalls, warnings, summary, dailyCosts }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
