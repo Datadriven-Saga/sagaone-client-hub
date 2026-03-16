@@ -141,82 +141,53 @@ async function fetchTwilioAggregated(
   return warnings;
 }
 
-async function fetchVapiAggregated(
-  phone: string,
-  startDate: string,
-  endDate: string,
-  summary: Summary,
-  dailyCosts: Record<string, { twilio: number; vapi: number }>,
-  deadline: number,
-): Promise<string[]> {
-  const apiKey = Deno.env.get("VAPI_API_KEY");
-  if (!apiKey) return ["VAPI_API_KEY não configurada"];
-  const warnings: string[] = [];
+async function resolveVapiPhoneIds(apiKey: string, phoneDigits: string): Promise<string[]> {
+  if (!phoneDigits) return [];
 
-  const minAllowed = new Date();
-  minAllowed.setDate(minAllowed.getDate() - 14);
-  minAllowed.setHours(0, 0, 0, 0);
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch("https://api.vapi.ai/phone-number", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
 
-  let effStart = new Date(startDate);
-  if (effStart < minAllowed) {
-    effStart = minAllowed;
-    warnings.push(`Vapi: dados limitados aos últimos 14 dias (a partir de ${effStart.toISOString().split("T")[0]}).`);
-  }
+    if (!res.ok) return [];
 
-  const endObj = new Date(`${endDate}T23:59:59`);
-  if (effStart > endObj) {
-    warnings.push("Vapi: período fora da janela de retenção.");
-    return warnings;
-  }
+    const phones = await res.json();
+    const list = Array.isArray(phones) ? phones : phones.results || phones.data || [];
+    const ids: string[] = [];
 
-  const startIso = effStart.toISOString();
-  const endIso = endObj.toISOString();
-  const phoneDigits = normalizeDigits(phone);
-
-  let phoneIds: string[] = [];
-  if (phoneDigits) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const res = await fetch("https://api.vapi.ai/phone-number", {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-
-      if (res.ok) {
-        const phones = await res.json();
-        const list = Array.isArray(phones) ? phones : phones.results || [];
-        for (const p of list) {
-          const digits = normalizeDigits(p.number || p.twilioPhoneNumber || "");
-          if (digits.includes(phoneDigits) || phoneDigits.includes(digits)) phoneIds.push(p.id);
-        }
-      }
-    } catch {
-      // no-op
+    for (const p of list) {
+      const digits = normalizeDigits(p.number || p.twilioPhoneNumber || "");
+      if (!digits) continue;
+      if (digits.includes(phoneDigits) || phoneDigits.includes(digits)) ids.push(p.id);
     }
 
-    if (phoneIds.length === 0) {
-      warnings.push(`Vapi: telefone ${phone} não encontrado`);
-      return warnings;
-    }
+    return ids;
+  } catch {
+    return [];
   }
+}
 
-  const idsToFetch = phoneIds.length > 0 ? phoneIds : [null];
+async function syncVapiWindowToCache(
+  apiKey: string,
+  supabase: any,
+  startIso: string,
+  endIso: string,
+  phoneIds: string[],
+  warnings: string[],
+): Promise<void> {
+  const targets = phoneIds.length > 0 ? phoneIds : [null];
 
-  for (const pid of idsToFetch) {
+  for (const pid of targets) {
     let cursor: string | null = null;
     let pageNum = 0;
+    const cacheBatch: any[] = [];
 
     while (true) {
-      if (Date.now() > deadline) {
-        summary.isPartial = true;
-        warnings.push(`Vapi: resultado parcial (${summary.vapiCount} chamadas). Reduza o período.`);
-        return warnings;
-      }
-
       pageNum++;
-
       const params = new URLSearchParams();
       params.set("createdAtGe", startIso);
       params.set("createdAtLe", endIso);
@@ -224,14 +195,14 @@ async function fetchVapiAggregated(
       if (pid) params.set("phoneNumberId", pid);
       if (cursor) params.set("createdAtLt", cursor);
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12000);
         const res = await fetch(`https://api.vapi.ai/call?${params.toString()}`, {
           headers: { Authorization: `Bearer ${apiKey}` },
           signal: controller.signal,
         });
-        clearTimeout(timeout);
 
         if (!res.ok) {
           const text = await res.text();
@@ -240,47 +211,197 @@ async function fetchVapiAggregated(
         }
 
         const rawData = await res.json();
-        const rawCalls = Array.isArray(rawData) ? rawData : rawData.results || rawData.data || [];
+        const rawCalls: any[] = Array.isArray(rawData) ? rawData : rawData.results || rawData.data || [];
+        if (rawCalls.length === 0) break;
+
+        let lastDate: string | null = null;
 
         for (const call of rawCalls) {
+          lastDate = call.createdAt || lastDate;
+
           const costVal = call.cost ?? call.costBreakdown?.total ?? 0;
           const cost = typeof costVal === "number" ? costVal : parseFloat(costVal || "0");
           const duration = call.endedAt && call.startedAt
             ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000)
             : call.duration || 0;
+          const cb = call.costBreakdown || {};
+          const metaOnly = call.metadata || call.assistantOverrides?.metadata;
 
-          const endedReason = call.endedReason || "";
-          const isFailed = endedReason.includes("error") || endedReason.includes("failed");
+          cacheBatch.push({
+            call_id: call.id,
+            assistant_id: call.assistantId || call.assistant?.id || null,
+            phone_number_id: call.phoneNumberId || call.phoneNumber?.id || null,
+            customer_number: call.customer?.number || call.customer?.name || "—",
+            agent_phone: call.phoneNumber?.number || call.phoneNumber?.twilioPhoneNumber || null,
+            duration,
+            cost,
+            status: call.status || call.endedReason || "unknown",
+            started_at: call.startedAt || call.createdAt || null,
+            cost_stt: parseFloat(cb.stt || "0"),
+            cost_llm: parseFloat(cb.llm || "0"),
+            cost_tts: parseFloat(cb.tts || "0"),
+            cost_transport: parseFloat(cb.transport || "0"),
+            cost_vapi: parseFloat(cb.vapi || "0"),
+            raw_data: metaOnly ? { metadata: metaOnly } : null,
+            synced_at: new Date().toISOString(),
+          });
 
-          summary.totalCalls++;
-          summary.totalCost += cost;
-          summary.totalDuration += duration;
-          summary.vapiCount++;
-          summary.vapiCost += cost;
-          if (isFailed) summary.errorCount++;
-
-          const dateStr = (call.startedAt || call.createdAt || "").substring(0, 10);
-          if (dateStr) {
-            if (!dailyCosts[dateStr]) dailyCosts[dateStr] = { twilio: 0, vapi: 0 };
-            dailyCosts[dateStr].vapi += cost;
+          if (cacheBatch.length >= 200) {
+            const batch = cacheBatch.splice(0, cacheBatch.length);
+            const { error } = await supabase.from("vapi_calls_cache").upsert(batch, {
+              onConflict: "call_id",
+              ignoreDuplicates: false,
+            });
+            if (error) warnings.push(`Vapi cache upsert: ${error.message}`);
           }
         }
 
-        console.log(`Vapi p${pageNum}: ${rawCalls.length} calls, total=${summary.vapiCount}`);
+        console.log(`Vapi sync p${pageNum}: ${rawCalls.length} chamadas (${pid || "all"})`);
 
-        if (rawCalls.length < 100) break;
-        const lastDate = rawCalls[rawCalls.length - 1]?.createdAt;
-        if (!lastDate || lastDate === cursor) break;
+        if (rawCalls.length < 100 || !lastDate || lastDate === cursor) break;
         cursor = lastDate;
-      } catch (e) {
-        warnings.push(`Vapi p${pageNum}: ${e.message}`);
+      } catch (e: any) {
+        warnings.push(`Vapi sync p${pageNum}: ${e.message}`);
         break;
+      } finally {
+        clearTimeout(timeout);
       }
     }
 
+    if (cacheBatch.length > 0) {
+      const { error } = await supabase.from("vapi_calls_cache").upsert(cacheBatch, {
+        onConflict: "call_id",
+        ignoreDuplicates: false,
+      });
+      if (error) warnings.push(`Vapi cache upsert final: ${error.message}`);
+    }
+  }
+}
+
+async function fetchVapiAggregated(
+  phone: string,
+  startDate: string,
+  endDate: string,
+  summary: Summary,
+  dailyCosts: Record<string, { twilio: number; vapi: number }>,
+): Promise<string[]> {
+  const warnings: string[] = [];
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return ["Supabase service role não configurada para leitura do cache Vapi"];
   }
 
-  console.log(`Vapi DONE: ${summary.vapiCount} calls, $${summary.vapiCost.toFixed(4)}`);
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const apiKey = Deno.env.get("VAPI_API_KEY") || "";
+  const phoneDigits = normalizeDigits(phone || "");
+
+  const startObj = new Date(`${startDate}T00:00:00`);
+  const endObj = new Date(`${endDate}T23:59:59`);
+  if (startObj > endObj) {
+    warnings.push("Vapi: período inválido.");
+    return warnings;
+  }
+
+  const startIso = startObj.toISOString();
+  const endIso = endObj.toISOString();
+
+  const retentionStart = new Date();
+  retentionStart.setDate(retentionStart.getDate() - 14);
+  retentionStart.setHours(0, 0, 0, 0);
+
+  let phoneIds: string[] = [];
+  if (phoneDigits && apiKey) {
+    phoneIds = await resolveVapiPhoneIds(apiKey, phoneDigits);
+    if (phoneIds.length === 0) {
+      warnings.push(`Vapi: telefone ${phone} não encontrado na conta.`);
+    }
+  }
+
+  if (!apiKey) {
+    warnings.push("Vapi: API key ausente. Exibindo dados apenas do cache local.");
+  } else {
+    const syncStartBase = startObj < retentionStart ? retentionStart : startObj;
+    if (syncStartBase <= endObj) {
+      let syncStartIso = syncStartBase.toISOString();
+
+      const { data: latestCached } = await supabase
+        .from("vapi_calls_cache")
+        .select("started_at")
+        .gte("started_at", syncStartIso)
+        .lte("started_at", endIso)
+        .order("started_at", { ascending: false })
+        .limit(1);
+
+      if (latestCached?.[0]?.started_at) {
+        const rewind = new Date(latestCached[0].started_at);
+        rewind.setMinutes(rewind.getMinutes() - 30);
+        if (rewind > syncStartBase) syncStartIso = rewind.toISOString();
+      }
+
+      await syncVapiWindowToCache(apiKey, supabase, syncStartIso, endIso, phoneIds, warnings);
+    }
+  }
+
+  const CACHE_PAGE_SIZE = 2000;
+  let from = 0;
+
+  while (true) {
+    let query = supabase
+      .from("vapi_calls_cache")
+      .select("cost,duration,status,started_at,agent_phone,phone_number_id")
+      .gte("started_at", startIso)
+      .lte("started_at", endIso)
+      .order("started_at", { ascending: true })
+      .range(from, from + CACHE_PAGE_SIZE - 1);
+
+    if (phoneIds.length > 0) {
+      query = query.in("phone_number_id", phoneIds);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      warnings.push(`Vapi cache query: ${error.message}`);
+      break;
+    }
+
+    const rows = data || [];
+    if (rows.length === 0) break;
+
+    for (const row of rows) {
+      if (phoneDigits && phoneIds.length === 0) {
+        const rowDigits = normalizeDigits(row.agent_phone || "");
+        if (!rowDigits.includes(phoneDigits) && !phoneDigits.includes(rowDigits)) continue;
+      }
+
+      const cost = typeof row.cost === "number" ? row.cost : parseFloat(String(row.cost || "0"));
+      const duration = Number(row.duration || 0);
+      const status = String(row.status || "");
+      const isFailed = status.includes("error") || status.includes("failed");
+
+      summary.totalCalls++;
+      summary.totalCost += cost;
+      summary.totalDuration += duration;
+      summary.vapiCount++;
+      summary.vapiCost += cost;
+      if (isFailed) summary.errorCount++;
+
+      const dateStr = String(row.started_at || "").substring(0, 10);
+      if (dateStr) {
+        if (!dailyCosts[dateStr]) dailyCosts[dateStr] = { twilio: 0, vapi: 0 };
+        dailyCosts[dateStr].vapi += cost;
+      }
+    }
+
+    if (rows.length < CACHE_PAGE_SIZE) break;
+    from += CACHE_PAGE_SIZE;
+  }
+
+  console.log(`Vapi CACHE DONE: ${summary.vapiCount} calls, $${summary.vapiCost.toFixed(4)}`);
   return warnings;
 }
 
