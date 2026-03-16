@@ -232,86 +232,14 @@ const TwilioCostsTab = () => {
         </Card>
       )}
 
-      {/* Calls Table */}
-      {fetched && (
+      {fetched && !loadingSummary && chartFormatted.length === 0 && !loadingCalls && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              Chamadas Twilio
-              {!loadingCalls && <Badge variant="secondary" className="text-xs">{calls.length} registros</Badge>}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loadingCalls ? (
-              <div className="space-y-2">
-                {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-10 w-full" />)}
-              </div>
-            ) : calls.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Phone className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p>Nenhuma chamada encontrada.</p>
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>SID</TableHead>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Origem</TableHead>
-                        <TableHead>Destino</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Duração</TableHead>
-                        <TableHead>Preço</TableHead>
-                        <TableHead className="w-10"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedCalls.map((call: any) => (
-                        <TableRow key={call.sid}>
-                          <TableCell className="font-mono text-xs max-w-[120px] truncate" title={call.sid}>{call.sid}</TableCell>
-                          <TableCell className="whitespace-nowrap text-sm">
-                            {call.date ? format(new Date(call.date), "dd/MM/yy HH:mm") : "—"}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">{formatPhone(call.from) || call.from || "—"}</TableCell>
-                          <TableCell className="font-mono text-xs">{formatPhone(call.to) || call.to || "—"}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={(statusColors[call.status] || "secondary") as any}
-                              className="text-xs"
-                            >
-                              {call.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{fmtDuration(call.duration)}</TableCell>
-                          <TableCell className="font-mono">{fmtUSD(call.price)}</TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedCall(call)}>
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-4">
-                    <p className="text-sm text-muted-foreground">Página {page + 1} de {totalPages}</p>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Anterior</Button>
-                      <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Próxima</Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+          <CardContent className="py-16 text-center text-muted-foreground">
+            <Phone className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p>Nenhum dado encontrado para o período selecionado.</p>
           </CardContent>
         </Card>
       )}
-
-      <CallDetailModal open={!!selectedCall} onOpenChange={() => setSelectedCall(null)} call={selectedCall} source="twilio" />
     </div>
   );
 };
