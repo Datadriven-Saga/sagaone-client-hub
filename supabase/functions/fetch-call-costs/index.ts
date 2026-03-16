@@ -109,6 +109,12 @@ async function streamTwilioCalls(
       if (cost === 0 && duration > 0) summary.callsWithoutPrice++;
       if (cost < 0) summary.callsNegativePrice++;
 
+      const dateStr = (call.start_time || call.date_created || "").substring(0, 10);
+      if (dateStr) {
+        if (!dailyCosts[dateStr]) dailyCosts[dateStr] = { twilio: 0, vapi: 0 };
+        dailyCosts[dateStr].twilio += cost;
+      }
+
       if (recentCalls.length < MAX_DISPLAY) {
         recentCalls.push({
           id: call.sid, phoneFrom: from, phoneTo: to,
