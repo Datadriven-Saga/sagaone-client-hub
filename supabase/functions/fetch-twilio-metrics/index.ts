@@ -163,14 +163,14 @@ serve(async (req) => {
 
       pageNum++;
       try {
-        const res = await fetch(nextPageUrl, { headers: { Authorization: `Basic ${auth}` } });
+        const res: Response = await fetch(nextPageUrl!, { headers: { Authorization: `Basic ${auth}` } });
         if (!res.ok) {
           const text = await res.text();
           warnings.push(`Twilio Calls API [${res.status}]: ${text.substring(0, 200)}`);
           break;
         }
 
-        const data = await res.json();
+        const data: any = await res.json();
         const pageCalls = data.calls || [];
 
         for (const call of pageCalls) {
