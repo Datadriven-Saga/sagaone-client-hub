@@ -164,7 +164,7 @@ serve(async (req) => {
     }
 
     // ── Action: sync-and-query (default) ──
-    const { startDate, endDate, assistantId, phoneNumberId } = body;
+    const { startDate, endDate, assistantId, phoneNumberId, metadataKey, metadataValue } = body;
     if (!startDate || !endDate) {
       return new Response(JSON.stringify({ error: "startDate and endDate required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -175,6 +175,7 @@ serve(async (req) => {
     const hasPhoneNumberIds = Array.isArray(body.phoneNumberIds);
     const effectiveAssistantIds: string[] = hasAssistantIds ? body.assistantIds : (assistantId && assistantId !== "all" ? [assistantId] : []);
     const effectivePhoneIds: string[] = hasPhoneNumberIds ? body.phoneNumberIds : (phoneNumberId && phoneNumberId !== "all" ? [phoneNumberId] : []);
+    const filterByMetadata = !!metadataKey;
 
     // Empty explicit filter = no results
     if ((hasAssistantIds && effectiveAssistantIds.length === 0) || (hasPhoneNumberIds && effectivePhoneIds.length === 0)) {
@@ -221,6 +222,15 @@ serve(async (req) => {
         console.log(`📦 ${cachedCalls.length} chamadas encontradas no cache`);
         for (const cc of cachedCalls) {
           if (seenCallIds.has(cc.call_id)) continue;
+
+          // Metadata filter on cached raw_data
+          if (filterByMetadata && cc.raw_data) {
+            const rawMeta = (cc.raw_data as any)?.metadata || (cc.raw_data as any)?.assistantOverrides?.metadata;
+            if (!rawMeta || String(rawMeta[metadataKey] ?? "") !== String(metadataValue ?? "")) continue;
+          } else if (filterByMetadata) {
+            continue; // no raw_data to check
+          }
+
           seenCallIds.add(cc.call_id);
 
           const isEnded = cc.status === "ended";
@@ -293,6 +303,12 @@ serve(async (req) => {
             // Client-side filtering by assistant and phone
             if (filterByAssistant && !assistantIdSet.has(p.assistantId)) continue;
             if (filterByPhone && !phoneIdSet.has(p.phoneNumberId)) continue;
+
+            // Client-side filtering by metadata
+            if (filterByMetadata) {
+              const callMeta = call.metadata || call.assistantOverrides?.metadata;
+              if (!callMeta || String(callMeta[metadataKey] ?? "") !== String(metadataValue ?? "")) continue;
+            }
 
             seenCallIds.add(p.callId);
             addToSummary(summary, dailyCosts, recentCalls, p);

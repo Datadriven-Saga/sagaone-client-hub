@@ -202,6 +202,8 @@ const VapiMetricsTab = () => {
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [selectedAssistants, setSelectedAssistants] = useState<string[]>([]);
   const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
+  const [metadataKey, setMetadataKey] = useState("");
+  const [metadataValue, setMetadataValue] = useState("");
   const [phoneSearch, setPhoneSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
@@ -281,6 +283,7 @@ const VapiMetricsTab = () => {
                 endDate: batch.endDate,
                 assistantIds: selectedAssistants,
                 phoneNumberIds: selectedPhones,
+                ...(metadataKey.trim() ? { metadataKey: metadataKey.trim(), metadataValue: metadataValue.trim() } : {}),
               },
             });
             if (error) throw error;
@@ -443,6 +446,27 @@ const VapiMetricsTab = () => {
                   const formatted = formatPhone(item.number) || item.number || item.id.substring(0, 12);
                   return item.name ? `${item.name} — ${formatted}` : formatted;
                 }}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Metadata — Chave</Label>
+              <Input
+                placeholder="Ex: dealerId, campaignId..."
+                value={metadataKey}
+                onChange={e => setMetadataKey(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Metadata — Valor</Label>
+              <Input
+                placeholder="Ex: 12345"
+                value={metadataValue}
+                onChange={e => setMetadataValue(e.target.value)}
+                className="h-9 text-sm"
+                disabled={!metadataKey.trim()}
               />
             </div>
           </div>
