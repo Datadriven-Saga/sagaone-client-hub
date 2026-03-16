@@ -113,9 +113,13 @@ serve(async (req) => {
     let pageNum = 0;
 
     while (nextPageUrl) {
-      if (Date.now() > deadline) {
+      if (Date.now() > deadline || pageNum >= MAX_PAGES) {
         summary.isPartial = true;
-        warnings.push(`Resultado parcial (${summary.totalCalls} chamadas). Reduza o período.`);
+        if (pageNum >= MAX_PAGES) {
+          warnings.push(`Exibindo dados das ${pageNum} primeiras páginas (${summary.totalCalls} chamadas). Use filtros ou reduza o período para resultados completos.`);
+        } else {
+          warnings.push(`Resultado parcial (${summary.totalCalls} chamadas). Reduza o período.`);
+        }
         break;
       }
 
