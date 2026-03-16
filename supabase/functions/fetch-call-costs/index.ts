@@ -256,10 +256,17 @@ async function streamVapiCalls(
 
         console.log(`Vapi p${pageNum}${pid ? ` (${pid.substring(0,8)})` : ""}: ${rawCalls.length}, $${pageCost.toFixed(2)}, total=${summary.vapiCount}`);
 
-        if (rawCalls.length < 1000) break;
+        if (rawCalls.length < 100) break;
         const lastDate = rawCalls[rawCalls.length - 1]?.createdAt;
         if (!lastDate || lastDate === cursor) break;
         cursor = lastDate;
+
+        // Limit total pages to avoid timeout
+        if (pageNum >= 10) {
+          summary.isPartial = true;
+          warnings.push(`Vapi: resultado parcial (${summary.vapiCount} chamadas).`);
+          break;
+        }
       } catch (e) {
         warnings.push(`Vapi: erro p${pageNum}: ${e.message}`);
         break;
