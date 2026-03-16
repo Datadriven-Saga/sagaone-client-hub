@@ -269,6 +269,7 @@ Deno.serve(async (req: Request) => {
         observacoes: null,
         responsavel_email: colIndices.responsavel >= 0 ? (row[colIndices.responsavel] || '').trim() || null : null,
         base_id: log.base_id || null,
+        codigo_proposta: colIndices.codigo_proposta >= 0 ? (row[colIndices.codigo_proposta] || '').trim() || null : null,
       });
 
       if (batch.length >= BATCH_SIZE) {
