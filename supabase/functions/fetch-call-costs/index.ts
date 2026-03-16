@@ -25,7 +25,7 @@ interface RequestPayload {
   source: "twilio" | "vapi" | "unified";
 }
 
-const VAPI_MAX_PAGES = 3;
+const VAPI_MAX_PAGES = 10;
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -91,7 +91,6 @@ async function fetchTwilioAggregated(
       StartDate: startDate,
       EndDate: endDate,
       Category: "calls",
-      IncludeSubaccounts: "false",
     });
 
     const usageUrl = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Usage/Records/Daily.json?${usageParams.toString()}`;

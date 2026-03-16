@@ -91,7 +91,7 @@ serve(async (req) => {
         let totalPrice = 0;
         let totalMinutes = 0;
         for (const rec of records) {
-          totalPrice += parseFloat(rec.price || "0");
+          totalPrice += Math.abs(parseFloat(rec.price || "0"));
           totalMinutes += parseFloat(rec.usage || "0");
         }
         summary.usageCost = totalPrice;
