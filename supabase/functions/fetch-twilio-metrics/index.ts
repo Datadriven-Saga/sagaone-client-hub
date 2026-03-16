@@ -172,9 +172,10 @@ serve(async (req) => {
 
     while (nextPageUrl && pageNum < maxCallPages) {
       if (Date.now() > deadline) {
-        if (filteredSummary) filteredSummary.isPartial = true;
-        else summary.isPartial = true;
-        warnings.push(`Resultado parcial. Reduza o período ou remova filtros.`);
+        if (filteredSummary) {
+          filteredSummary.isPartial = true;
+          warnings.push(`Resultado parcial para filtro de status. Reduza o período.`);
+        }
         break;
       }
 
