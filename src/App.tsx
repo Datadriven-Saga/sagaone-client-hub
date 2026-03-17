@@ -48,6 +48,7 @@ const ControleGastosLigacao = lazy(() => import("./pages/admin/ControleGastosLig
 const FeatureFlags = lazy(() => import("./pages/admin/FeatureFlags"));
 const Quarentena = lazy(() => import("./pages/admin/Quarentena"));
 const Integracoes = lazy(() => import("./pages/admin/Integracoes"));
+const OptOutGlobal = lazy(() => import("./pages/admin/OptOutGlobal"));
 const Instancias = lazy(() => import("./pages/agentes-ia/Instancias"));
 
 // QueryClient with optimized defaults
