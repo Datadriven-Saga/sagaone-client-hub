@@ -6,10 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
-const UF_OPTIONS = [
-  "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
-  "PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"
-];
+const UF_OPTIONS = ["DF", "GO", "MG", "MT", "RO"];
 
 export function CriarCaixaCWTab() {
   const [loading, setLoading] = useState(false);
