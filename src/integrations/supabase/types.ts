@@ -2024,6 +2024,30 @@ export type Database = {
           },
         ]
       }
+      global_opt_outs: {
+        Row: {
+          created_at: string
+          criado_por: string | null
+          id: string
+          motivo: string | null
+          telefone_normalizado: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          motivo?: string | null
+          telefone_normalizado: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          motivo?: string | null
+          telefone_normalizado?: string
+        }
+        Relationships: []
+      }
       horarios_trabalho: {
         Row: {
           ativo: boolean | null
@@ -4955,6 +4979,14 @@ export type Database = {
         Returns: Json
       }
       can_manage_users: { Args: { user_id?: string }; Returns: boolean }
+      check_global_opt_out: { Args: { p_telefone: string }; Returns: boolean }
+      check_global_opt_out_bulk: {
+        Args: { p_telefones: string[] }
+        Returns: {
+          bloqueado: boolean
+          telefone: string
+        }[]
+      }
       check_password_protection_status: { Args: never; Returns: string }
       check_quarentena: {
         Args: { p_loja_id: string; p_telefones: string[] }

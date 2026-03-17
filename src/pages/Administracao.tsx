@@ -176,6 +176,13 @@ const Administracao = () => {
       route: "/administracao/integracoes",
       permissionKey: "canAccessAgentesIA",
     },
+    {
+      title: "Opt-Out Global",
+      description: "Lista negra permanente de números bloqueados em todos os canais",
+      icon: ShieldBan,
+      route: "/administracao/opt-out-global",
+      permissionKey: "canAccessAdminConfig",
+    },
   ];
 
   // MFA Master module
