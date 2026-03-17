@@ -338,6 +338,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canDeleteContatos = isAdminOrTI;
   defaults.canValidarImportacao = isAdmin || isTI || isCRM; // CRM valida importações; Gestor de Leads NÃO pode validar
   defaults.canGovernancaDados = isAdmin || isTI || isCRM; // CRM gerencia governança de dados
+  defaults.canAccessOptOutGlobal = isAdmin || isTI || isCRM; // CRM acessa opt-out global
 
   // ── Recepção ──
   defaults.canAccessRecepcao = isAdmin || isRecepcionista || isGerente || isCRM;
