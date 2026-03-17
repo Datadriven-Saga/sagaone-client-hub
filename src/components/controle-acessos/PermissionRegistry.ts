@@ -142,6 +142,7 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   { key: "canDeleteContatos", label: "Excluir contatos", moduleId: "base_contatos", action: "excluir" },
   { key: "canValidarImportacao", label: "Validar importações de base", moduleId: "base_contatos", action: "administrar", description: "Aprovar ou reprovar importações de base de contatos" },
   { key: "canGovernancaDados", label: "Gerenciar governança de dados", moduleId: "base_contatos", action: "administrar", description: "Controle de qualidade e governança sobre dados de contatos" },
+  { key: "canAccessOptOutGlobal", label: "Acessar Opt-Out Global", moduleId: "base_contatos", action: "administrar", description: "Gerenciar lista negra global de números bloqueados" },
 
   // ── Recepção ──
   { key: "canAccessRecepcao", label: "Acessar Recepção", moduleId: "recepcao", action: "visualizar" },
@@ -337,6 +338,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canDeleteContatos = isAdminOrTI;
   defaults.canValidarImportacao = isAdmin || isTI || isCRM; // CRM valida importações; Gestor de Leads NÃO pode validar
   defaults.canGovernancaDados = isAdmin || isTI || isCRM; // CRM gerencia governança de dados
+  defaults.canAccessOptOutGlobal = isAdmin || isTI || isCRM; // CRM acessa opt-out global
 
   // ── Recepção ──
   defaults.canAccessRecepcao = isAdmin || isRecepcionista || isGerente || isCRM;
