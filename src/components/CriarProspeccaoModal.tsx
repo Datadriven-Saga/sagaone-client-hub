@@ -1436,8 +1436,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           if (priConfigResult) editEventIdPri = priConfigResult;
         }
         
-        // Disparar gatilhos de "novo_evento_criado" (NÃO para IA Ligação - tem fluxo próprio)
-        if (tipoEvento !== 'IA Ligação') {
+        // Disparar gatilhos de "novo_evento_criado" (apenas IA Whatsapp)
+        if (tipoEvento === 'IA Whatsapp') {
           const gatilhoResult = await triggerNovoEventoCriadoWebhooks(data, true);
           if (gatilhoResult) editEventIdPri = gatilhoResult;
         }
