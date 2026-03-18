@@ -10,7 +10,7 @@ import { useCompany } from "@/contexts/CompanyContext";
 import { ResponsiveTable, ColumnDef } from "@/components/ui/responsive-table";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
