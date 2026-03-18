@@ -162,6 +162,7 @@ const AppContent = () => {
 
   return (
     <TooltipProvider>
+      <VersionMonitor />
       <Toaster />
       <Sonner />
       <AuthProvider>
