@@ -11,6 +11,7 @@ import { PermissionProtectedRoute } from "@/components/PermissionProtectedRoute"
 
 // Critical pages - eagerly loaded
 import Login from "./pages/Login";
+import VersionMonitor from "./components/VersionMonitor";
 import ResetPassword from "./pages/ResetPassword";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
