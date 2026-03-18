@@ -25,22 +25,31 @@ const VersionMonitor = () => {
     // Capture initial hash on mount
     getPageHash().then((hash) => {
       initialHash.current = hash;
+      console.log("[VersionMonitor] Initial hash captured:", hash?.substring(0, 60));
     });
 
     const interval = setInterval(async () => {
-      if (showUpdateAlert) return; // already showing
+      if (showUpdateAlert) return;
       const currentHash = await getPageHash();
+      console.log("[VersionMonitor] Check:", currentHash?.substring(0, 60), "| Match:", currentHash === initialHash.current);
       if (
         initialHash.current &&
         currentHash &&
         currentHash !== initialHash.current
       ) {
+        console.log("[VersionMonitor] New version detected!");
         setShowUpdateAlert(true);
       }
     }, CHECK_INTERVAL);
 
     return () => clearInterval(interval);
   }, [getPageHash, showUpdateAlert]);
+
+  // DEV-only: expose test trigger on window
+  useEffect(() => {
+    (window as any).__testVersionAlert = () => setShowUpdateAlert(true);
+    return () => { delete (window as any).__testVersionAlert; };
+  }, []);
 
   const handleUpdate = () => {
     window.location.reload();
