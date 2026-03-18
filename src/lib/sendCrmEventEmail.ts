@@ -1,13 +1,8 @@
 /**
  * Utilitário para disparar email CRM via Edge Function send-crm-event-email.
- * 
- * Características:
- * - Retorna resultado para exibição de alertas na UI
- * - Retry automático (1 tentativa extra)
- * - Timeout de 5 segundos
- * - Proteção contra envios duplicados
- * - Logs estruturados
  */
+
+import { supabase } from "@/integrations/supabase/client";
 
 const EDGE_FUNCTION_URL = 'https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/send-crm-event-email';
 
