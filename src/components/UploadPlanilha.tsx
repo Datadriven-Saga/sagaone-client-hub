@@ -173,7 +173,7 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
   const convertExcelToCsv = async (file: File): Promise<File> => {
     setPhase('converting');
     const arrayBuffer = await file.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const workbook = safeRead(arrayBuffer);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     const csvContent = XLSX.utils.sheet_to_csv(worksheet);

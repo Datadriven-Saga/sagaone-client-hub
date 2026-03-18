@@ -76,7 +76,7 @@ export function ControleAgentesImport({ open, onOpenChange, onImportComplete }: 
 
     try {
       const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: "array" });
+      const workbook = safeRead(data);
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet);
