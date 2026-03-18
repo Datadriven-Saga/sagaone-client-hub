@@ -15,7 +15,7 @@ import {
   PhoneCall, Lock, RotateCcw, CalendarCheck, PhoneMissed, PhoneOutgoing, FileSpreadsheet, FileText,
   AlertTriangle
 } from 'lucide-react';
-import * as XLSX from 'xlsx-js-style';
+import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';

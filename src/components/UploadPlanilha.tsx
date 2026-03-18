@@ -10,7 +10,7 @@ import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, XCircle, AlertTriang
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
-import * as XLSX from 'xlsx-js-style';
+import { safeRead, XLSX } from '@/lib/xlsxSafe';
 import { useUserAccessType } from '@/hooks/useUserAccessType';
 import { ScrollArea } from '@/components/ui/scroll-area';
 

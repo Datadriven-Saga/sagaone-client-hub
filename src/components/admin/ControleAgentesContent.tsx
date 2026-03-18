@@ -58,7 +58,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import * as XLSX from 'xlsx-js-style';
+import * as XLSX from 'xlsx';
 import { ControleAgentesDetalhes } from "@/components/admin/ControleAgentesDetalhes";
 import { ControleAgentesImport } from "@/components/admin/ControleAgentesImport";
 import { ControleAgentesNovoModal } from "@/components/admin/ControleAgentesNovoModal";
