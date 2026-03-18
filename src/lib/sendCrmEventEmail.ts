@@ -115,11 +115,17 @@ export async function testEmailEdgeFunction(eventId: string): Promise<void> {
   }
 
   try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const authToken = session?.access_token || '';
+
     const response = await fetchWithTimeout(
       EDGE_FUNCTION_URL,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({ event_id: eventId }),
       },
       10000
