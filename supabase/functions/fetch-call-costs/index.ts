@@ -410,6 +410,22 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Auth check - require authenticated admin user
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
+  const supabaseAuth = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } }
+  );
+  const token = authHeader.replace("Bearer ", "");
+  const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+  if (claimsError || !claimsData?.claims) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
+
   if (req.method !== "GET" && req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
