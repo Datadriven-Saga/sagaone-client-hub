@@ -1,13 +1,8 @@
 /**
  * Utilitário para disparar email CRM via Edge Function send-crm-event-email.
- * 
- * Características:
- * - Retorna resultado para exibição de alertas na UI
- * - Retry automático (1 tentativa extra)
- * - Timeout de 5 segundos
- * - Proteção contra envios duplicados
- * - Logs estruturados
  */
+
+import { supabase } from "@/integrations/supabase/client";
 
 const EDGE_FUNCTION_URL = 'https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/send-crm-event-email';
 
@@ -37,11 +32,17 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
 async function callEdgeFunction(eventId: string): Promise<CrmEmailResult> {
   console.log(`📧 [send-crm-event-email] Iniciando envio para event_id: ${eventId}`);
 
+  const { data: { session } } = await supabase.auth.getSession();
+  const authToken = session?.access_token || '';
+
   const response = await fetchWithTimeout(
     EDGE_FUNCTION_URL,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+      },
       body: JSON.stringify({ event_id: eventId }),
     },
     30000
@@ -114,11 +115,17 @@ export async function testEmailEdgeFunction(eventId: string): Promise<void> {
   }
 
   try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const authToken = session?.access_token || '';
+
     const response = await fetchWithTimeout(
       EDGE_FUNCTION_URL,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({ event_id: eventId }),
       },
       10000
