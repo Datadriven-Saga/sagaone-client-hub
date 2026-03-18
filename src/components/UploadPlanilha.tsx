@@ -10,7 +10,7 @@ import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, XCircle, AlertTriang
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
-import * as XLSX from 'xlsx';
+import { safeRead, XLSX } from '@/lib/xlsxSafe';
 import { useUserAccessType } from '@/hooks/useUserAccessType';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -173,7 +173,7 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
   const convertExcelToCsv = async (file: File): Promise<File> => {
     setPhase('converting');
     const arrayBuffer = await file.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const workbook = safeRead(arrayBuffer);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     const csvContent = XLSX.utils.sheet_to_csv(worksheet);

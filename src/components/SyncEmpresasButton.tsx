@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import * as XLSX from 'xlsx';
+import { safeRead, XLSX } from '@/lib/xlsxSafe';
 
 interface SyncResult {
   success: boolean;
@@ -116,7 +116,7 @@ export function SyncEmpresasButton() {
       } else {
         // Handle XLS/XLSX files with XLSX library
         const arrayBuffer = await file.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array', codepage: 65001 });
+        const workbook = safeRead(arrayBuffer, { codepage: 65001 });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
