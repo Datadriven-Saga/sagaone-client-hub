@@ -448,7 +448,11 @@ export default function EventoBase() {
         .eq('id', eventoId)
         .maybeSingle();
       
-      if (refreshed) setProspeccao(refreshed);
+      if (refreshed) {
+        setProspeccao(refreshed);
+        // Disparar webhook de evento alterado para sincronizar backend externo
+        triggerEventoAlteradoWebhook(refreshed);
+      }
       
       toast({ title: "Sucesso", description: "Template substituído e disparos liberados!" });
       setSelectedReplacementTemplate('');
