@@ -330,7 +330,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   // ── Base / Contatos ──
   defaults.canViewClientes = true;
   defaults.canAddClientes = isAdmin || isCRM;
-  defaults.canEditClientes = isAdmin || isCRM || isGerenteLeads || isCoordenadoraLeads;
+  defaults.canEditClientes = isAdmin || isCRM || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads;
   defaults.canDeleteClientes = isAdminOrTI;
   defaults.canImportClientes = isMasterRole || isCRM;
   defaults.canUploadBase = isMasterRole || isCRM || isAdmin;
