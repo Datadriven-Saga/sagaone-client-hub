@@ -354,8 +354,8 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
 
   // ── Prospecção ──
   defaults.canViewProspeccao = true;
-  defaults.canCreateProspeccao = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
-  defaults.canEditProspeccao = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+  defaults.canCreateProspeccao = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
+  defaults.canEditProspeccao = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
   defaults.canDeleteProspeccao = isAdminOrTI;
   defaults.canManageProspeccaoEquipes = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM || isGerenteLoja;
 
