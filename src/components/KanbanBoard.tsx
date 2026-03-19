@@ -46,6 +46,8 @@ interface KanbanBoardProps {
   onCardClick?: (item: KanbanItem) => void;
   onStatusChange?: (itemId: string, fromStatus: string, toStatus: string) => Promise<boolean> | void;
   onSolicitarClientes?: () => void;
+  solicitarDisabled?: boolean;
+  solicitarTooltip?: string;
   onLoadMore?: (columnId: string) => void;
   columnHasMore?: Record<string, boolean>;
   columnLoadingMore?: Record<string, boolean>;
@@ -58,6 +60,8 @@ export function KanbanBoard({
   onCardClick,
   onStatusChange,
   onSolicitarClientes,
+  solicitarDisabled,
+  solicitarTooltip,
   onLoadMore,
   columnHasMore,
   columnLoadingMore,
@@ -191,6 +195,8 @@ export function KanbanBoard({
                 totalCount={columnCounts?.[column.id]}
                 onCardClick={onCardClick}
                 onSolicitarClientes={column.id === 'novos' ? onSolicitarClientes : undefined}
+                solicitarDisabled={column.id === 'novos' ? solicitarDisabled : undefined}
+                solicitarTooltip={column.id === 'novos' ? solicitarTooltip : undefined}
                 onLoadMore={() => onLoadMore?.(column.id)}
                 hasMore={columnHasMore?.[column.id]}
                 loadingMore={columnLoadingMore?.[column.id]}

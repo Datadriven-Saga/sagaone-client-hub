@@ -229,10 +229,16 @@ showAllEvents: true
   // Hook para atribuição automática de leads (vendedores)
   const { 
     isLimitedUser, 
+    leadsPendentes,
+    contarLeadsPendentes,
     atribuirLeadsAutomaticamente, 
     verificarEAtribuirSeNecessario,
     loading: atribuindoLeads 
   } = useAutoAtribuirLeads();
+  
+  // Verificar se vendedor está no limite de 30 leads
+  const LEAD_LIMIT = 30;
+  const atLimitLeads = isLimitedUser && (leadsPendentes ?? 0) >= LEAD_LIMIT;
   
   // State para métricas externas de IA Ligação
   const [metricasLigacaoExternas, setMetricasLigacaoExternas] = useState<Record<string, MetricasLigacaoExternas>>({});
@@ -576,6 +582,7 @@ showAllEvents: true
   useEffect(() => {
     if (activeTab === 'kanban' && isLimitedUser && !loadingKanban) {
       verificarEAtribuirSeNecessario().then(() => {
+        contarLeadsPendentes();
         fetchKanbanColumns(getKanbanFilters());
         fetchServerMetricas();
       });
@@ -683,6 +690,16 @@ showAllEvents: true
   // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string): Promise<boolean> => {
     console.log('handleStatusChange called:', { itemId, fromStatus, toStatus });
+    
+    // Bloquear SDR/Vendedor de mover leads para "atribuidos" quando no limite de 30
+    if (isLimitedUser && atLimitLeads && fromStatus === 'novos' && toStatus === 'atribuidos') {
+      toast({
+        title: "Limite de leads atingido",
+        description: `Você já possui ${LEAD_LIMIT} leads pendentes. Finalize atendimentos antes de pegar novos leads.`,
+        variant: "destructive"
+      });
+      return false;
+    }
     
     // Se destino é "descartados", abrir modal para preencher motivo e justificativa
     if (toStatus === 'descartados') {
@@ -802,6 +819,11 @@ showAllEvents: true
         statusNovo: toStatus,
         usuarioId: user.id,
       });
+    }
+    
+    // Atualizar contagem de leads pendentes para vendedores/SDR
+    if (isLimitedUser) {
+      contarLeadsPendentes();
     }
     
     return true; // Permitir mover o card
@@ -1560,11 +1582,24 @@ showAllEvents: true
     try {
       // Para vendedores/SDR: usar atribuição automática via RPC (máximo 30)
       if (isLimitedUser) {
+        // Verificar limite antes de solicitar
+        if (atLimitLeads) {
+          toast({
+            title: "Limite de leads atingido",
+            description: `Você já possui ${LEAD_LIMIT} leads pendentes. Finalize atendimentos antes de solicitar novos leads.`,
+            variant: "destructive"
+          });
+          return;
+        }
+        
         const leadsAtribuidos = await atribuirLeadsAutomaticamente(true);
         
+        // Atualizar contagem de leads pendentes
+        await contarLeadsPendentes();
+        
         if (leadsAtribuidos > 0) {
-          // Recarregar contatos para mostrar os novos leads
-          await refetch();
+          // Recarregar kanban para mostrar os novos leads
+          await fetchKanbanColumns(getKanbanFilters());
         }
         return;
       }
@@ -2171,6 +2206,8 @@ showAllEvents: true
                   onCardClick={handleCardClick}
                   onStatusChange={handleStatusChange}
                   onSolicitarClientes={isLimitedUser ? solicitarClientes : undefined}
+                  solicitarDisabled={atLimitLeads}
+                  solicitarTooltip={atLimitLeads ? `Você já possui ${leadsPendentes} leads pendentes (limite: ${LEAD_LIMIT}). Finalize atendimentos para solicitar novos.` : undefined}
                   onLoadMore={handleLoadMoreColumn}
                   columnHasMore={kanbanColumnHasMore}
                   columnLoadingMore={kanbanLoadingMore}

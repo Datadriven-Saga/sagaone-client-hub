@@ -4,12 +4,15 @@ import { KanbanCard } from './KanbanCard';
 import { KanbanColumnData, KanbanItem } from './KanbanBoard';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface KanbanColumnProps {
   column: KanbanColumnData;
   totalCount?: number; // Real total from DB, independent of loaded items
   onCardClick?: (item: KanbanItem) => void;
   onSolicitarClientes?: () => void;
+  solicitarDisabled?: boolean;
+  solicitarTooltip?: string;
   onLoadMore?: () => void;
   hasMore?: boolean;
   loadingMore?: boolean;
@@ -28,7 +31,7 @@ const COLUMN_COLORS: Record<string, string> = {
   'desperdicio': '#F43F5E',
 };
 
-export function KanbanColumn({ column, totalCount, onCardClick, onSolicitarClientes, onLoadMore, hasMore, loadingMore }: KanbanColumnProps) {
+export function KanbanColumn({ column, totalCount, onCardClick, onSolicitarClientes, solicitarDisabled, solicitarTooltip, onLoadMore, hasMore, loadingMore }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -57,14 +60,37 @@ export function KanbanColumn({ column, totalCount, onCardClick, onSolicitarClien
           </span>
         </div>
         {onSolicitarClientes && (
-          <Button
-            onClick={onSolicitarClientes}
-            variant="outline"
-            size="sm"
-            className="text-xs h-6 px-2"
-          >
-            Solicitar
-          </Button>
+          solicitarDisabled && solicitarTooltip ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      onClick={onSolicitarClientes}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-6 px-2"
+                      disabled
+                    >
+                      Solicitar
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-[200px]">{solicitarTooltip}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <Button
+              onClick={onSolicitarClientes}
+              variant="outline"
+              size="sm"
+              className="text-xs h-6 px-2"
+            >
+              Solicitar
+            </Button>
+          )
         )}
       </div>
 

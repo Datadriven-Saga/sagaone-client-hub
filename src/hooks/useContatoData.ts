@@ -470,7 +470,7 @@ export const useContatoData = () => {
     
     setLoadingKanban(true);
     try {
-      const { data, error } = await supabase.rpc('get_kanban_columns' as any, {
+      const { data, error } = await supabase.rpc('get_kanban_columns_limited' as any, {
         p_empresa_id: activeCompany.id,
         p_per_column: KANBAN_PER_COLUMN,
         p_prospeccao_id: filters?.prospeccaoId || null,
