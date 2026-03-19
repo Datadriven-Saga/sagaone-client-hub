@@ -691,6 +691,16 @@ showAllEvents: true
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string): Promise<boolean> => {
     console.log('handleStatusChange called:', { itemId, fromStatus, toStatus });
     
+    // Bloquear SDR/Vendedor de mover leads para "atribuidos" quando no limite de 30
+    if (isLimitedUser && atLimitLeads && fromStatus === 'novos' && toStatus === 'atribuidos') {
+      toast({
+        title: "Limite de leads atingido",
+        description: `Você já possui ${LEAD_LIMIT} leads pendentes. Finalize atendimentos antes de pegar novos leads.`,
+        variant: "destructive"
+      });
+      return false;
+    }
+    
     // Se destino é "descartados", abrir modal para preencher motivo e justificativa
     if (toStatus === 'descartados') {
       const contatoCompleto = contatos.find(c => c.id === itemId);
