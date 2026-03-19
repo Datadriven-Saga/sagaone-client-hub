@@ -1577,11 +1577,24 @@ showAllEvents: true
     try {
       // Para vendedores/SDR: usar atribuição automática via RPC (máximo 30)
       if (isLimitedUser) {
+        // Verificar limite antes de solicitar
+        if (atLimitLeads) {
+          toast({
+            title: "Limite de leads atingido",
+            description: `Você já possui ${LEAD_LIMIT} leads pendentes. Finalize atendimentos antes de solicitar novos leads.`,
+            variant: "destructive"
+          });
+          return;
+        }
+        
         const leadsAtribuidos = await atribuirLeadsAutomaticamente(true);
         
+        // Atualizar contagem de leads pendentes
+        await contarLeadsPendentes();
+        
         if (leadsAtribuidos > 0) {
-          // Recarregar contatos para mostrar os novos leads
-          await refetch();
+          // Recarregar kanban para mostrar os novos leads
+          await fetchKanbanColumns(getKanbanFilters());
         }
         return;
       }
