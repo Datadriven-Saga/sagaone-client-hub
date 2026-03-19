@@ -5063,6 +5063,16 @@ export type Database = {
         }
         Returns: Json
       }
+      get_kanban_columns_limited: {
+        Args: {
+          p_empresa_id: string
+          p_per_column?: number
+          p_prospeccao_id?: string
+          p_responsavel?: string
+          p_search?: string
+        }
+        Returns: Json
+      }
       get_next_venda_numero: {
         Args: { p_prospeccao_id: string }
         Returns: number
