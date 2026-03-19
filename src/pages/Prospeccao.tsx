@@ -582,6 +582,7 @@ showAllEvents: true
   useEffect(() => {
     if (activeTab === 'kanban' && isLimitedUser && !loadingKanban) {
       verificarEAtribuirSeNecessario().then(() => {
+        contarLeadsPendentes();
         fetchKanbanColumns(getKanbanFilters());
         fetchServerMetricas();
       });
