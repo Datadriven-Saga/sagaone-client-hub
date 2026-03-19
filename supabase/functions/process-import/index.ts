@@ -267,6 +267,13 @@ Deno.serve(async (req: Request) => {
 
       const row = parseCSVLine(lines[i + 1]);
       const telefoneRaw = colIndices.telefone >= 0 ? row[colIndices.telefone] || '' : '';
+      
+      // Skip rows with empty/blank phone silently (not an error)
+      if (!telefoneRaw.trim()) {
+        processedRows++;
+        continue;
+      }
+
       const phone = normalizePhone(telefoneRaw);
 
       if (!phone) {
