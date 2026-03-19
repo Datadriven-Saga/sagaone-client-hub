@@ -46,6 +46,8 @@ interface KanbanBoardProps {
   onCardClick?: (item: KanbanItem) => void;
   onStatusChange?: (itemId: string, fromStatus: string, toStatus: string) => Promise<boolean> | void;
   onSolicitarClientes?: () => void;
+  solicitarDisabled?: boolean;
+  solicitarTooltip?: string;
   onLoadMore?: (columnId: string) => void;
   columnHasMore?: Record<string, boolean>;
   columnLoadingMore?: Record<string, boolean>;
