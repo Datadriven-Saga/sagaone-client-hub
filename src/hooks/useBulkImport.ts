@@ -33,7 +33,7 @@ const INITIAL_PROGRESS: BulkImportProgress = {
   errorDetails: [],
 };
 
-const RPC_BATCH_SIZE = 1000;
+const RPC_BATCH_SIZE = 300;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
 const MAX_CONCURRENT = 3;
