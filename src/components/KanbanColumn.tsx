@@ -60,14 +60,37 @@ export function KanbanColumn({ column, totalCount, onCardClick, onSolicitarClien
           </span>
         </div>
         {onSolicitarClientes && (
-          <Button
-            onClick={onSolicitarClientes}
-            variant="outline"
-            size="sm"
-            className="text-xs h-6 px-2"
-          >
-            Solicitar
-          </Button>
+          solicitarDisabled && solicitarTooltip ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      onClick={onSolicitarClientes}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-6 px-2"
+                      disabled
+                    >
+                      Solicitar
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-[200px]">{solicitarTooltip}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <Button
+              onClick={onSolicitarClientes}
+              variant="outline"
+              size="sm"
+              className="text-xs h-6 px-2"
+            >
+              Solicitar
+            </Button>
+          )
         )}
       </div>
 
