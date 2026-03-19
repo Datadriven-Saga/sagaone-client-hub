@@ -303,14 +303,14 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
 
   // ── Templates ──
   defaults.canViewTemplates = !isRecepcionista;
-  defaults.canCreateTemplates = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
-  defaults.canEditTemplates = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+  defaults.canCreateTemplates = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
+  defaults.canEditTemplates = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
   defaults.canDeleteTemplates = isAdminOrTI;
 
   // ── Eventos ──
   defaults.canViewEventos = !isRecepcionista;
-  defaults.canCreateEventos = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
-  defaults.canEditEventos = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+  defaults.canCreateEventos = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
+  defaults.canEditEventos = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
   defaults.canDeleteEventos = isAdminOrTI;
   defaults.canManageEvents = !isRecepcionista;
   defaults.canManageEventos = isAdminOrTI;
@@ -322,15 +322,15 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canViewIALigacaoLogs = isAdminOrTI;
 
   // ── Disparos ──
-  defaults.canDispararEventos = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+  defaults.canDispararEventos = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
   defaults.canRedispararEventos = isAdminOrTI;
   defaults.canAprovarCampanhas = isAdmin || isTI || isCRM; // CRM valida campanhas; Gestor de Leads NÃO pode aprovar
-  defaults.canProgramarCampanhas = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+  defaults.canProgramarCampanhas = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
 
   // ── Base / Contatos ──
   defaults.canViewClientes = true;
   defaults.canAddClientes = isAdmin || isCRM;
-  defaults.canEditClientes = isAdmin || isCRM || isGerenteLeads || isCoordenadoraLeads;
+  defaults.canEditClientes = isAdmin || isCRM || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads;
   defaults.canDeleteClientes = isAdminOrTI;
   defaults.canImportClientes = isMasterRole || isCRM;
   defaults.canUploadBase = isMasterRole || isCRM || isAdmin;
@@ -354,20 +354,20 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
 
   // ── Prospecção ──
   defaults.canViewProspeccao = true;
-  defaults.canCreateProspeccao = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
-  defaults.canEditProspeccao = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+  defaults.canCreateProspeccao = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
+  defaults.canEditProspeccao = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
   defaults.canDeleteProspeccao = isAdminOrTI;
   defaults.canManageProspeccaoEquipes = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM || isGerenteLoja;
 
   // ── Vendas ──
   defaults.canViewVendas = !isRecepcionista;
   defaults.canCreateVendas = !isRecepcionista;
-  defaults.canEditVendas = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+  defaults.canEditVendas = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
   defaults.canDeleteVendas = isAdminOrTI;
 
   // ── Usuários ──
   defaults.canManageUsers = isAdminOrTI;
-  defaults.canCreateUsers = isAdminOrTI || isGerenteLeads || isCoordenadoraLeads || isCRM; // Gestor de Leads e CRM podem cadastrar usuários
+  defaults.canCreateUsers = isAdminOrTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
   defaults.canEditUsers = isAdminOrTI || isGerente;
   defaults.canDeleteUsers = isAdminOrTI;
   defaults.canAccessAdminConfig = isAdminOrTI;
