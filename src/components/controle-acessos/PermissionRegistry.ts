@@ -367,7 +367,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
 
   // ── Usuários ──
   defaults.canManageUsers = isAdminOrTI;
-  defaults.canCreateUsers = isAdminOrTI || isGerenteLeads || isCoordenadoraLeads || isCRM; // Gestor de Leads e CRM podem cadastrar usuários
+  defaults.canCreateUsers = isAdminOrTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
   defaults.canEditUsers = isAdminOrTI || isGerente;
   defaults.canDeleteUsers = isAdminOrTI;
   defaults.canAccessAdminConfig = isAdminOrTI;
