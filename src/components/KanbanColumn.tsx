@@ -30,7 +30,7 @@ const COLUMN_COLORS: Record<string, string> = {
   'desperdicio': '#F43F5E',
 };
 
-export function KanbanColumn({ column, totalCount, onCardClick, onSolicitarClientes, onLoadMore, hasMore, loadingMore }: KanbanColumnProps) {
+export function KanbanColumn({ column, totalCount, onCardClick, onSolicitarClientes, solicitarDisabled, solicitarTooltip, onLoadMore, hasMore, loadingMore }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
