@@ -229,10 +229,16 @@ showAllEvents: true
   // Hook para atribuição automática de leads (vendedores)
   const { 
     isLimitedUser, 
+    leadsPendentes,
+    contarLeadsPendentes,
     atribuirLeadsAutomaticamente, 
     verificarEAtribuirSeNecessario,
     loading: atribuindoLeads 
   } = useAutoAtribuirLeads();
+  
+  // Verificar se vendedor está no limite de 30 leads
+  const LEAD_LIMIT = 30;
+  const atLimitLeads = isLimitedUser && (leadsPendentes ?? 0) >= LEAD_LIMIT;
   
   // State para métricas externas de IA Ligação
   const [metricasLigacaoExternas, setMetricasLigacaoExternas] = useState<Record<string, MetricasLigacaoExternas>>({});
