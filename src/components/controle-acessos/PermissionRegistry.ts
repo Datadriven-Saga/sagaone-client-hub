@@ -325,7 +325,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canDispararEventos = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
   defaults.canRedispararEventos = isAdminOrTI;
   defaults.canAprovarCampanhas = isAdmin || isTI || isCRM; // CRM valida campanhas; Gestor de Leads NÃO pode aprovar
-  defaults.canProgramarCampanhas = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+  defaults.canProgramarCampanhas = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
 
   // ── Base / Contatos ──
   defaults.canViewClientes = true;
