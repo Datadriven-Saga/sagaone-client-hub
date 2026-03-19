@@ -2201,6 +2201,8 @@ showAllEvents: true
                   onCardClick={handleCardClick}
                   onStatusChange={handleStatusChange}
                   onSolicitarClientes={isLimitedUser ? solicitarClientes : undefined}
+                  solicitarDisabled={atLimitLeads}
+                  solicitarTooltip={atLimitLeads ? `Você já possui ${leadsPendentes} leads pendentes (limite: ${LEAD_LIMIT}). Finalize atendimentos para solicitar novos.` : undefined}
                   onLoadMore={handleLoadMoreColumn}
                   columnHasMore={kanbanColumnHasMore}
                   columnLoadingMore={kanbanLoadingMore}
