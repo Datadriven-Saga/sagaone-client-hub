@@ -1,5 +1,6 @@
 // Template Paused Webhook - Handles Meta-paused WhatsApp templates
 // Pauses dispatches, dissociates templates, auto-duplicates via official webhook flow
+// CRITICAL: Uses atomic INSERT...ON CONFLICT on template_pausado_log as mutex to prevent duplicate recovery
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -63,7 +64,6 @@ function buildVariableExamples(
   if (!variableMapping) return examples;
 
   for (const [position, fieldName] of Object.entries(variableMapping)) {
-    // Priority: 1) stored example from DB, 2) default by field name, 3) generic
     if (exemplosVarDb && exemplosVarDb[position]) {
       examples[position] = exemplosVarDb[position];
     } else {
@@ -98,8 +98,7 @@ function tweakBodyText(text: string): string {
   return modified;
 }
 
-// Helper: build Meta-compatible components from template data
-// Helper: fetch media URL and convert to base64 (same as frontend fetchMediaAsBase64)
+// Helper: fetch media URL and convert to base64
 async function fetchMediaAsBase64(url: string): Promise<{ base64: string; mimeType: string; size: number } | null> {
   try {
     const response = await fetch(url);
@@ -111,7 +110,6 @@ async function fetchMediaAsBase64(url: string): Promise<{ base64: string; mimeTy
     const uint8Array = new Uint8Array(arrayBuffer);
     const mimeType = response.headers.get('content-type') || 'application/octet-stream';
     
-    // Convert to base64
     let binary = '';
     for (let i = 0; i < uint8Array.length; i++) {
       binary += String.fromCharCode(uint8Array[i]);
@@ -140,13 +138,11 @@ async function buildMetaComponents(template: {
     const bodyText = options?.tweakText ? tweakBodyText(template.conteudo) : template.conteudo;
     const bodyComponent: any = { type: 'BODY', text: bodyText };
 
-    // Add variable examples if template has variables
     const varExamples = buildVariableExamples(
       template.variable_mapping,
       template.exemplos_variaveis,
     );
     if (Object.keys(varExamples).length > 0) {
-      // Meta expects example.body_text as array of arrays
       const sortedValues = Object.keys(varExamples)
         .sort((a, b) => parseInt(a) - parseInt(b))
         .map(k => varExamples[k]);
@@ -156,7 +152,7 @@ async function buildMetaComponents(template: {
     components.push(bodyComponent);
   }
 
-  // HEADER (media) - fetch base64 like frontend does
+  // HEADER (media)
   const cardData = template.card_data || {};
   if (cardData.videoUrl) {
     console.log('📥 Baixando vídeo para base64...');
@@ -237,7 +233,61 @@ Deno.serve(async (req: Request) => {
 
     console.log(`🔴 Template pausado pela Meta: id_meta=${id_meta}`);
 
-    // 1. Find ALL whatsapp_templates with this id_meta (across all empresas)
+    // =====================================================================
+    // STEP 1: ATOMIC LOCK — Try to claim this id_meta for recovery.
+    // The unique partial index on (id_meta_original) WHERE status NOT IN
+    // ('failed','resolved','cancelled') guarantees only ONE active recovery.
+    // If another execution already claimed it, the INSERT fails with 23505.
+    // =====================================================================
+    const { data: lockEntry, error: lockErr } = await supabase
+      .from('template_pausado_log')
+      .insert({
+        id_meta_original: String(id_meta),
+        status: 'pending_duplicate',
+        eventos_impactados: [],
+      })
+      .select('id')
+      .single();
+
+    if (lockErr) {
+      // Check if it's a unique violation (23505) — means recovery already in progress
+      const errMsg = lockErr.message || '';
+      const errCode = (lockErr as any)?.code || '';
+      if (errCode === '23505' || errMsg.includes('duplicate key') || errMsg.includes('unique constraint') || errMsg.includes('idx_template_pausado_log_active_recovery')) {
+        console.log(`🔒 Recovery already in progress for id_meta=${id_meta} — skipping`);
+
+        // Fetch the existing active log for reference
+        const { data: existingLog } = await supabase
+          .from('template_pausado_log')
+          .select('id, status, template_duplicado_id, created_at')
+          .eq('id_meta_original', String(id_meta))
+          .not('status', 'in', '("failed","resolved","cancelled")')
+          .limit(1)
+          .maybeSingle();
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            action: 'ignored_duplicate_request',
+            reason: 'existing_replacement_already_pending_approval',
+            existing_log_id: existingLog?.id || null,
+            existing_log_status: existingLog?.status || null,
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Other insert error — log and continue cautiously
+      console.error('❌ Erro ao criar lock entry:', lockErr);
+      throw lockErr;
+    }
+
+    const logId = lockEntry!.id;
+    console.log(`🔐 Lock acquired: log_id=${logId} for id_meta=${id_meta}`);
+
+    // =====================================================================
+    // STEP 2: Find and pause all templates with this id_meta
+    // =====================================================================
     const { data: templates, error: templatesErr } = await supabase
       .from('whatsapp_templates')
       .select('id, nome, empresa_id, pri_telefone, conteudo, formato, categoria, card_data, variable_mapping, agente_id, departamento_id, template_id_pri, category_meta, exemplos_variaveis')
@@ -247,6 +297,8 @@ Deno.serve(async (req: Request) => {
 
     if (!templates || templates.length === 0) {
       console.log(`⚠️ Nenhum template encontrado com id_meta=${id_meta}`);
+      // Mark lock as resolved since there's nothing to do
+      await supabase.from('template_pausado_log').update({ status: 'resolved', updated_at: new Date().toISOString() }).eq('id', logId);
       return new Response(
         JSON.stringify({ success: false, message: 'Template não encontrado' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -255,14 +307,23 @@ Deno.serve(async (req: Request) => {
 
     console.log(`📋 Encontrados ${templates.length} template(s) com id_meta=${id_meta}`);
 
-    // 2. Update all templates status_meta to PAUSED
+    // Update all templates status_meta to PAUSED
     const templateIds = templates.map(t => t.id);
     await supabase
       .from('whatsapp_templates')
       .update({ status_meta: 'PAUSED' })
       .in('id', templateIds);
 
-    // 3. Find ALL prospeccoes (IA WhatsApp) referencing any of these template UUIDs
+    // Update log with template_original_id and pri_telefone
+    await supabase.from('template_pausado_log').update({
+      template_original_id: templates[0].id,
+      pri_telefone: templates[0].pri_telefone,
+      updated_at: new Date().toISOString(),
+    }).eq('id', logId);
+
+    // =====================================================================
+    // STEP 3: Find and pause all affected prospeccoes
+    // =====================================================================
     const eventosImpactados: Array<{ prospeccao_id: string; empresa_id: string; campo: string }> = [];
     const prospeccaoIdsAfetados = new Set<string>();
 
@@ -288,7 +349,6 @@ Deno.serve(async (req: Request) => {
             });
             prospeccaoIdsAfetados.add(p.id);
 
-            // NULL out the template field and set disparos_pausados
             await supabase
               .from('prospeccoes')
               .update({ [campo]: null, disparos_pausados: true })
@@ -302,7 +362,15 @@ Deno.serve(async (req: Request) => {
 
     console.log(`📊 Total de eventos impactados: ${eventosImpactados.length}`);
 
-    // 5. Cancel active campaign_jobs for affected prospeccoes
+    // Update log with eventos_impactados
+    await supabase.from('template_pausado_log').update({
+      eventos_impactados: eventosImpactados,
+      updated_at: new Date().toISOString(),
+    }).eq('id', logId);
+
+    // =====================================================================
+    // STEP 4: Cancel active campaign_jobs for affected prospeccoes
+    // =====================================================================
     if (prospeccaoIdsAfetados.size > 0) {
       const prosIds = Array.from(prospeccaoIdsAfetados);
       const { data: activeJobs } = await supabase
@@ -321,48 +389,9 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 6. Check if there's already a pending log entry for this id_meta
-    const { data: existingLog } = await supabase
-      .from('template_pausado_log')
-      .select('id, status, template_duplicado_id')
-      .eq('id_meta_original', id_meta)
-      .in('status', ['pending_duplicate', 'awaiting_approval'])
-      .maybeSingle();
-
-    if (existingLog) {
-      console.log(`♻️ Reusando log existente: ${existingLog.id} (status: ${existingLog.status})`);
-      const { data: currentLog } = await supabase
-        .from('template_pausado_log')
-        .select('eventos_impactados')
-        .eq('id', existingLog.id)
-        .single();
-
-      const currentEventos = (currentLog?.eventos_impactados as any[]) || [];
-      const mergedEventos = [...currentEventos];
-      for (const evt of eventosImpactados) {
-        if (!mergedEventos.some(e => e.prospeccao_id === evt.prospeccao_id && e.campo === evt.campo)) {
-          mergedEventos.push(evt);
-        }
-      }
-
-      await supabase
-        .from('template_pausado_log')
-        .update({ eventos_impactados: mergedEventos, updated_at: new Date().toISOString() })
-        .eq('id', existingLog.id);
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          reused_log: existingLog.id,
-          templates_paused: templates.length,
-          events_impacted: eventosImpactados.length,
-          jobs_cancelled: prospeccaoIdsAfetados.size,
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // 7. Duplicate templates - create new versions per empresa
+    // =====================================================================
+    // STEP 5: Duplicate templates — one per empresa
+    // =====================================================================
     const originalTemplate = templates[0];
     const originalName = originalTemplate.nome;
 
@@ -387,8 +416,6 @@ Deno.serve(async (req: Request) => {
     const newName = `${baseName}_v${maxVersion + 1}`;
     console.log(`📋 Nome do template duplicado: ${newName}`);
 
-    // Create duplicate for each empresa that had a template
-    // REGRA CRÍTICA: Mesma lógica do frontend - template só persiste se webhook retornar template_id_pri
     const duplicatedTemplateIds: string[] = [];
     const uniqueEmpresas = new Map<string, typeof templates[0]>();
     for (const t of templates) {
@@ -401,7 +428,7 @@ Deno.serve(async (req: Request) => {
     let webhookSuccess = false;
 
     for (const [empresaId, sourceTemplate] of uniqueEmpresas) {
-      // 7a. Insert template provisoriamente (mesmo padrão do frontend)
+      // Insert template provisionally
       const { data: newTemplate, error: insertErr } = await supabase
         .from('whatsapp_templates')
         .insert({
@@ -433,7 +460,7 @@ Deno.serve(async (req: Request) => {
       const insertedId = newTemplate.id;
       console.log(`  📋 Template provisório criado: ${insertedId} para empresa ${empresaId}`);
 
-      // 7b. Chamar webhook (OBRIGATÓRIO - mesma regra do frontend)
+      // Call webhook (MANDATORY)
       if (!sourceTemplate.agente_id) {
         console.error(`❌ Template sem agente_id - rollback do template ${insertedId}`);
         await supabase.from('whatsapp_templates').delete().eq('id', insertedId);
@@ -473,11 +500,10 @@ Deno.serve(async (req: Request) => {
         pri_dealer_id: agenteData.dealer_id || null,
         pri_status: agenteData.ativo ? 'Ativo' : 'Inativo',
         variable_mapping: sourceTemplate.variable_mapping || {},
-        // ID do template original na PRI para reutilizar mídia já enviada à Meta
         template_id_pri_original: sourceTemplate.template_id_pri || null,
       };
 
-      // Chamar trigger-webhook (mesmo fluxo do frontend)
+      // Call trigger-webhook
       const triggerUrl = `${supabaseUrl}/functions/v1/trigger-webhook`;
 
       let returnedTemplateIdPri: string | null = null;
@@ -508,12 +534,10 @@ Deno.serve(async (req: Request) => {
 
         const parsed = JSON.parse(triggerResultText);
 
-        // Verificar se algum webhook foi disparado
         if (!parsed?.webhooks_disparados || parsed.webhooks_disparados === 0) {
           throw new Error('Nenhum gatilho ativo encontrado para novo_template_whatsapp nesta empresa. Verifique a configuração dos gatilhos.');
         }
 
-        // Extrair resposta do webhook externo (mesmo padrão do frontend)
         const webhookResponse = parsed?.webhook_response;
         if (webhookResponse) {
           returnedTemplateIdPri = webhookResponse.template_id_pri || webhookResponse.id || null;
@@ -528,7 +552,7 @@ Deno.serve(async (req: Request) => {
         console.error(`❌ Erro no webhook para empresa ${empresaId}:`, webhookErr);
       }
 
-      // 7c. VALIDAÇÃO CRÍTICA: template_id_pri é OBRIGATÓRIO (mesma regra do frontend)
+      // CRITICAL VALIDATION: template_id_pri is MANDATORY
       if (!returnedTemplateIdPri) {
         console.error(`❌ template_id_pri não retornado pelo webhook - ROLLBACK do template ${insertedId}`);
         await supabase.from('whatsapp_templates').delete().eq('id', insertedId);
@@ -536,7 +560,7 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      // 7d. Atualizar template com IDs retornados pelo webhook
+      // Update template with IDs from webhook
       const { error: updateErr } = await supabase
         .from('whatsapp_templates')
         .update({
@@ -558,30 +582,24 @@ Deno.serve(async (req: Request) => {
       webhookSuccess = true;
     }
 
+    // =====================================================================
+    // STEP 6: Update log with final result
+    // =====================================================================
+    const logStatus = webhookSuccess ? 'awaiting_approval' : 'failed';
+    await supabase
+      .from('template_pausado_log')
+      .update({
+        template_duplicado_id: firstDuplicateId,
+        status: logStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', logId);
+
     if (!webhookSuccess) {
       console.error('❌ Nenhum template duplicado foi confirmado pelo webhook - todos sofreram rollback');
     }
 
-    // 8. Save log entry - status depende do resultado do webhook
-    const logStatus = webhookSuccess ? 'awaiting_approval' : 'failed';
-    const { data: logEntry, error: logErr } = await supabase
-      .from('template_pausado_log')
-      .insert({
-        id_meta_original: id_meta,
-        template_original_id: originalTemplate.id,
-        template_duplicado_id: firstDuplicateId,
-        status: logStatus,
-        eventos_impactados: eventosImpactados,
-        pri_telefone: originalTemplate.pri_telefone,
-      })
-      .select('id')
-      .single();
-
-    if (logErr) {
-      console.error('❌ Erro ao criar log:', logErr);
-    } else {
-      console.log(`📝 Log criado: ${logEntry?.id} (status: ${logStatus})`);
-    }
+    console.log(`📝 Log ${logId} atualizado (status: ${logStatus})`);
 
     return new Response(
       JSON.stringify({
@@ -592,7 +610,7 @@ Deno.serve(async (req: Request) => {
         duplicate_name: newName,
         duplicate_ids: duplicatedTemplateIds,
         webhook_validated: webhookSuccess,
-        log_id: logEntry?.id,
+        log_id: logId,
         log_status: logStatus,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
