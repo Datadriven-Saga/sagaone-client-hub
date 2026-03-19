@@ -4,6 +4,7 @@ import { KanbanCard } from './KanbanCard';
 import { KanbanColumnData, KanbanItem } from './KanbanBoard';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface KanbanColumnProps {
   column: KanbanColumnData;
