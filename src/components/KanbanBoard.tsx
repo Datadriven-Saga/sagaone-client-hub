@@ -60,6 +60,8 @@ export function KanbanBoard({
   onCardClick,
   onStatusChange,
   onSolicitarClientes,
+  solicitarDisabled,
+  solicitarTooltip,
   onLoadMore,
   columnHasMore,
   columnLoadingMore,
