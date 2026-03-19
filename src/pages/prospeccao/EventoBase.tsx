@@ -152,6 +152,191 @@ export default function EventoBase() {
   // Cache do telefone do agente Pri(Ligação) 
   const [telefonePriLigacao, setTelefonePriLigacao] = useState<string | null>(null);
 
+  // Helper: disparar webhook "evento alterado" quando template é reassociado
+  const triggerEventoAlteradoWebhook = useCallback(async (prospeccaoData: any) => {
+    if (!activeCompany?.id) return;
+    
+    const canal = prospeccaoData.canal?.toLowerCase() || '';
+    if (!canal.includes('whatsapp')) return;
+
+    console.log('🔔 Disparando webhook evento-alterado por reassociação de template...');
+
+    try {
+      // Buscar dados completos do evento
+      const { data: fullProspeccao, error: prosErr } = await supabase
+        .from('prospeccoes')
+        .select('id, titulo, descricao, canal, data_inicio, data_fim, event_id_pri, evento_principal, qualificar_lead, data_envio_template_inicial, data_envio_cadencia, cadencia_completa, template_prospeccao_id, template_agendado_id, template_nao_agendado_id, template_agendado_48h_id, template_agendado_24h_id')
+        .eq('id', prospeccaoData.id)
+        .maybeSingle();
+
+      if (prosErr || !fullProspeccao) {
+        console.error('❌ Erro ao buscar dados completos do evento:', prosErr);
+        return;
+      }
+
+      // Buscar crm_id da empresa
+      const { data: empresaData } = await supabase
+        .from('empresas')
+        .select('crm_id')
+        .eq('id', activeCompany.id)
+        .single();
+
+      const dealerIdLoja = (empresaData?.crm_id ?? '').toString().trim();
+
+      // Resolver agente PRI Whatsapp
+      let priTelefone = '';
+      let priStatus: 'Ativo' | 'Inativo' = 'Inativo';
+
+      const { data: priLink } = await supabase
+        .from('agente_empresas')
+        .select('agente_id, agentes_ia!inner(telefone, nome, ativo)')
+        .eq('empresa_id', activeCompany.id)
+        .eq('agentes_ia.ativo', true)
+        .ilike('agentes_ia.nome', '%pri%whatsapp%')
+        .limit(1)
+        .maybeSingle();
+
+      if (priLink) {
+        const a = (priLink as any)?.agentes_ia;
+        priTelefone = a?.telefone ? String(a.telefone).replace(/\D/g, '') : '';
+        priStatus = a?.ativo ? 'Ativo' : 'Inativo';
+      }
+
+      if (!priTelefone) {
+        const { data: anyLink } = await supabase
+          .from('agente_empresas')
+          .select('agente_id, agentes_ia!inner(telefone, nome, ativo)')
+          .eq('empresa_id', activeCompany.id)
+          .eq('agentes_ia.ativo', true)
+          .limit(1)
+          .maybeSingle();
+
+        if (anyLink) {
+          const a = (anyLink as any)?.agentes_ia;
+          priTelefone = a?.telefone ? String(a.telefone).replace(/\D/g, '') : '';
+          priStatus = a?.ativo ? 'Ativo' : 'Inativo';
+        }
+      }
+
+      // Resolver templates (buscar IDs PRI/Meta)
+      const templateFields = [
+        { field: 'template_prospeccao_id', key: 'template_prospeccao' },
+        { field: 'template_agendado_id', key: 'template_agendado' },
+        { field: 'template_nao_agendado_id', key: 'template_nao_agendado' },
+        { field: 'template_agendado_48h_id', key: 'template_agendado_48h' },
+        { field: 'template_agendado_24h_id', key: 'template_agendado_24h' },
+      ];
+
+      const templateIds = templateFields
+        .map(tf => (fullProspeccao as any)[tf.field])
+        .filter(Boolean);
+
+      let templateMap = new Map<string, any>();
+      if (templateIds.length > 0) {
+        const { data: templates } = await supabase
+          .from('whatsapp_templates')
+          .select('id, nome, template_id_pri, id_meta')
+          .in('id', templateIds);
+
+        if (templates) {
+          for (const t of templates) {
+            templateMap.set(t.id, t);
+          }
+        }
+      }
+
+      const formatarDataISO = (data: string | null) => {
+        if (!data) return null;
+        try { return new Date(data).toISOString(); } catch { return null; }
+      };
+
+      // Construir payload (mesmo formato do CriarProspeccaoModal)
+      const payload: any = {
+        evento_id: fullProspeccao.id,
+        titulo: fullProspeccao.titulo,
+        descricao: (fullProspeccao as any).descricao,
+        tipo_evento: 'IA Whatsapp',
+        data_inicio: formatarDataISO(fullProspeccao.data_inicio ? fullProspeccao.data_inicio + 'T11:00:00' : null),
+        data_fim: formatarDataISO(fullProspeccao.data_fim ? fullProspeccao.data_fim + 'T23:59:59' : null),
+        canal: fullProspeccao.canal,
+        acao: 'alterado',
+        empresa_id: activeCompany.id,
+        data: new Date().toISOString(),
+        pri_telefone: priTelefone || null,
+        pri_dealer_id: dealerIdLoja || null,
+        pri_status: priStatus,
+        evento_principal: (fullProspeccao as any).evento_principal ?? false,
+        qualificar_lead: (fullProspeccao as any).qualificar_lead ?? true,
+        data_envio_template_inicial: formatarDataISO((fullProspeccao as any).data_envio_template_inicial),
+        data_envio_cadencia: formatarDataISO((fullProspeccao as any).data_envio_cadencia),
+        cadencia_completa: (fullProspeccao as any).cadencia_completa ?? false,
+      };
+
+      // Adicionar dados dos templates
+      for (const tf of templateFields) {
+        const templateId = (fullProspeccao as any)[tf.field];
+        const templateData = templateId ? templateMap.get(templateId) : null;
+
+        // Só incluir 48h/24h se cadência completa
+        if ((tf.key === 'template_agendado_48h' || tf.key === 'template_agendado_24h') && !(fullProspeccao as any).cadencia_completa) {
+          continue;
+        }
+
+        payload[`${tf.key}_id`] = templateId || null;
+        payload[tf.key] = templateData?.nome || null;
+        payload[`${tf.key}_id_pri`] = templateData?.template_id_pri || null;
+        payload[`${tf.key}_id_meta`] = templateData?.id_meta || null;
+      }
+
+      // Buscar gatilhos ativos do tipo "novo_evento_criado"
+      const { data: gatilhos, error: gatilhosErr } = await supabase
+        .from('gatilhos')
+        .select('*')
+        .eq('empresa_id', activeCompany.id)
+        .eq('status', 'Ativo');
+
+      if (gatilhosErr || !gatilhos) {
+        console.error('❌ Erro ao buscar gatilhos:', gatilhosErr);
+        return;
+      }
+
+      const gatilhosEvento = gatilhos.filter(g => {
+        const acoes = g.acoes as any;
+        return acoes?.tipo_evento === 'novo_evento_criado';
+      });
+
+      if (gatilhosEvento.length === 0) {
+        console.log('ℹ️ Nenhum gatilho de novo_evento_criado configurado');
+        return;
+      }
+
+      console.log(`📤 Disparando ${gatilhosEvento.length} gatilho(s) de evento alterado (reassociação template)`);
+
+      for (const gatilho of gatilhosEvento) {
+        const webhookUrl = (gatilho.acoes as any)?.webhook_url;
+        if (!webhookUrl) continue;
+
+        try {
+          const { data: proxyResponse, error: proxyError } = await supabase.functions.invoke('external-webhook-proxy', {
+            body: { webhook_url: webhookUrl, ...payload }
+          });
+
+          if (proxyError) {
+            console.error(`❌ Erro ao disparar gatilho "${gatilho.nome}":`, proxyError.message);
+          } else {
+            console.log(`✅ Gatilho "${gatilho.nome}" disparado (reassociação template)`);
+          }
+
+          await supabase.from('gatilhos').update({ ultima_execucao: new Date().toISOString() }).eq('id', gatilho.id);
+        } catch (webhookError) {
+          console.error(`❌ Erro no webhook "${gatilho.nome}":`, webhookError);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro ao disparar webhook de evento alterado:', error);
+    }
+  }, [activeCompany?.id]);
+
   // Buscar dados do evento
   useEffect(() => {
     const fetchProspeccao = async () => {
@@ -192,13 +377,16 @@ export default function EventoBase() {
           if (!releaseErr) {
             setProspeccao({ ...data, disparos_pausados: false } as any);
             toast({ title: "Disparos liberados", description: "Um template válido foi detectado. Os disparos foram liberados automaticamente." });
+            
+            // Disparar webhook de evento alterado para sincronizar backend externo
+            triggerEventoAlteradoWebhook(data);
           }
         }
       }
     };
 
     fetchProspeccao();
-  }, [eventoId, activeCompany?.id, navigate, toast]);
+  }, [eventoId, activeCompany?.id, navigate, toast, triggerEventoAlteradoWebhook]);
 
   // Buscar templates aprovados quando disparos estão pausados (para substituição manual)
   useEffect(() => {
