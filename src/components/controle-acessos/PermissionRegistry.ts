@@ -309,8 +309,8 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
 
   // ── Eventos ──
   defaults.canViewEventos = !isRecepcionista;
-  defaults.canCreateEventos = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
-  defaults.canEditEventos = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+  defaults.canCreateEventos = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
+  defaults.canEditEventos = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
   defaults.canDeleteEventos = isAdminOrTI;
   defaults.canManageEvents = !isRecepcionista;
   defaults.canManageEventos = isAdminOrTI;
