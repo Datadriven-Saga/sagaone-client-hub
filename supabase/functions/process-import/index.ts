@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const BATCH_SIZE = 1000;
+const BATCH_SIZE = 300;
 const MAX_ELAPSED_MS = 120_000;
 
 // Simple CSV parser that handles quoted fields
