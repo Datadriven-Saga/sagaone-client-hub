@@ -10,6 +10,8 @@ interface KanbanColumnProps {
   totalCount?: number; // Real total from DB, independent of loaded items
   onCardClick?: (item: KanbanItem) => void;
   onSolicitarClientes?: () => void;
+  solicitarDisabled?: boolean;
+  solicitarTooltip?: string;
   onLoadMore?: () => void;
   hasMore?: boolean;
   loadingMore?: boolean;
