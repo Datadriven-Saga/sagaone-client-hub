@@ -303,7 +303,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
 
   // ── Templates ──
   defaults.canViewTemplates = !isRecepcionista;
-  defaults.canCreateTemplates = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+  defaults.canCreateTemplates = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
   defaults.canEditTemplates = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
   defaults.canDeleteTemplates = isAdminOrTI;
 
