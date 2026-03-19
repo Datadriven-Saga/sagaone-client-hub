@@ -821,6 +821,11 @@ showAllEvents: true
       });
     }
     
+    // Atualizar contagem de leads pendentes para vendedores/SDR
+    if (isLimitedUser) {
+      contarLeadsPendentes();
+    }
+    
     return true; // Permitir mover o card
   };
 
