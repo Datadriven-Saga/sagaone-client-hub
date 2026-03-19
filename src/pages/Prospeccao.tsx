@@ -800,33 +800,42 @@ showAllEvents: true
         return false; // Não mover o card visualmente ainda
       }
     }
+    try {
+      const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
+      if (novoStatusDb) {
+        await atualizarStatusContato(itemId, novoStatusDb);
+      }
 
-    const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
-    if (novoStatusDb) {
-      await atualizarStatusContato(itemId, novoStatusDb);
-    }
+      // Auto-atribuir responsável quando sair da coluna "novos"
+      if (fromStatus === 'novos' && user?.email) {
+        await atribuirResponsavel(itemId, user.email);
+      }
 
-    // Auto-atribuir responsável quando sair da coluna "novos"
-    if (fromStatus === 'novos' && user?.email) {
-      await atribuirResponsavel(itemId, user.email);
-    }
+      if (registrarMovimentacao && user && prospeccoes?.length > 0) {
+        await registrarMovimentacao({
+          leadId: itemId,
+          prospeccaoId: prospeccoes[0].id, 
+          statusAnterior: fromStatus,
+          statusNovo: toStatus,
+          usuarioId: user.id,
+        });
+      }
+      
+      // Atualizar contagem de leads pendentes para vendedores/SDR
+      if (isLimitedUser) {
+        contarLeadsPendentes();
+      }
 
-    if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-      await registrarMovimentacao({
-        leadId: itemId,
-        prospeccaoId: prospeccoes[0].id, 
-        statusAnterior: fromStatus,
-        statusNovo: toStatus,
-        usuarioId: user.id,
-      });
+      // Re-fetch kanban para refletir a mudança visualmente
+      fetchKanbanColumns(getKanbanFilters());
+      
+      return true;
+    } catch (err) {
+      console.error('Erro ao processar mudança de status:', err);
+      // Re-fetch para garantir consistência mesmo em caso de erro
+      fetchKanbanColumns(getKanbanFilters());
+      return true;
     }
-    
-    // Atualizar contagem de leads pendentes para vendedores/SDR
-    if (isLimitedUser) {
-      contarLeadsPendentes();
-    }
-    
-    return true; // Permitir mover o card
   };
 
   // Carregar contagens de pendentes para eventos IA (OTIMIZADO - sem webhooks externos)
