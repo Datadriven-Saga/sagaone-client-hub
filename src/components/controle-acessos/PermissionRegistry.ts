@@ -362,7 +362,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   // ── Vendas ──
   defaults.canViewVendas = !isRecepcionista;
   defaults.canCreateVendas = !isRecepcionista;
-  defaults.canEditVendas = isAdmin || isTI || isGerenteLeads || isCoordenadoraLeads || isCRM;
+  defaults.canEditVendas = isAdmin || isTI || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads || isCRM;
   defaults.canDeleteVendas = isAdminOrTI;
 
   // ── Usuários ──
