@@ -195,6 +195,8 @@ export function KanbanBoard({
                 totalCount={columnCounts?.[column.id]}
                 onCardClick={onCardClick}
                 onSolicitarClientes={column.id === 'novos' ? onSolicitarClientes : undefined}
+                solicitarDisabled={column.id === 'novos' ? solicitarDisabled : undefined}
+                solicitarTooltip={column.id === 'novos' ? solicitarTooltip : undefined}
                 onLoadMore={() => onLoadMore?.(column.id)}
                 hasMore={columnHasMore?.[column.id]}
                 loadingMore={columnLoadingMore?.[column.id]}
