@@ -1391,7 +1391,8 @@ export default function EventoBase() {
       }
 
       // Dividir leads em batches de 1000
-      const batchCount = Math.ceil(leadsParaDisparar.length / BATCH_SIZE);
+      const JOB_BATCH_SIZE = 1000;
+      const batchCount = Math.ceil(leadsParaDisparar.length / JOB_BATCH_SIZE);
 
       // 1. Criar o job
       const { data: jobData, error: jobError } = await supabase
