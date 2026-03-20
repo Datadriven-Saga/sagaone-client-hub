@@ -1422,7 +1422,7 @@ export default function EventoBase() {
       // 2. Criar batches com lead_ids
       const batchInserts = [];
       for (let i = 0; i < batchCount; i++) {
-        const batchLeads = leadsParaDisparar.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+        const batchLeads = leadsParaDisparar.slice(i * JOB_BATCH_SIZE, (i + 1) * JOB_BATCH_SIZE);
         batchInserts.push({
           job_id: jobId,
           batch_index: i,
