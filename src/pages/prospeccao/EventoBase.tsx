@@ -1344,8 +1344,8 @@ export default function EventoBase() {
         }
       }
       
-      // Buscar todos os contatos pendentes
-      let contatosPendentes = await fetchContatosPendentes();
+      // Buscar contatos pendentes - apenas a quantidade necessária
+      let contatosPendentes = await fetchContatosPendentes(quantidade);
       
       if (contatosPendentes.length === 0) {
         toast({ title: "Atenção", description: "Nenhum contato pendente para disparar" });
@@ -1375,11 +1375,8 @@ export default function EventoBase() {
         return;
       }
 
-      // Aplicar limite de quantidade
-      let leadsParaDisparar = contatosPendentes;
-      if (quantidade && quantidade > 0) {
-        leadsParaDisparar = contatosPendentes.slice(0, Math.min(quantidade, contatosPendentes.length));
-      }
+      // Leads já vêm limitados pela quantidade solicitada
+      const leadsParaDisparar = contatosPendentes;
 
       console.log(`📊 Total para disparar: ${leadsParaDisparar.length}`);
 
