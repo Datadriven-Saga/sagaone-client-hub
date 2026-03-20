@@ -771,17 +771,21 @@ export default function Templates() {
       let agenteData: { telefone: string | null; dealer_id: string | null; ativo: boolean; nome: string } | null = null;
       
       if (templateData.agenteId) {
-        const { data } = await supabase
+        const { data, error: agenteError } = await supabase
           .from("agentes_ia")
           .select("telefone, dealer_id, ativo, nome")
           .eq("id", templateData.agenteId)
-          .single();
+          .maybeSingle();
+        
+        if (agenteError) {
+          console.error("❌ Erro ao buscar agente:", agenteError.message, agenteError.code);
+        }
         agenteData = data;
       }
 
       if (!agenteData) {
-        console.error("❌ Agente não encontrado para o template - webhook não será disparado");
-        toast.error("Agente não encontrado. Webhook não disparado.");
+        console.error("❌ Agente não encontrado para o template - webhook não será disparado. agenteId:", templateData.agenteId);
+        toast.error("Agente não encontrado ou sem permissão de acesso. Verifique se o agente está vinculado à sua loja.");
         return null;
       }
 
