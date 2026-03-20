@@ -1206,8 +1206,9 @@ export default function EventoBase() {
 
     // =====================================================
     // WHATSAPP / FALLBACK: buscar de eventos_prospeccao + contatos
+    // Com limite: busca apenas a quantidade necessária (evita carregar 20k para disparar 1k)
     // =====================================================
-    const BATCH_SIZE = 1000;
+    const ID_BATCH_SIZE = 1000;
     let allContatoIds: string[] = [];
     let offset = 0;
     let hasMore = true;
@@ -1224,8 +1225,14 @@ export default function EventoBase() {
         query = query.is('data_disparo_ia', null);
       }
       
+      // Se temos limite, calcular quanto ainda falta buscar
+      const remaining = limite ? limite - allContatoIds.length : ID_BATCH_SIZE;
+      const fetchSize = limite ? Math.min(ID_BATCH_SIZE, remaining) : ID_BATCH_SIZE;
+      
+      if (limite && remaining <= 0) break;
+      
       const { data: eventosData, error: eventosError } = await query
-        .range(offset, offset + BATCH_SIZE - 1);
+        .range(offset, offset + fetchSize - 1);
 
       if (eventosError) {
         console.error('❌ Erro ao buscar eventos pendentes:', eventosError);
@@ -1235,15 +1242,21 @@ export default function EventoBase() {
       if (eventosData && eventosData.length > 0) {
         const ids = eventosData.map(e => e.contato_id).filter(Boolean) as string[];
         allContatoIds = [...allContatoIds, ...ids];
-        offset += BATCH_SIZE;
-        hasMore = eventosData.length === BATCH_SIZE;
-        console.log(`   📊 Batch ${Math.ceil(offset / BATCH_SIZE)}: ${ids.length} IDs encontrados (total: ${allContatoIds.length})`);
+        offset += eventosData.length;
+        hasMore = eventosData.length === fetchSize;
+        console.log(`   📊 Batch ${Math.ceil(offset / ID_BATCH_SIZE)}: ${ids.length} IDs encontrados (total: ${allContatoIds.length})`);
+        
+        // Se já atingiu o limite, parar
+        if (limite && allContatoIds.length >= limite) {
+          allContatoIds = allContatoIds.slice(0, limite);
+          hasMore = false;
+        }
       } else {
         hasMore = false;
       }
     }
 
-    console.log(`📋 Total de contato_ids pendentes (local): ${allContatoIds.length}`);
+    console.log(`📋 Total de contato_ids pendentes: ${allContatoIds.length}${limite ? ` (limite: ${limite})` : ' (todos)'}`);
 
     // ETAPA 2: Buscar dados completos dos contatos em batches de 500
     const CONTATO_BATCH_SIZE = 500;
