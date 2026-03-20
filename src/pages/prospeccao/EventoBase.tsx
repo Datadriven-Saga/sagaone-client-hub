@@ -1147,7 +1147,8 @@ export default function EventoBase() {
 
   // Buscar contatos PENDENTES para disparo (apenas pendentes, não Em Fila)
   // Pendentes: data_disparo_ia IS NULL e não encerrados (nunca disparados)
-  const fetchContatosPendentes = async (): Promise<ContatoEvento[]> => {
+  // limite: se informado, busca apenas essa quantidade (evita carregar toda a base)
+  const fetchContatosPendentes = async (limite?: number): Promise<ContatoEvento[]> => {
     if (!activeCompany?.id || !eventoId) return [];
     
     const canalAtual = prospeccao?.canal?.toLowerCase() || '';
@@ -1205,8 +1206,9 @@ export default function EventoBase() {
 
     // =====================================================
     // WHATSAPP / FALLBACK: buscar de eventos_prospeccao + contatos
+    // Com limite: busca apenas a quantidade necessária (evita carregar 20k para disparar 1k)
     // =====================================================
-    const BATCH_SIZE = 1000;
+    const ID_BATCH_SIZE = 1000;
     let allContatoIds: string[] = [];
     let offset = 0;
     let hasMore = true;
@@ -1223,8 +1225,14 @@ export default function EventoBase() {
         query = query.is('data_disparo_ia', null);
       }
       
+      // Se temos limite, calcular quanto ainda falta buscar
+      const remaining = limite ? limite - allContatoIds.length : ID_BATCH_SIZE;
+      const fetchSize = limite ? Math.min(ID_BATCH_SIZE, remaining) : ID_BATCH_SIZE;
+      
+      if (limite && remaining <= 0) break;
+      
       const { data: eventosData, error: eventosError } = await query
-        .range(offset, offset + BATCH_SIZE - 1);
+        .range(offset, offset + fetchSize - 1);
 
       if (eventosError) {
         console.error('❌ Erro ao buscar eventos pendentes:', eventosError);
@@ -1234,15 +1242,21 @@ export default function EventoBase() {
       if (eventosData && eventosData.length > 0) {
         const ids = eventosData.map(e => e.contato_id).filter(Boolean) as string[];
         allContatoIds = [...allContatoIds, ...ids];
-        offset += BATCH_SIZE;
-        hasMore = eventosData.length === BATCH_SIZE;
-        console.log(`   📊 Batch ${Math.ceil(offset / BATCH_SIZE)}: ${ids.length} IDs encontrados (total: ${allContatoIds.length})`);
+        offset += eventosData.length;
+        hasMore = eventosData.length === fetchSize;
+        console.log(`   📊 Batch ${Math.ceil(offset / ID_BATCH_SIZE)}: ${ids.length} IDs encontrados (total: ${allContatoIds.length})`);
+        
+        // Se já atingiu o limite, parar
+        if (limite && allContatoIds.length >= limite) {
+          allContatoIds = allContatoIds.slice(0, limite);
+          hasMore = false;
+        }
       } else {
         hasMore = false;
       }
     }
 
-    console.log(`📋 Total de contato_ids pendentes (local): ${allContatoIds.length}`);
+    console.log(`📋 Total de contato_ids pendentes: ${allContatoIds.length}${limite ? ` (limite: ${limite})` : ' (todos)'}`);
 
     // ETAPA 2: Buscar dados completos dos contatos em batches de 500
     const CONTATO_BATCH_SIZE = 500;
@@ -1330,8 +1344,8 @@ export default function EventoBase() {
         }
       }
       
-      // Buscar todos os contatos pendentes
-      let contatosPendentes = await fetchContatosPendentes();
+      // Buscar contatos pendentes - apenas a quantidade necessária
+      let contatosPendentes = await fetchContatosPendentes(quantidade);
       
       if (contatosPendentes.length === 0) {
         toast({ title: "Atenção", description: "Nenhum contato pendente para disparar" });
@@ -1361,11 +1375,8 @@ export default function EventoBase() {
         return;
       }
 
-      // Aplicar limite de quantidade
-      let leadsParaDisparar = contatosPendentes;
-      if (quantidade && quantidade > 0) {
-        leadsParaDisparar = contatosPendentes.slice(0, Math.min(quantidade, contatosPendentes.length));
-      }
+      // Leads já vêm limitados pela quantidade solicitada
+      const leadsParaDisparar = contatosPendentes;
 
       console.log(`📊 Total para disparar: ${leadsParaDisparar.length}`);
 
@@ -1380,7 +1391,8 @@ export default function EventoBase() {
       }
 
       // Dividir leads em batches de 1000
-      const batchCount = Math.ceil(leadsParaDisparar.length / BATCH_SIZE);
+      const JOB_BATCH_SIZE = 1000;
+      const batchCount = Math.ceil(leadsParaDisparar.length / JOB_BATCH_SIZE);
 
       // 1. Criar o job
       const { data: jobData, error: jobError } = await supabase
@@ -1410,7 +1422,7 @@ export default function EventoBase() {
       // 2. Criar batches com lead_ids
       const batchInserts = [];
       for (let i = 0; i < batchCount; i++) {
-        const batchLeads = leadsParaDisparar.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+        const batchLeads = leadsParaDisparar.slice(i * JOB_BATCH_SIZE, (i + 1) * JOB_BATCH_SIZE);
         batchInserts.push({
           job_id: jobId,
           batch_index: i,
