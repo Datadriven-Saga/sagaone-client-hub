@@ -1147,7 +1147,8 @@ export default function EventoBase() {
 
   // Buscar contatos PENDENTES para disparo (apenas pendentes, não Em Fila)
   // Pendentes: data_disparo_ia IS NULL e não encerrados (nunca disparados)
-  const fetchContatosPendentes = async (): Promise<ContatoEvento[]> => {
+  // limite: se informado, busca apenas essa quantidade (evita carregar toda a base)
+  const fetchContatosPendentes = async (limite?: number): Promise<ContatoEvento[]> => {
     if (!activeCompany?.id || !eventoId) return [];
     
     const canalAtual = prospeccao?.canal?.toLowerCase() || '';
