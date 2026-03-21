@@ -184,6 +184,7 @@ const Resultados = () => {
             {selectedAgentPhone ? (
               <MetricasLigacaoTab 
                 selectedAgentPhone={selectedAgentPhone}
+                initialEventId={selectedLigacaoEventId}
               />
             ) : (
               <EventoSelectorLigacao
