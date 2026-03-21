@@ -127,7 +127,8 @@ const Resultados = () => {
     setSelectedWhatsAppEventIdPri(eventIdPri);
   }, []);
 
-  const handleLigacaoEventSelect = useCallback((_eventId: string, phone: string) => {
+  const handleLigacaoEventSelect = useCallback((eventId: string, phone: string) => {
+    setSelectedLigacaoEventId(eventId);
     setSelectedAgentPhone(phone);
   }, []);
 
