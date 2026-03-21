@@ -20,6 +20,7 @@ import {
 
 interface MetricasLigacaoTabProps {
   selectedAgentPhone: string | null;
+  initialEventId?: string | null;
 }
 
 interface EventMetrics {
