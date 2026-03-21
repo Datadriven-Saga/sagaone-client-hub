@@ -996,7 +996,12 @@ export function MFAAgentesContent() {
                               <Badge className={`text-xs ${actionColors[log.action] || "bg-muted text-muted-foreground"}`}>
                                 {actionLabels[log.action] || log.action}
                               </Badge>
-                              <span className="text-sm font-medium truncate">{log.user_name || log.user_email}</span>
+                              <span className="text-sm font-medium truncate">
+                                {log.user_name || log.user_email}
+                                {log.user_email && log.user_name && (
+                                  <span className="text-xs text-muted-foreground ml-1">({log.user_email})</span>
+                                )}
+                              </span>
                             </div>
                             <div className="text-xs text-muted-foreground space-x-2">
                               {log.account_issuer && <span>Conta: <strong>{log.account_issuer}</strong></span>}
