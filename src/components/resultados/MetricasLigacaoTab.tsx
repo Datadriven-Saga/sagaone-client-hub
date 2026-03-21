@@ -45,12 +45,12 @@ const pctFmt = (n: number) => (n * 100).toLocaleString("pt-BR", { maximumFractio
 const numFmt = (n: number) => n.toLocaleString("pt-BR");
 const safeDiv = (a: number, b: number) => (b === 0 ? 0 : a / b);
 
-export const MetricasLigacaoTab = ({ selectedAgentPhone }: MetricasLigacaoTabProps) => {
+export const MetricasLigacaoTab = ({ selectedAgentPhone, initialEventId }: MetricasLigacaoTabProps) => {
   const { activeCompany } = useCompany();
   const [allEventsData, setAllEventsData] = useState<EventMetrics[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastAppUpdate, setLastAppUpdate] = useState('');
-  const [selectedEvento, setSelectedEvento] = useState<string>('__all__');
+  const [selectedEvento, setSelectedEvento] = useState<string>(initialEventId || '__all__');
 
   useEffect(() => {
     if (selectedAgentPhone && activeCompany?.id) {
