@@ -20,6 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import { EmpresasSelector } from "@/components/EmpresasSelector";
 import { UserEmpresasManager } from "@/components/UserEmpresasManager";
 import { useMfaMaster } from "@/hooks/useMfaMaster";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
+import { MasterUsersCard } from "@/components/admin/MasterUsersCard";
 
 import { Database } from "@/integrations/supabase/types";
 
