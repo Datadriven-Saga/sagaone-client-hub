@@ -20,6 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import { EmpresasSelector } from "@/components/EmpresasSelector";
 import { UserEmpresasManager } from "@/components/UserEmpresasManager";
 import { useMfaMaster } from "@/hooks/useMfaMaster";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
+import { MasterUsersCard } from "@/components/admin/MasterUsersCard";
 
 import { Database } from "@/integrations/supabase/types";
 
@@ -80,6 +82,8 @@ const Acessos = () => {
   const itemsPerPage = 20;
   const { user: authUser, session } = useAuth();
   const { isMaster: isMasterUser } = useMfaMaster();
+  const { tipoAcesso } = useUserAccessType();
+  const canManageMasters = isMasterUser || tipoAcesso === "TI";
   const { toast } = useToast();
   
   // Role-based permissions from backend
@@ -899,6 +903,9 @@ const Acessos = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Card de Gestão de Usuários Master - visível apenas para Master e TI */}
+        {canManageMasters && <MasterUsersCard />}
         </div>
     </DashboardLayout>
   );
