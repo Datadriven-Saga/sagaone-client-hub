@@ -903,6 +903,9 @@ const Acessos = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Card de Gestão de Usuários Master - visível apenas para Master e TI */}
+        {canManageMasters && <MasterUsersCard />}
         </div>
     </DashboardLayout>
   );
