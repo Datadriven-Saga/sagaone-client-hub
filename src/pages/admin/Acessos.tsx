@@ -82,8 +82,8 @@ const Acessos = () => {
   const itemsPerPage = 20;
   const { user: authUser, session } = useAuth();
   const { isMaster: isMasterUser } = useMfaMaster();
-  const { accessType } = useUserAccessType();
-  const canManageMasters = isMasterUser || accessType === "TI";
+  const { tipoAcesso } = useUserAccessType();
+  const canManageMasters = isMasterUser || tipoAcesso === "TI";
   const { toast } = useToast();
   
   // Role-based permissions from backend
