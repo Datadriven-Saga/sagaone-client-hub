@@ -94,6 +94,7 @@ const Resultados = () => {
   
   // State for Ligação tab
   const [selectedAgentPhone, setSelectedAgentPhone] = useState<string | null>(null);
+  const [selectedLigacaoEventId, setSelectedLigacaoEventId] = useState<string | null>(null);
   
   // State for WhatsApp tab
   const [selectedWhatsAppEventId, setSelectedWhatsAppEventId] = useState<string | null>(null);
@@ -126,7 +127,8 @@ const Resultados = () => {
     setSelectedWhatsAppEventIdPri(eventIdPri);
   }, []);
 
-  const handleLigacaoEventSelect = useCallback((_eventId: string, phone: string) => {
+  const handleLigacaoEventSelect = useCallback((eventId: string, phone: string) => {
+    setSelectedLigacaoEventId(eventId);
     setSelectedAgentPhone(phone);
   }, []);
 
@@ -182,6 +184,7 @@ const Resultados = () => {
             {selectedAgentPhone ? (
               <MetricasLigacaoTab 
                 selectedAgentPhone={selectedAgentPhone}
+                initialEventId={selectedLigacaoEventId}
               />
             ) : (
               <EventoSelectorLigacao
