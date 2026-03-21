@@ -94,6 +94,7 @@ const Resultados = () => {
   
   // State for Ligação tab
   const [selectedAgentPhone, setSelectedAgentPhone] = useState<string | null>(null);
+  const [selectedLigacaoEventId, setSelectedLigacaoEventId] = useState<string | null>(null);
   
   // State for WhatsApp tab
   const [selectedWhatsAppEventId, setSelectedWhatsAppEventId] = useState<string | null>(null);
