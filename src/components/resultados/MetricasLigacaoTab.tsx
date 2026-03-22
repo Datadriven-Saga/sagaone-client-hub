@@ -222,30 +222,38 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone, initialEventId }: Metri
       {
         label: "Total da base",
         value: numFmt(m.total),
-        hint: `Contatados: ${pctFmt(safeDiv(m.leadsContatados, m.total))}`,
-        icon: <Users className="h-4 w-4" />,
+        subText: `Contatados: ${pctFmt(safeDiv(m.leadsContatados, m.total))}`,
+        subColor: "text-muted-foreground",
+        borderColor: "border-l-[hsl(var(--primary))]",
+        badgeText: null,
+        badgeColor: "",
       },
       {
         label: "Leads Contatados",
         value: numFmt(m.leadsContatados),
-        pctVal: safeDiv(m.leadsContatados, m.total),
-        pctSuffix: "da base",
-        icon: <Phone className="h-4 w-4" />,
+        subText: `${pctFmt(safeDiv(m.leadsContatados, m.total))} da base`,
+        subColor: "text-[hsl(210,80%,40%)]",
+        borderColor: "border-l-[hsl(210,80%,40%)]",
+        badgeText: `${pctFmt(safeDiv(m.leadsContatados, m.total))} da base`,
+        badgeColor: "bg-[hsl(210,80%,93%)] text-[hsl(210,80%,35%)]",
       },
       {
         label: "Atendidos",
         value: numFmt(m.atendidos),
-        pctVal: safeDiv(m.atendidos, m.leadsContatados),
-        pctSuffix: "dos contatados",
-        icon: <PhoneCall className="h-4 w-4" />,
+        subText: `${pctFmt(safeDiv(m.atendidos, m.total))} do total da base`,
+        subColor: "text-[hsl(220,70%,45%)]",
+        borderColor: "border-l-[hsl(220,70%,45%)]",
+        badgeText: `${pctFmt(safeDiv(m.atendidos, m.leadsContatados))} dos contatados`,
+        badgeColor: "bg-[hsl(220,70%,92%)] text-[hsl(220,70%,40%)]",
       },
       {
         label: "Agendados",
         value: numFmt(m.agendados),
-        pctVal: safeDiv(m.agendados, m.total),
-        pctSuffix: "da base",
-        threshold: 0.03,
-        icon: <CalendarCheck className="h-4 w-4" />,
+        subText: `${pctFmt(safeDiv(m.agendados, m.total))} do total da base`,
+        subColor: "text-[hsl(25,70%,45%)]",
+        borderColor: "border-l-[hsl(25,70%,45%)]",
+        badgeText: `${pctFmt(safeDiv(m.agendados, m.atendidos))} dos atendidos`,
+        badgeColor: "bg-[hsl(25,80%,92%)] text-[hsl(25,70%,40%)]",
       },
     ];
   }, [aggregatedMetrics]);
@@ -309,32 +317,35 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone, initialEventId }: Metri
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiCards.map((kpi, idx) => (
-          <Card key={idx} className="bg-gradient-to-b from-card/80 to-card border-border/50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                {kpi.icon}
-                <span className="text-xs font-medium">{kpi.label}</span>
-              </div>
-              <p className="text-xl font-extrabold">{kpi.value}</p>
-              {kpi.pctVal !== undefined && (
-                <p className={`text-sm font-bold mt-1 ${
-                  kpi.threshold !== undefined
-                    ? kpi.pctVal > kpi.threshold
-                      ? "text-emerald-500"
-                      : "text-destructive"
-                    : "text-primary"
-                }`}>
-                  {pctFmt(kpi.pctVal)}
-                  {kpi.pctSuffix && (
-                    <span className="text-xs text-muted-foreground font-normal ml-1">{kpi.pctSuffix}</span>
-                  )}
+          <div
+            key={idx}
+            className={`rounded-xl bg-white dark:bg-[hsl(220,20%,14%)] border border-border/30 shadow-sm border-l-[7px] ${kpi.borderColor} p-6`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  {kpi.label}
                 </p>
+                <p className="text-3xl font-bold text-foreground leading-none">
+                  {kpi.value}
+                </p>
+                {kpi.subText && (
+                  <p className={`text-sm font-medium mt-2 ${kpi.subColor}`}>
+                    {kpi.subText}
+                  </p>
+                )}
+              </div>
+              {kpi.badgeText && (
+                <div className="flex flex-col items-end shrink-0 pt-4">
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap ${kpi.badgeColor}`}>
+                    {kpi.badgeText}
+                  </span>
+                </div>
               )}
-              <p className="text-xs text-muted-foreground mt-1">{kpi.hint}</p>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ))}
       </div>
 
