@@ -44,12 +44,16 @@ interface LigacaoEvent {
 interface LigacaoResultItem {
   event_id: number;
   event_nome: string;
-  total_base: number;
+  total_registros: number;
   leads_contatados: number;
-  ligacoes_feitas: number;
-  atendidos: number;
-  agendados: number;
-  encerrados: number;
+  ligacao_atendida: number;
+  status_agendado: number;
+  tentativas_0: number;
+  tentativas_1: number;
+  tentativas_2: number;
+  tentativas_maior_2: number;
+  ligacao_erro: number;
+  enviado_whatsapp: number;
   [key: string]: unknown;
 }
 
@@ -99,49 +103,35 @@ const extractEventRows = (payload: any): any[] => {
 const hasMetricFields = (row: any) => {
   if (!row || typeof row !== "object") return false;
   return [
-    "total_base",
-    "total",
-    "leads_contatados",
-    "contatados",
-    "ligacoes_feitas",
-    "ligacoes",
-    "atendidos",
-    "agendados",
-    "encerrados",
+    "total_registros",
+    "tentativas_0",
+    "ligacao_atendida",
+    "status_agendado",
   ].some((field) => row[field] !== undefined && row[field] !== null);
 };
 
 const extractMetricRows = (payload: any): { rows: any[]; totalEventos: number } => {
   if (Array.isArray(payload)) {
     const first = payload[0];
-
     if (first?.resultados && Array.isArray(first.resultados)) {
       return { rows: first.resultados, totalEventos: Number(first.total_eventos) || first.resultados.length };
     }
-
-    if (payload.every((row) => hasMetricFields(row))) {
+    if (payload.every((row: any) => hasMetricFields(row))) {
       return { rows: payload, totalEventos: payload.length };
     }
-
     return { rows: [], totalEventos: 0 };
   }
-
   if (payload && typeof payload === "object") {
     if (Array.isArray(payload.resultados)) {
-      return {
-        rows: payload.resultados,
-        totalEventos: Number(payload.total_eventos) || payload.resultados.length,
-      };
+      return { rows: payload.resultados, totalEventos: Number(payload.total_eventos) || payload.resultados.length };
     }
-
     if (payload.data && Array.isArray(payload.data.resultados)) {
-      return {
-        rows: payload.data.resultados,
-        totalEventos: Number(payload.data.total_eventos) || payload.data.resultados.length,
-      };
+      return { rows: payload.data.resultados, totalEventos: Number(payload.data.total_eventos) || payload.data.resultados.length };
+    }
+    if (payload.data && Array.isArray(payload.data)) {
+      return { rows: payload.data, totalEventos: payload.data.length };
     }
   }
-
   return { rows: [], totalEventos: 0 };
 };
 
@@ -246,16 +236,28 @@ export const AdminDashboardLigacao = () => {
       }
 
       const items: LigacaoResultItem[] = rows
-        .map((r: any) => ({
-          event_id: Number(r.event_id || r.id_evento) || 0,
-          event_nome: r.event_nome || r.nome || `Evento ${r.event_id || r.id_evento}`,
-          total_base: Number(r.total_base || r.total) || 0,
-          leads_contatados: Number(r.leads_contatados || r.contatados) || 0,
-          ligacoes_feitas: Number(r.ligacoes_feitas || r.ligacoes) || 0,
-          atendidos: Number(r.atendidos) || 0,
-          agendados: Number(r.agendados || r.agendado) || 0,
-          encerrados: Number(r.encerrados || r.encerrado) || 0,
-        }))
+        .map((r: any) => {
+          const totalReg = Number(r.total_registros || r.total_base || r.total) || 0;
+          const t0 = Number(r.tentativas_0) || 0;
+          const t1 = Number(r.tentativas_1) || 0;
+          const t2 = Number(r.tentativas_2) || 0;
+          const tM2 = Number(r.tentativas_maior_2) || 0;
+          const contatados = t1 + t2 + tM2;
+          return {
+            event_id: Number(r.event_id || r.id_evento) || 0,
+            event_nome: r.event_nome || r.nome_evento || r.nome || `Evento ${r.event_id || r.id_evento}`,
+            total_registros: totalReg,
+            leads_contatados: contatados,
+            ligacao_atendida: Number(r.ligacao_atendida || r.atendidos) || 0,
+            status_agendado: Number(r.status_agendado || r.agendados) || 0,
+            tentativas_0: t0,
+            tentativas_1: t1,
+            tentativas_2: t2,
+            tentativas_maior_2: tM2,
+            ligacao_erro: Number(r.ligacao_erro) || 0,
+            enviado_whatsapp: Number(r.enviado_whatsapp) || 0,
+          };
+        })
         .filter((item) => item.event_id > 0);
 
       if (items.length === 0) {
@@ -368,25 +370,32 @@ export const AdminDashboardLigacao = () => {
     }
   }, [keyword, selectedIds, fetchEventIdsByKeyword, fetchMetricsByIds, clearResults]);
 
-  // ── Aggregated metrics ────────────────────────────────────
-  const aggregated = useMemo(() => {
+   const aggregated = useMemo(() => {
     if (resultados.length === 0) return null;
     const agg = {
-      total_base: 0,
+      total_registros: 0,
       leads_contatados: 0,
-      ligacoes_feitas: 0,
-      atendidos: 0,
-      agendados: 0,
-      encerrados: 0,
+      ligacao_atendida: 0,
+      status_agendado: 0,
+      tentativas_0: 0,
+      tentativas_1: 0,
+      tentativas_2: 0,
+      tentativas_maior_2: 0,
+      ligacao_erro: 0,
+      enviado_whatsapp: 0,
     };
 
     resultados.forEach((r) => {
-      agg.total_base += r.total_base;
+      agg.total_registros += r.total_registros;
       agg.leads_contatados += r.leads_contatados;
-      agg.ligacoes_feitas += r.ligacoes_feitas;
-      agg.atendidos += r.atendidos;
-      agg.agendados += r.agendados;
-      agg.encerrados += r.encerrados;
+      agg.ligacao_atendida += r.ligacao_atendida;
+      agg.status_agendado += r.status_agendado;
+      agg.tentativas_0 += r.tentativas_0;
+      agg.tentativas_1 += r.tentativas_1;
+      agg.tentativas_2 += r.tentativas_2;
+      agg.tentativas_maior_2 += r.tentativas_maior_2;
+      agg.ligacao_erro += r.ligacao_erro;
+      agg.enviado_whatsapp += r.enviado_whatsapp;
     });
 
     return agg;
@@ -397,23 +406,47 @@ export const AdminDashboardLigacao = () => {
     return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
   };
 
-  // ── KPI cards ─────────────────────────────────────────────
+  // ── KPI cards (matching reference image style) ────────────
   const kpiCards = useMemo(() => {
     if (!aggregated) return [];
     const a = aggregated;
-    const taxaContato = safeDiv(a.leads_contatados, a.total_base);
-    const taxaAtendimento = safeDiv(a.atendidos, a.leads_contatados);
-    const taxaAgendamento = safeDiv(a.agendados, a.total_base);
+    const taxaContato = safeDiv(a.leads_contatados, a.total_registros);
+    const taxaAtendimento = safeDiv(a.ligacao_atendida, a.leads_contatados);
+    const taxaAgendamento = safeDiv(a.status_agendado, a.ligacao_atendida);
 
     return [
-      { label: "Total da base", value: numFmt(a.total_base), hint: `Contatados: ${pctFmt(taxaContato)}`, icon: <Users className="h-4 w-4" /> },
-      { label: "Leads contatados", value: numFmt(a.leads_contatados), pctVal: taxaContato, pctSuffix: "da base", icon: <Phone className="h-4 w-4" /> },
-      { label: "Ligações feitas", value: numFmt(a.ligacoes_feitas), hint: `Média: ${numFmt(Math.round(safeDiv(a.ligacoes_feitas, a.leads_contatados)))} por lead`, icon: <PhoneCall className="h-4 w-4" /> },
-      { label: "Atendidos", value: numFmt(a.atendidos), pctVal: taxaAtendimento, pctSuffix: "dos contatados", icon: <CheckCircle2 className="h-4 w-4" /> },
-      { label: "Agendados", value: numFmt(a.agendados), pctVal: taxaAgendamento, hint: taxaAgendamento * 100 > 3 ? "✓ Acima de 3%" : "✕ Abaixo de 3%", threshold: 0.03, icon: <CalendarCheck className="h-4 w-4" /> },
-      { label: "Encerrados", value: numFmt(a.encerrados), hint: `${pctFmt(safeDiv(a.encerrados, a.total_base))} da base`, icon: <XCircle className="h-4 w-4" /> },
-      { label: "Taxa contato", value: pctFmt(taxaContato), hint: `${numFmt(a.leads_contatados)} de ${numFmt(a.total_base)}`, icon: <TrendingUp className="h-4 w-4" /> },
-      { label: "Taxa agendamento", value: pctFmt(taxaAgendamento), pctVal: taxaAgendamento, hint: taxaAgendamento * 100 > 3 ? "✓ Acima de 3%" : "✕ Abaixo de 3%", threshold: 0.03, useValueColor: true, icon: <BarChart3 className="h-4 w-4" /> },
+      {
+        label: "TOTAL DA BASE",
+        value: numFmt(a.total_registros),
+        hint: `Contatados: ${pctFmt(taxaContato)}`,
+        borderColor: "border-l-sky-500",
+        badgeText: null,
+        badgeBg: "",
+      },
+      {
+        label: "LEADS CONTATADOS",
+        value: numFmt(a.leads_contatados),
+        hint: `${pctFmt(taxaContato)} da base`,
+        borderColor: "border-l-sky-500",
+        badgeText: `${pctFmt(taxaContato)} da base`,
+        badgeBg: "bg-sky-500/15 text-sky-400",
+      },
+      {
+        label: "ATENDIDOS",
+        value: numFmt(a.ligacao_atendida),
+        hint: `${pctFmt(safeDiv(a.ligacao_atendida, a.total_registros))} do total da base`,
+        borderColor: "border-l-blue-600",
+        badgeText: `${pctFmt(taxaAtendimento)} dos contatados`,
+        badgeBg: "bg-blue-500/15 text-blue-400",
+      },
+      {
+        label: "AGENDADOS",
+        value: numFmt(a.status_agendado),
+        hint: `${pctFmt(safeDiv(a.status_agendado, a.total_registros))} do total da base`,
+        borderColor: "border-l-amber-500",
+        badgeText: `${pctFmt(taxaAgendamento)} dos atendidos`,
+        badgeBg: "bg-amber-500/15 text-amber-400",
+      },
     ];
   }, [aggregated]);
 
@@ -422,22 +455,22 @@ export const AdminDashboardLigacao = () => {
     if (!aggregated) return [];
     const a = aggregated;
     return [
-      { name: "Total da base", count: a.total_base, desc: "Total de leads nos eventos", key: "base" },
-      { name: "Leads contatados", count: a.leads_contatados, desc: "Leads que foram contatados", key: "contatados" },
-      { name: "Ligações feitas", count: a.ligacoes_feitas, desc: "Total de ligações realizadas", key: "ligacoes" },
-      { name: "Atendidos", count: a.atendidos, desc: "Leads que atenderam", key: "atendidos" },
-      { name: "Agendados", count: a.agendados, desc: "Leads agendados", key: "agendados" },
+      { name: "Total de Leads", count: a.total_registros, desc: "Total de leads na base do evento", key: "base" },
+      { name: "Leads Contatados", count: a.leads_contatados, desc: "Leads que receberam pelo menos 1 ligação", key: "contatados" },
+      { name: "Atendidos", count: a.ligacao_atendida, desc: "Leads que atenderam a ligação", key: "atendidos" },
+      { name: "Agendados", count: a.status_agendado, desc: "Leads que agendaram visita", key: "agendados" },
     ];
   }, [aggregated]);
 
   const losses = useMemo(() => {
     if (!aggregated) return [];
     return [
-      { name: "Encerrados", count: aggregated.encerrados, desc: "Leads encerrados sem agendamento" },
+      { name: "Erros de ligação", count: aggregated.ligacao_erro, desc: "Ligações com erro" },
+      { name: "Enviado WhatsApp", count: aggregated.enviado_whatsapp, desc: "Leads redirecionados para WhatsApp" },
     ].filter((l) => l.count > 0);
   }, [aggregated]);
 
-  const leadBase = aggregated?.total_base || 1;
+  const leadBase = aggregated?.total_registros || 1;
 
   // ════════════════════════════════════════════════════════════
   // RENDER
@@ -605,37 +638,26 @@ export const AdminDashboardLigacao = () => {
             </Badge>
           </div>
 
-          {/* ── Consolidated KPIs ─────────────────────────────── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {kpiCards.map((kpi, idx) => {
-              let valueColor = "";
-              if ((kpi as any).useValueColor && (kpi as any).threshold !== undefined) {
-                const pv = kpi.pctVal ?? 0;
-                valueColor = pv > (kpi as any).threshold ? "text-emerald-500" : "text-destructive";
-              }
-              return (
-                <Card key={idx} className="bg-gradient-to-b from-card/80 to-card border-border/50">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                      {kpi.icon}
-                      <span className="text-xs font-medium">{kpi.label}</span>
-                    </div>
-                    <p className={`text-xl font-extrabold ${valueColor}`}>{kpi.value}</p>
-                    {kpi.pctVal !== undefined && !(kpi as any).useValueColor && (
-                      <p className={`text-sm font-bold mt-1 ${
-                        (kpi as any).threshold !== undefined
-                          ? kpi.pctVal > (kpi as any).threshold ? "text-emerald-500" : "text-destructive"
-                          : "text-primary"
-                      }`}>
-                        {pctFmt(kpi.pctVal)}
-                        {(kpi as any).pctSuffix && <span className="text-xs text-muted-foreground font-normal ml-1">{(kpi as any).pctSuffix}</span>}
-                      </p>
+          {/* ── Consolidated KPIs (matching reference image) ──── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {kpiCards.map((kpi, idx) => (
+              <Card key={idx} className={`bg-card border-l-[7px] ${kpi.borderColor} min-h-[130px]`}>
+                <CardContent className="p-4 h-full flex flex-col justify-between">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{kpi.label}</span>
+                    {kpi.badgeText && (
+                      <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full whitespace-nowrap ${kpi.badgeBg}`}>
+                        {kpi.badgeText}
+                      </span>
                     )}
+                  </div>
+                  <div className="mt-2">
+                    <p className="text-3xl font-extrabold text-foreground">{kpi.value}</p>
                     {kpi.hint && <p className="text-xs text-muted-foreground mt-1">{kpi.hint}</p>}
-                  </CardContent>
-                </Card>
-              );
-            })}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
           {/* ── Consolidated Funnel ───────────────────────────── */}
@@ -702,9 +724,9 @@ export const AdminDashboardLigacao = () => {
             <CardContent>
               <Accordion type="multiple" className="space-y-2">
                 {resultados.map((r) => {
-                  const taxaContato = safeDiv(r.leads_contatados, r.total_base);
-                  const taxaAtend = safeDiv(r.atendidos, r.leads_contatados);
-                  const taxaAgend = safeDiv(r.agendados, r.total_base);
+                  const taxaContato = safeDiv(r.leads_contatados, r.total_registros);
+                  const taxaAtend = safeDiv(r.ligacao_atendida, r.leads_contatados);
+                  const taxaAgend = safeDiv(r.status_agendado, r.total_registros);
 
                   return (
                     <AccordionItem key={r.event_id} value={String(r.event_id)} className="border rounded-lg px-4">
@@ -716,20 +738,24 @@ export const AdminDashboardLigacao = () => {
                             <span className="text-xs text-muted-foreground">ID: {r.event_id}</span>
                           </div>
                           <div className="flex gap-2 shrink-0">
-                            <Badge variant="outline" className="text-xs">{numFmt(r.total_base)} leads</Badge>
-                            <Badge variant="outline" className="text-xs">{numFmt(r.agendados)} agend.</Badge>
+                            <Badge variant="outline" className="text-xs">{numFmt(r.total_registros)} leads</Badge>
+                            <Badge variant="outline" className="text-xs">{numFmt(r.status_agendado)} agend.</Badge>
                           </div>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="pb-4 space-y-4">
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {[
-                            { label: "Base", val: numFmt(r.total_base) },
+                            { label: "Base", val: numFmt(r.total_registros) },
                             { label: "Contatados", val: `${numFmt(r.leads_contatados)} (${pctFmt(taxaContato)})` },
-                            { label: "Ligações", val: numFmt(r.ligacoes_feitas) },
-                            { label: "Atendidos", val: `${numFmt(r.atendidos)} (${pctFmt(taxaAtend)})` },
-                            { label: "Agendados", val: `${numFmt(r.agendados)} (${pctFmt(taxaAgend)})` },
-                            { label: "Encerrados", val: numFmt(r.encerrados) },
+                            { label: "Tentativas 0", val: numFmt(r.tentativas_0) },
+                            { label: "Tentativas 1", val: numFmt(r.tentativas_1) },
+                            { label: "Tentativas 2", val: numFmt(r.tentativas_2) },
+                            { label: "Tentativas >2", val: numFmt(r.tentativas_maior_2) },
+                            { label: "Atendidos", val: `${numFmt(r.ligacao_atendida)} (${pctFmt(taxaAtend)})` },
+                            { label: "Agendados", val: `${numFmt(r.status_agendado)} (${pctFmt(taxaAgend)})` },
+                            { label: "Erros", val: numFmt(r.ligacao_erro) },
+                            { label: "Enviado WhatsApp", val: numFmt(r.enviado_whatsapp) },
                           ].map((m) => (
                             <div key={m.label} className="bg-muted/30 rounded-lg p-2.5">
                               <p className="text-xs text-muted-foreground">{m.label}</p>
