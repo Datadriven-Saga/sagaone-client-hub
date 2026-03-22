@@ -495,8 +495,7 @@ export const DashboardWhatsAppTab = ({
         label: "Total da base",
         value: numFmt(m.total_base),
         hint: `Enviadas: ${pctFmt(safeDiv(m.msg_enviada, m.total_base))}`,
-        borderColor: "border-l-sky-500",
-        badgeColor: "bg-sky-100 text-sky-700",
+        icon: <MessageSquare className="h-4 w-4" />,
       },
       {
         label: "Mensagens entregues",
@@ -504,8 +503,7 @@ export const DashboardWhatsAppTab = ({
         pctVal: m.taxaEntrega,
         pctSuffix: "das enviadas",
         hint: `Custo/entregue: ${moneyVal(m.cpoEntregue)}`,
-        borderColor: "border-l-violet-500",
-        badgeColor: "bg-violet-100 text-violet-700",
+        icon: <CheckCircle2 className="h-4 w-4" />,
       },
       {
         label: "Leads responderam",
@@ -513,8 +511,7 @@ export const DashboardWhatsAppTab = ({
         pctVal: m.taxaResposta,
         pctSuffix: "das lidas",
         hint: `Custo/respondido: ${moneyVal(m.cpoRespondido)}`,
-        borderColor: "border-l-blue-500",
-        badgeColor: "bg-blue-100 text-blue-700",
+        icon: <MessageCircle className="h-4 w-4" />,
       },
       {
         label: "Leads agendados",
@@ -522,29 +519,25 @@ export const DashboardWhatsAppTab = ({
         pctVal: m.taxaAgendBase,
         hint: `CPL agendado: ${moneyVal(m.cpoAgendado)}`,
         threshold: 0.03,
-        borderColor: "border-l-amber-500",
-        badgeColor: "bg-amber-100 text-amber-700",
+        icon: <CalendarCheck className="h-4 w-4" />,
       },
       {
         label: `Gasto total (${showBRL ? "BRL" : "USD"})`,
         value: money(m.gasto_total_dolar, m.gasto_total_real),
         hint: `Custo/entregue: ${moneyVal(m.cpoEntregue)}`,
-        borderColor: "border-l-emerald-500",
-        badgeColor: "bg-emerald-100 text-emerald-700",
+        icon: <DollarSign className="h-4 w-4" />,
       },
       {
         label: "Taxa de leitura",
         value: pctFmt(m.taxaLeituraBase),
         hint: `${numFmt(m.msg_lida)} de ${numFmt(m.msg_entregue)} entregues`,
-        borderColor: "border-l-cyan-500",
-        badgeColor: "bg-cyan-100 text-cyan-700",
+        icon: <Eye className="h-4 w-4" />,
       },
       {
         label: "Taxa resposta",
         value: pctFmt(m.taxaResposta),
         hint: `${numFmt(m.msg_respondida)} de ${numFmt(m.msg_lida)} lidas`,
-        borderColor: "border-l-indigo-500",
-        badgeColor: "bg-indigo-100 text-indigo-700",
+        icon: <TrendingUp className="h-4 w-4" />,
       },
       {
         label: "Taxa agendamento",
@@ -553,8 +546,7 @@ export const DashboardWhatsAppTab = ({
         hint: taxaAgendPct > 3 ? "✓ Acima de 3%" : "✕ Abaixo de 3%",
         threshold: 0.03,
         useValueColor: true,
-        borderColor: "border-l-rose-500",
-        badgeColor: "bg-rose-100 text-rose-700",
+        icon: <BarChart3 className="h-4 w-4" />,
       },
     ];
   }, [metrics, showBRL, money, moneyVal]);
