@@ -638,37 +638,26 @@ export const AdminDashboardLigacao = () => {
             </Badge>
           </div>
 
-          {/* ── Consolidated KPIs ─────────────────────────────── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {kpiCards.map((kpi, idx) => {
-              let valueColor = "";
-              if ((kpi as any).useValueColor && (kpi as any).threshold !== undefined) {
-                const pv = kpi.pctVal ?? 0;
-                valueColor = pv > (kpi as any).threshold ? "text-emerald-500" : "text-destructive";
-              }
-              return (
-                <Card key={idx} className="bg-gradient-to-b from-card/80 to-card border-border/50">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                      {kpi.icon}
-                      <span className="text-xs font-medium">{kpi.label}</span>
-                    </div>
-                    <p className={`text-xl font-extrabold ${valueColor}`}>{kpi.value}</p>
-                    {kpi.pctVal !== undefined && !(kpi as any).useValueColor && (
-                      <p className={`text-sm font-bold mt-1 ${
-                        (kpi as any).threshold !== undefined
-                          ? kpi.pctVal > (kpi as any).threshold ? "text-emerald-500" : "text-destructive"
-                          : "text-primary"
-                      }`}>
-                        {pctFmt(kpi.pctVal)}
-                        {(kpi as any).pctSuffix && <span className="text-xs text-muted-foreground font-normal ml-1">{(kpi as any).pctSuffix}</span>}
-                      </p>
+          {/* ── Consolidated KPIs (matching reference image) ──── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {kpiCards.map((kpi, idx) => (
+              <Card key={idx} className={`bg-card border-l-[7px] ${kpi.borderColor} min-h-[130px]`}>
+                <CardContent className="p-4 h-full flex flex-col justify-between">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{kpi.label}</span>
+                    {kpi.badgeText && (
+                      <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full whitespace-nowrap ${kpi.badgeBg}`}>
+                        {kpi.badgeText}
+                      </span>
                     )}
+                  </div>
+                  <div className="mt-2">
+                    <p className="text-3xl font-extrabold text-foreground">{kpi.value}</p>
                     {kpi.hint && <p className="text-xs text-muted-foreground mt-1">{kpi.hint}</p>}
-                  </CardContent>
-                </Card>
-              );
-            })}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
           {/* ── Consolidated Funnel ───────────────────────────── */}
