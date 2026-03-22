@@ -1,20 +1,16 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Loader2,
-  RefreshCw,
   Phone,
   PhoneCall,
   CalendarCheck,
   CheckCircle2,
   XCircle,
   Clock,
-  Eye,
   TrendingUp,
   BarChart3,
-  Store,
   AlertTriangle,
   Search,
-  ChevronDown,
   X,
   LayoutGrid,
   MapPin,
@@ -62,16 +58,97 @@ const pctFmt = (n: number) => (n * 100).toLocaleString("pt-BR", { maximumFractio
 const numFmt = (n: number) => n.toLocaleString("pt-BR");
 const safeDiv = (a: number, b: number) => (b === 0 ? 0 : a / b);
 
-const PAGE_SIZE = 10;
-
 const WEBHOOK_EVENTS = "https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-todos-eventos";
 const WEBHOOK_SEARCH = "https://automatemaiawh.sagadatadriven.com.br/webhook/visao_administrativa";
+
+const sortByStartDateDesc = (a: LigacaoEvent, b: LigacaoEvent) => {
+  if (!a.data_inicio && !b.data_inicio) return 0;
+  if (!a.data_inicio) return 1;
+  if (!b.data_inicio) return -1;
+  return new Date(b.data_inicio).getTime() - new Date(a.data_inicio).getTime();
+};
+
+const normalizeEvents = (rawEvents: any[]): LigacaoEvent[] => {
+  return rawEvents
+    .filter((e: any) => e && (e.id_evento ?? e.event_id))
+    .map((e: any) => ({
+      id_evento: Number(e.id_evento ?? e.event_id),
+      nome: e.nome || e.event_nome || `Evento ${e.id_evento ?? e.event_id}`,
+      cidade: e.cidade || "",
+      uf: e.uf || e.estado || "",
+      marca: e.marca || "",
+      dealerid: e.dealerid || e.dealer_id || "",
+      telefone_pri: e.telefone_pri || "",
+      evt_status: e.evt_status === true || e.evt_status === "true" || e.evt_status === "ativo",
+      data_inicio: e.data_inicio || null,
+      data_fim: e.data_fim || null,
+    }))
+    .sort(sortByStartDateDesc);
+};
+
+const extractEventRows = (payload: any): any[] => {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === "object") {
+    if (Array.isArray(payload.data)) return payload.data;
+    if (Array.isArray(payload.resultados)) return payload.resultados;
+    if (Array.isArray(payload.eventos)) return payload.eventos;
+  }
+  return [];
+};
+
+const hasMetricFields = (row: any) => {
+  if (!row || typeof row !== "object") return false;
+  return [
+    "total_base",
+    "total",
+    "leads_contatados",
+    "contatados",
+    "ligacoes_feitas",
+    "ligacoes",
+    "atendidos",
+    "agendados",
+    "encerrados",
+  ].some((field) => row[field] !== undefined && row[field] !== null);
+};
+
+const extractMetricRows = (payload: any): { rows: any[]; totalEventos: number } => {
+  if (Array.isArray(payload)) {
+    const first = payload[0];
+
+    if (first?.resultados && Array.isArray(first.resultados)) {
+      return { rows: first.resultados, totalEventos: Number(first.total_eventos) || first.resultados.length };
+    }
+
+    if (payload.every((row) => hasMetricFields(row))) {
+      return { rows: payload, totalEventos: payload.length };
+    }
+
+    return { rows: [], totalEventos: 0 };
+  }
+
+  if (payload && typeof payload === "object") {
+    if (Array.isArray(payload.resultados)) {
+      return {
+        rows: payload.resultados,
+        totalEventos: Number(payload.total_eventos) || payload.resultados.length,
+      };
+    }
+
+    if (payload.data && Array.isArray(payload.data.resultados)) {
+      return {
+        rows: payload.data.resultados,
+        totalEventos: Number(payload.data.total_eventos) || payload.data.resultados.length,
+      };
+    }
+  }
+
+  return { rows: [], totalEventos: 0 };
+};
 
 // ── Component ───────────────────────────────────────────────
 export const AdminDashboardLigacao = () => {
   // Event list state
   const [allEvents, setAllEvents] = useState<LigacaoEvent[]>([]);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loadingEvents, setLoadingEvents] = useState(true);
 
   // Selection & search
