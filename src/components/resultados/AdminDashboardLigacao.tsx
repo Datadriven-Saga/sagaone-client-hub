@@ -103,49 +103,35 @@ const extractEventRows = (payload: any): any[] => {
 const hasMetricFields = (row: any) => {
   if (!row || typeof row !== "object") return false;
   return [
-    "total_base",
-    "total",
-    "leads_contatados",
-    "contatados",
-    "ligacoes_feitas",
-    "ligacoes",
-    "atendidos",
-    "agendados",
-    "encerrados",
+    "total_registros",
+    "tentativas_0",
+    "ligacao_atendida",
+    "status_agendado",
   ].some((field) => row[field] !== undefined && row[field] !== null);
 };
 
 const extractMetricRows = (payload: any): { rows: any[]; totalEventos: number } => {
   if (Array.isArray(payload)) {
     const first = payload[0];
-
     if (first?.resultados && Array.isArray(first.resultados)) {
       return { rows: first.resultados, totalEventos: Number(first.total_eventos) || first.resultados.length };
     }
-
-    if (payload.every((row) => hasMetricFields(row))) {
+    if (payload.every((row: any) => hasMetricFields(row))) {
       return { rows: payload, totalEventos: payload.length };
     }
-
     return { rows: [], totalEventos: 0 };
   }
-
   if (payload && typeof payload === "object") {
     if (Array.isArray(payload.resultados)) {
-      return {
-        rows: payload.resultados,
-        totalEventos: Number(payload.total_eventos) || payload.resultados.length,
-      };
+      return { rows: payload.resultados, totalEventos: Number(payload.total_eventos) || payload.resultados.length };
     }
-
     if (payload.data && Array.isArray(payload.data.resultados)) {
-      return {
-        rows: payload.data.resultados,
-        totalEventos: Number(payload.data.total_eventos) || payload.data.resultados.length,
-      };
+      return { rows: payload.data.resultados, totalEventos: Number(payload.data.total_eventos) || payload.data.resultados.length };
+    }
+    if (payload.data && Array.isArray(payload.data)) {
+      return { rows: payload.data, totalEventos: payload.data.length };
     }
   }
-
   return { rows: [], totalEventos: 0 };
 };
 
