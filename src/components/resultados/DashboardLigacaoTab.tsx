@@ -442,29 +442,34 @@ export const DashboardLigacaoTab = ({
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {metricsConfig.map((metric) => {
           const value = displayMetrics[metric.key];
-          const Icon = metric.icon;
           const sub = metric.subLabel(displayMetrics);
+          const badge = (metric as any).badgeFn?.(displayMetrics) as string | null;
           return (
-            <Card key={metric.key} className="relative overflow-hidden border-border/50 hover:border-border transition-colors">
-              <CardContent className="p-4 sm:p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <div
+              key={metric.key}
+              className={`rounded-xl border border-border/40 bg-card shadow-sm border-l-[5px] ${metric.borderColor} p-5`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
                     {metric.label}
                   </p>
-                  <div className={cn("p-2 rounded-lg", metric.iconBg)}>
-                    <Icon className={cn("h-4 w-4", metric.iconColor)} />
-                  </div>
-                </div>
-                <p className="text-3xl font-bold tracking-tight text-foreground">
-                  {value.toLocaleString('pt-BR')}
-                </p>
-                {sub && (
-                  <p className={cn("text-xs mt-1.5 font-medium", (metric as any).subColor || 'text-muted-foreground')}>
-                    {sub}
+                  <p className="text-2xl font-bold text-foreground">
+                    {value.toLocaleString('pt-BR')}
                   </p>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {badge && (
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${metric.badgeColor}`}>
+                      {badge}
+                    </span>
+                  )}
+                  {sub && (
+                    <p className="text-[11px] text-muted-foreground">{sub}</p>
+                  )}
+                </div>
+              </div>
+            </div>
           );
         })}
       </div>
