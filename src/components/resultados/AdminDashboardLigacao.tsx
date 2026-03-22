@@ -370,25 +370,32 @@ export const AdminDashboardLigacao = () => {
     }
   }, [keyword, selectedIds, fetchEventIdsByKeyword, fetchMetricsByIds, clearResults]);
 
-  // ── Aggregated metrics ────────────────────────────────────
-  const aggregated = useMemo(() => {
+   const aggregated = useMemo(() => {
     if (resultados.length === 0) return null;
     const agg = {
-      total_base: 0,
+      total_registros: 0,
       leads_contatados: 0,
-      ligacoes_feitas: 0,
-      atendidos: 0,
-      agendados: 0,
-      encerrados: 0,
+      ligacao_atendida: 0,
+      status_agendado: 0,
+      tentativas_0: 0,
+      tentativas_1: 0,
+      tentativas_2: 0,
+      tentativas_maior_2: 0,
+      ligacao_erro: 0,
+      enviado_whatsapp: 0,
     };
 
     resultados.forEach((r) => {
-      agg.total_base += r.total_base;
+      agg.total_registros += r.total_registros;
       agg.leads_contatados += r.leads_contatados;
-      agg.ligacoes_feitas += r.ligacoes_feitas;
-      agg.atendidos += r.atendidos;
-      agg.agendados += r.agendados;
-      agg.encerrados += r.encerrados;
+      agg.ligacao_atendida += r.ligacao_atendida;
+      agg.status_agendado += r.status_agendado;
+      agg.tentativas_0 += r.tentativas_0;
+      agg.tentativas_1 += r.tentativas_1;
+      agg.tentativas_2 += r.tentativas_2;
+      agg.tentativas_maior_2 += r.tentativas_maior_2;
+      agg.ligacao_erro += r.ligacao_erro;
+      agg.enviado_whatsapp += r.enviado_whatsapp;
     });
 
     return agg;
@@ -399,23 +406,47 @@ export const AdminDashboardLigacao = () => {
     return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
   };
 
-  // ── KPI cards ─────────────────────────────────────────────
+  // ── KPI cards (matching reference image style) ────────────
   const kpiCards = useMemo(() => {
     if (!aggregated) return [];
     const a = aggregated;
-    const taxaContato = safeDiv(a.leads_contatados, a.total_base);
-    const taxaAtendimento = safeDiv(a.atendidos, a.leads_contatados);
-    const taxaAgendamento = safeDiv(a.agendados, a.total_base);
+    const taxaContato = safeDiv(a.leads_contatados, a.total_registros);
+    const taxaAtendimento = safeDiv(a.ligacao_atendida, a.leads_contatados);
+    const taxaAgendamento = safeDiv(a.status_agendado, a.ligacao_atendida);
 
     return [
-      { label: "Total da base", value: numFmt(a.total_base), hint: `Contatados: ${pctFmt(taxaContato)}`, icon: <Users className="h-4 w-4" /> },
-      { label: "Leads contatados", value: numFmt(a.leads_contatados), pctVal: taxaContato, pctSuffix: "da base", icon: <Phone className="h-4 w-4" /> },
-      { label: "Ligações feitas", value: numFmt(a.ligacoes_feitas), hint: `Média: ${numFmt(Math.round(safeDiv(a.ligacoes_feitas, a.leads_contatados)))} por lead`, icon: <PhoneCall className="h-4 w-4" /> },
-      { label: "Atendidos", value: numFmt(a.atendidos), pctVal: taxaAtendimento, pctSuffix: "dos contatados", icon: <CheckCircle2 className="h-4 w-4" /> },
-      { label: "Agendados", value: numFmt(a.agendados), pctVal: taxaAgendamento, hint: taxaAgendamento * 100 > 3 ? "✓ Acima de 3%" : "✕ Abaixo de 3%", threshold: 0.03, icon: <CalendarCheck className="h-4 w-4" /> },
-      { label: "Encerrados", value: numFmt(a.encerrados), hint: `${pctFmt(safeDiv(a.encerrados, a.total_base))} da base`, icon: <XCircle className="h-4 w-4" /> },
-      { label: "Taxa contato", value: pctFmt(taxaContato), hint: `${numFmt(a.leads_contatados)} de ${numFmt(a.total_base)}`, icon: <TrendingUp className="h-4 w-4" /> },
-      { label: "Taxa agendamento", value: pctFmt(taxaAgendamento), pctVal: taxaAgendamento, hint: taxaAgendamento * 100 > 3 ? "✓ Acima de 3%" : "✕ Abaixo de 3%", threshold: 0.03, useValueColor: true, icon: <BarChart3 className="h-4 w-4" /> },
+      {
+        label: "TOTAL DA BASE",
+        value: numFmt(a.total_registros),
+        hint: `Contatados: ${pctFmt(taxaContato)}`,
+        borderColor: "border-l-sky-500",
+        badgeText: null,
+        badgeBg: "",
+      },
+      {
+        label: "LEADS CONTATADOS",
+        value: numFmt(a.leads_contatados),
+        hint: `${pctFmt(taxaContato)} da base`,
+        borderColor: "border-l-sky-500",
+        badgeText: `${pctFmt(taxaContato)} da base`,
+        badgeBg: "bg-sky-500/15 text-sky-400",
+      },
+      {
+        label: "ATENDIDOS",
+        value: numFmt(a.ligacao_atendida),
+        hint: `${pctFmt(safeDiv(a.ligacao_atendida, a.total_registros))} do total da base`,
+        borderColor: "border-l-blue-600",
+        badgeText: `${pctFmt(taxaAtendimento)} dos contatados`,
+        badgeBg: "bg-blue-500/15 text-blue-400",
+      },
+      {
+        label: "AGENDADOS",
+        value: numFmt(a.status_agendado),
+        hint: `${pctFmt(safeDiv(a.status_agendado, a.total_registros))} do total da base`,
+        borderColor: "border-l-amber-500",
+        badgeText: `${pctFmt(taxaAgendamento)} dos atendidos`,
+        badgeBg: "bg-amber-500/15 text-amber-400",
+      },
     ];
   }, [aggregated]);
 
@@ -424,22 +455,22 @@ export const AdminDashboardLigacao = () => {
     if (!aggregated) return [];
     const a = aggregated;
     return [
-      { name: "Total da base", count: a.total_base, desc: "Total de leads nos eventos", key: "base" },
-      { name: "Leads contatados", count: a.leads_contatados, desc: "Leads que foram contatados", key: "contatados" },
-      { name: "Ligações feitas", count: a.ligacoes_feitas, desc: "Total de ligações realizadas", key: "ligacoes" },
-      { name: "Atendidos", count: a.atendidos, desc: "Leads que atenderam", key: "atendidos" },
-      { name: "Agendados", count: a.agendados, desc: "Leads agendados", key: "agendados" },
+      { name: "Total de Leads", count: a.total_registros, desc: "Total de leads na base do evento", key: "base" },
+      { name: "Leads Contatados", count: a.leads_contatados, desc: "Leads que receberam pelo menos 1 ligação", key: "contatados" },
+      { name: "Atendidos", count: a.ligacao_atendida, desc: "Leads que atenderam a ligação", key: "atendidos" },
+      { name: "Agendados", count: a.status_agendado, desc: "Leads que agendaram visita", key: "agendados" },
     ];
   }, [aggregated]);
 
   const losses = useMemo(() => {
     if (!aggregated) return [];
     return [
-      { name: "Encerrados", count: aggregated.encerrados, desc: "Leads encerrados sem agendamento" },
+      { name: "Erros de ligação", count: aggregated.ligacao_erro, desc: "Ligações com erro" },
+      { name: "Enviado WhatsApp", count: aggregated.enviado_whatsapp, desc: "Leads redirecionados para WhatsApp" },
     ].filter((l) => l.count > 0);
   }, [aggregated]);
 
-  const leadBase = aggregated?.total_base || 1;
+  const leadBase = aggregated?.total_registros || 1;
 
   // ════════════════════════════════════════════════════════════
   // RENDER
