@@ -495,7 +495,8 @@ export const DashboardWhatsAppTab = ({
         label: "Total da base",
         value: numFmt(m.total_base),
         hint: `Enviadas: ${pctFmt(safeDiv(m.msg_enviada, m.total_base))}`,
-        icon: <MessageSquare className="h-4 w-4" />,
+        borderColor: "border-l-sky-500",
+        badgeColor: "bg-sky-100 text-sky-700",
       },
       {
         label: "Mensagens entregues",
@@ -503,7 +504,8 @@ export const DashboardWhatsAppTab = ({
         pctVal: m.taxaEntrega,
         pctSuffix: "das enviadas",
         hint: `Custo/entregue: ${moneyVal(m.cpoEntregue)}`,
-        icon: <CheckCircle2 className="h-4 w-4" />,
+        borderColor: "border-l-violet-500",
+        badgeColor: "bg-violet-100 text-violet-700",
       },
       {
         label: "Leads responderam",
@@ -511,7 +513,8 @@ export const DashboardWhatsAppTab = ({
         pctVal: m.taxaResposta,
         pctSuffix: "das lidas",
         hint: `Custo/respondido: ${moneyVal(m.cpoRespondido)}`,
-        icon: <MessageCircle className="h-4 w-4" />,
+        borderColor: "border-l-blue-500",
+        badgeColor: "bg-blue-100 text-blue-700",
       },
       {
         label: "Leads agendados",
@@ -519,25 +522,29 @@ export const DashboardWhatsAppTab = ({
         pctVal: m.taxaAgendBase,
         hint: `CPL agendado: ${moneyVal(m.cpoAgendado)}`,
         threshold: 0.03,
-        icon: <CalendarCheck className="h-4 w-4" />,
+        borderColor: "border-l-amber-500",
+        badgeColor: "bg-amber-100 text-amber-700",
       },
       {
         label: `Gasto total (${showBRL ? "BRL" : "USD"})`,
         value: money(m.gasto_total_dolar, m.gasto_total_real),
         hint: `Custo/entregue: ${moneyVal(m.cpoEntregue)}`,
-        icon: <DollarSign className="h-4 w-4" />,
+        borderColor: "border-l-emerald-500",
+        badgeColor: "bg-emerald-100 text-emerald-700",
       },
       {
         label: "Taxa de leitura",
         value: pctFmt(m.taxaLeituraBase),
         hint: `${numFmt(m.msg_lida)} de ${numFmt(m.msg_entregue)} entregues`,
-        icon: <Eye className="h-4 w-4" />,
+        borderColor: "border-l-cyan-500",
+        badgeColor: "bg-cyan-100 text-cyan-700",
       },
       {
         label: "Taxa resposta",
         value: pctFmt(m.taxaResposta),
         hint: `${numFmt(m.msg_respondida)} de ${numFmt(m.msg_lida)} lidas`,
-        icon: <TrendingUp className="h-4 w-4" />,
+        borderColor: "border-l-indigo-500",
+        badgeColor: "bg-indigo-100 text-indigo-700",
       },
       {
         label: "Taxa agendamento",
@@ -546,7 +553,8 @@ export const DashboardWhatsAppTab = ({
         hint: taxaAgendPct > 3 ? "✓ Acima de 3%" : "✕ Abaixo de 3%",
         threshold: 0.03,
         useValueColor: true,
-        icon: <BarChart3 className="h-4 w-4" />,
+        borderColor: "border-l-rose-500",
+        badgeColor: "bg-rose-100 text-rose-700",
       },
     ];
   }, [metrics, showBRL, money, moneyVal]);
@@ -770,32 +778,36 @@ export const DashboardWhatsAppTab = ({
               }
 
               return (
-                <Card key={idx} className="bg-gradient-to-b from-card/80 to-card border-border/50">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                      {kpi.icon}
-                      <span className="text-xs font-medium">{kpi.label}</span>
-                    </div>
-                    <p className={`text-xl font-extrabold ${valueColor}`}>{kpi.value}</p>
-                    {kpi.pctVal !== undefined && !kpi.useValueColor && (
-                      <p
-                        className={`text-sm font-bold mt-1 ${
-                          kpi.threshold !== undefined
-                            ? kpi.pctVal > kpi.threshold
-                              ? "text-emerald-500"
-                              : "text-destructive"
-                            : "text-primary"
-                        }`}
-                      >
-                        {pctFmt(kpi.pctVal)}
-                        {kpi.pctSuffix && (
-                          <span className="text-xs text-muted-foreground font-normal ml-1">{kpi.pctSuffix}</span>
-                        )}
+                <div
+                  key={idx}
+                  className={`rounded-xl border border-border/40 bg-card shadow-sm border-l-[5px] ${kpi.borderColor} p-5`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                        {kpi.label}
                       </p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">{kpi.hint}</p>
-                  </CardContent>
-                </Card>
+                      <p className={`text-2xl font-bold ${valueColor}`}>{kpi.value}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {kpi.pctVal !== undefined && !kpi.useValueColor && (
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            kpi.threshold !== undefined
+                              ? kpi.pctVal > kpi.threshold
+                                ? "bg-emerald-500/15 text-emerald-500"
+                                : "bg-destructive/15 text-destructive"
+                              : kpi.badgeColor
+                          }`}
+                        >
+                          {pctFmt(kpi.pctVal)}
+                          {kpi.pctSuffix && <span className="ml-1 font-normal">{kpi.pctSuffix}</span>}
+                        </span>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">{kpi.hint}</p>
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </div>
