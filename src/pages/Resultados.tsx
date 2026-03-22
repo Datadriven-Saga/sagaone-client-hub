@@ -43,6 +43,9 @@ const EventoSelectorWhatsApp = lazy(() =>
 const AdminDashboardWhatsApp = lazy(() => 
   import("@/components/resultados/AdminDashboardWhatsApp").then(m => ({ default: m.AdminDashboardWhatsApp }))
 );
+const AdminDashboardLigacao = lazy(() => 
+  import("@/components/resultados/AdminDashboardLigacao").then(m => ({ default: m.AdminDashboardLigacao }))
+);
 
 interface Prospeccao {
   id: string;
@@ -179,6 +182,14 @@ const Resultados = () => {
         );
 
       case "ligacao":
+        // EMPRESA ADMIN gets the admin aggregated view
+        if (isEmpresaAdmin) {
+          return (
+            <Suspense fallback={<ResultadosLigacaoSkeleton />}>
+              <AdminDashboardLigacao />
+            </Suspense>
+          );
+        }
         return (
           <Suspense fallback={<ResultadosLigacaoSkeleton />}>
             {selectedAgentPhone ? (

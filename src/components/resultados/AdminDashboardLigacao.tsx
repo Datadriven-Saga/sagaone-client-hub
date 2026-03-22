@@ -1,0 +1,665 @@
+import { useState, useEffect, useMemo, useCallback } from "react";
+import {
+  Loader2,
+  RefreshCw,
+  Phone,
+  PhoneCall,
+  CalendarCheck,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Eye,
+  TrendingUp,
+  BarChart3,
+  Store,
+  AlertTriangle,
+  Search,
+  ChevronDown,
+  X,
+  LayoutGrid,
+  MapPin,
+  Users,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { supabase } from "@/integrations/supabase/client";
+
+// ── Interfaces ──────────────────────────────────────────────
+interface LigacaoEvent {
+  id_evento: number;
+  nome: string;
+  cidade: string;
+  uf: string;
+  marca: string;
+  dealerid: string;
+  telefone_pri: string;
+  evt_status: boolean;
+  data_inicio: string | null;
+  data_fim: string | null;
+}
+
+interface LigacaoResultItem {
+  event_id: number;
+  event_nome: string;
+  total_base: number;
+  leads_contatados: number;
+  ligacoes_feitas: number;
+  atendidos: number;
+  agendados: number;
+  encerrados: number;
+  [key: string]: unknown;
+}
+
+// ── Helpers ─────────────────────────────────────────────────
+const pctFmt = (n: number) => (n * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + "%";
+const numFmt = (n: number) => n.toLocaleString("pt-BR");
+const safeDiv = (a: number, b: number) => (b === 0 ? 0 : a / b);
+
+const PAGE_SIZE = 10;
+
+const WEBHOOK_EVENTS = "https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-todos-eventos";
+const WEBHOOK_SEARCH = "https://automatemaiawh.sagadatadriven.com.br/webhook/visao_administrativa";
+
+// ── Component ───────────────────────────────────────────────
+export const AdminDashboardLigacao = () => {
+  // Event list state
+  const [allEvents, setAllEvents] = useState<LigacaoEvent[]>([]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+
+  // Selection & search
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [keyword, setKeyword] = useState("");
+  const [searchFilter, setSearchFilter] = useState("");
+
+  // Results
+  const [loading, setLoading] = useState(false);
+  const [resultados, setResultados] = useState<LigacaoResultItem[]>([]);
+  const [totalEventos, setTotalEventos] = useState(0);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+
+  // ── Fetch all events via webhook ──────────────────────────
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        setLoadingEvents(true);
+
+        const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
+          body: { webhook_url: WEBHOOK_EVENTS },
+        });
+
+        if (error) throw error;
+
+        // Parse the response - it's a direct array of events
+        const rawEvents = Array.isArray(data) ? data : (data?.data && Array.isArray(data.data) ? data.data : []);
+
+        const events: LigacaoEvent[] = rawEvents
+          .filter((e: any) => e && e.id_evento)
+          .map((e: any) => ({
+            id_evento: Number(e.id_evento),
+            nome: e.nome || `Evento ${e.id_evento}`,
+            cidade: e.cidade || "",
+            uf: e.uf || "",
+            marca: e.marca || "",
+            dealerid: e.dealerid || "",
+            telefone_pri: e.telefone_pri || "",
+            evt_status: e.evt_status === true || e.evt_status === "true",
+            data_inicio: e.data_inicio || null,
+            data_fim: e.data_fim || null,
+          }))
+          .sort((a: LigacaoEvent, b: LigacaoEvent) => {
+            // Sort by data_inicio desc
+            if (!a.data_inicio && !b.data_inicio) return 0;
+            if (!a.data_inicio) return 1;
+            if (!b.data_inicio) return -1;
+            return new Date(b.data_inicio).getTime() - new Date(a.data_inicio).getTime();
+          });
+
+        console.log(`📞 Admin Ligação: ${events.length} eventos carregados via webhook`);
+        setAllEvents(events);
+      } catch (error) {
+        console.error("Erro ao buscar eventos ligação:", error);
+        toast.error("Erro ao carregar eventos de ligação");
+      } finally {
+        setLoadingEvents(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
+
+  // ── Filtered & visible events ─────────────────────────────
+  const filteredEvents = useMemo(() => {
+    if (!searchFilter) return allEvents;
+    const lower = searchFilter.toLowerCase();
+    return allEvents.filter(
+      (e) =>
+        e.nome.toLowerCase().includes(lower) ||
+        e.cidade.toLowerCase().includes(lower) ||
+        e.marca.toLowerCase().includes(lower) ||
+        e.uf.toLowerCase().includes(lower) ||
+        String(e.id_evento).includes(lower)
+    );
+  }, [allEvents, searchFilter]);
+
+  const visibleEvents = useMemo(
+    () => filteredEvents.slice(0, visibleCount),
+    [filteredEvents, visibleCount]
+  );
+
+  const hasMore = visibleCount < filteredEvents.length;
+
+  // ── Toggle selection ──────────────────────────────────────
+  const toggleEvent = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(filteredEvents.map((e) => e.id_evento)));
+  };
+
+  const selectNone = () => setSelectedIds(new Set());
+
+  // ── Fetch admin results ───────────────────────────────────
+  const fetchResults = useCallback(async () => {
+    const trimmedKeyword = keyword.trim();
+    let payload: Record<string, unknown> = {};
+
+    if (trimmedKeyword) {
+      payload = { keyword: trimmedKeyword };
+    } else if (selectedIds.size > 0) {
+      const ids = Array.from(selectedIds);
+      if (ids.length === 1) {
+        payload = { id_evento: ids[0] };
+      } else {
+        payload = { id_eventos: ids };
+      }
+    } else {
+      toast.error("Selecione eventos ou insira uma palavra-chave para consultar.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log("📞 Admin Ligação query:", payload);
+
+      const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
+        body: {
+          ...payload,
+          webhook_url: WEBHOOK_SEARCH,
+        },
+      });
+
+      if (error) {
+        console.error("Admin Ligação proxy error:", error);
+        toast.error("Erro ao consultar endpoint administrativo");
+        return;
+      }
+
+      console.log("📞 Admin Ligação raw response:", JSON.stringify(data)?.substring(0, 1000));
+
+      // Parse response - handle multiple wrapper formats
+      let parsedResults: any[] = [];
+
+      if (Array.isArray(data)) {
+        // Direct array of results
+        if (data.length > 0 && data[0].resultados) {
+          parsedResults = data[0].resultados;
+          setTotalEventos(data[0].total_eventos || parsedResults.length);
+        } else if (data.length > 0 && data[0].event_id !== undefined) {
+          parsedResults = data;
+          setTotalEventos(data.length);
+        } else {
+          // Try to extract from nested structure
+          parsedResults = data.filter((d: any) => d && Object.keys(d).length > 0);
+          setTotalEventos(parsedResults.length);
+        }
+      } else if (data && typeof data === "object") {
+        if (data.resultados) {
+          parsedResults = data.resultados;
+          setTotalEventos(data.total_eventos || parsedResults.length);
+        } else if (data.data?.resultados) {
+          parsedResults = data.data.resultados;
+          setTotalEventos(data.data.total_eventos || parsedResults.length);
+        }
+      }
+
+      if (parsedResults.length === 0) {
+        console.warn("Nenhum resultado retornado:", data);
+        toast.info("Nenhum resultado encontrado para esta consulta");
+        setResultados([]);
+        setLastUpdate(new Date());
+        return;
+      }
+
+      // Map results - flexible field mapping
+      const items: LigacaoResultItem[] = parsedResults.map((r: any) => ({
+        event_id: Number(r.event_id || r.id_evento) || 0,
+        event_nome: r.event_nome || r.nome || `Evento ${r.event_id || r.id_evento}`,
+        total_base: Number(r.total_base || r.total) || 0,
+        leads_contatados: Number(r.leads_contatados || r.contatados) || 0,
+        ligacoes_feitas: Number(r.ligacoes_feitas || r.ligacoes) || 0,
+        atendidos: Number(r.atendidos) || 0,
+        agendados: Number(r.agendados || r.agendado) || 0,
+        encerrados: Number(r.encerrados || r.encerrado) || 0,
+      }));
+
+      setResultados(items);
+      setLastUpdate(new Date());
+    } catch (err) {
+      console.error("Admin Ligação fetch error:", err);
+      toast.error("Erro ao consultar dados administrativos");
+    } finally {
+      setLoading(false);
+    }
+  }, [keyword, selectedIds]);
+
+  // ── Aggregated metrics ────────────────────────────────────
+  const aggregated = useMemo(() => {
+    if (resultados.length === 0) return null;
+    const agg = {
+      total_base: 0,
+      leads_contatados: 0,
+      ligacoes_feitas: 0,
+      atendidos: 0,
+      agendados: 0,
+      encerrados: 0,
+    };
+
+    resultados.forEach((r) => {
+      agg.total_base += r.total_base;
+      agg.leads_contatados += r.leads_contatados;
+      agg.ligacoes_feitas += r.ligacoes_feitas;
+      agg.atendidos += r.atendidos;
+      agg.agendados += r.agendados;
+      agg.encerrados += r.encerrados;
+    });
+
+    return agg;
+  }, [resultados]);
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  };
+
+  // ── KPI cards ─────────────────────────────────────────────
+  const kpiCards = useMemo(() => {
+    if (!aggregated) return [];
+    const a = aggregated;
+    const taxaContato = safeDiv(a.leads_contatados, a.total_base);
+    const taxaAtendimento = safeDiv(a.atendidos, a.leads_contatados);
+    const taxaAgendamento = safeDiv(a.agendados, a.total_base);
+
+    return [
+      { label: "Total da base", value: numFmt(a.total_base), hint: `Contatados: ${pctFmt(taxaContato)}`, icon: <Users className="h-4 w-4" /> },
+      { label: "Leads contatados", value: numFmt(a.leads_contatados), pctVal: taxaContato, pctSuffix: "da base", icon: <Phone className="h-4 w-4" /> },
+      { label: "Ligações feitas", value: numFmt(a.ligacoes_feitas), hint: `Média: ${numFmt(Math.round(safeDiv(a.ligacoes_feitas, a.leads_contatados)))} por lead`, icon: <PhoneCall className="h-4 w-4" /> },
+      { label: "Atendidos", value: numFmt(a.atendidos), pctVal: taxaAtendimento, pctSuffix: "dos contatados", icon: <CheckCircle2 className="h-4 w-4" /> },
+      { label: "Agendados", value: numFmt(a.agendados), pctVal: taxaAgendamento, hint: taxaAgendamento * 100 > 3 ? "✓ Acima de 3%" : "✕ Abaixo de 3%", threshold: 0.03, icon: <CalendarCheck className="h-4 w-4" /> },
+      { label: "Encerrados", value: numFmt(a.encerrados), hint: `${pctFmt(safeDiv(a.encerrados, a.total_base))} da base`, icon: <XCircle className="h-4 w-4" /> },
+      { label: "Taxa contato", value: pctFmt(taxaContato), hint: `${numFmt(a.leads_contatados)} de ${numFmt(a.total_base)}`, icon: <TrendingUp className="h-4 w-4" /> },
+      { label: "Taxa agendamento", value: pctFmt(taxaAgendamento), pctVal: taxaAgendamento, hint: taxaAgendamento * 100 > 3 ? "✓ Acima de 3%" : "✕ Abaixo de 3%", threshold: 0.03, useValueColor: true, icon: <BarChart3 className="h-4 w-4" /> },
+    ];
+  }, [aggregated]);
+
+  // ── Funnel steps ──────────────────────────────────────────
+  const funnelSteps = useMemo(() => {
+    if (!aggregated) return [];
+    const a = aggregated;
+    return [
+      { name: "Total da base", count: a.total_base, desc: "Total de leads nos eventos", key: "base" },
+      { name: "Leads contatados", count: a.leads_contatados, desc: "Leads que foram contatados", key: "contatados" },
+      { name: "Ligações feitas", count: a.ligacoes_feitas, desc: "Total de ligações realizadas", key: "ligacoes" },
+      { name: "Atendidos", count: a.atendidos, desc: "Leads que atenderam", key: "atendidos" },
+      { name: "Agendados", count: a.agendados, desc: "Leads agendados", key: "agendados" },
+    ];
+  }, [aggregated]);
+
+  const losses = useMemo(() => {
+    if (!aggregated) return [];
+    return [
+      { name: "Encerrados", count: aggregated.encerrados, desc: "Leads encerrados sem agendamento" },
+    ].filter((l) => l.count > 0);
+  }, [aggregated]);
+
+  const leadBase = aggregated?.total_base || 1;
+
+  // ════════════════════════════════════════════════════════════
+  // RENDER
+  // ════════════════════════════════════════════════════════════
+  return (
+    <div className="space-y-6">
+      {/* ── Header ──────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <LayoutGrid className="h-6 w-6 text-primary" />
+            Visão Administrativa — Ligação
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Consulta agregada de todos os eventos de Ligação
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          {lastUpdate && (
+            <Badge variant="outline" className="text-xs">
+              <Clock className="h-3 w-3 mr-1" />
+              {lastUpdate.toLocaleString("pt-BR")}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* ── Selection & Search block ────────────────────────── */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <Search className="h-4 w-4" />
+            Seleção de eventos
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Keyword search */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                placeholder="Buscar por palavra-chave (ex: Feirão, Auto Show)..."
+                className="pl-10"
+              />
+              {keyword && (
+                <Button variant="ghost" size="sm" className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0" onClick={() => setKeyword("")}>
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+            <Button onClick={fetchResults} disabled={loading && !keyword.trim() && selectedIds.size === 0} className="shrink-0">
+              {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+              Consultar
+            </Button>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Preencha a palavra-chave para buscar por nome, ou selecione eventos abaixo. A palavra-chave tem prioridade.
+          </p>
+
+          {/* Event list filter */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchFilter}
+              onChange={(e) => { setSearchFilter(e.target.value); setVisibleCount(PAGE_SIZE); }}
+              placeholder="Filtrar lista de eventos..."
+              className="pl-10"
+            />
+            {searchFilter && (
+              <Button variant="ghost" size="sm" className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0" onClick={() => setSearchFilter("")}>
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={selectAll}>Selecionar todos</Button>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={selectNone}>Limpar seleção</Button>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {selectedIds.size} selecionado(s) de {filteredEvents.length} evento(s)
+            </span>
+          </div>
+
+          {/* Event list */}
+          {loadingEvents ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <>
+              <ScrollArea className="max-h-[360px]">
+                <div className="space-y-1">
+                  {visibleEvents.map((event) => {
+                    const isSelected = selectedIds.has(event.id_evento);
+                    return (
+                      <div
+                        key={event.id_evento}
+                        className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/10 border border-primary/20" : "border border-transparent"}`}
+                        onClick={() => toggleEvent(event.id_evento)}
+                      >
+                        <Checkbox checked={isSelected} className="shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium truncate">{event.nome}</p>
+                            <Badge variant={event.evt_status ? "default" : "secondary"} className="text-[10px] shrink-0">
+                              {event.evt_status ? "Ativo" : "Inativo"}
+                            </Badge>
+                            {event.marca && (
+                              <Badge variant="outline" className="text-[10px] shrink-0">{event.marca}</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            {event.cidade && (
+                              <>
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{event.cidade}{event.uf ? `, ${event.uf}` : ""}</span>
+                                <span>•</span>
+                              </>
+                            )}
+                            <span>ID: {event.id_evento}</span>
+                            {event.data_inicio && (
+                              <>
+                                <span>•</span>
+                                <span>{formatDate(event.data_inicio)}{event.data_fim ? ` - ${formatDate(event.data_fim)}` : ""}</span>
+                              </>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+
+              {hasMore && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+                >
+                  <ChevronDown className="h-4 w-4 mr-2" />
+                  Carregar mais ({filteredEvents.length - visibleCount} restantes)
+                </Button>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Loading state ───────────────────────────────────── */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      )}
+
+      {/* ── Results ─────────────────────────────────────────── */}
+      {!loading && aggregated && resultados.length > 0 && (
+        <>
+          {/* Summary badge */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge className="bg-primary/10 text-primary border-primary/20">
+              {totalEventos} evento(s) retornado(s)
+            </Badge>
+          </div>
+
+          {/* ── Consolidated KPIs ─────────────────────────────── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {kpiCards.map((kpi, idx) => {
+              let valueColor = "";
+              if ((kpi as any).useValueColor && (kpi as any).threshold !== undefined) {
+                const pv = kpi.pctVal ?? 0;
+                valueColor = pv > (kpi as any).threshold ? "text-emerald-500" : "text-destructive";
+              }
+              return (
+                <Card key={idx} className="bg-gradient-to-b from-card/80 to-card border-border/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                      {kpi.icon}
+                      <span className="text-xs font-medium">{kpi.label}</span>
+                    </div>
+                    <p className={`text-xl font-extrabold ${valueColor}`}>{kpi.value}</p>
+                    {kpi.pctVal !== undefined && !(kpi as any).useValueColor && (
+                      <p className={`text-sm font-bold mt-1 ${
+                        (kpi as any).threshold !== undefined
+                          ? kpi.pctVal > (kpi as any).threshold ? "text-emerald-500" : "text-destructive"
+                          : "text-primary"
+                      }`}>
+                        {pctFmt(kpi.pctVal)}
+                        {(kpi as any).pctSuffix && <span className="text-xs text-muted-foreground font-normal ml-1">{(kpi as any).pctSuffix}</span>}
+                      </p>
+                    )}
+                    {kpi.hint && <p className="text-xs text-muted-foreground mt-1">{kpi.hint}</p>}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* ── Consolidated Funnel ───────────────────────────── */}
+          <Card className="border-border/50">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <CardTitle className="text-sm font-bold">Funil consolidado</CardTitle>
+                <Badge variant="outline" className="text-xs">
+                  {totalEventos} eventos agregados
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {funnelSteps.map((step, idx) => {
+                const prev = idx === 0 ? null : funnelSteps[idx - 1].count;
+                const width = safeDiv(step.count, leadBase) * 100;
+                const prevText = prev === null ? "—" : pctFmt(safeDiv(step.count, prev));
+                const totalPct = safeDiv(step.count, leadBase);
+                return (
+                  <div key={step.key} className="border rounded-xl p-3 border-border/50 bg-background/30">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <span className="font-extrabold text-sm">{idx + 1}. {step.name}</span>
+                        <p className="text-xs text-muted-foreground">{step.desc}</p>
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-xs font-bold">{numFmt(step.count)}</Badge>
+                        <Badge variant="outline" className="text-xs">Δ ant: {prevText}</Badge>
+                        <Badge variant="outline" className="text-xs">{pctFmt(totalPct)} da base</Badge>
+                      </div>
+                    </div>
+                    <div className="h-2.5 rounded-full bg-muted/50 overflow-hidden mt-2">
+                      <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-500" style={{ width: `${Math.max(2, width)}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+
+              {losses.map((loss) => (
+                <div key={loss.name} className="border border-destructive/25 rounded-xl p-3 bg-destructive/5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <span className="font-extrabold text-sm flex items-center gap-1">
+                        <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                        {loss.name}
+                      </span>
+                      <p className="text-xs text-muted-foreground">{loss.desc}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="text-xs">{numFmt(loss.count)}</Badge>
+                      <Badge variant="outline" className="text-xs">{pctFmt(safeDiv(loss.count, leadBase))} da base</Badge>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* ── Individual event details (Accordion) ──────────── */}
+          <Card className="border-border/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold">Detalhamento por evento</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Accordion type="multiple" className="space-y-2">
+                {resultados.map((r) => {
+                  const taxaContato = safeDiv(r.leads_contatados, r.total_base);
+                  const taxaAtend = safeDiv(r.atendidos, r.leads_contatados);
+                  const taxaAgend = safeDiv(r.agendados, r.total_base);
+
+                  return (
+                    <AccordionItem key={r.event_id} value={String(r.event_id)} className="border rounded-lg px-4">
+                      <AccordionTrigger className="hover:no-underline py-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                          <Phone className="h-4 w-4 text-primary shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <span className="font-bold text-sm truncate block">{r.event_nome}</span>
+                            <span className="text-xs text-muted-foreground">ID: {r.event_id}</span>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <Badge variant="outline" className="text-xs">{numFmt(r.total_base)} leads</Badge>
+                            <Badge variant="outline" className="text-xs">{numFmt(r.agendados)} agend.</Badge>
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-4 space-y-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {[
+                            { label: "Base", val: numFmt(r.total_base) },
+                            { label: "Contatados", val: `${numFmt(r.leads_contatados)} (${pctFmt(taxaContato)})` },
+                            { label: "Ligações", val: numFmt(r.ligacoes_feitas) },
+                            { label: "Atendidos", val: `${numFmt(r.atendidos)} (${pctFmt(taxaAtend)})` },
+                            { label: "Agendados", val: `${numFmt(r.agendados)} (${pctFmt(taxaAgend)})` },
+                            { label: "Encerrados", val: numFmt(r.encerrados) },
+                          ].map((m) => (
+                            <div key={m.label} className="bg-muted/30 rounded-lg p-2.5">
+                              <p className="text-xs text-muted-foreground">{m.label}</p>
+                              <p className="text-sm font-bold">{m.val}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* Empty state after query */}
+      {!loading && resultados.length === 0 && lastUpdate && (
+        <Card className="p-8 text-center">
+          <Phone className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
+          <h3 className="text-lg font-semibold mb-2">Nenhum resultado encontrado</h3>
+          <p className="text-sm text-muted-foreground">Tente outra palavra-chave ou selecione eventos diferentes.</p>
+        </Card>
+      )}
+    </div>
+  );
+};
