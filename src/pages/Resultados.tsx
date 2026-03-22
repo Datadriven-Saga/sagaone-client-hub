@@ -182,6 +182,14 @@ const Resultados = () => {
         );
 
       case "ligacao":
+        // EMPRESA ADMIN gets the admin aggregated view
+        if (isEmpresaAdmin) {
+          return (
+            <Suspense fallback={<ResultadosLigacaoSkeleton />}>
+              <AdminDashboardLigacao />
+            </Suspense>
+          );
+        }
         return (
           <Suspense fallback={<ResultadosLigacaoSkeleton />}>
             {selectedAgentPhone ? (
