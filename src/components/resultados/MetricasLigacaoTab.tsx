@@ -321,26 +321,26 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone, initialEventId }: Metri
         {kpiCards.map((kpi, idx) => (
           <div
             key={idx}
-            className={`rounded-xl bg-white dark:bg-card border border-border/30 shadow-sm border-l-[7px] ${kpi.borderColor} p-5 min-h-[120px]`}
+            className={`rounded-xl bg-white dark:bg-card border border-border/30 shadow-sm border-l-[7px] ${kpi.borderColor} p-5 min-h-[130px] flex flex-col justify-between`}
           >
-            <div className="flex justify-between items-start gap-3">
-              <div className="flex flex-col min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-muted-foreground mb-1.5">
-                  {kpi.label}
-                </p>
-                <p className="text-3xl font-bold text-slate-900 dark:text-foreground leading-none">
-                  {kpi.value}
-                </p>
-                {kpi.subText && (
-                  <p className={`text-[13px] font-medium mt-2 whitespace-nowrap ${kpi.subColor}`}>
-                    {kpi.subText}
-                  </p>
-                )}
-              </div>
+            <div className="flex justify-between items-start gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {kpi.label}
+              </p>
               {kpi.badgeText && (
-                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap ${kpi.badgeColor}`}>
+                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold whitespace-nowrap ${kpi.badgeColor}`}>
                   {kpi.badgeText}
                 </span>
+              )}
+            </div>
+            <div className="mt-2">
+              <p className="text-3xl font-bold text-foreground leading-none">
+                {kpi.value}
+              </p>
+              {kpi.subText && (
+                <p className={`text-[13px] font-medium mt-2 whitespace-nowrap ${kpi.subColor}`}>
+                  {kpi.subText}
+                </p>
               )}
             </div>
           </div>
