@@ -724,9 +724,9 @@ export const AdminDashboardLigacao = () => {
             <CardContent>
               <Accordion type="multiple" className="space-y-2">
                 {resultados.map((r) => {
-                  const taxaContato = safeDiv(r.leads_contatados, r.total_base);
-                  const taxaAtend = safeDiv(r.atendidos, r.leads_contatados);
-                  const taxaAgend = safeDiv(r.agendados, r.total_base);
+                  const taxaContato = safeDiv(r.leads_contatados, r.total_registros);
+                  const taxaAtend = safeDiv(r.ligacao_atendida, r.leads_contatados);
+                  const taxaAgend = safeDiv(r.status_agendado, r.total_registros);
 
                   return (
                     <AccordionItem key={r.event_id} value={String(r.event_id)} className="border rounded-lg px-4">
@@ -738,20 +738,24 @@ export const AdminDashboardLigacao = () => {
                             <span className="text-xs text-muted-foreground">ID: {r.event_id}</span>
                           </div>
                           <div className="flex gap-2 shrink-0">
-                            <Badge variant="outline" className="text-xs">{numFmt(r.total_base)} leads</Badge>
-                            <Badge variant="outline" className="text-xs">{numFmt(r.agendados)} agend.</Badge>
+                            <Badge variant="outline" className="text-xs">{numFmt(r.total_registros)} leads</Badge>
+                            <Badge variant="outline" className="text-xs">{numFmt(r.status_agendado)} agend.</Badge>
                           </div>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="pb-4 space-y-4">
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {[
-                            { label: "Base", val: numFmt(r.total_base) },
+                            { label: "Base", val: numFmt(r.total_registros) },
                             { label: "Contatados", val: `${numFmt(r.leads_contatados)} (${pctFmt(taxaContato)})` },
-                            { label: "Ligações", val: numFmt(r.ligacoes_feitas) },
-                            { label: "Atendidos", val: `${numFmt(r.atendidos)} (${pctFmt(taxaAtend)})` },
-                            { label: "Agendados", val: `${numFmt(r.agendados)} (${pctFmt(taxaAgend)})` },
-                            { label: "Encerrados", val: numFmt(r.encerrados) },
+                            { label: "Tentativas 0", val: numFmt(r.tentativas_0) },
+                            { label: "Tentativas 1", val: numFmt(r.tentativas_1) },
+                            { label: "Tentativas 2", val: numFmt(r.tentativas_2) },
+                            { label: "Tentativas >2", val: numFmt(r.tentativas_maior_2) },
+                            { label: "Atendidos", val: `${numFmt(r.ligacao_atendida)} (${pctFmt(taxaAtend)})` },
+                            { label: "Agendados", val: `${numFmt(r.status_agendado)} (${pctFmt(taxaAgend)})` },
+                            { label: "Erros", val: numFmt(r.ligacao_erro) },
+                            { label: "Enviado WhatsApp", val: numFmt(r.enviado_whatsapp) },
                           ].map((m) => (
                             <div key={m.label} className="bg-muted/30 rounded-lg p-2.5">
                               <p className="text-xs text-muted-foreground">{m.label}</p>
