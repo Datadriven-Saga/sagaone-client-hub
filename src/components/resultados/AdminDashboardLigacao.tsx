@@ -44,12 +44,16 @@ interface LigacaoEvent {
 interface LigacaoResultItem {
   event_id: number;
   event_nome: string;
-  total_base: number;
+  total_registros: number;
   leads_contatados: number;
-  ligacoes_feitas: number;
-  atendidos: number;
-  agendados: number;
-  encerrados: number;
+  ligacao_atendida: number;
+  status_agendado: number;
+  tentativas_0: number;
+  tentativas_1: number;
+  tentativas_2: number;
+  tentativas_maior_2: number;
+  ligacao_erro: number;
+  enviado_whatsapp: number;
   [key: string]: unknown;
 }
 
