@@ -236,16 +236,28 @@ export const AdminDashboardLigacao = () => {
       }
 
       const items: LigacaoResultItem[] = rows
-        .map((r: any) => ({
-          event_id: Number(r.event_id || r.id_evento) || 0,
-          event_nome: r.event_nome || r.nome || `Evento ${r.event_id || r.id_evento}`,
-          total_base: Number(r.total_base || r.total) || 0,
-          leads_contatados: Number(r.leads_contatados || r.contatados) || 0,
-          ligacoes_feitas: Number(r.ligacoes_feitas || r.ligacoes) || 0,
-          atendidos: Number(r.atendidos) || 0,
-          agendados: Number(r.agendados || r.agendado) || 0,
-          encerrados: Number(r.encerrados || r.encerrado) || 0,
-        }))
+        .map((r: any) => {
+          const totalReg = Number(r.total_registros || r.total_base || r.total) || 0;
+          const t0 = Number(r.tentativas_0) || 0;
+          const t1 = Number(r.tentativas_1) || 0;
+          const t2 = Number(r.tentativas_2) || 0;
+          const tM2 = Number(r.tentativas_maior_2) || 0;
+          const contatados = t1 + t2 + tM2;
+          return {
+            event_id: Number(r.event_id || r.id_evento) || 0,
+            event_nome: r.event_nome || r.nome_evento || r.nome || `Evento ${r.event_id || r.id_evento}`,
+            total_registros: totalReg,
+            leads_contatados: contatados,
+            ligacao_atendida: Number(r.ligacao_atendida || r.atendidos) || 0,
+            status_agendado: Number(r.status_agendado || r.agendados) || 0,
+            tentativas_0: t0,
+            tentativas_1: t1,
+            tentativas_2: t2,
+            tentativas_maior_2: tM2,
+            ligacao_erro: Number(r.ligacao_erro) || 0,
+            enviado_whatsapp: Number(r.enviado_whatsapp) || 0,
+          };
+        })
         .filter((item) => item.event_id > 0);
 
       if (items.length === 0) {
