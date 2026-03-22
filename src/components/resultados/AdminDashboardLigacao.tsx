@@ -174,30 +174,7 @@ export const AdminDashboardLigacao = () => {
 
         if (error) throw error;
 
-        // Parse the response - it's a direct array of events
-        const rawEvents = Array.isArray(data) ? data : (data?.data && Array.isArray(data.data) ? data.data : []);
-
-        const events: LigacaoEvent[] = rawEvents
-          .filter((e: any) => e && e.id_evento)
-          .map((e: any) => ({
-            id_evento: Number(e.id_evento),
-            nome: e.nome || `Evento ${e.id_evento}`,
-            cidade: e.cidade || "",
-            uf: e.uf || "",
-            marca: e.marca || "",
-            dealerid: e.dealerid || "",
-            telefone_pri: e.telefone_pri || "",
-            evt_status: e.evt_status === true || e.evt_status === "true",
-            data_inicio: e.data_inicio || null,
-            data_fim: e.data_fim || null,
-          }))
-          .sort((a: LigacaoEvent, b: LigacaoEvent) => {
-            // Sort by data_inicio desc
-            if (!a.data_inicio && !b.data_inicio) return 0;
-            if (!a.data_inicio) return 1;
-            if (!b.data_inicio) return -1;
-            return new Date(b.data_inicio).getTime() - new Date(a.data_inicio).getTime();
-          });
+        const events = normalizeEvents(extractEventRows(data));
 
         console.log(`📞 Admin Ligação: ${events.length} eventos carregados via webhook`);
         setAllEvents(events);
@@ -212,7 +189,7 @@ export const AdminDashboardLigacao = () => {
     fetchEvents();
   }, []);
 
-  // ── Filtered & visible events ─────────────────────────────
+  // ── Filtered events ───────────────────────────────────────
   const filteredEvents = useMemo(() => {
     if (!searchFilter) return allEvents;
     const lower = searchFilter.toLowerCase();
@@ -226,51 +203,23 @@ export const AdminDashboardLigacao = () => {
     );
   }, [allEvents, searchFilter]);
 
-  const visibleEvents = useMemo(
-    () => filteredEvents.slice(0, visibleCount),
-    [filteredEvents, visibleCount]
-  );
+  const clearResults = useCallback(() => {
+    setResultados([]);
+    setTotalEventos(0);
+    setLastUpdate(new Date());
+  }, []);
 
-  const hasMore = visibleCount < filteredEvents.length;
-
-  // ── Toggle selection ──────────────────────────────────────
-  const toggleEvent = (id: number) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const selectAll = () => {
-    setSelectedIds(new Set(filteredEvents.map((e) => e.id_evento)));
-  };
-
-  const selectNone = () => setSelectedIds(new Set());
-
-  // ── Fetch admin results ───────────────────────────────────
-  const fetchResults = useCallback(async () => {
-    const trimmedKeyword = keyword.trim();
-    let payload: Record<string, unknown> = {};
-
-    if (trimmedKeyword) {
-      payload = { keyword: trimmedKeyword };
-    } else if (selectedIds.size > 0) {
-      const ids = Array.from(selectedIds);
-      if (ids.length === 1) {
-        payload = { id_evento: ids[0] };
-      } else {
-        payload = { id_eventos: ids };
-      }
-    } else {
-      toast.error("Selecione eventos ou insira uma palavra-chave para consultar.");
+  const fetchMetricsByIds = useCallback(async (ids: number[]) => {
+    if (ids.length === 0) {
+      clearResults();
       return;
     }
 
+    const payload = ids.length === 1 ? { id_evento: ids[0] } : { id_eventos: ids };
+
     try {
       setLoading(true);
-      console.log("📞 Admin Ligação query:", payload);
+      console.log("📞 Admin Ligação metrics query:", payload);
 
       const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
         body: {
@@ -285,63 +234,139 @@ export const AdminDashboardLigacao = () => {
         return;
       }
 
-      console.log("📞 Admin Ligação raw response:", JSON.stringify(data)?.substring(0, 1000));
+      console.log("📞 Admin Ligação metrics raw response:", JSON.stringify(data)?.substring(0, 1000));
 
-      // Parse response - handle multiple wrapper formats
-      let parsedResults: any[] = [];
+      const { rows, totalEventos: totalFromResponse } = extractMetricRows(data);
 
-      if (Array.isArray(data)) {
-        // Direct array of results
-        if (data.length > 0 && data[0].resultados) {
-          parsedResults = data[0].resultados;
-          setTotalEventos(data[0].total_eventos || parsedResults.length);
-        } else if (data.length > 0 && data[0].event_id !== undefined) {
-          parsedResults = data;
-          setTotalEventos(data.length);
-        } else {
-          // Try to extract from nested structure
-          parsedResults = data.filter((d: any) => d && Object.keys(d).length > 0);
-          setTotalEventos(parsedResults.length);
-        }
-      } else if (data && typeof data === "object") {
-        if (data.resultados) {
-          parsedResults = data.resultados;
-          setTotalEventos(data.total_eventos || parsedResults.length);
-        } else if (data.data?.resultados) {
-          parsedResults = data.data.resultados;
-          setTotalEventos(data.data.total_eventos || parsedResults.length);
-        }
-      }
-
-      if (parsedResults.length === 0) {
-        console.warn("Nenhum resultado retornado:", data);
-        toast.info("Nenhum resultado encontrado para esta consulta");
-        setResultados([]);
-        setLastUpdate(new Date());
+      if (rows.length === 0) {
+        console.warn("Nenhuma métrica retornada:", data);
+        toast.info("Nenhuma métrica retornada para os eventos selecionados");
+        clearResults();
         return;
       }
 
-      // Map results - flexible field mapping
-      const items: LigacaoResultItem[] = parsedResults.map((r: any) => ({
-        event_id: Number(r.event_id || r.id_evento) || 0,
-        event_nome: r.event_nome || r.nome || `Evento ${r.event_id || r.id_evento}`,
-        total_base: Number(r.total_base || r.total) || 0,
-        leads_contatados: Number(r.leads_contatados || r.contatados) || 0,
-        ligacoes_feitas: Number(r.ligacoes_feitas || r.ligacoes) || 0,
-        atendidos: Number(r.atendidos) || 0,
-        agendados: Number(r.agendados || r.agendado) || 0,
-        encerrados: Number(r.encerrados || r.encerrado) || 0,
-      }));
+      const items: LigacaoResultItem[] = rows
+        .map((r: any) => ({
+          event_id: Number(r.event_id || r.id_evento) || 0,
+          event_nome: r.event_nome || r.nome || `Evento ${r.event_id || r.id_evento}`,
+          total_base: Number(r.total_base || r.total) || 0,
+          leads_contatados: Number(r.leads_contatados || r.contatados) || 0,
+          ligacoes_feitas: Number(r.ligacoes_feitas || r.ligacoes) || 0,
+          atendidos: Number(r.atendidos) || 0,
+          agendados: Number(r.agendados || r.agendado) || 0,
+          encerrados: Number(r.encerrados || r.encerrado) || 0,
+        }))
+        .filter((item) => item.event_id > 0);
+
+      if (items.length === 0) {
+        console.warn("Resposta sem campos de KPI válidos:", rows);
+        toast.warning("A API retornou eventos sem campos de KPI");
+        clearResults();
+        return;
+      }
 
       setResultados(items);
+      setTotalEventos(totalFromResponse || items.length);
       setLastUpdate(new Date());
     } catch (err) {
-      console.error("Admin Ligação fetch error:", err);
+      console.error("Admin Ligação metrics fetch error:", err);
       toast.error("Erro ao consultar dados administrativos");
     } finally {
       setLoading(false);
     }
-  }, [keyword, selectedIds]);
+  }, [clearResults]);
+
+  const fetchEventIdsByKeyword = useCallback(async (searchKeyword: string): Promise<number[]> => {
+    const trimmedKeyword = searchKeyword.trim();
+    if (!trimmedKeyword) return [];
+
+    console.log("📞 Admin Ligação keyword query:", { keyword: trimmedKeyword });
+
+    const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
+      body: {
+        keyword: trimmedKeyword,
+        webhook_url: WEBHOOK_SEARCH,
+      },
+    });
+
+    if (error) {
+      console.error("Admin Ligação keyword proxy error:", error);
+      throw error;
+    }
+
+    console.log("📞 Admin Ligação keyword raw response:", JSON.stringify(data)?.substring(0, 1000));
+
+    const eventRows = extractEventRows(data);
+    const keywordEvents = normalizeEvents(eventRows);
+
+    if (keywordEvents.length > 0) {
+      setAllEvents((prev) => {
+        const merged = new Map(prev.map((event) => [event.id_evento, event]));
+        keywordEvents.forEach((event) => merged.set(event.id_evento, event));
+        return Array.from(merged.values()).sort(sortByStartDateDesc);
+      });
+    }
+
+    return Array.from(
+      new Set(
+        eventRows
+          .map((event: any) => Number(event?.id_evento ?? event?.event_id))
+          .filter((id: number) => Number.isFinite(id) && id > 0)
+      )
+    );
+  }, []);
+
+  // ── Toggle selection ──────────────────────────────────────
+  const toggleEvent = (id: number) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+
+    setSelectedIds(next);
+    void fetchMetricsByIds(Array.from(next));
+  };
+
+  const selectAll = () => {
+    const ids = filteredEvents.map((event) => event.id_evento);
+    setSelectedIds(new Set(ids));
+    void fetchMetricsByIds(ids);
+  };
+
+  const selectNone = () => {
+    setSelectedIds(new Set());
+    clearResults();
+  };
+
+  // ── Search + fetch admin results ──────────────────────────
+  const fetchResults = useCallback(async () => {
+    const trimmedKeyword = keyword.trim();
+
+    try {
+      if (trimmedKeyword) {
+        const ids = await fetchEventIdsByKeyword(trimmedKeyword);
+
+        if (ids.length === 0) {
+          toast.info("Nenhum evento encontrado para essa palavra-chave");
+          clearResults();
+          return;
+        }
+
+        setSelectedIds(new Set(ids));
+        await fetchMetricsByIds(ids);
+        return;
+      }
+
+      if (selectedIds.size === 0) {
+        toast.error("Selecione eventos ou insira uma palavra-chave para consultar.");
+        return;
+      }
+
+      await fetchMetricsByIds(Array.from(selectedIds));
+    } catch (error) {
+      console.error("Admin Ligação search error:", error);
+      toast.error("Erro ao buscar eventos por nome");
+    }
+  }, [keyword, selectedIds, fetchEventIdsByKeyword, fetchMetricsByIds, clearResults]);
 
   // ── Aggregated metrics ────────────────────────────────────
   const aggregated = useMemo(() => {
