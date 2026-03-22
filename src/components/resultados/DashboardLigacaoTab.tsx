@@ -78,46 +78,41 @@ const metricsConfig = [
   {
     key: 'totalLeads' as const,
     label: 'Total da base',
-    icon: Users,
-    iconColor: 'text-primary',
-    iconBg: 'bg-primary/10',
+    borderColor: 'border-l-sky-500',
+    badgeColor: 'bg-sky-100 text-sky-700',
     subLabel: (m: Metricas) => m.totalLigacoes > 0 ? `Contatados: ${((m.totalLigacoes / m.totalLeads) * 100).toFixed(2)}%` : null,
   },
   {
     key: 'totalLigacoes' as const,
     label: 'Leads Contatados',
-    icon: Phone,
-    iconColor: 'text-blue-500',
-    iconBg: 'bg-blue-500/10',
-    subLabel: (m: Metricas) => m.totalLeads > 0 ? `${((m.totalLigacoes / m.totalLeads) * 100).toFixed(2)}% da base` : null,
-    subColor: 'text-red-400',
+    borderColor: 'border-l-red-500',
+    badgeColor: 'bg-red-100 text-red-700',
+    badgeFn: (m: Metricas) => m.totalLeads > 0 ? `${((m.totalLigacoes / m.totalLeads) * 100).toFixed(2)}% da base` : null,
+    subLabel: () => null,
   },
   {
     key: 'leadsAtendidos' as const,
     label: 'Atendidos',
-    icon: PhoneCall,
-    iconColor: 'text-green-500',
-    iconBg: 'bg-green-500/10',
-    subLabel: (m: Metricas) => m.totalLigacoes > 0 ? `${((m.leadsAtendidos / m.totalLigacoes) * 100).toFixed(2)}% dos contatados` : null,
-    subColor: 'text-blue-400',
+    borderColor: 'border-l-blue-500',
+    badgeColor: 'bg-blue-100 text-blue-700',
+    badgeFn: (m: Metricas) => m.totalLigacoes > 0 ? `${((m.leadsAtendidos / m.totalLigacoes) * 100).toFixed(2)}% dos contatados` : null,
+    subLabel: (m: Metricas) => m.totalLeads > 0 ? `${((m.leadsAtendidos / m.totalLeads) * 100).toFixed(2)}% do total da base` : null,
   },
   {
     key: 'enviadoWhatsapp' as const,
     label: 'Enviado WhatsApp',
-    icon: MessageSquare,
-    iconColor: 'text-emerald-500',
-    iconBg: 'bg-emerald-500/10',
-    subLabel: (m: Metricas) => m.totalLigacoes > 0 ? `${((m.enviadoWhatsapp / m.totalLigacoes) * 100).toFixed(2)}% dos contatados` : null,
-    subColor: 'text-emerald-400',
+    borderColor: 'border-l-emerald-500',
+    badgeColor: 'bg-emerald-100 text-emerald-700',
+    badgeFn: (m: Metricas) => m.totalLigacoes > 0 ? `${((m.enviadoWhatsapp / m.totalLigacoes) * 100).toFixed(2)}% dos contatados` : null,
+    subLabel: () => null,
   },
   {
     key: 'leadsAgendados' as const,
     label: 'Agendados',
-    icon: CalendarCheck,
-    iconColor: 'text-[#04bbda]',
-    iconBg: 'bg-[#04bbda]/10',
-    subLabel: (m: Metricas) => m.totalLeads > 0 ? `${((m.leadsAgendados / m.totalLeads) * 100).toFixed(2)}% da base` : null,
-    subColor: 'text-red-400',
+    borderColor: 'border-l-amber-600',
+    badgeColor: 'bg-amber-100 text-amber-700',
+    badgeFn: (m: Metricas) => m.leadsAtendidos > 0 ? `${((m.leadsAgendados / m.leadsAtendidos) * 100).toFixed(1)}% dos atendidos` : null,
+    subLabel: (m: Metricas) => m.totalLeads > 0 ? `${((m.leadsAgendados / m.totalLeads) * 100).toFixed(2)}% do total da base` : null,
   },
 ];
 
@@ -447,29 +442,34 @@ export const DashboardLigacaoTab = ({
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {metricsConfig.map((metric) => {
           const value = displayMetrics[metric.key];
-          const Icon = metric.icon;
           const sub = metric.subLabel(displayMetrics);
+          const badge = (metric as any).badgeFn?.(displayMetrics) as string | null;
           return (
-            <Card key={metric.key} className="relative overflow-hidden border-border/50 hover:border-border transition-colors">
-              <CardContent className="p-4 sm:p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <div
+              key={metric.key}
+              className={`rounded-xl border border-border/40 bg-card shadow-sm border-l-[5px] ${metric.borderColor} p-5`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
                     {metric.label}
                   </p>
-                  <div className={cn("p-2 rounded-lg", metric.iconBg)}>
-                    <Icon className={cn("h-4 w-4", metric.iconColor)} />
-                  </div>
-                </div>
-                <p className="text-3xl font-bold tracking-tight text-foreground">
-                  {value.toLocaleString('pt-BR')}
-                </p>
-                {sub && (
-                  <p className={cn("text-xs mt-1.5 font-medium", (metric as any).subColor || 'text-muted-foreground')}>
-                    {sub}
+                  <p className="text-2xl font-bold text-foreground">
+                    {value.toLocaleString('pt-BR')}
                   </p>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {badge && (
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${metric.badgeColor}`}>
+                      {badge}
+                    </span>
+                  )}
+                  {sub && (
+                    <p className="text-[11px] text-muted-foreground">{sub}</p>
+                  )}
+                </div>
+              </div>
+            </div>
           );
         })}
       </div>
