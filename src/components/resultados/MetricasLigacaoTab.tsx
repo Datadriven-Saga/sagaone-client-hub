@@ -321,28 +321,26 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone, initialEventId }: Metri
         {kpiCards.map((kpi, idx) => (
           <div
             key={idx}
-            className={`rounded-xl bg-white dark:bg-[hsl(220,20%,14%)] border border-border/30 shadow-sm border-l-[7px] ${kpi.borderColor} p-6`}
+            className={`rounded-xl bg-white dark:bg-card border border-border/30 shadow-sm border-l-[7px] ${kpi.borderColor} p-5 min-h-[120px]`}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+            <div className="flex justify-between items-start gap-3">
+              <div className="flex flex-col min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-muted-foreground mb-1.5">
                   {kpi.label}
                 </p>
-                <p className="text-3xl font-bold text-foreground leading-none">
+                <p className="text-3xl font-bold text-slate-900 dark:text-foreground leading-none">
                   {kpi.value}
                 </p>
                 {kpi.subText && (
-                  <p className={`text-sm font-medium mt-2 ${kpi.subColor}`}>
+                  <p className={`text-[13px] font-medium mt-2 whitespace-nowrap ${kpi.subColor}`}>
                     {kpi.subText}
                   </p>
                 )}
               </div>
               {kpi.badgeText && (
-                <div className="flex flex-col items-end shrink-0 pt-4">
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap ${kpi.badgeColor}`}>
-                    {kpi.badgeText}
-                  </span>
-                </div>
+                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap ${kpi.badgeColor}`}>
+                  {kpi.badgeText}
+                </span>
               )}
             </div>
           </div>
