@@ -491,7 +491,7 @@ export const AdminDashboardLigacao = () => {
                 </Button>
               )}
             </div>
-            <Button onClick={fetchResults} disabled={loading && !keyword.trim() && selectedIds.size === 0} className="shrink-0">
+            <Button onClick={fetchResults} disabled={loading || loadingEvents} className="shrink-0">
               {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
               Consultar
             </Button>
@@ -506,7 +506,7 @@ export const AdminDashboardLigacao = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={searchFilter}
-              onChange={(e) => { setSearchFilter(e.target.value); setVisibleCount(PAGE_SIZE); }}
+              onChange={(e) => setSearchFilter(e.target.value)}
               placeholder="Filtrar lista de eventos..."
               className="pl-10"
             />
@@ -535,9 +535,9 @@ export const AdminDashboardLigacao = () => {
             </div>
           ) : (
             <>
-              <ScrollArea className="max-h-[360px]">
+              <ScrollArea className="h-[360px] rounded-md border border-border/50" onWheelCapture={(event) => event.stopPropagation()}>
                 <div className="space-y-1">
-                  {visibleEvents.map((event) => {
+                  {filteredEvents.map((event) => {
                     const isSelected = selectedIds.has(event.id_evento);
                     return (
                       <div
@@ -545,7 +545,12 @@ export const AdminDashboardLigacao = () => {
                         className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/10 border border-primary/20" : "border border-transparent"}`}
                         onClick={() => toggleEvent(event.id_evento)}
                       >
-                        <Checkbox checked={isSelected} className="shrink-0" />
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleEvent(event.id_evento)}
+                          onClick={(event) => event.stopPropagation()}
+                          className="shrink-0"
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-medium truncate">{event.nome}</p>
@@ -578,18 +583,6 @@ export const AdminDashboardLigacao = () => {
                   })}
                 </div>
               </ScrollArea>
-
-              {hasMore && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
-                >
-                  <ChevronDown className="h-4 w-4 mr-2" />
-                  Carregar mais ({filteredEvents.length - visibleCount} restantes)
-                </Button>
-              )}
             </>
           )}
         </CardContent>
