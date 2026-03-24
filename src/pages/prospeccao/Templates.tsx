@@ -2449,7 +2449,9 @@ export default function Templates() {
                     <TableRow key={template.id}>
                       <TableCell className="font-medium">{template.nome}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{template.categoria.charAt(0).toUpperCase() + template.categoria.slice(1)}</Badge>
+                        <Badge variant="outline">
+                          {(template.category_meta || template.categoria).charAt(0).toUpperCase() + (template.category_meta || template.categoria).slice(1).toLowerCase()}
+                        </Badge>
                       </TableCell>
                       <TableCell>{template.formato.charAt(0).toUpperCase() + template.formato.slice(1)}</TableCell>
                       <TableCell className="font-mono text-xs">{template.template_id_pri || "-"}</TableCell>
