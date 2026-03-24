@@ -21,6 +21,7 @@ import {
   ChevronDown,
   X,
   LayoutGrid,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +35,7 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 
 // ── Interfaces ──────────────────────────────────────────────
@@ -41,6 +43,8 @@ interface AdminEvent {
   id_evento: number;
   nome: string;
   empresa_nome: string;
+  marca: string;
+  uf: string;
   data_inicio: string | null;
   data_fim: string | null;
 }
@@ -116,6 +120,12 @@ export const AdminDashboardWhatsApp = () => {
   const [keyword, setKeyword] = useState("");
   const [searchFilter, setSearchFilter] = useState("");
 
+  // Filters
+  const [filterMarca, setFilterMarca] = useState("");
+  const [filterUF, setFilterUF] = useState("");
+  const [filterEmpresa, setFilterEmpresa] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
   // Results
   const [loading, setLoading] = useState(false);
   const [resultados, setResultados] = useState<AdminResultItem[]>([]);
@@ -139,7 +149,7 @@ export const AdminDashboardWhatsApp = () => {
             event_id_pri,
             data_inicio,
             data_fim,
-            empresas!inner(nome_empresa)
+            empresas!inner(nome_empresa, marca, uf)
           `)
           .eq("canal", "Whatsapp")
           .not("event_id_pri", "is", null)
@@ -153,6 +163,8 @@ export const AdminDashboardWhatsApp = () => {
             id_evento: Number(p.event_id_pri),
             nome: p.titulo || `Evento ${p.event_id_pri}`,
             empresa_nome: p.empresas?.nome_empresa || "",
+            marca: p.empresas?.marca || "",
+            uf: p.empresas?.uf || "",
             data_inicio: p.data_inicio,
             data_fim: p.data_fim,
           }))
@@ -170,17 +182,47 @@ export const AdminDashboardWhatsApp = () => {
     fetchEvents();
   }, []);
 
+  // ── Unique filter options ─────────────────────────────────
+  const filterOptions = useMemo(() => {
+    const marcas = [...new Set(allEvents.map(e => e.marca).filter(Boolean))].sort();
+    const ufs = [...new Set(allEvents.map(e => e.uf).filter(Boolean))].sort();
+    return { marcas, ufs };
+  }, [allEvents]);
+
   // ── Filtered & visible events ─────────────────────────────
   const filteredEvents = useMemo(() => {
-    if (!searchFilter) return allEvents;
-    const lower = searchFilter.toLowerCase();
-    return allEvents.filter(
-      (e) =>
-        e.nome.toLowerCase().includes(lower) ||
-        e.empresa_nome.toLowerCase().includes(lower) ||
-        String(e.id_evento).includes(lower)
-    );
-  }, [allEvents, searchFilter]);
+    let result = allEvents;
+
+    if (searchFilter) {
+      const lower = searchFilter.toLowerCase();
+      result = result.filter(
+        (e) =>
+          e.nome.toLowerCase().includes(lower) ||
+          e.empresa_nome.toLowerCase().includes(lower) ||
+          String(e.id_evento).includes(lower)
+      );
+    }
+
+    if (filterEmpresa) {
+      const lower = filterEmpresa.toLowerCase();
+      result = result.filter(e => e.empresa_nome.toLowerCase().includes(lower));
+    }
+
+    if (filterMarca) {
+      const lower = filterMarca.toLowerCase();
+      result = result.filter(e => e.marca.toLowerCase().includes(lower));
+    }
+
+    if (filterUF) {
+      const lower = filterUF.toLowerCase().replace(/\s/g, "");
+      const ufs = lower.split(",").map(u => u.trim()).filter(Boolean);
+      if (ufs.length > 0) {
+        result = result.filter(e => ufs.some(u => e.uf.toLowerCase() === u));
+      }
+    }
+
+    return result;
+  }, [allEvents, searchFilter, filterEmpresa, filterMarca, filterUF]);
 
   const visibleEvents = useMemo(
     () => filteredEvents.slice(0, visibleCount),
@@ -188,6 +230,13 @@ export const AdminDashboardWhatsApp = () => {
   );
 
   const hasMore = visibleCount < filteredEvents.length;
+
+  // ── Build event lookup map for detail headers ─────────────
+  const eventLookup = useMemo(() => {
+    const map = new Map<number, AdminEvent>();
+    allEvents.forEach(e => map.set(e.id_evento, e));
+    return map;
+  }, [allEvents]);
 
   // ── Toggle selection ──────────────────────────────────────
   const toggleEvent = (id: number) => {
@@ -207,7 +256,6 @@ export const AdminDashboardWhatsApp = () => {
 
   // ── Fetch admin results ───────────────────────────────────
   const fetchResults = useCallback(async () => {
-    // Build payload based on priority: keyword > multi-select
     const trimmedKeyword = keyword.trim();
     let payload: Record<string, unknown> = {};
 
@@ -244,7 +292,6 @@ export const AdminDashboardWhatsApp = () => {
 
       console.log("🔑 Admin WhatsApp raw response:", JSON.stringify(data)?.substring(0, 1000));
 
-      // Parse response – handle multiple wrapper formats
       let parsed: AdminApiResponse | null = null;
 
       const tryParse = (obj: any): AdminApiResponse | null => {
@@ -262,7 +309,6 @@ export const AdminDashboardWhatsApp = () => {
         return;
       }
 
-      // Map resultados
       const items: AdminResultItem[] = parsed.resultados.map((r) => ({
         event_id: Number(r.event_id),
         event_nome: r.event_nome || `Evento ${r.event_id}`,
@@ -394,6 +440,14 @@ export const AdminDashboardWhatsApp = () => {
 
   const leadBase = aggregated?.total_base || 1;
 
+  // ── Consultar button component ────────────────────────────
+  const ConsultarButton = () => (
+    <Button onClick={fetchResults} disabled={loading && !keyword.trim() && selectedIds.size === 0} className="shrink-0">
+      {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+      Consultar
+    </Button>
+  );
+
   // ════════════════════════════════════════════════════════════
   // RENDER
   // ════════════════════════════════════════════════════════════
@@ -459,6 +513,12 @@ export const AdminDashboardWhatsApp = () => {
               <Input
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    fetchResults();
+                  }
+                }}
                 placeholder="Buscar por palavra-chave (ex: Auto Show, 1sem)..."
                 className="pl-10"
               />
@@ -468,15 +528,68 @@ export const AdminDashboardWhatsApp = () => {
                 </Button>
               )}
             </div>
-            <Button onClick={fetchResults} disabled={loading && !keyword.trim() && selectedIds.size === 0} className="shrink-0">
-              {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
-              Consultar
-            </Button>
+            <ConsultarButton />
           </div>
 
           <p className="text-xs text-muted-foreground">
             Preencha a palavra-chave para buscar por nome, ou selecione eventos abaixo. A palavra-chave tem prioridade.
           </p>
+
+          {/* ── Filters (Marca, UF, Nome da Empresa) ──────────── */}
+          <Collapsible open={showFilters} onOpenChange={setShowFilters}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full justify-between">
+                <span className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  Filtros
+                  {(filterEmpresa || filterMarca || filterUF) && (
+                    <Badge variant="secondary" className="text-xs ml-1">Ativos</Badge>
+                  )}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {showFilters ? "Recolher" : "Expandir"}
+                </span>
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Nome da Empresa</label>
+                  <Input
+                    value={filterEmpresa}
+                    onChange={(e) => { setFilterEmpresa(e.target.value); setVisibleCount(PAGE_SIZE); }}
+                    placeholder="Filtrar por nome..."
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Marca</label>
+                  <Input
+                    value={filterMarca}
+                    onChange={(e) => { setFilterMarca(e.target.value); setVisibleCount(PAGE_SIZE); }}
+                    placeholder="Filtrar por marca..."
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">UF</label>
+                  <Input
+                    value={filterUF}
+                    onChange={(e) => { setFilterUF(e.target.value); setVisibleCount(PAGE_SIZE); }}
+                    placeholder="SP, RJ, MG..."
+                  />
+                </div>
+              </div>
+              {(filterEmpresa || filterMarca || filterUF) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 text-xs"
+                  onClick={() => { setFilterEmpresa(""); setFilterMarca(""); setFilterUF(""); setVisibleCount(PAGE_SIZE); }}
+                >
+                  <X className="h-3 w-3 mr-1" /> Limpar filtros
+                </Button>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Event list filter */}
           <div className="relative">
@@ -512,8 +625,8 @@ export const AdminDashboardWhatsApp = () => {
             </div>
           ) : (
             <>
-              <ScrollArea className="max-h-[360px]">
-                <div className="space-y-1">
+              <div className="max-h-[360px] overflow-y-auto border rounded-lg">
+                <div className="space-y-1 p-1">
                   {visibleEvents.map((event) => {
                     const isSelected = selectedIds.has(event.id_evento);
                     return (
@@ -525,9 +638,21 @@ export const AdminDashboardWhatsApp = () => {
                         <Checkbox checked={isSelected} className="shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{event.nome}</p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
                             <Store className="h-3 w-3 shrink-0" />
                             <span className="truncate">{event.empresa_nome}</span>
+                            {event.marca && (
+                              <>
+                                <span>•</span>
+                                <span>{event.marca}</span>
+                              </>
+                            )}
+                            {event.uf && (
+                              <>
+                                <span>•</span>
+                                <span>{event.uf}</span>
+                              </>
+                            )}
                             <span>•</span>
                             <span>ID: {event.id_evento}</span>
                             {event.data_inicio && (
@@ -542,7 +667,7 @@ export const AdminDashboardWhatsApp = () => {
                     );
                   })}
                 </div>
-              </ScrollArea>
+              </div>
 
               {hasMore && (
                 <Button
@@ -555,6 +680,11 @@ export const AdminDashboardWhatsApp = () => {
                   Carregar mais ({filteredEvents.length - visibleCount} restantes)
                 </Button>
               )}
+
+              {/* Bottom Consultar button */}
+              <div className="flex justify-end pt-2">
+                <ConsultarButton />
+              </div>
             </>
           )}
         </CardContent>
@@ -692,6 +822,9 @@ export const AdminDashboardWhatsApp = () => {
                   const totalTplVal = sortedTpls.reduce((s, t) => s + (showBRL ? t.valor_em_real : t.valor_em_dolar), 0);
                   const maxTpl = sortedTpls.length > 0 ? (showBRL ? sortedTpls[0].valor_em_real : sortedTpls[0].valor_em_dolar) : 1;
 
+                  // Lookup event details from DB data
+                  const eventDetail = eventLookup.get(r.event_id);
+
                   return (
                     <AccordionItem key={r.event_id} value={String(r.event_id)} className="border rounded-lg px-4">
                       <AccordionTrigger className="hover:no-underline py-3">
@@ -699,7 +832,22 @@ export const AdminDashboardWhatsApp = () => {
                           <MessageSquare className="h-4 w-4 text-primary shrink-0" />
                           <div className="flex-1 min-w-0">
                             <span className="font-bold text-sm truncate block">{r.event_nome}</span>
-                            <span className="text-xs text-muted-foreground">ID: {r.event_id}</span>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
+                              {eventDetail ? (
+                                <>
+                                  <Store className="h-3 w-3 shrink-0" />
+                                  <span>{eventDetail.empresa_nome}</span>
+                                  {eventDetail.data_inicio && (
+                                    <>
+                                      <span>•</span>
+                                      <span>{formatDate(eventDetail.data_inicio)}{eventDetail.data_fim ? ` - ${formatDate(eventDetail.data_fim)}` : ""}</span>
+                                    </>
+                                  )}
+                                  <span>•</span>
+                                </>
+                              ) : null}
+                              <span>ID: {r.event_id}</span>
+                            </div>
                           </div>
                           <div className="flex gap-2 shrink-0">
                             <Badge variant="outline" className="text-xs">{numFmt(r.total_base)} leads</Badge>
