@@ -240,8 +240,16 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           setLoading(false);
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           // Defer domain validation to avoid deadlock
-          setTimeout(() => {
+          setTimeout(async () => {
             validateAndSetUser(session);
+            // Auto-provision from SSO claims (sync department, company, role)
+            if (event === 'SIGNED_IN' && session?.user) {
+              try {
+                await supabase.rpc('auto_provision_user_from_sso', { p_user_id: session.user.id });
+              } catch (err) {
+                console.error('SSO auto-provision error:', err);
+              }
+            }
             // After SSO callback, check for deep link redirect
             if (event === 'SIGNED_IN') {
               const savedPath = localStorage.getItem(AUTH_REDIRECT_KEY);
