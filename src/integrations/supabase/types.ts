@@ -1186,6 +1186,27 @@ export type Database = {
           },
         ]
       }
+      cargo_tipo_acesso_mapping: {
+        Row: {
+          cargo_azure: string
+          created_at: string | null
+          id: string
+          tipo_acesso: Database["public"]["Enums"]["tipo_acesso"]
+        }
+        Insert: {
+          cargo_azure: string
+          created_at?: string | null
+          id?: string
+          tipo_acesso: Database["public"]["Enums"]["tipo_acesso"]
+        }
+        Update: {
+          cargo_azure?: string
+          created_at?: string | null
+          id?: string
+          tipo_acesso?: Database["public"]["Enums"]["tipo_acesso"]
+        }
+        Relationships: []
+      }
       clientes: {
         Row: {
           cep: string | null
@@ -4969,6 +4990,10 @@ export type Database = {
       auto_atribuir_leads_vendedor: {
         Args: { user_id_param?: string }
         Returns: number
+      }
+      auto_provision_user_from_sso: {
+        Args: { p_user_id: string }
+        Returns: Json
       }
       bulk_upsert_contatos: {
         Args: {
