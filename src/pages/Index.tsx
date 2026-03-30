@@ -103,10 +103,10 @@ const Index = () => {
                 <p className="text-muted-foreground">Com Telefone</p>
               </div>
             </div>
-          </DashboardCard>
+          </DashboardCard>}
 
           {/* Notificações */}
-          <DashboardCard
+          {p("canAccessNotificacoes") && <DashboardCard
             title="Notificações"
             icon={Bell}
             actionText="Ver Notificações"
