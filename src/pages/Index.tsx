@@ -16,6 +16,8 @@ import { useUserAccessType } from "@/hooks/useUserAccessType";
 const Index = () => {
   const navigate = useNavigate();
   const { data, loading } = useDashboardData();
+  const { permissions } = useUserAccessType();
+  const p = (key: string): boolean => permissions[key] ?? false;
 
   return (
     <DashboardLayout>
