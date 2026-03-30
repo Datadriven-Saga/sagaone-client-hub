@@ -56,10 +56,10 @@ const Index = () => {
                 </span>
               </div>
             </div>
-          </DashboardCard>
+          </DashboardCard>}
 
           {/* Prospecção */}
-          <DashboardCard
+          {p("canViewProspeccao") && <DashboardCard
             title="Prospecção"
             icon={Target}
             actionText="Ver Prospecções"
