@@ -48,6 +48,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMfaMaster } from "@/hooks/useMfaMaster";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -271,6 +272,13 @@ export function MFAAgentesContent() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { isMaster, logAction } = useMfaMaster();
+  const { canViewAuthenticator, canManageAuthenticator, canAssignAuthenticator, canViewAuditLogs } = useUserAccessType();
+  
+  // Effective permissions: Master always has full access, others use permission flags
+  const canView = isMaster || canViewAuthenticator;
+  const canManage = isMaster || canManageAuthenticator;
+  const canAssign = isMaster || canAssignAuthenticator;
+  const canLogs = isMaster || canViewAuditLogs;
   const [accounts, setAccounts] = useState<MFAAccount[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMode, setAddMode] = useState<"choose" | "scan" | "manual">("choose");
@@ -330,7 +338,7 @@ export function MFAAgentesContent() {
 
   // Load audit logs
   const loadAuditLogs = useCallback(async () => {
-    if (!isMaster) return;
+    if (!canLogs) return;
     setLoadingLogs(true);
     try {
       const { data, error } = await supabase
@@ -345,11 +353,11 @@ export function MFAAgentesContent() {
     } finally {
       setLoadingLogs(false);
     }
-  }, [isMaster]);
+  }, [canLogs]);
 
   // Load access list and users (only Administrador users for assignment)
   const loadAccessData = useCallback(async () => {
-    if (!isMaster) return;
+    if (!canAssign) return;
     setLoadingAccess(true);
     try {
       const [accessRes, usersRes] = await Promise.all([
@@ -363,7 +371,7 @@ export function MFAAgentesContent() {
     } finally {
       setLoadingAccess(false);
     }
-  }, [isMaster]);
+  }, [canAssign]);
 
   // Grant access
   const handleGrantAccess = async () => {
@@ -460,8 +468,8 @@ export function MFAAgentesContent() {
 
   // Load access data on mount for Master users
   useEffect(() => {
-    if (isMaster) loadAccessData();
-  }, [isMaster, loadAccessData]);
+    if (canAssign) loadAccessData();
+  }, [canAssign, loadAccessData]);
 
   useEffect(() => {
     if (!user) return;
@@ -842,7 +850,7 @@ export function MFAAgentesContent() {
             </p>
           </div>
         </div>
-        {isMaster && (
+        {canManage && (
           <Button onClick={() => setShowAddModal(true)} className="gap-2">
             <Plus className="h-4 w-4" /> Adicionar MFA
           </Button>
@@ -853,22 +861,24 @@ export function MFAAgentesContent() {
         if (v === "logs" && auditLogs.length === 0) loadAuditLogs();
         if (v === "access" && users.length === 0) loadAccessData();
       }}>
-        <TabsList className={`grid w-full ${isMaster ? "grid-cols-4" : "grid-cols-1"} max-w-xl`}>
+        <TabsList className={`grid w-full grid-cols-${1 + (canManage ? 1 : 0) + (canAssign ? 1 : 0) + (canLogs ? 1 : 0)} max-w-xl`}>
           <TabsTrigger value="authenticators" className="gap-1.5">
             <KeyRound className="h-4 w-4" /> Códigos
           </TabsTrigger>
-          {isMaster && (
-            <>
-              <TabsTrigger value="passwords" className="gap-1.5">
-                <Lock className="h-4 w-4" /> Senhas
-              </TabsTrigger>
-              <TabsTrigger value="access" className="gap-1.5">
-                <Users className="h-4 w-4" /> Acessos
-              </TabsTrigger>
-              <TabsTrigger value="logs" className="gap-1.5">
-                <ScrollText className="h-4 w-4" /> Logs
-              </TabsTrigger>
-            </>
+          {canManage && (
+            <TabsTrigger value="passwords" className="gap-1.5">
+              <Lock className="h-4 w-4" /> Senhas
+            </TabsTrigger>
+          )}
+          {canAssign && (
+            <TabsTrigger value="access" className="gap-1.5">
+              <Users className="h-4 w-4" /> Acessos
+            </TabsTrigger>
+          )}
+          {canLogs && (
+            <TabsTrigger value="logs" className="gap-1.5">
+              <ScrollText className="h-4 w-4" /> Logs
+            </TabsTrigger>
           )}
         </TabsList>
 
@@ -886,11 +896,11 @@ export function MFAAgentesContent() {
                 <ShieldCheck className="h-16 w-16 mx-auto text-muted-foreground/40 mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-1">Nenhuma conta MFA</h3>
                 <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-                  {isMaster
+                  {canManage
                     ? "Adicione contas MFA escaneando QR Codes ou inserindo chaves manualmente."
                     : "Nenhuma conta MFA foi atribuída a você. Solicite ao Master."}
                 </p>
-                {isMaster && (
+                {canManage && (
                   <Button onClick={() => setShowAddModal(true)} className="gap-2">
                     <Plus className="h-4 w-4" /> Adicionar primeira conta
                   </Button>
@@ -918,7 +928,7 @@ export function MFAAgentesContent() {
                           <TOTPCode account={account} onCopy={(code) => handleCopy(code, account)} />
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
-                          {isMaster && (
+                          {canManage && (
                             <Button variant="ghost" size="icon" className="h-8 w-8"
                               onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === account.id ? null : account.id); }}>
                               <MoreVertical className="h-4 w-4" />
@@ -926,7 +936,7 @@ export function MFAAgentesContent() {
                           )}
                         </div>
                       </div>
-                      {isMaster && expandedId === account.id && (
+                      {canManage && expandedId === account.id && (
                         <div className="mt-3 pt-3 border-t border-muted flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
                           <Button variant="outline" size="sm" className="gap-1.5 text-xs"
                             onClick={() => { setEditingAccount(account); setEditName(account.issuer); }}>
@@ -954,21 +964,21 @@ export function MFAAgentesContent() {
         </TabsContent>
 
         {/* PASSWORDS TAB */}
-        {isMaster && (
+        {canManage && (
           <TabsContent value="passwords" className="mt-4">
             <MFAPasswordVaultTab accounts={accounts} onAccountCreated={loadAccounts} />
           </TabsContent>
         )}
 
         {/* ACCESS TAB */}
-        {isMaster && (
+        {canAssign && (
           <TabsContent value="access" className="mt-4">
             <MFAAccessManager accounts={accounts} onAccessChanged={() => { loadAccounts(); loadAccessData(); }} />
           </TabsContent>
         )}
 
         {/* LOGS TAB */}
-        {isMaster && (
+        {canLogs && (
           <TabsContent value="logs" className="space-y-4 mt-4">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="relative flex-1 max-w-md min-w-[200px]">
