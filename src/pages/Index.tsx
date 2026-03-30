@@ -149,10 +149,10 @@ const Index = () => {
                 </span>
               </div>
             </div>
-          </DashboardCard>
+          </DashboardCard>}
 
           {/* Treinamentos */}
-          <DashboardCard
+          {p("canAccessAcademy") && <DashboardCard
             title="Treinamentos"
             icon={GraduationCap}
             actionText="Acessar Treinamentos"
