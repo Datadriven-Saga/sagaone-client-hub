@@ -850,7 +850,7 @@ export function MFAAgentesContent() {
             </p>
           </div>
         </div>
-        {isMaster && (
+        {canManage && (
           <Button onClick={() => setShowAddModal(true)} className="gap-2">
             <Plus className="h-4 w-4" /> Adicionar MFA
           </Button>
