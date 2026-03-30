@@ -50,6 +50,7 @@ const FeatureFlags = lazy(() => import("./pages/admin/FeatureFlags"));
 const Quarentena = lazy(() => import("./pages/admin/Quarentena"));
 const Integracoes = lazy(() => import("./pages/admin/Integracoes"));
 const OptOutGlobal = lazy(() => import("./pages/admin/OptOutGlobal"));
+const MFAGeral = lazy(() => import("./pages/admin/MFAGeral"));
 const Instancias = lazy(() => import("./pages/agentes-ia/Instancias"));
 
 // QueryClient with optimized defaults
@@ -133,6 +134,7 @@ const AppRoutes = () => {
         <Route path="/administracao/feature-flags" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><FeatureFlags /></PermissionProtectedRoute>} />
         <Route path="/administracao/quarentena" element={<PermissionProtectedRoute permissionKey={["canGovernancaDados", "canAccessAdminConfig"]}><Quarentena /></PermissionProtectedRoute>} />
         <Route path="/administracao/integracoes" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><Integracoes /></PermissionProtectedRoute>} />
+        <Route path="/administracao/mfa" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><MFAGeral /></PermissionProtectedRoute>} />
         <Route path="/administracao/opt-out-global" element={<PermissionProtectedRoute permissionKey="canAccessOptOutGlobal"><OptOutGlobal /></PermissionProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
