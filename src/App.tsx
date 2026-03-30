@@ -134,7 +134,7 @@ const AppRoutes = () => {
         <Route path="/administracao/feature-flags" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><FeatureFlags /></PermissionProtectedRoute>} />
         <Route path="/administracao/quarentena" element={<PermissionProtectedRoute permissionKey={["canGovernancaDados", "canAccessAdminConfig"]}><Quarentena /></PermissionProtectedRoute>} />
         <Route path="/administracao/integracoes" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><Integracoes /></PermissionProtectedRoute>} />
-        <Route path="/administracao/mfa" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><MFAGeral /></PermissionProtectedRoute>} />
+        <Route path="/administracao/mfa" element={<PermissionProtectedRoute permissionKey={["canAccessAgentesIA", "canViewAuthenticator"]}><MFAGeral /></PermissionProtectedRoute>} />
         <Route path="/administracao/opt-out-global" element={<PermissionProtectedRoute permissionKey="canAccessOptOutGlobal"><OptOutGlobal /></PermissionProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
