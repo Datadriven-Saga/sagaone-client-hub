@@ -272,6 +272,13 @@ export function MFAAgentesContent() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { isMaster, logAction } = useMfaMaster();
+  const { canViewAuthenticator, canManageAuthenticator, canAssignAuthenticator, canViewAuditLogs } = useUserAccessType();
+  
+  // Effective permissions: Master always has full access, others use permission flags
+  const canView = isMaster || canViewAuthenticator;
+  const canManage = isMaster || canManageAuthenticator;
+  const canAssign = isMaster || canAssignAuthenticator;
+  const canLogs = isMaster || canViewAuditLogs;
   const [accounts, setAccounts] = useState<MFAAccount[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMode, setAddMode] = useState<"choose" | "scan" | "manual">("choose");
