@@ -978,7 +978,7 @@ export function MFAAgentesContent() {
         )}
 
         {/* LOGS TAB */}
-        {isMaster && (
+        {canLogs && (
           <TabsContent value="logs" className="space-y-4 mt-4">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="relative flex-1 max-w-md min-w-[200px]">
