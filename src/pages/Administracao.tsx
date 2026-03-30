@@ -107,6 +107,13 @@ const Administracao = () => {
       permissionKey: "canAccessGatilhos",
     },
     {
+      title: "MFA / Cofre de Senhas",
+      description: "Gerenciar autenticação multifator, códigos TOTP e cofre de senhas",
+      icon: ShieldCheck,
+      route: "/administracao/mfa",
+      permissionKey: "canAccessAgentesIA",
+    },
+    {
       title: "Campos Obrigatórios",
       description: "Configurar campos obrigatórios por módulo",
       icon: FileText,
