@@ -2605,6 +2605,39 @@ export type Database = {
         }
         Relationships: []
       }
+      mfa_password_vault: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string
+          id: string
+          login: string
+          notes: string | null
+          password_encrypted: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          login: string
+          notes?: string | null
+          password_encrypted: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          login?: string
+          notes?: string | null
+          password_encrypted?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       mfa_recovery_codes: {
         Row: {
           account_id: string
@@ -4934,6 +4967,39 @@ export type Database = {
           secret?: never
           updated_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      mfa_password_vault_decrypted: {
+        Row: {
+          account_id: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          login: string | null
+          notes: string | null
+          password_plain: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          login?: string | null
+          notes?: string | null
+          password_plain?: never
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          login?: string | null
+          notes?: string | null
+          password_plain?: never
+          updated_at?: string | null
         }
         Relationships: []
       }
