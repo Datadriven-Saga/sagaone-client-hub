@@ -89,18 +89,23 @@ export function MFAPasswordVaultTab({ accounts, onAccountCreated }: MFAPasswordV
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setEntries((data as any[]) || []);
+      // Non-master users: filter to only accounts they have access to
+      const accessibleAccountIds = new Set(accounts.map(a => a.id));
+      const filtered = isMaster 
+        ? (data as any[]) || []
+        : ((data as any[]) || []).filter(e => accessibleAccountIds.has(e.account_id));
+      setEntries(filtered);
     } catch (err: any) {
       console.error("[Vault] Load error:", err);
       toast({ title: "Erro ao carregar cofre", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, accounts, isMaster]);
 
   useEffect(() => {
-    if (isMaster) loadEntries();
-  }, [isMaster, loadEntries]);
+    loadEntries();
+  }, [loadEntries]);
 
   const togglePasswordVisibility = (id: string) => {
     setVisiblePasswords(prev => {
@@ -245,20 +250,6 @@ export function MFAPasswordVaultTab({ accounts, onAccountCreated }: MFAPasswordV
     }
   };
 
-  if (!isMaster) {
-    return (
-      <Card className="border-dashed border-2 border-muted">
-        <CardContent className="py-16 text-center">
-          <Lock className="h-16 w-16 mx-auto text-muted-foreground/40 mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-1">Acesso restrito</h3>
-          <p className="text-sm text-muted-foreground">
-            Apenas usuários Master podem gerenciar o cofre de senhas.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -266,9 +257,11 @@ export function MFAPasswordVaultTab({ accounts, onAccountCreated }: MFAPasswordV
         <p className="text-sm text-muted-foreground">
           {entries.length} {entries.length === 1 ? "credencial salva" : "credenciais salvas"}
         </p>
-        <Button onClick={() => { resetForm(); setShowAddModal(true); }} className="gap-2" size="sm">
-          <Plus className="h-4 w-4" /> Nova Senha
-        </Button>
+        {isMaster && (
+          <Button onClick={() => { resetForm(); setShowAddModal(true); }} className="gap-2" size="sm">
+            <Plus className="h-4 w-4" /> Nova Senha
+          </Button>
+        )}
       </div>
 
       {/* Entries list */}
@@ -284,11 +277,15 @@ export function MFAPasswordVaultTab({ accounts, onAccountCreated }: MFAPasswordV
             <Lock className="h-16 w-16 mx-auto text-muted-foreground/40 mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-1">Cofre vazio</h3>
             <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-              Adicione credenciais vinculadas a contas MFA para armazená-las de forma segura.
+              {isMaster 
+                ? "Adicione credenciais vinculadas a contas MFA para armazená-las de forma segura."
+                : "Nenhuma credencial vinculada às contas MFA que você tem acesso."}
             </p>
-            <Button onClick={() => { resetForm(); setShowAddModal(true); }} className="gap-2">
-              <Plus className="h-4 w-4" /> Adicionar primeira credencial
-            </Button>
+            {isMaster && (
+              <Button onClick={() => { resetForm(); setShowAddModal(true); }} className="gap-2">
+                <Plus className="h-4 w-4" /> Adicionar primeira credencial
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -356,15 +353,17 @@ export function MFAPasswordVaultTab({ accounts, onAccountCreated }: MFAPasswordV
                         </TooltipTrigger>
                         <TooltipContent>Copiar código MFA</TooltipContent>
                       </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => handleDelete(entry)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Remover</TooltipContent>
-                      </Tooltip>
+                      {isMaster && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(entry)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Remover</TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
                   </TooltipProvider>
                 </div>
