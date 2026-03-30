@@ -172,7 +172,7 @@ const Index = () => {
                 </span>
               </div>
             </div>
-          </DashboardCard>
+          </DashboardCard>}
         </div>
         </div>
       </ScrollIndicator>

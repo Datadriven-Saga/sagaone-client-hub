@@ -204,7 +204,13 @@ const Administracao = () => {
   ] : [];
 
   const visibleModules = [
-    ...allModules.filter(m => p(m.permissionKey)),
+    ...allModules.filter(m => {
+      // Support "key1||key2" OR syntax in permissionKey
+      if (m.permissionKey.includes('||')) {
+        return m.permissionKey.split('||').some(k => p(k));
+      }
+      return p(m.permissionKey);
+    }),
     ...masterModules,
   ];
 
