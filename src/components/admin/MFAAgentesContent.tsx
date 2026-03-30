@@ -953,6 +953,13 @@ export function MFAAgentesContent() {
           )}
         </TabsContent>
 
+        {/* PASSWORDS TAB */}
+        {isMaster && (
+          <TabsContent value="passwords" className="mt-4">
+            <MFAPasswordVaultTab accounts={accounts} onAccountCreated={loadAccounts} />
+          </TabsContent>
+        )}
+
         {/* ACCESS TAB */}
         {isMaster && (
           <TabsContent value="access" className="mt-4">
