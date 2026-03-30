@@ -353,7 +353,7 @@ export function MFAAgentesContent() {
     } finally {
       setLoadingLogs(false);
     }
-  }, [isMaster]);
+  }, [canLogs]);
 
   // Load access list and users (only Administrador users for assignment)
   const loadAccessData = useCallback(async () => {
