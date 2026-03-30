@@ -1,92 +1,45 @@
 
 
-## Plano: Separar MFA Geral de Agentes + Adicionar Cofre de Senhas
+## Plano: Renomear card MFA, reposicionar e adicionar cópia de código MFA
 
-### Contexto
-
-Existem **dois MFAs distintos**:
-1. **MFA Geral** (`MFAAgentesContent`) -- hoje vive como aba "MFA" dentro de `/administracao/agentes`. Permite criar/ver/copiar códigos TOTP, scan QR, gerenciar acessos e logs. Acessível a quem tem `canAccessAgentesIA`.
-2. **MFA Master** (`MFAMasterDashboard`) -- já existe em `/administracao/mfa-master`, com card próprio. Visível apenas para Masters. **Não será alterado.**
-
-O objetivo é:
-- Tirar o MFA Geral de dentro de Agentes e criar um **card e rota próprios**
-- Adicionar a funcionalidade de **Cofre de Senhas** ao MFA Geral
-- Quem já acessa o MFA (via Agentes) continua acessando
-
----
-
-### Mudança 1: Remover aba MFA de Agentes
-
-**Arquivo: `src/pages/admin/Agentes.tsx`**
-- Remover `TabsTrigger value="mfa"` (linha 1662)
-- Remover `TabsContent value="mfa"` com `<MFAAgentesContent />` (linhas 3156-3158)
-- Alterar o grid de 4 colunas para 3: `grid-cols-4` → `grid-cols-3` (linha 1658)
-- Remover import de `MFAAgentesContent` (linha 13)
-
----
-
-### Mudança 2: Nova rota para MFA Geral
-
-**Arquivo: `src/App.tsx`**
-- Adicionar nova rota: `/administracao/mfa`
-- Proteger com `PermissionProtectedRoute permissionKey="canAccessAgentesIA"` (mesma permissão que Agentes, mantendo acesso de quem já usava)
-- Criar nova página wrapper `src/pages/admin/MFAGeral.tsx` que renderiza `<MFAAgentesContent />` dentro de `<DashboardLayout>`
-
----
-
-### Mudança 3: Card MFA na página de Administração
+### Mudança 1: Renomear e reposicionar card em Administração
 
 **Arquivo: `src/pages/Administracao.tsx`**
-- Adicionar card "MFA" no array `allModules`, logo **após o card "Agentes"** (após linha 101)
-- Configuração:
-  - Titulo: "MFA"
-  - Descrição: "Gerenciar autenticação multifator e códigos TOTP"
-  - Icone: `ShieldCheck`
-  - Rota: `/administracao/mfa`
-  - permissionKey: `canAccessAgentesIA` (mantém acesso para quem já tinha)
+- Renomear o card de "MFA" para **"MFA / Cofre de Senhas"**
+- Atualizar descrição para: "Gerenciar autenticação multifator, códigos TOTP e cofre de senhas"
+- Mover o card no array `allModules` para ficar logo **após "Agentes"** e **antes de "Gatilhos"** — na posição onde hoje está "Campos Obrigatórios" (ou seja, na 2ª linha do grid, 3ª coluna visual, como indicado na imagem)
+
+Na prática, a ordem no array ficará:
+1. Acessos
+2. Empresas
+3. Agentes
+4. Gatilhos
+5. **MFA / Cofre de Senhas** (movido para cá)
+6. Campos Obrigatórios
+
+Isso faz com que no grid de 3 colunas, o card MFA fique na posição indicada pela imagem (2ª linha, ao lado de Gatilhos e Campos Obrigatórios).
 
 ---
 
-### Mudança 4: Nova tabela para Cofre de Senhas
+### Mudança 2: Botão de copiar código MFA na aba Senhas
 
-**Migration SQL:**
-- Tabela `mfa_password_vault` com campos: `id`, `account_id` (ref `mfa_accounts`), `login`, `password_encrypted`, `notes`, `created_by`, `created_at`, `updated_at`
-- RLS: acesso controlado via `is_mfa_master(auth.uid())` (apenas Masters gerenciam cofre)
-- Trigger de criptografia AES reutilizando a mesma chave existente dos MFA secrets
-- View `mfa_password_vault_decrypted` para leitura descriptografada
-- Indice em `account_id`
+**Arquivo: `src/components/admin/MFAPasswordVaultTab.tsx`**
 
----
+O componente já recebe a lista de `accounts` (com `secret`). Para copiar o código TOTP:
+- Importar e reutilizar a função `generateTOTP` de `MFAAgentesContent` (ou recriar localmente, já que é pequena e usa `otpauth`)
+- Para cada entrada na lista de credenciais, adicionar um botão de copiar o **código MFA atual** (TOTP gerado em tempo real a partir do secret da conta MFA associada)
+- Buscar o `secret` da conta MFA via `accounts.find(a => a.id === entry.account_id)?.secret`
+- Gerar o TOTP com `generateTOTP(secret)` e copiar para clipboard
+- Ícone: `ShieldCheck` com tooltip "Copiar código MFA"
 
-### Mudança 5: Aba "Senhas" no MFA Geral
-
-**Arquivo: `src/components/admin/MFAAgentesContent.tsx`**
-- Adicionar nova aba "Senhas" entre "Códigos" e "Acessos" (ordem: Authenticators → **Senhas** → Acessos → Logs)
-- Conteudo da aba:
-  - Lista de credenciais salvas (login, MFA associado/issuer, data de criacao)
-  - Botoes de copiar login/senha e excluir
-  - Botao "Nova Senha" que abre modal de criacao
-
-**Modal de criacao de senha:**
-- Campos: login, senha
-- Opcao toggle: "Associar a MFA existente" vs "Criar novo MFA"
-- Se existente: dropdown com lista de MFA accounts (issuer + label)
-- Se novo: campos inline para issuer, label, secret (reutilizando fluxo existente de criacao de MFA)
-- Ao salvar:
-  - Se novo MFA: cria o MFA account primeiro, depois cria o vault entry
-  - Se existente: cria apenas o vault entry
-- Registra acao nos audit logs (`mfa_audit_logs`)
+O botão ficará ao lado dos botões existentes de copiar login e copiar senha na listagem de credenciais.
 
 ---
 
-### Arquivos alterados/criados
+### Arquivos alterados
 
-| Arquivo | Acao |
+| Arquivo | Ação |
 |---------|------|
-| `src/pages/admin/Agentes.tsx` | Remover aba MFA (tab trigger + content + import) |
-| `src/pages/admin/MFAGeral.tsx` | **Novo** -- wrapper page para MFAAgentesContent |
-| `src/App.tsx` | Adicionar rota `/administracao/mfa` |
-| `src/pages/Administracao.tsx` | Adicionar card MFA apos Agentes |
-| `src/components/admin/MFAAgentesContent.tsx` | Adicionar aba "Senhas" com CRUD + modal |
-| Nova migration SQL | Tabela `mfa_password_vault`, trigger, view, RLS |
+| `src/pages/Administracao.tsx` | Renomear card e reordenar posição no array |
+| `src/components/admin/MFAPasswordVaultTab.tsx` | Adicionar botão copiar código MFA (TOTP) |
 
