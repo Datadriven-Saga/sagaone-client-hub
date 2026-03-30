@@ -928,7 +928,7 @@ export function MFAAgentesContent() {
                           <TOTPCode account={account} onCopy={(code) => handleCopy(code, account)} />
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
-                          {isMaster && (
+                          {canManage && (
                             <Button variant="ghost" size="icon" className="h-8 w-8"
                               onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === account.id ? null : account.id); }}>
                               <MoreVertical className="h-4 w-4" />
