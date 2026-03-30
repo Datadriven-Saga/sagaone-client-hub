@@ -115,8 +115,8 @@ const AppRoutes = () => {
         <Route path="/agentes-ia/instancias" element={<PermissionProtectedRoute permissionKey="canManageInstancias"><Instancias /></PermissionProtectedRoute>} />
         <Route path="/agentes-ia/performance" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><Resultados /></PermissionProtectedRoute>} />
         
-        <Route path="/administracao" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Administracao /></PermissionProtectedRoute>} />
-        <Route path="/admin" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Administracao /></PermissionProtectedRoute>} />
+        <Route path="/administracao" element={<PermissionProtectedRoute permissionKey={["canAccessAdministracao", "canViewAuthenticator"]}><Administracao /></PermissionProtectedRoute>} />
+        <Route path="/admin" element={<PermissionProtectedRoute permissionKey={["canAccessAdministracao", "canViewAuthenticator"]}><Administracao /></PermissionProtectedRoute>} />
         <Route path="/administracao/empresas" element={<PermissionProtectedRoute permissionKey="canManageEmpresas"><Empresas /></PermissionProtectedRoute>} />
         <Route path="/administracao/acessos" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Acessos /></PermissionProtectedRoute>} />
         <Route path="/admin/acessos" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Acessos /></PermissionProtectedRoute>} />
