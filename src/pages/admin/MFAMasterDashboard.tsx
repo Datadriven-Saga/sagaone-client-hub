@@ -103,7 +103,7 @@ const MFAMasterDashboard = () => {
         supabase.from("mfa_accounts" as any).select("id, issuer, label, user_id, created_by, created_at").order("created_at", { ascending: false }),
         supabase.from("mfa_account_access" as any).select("*").order("granted_at", { ascending: false }),
         supabase.from("mfa_audit_logs" as any).select("*").order("created_at", { ascending: false }).limit(200),
-        supabase.from("profiles").select("id, nome_completo").eq("status", "Ativo").in("tipo_acesso", ["Administrador", "Master"] as any).order("nome_completo"),
+        supabase.from("profiles").select("id, nome_completo").eq("status", "Ativo").in("tipo_acesso", ["Administrador", "Master", "TI"] as any).order("nome_completo"),
       ]);
 
       setAccounts((accRes.data as any[]) || []);

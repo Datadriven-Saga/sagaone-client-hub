@@ -127,7 +127,7 @@ export function MFAAccessManager({ accounts, onAccessChanged }: MFAAccessManager
     try {
       const [accessRes, usersRes, logsRes] = await Promise.all([
         supabase.from("mfa_account_access" as any).select("*").order("granted_at", { ascending: false }),
-        supabase.from("profiles").select("id, nome_completo").eq("status", "Ativo").in("tipo_acesso", ["Administrador", "Master"] as any).order("nome_completo"),
+        supabase.from("profiles").select("id, nome_completo").eq("status", "Ativo").in("tipo_acesso", ["Administrador", "Master", "TI"] as any).order("nome_completo"),
         supabase.from("mfa_audit_logs" as any).select("*").order("created_at", { ascending: false }).limit(500),
       ]);
       setAccessList((accessRes.data as any[]) || []);

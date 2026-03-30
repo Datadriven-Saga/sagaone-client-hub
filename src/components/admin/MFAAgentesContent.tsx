@@ -362,7 +362,7 @@ export function MFAAgentesContent() {
     try {
       const [accessRes, usersRes] = await Promise.all([
         supabase.from("mfa_account_access" as any).select("*").order("granted_at", { ascending: false }),
-        supabase.from("profiles").select("id, nome_completo, tipo_acesso").eq("status", "Ativo").in("tipo_acesso", ["Administrador", "Master"]).order("nome_completo"),
+        supabase.from("profiles").select("id, nome_completo, tipo_acesso").eq("status", "Ativo").in("tipo_acesso", ["Administrador", "Master", "TI"]).order("nome_completo"),
       ]);
       setAccessList(accessRes.data || []);
       setUsers((usersRes.data || []).map((u: any) => ({ id: u.id, nome_completo: u.nome_completo })));
