@@ -49,7 +49,7 @@ const Administracao = () => {
     return <Navigate to="/administracao/quarentena" replace />;
   }
 
-  const hasAccess = p("canAccessAdministracao");
+  const hasAccess = p("canAccessAdministracao") || p("canViewAuthenticator");
 
   if (!hasAccess) {
     return (
