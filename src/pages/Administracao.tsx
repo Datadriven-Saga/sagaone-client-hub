@@ -100,18 +100,18 @@ const Administracao = () => {
       permissionKey: "canAccessAgentesIA",
     },
     {
-      title: "MFA",
-      description: "Gerenciar autenticação multifator e códigos TOTP",
-      icon: ShieldCheck,
-      route: "/administracao/mfa",
-      permissionKey: "canAccessAgentesIA",
-    },
-    {
       title: "Gatilhos",
       description: "Configurar gatilhos para personas de IA",
       icon: Zap,
       route: "/gatilhos",
       permissionKey: "canAccessGatilhos",
+    },
+    {
+      title: "MFA / Cofre de Senhas",
+      description: "Gerenciar autenticação multifator, códigos TOTP e cofre de senhas",
+      icon: ShieldCheck,
+      route: "/administracao/mfa",
+      permissionKey: "canAccessAgentesIA",
     },
     {
       title: "Campos Obrigatórios",

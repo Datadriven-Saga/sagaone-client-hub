@@ -28,7 +28,10 @@ import {
   EyeOff,
   Lock,
   LinkIcon,
+  ShieldCheck,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import * as OTPAuth from "otpauth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -218,6 +221,30 @@ export function MFAPasswordVaultTab({ accounts, onAccountCreated }: MFAPasswordV
     return accounts.find(a => a.id === accountId)?.issuer || "MFA desconhecido";
   };
 
+  const handleCopyMfaCode = (entry: VaultEntry) => {
+    const account = accounts.find(a => a.id === entry.account_id);
+    if (!account?.secret) {
+      toast({ title: "Secret MFA não encontrado", variant: "destructive" });
+      return;
+    }
+    try {
+      const totp = new OTPAuth.TOTP({
+        issuer: account.issuer,
+        label: account.label,
+        algorithm: "SHA1",
+        digits: 6,
+        period: 30,
+        secret: account.secret,
+      });
+      const code = totp.generate();
+      navigator.clipboard.writeText(code);
+      logAction("copy", entry.account_id, undefined, undefined, undefined, { type: "vault_mfa_code", vault_id: entry.id });
+      toast({ title: `Código MFA copiado: ${code}` });
+    } catch (err: any) {
+      toast({ title: "Erro ao gerar código MFA", description: err.message, variant: "destructive" });
+    }
+  };
+
   if (!isMaster) {
     return (
       <Card className="border-dashed border-2 border-muted">
@@ -300,20 +327,46 @@ export function MFAPasswordVaultTab({ accounts, onAccountCreated }: MFAPasswordV
                       Criado em {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <Button variant="ghost" size="icon" className="h-8 w-8"
-                      onClick={() => handleCopyLogin(entry.login)} title="Copiar login">
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8"
-                      onClick={() => handleCopyPassword(entry.password_plain, entry)} title="Copiar senha">
-                      <KeyRound className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(entry)} title="Remover">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <TooltipProvider>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8"
+                            onClick={() => handleCopyLogin(entry.login)}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Copiar login</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8"
+                            onClick={() => handleCopyPassword(entry.password_plain, entry)}>
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Copiar senha</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary"
+                            onClick={() => handleCopyMfaCode(entry)}>
+                            <ShieldCheck className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Copiar código MFA</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(entry)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Remover</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TooltipProvider>
                 </div>
               </CardContent>
             </Card>
