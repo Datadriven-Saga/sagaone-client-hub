@@ -371,7 +371,7 @@ export function MFAAgentesContent() {
     } finally {
       setLoadingAccess(false);
     }
-  }, [isMaster]);
+  }, [canAssign]);
 
   // Grant access
   const handleGrantAccess = async () => {
