@@ -49,7 +49,7 @@ const Administracao = () => {
     return <Navigate to="/administracao/quarentena" replace />;
   }
 
-  const hasAccess = p("canAccessAdministracao") || p("canViewAuthenticator");
+  const hasAccess = p("canAccessAdministracao");
 
   if (!hasAccess) {
     return (
@@ -111,7 +111,7 @@ const Administracao = () => {
       description: "Gerenciar autenticação multifator, códigos TOTP e cofre de senhas",
       icon: ShieldCheck,
       route: "/administracao/mfa",
-      permissionKey: "canViewAuthenticator",
+      permissionKey: "canAccessAgentesIA",
     },
     {
       title: "Campos Obrigatórios",
