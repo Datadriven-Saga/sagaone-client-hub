@@ -315,13 +315,29 @@ const Acessos = () => {
     }
   };
 
-  const handleEdit = (user: Profile) => {
+  const handleEdit = async (user: Profile) => {
     setEditingUser(user);
     // Cast tipo_acesso para lidar com valores legados que foram removidos do sistema
     const tipoAcesso = user.tipo_acesso || "SDR";
     const validTipoAcesso = ["SDR", "Gerente de Leads", "Vendedor", "Gerente de Loja", "Diretor", "TI", "Administrador", "Proprietário", "CRM", "Recepcionista", "Master", "Coordenadora de Leads"].includes(tipoAcesso) 
       ? tipoAcesso as UserForm["tipo_acesso"]
       : "Vendedor";
+    
+    // Fetch fresh company data directly from user_empresas to avoid truncation from list_users
+    let userCompanyIds: string[] = user.empresas?.map(e => e.id) || [];
+    try {
+      const { data: freshEmpresas, error } = await supabase
+        .from('user_empresas')
+        .select('empresa_id')
+        .eq('user_id', user.id);
+      
+      if (!error && freshEmpresas && freshEmpresas.length > 0) {
+        userCompanyIds = freshEmpresas.map(ue => ue.empresa_id);
+      }
+    } catch (err) {
+      console.error('Error fetching fresh user companies:', err);
+    }
+    
     form.reset({
       nome_completo: user.nome_completo,
       email: user.email,
@@ -330,7 +346,7 @@ const Acessos = () => {
       celular: user.celular || "",
       cpf: user.cpf || "",
       status: user.status || "Ativo",
-      empresas: user.empresas?.map(e => e.id) || []
+      empresas: userCompanyIds
     });
     setIsDialogOpen(true);
   };
