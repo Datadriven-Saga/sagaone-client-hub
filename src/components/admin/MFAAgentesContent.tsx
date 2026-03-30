@@ -971,7 +971,7 @@ export function MFAAgentesContent() {
         )}
 
         {/* ACCESS TAB */}
-        {isMaster && (
+        {canAssign && (
           <TabsContent value="access" className="mt-4">
             <MFAAccessManager accounts={accounts} onAccessChanged={() => { loadAccounts(); loadAccessData(); }} />
           </TabsContent>
