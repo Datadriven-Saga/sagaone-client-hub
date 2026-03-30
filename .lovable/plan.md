@@ -1,45 +1,107 @@
 
 
-## Plano: Renomear card MFA, reposicionar e adicionar cópia de código MFA
+## Plano: Corrigir visibilidade de cards/menus por permissão
 
-### Mudança 1: Renomear e reposicionar card em Administração
+### Análise de impacto por tipo de usuário
 
-**Arquivo: `src/pages/Administracao.tsx`**
-- Renomear o card de "MFA" para **"MFA / Cofre de Senhas"**
-- Atualizar descrição para: "Gerenciar autenticação multifator, códigos TOTP e cofre de senhas"
-- Mover o card no array `allModules` para ficar logo **após "Agentes"** e **antes de "Gatilhos"** — na posição onde hoje está "Campos Obrigatórios" (ou seja, na 2ª linha do grid, 3ª coluna visual, como indicado na imagem)
-
-Na prática, a ordem no array ficará:
-1. Acessos
-2. Empresas
-3. Agentes
-4. Gatilhos
-5. **MFA / Cofre de Senhas** (movido para cá)
-6. Campos Obrigatórios
-
-Isso faz com que no grid de 3 colunas, o card MFA fique na posição indicada pela imagem (2ª linha, ao lado de Gatilhos e Campos Obrigatórios).
+Validei cada correção contra os defaults do `PermissionRegistry` e os overrides do banco.
 
 ---
 
-### Mudança 2: Botão de copiar código MFA na aba Senhas
+### Correção 1: Card "Acessos" em `/administracao`
 
-**Arquivo: `src/components/admin/MFAPasswordVaultTab.tsx`**
+**Problema:** Usa `canAccessAdministracao`, que é a mesma permissão de entrada na página. Qualquer usuário que entra na página vê o card.
 
-O componente já recebe a lista de `accounts` (com `secret`). Para copiar o código TOTP:
-- Importar e reutilizar a função `generateTOTP` de `MFAAgentesContent` (ou recriar localmente, já que é pequena e usa `otpauth`)
-- Para cada entrada na lista de credenciais, adicionar um botão de copiar o **código MFA atual** (TOTP gerado em tempo real a partir do secret da conta MFA associada)
-- Buscar o `secret` da conta MFA via `accounts.find(a => a.id === entry.account_id)?.secret`
-- Gerar o TOTP com `generateTOTP(secret)` e copiar para clipboard
-- Ícone: `ShieldCheck` com tooltip "Copiar código MFA"
+**Correção:** Trocar para `canManageUsers || canCreateUsers`.
 
-O botão ficará ao lado dos botões existentes de copiar login e copiar senha na listagem de credenciais.
+| Perfil | canManageUsers | canCreateUsers | Resultado | Antes |
+|--------|---------------|----------------|-----------|-------|
+| Master/Admin | true | true | ✅ Vê | Vê |
+| TI (default) | true | true | ✅ Vê | Vê |
+| TI (MFA-only override) | false | false | ✅ Não vê | Via indevido |
+| Gerente Leads/Loja | false | true | ✅ Vê | Vê |
+| CRM | false | true | ✅ Vê | Vê |
+| Coordenadora | false | true | ✅ Vê | Vê |
+
+**Nenhum perfil perde acesso indevidamente.**
+
+---
+
+### Correção 2: Card "MFA / Cofre de Senhas" em `/administracao`
+
+**Problema:** Usa apenas `canAccessAgentesIA`. TI com MFA-only tem `canAccessAgentesIA=false` e `canViewAuthenticator=true`, mas o card não aparece.
+
+**Correção:** Trocar para `canAccessAgentesIA || canViewAuthenticator` (no `permissionKey` do card).
+
+Impacto: apenas aditivo — nenhum perfil perde acesso. Quem já vê por `canAccessAgentesIA` continua vendo.
+
+---
+
+### Correção 3: Rota `/administracao/mfa` no `App.tsx`
+
+**Problema:** Rota protegida por `canAccessAgentesIA` apenas. TI-MFA é bloqueado.
+
+**Correção:** Trocar para `permissionKey={["canAccessAgentesIA", "canViewAuthenticator"]}` (OR logic já existente no `PermissionProtectedRoute`).
+
+---
+
+### Correção 4: Rota `/administracao` e página `Administracao.tsx`
+
+**Problema:** Rota e a lógica de `hasAccess` na página usam apenas `canAccessAdministracao`. Um usuário com apenas `canViewAuthenticator=true` (sem `canAccessAdministracao`) seria bloqueado.
+
+**Correção:**
+- Rota: `permissionKey={["canAccessAdministracao", "canViewAuthenticator"]}`
+- Página: `const hasAccess = p("canAccessAdministracao") || p("canViewAuthenticator");`
+
+---
+
+### Correção 5: Sidebar — Prospecção sem checagem de permissão
+
+**Problema:** O menu "Prospecção" aparece para todos, sem checagem.
+
+**Correção:** Envolver com `canViewProspeccao`.
+
+**Impacto:** `canViewProspeccao` tem default `true` para TODOS os perfis. Só seria oculto se houver override explícito para `false` — que é exatamente o comportamento desejado. Nenhum perfil é afetado negativamente.
+
+---
+
+### Correção 6: Sidebar — "Administração" também com `canViewAuthenticator`
+
+**Correção:** `const canSeeAdministracao = p("canAccessAdministracao") || p("canViewAuthenticator");`
+
+Aditivo. Nenhum perfil perde acesso.
+
+---
+
+### Correção 7: Index.tsx — Cards sem checagem de permissão
+
+**Problema:** Todos os cards aparecem para todos os usuários, independente de permissão.
+
+**Correção:** Envolver cada card com condicional:
+- "Agentes de IA" → `canAccessAgentesIA`
+- "Prospecção" → `canViewProspeccao` (default true para todos)
+- "Carteira de Clientes" → `canViewClientes` (default true para todos)
+- "Notificações" → `canAccessNotificacoes` (default true para todos)
+- "Relatórios" → `canAccessRelatorios`
+- "Treinamentos" → `canAccessAcademy`
+
+**Impacto:** Os defaults já são `true` para a maioria. Apenas perfis com overrides explícitos para `false` deixam de ver — que é o comportamento correto.
 
 ---
 
 ### Arquivos alterados
 
-| Arquivo | Ação |
-|---------|------|
-| `src/pages/Administracao.tsx` | Renomear card e reordenar posição no array |
-| `src/components/admin/MFAPasswordVaultTab.tsx` | Adicionar botão copiar código MFA (TOTP) |
+| Arquivo | Mudança |
+|---------|---------|
+| `src/pages/Administracao.tsx` | Card Acessos → `canManageUsers\|canCreateUsers`; Card MFA → `canAccessAgentesIA\|canViewAuthenticator`; `hasAccess` inclui `canViewAuthenticator` |
+| `src/App.tsx` | Rotas `/administracao` e `/administracao/mfa` → arrays de permissão |
+| `src/components/AppSidebar.tsx` | Prospecção com `canViewProspeccao`; Administração com `canViewAuthenticator` |
+| `src/pages/Index.tsx` | Cards condicionais por permissão |
+
+### Riscos
+
+Nenhum. Todas as mudanças são:
+- **Aditivas** (OR com nova permissão) — nenhum perfil existente perde acesso
+- **Refinamentos** (trocar permissão genérica por específica) — validado contra todos os 12 perfis
+- **Guards com defaults true** — só afetam se houver override explícito
 
