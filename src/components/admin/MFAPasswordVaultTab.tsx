@@ -277,11 +277,15 @@ export function MFAPasswordVaultTab({ accounts, onAccountCreated }: MFAPasswordV
             <Lock className="h-16 w-16 mx-auto text-muted-foreground/40 mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-1">Cofre vazio</h3>
             <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-              Adicione credenciais vinculadas a contas MFA para armazená-las de forma segura.
+              {isMaster 
+                ? "Adicione credenciais vinculadas a contas MFA para armazená-las de forma segura."
+                : "Nenhuma credencial vinculada às contas MFA que você tem acesso."}
             </p>
-            <Button onClick={() => { resetForm(); setShowAddModal(true); }} className="gap-2">
-              <Plus className="h-4 w-4" /> Adicionar primeira credencial
-            </Button>
+            {isMaster && (
+              <Button onClick={() => { resetForm(); setShowAddModal(true); }} className="gap-2">
+                <Plus className="h-4 w-4" /> Adicionar primeira credencial
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
