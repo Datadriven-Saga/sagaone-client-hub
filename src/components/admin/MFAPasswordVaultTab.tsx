@@ -89,18 +89,23 @@ export function MFAPasswordVaultTab({ accounts, onAccountCreated }: MFAPasswordV
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setEntries((data as any[]) || []);
+      // Non-master users: filter to only accounts they have access to
+      const accessibleAccountIds = new Set(accounts.map(a => a.id));
+      const filtered = isMaster 
+        ? (data as any[]) || []
+        : ((data as any[]) || []).filter(e => accessibleAccountIds.has(e.account_id));
+      setEntries(filtered);
     } catch (err: any) {
       console.error("[Vault] Load error:", err);
       toast({ title: "Erro ao carregar cofre", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, accounts, isMaster]);
 
   useEffect(() => {
-    if (isMaster) loadEntries();
-  }, [isMaster, loadEntries]);
+    loadEntries();
+  }, [loadEntries]);
 
   const togglePasswordVisibility = (id: string) => {
     setVisiblePasswords(prev => {
