@@ -861,22 +861,24 @@ export function MFAAgentesContent() {
         if (v === "logs" && auditLogs.length === 0) loadAuditLogs();
         if (v === "access" && users.length === 0) loadAccessData();
       }}>
-        <TabsList className={`grid w-full ${isMaster ? "grid-cols-4" : "grid-cols-1"} max-w-xl`}>
+        <TabsList className={`grid w-full grid-cols-${1 + (canManage ? 1 : 0) + (canAssign ? 1 : 0) + (canLogs ? 1 : 0)} max-w-xl`}>
           <TabsTrigger value="authenticators" className="gap-1.5">
             <KeyRound className="h-4 w-4" /> Códigos
           </TabsTrigger>
-          {isMaster && (
-            <>
-              <TabsTrigger value="passwords" className="gap-1.5">
-                <Lock className="h-4 w-4" /> Senhas
-              </TabsTrigger>
-              <TabsTrigger value="access" className="gap-1.5">
-                <Users className="h-4 w-4" /> Acessos
-              </TabsTrigger>
-              <TabsTrigger value="logs" className="gap-1.5">
-                <ScrollText className="h-4 w-4" /> Logs
-              </TabsTrigger>
-            </>
+          {canManage && (
+            <TabsTrigger value="passwords" className="gap-1.5">
+              <Lock className="h-4 w-4" /> Senhas
+            </TabsTrigger>
+          )}
+          {canAssign && (
+            <TabsTrigger value="access" className="gap-1.5">
+              <Users className="h-4 w-4" /> Acessos
+            </TabsTrigger>
+          )}
+          {canLogs && (
+            <TabsTrigger value="logs" className="gap-1.5">
+              <ScrollText className="h-4 w-4" /> Logs
+            </TabsTrigger>
           )}
         </TabsList>
 
