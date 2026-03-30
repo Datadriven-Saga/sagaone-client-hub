@@ -338,7 +338,7 @@ export function MFAAgentesContent() {
 
   // Load audit logs
   const loadAuditLogs = useCallback(async () => {
-    if (!isMaster) return;
+    if (!canLogs) return;
     setLoadingLogs(true);
     try {
       const { data, error } = await supabase
