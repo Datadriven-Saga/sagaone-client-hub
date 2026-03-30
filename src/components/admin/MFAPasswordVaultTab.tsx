@@ -250,20 +250,6 @@ export function MFAPasswordVaultTab({ accounts, onAccountCreated }: MFAPasswordV
     }
   };
 
-  if (!isMaster) {
-    return (
-      <Card className="border-dashed border-2 border-muted">
-        <CardContent className="py-16 text-center">
-          <Lock className="h-16 w-16 mx-auto text-muted-foreground/40 mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-1">Acesso restrito</h3>
-          <p className="text-sm text-muted-foreground">
-            Apenas usuários Master podem gerenciar o cofre de senhas.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -271,9 +257,11 @@ export function MFAPasswordVaultTab({ accounts, onAccountCreated }: MFAPasswordV
         <p className="text-sm text-muted-foreground">
           {entries.length} {entries.length === 1 ? "credencial salva" : "credenciais salvas"}
         </p>
-        <Button onClick={() => { resetForm(); setShowAddModal(true); }} className="gap-2" size="sm">
-          <Plus className="h-4 w-4" /> Nova Senha
-        </Button>
+        {isMaster && (
+          <Button onClick={() => { resetForm(); setShowAddModal(true); }} className="gap-2" size="sm">
+            <Plus className="h-4 w-4" /> Nova Senha
+          </Button>
+        )}
       </div>
 
       {/* Entries list */}
