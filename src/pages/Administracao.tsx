@@ -83,7 +83,7 @@ const Administracao = () => {
       description: "Gerenciar usuários e permissões do sistema",
       icon: Users,
       route: "/administracao/acessos",
-      permissionKey: "canAccessAdministracao",
+      permissionKey: "canManageUsers||canCreateUsers",
     },
     {
       title: "Empresas",
