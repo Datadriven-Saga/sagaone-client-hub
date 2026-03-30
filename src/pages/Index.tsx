@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 
 const Index = () => {
   const navigate = useNavigate();
