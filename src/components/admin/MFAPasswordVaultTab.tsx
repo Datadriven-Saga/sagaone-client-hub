@@ -221,6 +221,30 @@ export function MFAPasswordVaultTab({ accounts, onAccountCreated }: MFAPasswordV
     return accounts.find(a => a.id === accountId)?.issuer || "MFA desconhecido";
   };
 
+  const handleCopyMfaCode = (entry: VaultEntry) => {
+    const account = accounts.find(a => a.id === entry.account_id);
+    if (!account?.secret) {
+      toast({ title: "Secret MFA não encontrado", variant: "destructive" });
+      return;
+    }
+    try {
+      const totp = new OTPAuth.TOTP({
+        issuer: account.issuer,
+        label: account.label,
+        algorithm: "SHA1",
+        digits: 6,
+        period: 30,
+        secret: account.secret,
+      });
+      const code = totp.generate();
+      navigator.clipboard.writeText(code);
+      logAction("copy", entry.account_id, undefined, undefined, undefined, { type: "vault_mfa_code", vault_id: entry.id });
+      toast({ title: `Código MFA copiado: ${code}` });
+    } catch (err: any) {
+      toast({ title: "Erro ao gerar código MFA", description: err.message, variant: "destructive" });
+    }
+  };
+
   if (!isMaster) {
     return (
       <Card className="border-dashed border-2 border-muted">
