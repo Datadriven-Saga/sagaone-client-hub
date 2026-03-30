@@ -111,7 +111,7 @@ const Administracao = () => {
       description: "Gerenciar autenticação multifator, códigos TOTP e cofre de senhas",
       icon: ShieldCheck,
       route: "/administracao/mfa",
-      permissionKey: "canAccessAgentesIA",
+      permissionKey: "canViewAuthenticator",
     },
     {
       title: "Campos Obrigatórios",
