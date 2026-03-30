@@ -239,7 +239,7 @@ export function AppSidebar() {
               ))}
 
               {/* Prospecção com submenu */}
-              {renderCollapsibleMenu("Prospecção", Target, isProspeccaoOpen, setIsProspeccaoOpen, prospeccaoSubItems, '/prospeccao')}
+              {p("canViewProspeccao") && renderCollapsibleMenu("Prospecção", Target, isProspeccaoOpen, setIsProspeccaoOpen, prospeccaoSubItems, '/prospeccao')}
 
               {/* Performance com submenu */}
               {canSeeResultados && renderCollapsibleMenu("Performance", TrendingUp, isPerformanceOpen, setIsPerformanceOpen, performanceSubItems, '/resultados')}
