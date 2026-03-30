@@ -865,7 +865,7 @@ export function MFAAgentesContent() {
           <TabsTrigger value="authenticators" className="gap-1.5">
             <KeyRound className="h-4 w-4" /> Códigos
           </TabsTrigger>
-          {canManage && (
+          {canView && (
             <TabsTrigger value="passwords" className="gap-1.5">
               <Lock className="h-4 w-4" /> Senhas
             </TabsTrigger>
