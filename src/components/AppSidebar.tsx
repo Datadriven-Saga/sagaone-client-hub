@@ -114,7 +114,7 @@ export function AppSidebar() {
   const [isAgentesIAOpen, setIsAgentesIAOpen] = useState(currentPath.startsWith('/agentes-ia'));
 
   // Sidebar visibility driven by permission flags
-  const canSeeAdministracao = p("canAccessAdministracao");
+  const canSeeAdministracao = p("canAccessAdministracao") || p("canViewAuthenticator");
   const canSeeClientes = p("canViewClientes") && p("canAddClientes");
   const canSeeAgentesIA = p("canAccessAgentesIA");
   const canSeeConfiguracoes = p("canAccessConfiguracoes");
@@ -239,7 +239,7 @@ export function AppSidebar() {
               ))}
 
               {/* Prospecção com submenu */}
-              {renderCollapsibleMenu("Prospecção", Target, isProspeccaoOpen, setIsProspeccaoOpen, prospeccaoSubItems, '/prospeccao')}
+              {p("canViewProspeccao") && renderCollapsibleMenu("Prospecção", Target, isProspeccaoOpen, setIsProspeccaoOpen, prospeccaoSubItems, '/prospeccao')}
 
               {/* Performance com submenu */}
               {canSeeResultados && renderCollapsibleMenu("Performance", TrendingUp, isPerformanceOpen, setIsPerformanceOpen, performanceSubItems, '/resultados')}

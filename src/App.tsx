@@ -115,8 +115,8 @@ const AppRoutes = () => {
         <Route path="/agentes-ia/instancias" element={<PermissionProtectedRoute permissionKey="canManageInstancias"><Instancias /></PermissionProtectedRoute>} />
         <Route path="/agentes-ia/performance" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><Resultados /></PermissionProtectedRoute>} />
         
-        <Route path="/administracao" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Administracao /></PermissionProtectedRoute>} />
-        <Route path="/admin" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Administracao /></PermissionProtectedRoute>} />
+        <Route path="/administracao" element={<PermissionProtectedRoute permissionKey={["canAccessAdministracao", "canViewAuthenticator"]}><Administracao /></PermissionProtectedRoute>} />
+        <Route path="/admin" element={<PermissionProtectedRoute permissionKey={["canAccessAdministracao", "canViewAuthenticator"]}><Administracao /></PermissionProtectedRoute>} />
         <Route path="/administracao/empresas" element={<PermissionProtectedRoute permissionKey="canManageEmpresas"><Empresas /></PermissionProtectedRoute>} />
         <Route path="/administracao/acessos" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Acessos /></PermissionProtectedRoute>} />
         <Route path="/admin/acessos" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Acessos /></PermissionProtectedRoute>} />
@@ -134,7 +134,7 @@ const AppRoutes = () => {
         <Route path="/administracao/feature-flags" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><FeatureFlags /></PermissionProtectedRoute>} />
         <Route path="/administracao/quarentena" element={<PermissionProtectedRoute permissionKey={["canGovernancaDados", "canAccessAdminConfig"]}><Quarentena /></PermissionProtectedRoute>} />
         <Route path="/administracao/integracoes" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><Integracoes /></PermissionProtectedRoute>} />
-        <Route path="/administracao/mfa" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><MFAGeral /></PermissionProtectedRoute>} />
+        <Route path="/administracao/mfa" element={<PermissionProtectedRoute permissionKey={["canAccessAgentesIA", "canViewAuthenticator"]}><MFAGeral /></PermissionProtectedRoute>} />
         <Route path="/administracao/opt-out-global" element={<PermissionProtectedRoute permissionKey="canAccessOptOutGlobal"><OptOutGlobal /></PermissionProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>

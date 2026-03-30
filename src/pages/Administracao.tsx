@@ -49,7 +49,7 @@ const Administracao = () => {
     return <Navigate to="/administracao/quarentena" replace />;
   }
 
-  const hasAccess = p("canAccessAdministracao");
+  const hasAccess = p("canAccessAdministracao") || p("canViewAuthenticator");
 
   if (!hasAccess) {
     return (
@@ -83,7 +83,7 @@ const Administracao = () => {
       description: "Gerenciar usuários e permissões do sistema",
       icon: Users,
       route: "/administracao/acessos",
-      permissionKey: "canAccessAdministracao",
+      permissionKey: "canManageUsers||canCreateUsers",
     },
     {
       title: "Empresas",
@@ -111,7 +111,7 @@ const Administracao = () => {
       description: "Gerenciar autenticação multifator, códigos TOTP e cofre de senhas",
       icon: ShieldCheck,
       route: "/administracao/mfa",
-      permissionKey: "canAccessAgentesIA",
+      permissionKey: "canAccessAgentesIA||canViewAuthenticator",
     },
     {
       title: "Campos Obrigatórios",
@@ -204,7 +204,13 @@ const Administracao = () => {
   ] : [];
 
   const visibleModules = [
-    ...allModules.filter(m => p(m.permissionKey)),
+    ...allModules.filter(m => {
+      // Support "key1||key2" OR syntax in permissionKey
+      if (m.permissionKey.includes('||')) {
+        return m.permissionKey.split('||').some(k => p(k));
+      }
+      return p(m.permissionKey);
+    }),
     ...masterModules,
   ];
 

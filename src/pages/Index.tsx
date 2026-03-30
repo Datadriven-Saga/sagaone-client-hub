@@ -11,10 +11,13 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 
 const Index = () => {
   const navigate = useNavigate();
   const { data, loading } = useDashboardData();
+  const { permissions } = useUserAccessType();
+  const p = (key: string): boolean => permissions[key] ?? false;
 
   return (
     <DashboardLayout>
@@ -33,7 +36,7 @@ const Index = () => {
         {/* Cards dos Módulos */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {/* Agentes de IA */}
-          <DashboardCard
+          {p("canAccessAgentesIA") && <DashboardCard
             title="Agentes de IA"
             icon={Bot}
             actionText="Gerenciar Agentes"
@@ -53,10 +56,10 @@ const Index = () => {
                 </span>
               </div>
             </div>
-          </DashboardCard>
+          </DashboardCard>}
 
           {/* Prospecção */}
-          <DashboardCard
+          {p("canViewProspeccao") && <DashboardCard
             title="Prospecção"
             icon={Target}
             actionText="Ver Prospecções"
@@ -76,10 +79,10 @@ const Index = () => {
                 </span>
               </div>
             </div>
-          </DashboardCard>
+          </DashboardCard>}
 
           {/* Carteira de Clientes */}
-          <DashboardCard
+          {p("canViewClientes") && <DashboardCard
             title="Carteira de Clientes"
             icon={Users}
             actionText="Gerenciar Clientes"
@@ -100,10 +103,10 @@ const Index = () => {
                 <p className="text-muted-foreground">Com Telefone</p>
               </div>
             </div>
-          </DashboardCard>
+          </DashboardCard>}
 
           {/* Notificações */}
-          <DashboardCard
+          {p("canAccessNotificacoes") && <DashboardCard
             title="Notificações"
             icon={Bell}
             actionText="Ver Notificações"
@@ -123,10 +126,10 @@ const Index = () => {
                 </span>
               </div>
             </div>
-          </DashboardCard>
+          </DashboardCard>}
 
           {/* Relatórios */}
-          <DashboardCard
+          {p("canAccessRelatorios") && <DashboardCard
             title="Relatórios"
             icon={FileText}
             actionText="Ver Relatórios"
@@ -146,10 +149,10 @@ const Index = () => {
                 </span>
               </div>
             </div>
-          </DashboardCard>
+          </DashboardCard>}
 
           {/* Treinamentos */}
-          <DashboardCard
+          {p("canAccessAcademy") && <DashboardCard
             title="Treinamentos"
             icon={GraduationCap}
             actionText="Acessar Treinamentos"
@@ -169,7 +172,7 @@ const Index = () => {
                 </span>
               </div>
             </div>
-          </DashboardCard>
+          </DashboardCard>}
         </div>
         </div>
       </ScrollIndicator>
