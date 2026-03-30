@@ -357,7 +357,7 @@ export function MFAAgentesContent() {
 
   // Load access list and users (only Administrador users for assignment)
   const loadAccessData = useCallback(async () => {
-    if (!isMaster) return;
+    if (!canAssign) return;
     setLoadingAccess(true);
     try {
       const [accessRes, usersRes] = await Promise.all([
