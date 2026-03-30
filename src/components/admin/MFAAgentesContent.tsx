@@ -38,8 +38,10 @@ import {
   UserPlus,
   UserMinus,
   Search,
+  Lock,
 } from "lucide-react";
 import { MFAAccessManager } from "@/components/admin/MFAAccessManager";
+import { MFAPasswordVaultTab } from "@/components/admin/MFAPasswordVaultTab";
 import { useToast } from "@/hooks/use-toast";
 import * as OTPAuth from "otpauth";
 import { Html5Qrcode } from "html5-qrcode";
@@ -851,12 +853,15 @@ export function MFAAgentesContent() {
         if (v === "logs" && auditLogs.length === 0) loadAuditLogs();
         if (v === "access" && users.length === 0) loadAccessData();
       }}>
-        <TabsList className={`grid w-full ${isMaster ? "grid-cols-3" : "grid-cols-1"} max-w-lg`}>
+        <TabsList className={`grid w-full ${isMaster ? "grid-cols-4" : "grid-cols-1"} max-w-xl`}>
           <TabsTrigger value="authenticators" className="gap-1.5">
             <KeyRound className="h-4 w-4" /> Códigos
           </TabsTrigger>
           {isMaster && (
             <>
+              <TabsTrigger value="passwords" className="gap-1.5">
+                <Lock className="h-4 w-4" /> Senhas
+              </TabsTrigger>
               <TabsTrigger value="access" className="gap-1.5">
                 <Users className="h-4 w-4" /> Acessos
               </TabsTrigger>
@@ -947,6 +952,13 @@ export function MFAAgentesContent() {
             </div>
           )}
         </TabsContent>
+
+        {/* PASSWORDS TAB */}
+        {isMaster && (
+          <TabsContent value="passwords" className="mt-4">
+            <MFAPasswordVaultTab accounts={accounts} onAccountCreated={loadAccounts} />
+          </TabsContent>
+        )}
 
         {/* ACCESS TAB */}
         {isMaster && (
