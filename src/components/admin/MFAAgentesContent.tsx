@@ -861,7 +861,7 @@ export function MFAAgentesContent() {
         if (v === "logs" && auditLogs.length === 0) loadAuditLogs();
         if (v === "access" && users.length === 0) loadAccessData();
       }}>
-        <TabsList className={`grid w-full grid-cols-${1 + (canManage ? 1 : 0) + (canAssign ? 1 : 0) + (canLogs ? 1 : 0)} max-w-xl`}>
+        <TabsList className={`grid w-full grid-cols-${1 + (canView ? 1 : 0) + (canAssign ? 1 : 0) + (canLogs ? 1 : 0)} max-w-xl`}>
           <TabsTrigger value="authenticators" className="gap-1.5">
             <KeyRound className="h-4 w-4" /> Códigos
           </TabsTrigger>
