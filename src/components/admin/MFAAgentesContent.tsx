@@ -48,6 +48,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMfaMaster } from "@/hooks/useMfaMaster";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 

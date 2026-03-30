@@ -150,6 +150,12 @@ export function useUserAccessType() {
     canGenerateInvites: p("canGenerateInvites"),
     canCreateTemplates: p("canCreateTemplates"),
 
+    // MFA / Authenticator permissions
+    canViewAuthenticator: p("canViewAuthenticator"),
+    canManageAuthenticator: p("canManageAuthenticator"),
+    canAssignAuthenticator: p("canAssignAuthenticator"),
+    canViewAuditLogs: p("canViewAuditLogs"),
+
     // Full permissions map for granular checks
     permissions,
   };
