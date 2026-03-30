@@ -964,7 +964,7 @@ export function MFAAgentesContent() {
         </TabsContent>
 
         {/* PASSWORDS TAB */}
-        {canManage && (
+        {canView && (
           <TabsContent value="passwords" className="mt-4">
             <MFAPasswordVaultTab accounts={accounts} onAccountCreated={loadAccounts} />
           </TabsContent>
