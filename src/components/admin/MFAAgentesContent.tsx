@@ -936,7 +936,7 @@ export function MFAAgentesContent() {
                           )}
                         </div>
                       </div>
-                      {isMaster && expandedId === account.id && (
+                      {canManage && expandedId === account.id && (
                         <div className="mt-3 pt-3 border-t border-muted flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
                           <Button variant="outline" size="sm" className="gap-1.5 text-xs"
                             onClick={() => { setEditingAccount(account); setEditName(account.issuer); }}>
