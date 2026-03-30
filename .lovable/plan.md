@@ -1,200 +1,92 @@
 
-# Plano: Corrigir Dropdown de Eventos WhatsApp
 
-## Problema Identificado
+## Plano: Separar MFA Geral de Agentes + Adicionar Cofre de Senhas
 
-O dropdown de eventos no Dashboard WhatsApp está chamando um webhook externo (`verifica-todos-eventos-pri`) que **não existe para a PRI de WhatsApp**, resultando em dados inválidos ("Evento undefined / ID:0"). 
+### Contexto
 
-A lógica correta é usar os dados já existentes no banco de dados Supabase (tabela `prospeccoes`), filtrando eventos WhatsApp das lojas às quais o usuário tem acesso que compartilham o mesmo telefone PRI do agente configurado.
+Existem **dois MFAs distintos**:
+1. **MFA Geral** (`MFAAgentesContent`) -- hoje vive como aba "MFA" dentro de `/administracao/agentes`. Permite criar/ver/copiar códigos TOTP, scan QR, gerenciar acessos e logs. Acessível a quem tem `canAccessAgentesIA`.
+2. **MFA Master** (`MFAMasterDashboard`) -- já existe em `/administracao/mfa-master`, com card próprio. Visível apenas para Masters. **Não será alterado.**
 
----
-
-## Fluxo Atual vs. Proposto
-
-```text
-ATUAL (errado):
-┌─────────────────────┐
-│ Identifica agente   │
-│ Pri WhatsApp        │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│ Chama webhook       │
-│ verifica-todos-     │
-│ eventos-pri         │  ← Não existe para WhatsApp
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│ Retorna dados       │
-│ inválidos/vazios    │
-└─────────────────────┘
-
-PROPOSTO (correto):
-┌─────────────────────┐
-│ Identifica agente   │
-│ Pri WhatsApp +      │
-│ telefone_pri        │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│ Busca user_empresas │
-│ (todas as lojas     │
-│  do usuário)        │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│ Query prospeccoes:  │
-│ • canal='Whatsapp'  │
-│ • event_id_pri set  │
-│ • empresa_id in     │
-│   [lojas usuário]   │
-│ • JOIN agentes_ia   │
-│   por telefone      │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│ Multi-select de     │
-│ eventos com nome    │
-│ e id_evento (PRI)   │
-└─────────────────────┘
-```
+O objetivo é:
+- Tirar o MFA Geral de dentro de Agentes e criar um **card e rota próprios**
+- Adicionar a funcionalidade de **Cofre de Senhas** ao MFA Geral
+- Quem já acessa o MFA (via Agentes) continua acessando
 
 ---
 
-## Mudanças Técnicas
+### Mudança 1: Remover aba MFA de Agentes
 
-### 1. Refatorar `DashboardWhatsAppTab.tsx` - Fetch de Eventos
-
-**Antes:**
-```typescript
-// Chama webhook externo (NÃO EXISTE para WhatsApp)
-const { data, error } = await supabase.functions.invoke('external-webhook-proxy', {
-  body: { 
-    endpoint: 'verifica-todos-eventos-pri', 
-    telefone_pri: cleanPhone
-  },
-});
-```
-
-**Depois:**
-```typescript
-// 1. Buscar IDs das empresas do usuário
-const { data: userEmpresas } = await supabase
-  .from('user_empresas')
-  .select('empresa_id')
-  .eq('user_id', userId);
-
-const empresaIds = userEmpresas?.map(ue => ue.empresa_id) || [];
-
-// 2. Buscar prospeccoes WhatsApp dessas empresas
-//    que usam o mesmo telefone PRI do agente
-const { data: prospeccoes } = await supabase
-  .from('prospeccoes')
-  .select(`
-    id, 
-    titulo, 
-    event_id_pri, 
-    data_inicio, 
-    data_fim,
-    empresa_id,
-    empresas!inner(nome_empresa)
-  `)
-  .eq('canal', 'Whatsapp')
-  .not('event_id_pri', 'is', null)
-  .in('empresa_id', empresaIds);
-
-// 3. Filtrar apenas eventos que pertencem a empresas
-//    com o mesmo agente WhatsApp (telefone_pri)
-const eventosDoAgente = await filtrarPorTelefonePri(prospeccoes, agent.telefone);
-```
-
-### 2. Lógica de Filtro por Telefone do Agente
-
-Para garantir que mostramos apenas eventos do mesmo agente PRI WhatsApp:
-
-1. Buscar `agente_empresas` para cada `empresa_id` retornado
-2. Verificar se o agente vinculado tem o mesmo `telefone` que o agente atual
-3. Incluir apenas os eventos dessas empresas
-
-```typescript
-// Buscar agentes de todas as empresas do usuário
-const { data: agentesEmpresas } = await supabase
-  .from('agente_empresas')
-  .select('empresa_id, agentes_ia!inner(telefone, nome, ativo)')
-  .in('empresa_id', empresaIds);
-
-// Filtrar empresas que têm o mesmo agente WhatsApp (por telefone)
-const empresasComMesmoAgente = agentesEmpresas
-  ?.filter(ae => {
-    const nome = (ae.agentes_ia?.nome || '').toLowerCase();
-    const isWhatsApp = nome.includes('whatsapp') || nome.includes('wpp') || nome.includes('zap');
-    const telefonesIguais = ae.agentes_ia?.telefone === agent.telefone;
-    return isWhatsApp && telefonesIguais && ae.agentes_ia?.ativo;
-  })
-  .map(ae => ae.empresa_id);
-
-// Filtrar prospeccoes apenas dessas empresas
-const eventosFinais = prospeccoes?.filter(p => 
-  empresasComMesmoAgente?.includes(p.empresa_id)
-);
-```
-
-### 3. Estrutura dos Dados no Dropdown
-
-A interface `EventOption` será atualizada para incluir informações úteis:
-
-```typescript
-interface EventOption {
-  id_evento: number;        // event_id_pri numérico
-  nome: string;             // titulo da prospeccao
-  empresa_nome?: string;    // nome da empresa (para multi-loja)
-  prospeccao_id: string;    // UUID interno
-}
-```
-
-### 4. UI do Dropdown com Contexto de Loja
-
-O dropdown mostrará o nome da loja para ajudar o usuário a identificar eventos de outras lojas:
-
-```tsx
-<div className="flex-1 min-w-0">
-  <p className="text-sm font-medium truncate">{event.nome}</p>
-  <p className="text-xs text-muted-foreground">
-    {event.empresa_nome} • ID: {event.id_evento}
-  </p>
-</div>
-```
+**Arquivo: `src/pages/admin/Agentes.tsx`**
+- Remover `TabsTrigger value="mfa"` (linha 1662)
+- Remover `TabsContent value="mfa"` com `<MFAAgentesContent />` (linhas 3156-3158)
+- Alterar o grid de 4 colunas para 3: `grid-cols-4` → `grid-cols-3` (linha 1658)
+- Remover import de `MFAAgentesContent` (linha 13)
 
 ---
 
-## Arquivos a Modificar
+### Mudança 2: Nova rota para MFA Geral
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/components/resultados/DashboardWhatsAppTab.tsx` | Refatorar `fetchEvents` para consultar `prospeccoes` + `agente_empresas` localmente |
-| `src/components/resultados/EventoSelectorWhatsApp.tsx` | (Opcional) Alinhar com nova lógica se necessário |
-
----
-
-## Fluxo Completo Após Implementação
-
-1. **Usuário acessa** `/prospeccao/performance` → aba WhatsApp
-2. **Sistema identifica** o agente "Pri WhatsApp" configurado para a loja ativa
-3. **Sistema busca** todas as empresas do usuário (`user_empresas`)
-4. **Sistema filtra** quais dessas empresas têm o mesmo agente WhatsApp (mesmo telefone)
-5. **Sistema consulta** `prospeccoes` com `canal='Whatsapp'` e `event_id_pri` válido dessas empresas
-6. **Dropdown exibe** lista de eventos com nome e loja de origem
-7. **Usuário seleciona** um ou mais eventos (multi-select)
-8. **Sistema busca métricas** via `dashboard-evento-pri-whats` para cada `event_id_pri` selecionado
+**Arquivo: `src/App.tsx`**
+- Adicionar nova rota: `/administracao/mfa`
+- Proteger com `PermissionProtectedRoute permissionKey="canAccessAgentesIA"` (mesma permissão que Agentes, mantendo acesso de quem já usava)
+- Criar nova página wrapper `src/pages/admin/MFAGeral.tsx` que renderiza `<MFAAgentesContent />` dentro de `<DashboardLayout>`
 
 ---
 
-## Validações de Segurança
+### Mudança 3: Card MFA na página de Administração
 
-- RLS de `prospeccoes` restringe ao `empresa_id` ativo, mas podemos consultar `user_empresas` sem restrição (política permite visualizar próprias associações)
-- Não há risco de vazamento pois só mostramos eventos de empresas onde o usuário tem vínculo E o agente é o mesmo
+**Arquivo: `src/pages/Administracao.tsx`**
+- Adicionar card "MFA" no array `allModules`, logo **após o card "Agentes"** (após linha 101)
+- Configuração:
+  - Titulo: "MFA"
+  - Descrição: "Gerenciar autenticação multifator e códigos TOTP"
+  - Icone: `ShieldCheck`
+  - Rota: `/administracao/mfa`
+  - permissionKey: `canAccessAgentesIA` (mantém acesso para quem já tinha)
+
+---
+
+### Mudança 4: Nova tabela para Cofre de Senhas
+
+**Migration SQL:**
+- Tabela `mfa_password_vault` com campos: `id`, `account_id` (ref `mfa_accounts`), `login`, `password_encrypted`, `notes`, `created_by`, `created_at`, `updated_at`
+- RLS: acesso controlado via `is_mfa_master(auth.uid())` (apenas Masters gerenciam cofre)
+- Trigger de criptografia AES reutilizando a mesma chave existente dos MFA secrets
+- View `mfa_password_vault_decrypted` para leitura descriptografada
+- Indice em `account_id`
+
+---
+
+### Mudança 5: Aba "Senhas" no MFA Geral
+
+**Arquivo: `src/components/admin/MFAAgentesContent.tsx`**
+- Adicionar nova aba "Senhas" entre "Códigos" e "Acessos" (ordem: Authenticators → **Senhas** → Acessos → Logs)
+- Conteudo da aba:
+  - Lista de credenciais salvas (login, MFA associado/issuer, data de criacao)
+  - Botoes de copiar login/senha e excluir
+  - Botao "Nova Senha" que abre modal de criacao
+
+**Modal de criacao de senha:**
+- Campos: login, senha
+- Opcao toggle: "Associar a MFA existente" vs "Criar novo MFA"
+- Se existente: dropdown com lista de MFA accounts (issuer + label)
+- Se novo: campos inline para issuer, label, secret (reutilizando fluxo existente de criacao de MFA)
+- Ao salvar:
+  - Se novo MFA: cria o MFA account primeiro, depois cria o vault entry
+  - Se existente: cria apenas o vault entry
+- Registra acao nos audit logs (`mfa_audit_logs`)
+
+---
+
+### Arquivos alterados/criados
+
+| Arquivo | Acao |
+|---------|------|
+| `src/pages/admin/Agentes.tsx` | Remover aba MFA (tab trigger + content + import) |
+| `src/pages/admin/MFAGeral.tsx` | **Novo** -- wrapper page para MFAAgentesContent |
+| `src/App.tsx` | Adicionar rota `/administracao/mfa` |
+| `src/pages/Administracao.tsx` | Adicionar card MFA apos Agentes |
+| `src/components/admin/MFAAgentesContent.tsx` | Adicionar aba "Senhas" com CRUD + modal |
+| Nova migration SQL | Tabela `mfa_password_vault`, trigger, view, RLS |
+
