@@ -468,8 +468,8 @@ export function MFAAgentesContent() {
 
   // Load access data on mount for Master users
   useEffect(() => {
-    if (isMaster) loadAccessData();
-  }, [isMaster, loadAccessData]);
+    if (canAssign) loadAccessData();
+  }, [canAssign, loadAccessData]);
 
   useEffect(() => {
     if (!user) return;
