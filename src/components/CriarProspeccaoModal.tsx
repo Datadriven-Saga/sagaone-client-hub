@@ -62,6 +62,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   
   // Tipo de Evento
   const [tipoEvento, setTipoEvento] = useState<TipoEvento>('Prospecção Mensal');
+  const [canalQuarentena, setCanalQuarentena] = useState<'whatsapp' | 'ligacao'>('whatsapp');
+  const [isTeste, setIsTeste] = useState(false);
   
   // Dados Gerais
   const [titulo, setTitulo] = useState("");
@@ -266,6 +268,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       setDataInicio(editingProspeccao.data_inicio || "");
       setDataFim(editingProspeccao.data_fim || "");
       setCanal(editingProspeccao.canal || 'Whatsapp');
+      setCanalQuarentena(editingProspeccao.canal_quarentena || 'whatsapp');
+      setIsTeste(editingProspeccao.is_teste ?? false);
       setTemplateProspeccaoId(editingProspeccao.template_prospeccao_id || "");
       setTemplateAgendadoId(editingProspeccao.template_agendado_id || "");
       setTemplateNaoAgendadoId(editingProspeccao.template_nao_agendado_id || "");
@@ -423,6 +427,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setDataInicio("");
     setDataFim("");
     setCanal('Whatsapp');
+    setCanalQuarentena('whatsapp');
+    setIsTeste(false);
     setTemplateProspeccaoId("");
     setTemplateAgendadoId("");
     setTemplateNaoAgendadoId("");
@@ -1342,6 +1348,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         data_inicio: dataInicio || null,
         data_fim: dataFim || null,
         canal: canalFinal,
+        is_teste: isTeste,
+        canal_quarentena: tipoEvento === 'IA Whatsapp' ? 'whatsapp' : tipoEvento === 'IA Ligação' ? 'ligacao' : canalQuarentena,
         imagem_divulgacao_url: imagemDivulgacao.trim() || null,
         meta_novos: metaNovos === "" ? null : metaNovos,
         meta_seminovos: metaSeminovos === "" ? null : metaSeminovos,
@@ -1758,6 +1766,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         template_conf_nao_agendado_id_pri: templateNaoAgendadoData?.template_id_pri || "",
         template_conf_nao_agendado_id_meta: templateNaoAgendadoData?.id_meta || "",
         cadencia_completa: prospeccaoData.cadencia_completa ?? false,
+        is_teste: prospeccaoData.is_teste ?? false,
       };
 
       // Adicionar templates 48h/24h quando cadência completa
@@ -1954,6 +1963,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           data_fim: prospeccaoData.data_fim ?? null,
           canal: String(prospeccaoData.canal || (isIALigacao ? 'Ligação' : 'Whatsapp')),
           evento_principal: Boolean(prospeccaoData.evento_principal ?? false),
+          is_teste: Boolean(prospeccaoData.is_teste ?? false),
           qualificar_lead: Boolean(prospeccaoData.qualificar_lead ?? true),
           imagem_divulgacao_url: prospeccaoData.imagem_divulgacao_url ?? null,
           uf: eventoUF.trim() || empresaCrmData?.uf || null,
@@ -2253,6 +2263,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         data_envio_template_inicial: formatarDataISO(prospeccaoData.data_envio_template_inicial),
         data_envio_cadencia: formatarDataISO(prospeccaoData.data_envio_cadencia),
         cadencia_completa: prospeccaoData.cadencia_completa ?? false,
+        is_teste: prospeccaoData.is_teste ?? false,
       };
 
       // Adicionar templates para IA Whatsapp com IDs Pri e Meta
@@ -2890,6 +2901,58 @@ ${localEvento}`;
                   onChange={(e) => setDataFim(e.target.value)}
                 />
               </div>
+            </div>
+
+            {/* Canal de Prospecção - apenas para Prospecção Mensal e Grande Evento */}
+            {(tipoEvento === 'Prospecção Mensal' || tipoEvento === 'Grande Evento') && (
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Label htmlFor="canal_quarentena">Canal de Prospecção</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Os contatos desta prospecção entrarão em quarentena para o canal selecionado. WhatsApp: 20 dias / Ligação: 30 dias após o fim do evento.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Select value={canalQuarentena} onValueChange={(value: 'whatsapp' | 'ligacao') => setCanalQuarentena(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o canal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                    <SelectItem value="ligacao">Ligação</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Evento de Teste - para todos os tipos */}
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="is_teste" className="font-medium cursor-pointer">
+                  Evento de Teste
+                </Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Eventos de teste não geram quarentena para os contatos.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <Switch
+                id="is_teste"
+                checked={isTeste}
+                onCheckedChange={setIsTeste}
+              />
             </div>
 
             {/* Toggle Cadência Completa - visível na criação com flag OU na edição se já estava ativa */}

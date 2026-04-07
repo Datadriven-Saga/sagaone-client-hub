@@ -1,0 +1,1 @@
+UPDATE public.prospeccoes SET canal_quarentena = CASE WHEN canal = 'Whatsapp' THEN 'whatsapp' WHEN canal = 'Ligação' THEN 'ligacao' WHEN canal = 'Mensal' THEN 'whatsapp' WHEN canal = 'Grande Evento' THEN 'whatsapp' END WHERE canal_quarentena IS NULL AND canal IN ('Whatsapp', 'Ligação', 'Mensal', 'Grande Evento');
