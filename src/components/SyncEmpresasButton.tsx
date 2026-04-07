@@ -422,11 +422,12 @@ export function SyncEmpresasButton() {
 
                 {/* Info */}
                 <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                  <p className="font-medium mb-1 text-xs">Esta operação irá:</p>
+                  <p className="font-medium mb-1 text-xs">Campos obrigatórios: vc_empresa (nome), nm_codigo_svm (CRM ID)</p>
+                  <p className="font-medium mb-1 text-xs mt-2">Esta operação irá:</p>
                   <ul className="list-disc list-inside space-y-0.5 text-xs">
                     <li><span className="text-green-600 font-medium">Adicionar</span> empresas que estão no arquivo mas não no banco</li>
-                    <li><span className="text-blue-600 font-medium">Atualizar</span> dados de empresas existentes (usando crm_id)</li>
-                    <li><span className="text-red-600 font-medium">Remover</span> empresas do banco que não estão no arquivo</li>
+                    <li><span className="text-blue-600 font-medium">Atualizar</span> dados de empresas existentes (match por CRM ID ou CNPJ)</li>
+                    <li>Empresas no banco que não estão no arquivo serão <strong>mantidas</strong> (nunca removidas)</li>
                   </ul>
                 </div>
               </div>
