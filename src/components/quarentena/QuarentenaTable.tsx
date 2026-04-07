@@ -82,7 +82,7 @@ export function QuarentenaTable({
 
   const selectedActiveCount = Array.from(selected).filter(id => {
     const item = items.find(i => i.id === id);
-    return item && getQuarentenaStatus(item).status === "ativo";
+    return item && getQuarentenaStatus(item, (item as any).dias_config).status === "ativo";
   }).length;
 
   return (
