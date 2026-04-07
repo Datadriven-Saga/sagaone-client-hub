@@ -160,8 +160,15 @@ export function SyncEmpresasButton() {
         };
 
         const getCnpj = () => {
-          return normalizedRow['cnpj'] || normalizedRow['cnpj_cpf'] || normalizedRow['documento'] ||
-                 normalizedRow['cpf_cnpj'] || normalizedRow['id_cnpj'] || '';
+          const raw = normalizedRow['cnpj'] || normalizedRow['cnpj_cpf'] || normalizedRow['documento'] ||
+                 normalizedRow['cpf_cnpj'] || normalizedRow['id_cnpj'] || 
+                 normalizedRow['vc_cnpj2'] || normalizedRow['cnpj2'] || '';
+          // Remove non-numeric chars and format as XX.XXX.XXX/XXXX-XX
+          const digits = raw.replace(/\D/g, '');
+          if (digits.length === 14) {
+            return `${digits.slice(0,2)}.${digits.slice(2,5)}.${digits.slice(5,8)}/${digits.slice(8,12)}-${digits.slice(12,14)}`;
+          }
+          return raw;
         };
 
         const getMarca = () => {
