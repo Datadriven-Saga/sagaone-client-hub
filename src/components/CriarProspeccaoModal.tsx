@@ -2263,6 +2263,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         data_envio_template_inicial: formatarDataISO(prospeccaoData.data_envio_template_inicial),
         data_envio_cadencia: formatarDataISO(prospeccaoData.data_envio_cadencia),
         cadencia_completa: prospeccaoData.cadencia_completa ?? false,
+        is_teste: prospeccaoData.is_teste ?? false,
       };
 
       // Adicionar templates para IA Whatsapp com IDs Pri e Meta
