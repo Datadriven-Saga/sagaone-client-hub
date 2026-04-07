@@ -147,7 +147,7 @@ serve(async (req) => {
     console.log('Sync completed:', {
       added: results.added.length,
       updated: results.updated.length,
-      deleted: results.deleted.length,
+      skipped: results.skipped.length,
       errors: results.errors.length,
     });
 
