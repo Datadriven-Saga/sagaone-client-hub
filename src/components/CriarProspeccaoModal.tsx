@@ -2950,8 +2950,9 @@ ${localEvento}`;
               </div>
               <Switch
                 id="is_teste"
-                checked={isTeste}
+                checked={editingProspeccao ? (editingProspeccao.is_teste ?? false) : isTeste}
                 onCheckedChange={setIsTeste}
+                disabled={!!editingProspeccao}
               />
             </div>
 
