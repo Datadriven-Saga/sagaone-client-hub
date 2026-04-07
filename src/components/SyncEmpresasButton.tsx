@@ -246,7 +246,7 @@ export function SyncEmpresasButton() {
       
       if (data.success) {
         toast.success(
-          `Sincronização concluída! ${data.summary.added} adicionadas, ${data.summary.updated} atualizadas, ${data.summary.deleted} removidas`
+          `Sincronização concluída! ${data.summary.added} adicionadas, ${data.summary.updated} atualizadas, ${data.summary.skipped} ignoradas`
         );
       } else {
         toast.error('Erro na sincronização: ' + data.error);
