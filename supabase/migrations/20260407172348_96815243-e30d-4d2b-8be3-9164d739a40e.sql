@@ -1,0 +1,1 @@
+ALTER TABLE public.prospeccoes ADD COLUMN IF NOT EXISTS canal_quarentena text CHECK (canal_quarentena IN ('whatsapp', 'ligacao'));
