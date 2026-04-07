@@ -461,9 +461,11 @@ export function SyncEmpresasButton() {
                   <span className="text-blue-600 flex items-center gap-1">
                     <Pencil className="h-4 w-4" /> {syncResult.summary.updated} atualizadas
                   </span>
-                  <span className="text-red-600 flex items-center gap-1">
-                    <Trash2 className="h-4 w-4" /> {syncResult.summary.deleted} removidas
-                  </span>
+                  {syncResult.summary.skipped > 0 && (
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      {syncResult.summary.skipped} ignoradas (não estão no CSV)
+                    </span>
+                  )}
                   {syncResult.summary.errors > 0 && (
                     <span className="text-yellow-600 flex items-center gap-1">
                       <AlertCircle className="h-4 w-4" /> {syncResult.summary.errors} erros
