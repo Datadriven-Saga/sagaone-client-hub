@@ -427,6 +427,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setDataInicio("");
     setDataFim("");
     setCanal('Whatsapp');
+    setCanalQuarentena('whatsapp');
+    setIsTeste(false);
     setTemplateProspeccaoId("");
     setTemplateAgendadoId("");
     setTemplateNaoAgendadoId("");
