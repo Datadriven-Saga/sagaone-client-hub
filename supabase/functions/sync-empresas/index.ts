@@ -80,29 +80,14 @@ serve(async (req) => {
     const results = {
       added: [] as Array<{ nome: string; crm_id: string; status: string }>,
       updated: [] as Array<{ nome: string; crm_id: string; status: string }>,
-      deleted: [] as Array<{ id: string; crm_id: string; nome: string; status: string }>,
+      skipped: [] as Array<{ crm_id: string; nome: string }>,
       errors: [] as Array<{ nome?: string; crm_id?: string; error: string }>,
     };
 
-    // 1. Delete empresas not in CSV
+    // Log empresas not in CSV (no deletion)
     for (const [crm_id, empresa] of currentByCrmId) {
       if (crm_id && !csvByCrmId.has(crm_id)) {
-        console.log(`Deleting empresa with crm_id ${crm_id}...`);
-        const { error: deleteError } = await supabase
-          .from('empresas')
-          .delete()
-          .eq('id', empresa.id);
-
-        if (deleteError) {
-          results.errors.push({ crm_id: crm_id || '', error: deleteError.message });
-        } else {
-          results.deleted.push({ 
-            id: empresa.id, 
-            crm_id: crm_id || '', 
-            nome: empresa.nome_empresa || 'N/A',
-            status: 'deleted' 
-          });
-        }
+        results.skipped.push({ crm_id: crm_id || '', nome: empresa.nome_empresa || 'N/A' });
       }
     }
 
