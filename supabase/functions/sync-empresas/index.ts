@@ -73,9 +73,10 @@ serve(async (req) => {
 
     console.log(`Found ${currentEmpresas?.length || 0} existing empresas in database`);
 
-    // Build maps for comparison - using crm_id as the main identifier
+    // Build maps for comparison
     const csvByCrmId = new Map(empresasCSV.map(e => [e.crm_id, e]));
     const currentByCrmId = new Map(currentEmpresas?.map(e => [e.crm_id, e]) || []);
+    const currentByCnpj = new Map(currentEmpresas?.map(e => [e.cnpj, e]) || []);
 
     const results = {
       added: [] as Array<{ nome: string; crm_id: string; status: string }>,
@@ -98,7 +99,10 @@ serve(async (req) => {
         continue;
       }
 
+      // Try matching by crm_id first, then fallback to CNPJ
       const existingByCrmId = currentByCrmId.get(empresa.crm_id);
+      const existingByCnpj = !existingByCrmId && empresa.cnpj ? currentByCnpj.get(empresa.cnpj) : null;
+      const existing = existingByCrmId || existingByCnpj;
 
       if (existingByCrmId) {
         // Update existing
