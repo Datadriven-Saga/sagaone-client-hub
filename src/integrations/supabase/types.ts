@@ -3691,6 +3691,7 @@ export type Database = {
           ativo: boolean
           cadencia_completa: boolean
           canal: string
+          canal_quarentena: string | null
           convite: string | null
           created_at: string | null
           data_envio_cadencia: string | null
@@ -3742,6 +3743,7 @@ export type Database = {
           ativo?: boolean
           cadencia_completa?: boolean
           canal?: string
+          canal_quarentena?: string | null
           convite?: string | null
           created_at?: string | null
           data_envio_cadencia?: string | null
@@ -3793,6 +3795,7 @@ export type Database = {
           ativo?: boolean
           cadencia_completa?: boolean
           canal?: string
+          canal_quarentena?: string | null
           convite?: string | null
           created_at?: string | null
           data_envio_cadencia?: string | null
