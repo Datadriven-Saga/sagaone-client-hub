@@ -1766,6 +1766,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         template_conf_nao_agendado_id_pri: templateNaoAgendadoData?.template_id_pri || "",
         template_conf_nao_agendado_id_meta: templateNaoAgendadoData?.id_meta || "",
         cadencia_completa: prospeccaoData.cadencia_completa ?? false,
+        is_teste: prospeccaoData.is_teste ?? false,
       };
 
       // Adicionar templates 48h/24h quando cadência completa
