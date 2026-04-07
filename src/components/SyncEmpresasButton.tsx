@@ -358,6 +358,9 @@ export function SyncEmpresasButton() {
                   <p className="text-xs text-muted-foreground">
                     Formatos aceitos: CSV, XLS, XLSX
                   </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Colunas esperadas: <strong>vc_empresa</strong>, <strong>vc_marca</strong>, <strong>vc_uf</strong>, <strong>nm_codigo_svm</strong>, <strong>vc_cnpj2</strong>, vc_cidade
+                  </p>
                 </div>
 
                 {/* Selected File Info */}
