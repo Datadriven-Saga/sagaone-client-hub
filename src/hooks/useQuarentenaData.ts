@@ -32,6 +32,7 @@ export interface QuarentenaFilters {
   lojas: string[];
   status: string;
   dateRange: DateRange | undefined;
+  canal?: string;
 }
 
 export type QuarentenaStatus = "ativo" | "expirado" | "desativado";
@@ -42,8 +43,9 @@ export interface StatusInfo {
   label: string;
 }
 
-export function getQuarentenaStatus(item: QuarentenaItem): StatusInfo {
-  // Use server-computed status when available
+export function getQuarentenaStatus(item: QuarentenaItem, diasConfig?: number): StatusInfo {
+  const dias = diasConfig ?? 30;
+
   if (item.computed_status) {
     if (item.computed_status === "desativado") {
       return { status: "desativado", daysLeft: 0, label: "Desativado" };
@@ -51,21 +53,19 @@ export function getQuarentenaStatus(item: QuarentenaItem): StatusInfo {
     if (item.computed_status === "expirado") {
       return { status: "expirado", daysLeft: 0, label: "Expirada" };
     }
-    // ativo - compute daysLeft
     if (item.data_fim_evento) {
       const dataFim = new Date(item.data_fim_evento);
       const now = new Date();
       if (isBefore(now, dataFim)) {
         return { status: "ativo", daysLeft: 0, label: "Evento ativo" };
       }
-      const expiry = addDays(dataFim, 30);
+      const expiry = addDays(dataFim, dias);
       const daysLeft = differenceInDays(expiry, now);
       return { status: "ativo", daysLeft, label: `${daysLeft}d restantes` };
     }
     return { status: "ativo", daysLeft: 0, label: "Evento ativo" };
   }
 
-  // Fallback for local computation
   if (item.desativado) {
     return { status: "desativado", daysLeft: 0, label: "Desativado" };
   }
@@ -74,7 +74,7 @@ export function getQuarentenaStatus(item: QuarentenaItem): StatusInfo {
   }
   const dataFim = new Date(item.data_fim_evento);
   const now = new Date();
-  const expiry = addDays(dataFim, 30);
+  const expiry = addDays(dataFim, dias);
 
   if (isBefore(now, dataFim)) {
     return { status: "ativo", daysLeft: 0, label: "Evento ativo" };
@@ -98,6 +98,7 @@ export function useQuarentenaData() {
     lojas: [],
     status: "all",
     dateRange: undefined,
+    canal: undefined,
   });
   const [page, setPage] = useState(1);
   const [sortColumn, setSortColumn] = useState<string>("ultimo_impacto_at");
@@ -127,7 +128,7 @@ export function useQuarentenaData() {
   // Reset page on filter change (except search which is debounced)
   useEffect(() => {
     setPage(1);
-  }, [filters.marcas, filters.lojas, filters.status, filters.dateRange]);
+  }, [filters.marcas, filters.lojas, filters.status, filters.dateRange, filters.canal]);
 
   const companyFilter = isCRM && !isAdmin ? activeCompany?.id : null;
 
@@ -150,6 +151,7 @@ export function useQuarentenaData() {
         p_sort_direction: sortDirection,
         p_limit: pageSize,
         p_offset: (page - 1) * pageSize,
+        p_canal: filters.canal || null,
       });
 
       if (error) throw error;
@@ -172,7 +174,7 @@ export function useQuarentenaData() {
     } finally {
       setLoading(false);
     }
-  }, [companyFilter, debouncedSearch, filters.marcas, filters.lojas, filters.status, filters.dateRange, sortColumn, sortDirection, page]);
+  }, [companyFilter, debouncedSearch, filters.marcas, filters.lojas, filters.status, filters.dateRange, filters.canal, sortColumn, sortDirection, page]);
 
   useEffect(() => {
     loadData();
