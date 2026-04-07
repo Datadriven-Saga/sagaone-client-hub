@@ -1,4 +1,4 @@
-import { RefreshCw, AlertTriangle } from "lucide-react";
+import { RefreshCw, AlertTriangle, Settings } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { QuarentenaStats } from "@/components/quarentena/QuarentenaStats";
 import { QuarentenaFilters } from "@/components/quarentena/QuarentenaFilters";
 import { QuarentenaTable } from "@/components/quarentena/QuarentenaTable";
 import { QuarentenaLogs } from "@/components/quarentena/QuarentenaLogs";
+import { QuarentenaConfigTab } from "@/components/quarentena/QuarentenaConfigTab";
 import { useQuarentenaData } from "@/hooks/useQuarentenaData";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -61,6 +62,10 @@ const Quarentena = () => {
               <TabsList>
                 <TabsTrigger value="quarentena">Quarentena</TabsTrigger>
                 <TabsTrigger value="logs">Histórico / Logs</TabsTrigger>
+                <TabsTrigger value="config" className="gap-1">
+                  <Settings className="h-3.5 w-3.5" />
+                  Configurações
+                </TabsTrigger>
               </TabsList>
               <Button variant="outline" size="icon" onClick={reload} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -90,14 +95,19 @@ const Quarentena = () => {
               />
 
               <div className="bg-card border rounded-lg p-4 text-sm text-muted-foreground">
-                <p><strong>Como funciona:</strong> Após o término de um evento, os contatos impactados ficam bloqueados por 30 dias para a mesma marca.
+                <p><strong>Como funciona:</strong> Após o término de um evento, os contatos impactados ficam bloqueados por canal (WhatsApp ou Ligação) separadamente, pelo prazo configurado (padrão: 20 dias WhatsApp, 30 dias Ligação).
+                Um contato bloqueado via WhatsApp pode ser impactado via Ligação e vice-versa.
+                Bases de teste são ignoradas pela regra de quarentena. Ao desativar um contato, ele poderá ser impactado novamente imediatamente.</p>
                 Durante esse período, não podem ser importados em novos eventos da marca. Bases de teste são ignoradas pela regra de quarentena.
-                Ao desativar um contato, ele poderá ser impactado novamente imediatamente.</p>
               </div>
             </TabsContent>
 
             <TabsContent value="logs">
               <QuarentenaLogs />
+            </TabsContent>
+
+            <TabsContent value="config">
+              <QuarentenaConfigTab availableMarcas={availableMarcas} />
             </TabsContent>
           </Tabs>
         </div>

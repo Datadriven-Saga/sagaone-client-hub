@@ -34,7 +34,7 @@ export function QuarentenaFilters({ filters, onFiltersChange, availableMarcas, a
     update({ lojas: next });
   };
 
-  const hasActiveFilters = filters.search || filters.marcas.length > 0 || filters.lojas.length > 0 || filters.status !== "all" || filters.dateRange?.from;
+  const hasActiveFilters = filters.search || filters.marcas.length > 0 || filters.lojas.length > 0 || filters.status !== "all" || filters.dateRange?.from || (filters as any).canal;
 
   return (
     <div className="space-y-3">
@@ -92,6 +92,18 @@ export function QuarentenaFilters({ filters, onFiltersChange, availableMarcas, a
           </PopoverContent>
         </Popover>
 
+        {/* Canal */}
+        <Select value={(filters as any).canal || "all"} onValueChange={v => update({ canal: v === "all" ? undefined : v } as any)}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Canal" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os canais</SelectItem>
+            <SelectItem value="whatsapp">WhatsApp</SelectItem>
+            <SelectItem value="ligacao">Ligação</SelectItem>
+          </SelectContent>
+        </Select>
+
         {/* Status */}
         <Select value={filters.status} onValueChange={v => update({ status: v })}>
           <SelectTrigger className="w-[160px]">
@@ -134,7 +146,12 @@ export function QuarentenaFilters({ filters, onFiltersChange, availableMarcas, a
               {filters.status} <X className="h-3 w-3" />
             </Badge>
           )}
-          <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => onFiltersChange({ search: "", marcas: [], lojas: [], status: "all", dateRange: undefined })}>
+          {(filters as any).canal && (
+            <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => update({ canal: undefined } as any)}>
+              {(filters as any).canal === "whatsapp" ? "WhatsApp" : "Ligação"} <X className="h-3 w-3" />
+            </Badge>
+          )}
+          <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => onFiltersChange({ search: "", marcas: [], lojas: [], status: "all", dateRange: undefined, canal: undefined } as any)}>
             Limpar filtros
           </Button>
         </div>
