@@ -502,15 +502,14 @@ export function SyncEmpresasButton() {
                   </div>
                 ))}
                 
-                {/* Deleted */}
-                {syncResult.details.deleted.map((item, index) => (
-                  <div key={`deleted-${index}`} className="flex items-center gap-3 p-2 border rounded">
-                    {getStatusIcon('deleted')}
+                {/* Skipped (not in CSV) */}
+                {syncResult.details.skipped.map((item, index) => (
+                  <div key={`skipped-${index}`} className="flex items-center gap-3 p-2 border rounded opacity-60">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{item.nome || `ID: ${item.id}`}</div>
-                      <div className="text-xs text-muted-foreground">CRM ID: {item.crm_id}</div>
+                      <div className="text-sm font-medium truncate">{item.nome}</div>
+                      <div className="text-xs text-muted-foreground">CRM ID: {item.crm_id} — não consta no CSV (mantida)</div>
                     </div>
-                    {getStatusBadge('deleted')}
+                    <Badge variant="outline">Ignorada</Badge>
                   </div>
                 ))}
                 
