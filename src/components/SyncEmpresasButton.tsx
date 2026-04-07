@@ -160,8 +160,15 @@ export function SyncEmpresasButton() {
         };
 
         const getCnpj = () => {
-          return normalizedRow['cnpj'] || normalizedRow['cnpj_cpf'] || normalizedRow['documento'] ||
-                 normalizedRow['cpf_cnpj'] || normalizedRow['id_cnpj'] || '';
+          const raw = normalizedRow['cnpj'] || normalizedRow['cnpj_cpf'] || normalizedRow['documento'] ||
+                 normalizedRow['cpf_cnpj'] || normalizedRow['id_cnpj'] || 
+                 normalizedRow['vc_cnpj2'] || normalizedRow['cnpj2'] || '';
+          // Remove non-numeric chars and format as XX.XXX.XXX/XXXX-XX
+          const digits = raw.replace(/\D/g, '');
+          if (digits.length === 14) {
+            return `${digits.slice(0,2)}.${digits.slice(2,5)}.${digits.slice(5,8)}/${digits.slice(8,12)}-${digits.slice(12,14)}`;
+          }
+          return raw;
         };
 
         const getMarca = () => {
@@ -351,6 +358,9 @@ export function SyncEmpresasButton() {
                   <p className="text-xs text-muted-foreground">
                     Formatos aceitos: CSV, XLS, XLSX
                   </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Colunas esperadas: <strong>vc_empresa</strong>, <strong>vc_marca</strong>, <strong>vc_uf</strong>, <strong>nm_codigo_svm</strong>, <strong>vc_cnpj2</strong>, vc_cidade
+                  </p>
                 </div>
 
                 {/* Selected File Info */}
@@ -412,11 +422,12 @@ export function SyncEmpresasButton() {
 
                 {/* Info */}
                 <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                  <p className="font-medium mb-1 text-xs">Esta operação irá:</p>
+                  <p className="font-medium mb-1 text-xs">Campos obrigatórios: vc_empresa (nome), nm_codigo_svm (CRM ID)</p>
+                  <p className="font-medium mb-1 text-xs mt-2">Esta operação irá:</p>
                   <ul className="list-disc list-inside space-y-0.5 text-xs">
                     <li><span className="text-green-600 font-medium">Adicionar</span> empresas que estão no arquivo mas não no banco</li>
-                    <li><span className="text-blue-600 font-medium">Atualizar</span> dados de empresas existentes (usando crm_id)</li>
-                    <li><span className="text-red-600 font-medium">Remover</span> empresas do banco que não estão no arquivo</li>
+                    <li><span className="text-blue-600 font-medium">Atualizar</span> dados de empresas existentes (match por CRM ID ou CNPJ)</li>
+                    <li>Empresas no banco que não estão no arquivo serão <strong>mantidas</strong> (nunca removidas)</li>
                   </ul>
                 </div>
               </div>
