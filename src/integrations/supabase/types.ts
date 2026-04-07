@@ -5099,24 +5099,15 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: Json
       }
-      bulk_upsert_contatos:
-        | {
-            Args: {
-              p_contatos: Json
-              p_empresa_id: string
-              p_prospeccao_id?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_canal?: string
-              p_contatos: Json
-              p_empresa_id: string
-              p_prospeccao_id?: string
-            }
-            Returns: Json
-          }
+      bulk_upsert_contatos: {
+        Args: {
+          p_canal?: string
+          p_contatos: Json
+          p_empresa_id: string
+          p_prospeccao_id?: string
+        }
+        Returns: Json
+      }
       can_manage_users: { Args: { user_id?: string }; Returns: boolean }
       check_global_opt_out: { Args: { p_telefone: string }; Returns: boolean }
       check_global_opt_out_bulk: {
@@ -5127,27 +5118,16 @@ export type Database = {
         }[]
       }
       check_password_protection_status: { Args: never; Returns: string }
-      check_quarentena:
-        | {
-            Args: { p_loja_id: string; p_telefones: string[] }
-            Returns: {
-              data_fim_evento: string
-              em_quarentena: boolean
-              evento: string
-              telefone: string
-              ultimo_impacto: string
-            }[]
-          }
-        | {
-            Args: { p_canal?: string; p_loja_id: string; p_telefones: string[] }
-            Returns: {
-              data_fim_evento: string
-              em_quarentena: boolean
-              evento: string
-              telefone: string
-              ultimo_impacto: string
-            }[]
-          }
+      check_quarentena: {
+        Args: { p_canal?: string; p_loja_id: string; p_telefones: string[] }
+        Returns: {
+          data_fim_evento: string
+          em_quarentena: boolean
+          evento: string
+          telefone: string
+          ultimo_impacto: string
+        }[]
+      }
       check_user_email_exists: {
         Args: { email_to_check: string }
         Returns: boolean
@@ -5252,40 +5232,23 @@ export type Database = {
         Args: { p_canal: string; p_empresa_id: string; p_marca: string }
         Returns: number
       }
-      get_quarentena_paginated:
-        | {
-            Args: {
-              p_date_from?: string
-              p_date_to?: string
-              p_empresa_id?: string
-              p_limit?: number
-              p_lojas?: string[]
-              p_marcas?: string[]
-              p_offset?: number
-              p_search?: string
-              p_sort_column?: string
-              p_sort_direction?: string
-              p_status?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_canal?: string
-              p_date_from?: string
-              p_date_to?: string
-              p_empresa_id?: string
-              p_limit?: number
-              p_lojas?: string[]
-              p_marcas?: string[]
-              p_offset?: number
-              p_search?: string
-              p_sort_column?: string
-              p_sort_direction?: string
-              p_status?: string
-            }
-            Returns: Json
-          }
+      get_quarentena_paginated: {
+        Args: {
+          p_canal?: string
+          p_date_from?: string
+          p_date_to?: string
+          p_empresa_id?: string
+          p_limit?: number
+          p_lojas?: string[]
+          p_marcas?: string[]
+          p_offset?: number
+          p_search?: string
+          p_sort_column?: string
+          p_sort_direction?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
       get_user_accessible_clients: {
         Args: { user_id_param?: string }
         Returns: {
@@ -5328,28 +5291,17 @@ export type Database = {
         Args: { new_empresa_id: string }
         Returns: undefined
       }
-      upsert_quarentena:
-        | {
-            Args: {
-              p_data_fim_evento: string
-              p_evento_nome: string
-              p_loja_id: string
-              p_prospeccao_id: string
-              p_telefone: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_canal?: string
-              p_data_fim_evento: string
-              p_evento_nome: string
-              p_loja_id: string
-              p_prospeccao_id: string
-              p_telefone: string
-            }
-            Returns: undefined
-          }
+      upsert_quarentena: {
+        Args: {
+          p_canal?: string
+          p_data_fim_evento: string
+          p_evento_nome: string
+          p_loja_id: string
+          p_prospeccao_id: string
+          p_telefone: string
+        }
+        Returns: undefined
+      }
       user_belongs_to_company: {
         Args: { _empresa_id: string; _user_id: string }
         Returns: boolean
