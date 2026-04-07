@@ -15,13 +15,13 @@ interface SyncResult {
   summary: {
     added: number;
     updated: number;
-    deleted: number;
+    skipped: number;
     errors: number;
   };
   details: {
     added: Array<{ nome: string; crm_id: string; status: string }>;
     updated: Array<{ nome: string; crm_id: string; status: string }>;
-    deleted: Array<{ id: string; crm_id: string; nome?: string; status: string }>;
+    skipped: Array<{ crm_id: string; nome: string }>;
     errors: Array<{ nome?: string; crm_id?: string; error: string }>;
   };
 }
@@ -246,7 +246,7 @@ export function SyncEmpresasButton() {
       
       if (data.success) {
         toast.success(
-          `Sincronização concluída! ${data.summary.added} adicionadas, ${data.summary.updated} atualizadas, ${data.summary.deleted} removidas`
+          `Sincronização concluída! ${data.summary.added} adicionadas, ${data.summary.updated} atualizadas, ${data.summary.skipped} ignoradas`
         );
       } else {
         toast.error('Erro na sincronização: ' + data.error);
@@ -461,9 +461,11 @@ export function SyncEmpresasButton() {
                   <span className="text-blue-600 flex items-center gap-1">
                     <Pencil className="h-4 w-4" /> {syncResult.summary.updated} atualizadas
                   </span>
-                  <span className="text-red-600 flex items-center gap-1">
-                    <Trash2 className="h-4 w-4" /> {syncResult.summary.deleted} removidas
-                  </span>
+                  {syncResult.summary.skipped > 0 && (
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      {syncResult.summary.skipped} ignoradas (não estão no CSV)
+                    </span>
+                  )}
                   {syncResult.summary.errors > 0 && (
                     <span className="text-yellow-600 flex items-center gap-1">
                       <AlertCircle className="h-4 w-4" /> {syncResult.summary.errors} erros
@@ -500,15 +502,14 @@ export function SyncEmpresasButton() {
                   </div>
                 ))}
                 
-                {/* Deleted */}
-                {syncResult.details.deleted.map((item, index) => (
-                  <div key={`deleted-${index}`} className="flex items-center gap-3 p-2 border rounded">
-                    {getStatusIcon('deleted')}
+                {/* Skipped (not in CSV) */}
+                {syncResult.details.skipped.map((item, index) => (
+                  <div key={`skipped-${index}`} className="flex items-center gap-3 p-2 border rounded opacity-60">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{item.nome || `ID: ${item.id}`}</div>
-                      <div className="text-xs text-muted-foreground">CRM ID: {item.crm_id}</div>
+                      <div className="text-sm font-medium truncate">{item.nome}</div>
+                      <div className="text-xs text-muted-foreground">CRM ID: {item.crm_id} — não consta no CSV (mantida)</div>
                     </div>
-                    {getStatusBadge('deleted')}
+                    <Badge variant="outline">Ignorada</Badge>
                   </div>
                 ))}
                 
@@ -526,7 +527,7 @@ export function SyncEmpresasButton() {
                 
                 {syncResult.details.added.length === 0 && 
                  syncResult.details.updated.length === 0 && 
-                 syncResult.details.deleted.length === 0 && 
+                 syncResult.details.skipped.length === 0 && 
                  syncResult.details.errors.length === 0 && (
                   <div className="text-center text-muted-foreground py-8">
                     <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500" />
