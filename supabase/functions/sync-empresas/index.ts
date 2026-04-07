@@ -157,7 +157,7 @@ serve(async (req) => {
         summary: {
           added: results.added.length,
           updated: results.updated.length,
-          deleted: results.deleted.length,
+          skipped: results.skipped.length,
           errors: results.errors.length,
         },
         details: results,
