@@ -527,7 +527,7 @@ export function SyncEmpresasButton() {
                 
                 {syncResult.details.added.length === 0 && 
                  syncResult.details.updated.length === 0 && 
-                 syncResult.details.deleted.length === 0 && 
+                 syncResult.details.skipped.length === 0 && 
                  syncResult.details.errors.length === 0 && (
                   <div className="text-center text-muted-foreground py-8">
                     <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500" />
