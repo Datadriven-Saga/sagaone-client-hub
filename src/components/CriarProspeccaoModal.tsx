@@ -268,6 +268,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       setDataInicio(editingProspeccao.data_inicio || "");
       setDataFim(editingProspeccao.data_fim || "");
       setCanal(editingProspeccao.canal || 'Whatsapp');
+      setCanalQuarentena(editingProspeccao.canal_quarentena || 'whatsapp');
+      setIsTeste(editingProspeccao.is_teste ?? false);
       setTemplateProspeccaoId(editingProspeccao.template_prospeccao_id || "");
       setTemplateAgendadoId(editingProspeccao.template_agendado_id || "");
       setTemplateNaoAgendadoId(editingProspeccao.template_nao_agendado_id || "");
