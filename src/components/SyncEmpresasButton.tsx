@@ -15,13 +15,13 @@ interface SyncResult {
   summary: {
     added: number;
     updated: number;
-    deleted: number;
+    skipped: number;
     errors: number;
   };
   details: {
     added: Array<{ nome: string; crm_id: string; status: string }>;
     updated: Array<{ nome: string; crm_id: string; status: string }>;
-    deleted: Array<{ id: string; crm_id: string; nome?: string; status: string }>;
+    skipped: Array<{ crm_id: string; nome: string }>;
     errors: Array<{ nome?: string; crm_id?: string; error: string }>;
   };
 }
