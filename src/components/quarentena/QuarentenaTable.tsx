@@ -160,6 +160,7 @@ export function QuarentenaTable({
               </TableHead>
               <SortableHeader label="Telefone" column="telefone_normalizado" active={sortColumn === "telefone_normalizado"} direction={sortDirection} onToggle={onToggleSort} />
               <SortableHeader label="Marca" column="marca" active={sortColumn === "marca"} direction={sortDirection} onToggle={onToggleSort} />
+              <TableHead>Canal</TableHead>
               <SortableHeader label="Loja" column="empresa_nome" active={sortColumn === "empresa_nome"} direction={sortDirection} onToggle={onToggleSort} />
               <SortableHeader label="Evento" column="evento_nome" active={sortColumn === "evento_nome"} direction={sortDirection} onToggle={onToggleSort} />
               <SortableHeader label="Último Impacto" column="ultimo_impacto_at" active={sortColumn === "ultimo_impacto_at"} direction={sortDirection} onToggle={onToggleSort} />
@@ -171,19 +172,20 @@ export function QuarentenaTable({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto" />
+                 <TableCell colSpan={10} className="text-center py-8">
+                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto" />
                 </TableCell>
               </TableRow>
             ) : items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                  Nenhum registro de quarentena encontrado
+               <TableRow>
+                 <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                   Nenhum registro de quarentena encontrado
                 </TableCell>
               </TableRow>
             ) : (
               items.map(item => {
-                const status = getQuarentenaStatus(item);
+                const diasConfig = (item as any).dias_config;
+                const status = getQuarentenaStatus(item, diasConfig);
                 return (
                   <TableRow key={item.id}>
                     <TableCell>
@@ -192,6 +194,11 @@ export function QuarentenaTable({
                     <TableCell className="font-mono text-sm">{item.telefone_normalizado}</TableCell>
                     <TableCell>
                       {item.marca ? <Badge variant="outline">{item.marca}</Badge> : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={item.canal === "ligacao" ? "secondary" : "default"} className="text-xs">
+                        {item.canal === "ligacao" ? "Ligação" : "WhatsApp"}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-sm max-w-[150px] truncate">{item.empresa_nome || "-"}</TableCell>
                     <TableCell className="max-w-[180px] truncate text-sm">{item.evento_nome || "-"}</TableCell>
