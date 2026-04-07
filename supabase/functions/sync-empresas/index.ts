@@ -91,7 +91,7 @@ serve(async (req) => {
       }
     }
 
-    // 2. Add or update empresas from CSV
+    // Add or update empresas from CSV
     for (const empresa of empresasCSV) {
       if (!empresa.crm_id) {
         results.errors.push({ nome: empresa.nome, error: 'CRM ID não informado' });
