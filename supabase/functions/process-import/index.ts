@@ -232,6 +232,19 @@ Deno.serve(async (req: Request) => {
     const errorDetails: string[] = Array.isArray(log.error_details) ? [...log.error_details] : [];
     let processedRows = log.processed_rows || 0;
 
+    // 5b. Fetch canal_quarentena from prospeccao (defaults to 'whatsapp')
+    let canalQuarentena = 'whatsapp';
+    if (log.prospeccao_id) {
+      const { data: prospInfo } = await supabaseAdmin
+        .from('prospeccoes')
+        .select('canal_quarentena')
+        .eq('id', log.prospeccao_id)
+        .single();
+      if (prospInfo?.canal_quarentena) {
+        canalQuarentena = prospInfo.canal_quarentena;
+      }
+    }
+
     // 6. Process rows
     const seenPhones = new Set<string>();
     let batch: any[] = [];
@@ -242,7 +255,7 @@ Deno.serve(async (req: Request) => {
       if (Date.now() - startTime > MAX_ELAPSED_MS) {
         console.log(`⏱️ Timeout approaching at row ${i}, will self-chain`);
         if (batch.length > 0) {
-          const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id);
+          const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena);
           inserted += result.inserted;
           updated += result.updated;
           linked += result.linked;
@@ -306,7 +319,7 @@ Deno.serve(async (req: Request) => {
         batchCount++;
         console.log(`📤 Lote ${batchCount}: Enviando ${batch.length} registros...`);
 
-        const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id);
+        const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena);
         inserted += result.inserted;
         updated += result.updated;
         linked += result.linked;
@@ -344,7 +357,7 @@ Deno.serve(async (req: Request) => {
       batchCount++;
       console.log(`📤 Lote final ${batchCount}: Enviando ${batch.length} registros...`);
 
-      const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id);
+      const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena);
       inserted += result.inserted;
       updated += result.updated;
       linked += result.linked;
@@ -590,6 +603,7 @@ async function processBatch(
   batch: any[],
   empresaId: string,
   prospeccaoId: string | null,
+  canal: string = 'whatsapp',
 ): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
   const MAX_RETRIES = 3;
   let lastError = '';
@@ -600,6 +614,7 @@ async function processBatch(
         p_contatos: batch,
         p_empresa_id: empresaId,
         p_prospeccao_id: prospeccaoId,
+        p_canal: canal,
       });
 
       if (error) throw error;

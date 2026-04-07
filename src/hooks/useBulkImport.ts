@@ -72,6 +72,7 @@ export const useBulkImport = () => {
     batchNum: number,
     empresaId: string,
     prospeccaoId: string,
+    canal: string = 'whatsapp',
   ): Promise<void> => {
     let lastError = '';
 
@@ -93,6 +94,7 @@ export const useBulkImport = () => {
           p_contatos: payload as any,
           p_empresa_id: empresaId,
           p_prospeccao_id: prospeccaoId,
+          p_canal: canal,
         });
 
         if (error) throw error;
@@ -154,6 +156,7 @@ export const useBulkImport = () => {
     empresaId: string,
     prospeccaoId: string,
     estimatedTotal: number,
+    canal: string = 'whatsapp',
   ) => {
     abortRef.current = false;
     const initial: BulkImportProgress = {
@@ -188,7 +191,7 @@ export const useBulkImport = () => {
       if (abortRef.current) return;
       batchCounter++;
       const num = batchCounter;
-      queue.push(() => sendBatch(batch, num, empresaId, prospeccaoId));
+      queue.push(() => sendBatch(batch, num, empresaId, prospeccaoId, canal));
       processQueue();
     };
 
@@ -227,8 +230,9 @@ export const useBulkImport = () => {
     contatos: ContatoForImport[],
     empresaId: string,
     prospeccaoId: string,
+    canal: string = 'whatsapp',
   ): Promise<BulkImportProgress> => {
-    const importer = createStreamingImporter(empresaId, prospeccaoId, contatos.length);
+    const importer = createStreamingImporter(empresaId, prospeccaoId, contatos.length, canal);
     
     for (let i = 0; i < contatos.length; i += RPC_BATCH_SIZE) {
       if (importer.isAborted()) break;
