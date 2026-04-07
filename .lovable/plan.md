@@ -1,107 +1,69 @@
 
 
-## Plano: Corrigir visibilidade de cards/menus por permissão
+## Plan: Add Canal Selection + is_teste Toggle to Event Creation, and Send is_teste in Webhooks
 
-### Análise de impacto por tipo de usuário
+### Summary
 
-Validei cada correção contra os defaults do `PermissionRegistry` e os overrides do banco.
+Three changes:
+1. Add a **canal de prospecção** selector (WhatsApp / Ligação) on the "Dados Gerais" step for **Prospecção Mensal** and **Grande Evento** types, with a tooltip explaining quarantine implications
+2. Add an **is_teste** toggle on "Dados Gerais" for **all event types** (currently not exposed in UI at all despite existing in the DB)
+3. Ensure **is_teste** is included in webhook payloads for IA WhatsApp and IA Ligação
 
----
+### Technical Details
 
-### Correção 1: Card "Acessos" em `/administracao`
+#### File: `src/components/CriarProspeccaoModal.tsx`
 
-**Problema:** Usa `canAccessAdministracao`, que é a mesma permissão de entrada na página. Qualquer usuário que entra na página vê o card.
+**1. New state for canal_quarentena:**
+- Add state: `const [canalQuarentena, setCanalQuarentena] = useState<'whatsapp' | 'ligacao'>('whatsapp')`
+- Add state: `const [isTeste, setIsTeste] = useState(false)`
+- Populate from `editingProspeccao` when editing (map from existing `canal_quarentena` and `is_teste` fields)
+- Include in `clearForm()`
 
-**Correção:** Trocar para `canManageUsers || canCreateUsers`.
+**2. UI additions in "Dados Gerais" step (after tipo evento selector, before dates):**
 
-| Perfil | canManageUsers | canCreateUsers | Resultado | Antes |
-|--------|---------------|----------------|-----------|-------|
-| Master/Admin | true | true | ✅ Vê | Vê |
-| TI (default) | true | true | ✅ Vê | Vê |
-| TI (MFA-only override) | false | false | ✅ Não vê | Via indevido |
-| Gerente Leads/Loja | false | true | ✅ Vê | Vê |
-| CRM | false | true | ✅ Vê | Vê |
-| Coordenadora | false | true | ✅ Vê | Vê |
+For **Prospecção Mensal** and **Grande Evento** only:
+- Add a `Select` for "Canal de Prospecção" with options "WhatsApp" and "Ligação"
+- Add a `Tooltip` explaining: "Os contatos desta prospecção entrarão em quarentena para o canal selecionado. WhatsApp: 20 dias / Ligação: 30 dias após o fim do evento."
 
-**Nenhum perfil perde acesso indevidamente.**
+For **all event types**:
+- Add a `Switch` toggle for "Evento de Teste" with tooltip: "Eventos de teste não geram quarentena para os contatos."
+- For IA WhatsApp and IA Ligação, the canal is implicit (whatsapp/ligacao respectively), so the canal selector is hidden
 
----
+**3. Save canal_quarentena in dadosProspeccao:**
+- For Prospecção Mensal / Grande Evento: use the selected `canalQuarentena` value
+- For IA WhatsApp: always `'whatsapp'`
+- For IA Ligação: always `'ligacao'`
+- Save `is_teste` for all types: `dadosProspeccao.is_teste = isTeste`
 
-### Correção 2: Card "MFA / Cofre de Senhas" em `/administracao`
+**4. Send is_teste in webhook payloads:**
 
-**Problema:** Usa apenas `canAccessAgentesIA`. TI com MFA-only tem `canAccessAgentesIA=false` e `canViewAuthenticator=true`, mas o card não aparece.
+- **callWebhook** (pri-config for IA WhatsApp): add `is_teste: prospeccaoData.is_teste ?? false` to `webhookPayload`
+- **triggerNovoEventoCriadoWebhooks** (novo_evento_criado): add `is_teste: prospeccaoData.is_teste ?? false` to `payload` (already sends for all types)
+- **callIALigacaoWebhooks** (ia-ligacao-webhook): add `is_teste: prospeccaoData.is_teste ?? false` to `eventoParaEdge`
 
-**Correção:** Trocar para `canAccessAgentesIA || canViewAuthenticator` (no `permissionKey` do card).
+#### Database Migration
 
-Impacto: apenas aditivo — nenhum perfil perde acesso. Quem já vê por `canAccessAgentesIA` continua vendo.
+- Add column `canal_quarentena` to `prospeccoes` table:
+  ```sql
+  ALTER TABLE prospeccoes ADD COLUMN IF NOT EXISTS canal_quarentena text
+    CHECK (canal_quarentena IN ('whatsapp', 'ligacao'));
+  ```
+- Backfill existing data based on `canal`:
+  - `'Whatsapp'` → `'whatsapp'`
+  - `'Ligação'` → `'ligacao'`
+  - `'Mensal'` → `'whatsapp'`
+  - `'Grande Evento'` → `'whatsapp'`
 
----
+### Files Changed
 
-### Correção 3: Rota `/administracao/mfa` no `App.tsx`
+| File | Change |
+|---|---|
+| `src/components/CriarProspeccaoModal.tsx` | Add canal selector, is_teste toggle, update payloads |
+| New migration SQL | Add `canal_quarentena` column to `prospeccoes` |
 
-**Problema:** Rota protegida por `canAccessAgentesIA` apenas. TI-MFA é bloqueado.
+### What stays unchanged
 
-**Correção:** Trocar para `permissionKey={["canAccessAgentesIA", "canViewAuthenticator"]}` (OR logic já existente no `PermissionProtectedRoute`).
-
----
-
-### Correção 4: Rota `/administracao` e página `Administracao.tsx`
-
-**Problema:** Rota e a lógica de `hasAccess` na página usam apenas `canAccessAdministracao`. Um usuário com apenas `canViewAuthenticator=true` (sem `canAccessAdministracao`) seria bloqueado.
-
-**Correção:**
-- Rota: `permissionKey={["canAccessAdministracao", "canViewAuthenticator"]}`
-- Página: `const hasAccess = p("canAccessAdministracao") || p("canViewAuthenticator");`
-
----
-
-### Correção 5: Sidebar — Prospecção sem checagem de permissão
-
-**Problema:** O menu "Prospecção" aparece para todos, sem checagem.
-
-**Correção:** Envolver com `canViewProspeccao`.
-
-**Impacto:** `canViewProspeccao` tem default `true` para TODOS os perfis. Só seria oculto se houver override explícito para `false` — que é exatamente o comportamento desejado. Nenhum perfil é afetado negativamente.
-
----
-
-### Correção 6: Sidebar — "Administração" também com `canViewAuthenticator`
-
-**Correção:** `const canSeeAdministracao = p("canAccessAdministracao") || p("canViewAuthenticator");`
-
-Aditivo. Nenhum perfil perde acesso.
-
----
-
-### Correção 7: Index.tsx — Cards sem checagem de permissão
-
-**Problema:** Todos os cards aparecem para todos os usuários, independente de permissão.
-
-**Correção:** Envolver cada card com condicional:
-- "Agentes de IA" → `canAccessAgentesIA`
-- "Prospecção" → `canViewProspeccao` (default true para todos)
-- "Carteira de Clientes" → `canViewClientes` (default true para todos)
-- "Notificações" → `canAccessNotificacoes` (default true para todos)
-- "Relatórios" → `canAccessRelatorios`
-- "Treinamentos" → `canAccessAcademy`
-
-**Impacto:** Os defaults já são `true` para a maioria. Apenas perfis com overrides explícitos para `false` deixam de ver — que é o comportamento correto.
-
----
-
-### Arquivos alterados
-
-| Arquivo | Mudança |
-|---------|---------|
-| `src/pages/Administracao.tsx` | Card Acessos → `canManageUsers\|canCreateUsers`; Card MFA → `canAccessAgentesIA\|canViewAuthenticator`; `hasAccess` inclui `canViewAuthenticator` |
-| `src/App.tsx` | Rotas `/administracao` e `/administracao/mfa` → arrays de permissão |
-| `src/components/AppSidebar.tsx` | Prospecção com `canViewProspeccao`; Administração com `canViewAuthenticator` |
-| `src/pages/Index.tsx` | Cards condicionais por permissão |
-
-### Riscos
-
-Nenhum. Todas as mudanças são:
-- **Aditivas** (OR com nova permissão) — nenhum perfil existente perde acesso
-- **Refinamentos** (trocar permissão genérica por específica) — validado contra todos os 12 perfis
-- **Guards com defaults true** — só afetam se houver override explícito
+- All other pages, components, and edge functions
+- Existing quarantine logic (already uses `is_teste` from DB)
+- RLS policies
 
