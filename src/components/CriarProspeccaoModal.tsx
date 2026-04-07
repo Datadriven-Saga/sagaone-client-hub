@@ -62,6 +62,8 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   
   // Tipo de Evento
   const [tipoEvento, setTipoEvento] = useState<TipoEvento>('Prospecção Mensal');
+  const [canalQuarentena, setCanalQuarentena] = useState<'whatsapp' | 'ligacao'>('whatsapp');
+  const [isTeste, setIsTeste] = useState(false);
   
   // Dados Gerais
   const [titulo, setTitulo] = useState("");
