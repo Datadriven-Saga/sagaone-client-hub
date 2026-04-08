@@ -5164,20 +5164,34 @@ export type Database = {
         }[]
       }
       get_contatos_metricas: { Args: { p_empresa_id: string }; Returns: Json }
-      get_contatos_paginated: {
-        Args: {
-          p_empresa_id: string
-          p_limit?: number
-          p_offset?: number
-          p_prospeccao_id?: string
-          p_responsavel?: string
-          p_search?: string
-          p_sort_column?: string
-          p_sort_direction?: string
-          p_status?: string
-        }
-        Returns: Json
-      }
+      get_contatos_paginated:
+        | {
+            Args: {
+              p_empresa_id: string
+              p_limit?: number
+              p_offset?: number
+              p_prospeccao_id?: string
+              p_responsavel?: string
+              p_search?: string
+              p_sort_column?: string
+              p_sort_direction?: string
+              p_status?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_empresa_id: string
+              p_limit?: number
+              p_offset?: number
+              p_prospeccao_id?: string
+              p_responsavel?: string
+              p_search?: string
+              p_sort_direction?: string
+              p_status?: string
+            }
+            Returns: Json
+          }
       get_current_user_access_type: {
         Args: never
         Returns: Database["public"]["Enums"]["tipo_acesso"]
