@@ -1008,13 +1008,14 @@ showAllEvents: true
   }, [contatos, globalFilters, profiles, contatosProspeccoes]);
 
   // Função de filtragem global para prospecções/eventos
-  // NOTA: Eventos de Ligação agora são mostrados mesmo sem estar no webhook externo
-  // O botão de disparo ficará desabilitado se o evento não tiver event_id_pri válido no webhook
+  // Filtrar eventos: Ligação só aparece se confirmado no sistema externo
   const filteredProspeccoes = useMemo(() => {
     return prospeccoes.filter(prospeccao => {
+      // Filtro por evento selecionado
       if (globalFilters.prospeccaoId !== "todos" && prospeccao.id !== globalFilters.prospeccaoId) {
         return false;
       }
+      // Filtro por data
       if (globalFilters.dataInicio && prospeccao.data_fim) {
         const filtroInicio = new Date(globalFilters.dataInicio);
         const eventoFim = new Date(prospeccao.data_fim);
@@ -1025,13 +1026,19 @@ showAllEvents: true
         const eventoInicio = new Date(prospeccao.data_inicio);
         if (eventoInicio > filtroFim) return false;
       }
+      // Filtro por busca
       if (globalFilters.dadosLead) {
         const search = globalFilters.dadosLead.toLowerCase();
         if (!prospeccao.titulo?.toLowerCase().includes(search)) return false;
       }
+      // Para eventos de Ligação, só mostrar se validado no sistema externo
+      const isLigacao = String(prospeccao.canal).toLowerCase().includes('liga') || prospeccao.canal === 'Ligação';
+      if (isLigacao && eventosLigacaoVerificados && !eventosLigacaoValidos.has(prospeccao.id)) {
+        return false;
+      }
       return true;
     });
-  }, [prospeccoes, globalFilters]);
+  }, [prospeccoes, globalFilters, eventosLigacaoVerificados, eventosLigacaoValidos]);
 
 
   // ✅ AGORA EARLY RETURN PODE VIR APÓS TODOS OS HOOKS
