@@ -362,11 +362,17 @@ serve(async (req) => {
 
     console.log(`✅ Sincronização concluída:`, result);
 
+    // Coletar IDs externos válidos (event_id_pri que existem no webhook externo)
+    const eventosExternosIds = eventosWebhook
+      .map(e => String(Number(e.id_evento || e.event_id || e.id)))
+      .filter(id => id && id !== 'NaN');
+
     return new Response(
       JSON.stringify({
         success: true,
         dry_run,
         result,
+        eventos_externos_ids: eventosExternosIds,
         summary: {
           eventos_webhook: result.total_webhook,
           eventos_pri_voz_criados: result.eventos_pri_voz_criados.length,
