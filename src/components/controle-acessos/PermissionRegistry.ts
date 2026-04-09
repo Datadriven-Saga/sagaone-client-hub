@@ -461,18 +461,16 @@ export function getModuleById(moduleId: string): PermissionModule | undefined {
 }
 
 /**
- * Resolves effective permissions for a role.
- * Reads EXCLUSIVELY from DB overrides — no hardcoded fallback.
- * If a permission is missing from the DB, it defaults to false.
- * The getDefaultPermissions() function is kept only for reference/seeding in the admin UI.
+ * Resolves effective permissions for a role, merging defaults with overrides.
  */
 export function resolvePermissions(
-  _tipo: TipoAcesso,
+  tipo: TipoAcesso,
   overrides: Record<string, boolean>
 ): Record<string, boolean> {
+  const defaults = getDefaultPermissions(tipo);
   const result: Record<string, boolean> = {};
   for (const perm of PERMISSION_REGISTRY) {
-    result[perm.key] = overrides[perm.key] ?? false;
+    result[perm.key] = overrides[perm.key] ?? defaults[perm.key];
   }
   return result;
 }

@@ -57,6 +57,13 @@ export function useUserAccessType() {
           const myOverrides = allOverrides[tipo as string] || {};
           const resolved = resolvePermissions(tipo as TipoAcesso, myOverrides);
           
+          // Master role: force all permissions to true (superadmin)
+          if (tipo === "Master") {
+            for (const key of Object.keys(resolved)) {
+              resolved[key] = true;
+            }
+          }
+          
           setPermissions(resolved);
         } else {
           setPermissions({});
@@ -116,7 +123,7 @@ export function useUserAccessType() {
     isDepartamentoTI,
 
     // All permissions now driven by Permission Flags (departamento_permissoes)
-    canAccessAgentesIA: p("canAccessAgentesIA"),
+    canAccessAgentesIA: p("canAccessAgentesIA") || (isDepartamentoTI && isAdminOrTI),
     canCreateIALigacao: p("canCreateIALigacao"),
     canToggleIALigacao: p("canToggleIALigacao"),
     canCreateEventos: p("canCreateEventos"),
