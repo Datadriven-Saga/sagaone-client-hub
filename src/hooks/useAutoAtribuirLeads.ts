@@ -18,7 +18,9 @@ export function useAutoAtribuirLeads() {
     if (!user || !isLimitedUser) return null;
 
     try {
-      const { data, error } = await supabase.rpc("count_vendedor_leads_pendentes");
+      const { data, error } = await supabase.rpc("count_vendedor_leads_pendentes", {
+        user_id_param: user.id,
+      });
       
       if (error) {
         console.error("Erro ao contar leads pendentes:", error);
@@ -38,7 +40,9 @@ export function useAutoAtribuirLeads() {
     if (!user || !isLimitedUser) return false;
 
     try {
-      const { data, error } = await supabase.rpc("vendedor_precisa_leads");
+      const { data, error } = await supabase.rpc("vendedor_precisa_leads", {
+        user_id_param: user.id,
+      });
       
       if (error) {
         console.error("Erro ao verificar necessidade de leads:", error);
@@ -58,8 +62,10 @@ export function useAutoAtribuirLeads() {
 
     setLoading(true);
     try {
-      console.log('[AutoAtribuir] Calling RPC auto_atribuir_leads_vendedor...');
-      const { data, error } = await supabase.rpc("auto_atribuir_leads_vendedor");
+      console.log('[AutoAtribuir] Calling RPC auto_atribuir_leads_vendedor...', { userId: user.id });
+      const { data, error } = await supabase.rpc("auto_atribuir_leads_vendedor", {
+        user_id_param: user.id,
+      });
       
       console.log('[AutoAtribuir] RPC result:', { data, error });
       
