@@ -1604,7 +1604,7 @@ showAllEvents: true
       // Para vendedores/SDR: usar atribuição automática via RPC (máximo 30)
       if (isLimitedUser) {
         const kanbanFilters = getKanbanFilters();
-        const novosColumn = kanbanData.find((column) => column.id === 'novos');
+        const novosColumn = kanbanData.novos;
 
         console.log('[Solicitar] Clique no botão Solicitar', {
           userId: user.id,
