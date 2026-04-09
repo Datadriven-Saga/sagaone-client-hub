@@ -123,7 +123,7 @@ export function useUserAccessType() {
     isDepartamentoTI,
 
     // All permissions now driven by Permission Flags (departamento_permissoes)
-    canAccessAgentesIA: p("canAccessAgentesIA") || (isDepartamentoTI && isAdminOrTI),
+    canAccessAgentesIA: p("canAccessAgentesIA"),
     canCreateIALigacao: p("canCreateIALigacao"),
     canToggleIALigacao: p("canToggleIALigacao"),
     canCreateEventos: p("canCreateEventos"),
