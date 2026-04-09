@@ -5,6 +5,8 @@ import { KanbanItem } from './KanbanBoard';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { Phone } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Tooltip,
   TooltipContent,
@@ -31,6 +33,8 @@ const ORIGIN_STYLES: Record<string, string> = {
 };
 
 export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
+  const isMobile = useIsMobile();
+
   const {
     attributes,
     listeners,
@@ -100,9 +104,21 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
 
       {/* Phone */}
       {item.channel && (
-        <p className="text-sm text-muted-foreground mb-2.5">
-          {item.channel}
-        </p>
+        <div className="flex items-center gap-2 mb-2.5">
+          <p className="text-sm text-muted-foreground">
+            {item.channel}
+          </p>
+          {isMobile && (
+            <a
+              href={`tel:+55${item.channel.replace(/\D/g, '')}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors shrink-0"
+              aria-label="Ligar para o lead"
+            >
+              <Phone className="w-3.5 h-3.5" />
+            </a>
+          )}
+        </div>
       )}
 
       {/* Origin + Responsável + Time */}
