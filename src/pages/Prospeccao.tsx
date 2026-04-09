@@ -1610,15 +1610,13 @@ showAllEvents: true
           return;
         }
         
+        console.log('[Solicitar] Chamando auto_atribuir_leads_vendedor...');
         const leadsAtribuidos = await atribuirLeadsAutomaticamente(true);
+        console.log('[Solicitar] Leads atribuídos:', leadsAtribuidos);
         
-        // Atualizar contagem de leads pendentes
+        // Atualizar contagem de leads pendentes e recarregar kanban sempre
         await contarLeadsPendentes();
-        
-        if (leadsAtribuidos > 0) {
-          // Recarregar kanban para mostrar os novos leads
-          await fetchKanbanColumns(getKanbanFilters());
-        }
+        await fetchKanbanColumns(getKanbanFilters());
         return;
       }
 
