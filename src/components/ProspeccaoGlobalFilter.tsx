@@ -6,11 +6,12 @@ import { Search, X, SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 export interface ProspeccaoGlobalFilters {
-  prospeccaoId: string;
+  prospeccaoIds: string[];
   dataInicio: string;
   dataFim: string;
   responsavelId: string;
@@ -62,6 +63,7 @@ export function ProspeccaoGlobalFilter({
   showSearchBar = true
 }: ProspeccaoGlobalFilterProps) {
   const [open, setOpen] = useState(false);
+  const [eventSearchTerm, setEventSearchTerm] = useState("");
 
   const updateFilter = (key: keyof ProspeccaoGlobalFilters, value: string) => {
     if (key === 'showAllEvents') {
@@ -78,31 +80,60 @@ export function ProspeccaoGlobalFilter({
   };
 
   const clearFilter = (key: keyof ProspeccaoGlobalFilters) => {
-    const defaultValue = key === 'prospeccaoId' || key === 'responsavelId' || key === 'status' ? 'todos' : '';
-    onFiltersChange({
-      ...filters,
-      [key]: defaultValue
-    });
+    if (key === 'prospeccaoIds') {
+      onFiltersChange({ ...filters, prospeccaoIds: [] });
+    } else {
+      const defaultValue = key === 'responsavelId' || key === 'status' ? 'todos' : '';
+      onFiltersChange({ ...filters, [key]: defaultValue });
+    }
   };
 
   const clearFilters = () => {
     onFiltersChange({
-      prospeccaoId: "todos",
+      prospeccaoIds: [],
       dataInicio: "",
       dataFim: "",
       responsavelId: "todos",
       status: "todos",
       dadosLead: "",
-      showAllEvents: filters.showAllEvents // Manter o toggle ao limpar outros filtros
+      showAllEvents: filters.showAllEvents
     });
+  };
+
+  const toggleProspeccao = (id: string) => {
+    const current = filters.prospeccaoIds;
+    if (current.includes(id)) {
+      onFiltersChange({ ...filters, prospeccaoIds: current.filter(pId => pId !== id) });
+    } else {
+      onFiltersChange({ ...filters, prospeccaoIds: [...current, id] });
+    }
+  };
+
+  const selectAllProspeccoes = () => {
+    onFiltersChange({ ...filters, prospeccaoIds: prospeccoes.map(p => p.id) });
+  };
+
+  const clearProspeccoes = () => {
+    onFiltersChange({ ...filters, prospeccaoIds: [] });
+  };
+
+  const filteredEventList = prospeccoes.filter(p =>
+    p.titulo.toLowerCase().includes(eventSearchTerm.toLowerCase())
+  );
+
+  const getEventLabel = () => {
+    if (filters.prospeccaoIds.length === 0) return null;
+    if (filters.prospeccaoIds.length === 1) {
+      return prospeccoes.find(p => p.id === filters.prospeccaoIds[0])?.titulo || "1 evento";
+    }
+    return `${filters.prospeccaoIds.length} eventos`;
   };
 
   const getActiveFilters = () => {
     const active: { key: keyof ProspeccaoGlobalFilters; label: string; value: string }[] = [];
     
-    if (filters.prospeccaoId !== "todos") {
-      const prospeccao = prospeccoes.find(p => p.id === filters.prospeccaoId);
-      active.push({ key: 'prospeccaoId', label: 'Evento', value: prospeccao?.titulo || filters.prospeccaoId });
+    if (filters.prospeccaoIds.length > 0) {
+      active.push({ key: 'prospeccaoIds', label: 'Eventos', value: getEventLabel() || '' });
     }
     if (filters.status !== "todos") {
       active.push({ key: 'status', label: 'Status', value: filters.status });
@@ -125,16 +156,12 @@ export function ProspeccaoGlobalFilter({
   };
 
   const activeFilters = getActiveFilters();
-  // Count only "advanced" filters (not dadosLead since it has its own search bar)
   const advancedFilters = activeFilters.filter(f => f.key !== 'dadosLead');
   const hasAdvancedFilters = advancedFilters.length > 0;
-  const hasActiveFilters = activeFilters.length > 0;
 
   return (
     <div className={cn("flex flex-col gap-1 w-full", className)}>
-      {/* Linha de filtros e busca */}
       <div className="flex items-center gap-2 min-h-[36px] flex-wrap">
-        {/* Barra de busca direta */}
         {showSearchBar && (
           <div className="relative flex-1 min-w-[200px] max-w-[320px]">
             <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -202,23 +229,59 @@ export function ProspeccaoGlobalFilter({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {/* Prospecção/Evento */}
+                {/* Prospecção/Evento - Multi-select com checkboxes */}
                 <div className="flex flex-col gap-1 col-span-2">
-                  <label className="text-xs font-medium text-muted-foreground">Prospecção/Evento</label>
-                  <Select 
-                    value={filters.prospeccaoId} 
-                    onValueChange={(value) => updateFilter('prospeccaoId', value)}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Todas" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todas</SelectItem>
-                      {prospeccoes.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>{p.titulo}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-muted-foreground">Prospecção/Evento</label>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={selectAllProspeccoes}
+                        className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
+                      >
+                        Todos
+                      </Button>
+                      {filters.prospeccaoIds.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearProspeccoes}
+                          className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
+                        >
+                          Limpar
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <Input
+                    type="text"
+                    placeholder="Buscar evento..."
+                    value={eventSearchTerm}
+                    onChange={(e) => setEventSearchTerm(e.target.value)}
+                    className="h-7 text-xs"
+                  />
+                  <div className="space-y-0.5 max-h-[160px] overflow-y-auto border rounded-md p-1">
+                    {filteredEventList.length === 0 ? (
+                      <div className="text-xs text-muted-foreground text-center py-2">
+                        Nenhum evento encontrado
+                      </div>
+                    ) : (
+                      filteredEventList.map((p) => {
+                        const isSelected = filters.prospeccaoIds.includes(p.id);
+                        return (
+                          <div
+                            key={p.id}
+                            className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer"
+                            onClick={() => toggleProspeccao(p.id)}
+                          >
+                            <Checkbox checked={isSelected} className="h-3.5 w-3.5" />
+                            <span className="text-xs truncate">{p.titulo}</span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
 
                 {/* Status */}
@@ -240,7 +303,7 @@ export function ProspeccaoGlobalFilter({
                   </Select>
                 </div>
 
-                {/* Vendedor/Responsável - Somente vinculados à loja */}
+                {/* Vendedor/Responsável */}
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-muted-foreground">Vendedor/Responsável</label>
                   <Select 
@@ -253,7 +316,7 @@ export function ProspeccaoGlobalFilter({
                     <SelectContent>
                       <SelectItem value="todos">Todos</SelectItem>
                       {responsaveis
-                        .filter(r => r.nome_completo) // Apenas com nome preenchido
+                        .filter(r => r.nome_completo)
                         .sort((a, b) => (a.nome_completo || '').localeCompare(b.nome_completo || ''))
                         .map((r) => (
                           <SelectItem key={r.id} value={r.id}>
@@ -264,7 +327,7 @@ export function ProspeccaoGlobalFilter({
                   </Select>
                 </div>
 
-                {/* Período - Data Início */}
+                {/* Data Início */}
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-muted-foreground">Data Início</label>
                   <Input
@@ -275,7 +338,7 @@ export function ProspeccaoGlobalFilter({
                   />
                 </div>
 
-                {/* Período - Data Fim */}
+                {/* Data Fim */}
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-muted-foreground">Data Fim</label>
                   <Input

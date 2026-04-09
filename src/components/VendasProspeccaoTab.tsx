@@ -35,8 +35,8 @@ export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps)
     let result = [...vendas];
 
     // Filter by prospeccao
-    if (globalFilters.prospeccaoId && globalFilters.prospeccaoId !== 'todos') {
-      result = result.filter(v => v.prospeccao_id === globalFilters.prospeccaoId);
+    if (globalFilters.prospeccaoIds.length > 0) {
+      result = result.filter(v => globalFilters.prospeccaoIds.includes(v.prospeccao_id));
     }
 
     // Filter by responsavel
