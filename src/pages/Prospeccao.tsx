@@ -117,7 +117,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   const [loadingEventosLigacao, setLoadingEventosLigacao] = useState(false);
   const [eventosLigacaoVerificados, setEventosLigacaoVerificados] = useState(false);
   const [globalFilters, setGlobalFilters] = useState<ProspeccaoGlobalFilters>({
-    prospeccaoId: "todos",
+    prospeccaoIds: [],
     dataInicio: "",
     dataFim: "",
     responsavelId: "todos",
@@ -543,7 +543,7 @@ showAllEvents: true
         })()
       : undefined;
     return {
-      prospeccaoId: globalFilters.prospeccaoId !== 'todos' ? globalFilters.prospeccaoId : undefined,
+      prospeccaoIds: globalFilters.prospeccaoIds.length > 0 ? globalFilters.prospeccaoIds : undefined,
       responsavel: resolvedResponsavel,
       search: globalFilters.dadosLead || undefined,
     };
@@ -579,7 +579,7 @@ showAllEvents: true
         status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
       });
     }
-  }, [globalFilters.prospeccaoId, globalFilters.status, globalFilters.responsavelId, globalFilters.dadosLead, activeCompany?.id]);
+  }, [globalFilters.prospeccaoIds, globalFilters.status, globalFilters.responsavelId, globalFilters.dadosLead, activeCompany?.id]);
 
   // Atribuir leads automaticamente para vendedores quando acessam a aba de atendimentos
   useEffect(() => {
@@ -919,13 +919,12 @@ showAllEvents: true
       const prospeccaoIdsDoContato = contatosProspeccoes.get(contato.id);
       
       // Filtro por prospecção/evento específico
-      if (globalFilters.prospeccaoId !== "todos") {
-        if (!prospeccaoIdsDoContato || !prospeccaoIdsDoContato.has(globalFilters.prospeccaoId)) {
+      if (globalFilters.prospeccaoIds.length > 0) {
+        if (!prospeccaoIdsDoContato || !globalFilters.prospeccaoIds.some(id => prospeccaoIdsDoContato.has(id))) {
           return false;
         }
       } else {
-        // Quando é "todos", mostrar apenas contatos vinculados a pelo menos um evento
-        // Isso sincroniza com a lógica do Funil que usa eventos_prospeccao
+        // Quando nenhum filtro, mostrar apenas contatos vinculados a pelo menos um evento
         if (!prospeccaoIdsDoContato || prospeccaoIdsDoContato.size === 0) {
           return false;
         }
@@ -1004,7 +1003,7 @@ showAllEvents: true
   const filteredProspeccoes = useMemo(() => {
     return prospeccoes.filter(prospeccao => {
       // Filtro por evento selecionado
-      if (globalFilters.prospeccaoId !== "todos" && prospeccao.id !== globalFilters.prospeccaoId) {
+      if (globalFilters.prospeccaoIds.length > 0 && !globalFilters.prospeccaoIds.includes(prospeccao.id)) {
         return false;
       }
       // Filtro por data
@@ -1498,9 +1497,9 @@ showAllEvents: true
       }
     }
 
-    // Find prospeccao for this contact (use the first one for now, or from filters)
-    const prospeccaoId = globalFilters.prospeccaoId !== 'todos' && globalFilters.prospeccaoId 
-      ? globalFilters.prospeccaoId 
+    // Find prospeccao for this contact (use the first filtered one, or first available)
+    const prospeccaoId = globalFilters.prospeccaoIds.length > 0
+      ? globalFilters.prospeccaoIds[0] 
       : prospeccoes[0]?.id;
 
     // Create the sale record automatically
@@ -2210,7 +2209,7 @@ showAllEvents: true
                     <ClientesImportadosList
                       contatos={contatos}
                       prospeccoes={prospeccoes}
-                      prospeccaoId={globalFilters.prospeccaoId !== "todos" ? globalFilters.prospeccaoId : undefined}
+                      prospeccaoId={globalFilters.prospeccaoIds.length > 0 ? globalFilters.prospeccaoIds[0] : undefined}
                       onEditContato={(contato) => {
                         setModalContato({
                           isOpen: true,
