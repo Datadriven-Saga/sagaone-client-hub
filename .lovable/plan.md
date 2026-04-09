@@ -1,69 +1,47 @@
 
 
-## Plan: Add Canal Selection + is_teste Toggle to Event Creation, and Send is_teste in Webhooks
+## Plan: Filter Kanban Leads by Event Type for SDR/Vendedor
 
-### Summary
+### Understanding
 
-Three changes:
-1. Add a **canal de prospecção** selector (WhatsApp / Ligação) on the "Dados Gerais" step for **Prospecção Mensal** and **Grande Evento** types, with a tooltip explaining quarantine implications
-2. Add an **is_teste** toggle on "Dados Gerais" for **all event types** (currently not exposed in UI at all despite existing in the DB)
-3. Ensure **is_teste** is included in webhook payloads for IA WhatsApp and IA Ligação
+The `prospeccoes.canal` field stores both the **type** of the event. The 4 values are:
+- `'Grande Evento'` and `'Mensal'` — these should be visible to SDR/Vendedor
+- `'Whatsapp'` and `'Ligação'` — these are IA events and should be **hidden** from SDR/Vendedor
 
-### Technical Details
+**Key clarification from user**: Leads already attributed to the user must continue appearing regardless of event type. The filter only applies to:
+1. The "Novo" column (unassigned leads)
+2. The auto-attribution function
 
-#### File: `src/components/CriarProspeccaoModal.tsx`
+### Changes (one database migration, two functions)
 
-**1. New state for canal_quarentena:**
-- Add state: `const [canalQuarentena, setCanalQuarentena] = useState<'whatsapp' | 'ligacao'>('whatsapp')`
-- Add state: `const [isTeste, setIsTeste] = useState(false)`
-- Populate from `editingProspeccao` when editing (map from existing `canal_quarentena` and `is_teste` fields)
-- Include in `clearForm()`
+#### 1. `get_kanban_columns_limited` — Visibility
 
-**2. UI additions in "Dados Gerais" step (after tipo evento selector, before dates):**
+**"Novo" column only**: Add filter to exclude leads linked exclusively to IA events:
+```sql
+AND p.canal IN ('Grande Evento', 'Mensal')
+```
+This applies to all 4 query blocks in the "Novo" branch (COUNT + SELECT, with/without `p_prospeccao_id`).
 
-For **Prospecção Mensal** and **Grande Evento** only:
-- Add a `Select` for "Canal de Prospecção" with options "WhatsApp" and "Ligação"
-- Add a `Tooltip` explaining: "Os contatos desta prospecção entrarão em quarentena para o canal selecionado. WhatsApp: 20 dias / Ligação: 30 dias após o fim do evento."
+**Other columns (Atribuído, Em Espera, etc.)**: No change. These already filter by `responsavel_email = v_user_email`, so attributed leads continue showing regardless of event type.
 
-For **all event types**:
-- Add a `Switch` toggle for "Evento de Teste" with tooltip: "Eventos de teste não geram quarentena para os contatos."
-- For IA WhatsApp and IA Ligação, the canal is implicit (whatsapp/ligacao respectively), so the canal selector is hidden
+#### 2. `auto_atribuir_leads_vendedor` — Auto-attribution
 
-**3. Save canal_quarentena in dadosProspeccao:**
-- For Prospecção Mensal / Grande Evento: use the selected `canalQuarentena` value
-- For IA WhatsApp: always `'whatsapp'`
-- For IA Ligação: always `'ligacao'`
-- Save `is_teste` for all types: `dadosProspeccao.is_teste = isTeste`
+Add join to `eventos_prospeccao` + `prospeccoes` and filter:
+```sql
+INNER JOIN eventos_prospeccao ep ON ep.contato_id = c.id
+INNER JOIN prospeccoes pr ON pr.id = ep.prospeccao_id 
+  AND pr.empresa_id = empresa_id_param
+  AND pr.canal IN ('Grande Evento', 'Mensal')
+```
+Use `SELECT DISTINCT c.id` to avoid duplicates.
 
-**4. Send is_teste in webhook payloads:**
+#### 3. No team filter
 
-- **callWebhook** (pri-config for IA WhatsApp): add `is_teste: prospeccaoData.is_teste ?? false` to `webhookPayload`
-- **triggerNovoEventoCriadoWebhooks** (novo_evento_criado): add `is_teste: prospeccaoData.is_teste ?? false` to `payload` (already sends for all types)
-- **callIALigacaoWebhooks** (ia-ligacao-webhook): add `is_teste: prospeccaoData.is_teste ?? false` to `eventoParaEdge`
+Per user clarification, this iteration only filters by event type — no team/equipe filter needed.
 
-#### Database Migration
-
-- Add column `canal_quarentena` to `prospeccoes` table:
-  ```sql
-  ALTER TABLE prospeccoes ADD COLUMN IF NOT EXISTS canal_quarentena text
-    CHECK (canal_quarentena IN ('whatsapp', 'ligacao'));
-  ```
-- Backfill existing data based on `canal`:
-  - `'Whatsapp'` → `'whatsapp'`
-  - `'Ligação'` → `'ligacao'`
-  - `'Mensal'` → `'whatsapp'`
-  - `'Grande Evento'` → `'whatsapp'`
-
-### Files Changed
-
-| File | Change |
-|---|---|
-| `src/components/CriarProspeccaoModal.tsx` | Add canal selector, is_teste toggle, update payloads |
-| New migration SQL | Add `canal_quarentena` column to `prospeccoes` |
-
-### What stays unchanged
-
-- All other pages, components, and edge functions
-- Existing quarantine logic (already uses `is_teste` from DB)
-- RLS policies
+### What stays the same
+- Management profiles (non-limited) — unchanged
+- Already attributed leads in non-"Novo" columns — unchanged, keep appearing
+- No frontend changes
+- No retroactive data changes
 
