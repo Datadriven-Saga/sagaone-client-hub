@@ -1,0 +1,1 @@
+ALTER TABLE public.eventos_prospeccao DROP CONSTRAINT eventos_prospeccao_contato_prospeccao_unique;
