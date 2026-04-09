@@ -829,14 +829,14 @@ showAllEvents: true
         contarLeadsPendentes();
       }
 
-      // Re-fetch kanban para refletir a mudança visualmente
-      fetchKanbanColumns(getKanbanFilters());
+      // Re-fetch kanban silently to sync with DB without flicker
+      fetchKanbanColumns(getKanbanFilters(), { silent: true });
       
       return true;
     } catch (err) {
       console.error('Erro ao processar mudança de status:', err);
       // Re-fetch para garantir consistência mesmo em caso de erro
-      fetchKanbanColumns(getKanbanFilters());
+      fetchKanbanColumns(getKanbanFilters(), { silent: true });
       return true;
     }
   };
@@ -1558,6 +1558,9 @@ showAllEvents: true
         });
       }
     }
+    
+    // Re-fetch kanban silently to reflect the change without requiring F5
+    fetchKanbanColumns(getKanbanFilters(), { silent: true });
   };
 
   const handleModalDelete = async (contatoId: string) => {

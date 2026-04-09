@@ -464,11 +464,14 @@ export const useContatoData = () => {
       prospeccaoId?: string;
       responsavel?: string;
       search?: string;
-    }
+    },
+    options?: { silent?: boolean }
   ) => {
     if (!activeCompany?.id) return;
     
-    setLoadingKanban(true);
+    if (!options?.silent) {
+      setLoadingKanban(true);
+    }
     try {
       const { data, error } = await supabase.rpc('get_kanban_columns_limited' as any, {
         p_empresa_id: activeCompany.id,
