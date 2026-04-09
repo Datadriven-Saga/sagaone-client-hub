@@ -436,12 +436,8 @@ showAllEvents: true
             variant: "destructive"
           });
         }
-        // Mostrar todos os eventos de ligação locais como válidos
-        const eventosLigacao = prospeccoes.filter(p => 
-          String(p.canal).toLowerCase().includes('liga') || 
-          p.canal === 'Ligação'
-        );
-        setEventosLigacaoValidos(new Set(eventosLigacao.map(e => e.id)));
+        // Sem agente Pri(Ligação), nenhum evento de ligação pode ser validado externamente
+        setEventosLigacaoValidos(new Set());
         setEventosLigacaoVerificados(true);
         return;
       }
