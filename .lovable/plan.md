@@ -1,47 +1,46 @@
 
 
-## Plan: Filter Kanban Leads by Event Type for SDR/Vendedor
+## Plan: Add Team Membership Filter to Kanban and Auto-Attribution
 
-### Understanding
+### Context
 
-The `prospeccoes.canal` field stores both the **type** of the event. The 4 values are:
-- `'Grande Evento'` and `'Mensal'` — these should be visible to SDR/Vendedor
-- `'Whatsapp'` and `'Ligação'` — these are IA events and should be **hidden** from SDR/Vendedor
+Tables: `prospeccao_equipes` (id, prospeccao_id) → `prospeccao_equipe_membros` (equipe_id, user_id). A user must be a member of at least one team linked to the lead's event (`prospeccao_id`) to see or receive that lead.
 
-**Key clarification from user**: Leads already attributed to the user must continue appearing regardless of event type. The filter only applies to:
-1. The "Novo" column (unassigned leads)
-2. The auto-attribution function
+### Changes (one migration, two functions)
 
-### Changes (one database migration, two functions)
+#### 1. `get_kanban_columns_limited`
 
-#### 1. `get_kanban_columns_limited` — Visibility
+Add the following `EXISTS` clause to **all 8 queries** (4 branches x COUNT + SELECT):
 
-**"Novo" column only**: Add filter to exclude leads linked exclusively to IA events:
 ```sql
-AND p.canal IN ('Grande Evento', 'Mensal')
+AND EXISTS (
+  SELECT 1 FROM prospeccao_equipes eq
+  JOIN prospeccao_equipe_membros em ON em.equipe_id = eq.id
+  WHERE eq.prospeccao_id = ep.prospeccao_id
+    AND em.user_id = auth.uid()
+)
 ```
-This applies to all 4 query blocks in the "Novo" branch (COUNT + SELECT, with/without `p_prospeccao_id`).
 
-**Other columns (Atribuído, Em Espera, etc.)**: No change. These already filter by `responsavel_email = v_user_email`, so attributed leads continue showing regardless of event type.
+This applies to:
+- **Novo column** (with/without `p_prospeccao_id`) — already has the canal filter, now also requires team membership
+- **Other columns** (with/without `p_prospeccao_id`) — leads assigned to the user will only show if the user is in the event's team
 
-#### 2. `auto_atribuir_leads_vendedor` — Auto-attribution
+#### 2. `auto_atribuir_leads_vendedor`
 
-Add join to `eventos_prospeccao` + `prospeccoes` and filter:
+Add the same `EXISTS` clause to the `leads_disponiveis` CTE, using `user_id_param` instead of `auth.uid()`:
+
 ```sql
-INNER JOIN eventos_prospeccao ep ON ep.contato_id = c.id
-INNER JOIN prospeccoes pr ON pr.id = ep.prospeccao_id 
-  AND pr.empresa_id = empresa_id_param
-  AND pr.canal IN ('Grande Evento', 'Mensal')
+AND EXISTS (
+  SELECT 1 FROM prospeccao_equipes eq
+  JOIN prospeccao_equipe_membros em ON em.equipe_id = eq.id
+  WHERE eq.prospeccao_id = ep.prospeccao_id
+    AND em.user_id = user_id_param
+)
 ```
-Use `SELECT DISTINCT c.id` to avoid duplicates.
 
-#### 3. No team filter
+### Impact
 
-Per user clarification, this iteration only filters by event type — no team/equipe filter needed.
-
-### What stays the same
-- Management profiles (non-limited) — unchanged
-- Already attributed leads in non-"Novo" columns — unchanged, keep appearing
-- No frontend changes
-- No retroactive data changes
+- SDRs/Vendedores only see and receive leads from events where they belong to a team
+- Leads already assigned but where the user is not in the event team will **stop appearing** (per the original instruction's expected behavior)
+- Management profiles unchanged
 
