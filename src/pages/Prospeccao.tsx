@@ -1595,13 +1595,39 @@ showAllEvents: true
   };
 
   const solicitarClientes = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('[Solicitar] Clique ignorado: usuário ausente');
+      return;
+    }
 
     try {
       // Para vendedores/SDR: usar atribuição automática via RPC (máximo 30)
       if (isLimitedUser) {
+        const kanbanFilters = getKanbanFilters();
+        const novosColumn = kanbanData.novos;
+
+        console.log('[Solicitar] Clique no botão Solicitar', {
+          userId: user.id,
+          userEmail: user.email,
+          activeCompanyId: activeCompany?.id,
+          isLimitedUser,
+          isVendedor,
+          isSDR,
+          atLimitLeads,
+          leadsPendentes,
+          leadLimit: LEAD_LIMIT,
+          novosCount: novosColumn?.count,
+          novosLoadedItems: novosColumn?.items.length,
+          filters: kanbanFilters,
+        });
+
         // Verificar limite antes de solicitar
         if (atLimitLeads) {
+          console.log('[Solicitar] Bloqueado por limite de leads', {
+            leadsPendentes,
+            leadLimit: LEAD_LIMIT,
+          });
+
           toast({
             title: "Limite de leads atingido",
             description: `Você já possui ${LEAD_LIMIT} leads pendentes. Finalize atendimentos antes de solicitar novos leads.`,
@@ -1610,13 +1636,20 @@ showAllEvents: true
           return;
         }
         
-        console.log('[Solicitar] Chamando auto_atribuir_leads_vendedor...');
+        console.log('[Solicitar] Chamando atribuirLeadsAutomaticamente...');
         const leadsAtribuidos = await atribuirLeadsAutomaticamente(true);
         console.log('[Solicitar] Leads atribuídos:', leadsAtribuidos);
         
         // Atualizar contagem de leads pendentes e recarregar kanban sempre
-        await contarLeadsPendentes();
-        await fetchKanbanColumns(getKanbanFilters());
+        const leadsPendentesAtualizados = await contarLeadsPendentes();
+        await fetchKanbanColumns(kanbanFilters);
+
+        console.log('[Solicitar] Pós-recarga do kanban', {
+          leadsAtribuidos,
+          leadsPendentesAtualizados,
+          activeCompanyId: activeCompany?.id,
+        });
+
         return;
       }
 
