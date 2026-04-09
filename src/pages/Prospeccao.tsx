@@ -517,12 +517,8 @@ showAllEvents: true
           variant: "destructive"
         });
       }
-      // Fallback: mostrar todos os eventos de ligação
-      const eventosLigacao = prospeccoes.filter(p => 
-        String(p.canal).toLowerCase().includes('liga') || 
-        p.canal === 'Ligação'
-      );
-      setEventosLigacaoValidos(new Set(eventosLigacao.map(e => e.id)));
+      // Em caso de erro, não validar nenhum evento de ligação
+      setEventosLigacaoValidos(new Set());
     } finally {
       setSincronizandoLigacao(false);
       setLoadingEventosLigacao(false);
