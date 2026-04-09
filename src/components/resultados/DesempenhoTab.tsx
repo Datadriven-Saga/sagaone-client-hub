@@ -237,9 +237,9 @@ export function DesempenhoTab({ prospeccaoIds, prospeccaoId, empresaId }: Desemp
                 ))}
                 <TableRow className="bg-muted/50 font-semibold border-t-2">
                   <TableCell className="py-3"><span className="font-bold">TOTAL</span></TableCell>
-                  {columns.map(col => (
+                {columns.map(col => (
                     <TableCell key={col.key} className={`text-center py-3 px-2 ${col.key === 'vendas' ? 'text-primary' : col.key === 'descartes' ? 'text-muted-foreground' : ''}`}>
-                      {sortedAndFilteredVendedores.reduce((sum, v) => sum + v[col.key as keyof VendedorDesempenho] as number, 0)}
+                      {sortedAndFilteredVendedores.reduce((sum, v) => sum + Number(v[col.key as keyof VendedorDesempenho] || 0), 0)}
                     </TableCell>
                   ))}
                   <TableCell className="text-center py-3 px-2 text-amber-600">
