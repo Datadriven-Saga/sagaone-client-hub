@@ -18,7 +18,9 @@ export function useAutoAtribuirLeads() {
     if (!user || !isLimitedUser) return null;
 
     try {
-      const { data, error } = await supabase.rpc("count_vendedor_leads_pendentes");
+      const { data, error } = await supabase.rpc("count_vendedor_leads_pendentes", {
+        user_id_param: user.id,
+      });
       
       if (error) {
         console.error("Erro ao contar leads pendentes:", error);
