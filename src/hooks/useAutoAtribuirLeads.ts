@@ -68,8 +68,12 @@ export function useAutoAtribuirLeads() {
         return 0;
       }
       
-      if (showToast && data > 0) {
-        toast.success(`${data} novo(s) lead(s) atribuído(s) a você!`);
+      if (showToast) {
+        if (data > 0) {
+          toast.success(`${data} novo(s) lead(s) atribuído(s) a você!`);
+        } else {
+          toast.info("Nenhum lead novo disponível no momento. Tente novamente mais tarde.");
+        }
       }
       
       // Atualiza contagem

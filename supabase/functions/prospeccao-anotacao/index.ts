@@ -2,29 +2,14 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Allowed origins for CORS
-const allowedOrigins = [
-  'https://automatemaia.sagadatadriven.com.br',
-  'https://lovable.dev',
-  'https://7bc578c3-4b3d-4f33-830e-6157c828c9e5.lovableproject.com',
-  'https://id-preview--7bc578c3-4b3d-4f33-830e-6157c828c9e5.lovable.app',
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get('origin') || '';
-  const isAllowed = allowedOrigins.some(allowed => origin.includes(allowed.replace('https://', '')) || origin === allowed);
-  
-  return {
-    'Access-Control-Allow-Origin': isAllowed && origin ? origin : allowedOrigins[0],
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Max-Age': '86400',
-  };
-}
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
+};
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
-  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -39,9 +24,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
-        auth: {
-          persistSession: false
-        },
+        auth: { persistSession: false },
         global: {
           headers: authHeader ? { authorization: authHeader } : {}
         }
@@ -58,28 +41,25 @@ serve(async (req) => {
     if (req.method !== 'POST') {
       return new Response(
         JSON.stringify({ error: 'Método não permitido. Use POST.' }),
-        {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const body = await req.json();
-    const { lead_id, mensagem } = body;
+    // Support both lead_id (external API) and contato_id (internal frontend)
+    const lead_id = body.lead_id || body.contato_id;
+    const mensagem = body.mensagem;
+    const prospeccao_id_override = body.prospeccao_id || null;
 
     console.log(`Request body:`, { lead_id, mensagem: mensagem?.substring(0, 50) });
 
     if (!lead_id || !mensagem) {
       return new Response(
         JSON.stringify({ 
-          error: 'lead_id e mensagem são obrigatórios',
+          error: 'lead_id (ou contato_id) e mensagem são obrigatórios',
           exemplo: '{ "lead_id": 42, "mensagem": "Texto da anotação" }'
         }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -94,7 +74,6 @@ serve(async (req) => {
     let contatoError;
 
     if (isNumericLeadId) {
-      // Buscar por lead_id (INTEGER)
       const result = await supabaseClient
         .from('contatos')
         .select('id, lead_id, nome')
@@ -103,7 +82,6 @@ serve(async (req) => {
       contato = result.data;
       contatoError = result.error;
     } else {
-      // Buscar por id (UUID) - retrocompatibilidade
       const result = await supabaseClient
         .from('contatos')
         .select('id, lead_id, nome')
@@ -121,24 +99,24 @@ serve(async (req) => {
           lead_id: lead_id,
           tipo_busca: isNumericLeadId ? 'lead_id numérico' : 'contato_id UUID'
         }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     console.log(`   └─ Contato encontrado: ${contato.nome} (id: ${contato.id})`);
 
-    // Buscar prospeccao_id associada ao contato (via eventos_prospeccao)
-    const { data: eventoProspeccao } = await supabaseClient
-      .from('eventos_prospeccao')
-      .select('prospeccao_id')
-      .eq('contato_id', contato.id)
-      .limit(1)
-      .single();
+    // Usar prospeccao_id enviado pelo frontend ou buscar via eventos_prospeccao
+    let prospeccaoId = prospeccao_id_override;
     
-    const prospeccaoId = eventoProspeccao?.prospeccao_id || null;
+    if (!prospeccaoId) {
+      const { data: eventoProspeccao } = await supabaseClient
+        .from('eventos_prospeccao')
+        .select('prospeccao_id')
+        .eq('contato_id', contato.id)
+        .limit(1)
+        .single();
+      prospeccaoId = eventoProspeccao?.prospeccao_id || null;
+    }
 
     // Inserir evento de prospecção (anotação)
     const { data: evento, error: eventoError } = await supabaseClient
@@ -157,11 +135,8 @@ serve(async (req) => {
     if (eventoError) {
       console.error('Erro ao inserir anotação:', eventoError);
       return new Response(
-        JSON.stringify({ error: 'Erro ao inserir anotação' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        JSON.stringify({ error: 'Erro ao inserir anotação', details: eventoError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -193,19 +168,14 @@ serve(async (req) => {
         mensagem: mensagem,
         data_criacao: evento.created_at
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Erro na API prospeccao-anotacao:', error);
     return new Response(
       JSON.stringify({ error: 'Erro interno do servidor' }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
