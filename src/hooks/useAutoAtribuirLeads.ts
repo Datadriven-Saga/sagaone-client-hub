@@ -58,12 +58,15 @@ export function useAutoAtribuirLeads() {
 
     setLoading(true);
     try {
+      console.log('[AutoAtribuir] Calling RPC auto_atribuir_leads_vendedor...');
       const { data, error } = await supabase.rpc("auto_atribuir_leads_vendedor");
+      
+      console.log('[AutoAtribuir] RPC result:', { data, error });
       
       if (error) {
         console.error("Erro ao atribuir leads:", error);
         if (showToast) {
-          toast.error("Erro ao buscar novos leads");
+          toast.error(`Erro ao buscar novos leads: ${error.message}`);
         }
         return 0;
       }
