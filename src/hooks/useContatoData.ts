@@ -365,7 +365,7 @@ export const useContatoData = () => {
   const fetchContatosPaginated = useCallback(async (
     page: number = 0,
     filters?: {
-      prospeccaoId?: string;
+      prospeccaoIds?: string[];
       status?: string;
       responsavel?: string;
       search?: string;
@@ -379,7 +379,7 @@ export const useContatoData = () => {
         p_empresa_id: activeCompany.id,
         p_limit: pageSize,
         p_offset: page * pageSize,
-        p_prospeccao_id: filters?.prospeccaoId && filters.prospeccaoId !== 'todos' ? filters.prospeccaoId : null,
+        p_prospeccao_ids: filters?.prospeccaoIds && filters.prospeccaoIds.length > 0 ? filters.prospeccaoIds : null,
         p_status: filters?.status && filters.status !== 'todos' ? filters.status : null,
         p_responsavel: filters?.responsavel || null,
         p_search: filters?.search || null,
@@ -461,7 +461,7 @@ export const useContatoData = () => {
   
   const fetchKanbanColumns = useCallback(async (
     filters?: {
-      prospeccaoId?: string;
+      prospeccaoIds?: string[];
       responsavel?: string;
       search?: string;
     },
@@ -476,7 +476,7 @@ export const useContatoData = () => {
       const { data, error } = await supabase.rpc('get_kanban_columns_limited' as any, {
         p_empresa_id: activeCompany.id,
         p_per_column: KANBAN_PER_COLUMN,
-        p_prospeccao_id: filters?.prospeccaoId || null,
+        p_prospeccao_ids: filters?.prospeccaoIds && filters.prospeccaoIds.length > 0 ? filters.prospeccaoIds : null,
         p_responsavel: filters?.responsavel || null,
         p_search: filters?.search || null,
       });
@@ -526,7 +526,7 @@ export const useContatoData = () => {
   const loadMoreKanbanColumn = useCallback(async (
     columnId: string,
     filters?: {
-      prospeccaoId?: string;
+      prospeccaoIds?: string[];
       responsavel?: string;
       search?: string;
     }
@@ -557,7 +557,7 @@ export const useContatoData = () => {
         p_empresa_id: activeCompany.id,
         p_limit: KANBAN_PER_COLUMN,
         p_offset: currentItems.length,
-        p_prospeccao_id: filters?.prospeccaoId || null,
+        p_prospeccao_ids: filters?.prospeccaoIds && filters.prospeccaoIds.length > 0 ? filters.prospeccaoIds : null,
         p_status: status,
         p_responsavel: filters?.responsavel || null,
         p_search: filters?.search || null,
