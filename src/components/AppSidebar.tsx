@@ -7,7 +7,6 @@ import {
   BookOpen, 
   Settings, 
   Shield,
-  
   Bot,
   ChevronDown,
   ChevronRight,
@@ -23,9 +22,7 @@ import {
   Phone,
   MessageSquare,
   Medal,
-  Package,
   User,
-  Trophy,
   TrendingUp
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
@@ -62,10 +59,8 @@ const performanceSubItems = [
   { title: "WhatsApp", url: "/resultados/whatsapp", icon: MessageSquare },
   { title: "Ligação", url: "/resultados/ligacao", icon: Phone },
   { title: "Ranking", url: "/resultados/ranking", icon: Medal },
-  { title: "Produtos", url: "/resultados/produtos", icon: Package },
   { title: "Desempenho", url: "/resultados/desempenho", icon: BarChart3 },
   { title: "Individual", url: "/resultados/individual", icon: User },
-  { title: "Premiações", url: "/resultados/premiacoes", icon: Trophy },
   { title: "Relatórios", url: "/resultados/relatorios", icon: FileText },
 ];
 

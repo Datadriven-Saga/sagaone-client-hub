@@ -5197,6 +5197,26 @@ export type Database = {
         Returns: Database["public"]["Enums"]["tipo_acesso"]
       }
       get_current_user_email: { Args: never; Returns: string }
+      get_desempenho_vendedores: {
+        Args: {
+          p_date_end?: string
+          p_date_start?: string
+          p_empresa_id: string
+          p_prospeccao_ids: string[]
+        }
+        Returns: {
+          agendados: number
+          atribuidos: number
+          checkins: number
+          confirmados: number
+          convidados: number
+          descartes: number
+          nome_completo: string
+          tipo_acesso: string
+          user_id: string
+          vendas: number
+        }[]
+      }
       get_kanban_columns: {
         Args: {
           p_empresa_id: string
@@ -5262,6 +5282,23 @@ export type Database = {
           p_status?: string
         }
         Returns: Json
+      }
+      get_ranking_vendedores: {
+        Args: { p_empresa_id: string; p_prospeccao_ids: string[] }
+        Returns: {
+          checkins: number
+          convidados: number
+          nome_completo: string
+          user_id: string
+          vendas: number
+        }[]
+      }
+      get_resumo_stats: {
+        Args: { p_empresa_id: string; p_prospeccao_ids: string[] }
+        Returns: {
+          count: number
+          status: string
+        }[]
       }
       get_user_accessible_clients: {
         Args: { user_id_param?: string }
