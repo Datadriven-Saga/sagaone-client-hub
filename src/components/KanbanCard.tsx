@@ -33,6 +33,8 @@ const ORIGIN_STYLES: Record<string, string> = {
 };
 
 export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
+  const isMobile = useIsMobile();
+
   const {
     attributes,
     listeners,
