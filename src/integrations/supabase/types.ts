@@ -5137,7 +5137,7 @@ export type Database = {
         Returns: boolean
       }
       count_vendedor_leads_pendentes: {
-        Args: { user_id_param?: string }
+        Args: { user_id_param: string }
         Returns: number
       }
       decrypt_mfa_secret: {
