@@ -4,9 +4,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { 
-  Package, 
   User, 
-  Trophy, 
   FileText,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +16,6 @@ import {
   ResultadosGenericSkeleton 
 } from "@/components/resultados/ResultadosSkeleton";
 
-// Lazy-loaded tab components
 const ResumoTab = lazy(() => 
   import("@/components/resultados/ResumoTab").then(m => ({ default: m.ResumoTab }))
 );
@@ -54,36 +51,28 @@ interface Prospeccao {
   data_fim: string | null;
 }
 
-// Map route segments to tab keys
 const routeToTab: Record<string, string> = {
   "": "resumo",
   "whatsapp": "dashboard-whatsapp",
   "ligacao": "ligacao",
   "ranking": "ranking",
-  "produtos": "produtos",
   "desempenho": "desempenho",
   "individual": "individual",
-  "premiacoes": "premiacoes",
   "relatorios": "relatorios",
 };
 
-// Map route to page titles
 const routeToTitle: Record<string, string> = {
   "": "Performance · Resumo",
   "whatsapp": "Performance · WhatsApp",
   "ligacao": "Performance · Ligação",
   "ranking": "Performance · Ranking",
-  "produtos": "Performance · Produtos",
   "desempenho": "Performance · Desempenho",
   "individual": "Performance · Individual",
-  "premiacoes": "Performance · Premiações",
   "relatorios": "Performance · Relatórios",
 };
 
 const Resultados = () => {
   const location = useLocation();
-  
-  // Derive active tab from URL
   const pathSegment = location.pathname.replace("/resultados", "").replace(/^\//, "");
   const activeTab = routeToTab[pathSegment] || "resumo";
   const pageTitle = routeToTitle[pathSegment] || "Performance";
@@ -91,23 +80,16 @@ const Resultados = () => {
   const [prospeccoes, setProspeccoes] = useState<Prospeccao[]>([]);
   const [selectedProspeccoes, setSelectedProspeccoes] = useState<string[]>([]);
   const { activeCompany } = useCompany();
-  
-  // Check if active company is EMPRESA ADMIN
   const isEmpresaAdmin = activeCompany?.nome_empresa === "EMPRESA ADMIN";
   
-  // State for Ligação tab
   const [selectedAgentPhone, setSelectedAgentPhone] = useState<string | null>(null);
   const [selectedLigacaoEventId, setSelectedLigacaoEventId] = useState<string | null>(null);
-  
-  // State for WhatsApp tab
   const [selectedWhatsAppEventId, setSelectedWhatsAppEventId] = useState<string | null>(null);
   const [selectedWhatsAppEventIdPri, setSelectedWhatsAppEventIdPri] = useState<string | null>(null);
 
-  // Buscar prospecções da empresa
   useEffect(() => {
     const fetchProspeccoes = async () => {
       if (!activeCompany?.id) return;
-
       const { data, error } = await supabase
         .from('prospeccoes')
         .select('id, titulo, data_inicio, data_fim')
@@ -121,7 +103,6 @@ const Resultados = () => {
         }
       }
     };
-
     fetchProspeccoes();
   }, [activeCompany?.id]);
 
@@ -140,7 +121,6 @@ const Resultados = () => {
     setSelectedWhatsAppEventIdPri(eventIdPri);
   }, []);
 
-  // Check if current tab needs global filter
   const showGlobalFilter = !["ligacao", "dashboard-whatsapp"].includes(activeTab);
 
   const renderContent = () => {
@@ -148,61 +128,34 @@ const Resultados = () => {
       case "resumo":
         return (
           <Suspense fallback={<ResultadosResumoSkeleton />}>
-            <ResumoTab 
-              prospeccaoIds={selectedProspeccoes} 
-              empresaId={activeCompany?.id || null}
-            />
+            <ResumoTab prospeccaoIds={selectedProspeccoes} empresaId={activeCompany?.id || null} />
           </Suspense>
         );
 
       case "dashboard-whatsapp":
-        // EMPRESA ADMIN gets the admin aggregated view
         if (isEmpresaAdmin) {
-          return (
-            <Suspense fallback={<ResultadosGenericSkeleton />}>
-              <AdminDashboardWhatsApp />
-            </Suspense>
-          );
+          return <Suspense fallback={<ResultadosGenericSkeleton />}><AdminDashboardWhatsApp /></Suspense>;
         }
         return (
           <Suspense fallback={<ResultadosGenericSkeleton />}>
             {selectedWhatsAppEventId && selectedWhatsAppEventIdPri ? (
-              <DashboardWhatsAppTab 
-                selectedEventId={selectedWhatsAppEventId}
-                selectedEventIdPri={selectedWhatsAppEventIdPri}
-                onEventChange={handleWhatsAppEventChange}
-              />
+              <DashboardWhatsAppTab selectedEventId={selectedWhatsAppEventId} selectedEventIdPri={selectedWhatsAppEventIdPri} onEventChange={handleWhatsAppEventChange} />
             ) : (
-              <EventoSelectorWhatsApp
-                onEventSelect={handleWhatsAppEventSelect}
-                selectedEventId={selectedWhatsAppEventId}
-              />
+              <EventoSelectorWhatsApp onEventSelect={handleWhatsAppEventSelect} selectedEventId={selectedWhatsAppEventId} />
             )}
           </Suspense>
         );
 
       case "ligacao":
-        // EMPRESA ADMIN gets the admin aggregated view
         if (isEmpresaAdmin) {
-          return (
-            <Suspense fallback={<ResultadosLigacaoSkeleton />}>
-              <AdminDashboardLigacao />
-            </Suspense>
-          );
+          return <Suspense fallback={<ResultadosLigacaoSkeleton />}><AdminDashboardLigacao /></Suspense>;
         }
         return (
           <Suspense fallback={<ResultadosLigacaoSkeleton />}>
             {selectedAgentPhone ? (
-              <MetricasLigacaoTab 
-                selectedAgentPhone={selectedAgentPhone}
-                initialEventId={selectedLigacaoEventId}
-              />
+              <MetricasLigacaoTab selectedAgentPhone={selectedAgentPhone} initialEventId={selectedLigacaoEventId} />
             ) : (
-              <EventoSelectorLigacao
-                onEventSelect={handleLigacaoEventSelect}
-                selectedEventId={null}
-                agentPhone={null}
-              />
+              <EventoSelectorLigacao onEventSelect={handleLigacaoEventSelect} selectedEventId={null} agentPhone={null} />
             )}
           </Suspense>
         );
@@ -210,29 +163,14 @@ const Resultados = () => {
       case "ranking":
         return (
           <Suspense fallback={<ResultadosGenericSkeleton />}>
-            <RankingTab 
-              prospeccaoId={selectedProspeccoes[0] || null} 
-              empresaId={activeCompany?.id || null} 
-            />
+            <RankingTab prospeccaoIds={selectedProspeccoes} empresaId={activeCompany?.id || null} />
           </Suspense>
-        );
-
-      case "produtos":
-        return (
-          <Card className="p-8 text-center">
-            <Package className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
-            <h3 className="text-lg font-semibold mb-2">Produtos</h3>
-            <p className="text-sm text-muted-foreground">Análise de produtos vendidos</p>
-          </Card>
         );
 
       case "desempenho":
         return (
           <Suspense fallback={<ResultadosGenericSkeleton />}>
-            <DesempenhoTab 
-              prospeccaoId={selectedProspeccoes[0] || null} 
-              empresaId={activeCompany?.id || null} 
-            />
+            <DesempenhoTab prospeccaoIds={selectedProspeccoes} empresaId={activeCompany?.id || null} />
           </Suspense>
         );
 
@@ -242,15 +180,6 @@ const Resultados = () => {
             <User className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
             <h3 className="text-lg font-semibold mb-2">Resultados Individuais</h3>
             <p className="text-sm text-muted-foreground">Desempenho individual de cada membro da equipe</p>
-          </Card>
-        );
-
-      case "premiacoes":
-        return (
-          <Card className="p-8 text-center">
-            <Trophy className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
-            <h3 className="text-lg font-semibold mb-2">Premiações</h3>
-            <p className="text-sm text-muted-foreground">Ranking e premiações do evento</p>
           </Card>
         );
 
@@ -271,7 +200,6 @@ const Resultados = () => {
   return (
     <DashboardLayout title={pageTitle}>
       <div className="flex flex-col h-full w-full">
-        {/* Filtro Global - only show for tabs that need it */}
         {showGlobalFilter && (
           <ResultadosGlobalFilter
             prospeccoes={prospeccoes}
@@ -280,11 +208,8 @@ const Resultados = () => {
             className="mb-4"
           />
         )}
-
         <ScrollIndicator className="flex-1 h-full">
-          <div className="pb-6">
-            {renderContent()}
-          </div>
+          <div className="pb-6">{renderContent()}</div>
         </ScrollIndicator>
       </div>
     </DashboardLayout>
