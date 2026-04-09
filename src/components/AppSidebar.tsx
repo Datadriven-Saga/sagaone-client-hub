@@ -7,7 +7,6 @@ import {
   BookOpen, 
   Settings, 
   Shield,
-  
   Bot,
   ChevronDown,
   ChevronRight,
@@ -23,9 +22,7 @@ import {
   Phone,
   MessageSquare,
   Medal,
-  Package,
   User,
-  Trophy,
   TrendingUp
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
