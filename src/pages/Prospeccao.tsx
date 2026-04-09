@@ -491,15 +491,26 @@ showAllEvents: true
         }
         
         // Atualizar apenas lista de prospecções (não contatos)
-        fetchProspeccoes(globalFilters.showAllEvents);
+        await fetchProspeccoes(globalFilters.showAllEvents);
+        
+        // Usar IDs externos retornados pela sync para determinar quais eventos de ligação são válidos
+        const eventosExternosIds: string[] = syncResult?.eventos_externos_ids || [];
+        console.log('🔍 IDs de eventos externos válidos:', eventosExternosIds);
+        
+        // Apenas eventos de ligação cujo event_id_pri existe no sistema externo são válidos
+        const eventosLigacaoAtualizados = prospeccoes.filter(p => {
+          const isLigacao = String(p.canal).toLowerCase().includes('liga') || p.canal === 'Ligação';
+          if (!isLigacao) return false;
+          // Se tem event_id_pri, verificar se existe no externo
+          if (p.event_id_pri) {
+            return eventosExternosIds.includes(String(p.event_id_pri));
+          }
+          // Sem event_id_pri = não existe no externo
+          return false;
+        });
+        setEventosLigacaoValidos(new Set(eventosLigacaoAtualizados.map(e => e.id)));
+        return;
       }
-      
-      // Após sincronização, todos os eventos de ligação são válidos (os inválidos foram removidos)
-      const eventosLigacaoAtualizados = prospeccoes.filter(p => 
-        String(p.canal).toLowerCase().includes('liga') || 
-        p.canal === 'Ligação'
-      );
-      setEventosLigacaoValidos(new Set(eventosLigacaoAtualizados.map(e => e.id)));
       
     } catch (error) {
       console.error('❌ Erro ao sincronizar eventos de Ligação:', error);
