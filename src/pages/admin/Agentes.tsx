@@ -133,7 +133,7 @@ export default function AdminAgentes() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { permissions, loading: accessLoading } = useUserAccessType();
+  const { isDepartamentoTI, isAdminOrTI, loading: accessLoading } = useUserAccessType();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(false);
@@ -210,7 +210,7 @@ export default function AdminAgentes() {
   const [assignFilterUF, setAssignFilterUF] = useState<string>("all");
   const [loadingAssignedEmpresas, setLoadingAssignedEmpresas] = useState(false);
 
-  const canAccess = permissions.canAccessAgentesIA ?? false;
+  const canAccess = isDepartamentoTI && isAdminOrTI;
 
   const getAgenteTipo = (agente: AgenteWebhook | null | undefined): string => {
     if (!agente) return "Outro";

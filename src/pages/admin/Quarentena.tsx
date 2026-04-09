@@ -13,8 +13,8 @@ import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Quarentena = () => {
-  const { permissions, loading: accessLoading } = useUserAccessType();
-  const canAccess = permissions.canGovernancaDados || permissions.canAccessAdminConfig;
+  const { isAdmin, isCRM, loading: accessLoading } = useUserAccessType();
+  const canAccess = isAdmin || isCRM;
 
   const {
     items, loading, filters, setFilters,

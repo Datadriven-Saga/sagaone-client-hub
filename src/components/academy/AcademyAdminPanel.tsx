@@ -130,7 +130,7 @@ const VOZES_IA = [
 export function AcademyAdminPanel() {
   const { user } = useAuth();
   const { activeCompany } = useCompany();
-  const { isAdminOrTI, permissions, tipoAcesso } = useUserAccessType();
+  const { isAdminOrTI, isGerente, isDiretor, tipoAcesso } = useUserAccessType();
   const queryClient = useQueryClient();
   
   const [activeTab, setActiveTab] = useState("trainings");
@@ -230,7 +230,7 @@ export function AcademyAdminPanel() {
   }, [formData.personaNome, formData.personaCargo]);
 
   // Check if user has admin access
-  const hasAdminAccess = permissions.canManageAcademy ?? false;
+  const hasAdminAccess = isAdminOrTI || isGerente || isDiretor;
 
   // Fetch trainings and simulations (combined for admin panel)
   const { data: trainings, isLoading: loadingTrainings } = useAcademyTreinamentosAdmin();
