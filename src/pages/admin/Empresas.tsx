@@ -16,7 +16,7 @@ import { SyncEmpresasButton } from "@/components/SyncEmpresasButton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAdminCheck } from "@/hooks/useAdminCheck";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { EmpresaModulosTab } from "@/components/EmpresaModulosTab";
 import { EmpresasFilter } from "@/components/EmpresasFilter";
 import { EmpresaMotivosTab } from "@/components/EmpresaMotivosTab";
@@ -58,7 +58,8 @@ interface Empresa {
 
 export default function Empresas() {
   const navigate = useNavigate();
-  const { isAdmin } = useAdminCheck();
+  const { permissions } = useUserAccessType();
+  const isAdmin = permissions.canManageEmpresas ?? false;
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);

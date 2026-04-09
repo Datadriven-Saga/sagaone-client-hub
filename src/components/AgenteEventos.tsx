@@ -52,7 +52,8 @@ interface AgenteEventosProps {
 
 export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) {
   const { toast } = useToast();
-  const { isAdminOrTI } = useUserAccessType();
+  const { permissions } = useUserAccessType();
+  const isAdminOrTI = permissions.canAccessAgentesIA ?? false;
   
   const [loading, setLoading] = useState(false);
   const [eventos, setEventos] = useState<Evento[]>([]);
