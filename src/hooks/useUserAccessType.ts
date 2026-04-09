@@ -125,7 +125,10 @@ export function useUserAccessType() {
     // All permissions now driven by Permission Flags (departamento_permissoes)
     canAccessAgentesIA: p("canAccessAgentesIA") || (isDepartamentoTI && isAdminOrTI),
     canCreateIALigacao: p("canCreateIALigacao"),
+    canToggleIALigacao: p("canToggleIALigacao"),
     canCreateEventos: p("canCreateEventos"),
+    canEditEventos: p("canEditEventos"),
+    canDeleteEventos: p("canDeleteEventos"),
     canUploadBase: p("canUploadBase"),
     canDispararIALigacao: p("canDispararIALigacao"),
     canDispararEventos: p("canDispararEventos"),
@@ -139,6 +142,7 @@ export function useUserAccessType() {
 
     // Specific permissions
     canAddClientes: p("canAddClientes"),
+    canDeleteContatos: p("canDeleteContatos"),
     canAccessRecepcao: p("canAccessRecepcao"),
     canReadQRCode: p("canReadQRCode"),
     canManageUsers: p("canManageUsers"),
@@ -149,6 +153,13 @@ export function useUserAccessType() {
     canImportClientes: p("canImportClientes"),
     canGenerateInvites: p("canGenerateInvites"),
     canCreateTemplates: p("canCreateTemplates"),
+    canEditUsers: p("canEditUsers"),
+    canDeleteUsers: p("canDeleteUsers"),
+    canViewProspeccao: p("canViewProspeccao"),
+    canViewVendas: p("canViewVendas"),
+    canAccessNotificacoes: p("canAccessNotificacoes"),
+    canAccessMinhaConta: p("canAccessMinhaConta"),
+    canAccessAjuda: p("canAccessAjuda"),
 
     // MFA / Authenticator permissions
     canViewAuthenticator: p("canViewAuthenticator"),

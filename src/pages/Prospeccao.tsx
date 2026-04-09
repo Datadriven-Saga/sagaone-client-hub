@@ -161,7 +161,7 @@ showAllEvents: true
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeCompany, loading: companyLoading, switchCompany } = useCompany();
-  const { canAddClientes, isAdminOrTI, canUploadBase, canCreateEventos, canManageEventos, isVendedor, isSDR } = useUserAccessType();
+  const { canAddClientes, canDeleteContatos, canDeleteEventos, canEditEventos, canToggleIALigacao, canUploadBase, canCreateEventos, canManageEventos, isVendedor, isSDR } = useUserAccessType();
   const { registrarMovimentacao } = useProspeccaoLogs();
   const { 
     contatos, 
@@ -1561,8 +1561,7 @@ showAllEvents: true
   };
 
   const handleModalDelete = async (contatoId: string) => {
-    // Admin e TI podem forçar exclusão de contatos com vínculos
-    await excluirContato(contatoId, isAdminOrTI);
+    await excluirContato(contatoId, canDeleteContatos);
   };
 
   const handleModalAssignResponsible = async (contatoId: string, userId: string) => {
@@ -2063,7 +2062,7 @@ showAllEvents: true
                                               </DropdownMenuItem>
                                             )}
                                             {/* Toggle Ativar/Desativar para IA Ligação - APENAS Admin/TI */}
-                                            {isIALigacao && ligacaoValidoNoWebhook && isAdminOrTI && (
+                                            {isIALigacao && ligacaoValidoNoWebhook && canToggleIALigacao && (
                                               <DropdownMenuItem 
                                                 onClick={async () => {
                                                   const eventoAtivo = (prospeccao as any).ativo !== false;
@@ -2097,12 +2096,13 @@ showAllEvents: true
                                                 )}
                                               </DropdownMenuItem>
                                             )}
-                                            <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
-                                              <Edit className="mr-2 h-4 w-4" />
-                                              Editar
-                                            </DropdownMenuItem>
-                                            {/* Botão Excluir - apenas Admin/TI/Master */}
-                                            {isAdminOrTI && (
+                                            {canEditEventos && (
+                                              <DropdownMenuItem onClick={() => handleEditProspeccao(prospeccao)}>
+                                                <Edit className="mr-2 h-4 w-4" />
+                                                Editar
+                                              </DropdownMenuItem>
+                                            )}
+                                            {canDeleteEventos && (
                                               <DropdownMenuItem 
                                                 onClick={() => setDeleteEventoModal({ isOpen: true, prospeccao })}
                                                 className="text-destructive focus:text-destructive"
@@ -2184,12 +2184,12 @@ showAllEvents: true
                           columnId: undefined
                         });
                       }}
-                      onDeleteContato={(id) => excluirContato(id, isAdminOrTI)}
-                      onDeleteMultiplosContatos={(ids) => excluirContatosEmMassa(ids, undefined, isAdminOrTI)}
-                      onDeleteAllContatos={() => excluirTodosContatosDaEmpresa(isAdminOrTI)}
+                        onDeleteContato={(id) => excluirContato(id, canDeleteContatos)}
+                        onDeleteMultiplosContatos={(ids) => excluirContatosEmMassa(ids, undefined, canDeleteContatos)}
+                        onDeleteAllContatos={() => excluirTodosContatosDaEmpresa(canDeleteContatos)}
                       onReenviarGatilhos={reenviarGatilhos}
                       onUpdateContato={atualizarContato}
-                      canDelete={isAdminOrTI}
+                        canDelete={canDeleteContatos}
                     />
                   </div>
                 </Card>

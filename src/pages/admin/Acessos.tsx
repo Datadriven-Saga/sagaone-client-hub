@@ -82,7 +82,7 @@ const Acessos = () => {
   const itemsPerPage = 20;
   const { user: authUser, session } = useAuth();
   const { isMaster: isMasterUser } = useMfaMaster();
-  const { tipoAcesso } = useUserAccessType();
+  const { tipoAcesso, canCreateUsers, canEditUsers, canDeleteUsers } = useUserAccessType();
   const canManageMasters = isMasterUser || tipoAcesso === "TI" || tipoAcesso === "Administrador";
   const { toast } = useToast();
   
@@ -417,6 +417,7 @@ const Acessos = () => {
           </div>
           <div className="flex gap-2 flex-wrap">
             {isAdminUser && <CleanupInvalidUsersButton />}
+            {canCreateUsers && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={handleNewUser} size="sm" className="md:h-10">
@@ -817,7 +818,8 @@ const Acessos = () => {
                 </Form>
               )}
             </DialogContent>
-          </Dialog>
+            </Dialog>
+            )}
           </div>
         </div>
 
@@ -914,7 +916,8 @@ const Acessos = () => {
                 setCurrentPage={setCurrentPage}
                 handleEdit={handleEdit}
                 handleDelete={handleDelete}
-                isAdmin={isAdminUser}
+                canEdit={canEditUsers}
+                canDelete={canDeleteUsers}
               />
             )}
           </CardContent>
@@ -939,7 +942,8 @@ interface FilteredUsersListProps {
   setCurrentPage: (page: number) => void;
   handleEdit: (profile: Profile) => void;
   handleDelete: (id: string) => void;
-  isAdmin: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
 const FilteredUsersList = ({
@@ -952,7 +956,8 @@ const FilteredUsersList = ({
   setCurrentPage,
   handleEdit,
   handleDelete,
-  isAdmin
+  canEdit,
+  canDelete
 }: FilteredUsersListProps) => {
   const filteredProfiles = useMemo(() => {
     return profiles.filter(profile => {
@@ -1053,15 +1058,17 @@ const FilteredUsersList = ({
               )}
             </div>
             <div className="flex items-center space-x-1 shrink-0 self-end sm:self-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleEdit(profile)}
-                className="h-8 w-8 p-0"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-              {isAdmin && (
+              {canEdit && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEdit(profile)}
+                  className="h-8 w-8 p-0"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              )}
+              {canDelete && (
                 <Button
                   variant="ghost"
                   size="sm"
