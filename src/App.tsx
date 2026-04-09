@@ -80,15 +80,15 @@ const AppRoutes = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
         <Route path="/clientes" element={<PermissionProtectedRoute permissionKey="canViewClientes"><Clientes /></PermissionProtectedRoute>} />
-        <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
+        <Route path="/notificacoes" element={<PermissionProtectedRoute permissionKey="canAccessNotificacoes"><Notificacoes /></PermissionProtectedRoute>} />
         <Route path="/personas" element={<PermissionProtectedRoute permissionKey="canAccessPersonas"><Personas /></PermissionProtectedRoute>} />
-        <Route path="/prospeccao" element={<ProtectedRoute><Prospeccao /></ProtectedRoute>} />
-        <Route path="/prospeccao/eventos" element={<ProtectedRoute><Prospeccao defaultTab="eventos" /></ProtectedRoute>} />
-        <Route path="/prospeccao/atendimento" element={<ProtectedRoute><Prospeccao defaultTab="atendimento" /></ProtectedRoute>} />
+        <Route path="/prospeccao" element={<PermissionProtectedRoute permissionKey="canViewProspeccao"><Prospeccao /></PermissionProtectedRoute>} />
+        <Route path="/prospeccao/eventos" element={<PermissionProtectedRoute permissionKey="canViewProspeccao"><Prospeccao defaultTab="eventos" /></PermissionProtectedRoute>} />
+        <Route path="/prospeccao/atendimento" element={<PermissionProtectedRoute permissionKey="canViewProspeccao"><Prospeccao defaultTab="atendimento" /></PermissionProtectedRoute>} />
         <Route path="/prospeccao/recepcao" element={<PermissionProtectedRoute permissionKey="canAccessRecepcao"><Prospeccao defaultTab="recepcao" /></PermissionProtectedRoute>} />
-        <Route path="/prospeccao/vendas" element={<ProtectedRoute><Prospeccao defaultTab="vendas" /></ProtectedRoute>} />
+        <Route path="/prospeccao/vendas" element={<PermissionProtectedRoute permissionKey="canViewVendas"><Prospeccao defaultTab="vendas" /></PermissionProtectedRoute>} />
         <Route path="/prospeccao/templates" element={<PermissionProtectedRoute permissionKey="canViewTemplates"><Templates /></PermissionProtectedRoute>} />
-        <Route path="/prospeccao/eventos/:eventoId/base" element={<ProtectedRoute><EventoBase /></ProtectedRoute>} />
+        <Route path="/prospeccao/eventos/:eventoId/base" element={<PermissionProtectedRoute permissionKey="canViewProspeccao"><EventoBase /></PermissionProtectedRoute>} />
         <Route path="/resultados" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
         <Route path="/resultados/whatsapp" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
         <Route path="/resultados/ligacao" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
@@ -106,8 +106,8 @@ const AppRoutes = () => {
         <Route path="/treinamentos/historico" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
         <Route path="/treinamentos/historico/:id" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
         <Route path="/configuracoes" element={<PermissionProtectedRoute permissionKey="canAccessConfiguracoes"><Configuracoes /></PermissionProtectedRoute>} />
-        <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
-        <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
+        <Route path="/minha-conta" element={<PermissionProtectedRoute permissionKey="canAccessMinhaConta"><MinhaConta /></PermissionProtectedRoute>} />
+        <Route path="/ajuda" element={<PermissionProtectedRoute permissionKey="canAccessAjuda"><Ajuda /></PermissionProtectedRoute>} />
         <Route path="/gatilhos" element={<PermissionProtectedRoute permissionKey="canAccessGatilhos"><Gatilhos /></PermissionProtectedRoute>} />
         
         {/* Agentes IA */}
@@ -118,8 +118,8 @@ const AppRoutes = () => {
         <Route path="/administracao" element={<PermissionProtectedRoute permissionKey={["canAccessAdministracao", "canViewAuthenticator"]}><Administracao /></PermissionProtectedRoute>} />
         <Route path="/admin" element={<PermissionProtectedRoute permissionKey={["canAccessAdministracao", "canViewAuthenticator"]}><Administracao /></PermissionProtectedRoute>} />
         <Route path="/administracao/empresas" element={<PermissionProtectedRoute permissionKey="canManageEmpresas"><Empresas /></PermissionProtectedRoute>} />
-        <Route path="/administracao/acessos" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Acessos /></PermissionProtectedRoute>} />
-        <Route path="/admin/acessos" element={<PermissionProtectedRoute permissionKey="canAccessAdministracao"><Acessos /></PermissionProtectedRoute>} />
+        <Route path="/administracao/acessos" element={<PermissionProtectedRoute permissionKey={["canManageUsers", "canCreateUsers", "canEditUsers", "canDeleteUsers"]}><Acessos /></PermissionProtectedRoute>} />
+        <Route path="/admin/acessos" element={<PermissionProtectedRoute permissionKey={["canManageUsers", "canCreateUsers", "canEditUsers", "canDeleteUsers"]}><Acessos /></PermissionProtectedRoute>} />
         <Route path="/administracao/agentes" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><AdminAgentes /></PermissionProtectedRoute>} />
         <Route path="/administracao/agentes/controle" element={<PermissionProtectedRoute permissionKey={["canViewControleAgentes", "canAccessAgentesIA"]}><ControleAgentes /></PermissionProtectedRoute>} />
         <Route path="/administracao/agentes/visao-geral" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><VisaoGeral /></PermissionProtectedRoute>} />
