@@ -436,12 +436,8 @@ showAllEvents: true
             variant: "destructive"
           });
         }
-        // Mostrar todos os eventos de ligação locais como válidos
-        const eventosLigacao = prospeccoes.filter(p => 
-          String(p.canal).toLowerCase().includes('liga') || 
-          p.canal === 'Ligação'
-        );
-        setEventosLigacaoValidos(new Set(eventosLigacao.map(e => e.id)));
+        // Sem agente Pri(Ligação), nenhum evento de ligação pode ser validado externamente
+        setEventosLigacaoValidos(new Set());
         setEventosLigacaoVerificados(true);
         return;
       }
@@ -491,15 +487,26 @@ showAllEvents: true
         }
         
         // Atualizar apenas lista de prospecções (não contatos)
-        fetchProspeccoes(globalFilters.showAllEvents);
+        await fetchProspeccoes(globalFilters.showAllEvents);
+        
+        // Usar IDs externos retornados pela sync para determinar quais eventos de ligação são válidos
+        const eventosExternosIds: string[] = syncResult?.eventos_externos_ids || [];
+        console.log('🔍 IDs de eventos externos válidos:', eventosExternosIds);
+        
+        // Apenas eventos de ligação cujo event_id_pri existe no sistema externo são válidos
+        const eventosLigacaoAtualizados = prospeccoes.filter(p => {
+          const isLigacao = String(p.canal).toLowerCase().includes('liga') || p.canal === 'Ligação';
+          if (!isLigacao) return false;
+          // Se tem event_id_pri, verificar se existe no externo
+          if (p.event_id_pri) {
+            return eventosExternosIds.includes(String(p.event_id_pri));
+          }
+          // Sem event_id_pri = não existe no externo
+          return false;
+        });
+        setEventosLigacaoValidos(new Set(eventosLigacaoAtualizados.map(e => e.id)));
+        return;
       }
-      
-      // Após sincronização, todos os eventos de ligação são válidos (os inválidos foram removidos)
-      const eventosLigacaoAtualizados = prospeccoes.filter(p => 
-        String(p.canal).toLowerCase().includes('liga') || 
-        p.canal === 'Ligação'
-      );
-      setEventosLigacaoValidos(new Set(eventosLigacaoAtualizados.map(e => e.id)));
       
     } catch (error) {
       console.error('❌ Erro ao sincronizar eventos de Ligação:', error);
@@ -510,12 +517,8 @@ showAllEvents: true
           variant: "destructive"
         });
       }
-      // Fallback: mostrar todos os eventos de ligação
-      const eventosLigacao = prospeccoes.filter(p => 
-        String(p.canal).toLowerCase().includes('liga') || 
-        p.canal === 'Ligação'
-      );
-      setEventosLigacaoValidos(new Set(eventosLigacao.map(e => e.id)));
+      // Em caso de erro, não validar nenhum evento de ligação
+      setEventosLigacaoValidos(new Set());
     } finally {
       setSincronizandoLigacao(false);
       setLoadingEventosLigacao(false);
@@ -997,13 +1000,14 @@ showAllEvents: true
   }, [contatos, globalFilters, profiles, contatosProspeccoes]);
 
   // Função de filtragem global para prospecções/eventos
-  // NOTA: Eventos de Ligação agora são mostrados mesmo sem estar no webhook externo
-  // O botão de disparo ficará desabilitado se o evento não tiver event_id_pri válido no webhook
+  // Filtrar eventos: Ligação só aparece se confirmado no sistema externo
   const filteredProspeccoes = useMemo(() => {
     return prospeccoes.filter(prospeccao => {
+      // Filtro por evento selecionado
       if (globalFilters.prospeccaoId !== "todos" && prospeccao.id !== globalFilters.prospeccaoId) {
         return false;
       }
+      // Filtro por data
       if (globalFilters.dataInicio && prospeccao.data_fim) {
         const filtroInicio = new Date(globalFilters.dataInicio);
         const eventoFim = new Date(prospeccao.data_fim);
@@ -1014,13 +1018,19 @@ showAllEvents: true
         const eventoInicio = new Date(prospeccao.data_inicio);
         if (eventoInicio > filtroFim) return false;
       }
+      // Filtro por busca
       if (globalFilters.dadosLead) {
         const search = globalFilters.dadosLead.toLowerCase();
         if (!prospeccao.titulo?.toLowerCase().includes(search)) return false;
       }
+      // Para eventos de Ligação, só mostrar se validado no sistema externo
+      const isLigacao = String(prospeccao.canal).toLowerCase().includes('liga') || prospeccao.canal === 'Ligação';
+      if (isLigacao && eventosLigacaoVerificados && !eventosLigacaoValidos.has(prospeccao.id)) {
+        return false;
+      }
       return true;
     });
-  }, [prospeccoes, globalFilters]);
+  }, [prospeccoes, globalFilters, eventosLigacaoVerificados, eventosLigacaoValidos]);
 
 
   // ✅ AGORA EARLY RETURN PODE VIR APÓS TODOS OS HOOKS
