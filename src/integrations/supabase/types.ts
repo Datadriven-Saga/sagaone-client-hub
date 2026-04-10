@@ -1349,6 +1349,47 @@ export type Database = {
           },
         ]
       }
+      contato_timeline: {
+        Row: {
+          contato_id: string
+          created_at: string
+          descricao: string | null
+          id: string
+          metadata: Json | null
+          tipo: string
+          usuario_id: string | null
+          usuario_nome: string | null
+        }
+        Insert: {
+          contato_id: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          metadata?: Json | null
+          tipo: string
+          usuario_id?: string | null
+          usuario_nome?: string | null
+        }
+        Update: {
+          contato_id?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          metadata?: Json | null
+          tipo?: string
+          usuario_id?: string | null
+          usuario_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contato_timeline_contato_id_fkey"
+            columns: ["contato_id"]
+            isOneToOne: false
+            referencedRelation: "contatos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contatos: {
         Row: {
           base_id: string | null
@@ -5161,6 +5202,17 @@ export type Database = {
           nome_completo: string
           status: Database["public"]["Enums"]["status_usuario"]
           tipo_acesso: Database["public"]["Enums"]["tipo_acesso"]
+        }[]
+      }
+      get_contato_timeline: {
+        Args: { p_contato_id: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          created_at: string
+          descricao: string
+          id: string
+          metadata: Json
+          tipo: string
+          usuario_nome: string
         }[]
       }
       get_contatos_metricas: { Args: { p_empresa_id: string }; Returns: Json }
