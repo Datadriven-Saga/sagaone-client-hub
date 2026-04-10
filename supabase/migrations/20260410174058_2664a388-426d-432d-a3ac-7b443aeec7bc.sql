@@ -1,0 +1,2 @@
+DROP FUNCTION IF EXISTS public.get_quarentena_paginated(uuid, text, text, text, text[], uuid[], timestamptz, timestamptz, text, text, integer, integer);
+DROP FUNCTION IF EXISTS public.get_quarentena_paginated(uuid, text, text[], uuid[], text, timestamptz, timestamptz, text, text, integer, integer, text);
