@@ -482,6 +482,9 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
                 </CardContent>
               </Card>
             )}
+            {activeTab === 'historico' && item && (
+              <ContatoTimeline contatoId={item.id} />
+            )}
           </ScrollIndicator>
         </div>
       </DialogContent>
