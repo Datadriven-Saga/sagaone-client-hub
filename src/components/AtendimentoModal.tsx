@@ -201,6 +201,15 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
                 <Clock className="h-4 w-4" />
                 Log de Auditoria
               </button>
+              <button
+                onClick={() => setActiveTab('historico')}
+                className={`w-full text-left p-3 rounded-lg flex items-center gap-2 ${
+                  activeTab === 'historico' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+                }`}
+              >
+                <History className="h-4 w-4" />
+                Histórico
+              </button>
             </nav>
           </div>
 
