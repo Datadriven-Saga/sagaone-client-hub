@@ -607,7 +607,8 @@ export function ContatoModal({
     { id: 'anotacoes', label: 'Anotações', icon: MessageSquare },
     { id: 'produtos', label: 'Produtos', icon: Package },
     { id: 'temperatura', label: 'Temperatura', icon: Thermometer },
-    { id: 'convite', label: 'Convite', icon: Image }
+    { id: 'convite', label: 'Convite', icon: Image },
+    { id: 'historico', label: 'Histórico', icon: History }
   ];
 
   const getInitials = (name: string) => {
@@ -1451,6 +1452,10 @@ export function ContatoModal({
                     </div>
                   </ScrollArea>
                 </Card>
+              )}
+
+              {activeTab === 'historico' && contato && (
+                <ContatoTimeline contatoId={contato.id} />
               )}
             </div>
           </div>
