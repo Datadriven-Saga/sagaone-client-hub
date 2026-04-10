@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 import { KanbanItem } from './KanbanBoard';
-import { User, Phone, Mail, MessageSquare, Package, Thermometer, Clock, Settings } from 'lucide-react';
+import { User, Phone, Mail, MessageSquare, Package, Thermometer, Clock, Settings, History } from 'lucide-react';
+import { ContatoTimeline } from './ContatoTimeline';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -199,6 +200,15 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
               >
                 <Clock className="h-4 w-4" />
                 Log de Auditoria
+              </button>
+              <button
+                onClick={() => setActiveTab('historico')}
+                className={`w-full text-left p-3 rounded-lg flex items-center gap-2 ${
+                  activeTab === 'historico' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+                }`}
+              >
+                <History className="h-4 w-4" />
+                Histórico
               </button>
             </nav>
           </div>
@@ -471,6 +481,9 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
                   </div>
                 </CardContent>
               </Card>
+            )}
+            {activeTab === 'historico' && item && (
+              <ContatoTimeline contatoId={item.id} />
             )}
           </ScrollIndicator>
         </div>
