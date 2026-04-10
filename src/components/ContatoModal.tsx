@@ -39,6 +39,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Contato, statusKanbanMap } from '@/hooks/useContatoData';
 import { supabase } from '@/integrations/supabase/client';
 import { ContatoRealizadoDialog } from './ContatoRealizadoDialog';
+import { ContatoTimeline } from './ContatoTimeline';
 
 interface ContatoModalProps {
   isOpen: boolean;
