@@ -5287,6 +5287,23 @@ export type Database = {
             }
             Returns: Json
           }
+        | {
+            Args: {
+              p_canal?: string
+              p_date_from?: string
+              p_date_to?: string
+              p_empresa_id?: string
+              p_limit?: number
+              p_lojas?: string[]
+              p_marcas?: string[]
+              p_offset?: number
+              p_search?: string
+              p_sort_column?: string
+              p_sort_direction?: string
+              p_status?: string
+            }
+            Returns: Json
+          }
       get_ranking_vendedores: {
         Args: { p_empresa_id: string; p_prospeccao_ids: string[] }
         Returns: {
