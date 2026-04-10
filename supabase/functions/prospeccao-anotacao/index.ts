@@ -10,16 +10,14 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get user info from JWT
     const authHeader = req.headers.get('authorization');
-    const jwt = authHeader?.replace('Bearer ', '');
     
+    // Client with user's JWT for RLS-respecting queries
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -31,12 +29,12 @@ serve(async (req) => {
       }
     );
 
-    // Get user info for audit logs
-    const { data: { user } } = await supabaseClient.auth.getUser(jwt);
+    // Use getUser() without arguments - it reads the token from the client headers
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     const userId = user?.id;
     const userEmail = user?.email;
     
-    console.log(`API prospeccao-anotacao accessed by user: ${userEmail} (${userId})`);
+    console.log(`API prospeccao-anotacao accessed by user: ${userEmail} (${userId}), error: ${userError?.message || 'none'}`);
 
     if (req.method !== 'POST') {
       return new Response(
@@ -46,7 +44,6 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    // Support both lead_id (external API) and contato_id (internal frontend)
     const lead_id = body.lead_id || body.contato_id;
     const mensagem = body.mensagem;
     const prospeccao_id_override = body.prospeccao_id || null;
@@ -63,13 +60,11 @@ serve(async (req) => {
       );
     }
 
-    // Determinar se é lead_id numérico ou contato_id UUID (retrocompatibilidade)
     const isNumericLeadId = /^\d+$/.test(String(lead_id));
     
     console.log(`   ├─ lead_id: ${lead_id}`);
     console.log(`   └─ tipo: ${isNumericLeadId ? 'numérico (lead_id)' : 'UUID (contato_id)'}`);
 
-    // Buscar contato pelo identificador apropriado
     let contato;
     let contatoError;
 
@@ -105,7 +100,6 @@ serve(async (req) => {
 
     console.log(`   └─ Contato encontrado: ${contato.nome} (id: ${contato.id})`);
 
-    // Usar prospeccao_id enviado pelo frontend ou buscar via eventos_prospeccao
     let prospeccaoId = prospeccao_id_override;
     
     if (!prospeccaoId) {
@@ -118,7 +112,7 @@ serve(async (req) => {
       prospeccaoId = eventoProspeccao?.prospeccao_id || null;
     }
 
-    // Inserir evento de prospecção (anotação)
+    // Inserir evento de prospecção (anotação) - userId no campo observacoes
     const { data: evento, error: eventoError } = await supabaseClient
       .from('eventos_prospeccao')
       .insert({
@@ -140,7 +134,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`   └─ Anotação criada com sucesso (evento_id: ${evento.id})`);
+    console.log(`   └─ Anotação criada com sucesso (evento_id: ${evento.id}, user_id_saved: ${userId || 'NULL'})`);
 
     // Disparar gatilho de adição de anotação (se tiver prospeccao_id)
     if (prospeccaoId) {
@@ -166,6 +160,7 @@ serve(async (req) => {
         contato_id: contato.id,
         prospeccao_id: prospeccaoId,
         mensagem: mensagem,
+        user_id: userId,
         data_criacao: evento.created_at
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
