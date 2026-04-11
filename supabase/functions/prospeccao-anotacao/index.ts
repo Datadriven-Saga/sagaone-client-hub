@@ -16,7 +16,13 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('authorization');
-    
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Usuário não autenticado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Client with user's JWT for RLS-respecting queries
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -24,24 +30,27 @@ serve(async (req) => {
       {
         auth: { persistSession: false },
         global: {
-          headers: authHeader ? { authorization: authHeader } : {}
+          headers: { authorization: authHeader }
         }
       }
     );
 
-    // Use getUser() without arguments - it reads the token from the client headers
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    const userId = user?.id;
-    const userEmail = user?.email;
-    
-    console.log(`API prospeccao-anotacao accessed by user: ${userEmail} (${userId}), error: ${userError?.message || 'none'}`);
+    // Validate JWT via getClaims
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
 
-    if (!userId) {
+    if (claimsError || !claimsData?.claims?.sub) {
+      console.error('Auth claims error:', claimsError?.message);
       return new Response(
         JSON.stringify({ error: 'Usuário não autenticado' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const userId = claimsData.claims.sub;
+    const userEmail = claimsData.claims.email;
+    
+    console.log(`API prospeccao-anotacao accessed by user: ${userEmail} (${userId})`);
 
     if (req.method !== 'POST') {
       return new Response(
@@ -72,11 +81,17 @@ serve(async (req) => {
     console.log(`   ├─ lead_id: ${lead_id}`);
     console.log(`   └─ tipo: ${isNumericLeadId ? 'numérico (lead_id)' : 'UUID (contato_id)'}`);
 
+    // Use service role client for DB operations to bypass RLS
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     let contato;
     let contatoError;
 
     if (isNumericLeadId) {
-      const result = await supabaseClient
+      const result = await supabaseAdmin
         .from('contatos')
         .select('id, lead_id, nome')
         .eq('lead_id', parseInt(String(lead_id)))
@@ -84,7 +99,7 @@ serve(async (req) => {
       contato = result.data;
       contatoError = result.error;
     } else {
-      const result = await supabaseClient
+      const result = await supabaseAdmin
         .from('contatos')
         .select('id, lead_id, nome')
         .eq('id', lead_id)
@@ -110,7 +125,7 @@ serve(async (req) => {
     let prospeccaoId = prospeccao_id_override;
     
     if (!prospeccaoId) {
-      const { data: eventoProspeccao } = await supabaseClient
+      const { data: eventoProspeccao } = await supabaseAdmin
         .from('eventos_prospeccao')
         .select('prospeccao_id')
         .eq('contato_id', contato.id)
@@ -119,8 +134,8 @@ serve(async (req) => {
       prospeccaoId = eventoProspeccao?.prospeccao_id || null;
     }
 
-    // Inserir evento de prospecção (anotação) - userId no campo observacoes
-    const { data: evento, error: eventoError } = await supabaseClient
+    // Inserir evento de prospecção (anotação) com usuario_id dedicado
+    const { data: evento, error: eventoError } = await supabaseAdmin
       .from('eventos_prospeccao')
       .insert({
         prospeccao_id: prospeccaoId,
@@ -141,11 +156,11 @@ serve(async (req) => {
       );
     }
 
-    console.log(`   └─ Anotação criada com sucesso (evento_id: ${evento.id}, user_id_saved: ${userId || 'NULL'})`);
+    console.log(`   └─ Anotação criada com sucesso (evento_id: ${evento.id}, user_id: ${userId})`);
 
     // Disparar gatilho de adição de anotação (se tiver prospeccao_id)
     if (prospeccaoId) {
-      await supabaseClient.functions.invoke('trigger-webhook', {
+      await supabaseAdmin.functions.invoke('trigger-webhook', {
         body: {
           gatilho: 'adicao_anotacao_prospeccao',
           dados: {
