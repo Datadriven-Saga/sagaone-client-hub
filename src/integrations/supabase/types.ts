@@ -5235,6 +5235,8 @@ export type Database = {
       get_contatos_metricas: { Args: { p_empresa_id: string }; Returns: Json }
       get_contatos_paginated: {
         Args: {
+          p_date_end?: string
+          p_date_start?: string
           p_empresa_id: string
           p_limit?: number
           p_offset?: number
@@ -5274,6 +5276,8 @@ export type Database = {
       }
       get_kanban_columns: {
         Args: {
+          p_date_end?: string
+          p_date_start?: string
           p_empresa_id: string
           p_per_column?: number
           p_prospeccao_ids?: string[]
@@ -5284,6 +5288,8 @@ export type Database = {
       }
       get_kanban_columns_limited: {
         Args: {
+          p_date_end?: string
+          p_date_start?: string
           p_empresa_id: string
           p_per_column?: number
           p_prospeccao_ids?: string[]
@@ -5339,7 +5345,12 @@ export type Database = {
         Returns: Json
       }
       get_ranking_vendedores: {
-        Args: { p_empresa_id: string; p_prospeccao_ids: string[] }
+        Args: {
+          p_date_end?: string
+          p_date_start?: string
+          p_empresa_id: string
+          p_prospeccao_ids: string[]
+        }
         Returns: {
           checkins: number
           convidados: number
@@ -5349,7 +5360,12 @@ export type Database = {
         }[]
       }
       get_resumo_stats: {
-        Args: { p_empresa_id: string; p_prospeccao_ids: string[] }
+        Args: {
+          p_date_end?: string
+          p_date_start?: string
+          p_empresa_id: string
+          p_prospeccao_ids: string[]
+        }
         Returns: {
           count: number
           status: string
