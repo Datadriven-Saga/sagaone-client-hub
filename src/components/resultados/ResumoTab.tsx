@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
-import { Target, Users, UserCheck, TrendingUp, UserPlus, Filter, MessageSquare, CalendarCheck, Store, ShoppingCart } from "lucide-react";
+import { Target, Users, UserCheck, TrendingUp, UserPlus, Filter, MessageSquare, CalendarCheck, Store, ShoppingCart, Calendar } from "lucide-react";
 
 interface ResumoTabProps {
   prospeccaoIds?: string[];
@@ -122,6 +124,8 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
     confirmados: 0, checkins: 0, vendas: 0, descartados: 0, optOut: 0
   });
   const [loading, setLoading] = useState(true);
+  const [dateStart, setDateStart] = useState("");
+  const [dateEnd, setDateEnd] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -142,6 +146,8 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
           supabase.rpc('get_resumo_stats', {
             p_prospeccao_ids: activeIds,
             p_empresa_id: empresaId,
+            p_date_start: dateStart ? new Date(dateStart).toISOString() : null,
+            p_date_end: dateEnd ? new Date(dateEnd + 'T23:59:59').toISOString() : null,
           })
         ]);
 
@@ -189,7 +195,7 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
     };
 
     fetchData();
-  }, [activeIds.join(','), empresaId]);
+  }, [activeIds.join(','), empresaId, dateStart, dateEnd]);
 
   const metaVendas = useMemo(() => {
     if (!metas) return 0;
