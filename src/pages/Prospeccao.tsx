@@ -546,6 +546,8 @@ showAllEvents: true
       prospeccaoIds: globalFilters.prospeccaoIds.length > 0 ? globalFilters.prospeccaoIds : undefined,
       responsavel: resolvedResponsavel,
       search: globalFilters.dadosLead || undefined,
+      dateStart: globalFilters.dataInicio || undefined,
+      dateEnd: globalFilters.dataFim || undefined,
     };
   };
 
@@ -579,7 +581,7 @@ showAllEvents: true
         status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
       });
     }
-  }, [globalFilters.prospeccaoIds, globalFilters.status, globalFilters.responsavelId, globalFilters.dadosLead, activeCompany?.id]);
+  }, [globalFilters.prospeccaoIds, globalFilters.status, globalFilters.responsavelId, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, activeCompany?.id]);
 
   // Atribuir leads automaticamente para vendedores quando acessam a aba de atendimentos
   useEffect(() => {
@@ -929,17 +931,7 @@ showAllEvents: true
           return false;
         }
       }
-      if (globalFilters.dataInicio) {
-        const dataInicio = new Date(globalFilters.dataInicio);
-        const contatoData = new Date(contato.created_at || '');
-        if (contatoData < dataInicio) return false;
-      }
-      if (globalFilters.dataFim) {
-        const dataFim = new Date(globalFilters.dataFim);
-        dataFim.setHours(23, 59, 59, 999);
-        const contatoData = new Date(contato.created_at || '');
-        if (contatoData > dataFim) return false;
-      }
+      // Date filtering is now handled server-side via RPCs
       if (globalFilters.responsavelId !== "todos") {
         const profile = profiles.find(p => p.id === globalFilters.responsavelId);
         if (profile) {
