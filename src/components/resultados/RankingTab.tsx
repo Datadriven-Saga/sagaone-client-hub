@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy, Medal, Award, Users } from "lucide-react";
+import { Trophy, Medal, Award, Users, Calendar } from "lucide-react";
 
 interface RankingTabProps {
   prospeccaoIds?: string[];
@@ -21,6 +23,8 @@ export const RankingTab = ({ prospeccaoIds, prospeccaoId, empresaId }: RankingTa
   const activeIds = prospeccaoIds || (prospeccaoId ? [prospeccaoId] : []);
   const [loading, setLoading] = useState(true);
   const [vendedores, setVendedores] = useState<VendedorRanking[]>([]);
+  const [dateStart, setDateStart] = useState("");
+  const [dateEnd, setDateEnd] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -36,6 +40,8 @@ export const RankingTab = ({ prospeccaoIds, prospeccaoId, empresaId }: RankingTa
         const { data, error } = await supabase.rpc('get_ranking_vendedores', {
           p_prospeccao_ids: activeIds,
           p_empresa_id: empresaId,
+          p_date_start: dateStart ? new Date(dateStart).toISOString() : null,
+          p_date_end: dateEnd ? new Date(dateEnd + 'T23:59:59').toISOString() : null,
         });
 
         if (error) {
@@ -60,7 +66,7 @@ export const RankingTab = ({ prospeccaoIds, prospeccaoId, empresaId }: RankingTa
     };
 
     fetchData();
-  }, [activeIds.join(','), empresaId]);
+  }, [activeIds.join(','), empresaId, dateStart, dateEnd]);
 
   const rankingProspectores = useMemo(() =>
     [...vendedores].sort((a, b) => b.convidados - a.convidados).filter(v => v.convidados > 0),
@@ -168,10 +174,36 @@ export const RankingTab = ({ prospeccaoIds, prospeccaoId, empresaId }: RankingTa
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <RankingCard title="Ranking de Prospectores" icon={Medal} data={rankingProspectores} valueKey="convidados" />
-      <RankingCard title="Ranking de Check-in" icon={Award} data={rankingCheckin} valueKey="checkins" />
-      <RankingCard title="Ranking de Vendas" icon={Trophy} data={rankingVendas} valueKey="vendas" />
+    <div className="space-y-4">
+      <Card className="p-4">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="w-[150px]">
+            <label className="text-sm font-medium mb-1.5 block">Data Início</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} className="pl-9" />
+            </div>
+          </div>
+          <div className="w-[150px]">
+            <label className="text-sm font-medium mb-1.5 block">Data Fim</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} className="pl-9" />
+            </div>
+          </div>
+          {(dateStart || dateEnd) && (
+            <Button variant="outline" size="sm" onClick={() => { setDateStart(""); setDateEnd(""); }}>
+              Limpar Datas
+            </Button>
+          )}
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <RankingCard title="Ranking de Prospectores" icon={Medal} data={rankingProspectores} valueKey="convidados" />
+        <RankingCard title="Ranking de Check-in" icon={Award} data={rankingCheckin} valueKey="checkins" />
+        <RankingCard title="Ranking de Vendas" icon={Trophy} data={rankingVendas} valueKey="vendas" />
+      </div>
     </div>
   );
 };

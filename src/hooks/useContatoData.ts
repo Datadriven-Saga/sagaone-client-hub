@@ -369,6 +369,8 @@ export const useContatoData = () => {
       status?: string;
       responsavel?: string;
       search?: string;
+      dateStart?: string;
+      dateEnd?: string;
     }
   ) => {
     if (!activeCompany?.id) return;
@@ -384,7 +386,9 @@ export const useContatoData = () => {
         p_responsavel: filters?.responsavel || null,
         p_search: filters?.search || null,
         p_sort_column: 'updated_at',
-        p_sort_direction: 'desc'
+        p_sort_direction: 'desc',
+        p_date_start: filters?.dateStart ? new Date(filters.dateStart).toISOString() : null,
+        p_date_end: filters?.dateEnd ? new Date(filters.dateEnd + 'T23:59:59').toISOString() : null,
       });
 
       if (error) {
@@ -464,6 +468,8 @@ export const useContatoData = () => {
       prospeccaoIds?: string[];
       responsavel?: string;
       search?: string;
+      dateStart?: string;
+      dateEnd?: string;
     },
     options?: { silent?: boolean }
   ) => {
@@ -479,6 +485,8 @@ export const useContatoData = () => {
         p_prospeccao_ids: filters?.prospeccaoIds && filters.prospeccaoIds.length > 0 ? filters.prospeccaoIds : null,
         p_responsavel: filters?.responsavel || null,
         p_search: filters?.search || null,
+        p_date_start: filters?.dateStart ? new Date(filters.dateStart).toISOString() : null,
+        p_date_end: filters?.dateEnd ? new Date(filters.dateEnd + 'T23:59:59').toISOString() : null,
       });
 
       if (error) {
@@ -529,6 +537,8 @@ export const useContatoData = () => {
       prospeccaoIds?: string[];
       responsavel?: string;
       search?: string;
+      dateStart?: string;
+      dateEnd?: string;
     }
   ) => {
     if (!activeCompany?.id) return;
@@ -562,7 +572,9 @@ export const useContatoData = () => {
         p_responsavel: filters?.responsavel || null,
         p_search: filters?.search || null,
         p_sort_column: 'updated_at',
-        p_sort_direction: 'desc'
+        p_sort_direction: 'desc',
+        p_date_start: filters?.dateStart ? new Date(filters.dateStart).toISOString() : null,
+        p_date_end: filters?.dateEnd ? new Date(filters.dateEnd + 'T23:59:59').toISOString() : null,
       });
 
       if (error) throw error;
