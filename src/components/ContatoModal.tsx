@@ -286,43 +286,45 @@ export function ContatoModal({
 
           // Se há um contato, buscar dados dele
           if (contato && prospeccaoId) {
-            // Buscar anotações do contato
+            // Buscar anotações do contato com JOIN em profiles via usuario_id
             const { data: eventos, error } = await supabase
               .from('eventos_prospeccao')
-              .select('*')
+              .select('id, descricao, created_at, usuario_id, observacoes')
               .eq('contato_id', contato.id)
               .eq('prospeccao_id', prospeccaoId)
               .eq('tipo_evento', 'Anotação')
               .order('created_at', { ascending: false });
 
             if (!error && eventos) {
-              // Buscar informações do perfil do usuário que criou cada anotação
-              const anotacoesFormatadas = await Promise.all(eventos.map(async (evento) => {
-                let usuarioNome = 'Usuário';
-                let usuarioCargo = '';
-                
-                // O campo observacoes contém o ID do usuário que criou a anotação
-                if (evento.observacoes && evento.observacoes !== 'Adicionado via API') {
-                  const { data: perfil } = await supabase
-                    .from('profiles')
-                    .select('nome_completo, tipo_acesso')
-                    .eq('id', evento.observacoes)
-                    .maybeSingle();
-                  
-                  if (perfil) {
-                    usuarioNome = perfil.nome_completo || 'Usuário';
-                    usuarioCargo = perfil.tipo_acesso || '';
-                  }
+              // Collect unique user IDs and fetch profiles in one query
+              const userIds = [...new Set(eventos
+                .map(e => (e as any).usuario_id)
+                .filter(Boolean))] as string[];
+              
+              let profileMap: Record<string, { nome_completo: string; tipo_acesso: string }> = {};
+              if (userIds.length > 0) {
+                const { data: profiles } = await supabase
+                  .from('profiles')
+                  .select('id, nome_completo, tipo_acesso')
+                  .in('id', userIds);
+                if (profiles) {
+                  profiles.forEach(p => {
+                    profileMap[p.id] = { nome_completo: p.nome_completo || 'Usuário', tipo_acesso: p.tipo_acesso || '' };
+                  });
                 }
-                
+              }
+
+              const anotacoesFormatadas = eventos.map((evento) => {
+                const uid = (evento as any).usuario_id;
+                const perfil = uid ? profileMap[uid] : null;
                 return {
                   id: evento.id,
                   texto: evento.descricao || '',
-                  usuarioNome,
-                  usuarioCargo,
+                  usuarioNome: perfil?.nome_completo || 'Usuário',
+                  usuarioCargo: perfil?.tipo_acesso || '',
                   timestamp: evento.created_at || new Date().toISOString()
                 };
-              }));
+              });
               setAnotacoes(anotacoesFormatadas);
             }
 
@@ -958,38 +960,41 @@ export function ContatoModal({
                     const reloadAnotacoes = async () => {
                       const { data: eventos } = await supabase
                         .from('eventos_prospeccao')
-                        .select('*')
+                        .select('id, descricao, created_at, usuario_id, observacoes')
                         .eq('contato_id', contato.id)
                         .eq('prospeccao_id', prospeccaoId)
                         .eq('tipo_evento', 'Anotação')
                         .order('created_at', { ascending: false });
 
                       if (eventos) {
-                        const anotacoesFormatadas = await Promise.all(eventos.map(async (evento) => {
-                          let usuarioNome = 'Usuário';
-                          let usuarioCargo = '';
-                          
-                          if (evento.observacoes && evento.observacoes !== 'Adicionado via API') {
-                            const { data: perfil } = await supabase
-                              .from('profiles')
-                              .select('nome_completo, tipo_acesso')
-                              .eq('id', evento.observacoes)
-                              .maybeSingle();
-                            
-                            if (perfil) {
-                              usuarioNome = perfil.nome_completo || 'Usuário';
-                              usuarioCargo = perfil.tipo_acesso || '';
-                            }
+                        const userIds = [...new Set(eventos
+                          .map(e => (e as any).usuario_id)
+                          .filter(Boolean))] as string[];
+                        
+                        let profileMap: Record<string, { nome_completo: string; tipo_acesso: string }> = {};
+                        if (userIds.length > 0) {
+                          const { data: profiles } = await supabase
+                            .from('profiles')
+                            .select('id, nome_completo, tipo_acesso')
+                            .in('id', userIds);
+                          if (profiles) {
+                            profiles.forEach(p => {
+                              profileMap[p.id] = { nome_completo: p.nome_completo || 'Usuário', tipo_acesso: p.tipo_acesso || '' };
+                            });
                           }
-                          
+                        }
+
+                        const anotacoesFormatadas = eventos.map((evento) => {
+                          const uid = (evento as any).usuario_id;
+                          const perfil = uid ? profileMap[uid] : null;
                           return {
                             id: evento.id,
                             texto: evento.descricao || '',
-                            usuarioNome,
-                            usuarioCargo,
+                            usuarioNome: perfil?.nome_completo || 'Usuário',
+                            usuarioCargo: perfil?.tipo_acesso || '',
                             timestamp: evento.created_at || new Date().toISOString()
                           };
-                        }));
+                        });
                         setAnotacoes(anotacoesFormatadas);
                       }
                     };
