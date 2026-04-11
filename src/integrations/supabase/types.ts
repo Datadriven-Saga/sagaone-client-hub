@@ -1926,6 +1926,7 @@ export type Database = {
           tipo_evento:
             | Database["public"]["Enums"]["tipo_evento_prospeccao"]
             | null
+          usuario_id: string | null
         }
         Insert: {
           contato_id?: string | null
@@ -1941,6 +1942,7 @@ export type Database = {
           tipo_evento?:
             | Database["public"]["Enums"]["tipo_evento_prospeccao"]
             | null
+          usuario_id?: string | null
         }
         Update: {
           contato_id?: string | null
@@ -1956,6 +1958,7 @@ export type Database = {
           tipo_evento?:
             | Database["public"]["Enums"]["tipo_evento_prospeccao"]
             | null
+          usuario_id?: string | null
         }
         Relationships: [
           {
@@ -1970,6 +1973,20 @@ export type Database = {
             columns: ["prospeccao_id"]
             isOneToOne: false
             referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eventos_prospeccao_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eventos_prospeccao_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
             referencedColumns: ["id"]
           },
         ]

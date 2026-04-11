@@ -36,6 +36,13 @@ serve(async (req) => {
     
     console.log(`API prospeccao-anotacao accessed by user: ${userEmail} (${userId}), error: ${userError?.message || 'none'}`);
 
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: 'Usuário não autenticado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (req.method !== 'POST') {
       return new Response(
         JSON.stringify({ error: 'Método não permitido. Use POST.' }),
@@ -120,7 +127,7 @@ serve(async (req) => {
         contato_id: contato.id,
         tipo_evento: 'Anotação',
         descricao: mensagem,
-        observacoes: userId || null,
+        usuario_id: userId,
         data_evento: new Date().toISOString()
       })
       .select()
