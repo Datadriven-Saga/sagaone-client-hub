@@ -1,0 +1,1 @@
+ALTER TYPE tipo_acesso ADD VALUE IF NOT EXISTS 'Sistema';
