@@ -27,6 +27,8 @@ function getCorsHeaders(req: Request) {
 
 // Token de admin para chamadas externas (ex: n8n)
 const ADMIN_TOKEN = Deno.env.get('SAGA_ONE_ADMIN_TOKEN') ?? '';
+const PRI_IA_USER_ID = Deno.env.get('PRI_IA_USER_ID');
+const PRI_IA_EMAIL = 'pri.ia@sagadatadriven.com.br';
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -44,6 +46,13 @@ serve(async (req) => {
     // Verificar se é o token de admin (antes de tentar validar como JWT)
     const isAdminToken = token && ADMIN_TOKEN && token === ADMIN_TOKEN;
     
+    if (isAdminToken && !PRI_IA_USER_ID) {
+      console.error('PRI_IA_USER_ID não configurado');
+      return new Response(
+        JSON.stringify({ error: 'Configuração de sistema ausente (PRI_IA_USER_ID)' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     let supabaseClient;
     let userId: string | undefined;
     let userEmail: string | undefined;
@@ -260,6 +269,19 @@ serve(async (req) => {
         );
       }
 
+      // Atribuir responsável Pri IA para chamadas via admin-token
+      if (isAdminToken && PRI_IA_USER_ID) {
+        const { error: respError } = await supabaseClient
+          .from('contatos')
+          .update({ responsavel_email: PRI_IA_EMAIL })
+          .eq('id', contato.id);
+        if (respError) {
+          console.error('Erro ao atribuir responsável Pri IA:', respError.message);
+        } else {
+          console.log(`   └─ Responsável atualizado para Pri IA`);
+        }
+      }
+
       console.log(`   ├─ Status anterior: ${statusAnterior}`);
       console.log(`   ├─ Status recebido: ${novo_status}`);
       console.log(`   └─ Status normalizado: ${statusNormalizado}`);
@@ -273,8 +295,8 @@ serve(async (req) => {
             prospeccao_id: prospeccaoId,
             status_anterior: statusAnterior,
             status_novo: statusNormalizado,
-            usuario_id: userId === 'admin-api' ? null : userId,
-            observacoes: isAdminToken ? 'Alteração via API externa (admin-token)' : 'Alteração via API (lead_id)'
+            usuario_id: isAdminToken ? PRI_IA_USER_ID : (userId === 'admin-api' ? null : userId),
+            observacoes: isAdminToken ? 'Alteração automática via Pri IA' : 'Alteração via API (lead_id)'
           });
 
         // Disparar gatilho de alteração de status
