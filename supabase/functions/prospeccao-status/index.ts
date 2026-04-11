@@ -27,6 +27,8 @@ function getCorsHeaders(req: Request) {
 
 // Token de admin para chamadas externas (ex: n8n)
 const ADMIN_TOKEN = Deno.env.get('SAGA_ONE_ADMIN_TOKEN') ?? '';
+const PRI_IA_USER_ID = Deno.env.get('PRI_IA_USER_ID');
+const PRI_IA_EMAIL = 'pri.ia@sagadatadriven.com.br';
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
