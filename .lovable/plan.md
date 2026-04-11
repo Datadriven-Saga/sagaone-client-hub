@@ -1,78 +1,107 @@
 
 
-## Plan: Fix Performance Module (Resumo, Ranking, Desempenho)
+## Plan: Create "Pri IA" System User
 
-### Problem Summary
+### Summary
+Create a real profile for "Pri IA" to attribute automated actions. Use a generated UUID (not a fixed one), store the email as a constant in code, skip the `prospeccao-anotacao` changes, and skip the login guard (domain check already blocks `@sagadatadriven.com.br`).
 
-1. **400 Bad Request**: ResumoTab fetches all `contato_id` from `eventos_prospeccao` (419k+ rows), then passes them to `.in('id', contatoIds)` — exceeding PostgREST URL limits
-2. **Client-side counting**: Status counts are computed in JS instead of SQL
-3. **Weak matching**: `responsavel_email` contains real emails (e.g. `ana.ksoares@gruposaga.com.br`) but code matches against `profile.id` and `celular`, never against the actual email (which lives in `auth.users`)
-4. **Multi-select inconsistency**: Resumo accepts multiple events; Ranking/Desempenho accept only one
-5. **Dead tabs**: Produtos and Premiações are placeholders to remove
+---
 
-### Solution
+### Step 1 — Database Migration
 
-#### 1. Database: Create 3 RPC functions (one migration)
+Single migration that:
 
-**`get_resumo_stats(p_prospeccao_ids uuid[], p_empresa_id uuid)`**
-- Single SQL query: JOIN `eventos_prospeccao` + `contatos`, GROUP BY `status`, return counts + metas aggregated from `prospeccoes`
-- No client-side counting, no giant `.in()` arrays
+1. Adds `'Sistema'` to the `tipo_acesso` enum
+2. Generates a real UUID for the system user
+3. Creates an `auth.users` entry with no password (email: `pri.ia@sagadatadriven.com.br`)
+4. Creates the `profiles` entry with `nome_completo = 'Pri IA'` and `tipo_acesso = 'Sistema'`
 
-**`get_ranking_vendedores(p_prospeccao_ids uuid[], p_empresa_id uuid)`**
-- JOIN `prospeccao_equipes` → `prospeccao_equipe_membros` → `profiles`
-- JOIN `auth.users` to get email for matching against `contatos.responsavel_email`
-- COUNT status per vendedor using CASE WHEN, GROUP BY
-- Returns: `user_id, nome_completo, convidados, checkins, vendas`
-- Accepts multiple event IDs
+```sql
+ALTER TYPE tipo_acesso ADD VALUE IF NOT EXISTS 'Sistema';
 
-**`get_desempenho_vendedores(p_prospeccao_ids uuid[], p_empresa_id uuid, p_date_start timestamptz DEFAULT NULL, p_date_end timestamptz DEFAULT NULL)`**
-- Same JOIN structure as ranking but adds: atribuidos, agendados, confirmados, descartes
-- Date filter on `contatos.created_at`
-- Accepts multiple event IDs
-- Returns raw counts; pontuacao calculated client-side (simple math, no data issue)
+-- Use a DO block to generate a real UUID and insert in both tables
+DO $$
+DECLARE
+  v_id uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO auth.users (id, instance_id, email, encrypted_password, email_confirmed_at, role, aud, created_at, updated_at)
+  VALUES (v_id, '00000000-0000-0000-0000-000000000000', 'pri.ia@sagadatadriven.com.br', '', now(), 'authenticated', 'authenticated', now(), now())
+  ON CONFLICT (id) DO NOTHING;
 
-All three functions use `SECURITY DEFINER` with `search_path = public` to access `auth.users.email` for proper matching.
+  INSERT INTO profiles (id, nome_completo, tipo_acesso)
+  VALUES (v_id, 'Pri IA', 'Sistema')
+  ON CONFLICT (id) DO NOTHING;
 
-#### 2. Frontend: Rewrite ResumoTab, RankingTab, DesempenhoTab
-
-Each tab calls its respective RPC via `supabase.rpc()` — no more raw table queries.
-
-**ResumoTab**: Call `get_resumo_stats`, render funnel + meta cards from returned data.
-
-**RankingTab**: 
-- Change prop from `prospeccaoId: string | null` to `prospeccaoIds: string[]`
-- Call `get_ranking_vendedores`
-
-**DesempenhoTab**: 
-- Change prop from `prospeccaoId: string | null` to `prospeccaoIds: string[]`
-- Call `get_desempenho_vendedores`
-
-#### 3. Frontend: Remove Produtos and Premiações
-
-- Remove entries from `routeToTab`, `routeToTitle` in `Resultados.tsx`
-- Remove from `AppSidebar.tsx` sidebar items
-- Remove switch cases in `renderContent()`
-
-#### 4. Frontend: Pass `selectedProspeccoes` array to Ranking/Desempenho
-
-In `Resultados.tsx`, change:
-```
-// Before
-<RankingTab prospeccaoId={selectedProspeccoes[0]} ... />
-// After  
-<RankingTab prospeccaoIds={selectedProspeccoes} ... />
+  RAISE NOTICE 'Pri IA user created with ID: %', v_id;
+END $$;
 ```
 
-Same for DesempenhoTab.
+After migration runs, retrieve the generated UUID from the database to set as secret.
 
-### Files Changed
+### Step 2 — Add Supabase Secret
 
-| File | Action |
+Query the UUID from profiles, then add secret:
+
+- **Name:** `PRI_IA_USER_ID`
+- **Value:** the UUID generated in Step 1
+
+### Step 3 — Update `prospeccao-status/index.ts`
+
+Three changes only:
+
+**3.1** — At the top, read env + define email constant:
+```typescript
+const PRI_IA_USER_ID = Deno.env.get('PRI_IA_USER_ID');
+const PRI_IA_EMAIL = 'pri.ia@sagadatadriven.com.br';
+```
+
+**3.2** — Guard: after `isAdminToken` is determined, if it's an admin-token call and `PRI_IA_USER_ID` is missing, return 500 immediately:
+```typescript
+if (isAdminToken && !PRI_IA_USER_ID) {
+  console.error('PRI_IA_USER_ID não configurado');
+  return new Response(
+    JSON.stringify({ error: 'Configuração de sistema ausente (PRI_IA_USER_ID)' }),
+    { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+```
+
+**3.3** — In the `logs_movimentacao_contatos` INSERT (line ~269-278):
+```typescript
+usuario_id: isAdminToken ? PRI_IA_USER_ID : (userId === 'admin-api' ? null : userId),
+observacoes: isAdminToken ? 'Alteração automática via Pri IA' : 'Alteração via API (lead_id)'
+```
+
+**3.4** — After the status UPDATE (line ~261), add responsavel update for admin-token:
+```typescript
+if (isAdminToken && PRI_IA_USER_ID) {
+  const { error: respError } = await supabaseClient
+    .from('contatos')
+    .update({ responsavel_email: PRI_IA_EMAIL })
+    .eq('id', contato.id);
+  if (respError) {
+    console.error('Erro ao atribuir responsável Pri IA:', respError.message);
+  } else {
+    console.log(`   └─ Responsável atualizado para Pri IA`);
+  }
+}
+```
+
+**3.5** — Deploy the function.
+
+### What We Are NOT Doing
+
+| Item | Reason |
 |------|--------|
-| Migration SQL | Create 3 RPCs |
-| `src/components/resultados/ResumoTab.tsx` | Rewrite to use RPC |
-| `src/components/resultados/RankingTab.tsx` | Rewrite to use RPC + multi-select |
-| `src/components/resultados/DesempenhoTab.tsx` | Rewrite to use RPC + multi-select |
-| `src/pages/Resultados.tsx` | Remove produtos/premiações, pass arrays |
-| `src/components/AppSidebar.tsx` | Remove produtos/premiações menu items |
+| Login guard for `tipo_acesso = 'Sistema'` | Domain check already blocks `@sagadatadriven.com.br` (not `@gruposaga.com.br`) |
+| `prospeccao-anotacao` changes | Per user request — skip for now |
+| `PermissionRegistry` changes | 'Sistema' is not a permission profile |
+| Ranking/Acessos changes | Already filter by specific `tipo_acesso` values |
+
+### Validation
+
+1. Query DB: `SELECT id, nome_completo, tipo_acesso FROM profiles WHERE nome_completo = 'Pri IA'` — should return one row
+2. Test admin-token status change via curl → check `logs_movimentacao_contatos` has `usuario_id` = Pri IA UUID
+3. Check `contatos.responsavel_email` = `pri.ia@sagadatadriven.com.br` after admin-token change
+4. Timeline shows "Pri IA" via JOIN with profiles
 
