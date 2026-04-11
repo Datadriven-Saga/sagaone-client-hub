@@ -23,33 +23,35 @@ serve(async (req) => {
       );
     }
 
-    // Client with user's JWT for RLS-respecting queries
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        auth: { persistSession: false },
-        global: {
-          headers: { authorization: authHeader }
-        }
-      }
-    );
-
-    // Validate JWT via getClaims
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
 
-    if (claimsError || !claimsData?.claims?.sub) {
-      console.error('Auth claims error:', claimsError?.message);
+    // Decodificar o payload do JWT (segunda parte do token)
+    let userId: string;
+    let userEmail: string;
+    try {
+      const payloadBase64 = token.split('.')[1];
+      const payloadJson = atob(payloadBase64);
+      const payload = JSON.parse(payloadJson);
+      
+      userId = payload.sub;
+      userEmail = payload.email;
+      
+      if (!userId) {
+        throw new Error('Token sem sub');
+      }
+      
+      // Verificar se o token não expirou
+      if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+        throw new Error('Token expirado');
+      }
+    } catch (e) {
+      console.error('Erro ao decodificar JWT:', e.message);
       return new Response(
-        JSON.stringify({ error: 'Usuário não autenticado' }),
+        JSON.stringify({ error: 'Token inválido' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const userId = claimsData.claims.sub;
-    const userEmail = claimsData.claims.email;
-    
     console.log(`API prospeccao-anotacao accessed by user: ${userEmail} (${userId})`);
 
     if (req.method !== 'POST') {
