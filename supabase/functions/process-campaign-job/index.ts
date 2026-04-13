@@ -96,9 +96,9 @@ serve(async (req) => {
       );
     }
 
-    console.log(`🚀 Processando campaign job: ${job_id}`);
+    console.log(`🚀 Recebendo campaign job: ${job_id}`);
 
-    // Buscar job
+    // Buscar job para validação rápida
     const { data: job, error: jobError } = await supabase
       .from('campaign_jobs')
       .select('*')
