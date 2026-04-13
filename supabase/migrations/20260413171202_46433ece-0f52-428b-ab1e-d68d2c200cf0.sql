@@ -1,0 +1,1 @@
+ALTER TABLE public.contatos ADD COLUMN IF NOT EXISTS tentativas_chamada integer NOT NULL DEFAULT 0;
