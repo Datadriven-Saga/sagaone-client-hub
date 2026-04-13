@@ -285,13 +285,12 @@ export function ContatoModal({
           }
 
           // Se há um contato, buscar dados dele
-          if (contato && prospeccaoId) {
-            // Buscar anotações do contato com JOIN em profiles via usuario_id
+          if (contato) {
+            // Buscar anotações do contato (todas as prospecções) para persistência
             const { data: eventos, error } = await supabase
               .from('eventos_prospeccao')
               .select('id, descricao, created_at, usuario_id, observacoes')
               .eq('contato_id', contato.id)
-              .eq('prospeccao_id', prospeccaoId)
               .eq('tipo_evento', 'Anotação')
               .order('created_at', { ascending: false });
 
@@ -967,7 +966,6 @@ export function ContatoModal({
                         .from('eventos_prospeccao')
                         .select('id, descricao, created_at, usuario_id, observacoes')
                         .eq('contato_id', contato.id)
-                        .eq('prospeccao_id', prospeccaoId)
                         .eq('tipo_evento', 'Anotação')
                         .order('created_at', { ascending: false });
 
