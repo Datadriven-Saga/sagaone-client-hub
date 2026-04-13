@@ -12,16 +12,16 @@ const MAX_RETRIES = 3;
 const normalizePhone = (phone: string | null): string => {
   if (!phone) return '';
   let digits = phone.replace(/\D/g, '');
-  // Remove DDI 55 se existir
   if (digits.startsWith('55') && digits.length > 11) {
     digits = digits.slice(2);
   }
-  // Normalizar para 10 dígitos: se tem 11 dígitos e o 3º é 9, remove o 9
   if (digits.length === 11 && digits[2] === '9') {
     digits = digits.slice(0, 2) + digits.slice(3);
   }
   return digits;
 };
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 function resolveVariableMapping(
   mapping: Record<string, string> | null,
@@ -52,77 +52,12 @@ function resolveVariableMapping(
   return Object.keys(resolved).length > 0 ? resolved : null;
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-  // Auth check - accept service role key or valid JWT
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-  const tokenValue = authHeader.replace('Bearer ', '');
-  if (tokenValue !== supabaseKey) {
-    const supabaseAuth = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(tokenValue);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
-
+// ============================================================
+// Background processing function
+// ============================================================
+async function processJobInBackground(supabase: any, job_id: string, job: any, SAGA_ONE: string) {
   try {
-    const { job_id } = await req.json();
-    
-    if (!job_id) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'job_id é obrigatório' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`🚀 Processando campaign job: ${job_id}`);
-
-    // Buscar job
-    const { data: job, error: jobError } = await supabase
-      .from('campaign_jobs')
-      .select('*')
-      .eq('id', job_id)
-      .single();
-
-    if (jobError || !job) {
-      console.error('Job não encontrado:', jobError);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Job não encontrado' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Verificar se já está processando ou completo
-    if (job.status === 'completed' || job.status === 'cancelled') {
-      return new Response(
-        JSON.stringify({ success: true, message: `Job já está ${job.status}` }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Marcar job como processing
-    await supabase
-      .from('campaign_jobs')
-      .update({ status: 'processing', started_at: new Date().toISOString() })
-      .eq('id', job_id);
+    console.log(`🚀 [BG] Iniciando processamento do job: ${job_id}`);
 
     // Buscar dados da prospecção
     const { data: prospeccao } = await supabase
@@ -133,12 +68,12 @@ serve(async (req) => {
 
     if (!prospeccao) {
       await supabase.from('campaign_jobs').update({ status: 'failed', error_message: 'Prospecção não encontrada', completed_at: new Date().toISOString() }).eq('id', job_id);
-      return new Response(JSON.stringify({ success: false, error: 'Prospecção não encontrada' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      console.error(`❌ [BG] Prospecção não encontrada para job ${job_id}`);
+      return { success: false, error: 'Prospecção não encontrada' };
     }
 
     const canalStr = String(prospeccao.canal || '').toLowerCase();
     const isIALigacao = canalStr.includes('liga') || canalStr === 'ligação' || canalStr === 'ligacao';
-    const isIAWhatsapp = canalStr === 'whatsapp';
 
     // Buscar empresa
     const { data: empresaData } = await supabase
@@ -158,7 +93,6 @@ serve(async (req) => {
       .filter((a: any) => a && a.ativo)
       .filter((a: any, idx: number, self: any[]) => idx === self.findIndex((t: any) => t?.id === a?.id));
 
-    // Buscar agente específico
     const agenteSearchPatterns = isIALigacao ? ['ligação', 'ligacao', 'ligaçao'] : ['whatsapp'];
     const agenteEspecifico = agentes.find((a: any) => {
       const nome = String(a?.nome || '').toLowerCase();
@@ -224,7 +158,7 @@ serve(async (req) => {
       variable_mapping: variableMapping,
     };
 
-    // Buscar batches pendentes ou com falha (para retry/resume)
+    // Buscar batches pendentes ou com falha
     const { data: batches } = await supabase
       .from('campaign_batches')
       .select('*')
@@ -237,10 +171,11 @@ serve(async (req) => {
         status: 'completed', 
         completed_at: new Date().toISOString() 
       }).eq('id', job_id);
-      return new Response(JSON.stringify({ success: true, message: 'Nenhum batch pendente' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      console.log(`✅ [BG] Job ${job_id}: nenhum batch pendente`);
+      return { success: true, message: 'Nenhum batch pendente' };
     }
 
-    console.log(`📦 ${batches.length} batches para processar`);
+    console.log(`📦 [BG] ${batches.length} batches para processar (canal: ${prospeccao.canal})`);
 
     let totalProcessed = job.processed_records || 0;
     let totalFailed = job.failed_records || 0;
@@ -251,17 +186,15 @@ serve(async (req) => {
       // Verificar se job foi cancelado
       const { data: currentJob } = await supabase.from('campaign_jobs').select('status').eq('id', job_id).single();
       if (currentJob?.status === 'cancelled') {
-        console.log('🛑 Job cancelado, parando processamento');
+        console.log('🛑 [BG] Job cancelado, parando processamento');
         break;
       }
 
-      // Não reprocessar batches que já falharam MAX_RETRIES vezes
       if (batch.retry_count >= MAX_RETRIES) {
-        console.log(`⏭️ Batch ${batch.batch_index} já excedeu ${MAX_RETRIES} retries, pulando`);
+        console.log(`⏭️ [BG] Batch ${batch.batch_index} já excedeu ${MAX_RETRIES} retries, pulando`);
         continue;
       }
 
-      // Marcar batch como processing
       await supabase.from('campaign_batches').update({ 
         status: 'processing', 
         started_at: new Date().toISOString() 
@@ -270,14 +203,10 @@ serve(async (req) => {
       const leadIds: string[] = Array.isArray(batch.lead_ids) ? batch.lead_ids : JSON.parse(String(batch.lead_ids));
 
       try {
-        // Buscar dados dos leads
-        // Para IA Ligação: buscar de prospect_pri_voz (fonte de verdade)
-        // Para WhatsApp: buscar de contatos (tabela local)
         const leads: any[] = [];
         const SUB_BATCH = 100;
 
         if (isIALigacao) {
-          // IA Ligação: IDs vêm de prospect_pri_voz
           for (let i = 0; i < leadIds.length; i += SUB_BATCH) {
             const batchIds = leadIds.slice(i, i + SUB_BATCH);
             const { data: prospectsData, error: prospectsError } = await supabase
@@ -285,10 +214,9 @@ serve(async (req) => {
               .select('id, telefone_lead, nome, lead_id')
               .in('id', batchIds);
             if (prospectsError) {
-              console.error(`⚠️ Erro ao buscar prospects sub-batch ${Math.floor(i / SUB_BATCH)}:`, prospectsError.message);
+              console.error(`⚠️ [BG] Erro ao buscar prospects sub-batch ${Math.floor(i / SUB_BATCH)}:`, prospectsError.message);
             }
             if (prospectsData) {
-              // Map prospect_pri_voz fields to expected lead format
               leads.push(...prospectsData.map((p: any) => ({
                 id: p.id,
                 lead_id: p.lead_id,
@@ -302,7 +230,6 @@ serve(async (req) => {
             }
           }
         } else {
-          // WhatsApp: buscar de contatos
           for (let i = 0; i < leadIds.length; i += SUB_BATCH) {
             const batchIds = leadIds.slice(i, i + SUB_BATCH);
             const { data: leadsData, error: leadsError } = await supabase
@@ -310,14 +237,14 @@ serve(async (req) => {
               .select('id, lead_id, nome, telefone, email, status, origem, vendedor_nome, codigo_proposta')
               .in('id', batchIds);
             if (leadsError) {
-              console.error(`⚠️ Erro ao buscar leads sub-batch ${Math.floor(i / SUB_BATCH)}:`, leadsError.message);
+              console.error(`⚠️ [BG] Erro ao buscar leads sub-batch ${Math.floor(i / SUB_BATCH)}:`, leadsError.message);
             }
             if (leadsData) leads.push(...leadsData);
           }
         }
 
         if (leads.length === 0) {
-          console.warn(`⚠️ Batch ${batch.batch_index}: 0 leads encontrados de ${leadIds.length} IDs`);
+          console.warn(`⚠️ [BG] Batch ${batch.batch_index}: 0 leads encontrados de ${leadIds.length} IDs`);
           await supabase.from('campaign_batches').update({ 
             status: 'completed', 
             processed_leads: 0,
@@ -327,15 +254,13 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`📤 Batch ${batch.batch_index}: enviando ${leads.length} leads`);
+        console.log(`📤 [BG] Batch ${batch.batch_index}: enviando ${leads.length} leads via ${isIALigacao ? 'Ligação' : 'WhatsApp'}`);
 
-        // Arrays para rastrear resultados individuais por lead
         const successLeadIds: string[] = [];
         const failedLeadIds: string[] = [];
 
         if (isIALigacao) {
-          // IA Ligação: enviar em sub-lotes de 100 contatos
-          // Para Ligação, o webhook recebe lote de contatos, mas rastreamos por sub-lote
+          // IA Ligação: enviar em sub-lotes de 100
           const contatosWithIds = leads.map(lead => ({
             id: lead.id,
             telefone_lead: normalizePhone(lead.telefone),
@@ -344,8 +269,6 @@ serve(async (req) => {
           }));
 
           const LIGACAO_SUB_BATCH = 100;
-          // Timeout de 120s por sub-lote: o webhook externo processa todos os contatos
-          // antes de retornar, então precisa de tempo suficiente para lotes de 100
           const LIGACAO_TIMEOUT_MS = 120000;
 
           for (let i = 0; i < contatosWithIds.length; i += LIGACAO_SUB_BATCH) {
@@ -379,7 +302,7 @@ serve(async (req) => {
               clearTimeout(timeout);
 
               const responseBody = await response.text().catch(() => '');
-              console.log(`📡 Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: HTTP ${response.status}, body: ${responseBody.substring(0, 300)}`);
+              console.log(`📡 [BG] Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: HTTP ${response.status}, body: ${responseBody.substring(0, 300)}`);
 
               if (response.ok && responseBody.length > 0) {
                 const isValidResponse = !responseBody.toLowerCase().includes('"error"') && 
@@ -387,25 +310,24 @@ serve(async (req) => {
                                         !responseBody.toLowerCase().includes('not active');
                 if (isValidResponse) {
                   successLeadIds.push(...subIds);
-                  console.log(`✅ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: webhook OK (${subContatos.length} contatos)`);
                 } else {
                   failedLeadIds.push(...subIds);
-                  console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: Webhook retornou erro interno: ${responseBody.substring(0, 200)}`);
+                  console.error(`❌ [BG] Webhook retornou erro interno: ${responseBody.substring(0, 200)}`);
                 }
               } else if (response.ok && responseBody.length === 0) {
                 failedLeadIds.push(...subIds);
-                console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: Webhook retornou 200 mas body vazio (workflow possivelmente inativo)`);
+                console.error(`❌ [BG] Webhook retornou 200 mas body vazio`);
               } else {
                 failedLeadIds.push(...subIds);
-                console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: HTTP ${response.status}: ${responseBody.substring(0, 200)}`);
+                console.error(`❌ [BG] HTTP ${response.status}: ${responseBody.substring(0, 200)}`);
               }
             } catch (err: any) {
               failedLeadIds.push(...subIds);
               const isTimeout = err.name === 'AbortError';
-              console.error(`❌ Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: ${isTimeout ? `Timeout (${LIGACAO_TIMEOUT_MS / 1000}s)` : 'Network error'}: ${err.message}`);
+              console.error(`❌ [BG] ${isTimeout ? 'Timeout' : 'Network error'}: ${err.message}`);
             }
 
-            // *** PROGRESSO GRANULAR: atualizar após cada sub-lote de 100 (Ligação) ***
+            // Progresso granular
             totalProcessed = batchBaseProcessed + successLeadIds.length;
             totalFailed = batchBaseFailed + failedLeadIds.length;
             await supabase.from('campaign_jobs').update({
@@ -413,16 +335,23 @@ serve(async (req) => {
               failed_records: totalFailed,
               updated_at: new Date().toISOString(),
             }).eq('id', job_id);
-
-            console.log(`📊 Sub-lote Ligação ${Math.floor(i / LIGACAO_SUB_BATCH) + 1}: progresso ${totalProcessed}/${job.total_records}`);
           }
-
-          console.log(`📊 Batch ${batch.batch_index} Ligação: ${successLeadIds.length} ok, ${failedLeadIds.length} falhas`);
         } else {
-          // IA WhatsApp: processar leads individualmente em paralelo (batches de 50)
-          const WA_BATCH_SIZE = 50;
+          // =====================================================
+          // IA WhatsApp: processar leads SEQUENCIALMENTE em lotes de 5
+          // com delay entre sub-lotes para não sobrecarregar n8n
+          // =====================================================
+          const WA_BATCH_SIZE = 5;
+          const WA_DELAY_MS = 500;
+
+          console.log(`📤 [BG] WhatsApp: ${leads.length} leads, lotes de ${WA_BATCH_SIZE}, delay ${WA_DELAY_MS}ms`);
 
           for (let i = 0; i < leads.length; i += WA_BATCH_SIZE) {
+            // Delay entre sub-lotes para não sobrecarregar o webhook
+            if (i > 0) {
+              await delay(WA_DELAY_MS);
+            }
+
             const subBatch = leads.slice(i, i + WA_BATCH_SIZE);
             
             const results = await Promise.allSettled(subBatch.map(async (lead: any) => {
@@ -447,58 +376,60 @@ serve(async (req) => {
                 variable_mapping: resolvedMapping,
               };
 
-              // Include proposalId only if codigo_proposta is non-empty
               if (lead.codigo_proposta) {
                 payload.proposalId = lead.codigo_proposta;
               }
 
               const controller = new AbortController();
-              const timeout = setTimeout(() => controller.abort(), 30000);
+              const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-              const response = await fetch(webhookUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
-                },
-                body: JSON.stringify(payload),
-                signal: controller.signal,
-              });
-              clearTimeout(timeout);
+              try {
+                const response = await fetch(webhookUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+                  },
+                  body: JSON.stringify(payload),
+                  signal: controller.signal,
+                });
+                clearTimeout(timeoutId);
 
-              const responseBody = await response.text().catch(() => '');
+                const responseBody = await response.text().catch(() => '');
 
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${responseBody.substring(0, 200)}`);
+                if (!response.ok) {
+                  throw new Error(`HTTP ${response.status}: ${responseBody.substring(0, 200)}`);
+                }
+
+                if (responseBody.length === 0) {
+                  throw new Error('Webhook retornou 200 mas body vazio (workflow possivelmente inativo)');
+                }
+
+                const hasError = responseBody.toLowerCase().includes('"error"') ||
+                                 responseBody.toLowerCase().includes('workflow not found') ||
+                                 responseBody.toLowerCase().includes('not active');
+                if (hasError) {
+                  throw new Error(`Webhook retornou erro interno: ${responseBody.substring(0, 200)}`);
+                }
+
+                return lead.id;
+              } catch (err) {
+                clearTimeout(timeoutId);
+                throw err;
               }
-
-              // Validar que o webhook realmente processou
-              if (responseBody.length === 0) {
-                throw new Error('Webhook retornou 200 mas body vazio (workflow possivelmente inativo)');
-              }
-
-              const hasError = responseBody.toLowerCase().includes('"error"') ||
-                               responseBody.toLowerCase().includes('workflow not found') ||
-                               responseBody.toLowerCase().includes('not active');
-              if (hasError) {
-                throw new Error(`Webhook retornou erro interno: ${responseBody.substring(0, 200)}`);
-              }
-
-              console.log(`📡 Lead ${lead.id}: webhook OK, body: ${responseBody.substring(0, 100)}`);
-              return lead.id;
             }));
 
-            for (const r of results) {
+            for (let ri = 0; ri < results.length; ri++) {
+              const r = results[ri];
               if (r.status === 'fulfilled') {
                 successLeadIds.push(r.value);
               } else {
-                // Para falhas, pegar o ID do lead correspondente pelo índice
-                const idx = results.indexOf(r);
-                failedLeadIds.push(subBatch[idx].id);
+                failedLeadIds.push(subBatch[ri].id);
+                console.error(`❌ [BG] Lead ${subBatch[ri].id} (${subBatch[ri].nome}): ${(r as PromiseRejectedResult).reason?.message || 'erro desconhecido'}`);
               }
             }
 
-            // *** PROGRESSO GRANULAR: atualizar após cada sub-lote de 50 ***
+            // Progresso granular a cada sub-lote
             totalProcessed = batchBaseProcessed + successLeadIds.length;
             totalFailed = batchBaseFailed + failedLeadIds.length;
             await supabase.from('campaign_jobs').update({
@@ -507,10 +438,10 @@ serve(async (req) => {
               updated_at: new Date().toISOString(),
             }).eq('id', job_id);
 
-            console.log(`📊 Sub-lote WhatsApp ${Math.floor(i / WA_BATCH_SIZE) + 1}: progresso ${totalProcessed}/${job.total_records}`);
+            if ((i / WA_BATCH_SIZE) % 20 === 0 || i + WA_BATCH_SIZE >= leads.length) {
+              console.log(`📊 [BG] WhatsApp progresso: ${successLeadIds.length} ok, ${failedLeadIds.length} falhas de ${leads.length} (${totalProcessed}/${job.total_records} total)`);
+            }
           }
-
-          console.log(`📊 Batch ${batch.batch_index} WhatsApp: ${successLeadIds.length} ok, ${failedLeadIds.length} falhas`);
         }
 
         // ========== PERSISTÊNCIA EM LOTE: SUCESSOS ==========
@@ -518,9 +449,6 @@ serve(async (req) => {
           const dataDisparoIA = new Date().toISOString();
           
           if (isIALigacao) {
-            // IA Ligação: IDs são de prospect_pri_voz, não de contatos
-            // Não atualizar contatos/eventos_prospeccao diretamente (IDs não correspondem)
-            // Backup cadencia_pri_voz para registro de tentativas
             const successLeadSet = new Set(successLeadIds);
             const cadenciasBackup = leads
               .filter((lead: any) => successLeadSet.has(lead.id))
@@ -539,7 +467,6 @@ serve(async (req) => {
               await supabase.from('cadencia_pri_voz').upsert(cadenciasBackup.slice(i, i + 100), { onConflict: 'telefone_lead,id_evento' });
             }
           } else {
-            // WhatsApp: atualizar contatos e eventos_prospeccao em sub-lotes de 100
             for (let i = 0; i < successLeadIds.length; i += 100) {
               const chunk = successLeadIds.slice(i, i + 100);
               await supabase.from('contatos').update({ data_disparo_ia: dataDisparoIA }).in('id', chunk);
@@ -548,15 +475,12 @@ serve(async (req) => {
           }
         }
 
-        // ========== PERSISTÊNCIA EM LOTE: FALHAS ==========
-        // Leads com falha NÃO recebem data_disparo_ia (permanecem pendentes para reprocessamento)
-
         // Determinar status do batch
         const batchStatus = failedLeadIds.length === 0 
           ? 'completed' 
           : successLeadIds.length === 0 
             ? 'failed' 
-            : 'completed'; // Parcial: batch completo, mas com falhas registradas
+            : 'completed';
 
         const batchError = failedLeadIds.length > 0 
           ? `${failedLeadIds.length} de ${leads.length} leads falharam` 
@@ -572,13 +496,11 @@ serve(async (req) => {
             : {}),
         }).eq('id', batch.id);
 
-        // Atualizar acumuladores para o próximo batch
         totalProcessed = batchBaseProcessed + successLeadIds.length;
         totalFailed = batchBaseFailed + failedLeadIds.length;
         batchBaseProcessed = totalProcessed;
         batchBaseFailed = totalFailed;
 
-        // Atualização final do batch no job
         await supabase.from('campaign_jobs').update({
           processed_records: totalProcessed,
           failed_records: totalFailed,
@@ -586,7 +508,7 @@ serve(async (req) => {
         }).eq('id', job_id);
 
       } catch (batchErr: any) {
-        console.error(`❌ Erro crítico no batch ${batch.batch_index}:`, batchErr);
+        console.error(`❌ [BG] Erro crítico no batch ${batch.batch_index}:`, batchErr);
         await supabase.from('campaign_batches').update({
           status: 'failed',
           retry_count: (batch.retry_count || 0) + 1,
@@ -620,7 +542,7 @@ serve(async (req) => {
     const retriableBatches = (failedBatches || []).filter(b => (b.retry_count || 0) < MAX_RETRIES);
 
     const finalStatus = (remainingBatches?.length === 0 && retriableBatches.length === 0)
-      ? (totalFailed > 0 ? 'completed' : 'completed')
+      ? 'completed'
       : 'failed';
 
     await supabase.from('campaign_jobs').update({
@@ -631,7 +553,7 @@ serve(async (req) => {
       error_message: totalFailed > 0 ? `${totalFailed} registros falharam` : null,
     }).eq('id', job_id);
 
-    // Criar notificação para o usuário
+    // Criar notificação
     try {
       await supabase.from('notificacoes').insert({
         user_id: job.user_id,
@@ -642,21 +564,124 @@ serve(async (req) => {
         lida: false,
       });
     } catch (notifErr) {
-      console.warn('⚠️ Erro ao criar notificação:', notifErr);
+      console.warn('⚠️ [BG] Erro ao criar notificação:', notifErr);
     }
 
-    console.log(`✅ Job ${job_id} finalizado: ${totalProcessed} processados, ${totalFailed} falhas`);
+    console.log(`✅ [BG] Job ${job_id} finalizado: ${totalProcessed} processados, ${totalFailed} falhas`);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        job_id,
-        status: finalStatus,
-        processed: totalProcessed,
-        failed: totalFailed,
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return {
+      success: true,
+      job_id,
+      status: finalStatus,
+      processed: totalProcessed,
+      failed: totalFailed,
+    };
+  } catch (error: any) {
+    console.error(`❌ [BG] Erro crítico no job ${job_id}:`, error);
+    await supabase.from('campaign_jobs').update({
+      status: 'failed',
+      error_message: error.message,
+      completed_at: new Date().toISOString(),
+    }).eq('id', job_id);
+    return { success: false, error: error.message };
+  }
+}
+
+// ============================================================
+// HTTP Handler
+// ============================================================
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+  // Auth check
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const tokenValue = authHeader.replace('Bearer ', '');
+  if (tokenValue !== supabaseKey) {
+    const supabaseAuth = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userError } = await supabaseAuth.auth.getUser(tokenValue);
+    if (userError || !userData?.user) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+
+  try {
+    const { job_id } = await req.json();
+    
+    if (!job_id) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'job_id é obrigatório' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`📥 Recebendo campaign job: ${job_id}`);
+
+    // Buscar job para validação
+    const { data: job, error: jobError } = await supabase
+      .from('campaign_jobs')
+      .select('*')
+      .eq('id', job_id)
+      .single();
+
+    if (jobError || !job) {
+      console.error('Job não encontrado:', jobError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Job não encontrado' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (job.status === 'completed' || job.status === 'cancelled') {
+      return new Response(
+        JSON.stringify({ success: true, message: `Job já está ${job.status}` }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Marcar como processing
+    await supabase
+      .from('campaign_jobs')
+      .update({ status: 'processing', started_at: new Date().toISOString() })
+      .eq('id', job_id);
+
+    // Processar em background via EdgeRuntime.waitUntil
+    const processPromise = processJobInBackground(supabase, job_id, job, SAGA_ONE);
+    
+    // @ts-ignore - EdgeRuntime disponível em Supabase Edge Functions
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(processPromise);
+      console.log(`⏳ Job ${job_id} delegado para background`);
+      return new Response(
+        JSON.stringify({ success: true, job_id, status: 'processing', message: 'Processamento iniciado em background' }),
+        { status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else {
+      // Fallback: processar inline
+      console.log(`⏳ Job ${job_id} processando inline`);
+      const result = await processPromise;
+      return new Response(
+        JSON.stringify(result),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
   } catch (error: any) {
     console.error('❌ Erro crítico:', error);
