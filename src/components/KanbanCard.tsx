@@ -159,7 +159,7 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
             <p className="text-sm text-muted-foreground">
               {item.channel}
             </p>
-            {isMobile && (
+            {(
               <button
                 onClick={handlePhoneClick}
                 className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors shrink-0"
