@@ -420,7 +420,7 @@ export function ContatoModal({
       return;
     }
 
-    if (!contato || !prospeccaoId) {
+    if (!contato) {
       toast({
         title: "Erro",
         description: "Dados do contato não disponíveis",
@@ -434,7 +434,7 @@ export function ContatoModal({
       // Salvar anotação no banco via edge function
       const { data, error } = await supabase.functions.invoke('prospeccao-anotacao', {
         body: {
-          prospeccao_id: prospeccaoId,
+          ...(prospeccaoId ? { prospeccao_id: prospeccaoId } : {}),
           contato_id: contato.id,
           mensagem: novaAnotacao
         }
@@ -442,6 +442,11 @@ export function ContatoModal({
 
       if (error) {
         throw error;
+      }
+
+      // Verificar se a resposta contém erro
+      if (data && data.error) {
+        throw new Error(data.error);
       }
 
       toast({
