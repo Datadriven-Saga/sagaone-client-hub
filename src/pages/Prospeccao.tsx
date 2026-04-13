@@ -2247,7 +2247,7 @@ showAllEvents: true
                 <KanbanBoard
                   columns={kanbanColumns}
                   columnCounts={kanbanColumnCounts}
-                  onUpdateColumns={() => {}}
+                  onUpdateColumns={handleOptimisticColumnUpdate}
                   onCardClick={handleCardClick}
                   onStatusChange={handleStatusChange}
                   onSolicitarClientes={isLimitedUser ? solicitarClientes : undefined}
