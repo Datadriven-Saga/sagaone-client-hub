@@ -47,6 +47,7 @@ const ORIGIN_STYLES: Record<string, string> = {
 export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
   const isMobile = useIsMobile();
   const [showCallConfirm, setShowCallConfirm] = useState(false);
+  const [localTentativas, setLocalTentativas] = useState(item.tentativas_chamada ?? 0);
 
   const {
     attributes,
