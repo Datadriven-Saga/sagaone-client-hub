@@ -21,6 +21,7 @@ export interface Contato {
   origem: 'Site' | 'WhatsApp' | 'Instagram' | 'Facebook' | 'Google' | 'Indicação' | 'Telefone' | 'Email' | 'Outros' | 'ligacao' | 'grande_evento' | 'prospeccao_mensal';
   created_at: string;
   updated_at: string;
+  tentativas_chamada?: number;
 }
 
 // Mapeamento dos status do banco para as colunas do Kanban
