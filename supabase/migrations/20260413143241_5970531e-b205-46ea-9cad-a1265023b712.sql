@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_eventos_prospeccao_pending_dispatch ON public.eventos_prospeccao (prospeccao_id, contato_id) WHERE data_disparo_ia IS NULL AND contato_id IS NOT NULL;
