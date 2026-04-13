@@ -6,7 +6,6 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Phone, PhoneCall } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Tooltip,
   TooltipContent,
@@ -45,7 +44,6 @@ const ORIGIN_STYLES: Record<string, string> = {
 };
 
 export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
-  const isMobile = useIsMobile();
   const [showCallConfirm, setShowCallConfirm] = useState(false);
   const [localTentativas, setLocalTentativas] = useState(item.tentativas_chamada ?? 0);
 
@@ -111,7 +109,9 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
     const newCount = localTentativas + 1;
     setLocalTentativas(newCount); // Optimistic update
     try {
-      const { error } = await supabase.from('contatos').update({ tentativas_chamada: newCount } as any).eq('id', item.id);
+      const { error } = await supabase.rpc('increment_tentativas_chamada', {
+        p_contato_id: item.id,
+      });
       if (error) throw error;
       toast.success('Tentativa de ligação registrada!');
     } catch (err) {
