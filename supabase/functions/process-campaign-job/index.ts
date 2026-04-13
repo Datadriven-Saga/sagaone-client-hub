@@ -422,10 +422,14 @@ serve(async (req) => {
 
           console.log(`📊 Batch ${batch.batch_index} Ligação: ${successLeadIds.length} ok, ${failedLeadIds.length} falhas`);
         } else {
-          // IA WhatsApp: processar leads individualmente em paralelo (batches de 50)
-          const WA_BATCH_SIZE = 50;
+          // IA WhatsApp: processar leads sequencialmente em pequenos lotes
+          // n8n não suporta muitas execuções simultâneas - reduzido para 5 concorrentes
+          const WA_BATCH_SIZE = 5;
+          const WA_DELAY_MS = 500; // 500ms entre sub-lotes para não sobrecarregar
 
           for (let i = 0; i < leads.length; i += WA_BATCH_SIZE) {
+            // Delay entre sub-lotes (exceto o primeiro)
+            if (i > 0) await delay(WA_DELAY_MS);
             const subBatch = leads.slice(i, i + WA_BATCH_SIZE);
             
             const results = await Promise.allSettled(subBatch.map(async (lead: any) => {
