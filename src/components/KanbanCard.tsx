@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { KanbanItem } from './KanbanBoard';
@@ -48,6 +48,11 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
   const isMobile = useIsMobile();
   const [showCallConfirm, setShowCallConfirm] = useState(false);
   const [localTentativas, setLocalTentativas] = useState(item.tentativas_chamada ?? 0);
+
+  // Sync with prop when parent re-fetches
+  useEffect(() => {
+    setLocalTentativas(item.tentativas_chamada ?? 0);
+  }, [item.tentativas_chamada]);
 
   const {
     attributes,
