@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
@@ -552,6 +552,23 @@ showAllEvents: true
     };
   };
 
+  const refreshLeadViews = useCallback((options?: { silentKanban?: boolean }) => {
+    if (!activeCompany?.id) return;
+
+    const filters = getKanbanFilters();
+
+    fetchServerMetricas();
+
+    if (activeTab === 'kanban') {
+      fetchKanbanColumns(filters, { silent: options?.silentKanban ?? true });
+    } else if (activeTab === 'lista') {
+      fetchContatosPaginated(currentPage, {
+        ...filters,
+        status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
+      });
+    }
+  }, [activeCompany?.id, activeTab, currentPage, globalFilters.status, fetchContatosPaginated, fetchKanbanColumns, fetchServerMetricas, globalFilters.prospeccaoIds, globalFilters.responsavelId, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, profiles]);
+
   // Carregar contatos quando necessário
   // Kanban usa fetchKanbanColumns (per-column), Lista usa fetchContatosPaginated
   useEffect(() => {
@@ -868,17 +885,39 @@ showAllEvents: true
         contarLeadsPendentes();
       }
 
-      // Re-fetch kanban silently to sync with DB without flicker
-      fetchKanbanColumns(getKanbanFilters(), { silent: true });
+      refreshLeadViews({ silentKanban: true });
       
       return true;
     } catch (err) {
       console.error('Erro ao processar mudança de status:', err);
-      // Re-fetch para garantir consistência mesmo em caso de erro
-      fetchKanbanColumns(getKanbanFilters(), { silent: true });
+      refreshLeadViews({ silentKanban: true });
       return true;
     }
   };
+
+  useEffect(() => {
+    if (!activeCompany?.id) return;
+
+    const channel = supabase
+      .channel(`prospeccao-contatos-${activeCompany.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'contatos',
+          filter: `empresa_id=eq.${activeCompany.id}`,
+        },
+        () => {
+          refreshLeadViews({ silentKanban: true });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeCompany?.id, refreshLeadViews]);
 
   // Carregar contagens de pendentes para eventos IA (OTIMIZADO - sem webhooks externos)
   // Métricas externas de Ligação são carregadas sob demanda via RPC
