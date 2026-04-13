@@ -52,6 +52,9 @@ function resolveVariableMapping(
   return Object.keys(resolved).length > 0 ? resolved : null;
 }
 
+// Helper: delay entre sub-lotes para não sobrecarregar webhook externo
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
