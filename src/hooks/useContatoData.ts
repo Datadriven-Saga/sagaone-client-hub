@@ -2158,6 +2158,7 @@ export const useContatoData = () => {
     serverMetricas,
     // Kanban-specific API
     kanbanData,
+    setKanbanData,
     loadingKanban,
     kanbanLoadingMore,
     fetchKanbanColumns,

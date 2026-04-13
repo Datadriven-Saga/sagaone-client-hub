@@ -180,6 +180,7 @@ showAllEvents: true
     serverMetricas,
     // Kanban-specific API
     kanbanData,
+    setKanbanData,
     loadingKanban,
     kanbanLoadingMore,
     fetchKanbanColumns,
@@ -691,6 +692,42 @@ showAllEvents: true
 
     handleRecepcaoLink();
   }, [activeCompany, companyLoading, switchCompany, toast]);
+
+  // Optimistic update for kanban columns when dragging cards
+  const handleOptimisticColumnUpdate = (columns: KanbanColumnData[]) => {
+    // Rebuild kanbanData from the updated KanbanColumnData
+    // This keeps the UI in sync immediately after a drag
+    setKanbanData(prev => {
+      const updated = { ...prev };
+      for (const col of columns) {
+        if (updated[col.id]) {
+          // Map KanbanItems back to Contato-like objects, preserving all fields
+          updated[col.id] = {
+            ...updated[col.id],
+            count: updated[col.id].count + (col.items.length - (updated[col.id].items?.length ?? 0)),
+            items: col.items.map(item => {
+              // Try to find original contato data from any column
+              const original = Object.values(prev).flatMap(c => c.items).find(c => c.id === item.id);
+              if (original) return original;
+              // Fallback: build minimal contato from KanbanItem
+              return {
+                id: item.id,
+                lead_id: item.lead_id,
+                nome: item.title,
+                telefone: item.channel || '',
+                status: 'Novo' as any,
+                origem: 'Outros' as any,
+                created_at: item.dueDate || '',
+                updated_at: '',
+                tentativas_chamada: item.tentativas_chamada ?? 0,
+              };
+            }),
+          };
+        }
+      }
+      return updated;
+    });
+  };
 
   // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string): Promise<boolean> => {
@@ -2247,7 +2284,7 @@ showAllEvents: true
                 <KanbanBoard
                   columns={kanbanColumns}
                   columnCounts={kanbanColumnCounts}
-                  onUpdateColumns={() => {}}
+                  onUpdateColumns={handleOptimisticColumnUpdate}
                   onCardClick={handleCardClick}
                   onStatusChange={handleStatusChange}
                   onSolicitarClientes={isLimitedUser ? solicitarClientes : undefined}

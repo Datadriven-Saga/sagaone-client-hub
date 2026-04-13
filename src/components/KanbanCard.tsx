@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { KanbanItem } from './KanbanBoard';
@@ -47,6 +47,12 @@ const ORIGIN_STYLES: Record<string, string> = {
 export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
   const isMobile = useIsMobile();
   const [showCallConfirm, setShowCallConfirm] = useState(false);
+  const [localTentativas, setLocalTentativas] = useState(item.tentativas_chamada ?? 0);
+
+  // Sync with prop when parent re-fetches
+  useEffect(() => {
+    setLocalTentativas(item.tentativas_chamada ?? 0);
+  }, [item.tentativas_chamada]);
 
   const {
     attributes,
@@ -102,14 +108,15 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
 
   const handleConfirmCall = async () => {
     setShowCallConfirm(false);
+    const newCount = localTentativas + 1;
+    setLocalTentativas(newCount); // Optimistic update
     try {
-      const { data: current } = await supabase.from('contatos').select('tentativas_chamada').eq('id', item.id).single();
-      const newCount = ((current?.tentativas_chamada as number) || 0) + 1;
       const { error } = await supabase.from('contatos').update({ tentativas_chamada: newCount } as any).eq('id', item.id);
       if (error) throw error;
       toast.success('Tentativa de ligação registrada!');
     } catch (err) {
       console.error('Erro ao registrar tentativa:', err);
+      setLocalTentativas(localTentativas); // Revert on error
       toast.error('Erro ao registrar tentativa de ligação');
     }
   };
@@ -134,16 +141,16 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
             <h4 className="text-sm font-medium text-foreground leading-snug line-clamp-2">
               {item.title}
             </h4>
-            {(item.tentativas_chamada ?? 0) > 0 && (
+            {localTentativas > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="flex items-center gap-0.5 text-[10px] font-medium text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded shrink-0">
                     <PhoneCall className="w-3 h-3" />
-                    {item.tentativas_chamada}
+                    {localTentativas}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{item.tentativas_chamada} tentativa(s) de ligação</p>
+                  <p>{localTentativas} tentativa(s) de ligação</p>
                 </TooltipContent>
               </Tooltip>
             )}
