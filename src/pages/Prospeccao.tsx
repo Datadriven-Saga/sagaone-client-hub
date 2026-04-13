@@ -180,6 +180,7 @@ showAllEvents: true
     serverMetricas,
     // Kanban-specific API
     kanbanData,
+    setKanbanData,
     loadingKanban,
     kanbanLoadingMore,
     fetchKanbanColumns,
