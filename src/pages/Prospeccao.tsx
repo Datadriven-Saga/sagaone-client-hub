@@ -1140,7 +1140,8 @@ showAllEvents: true
           assignee: assigneeName,
           prospeccaoNome,
           prospeccaoCanal,
-          segmentacao: 'Undefined'
+          segmentacao: 'Undefined',
+          tentativas_chamada: contato.tentativas_chamada ?? 0
         };
       });
   };

@@ -130,9 +130,24 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
       >
         {/* Header: Name + ID */}
         <div className="flex items-start justify-between gap-2 mb-2">
-          <h4 className="text-sm font-medium text-foreground leading-snug line-clamp-2">
-            {item.title}
-          </h4>
+          <div className="flex items-center gap-1.5">
+            <h4 className="text-sm font-medium text-foreground leading-snug line-clamp-2">
+              {item.title}
+            </h4>
+            {(item.tentativas_chamada ?? 0) > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-0.5 text-[10px] font-medium text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded shrink-0">
+                    <PhoneCall className="w-3 h-3" />
+                    {item.tentativas_chamada}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{item.tentativas_chamada} tentativa(s) de ligação</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
           <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
             {displayId}
           </span>
