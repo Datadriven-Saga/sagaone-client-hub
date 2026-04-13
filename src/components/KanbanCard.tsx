@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { KanbanItem } from './KanbanBoard';
@@ -12,6 +12,18 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface KanbanCardProps {
   item: KanbanItem;
@@ -34,6 +46,7 @@ const ORIGIN_STYLES: Record<string, string> = {
 
 export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
   const isMobile = useIsMobile();
+  const [showCallConfirm, setShowCallConfirm] = useState(false);
 
   const {
     attributes,
@@ -70,7 +83,6 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
 
   const isBeingDragged = isDragging || isSortableDragging;
 
-  // Extrai as iniciais do nome do responsável
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/);
     if (parts.length >= 2) {
@@ -79,87 +91,122 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
     return name.slice(0, 2).toUpperCase();
   };
 
+  const handlePhoneClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Open native dialer
+    const phone = item.channel?.replace(/\D/g, '') || '';
+    window.open(`tel:+55${phone}`, '_self');
+    // Show confirmation dialog
+    setShowCallConfirm(true);
+  };
+
+  const handleConfirmCall = async () => {
+    setShowCallConfirm(false);
+    try {
+      const { error } = await supabase.rpc('increment_tentativas_chamada', { p_contato_id: item.id });
+      if (error) throw error;
+      toast.success('Tentativa de ligação registrada!');
+    } catch (err) {
+      console.error('Erro ao registrar tentativa:', err);
+      toast.error('Erro ao registrar tentativa de ligação');
+    }
+  };
+
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      onClick={() => onCardClick?.(item)}
-      className={cn(
-        "bg-white border border-border rounded-lg p-3.5 cursor-grab active:cursor-grabbing",
-        "hover:shadow-md hover:border-border/80 transition-all duration-150",
-        isBeingDragged && "shadow-xl scale-[1.02] rotate-1 opacity-90 border-primary/40"
-      )}
-    >
-      {/* Header: Name + ID */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <h4 className="text-sm font-medium text-foreground leading-snug line-clamp-2">
-          {item.title}
-        </h4>
-        <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
-          {displayId}
-        </span>
-      </div>
-
-      {/* Phone */}
-      {item.channel && (
-        <div className="flex items-center gap-2 mb-2.5">
-          <p className="text-sm text-muted-foreground">
-            {item.channel}
-          </p>
-          {isMobile && (
-            <a
-              href={`tel:+55${item.channel.replace(/\D/g, '')}`}
-              onClick={(e) => e.stopPropagation()}
-              className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors shrink-0"
-              aria-label="Ligar para o lead"
-            >
-              <Phone className="w-3.5 h-3.5" />
-            </a>
-          )}
+    <>
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        onClick={() => onCardClick?.(item)}
+        className={cn(
+          "bg-white border border-border rounded-lg p-3.5 cursor-grab active:cursor-grabbing",
+          "hover:shadow-md hover:border-border/80 transition-all duration-150",
+          isBeingDragged && "shadow-xl scale-[1.02] rotate-1 opacity-90 border-primary/40"
+        )}
+      >
+        {/* Header: Name + ID */}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <h4 className="text-sm font-medium text-foreground leading-snug line-clamp-2">
+            {item.title}
+          </h4>
+          <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
+            {displayId}
+          </span>
         </div>
-      )}
 
-      {/* Origin + Responsável + Time */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {origin && (
-            <span 
-              className={cn(
-                "text-[10px] font-medium px-2 py-0.5 rounded border",
-                getOriginStyle(origin)
-              )}
-            >
-              {origin.toLowerCase()}
-            </span>
-          )}
-          {/* Indicador de responsável com iniciais */}
-          <Tooltip>
-            <TooltipTrigger asChild>
+        {/* Phone */}
+        {item.channel && (
+          <div className="flex items-center gap-2 mb-2.5">
+            <p className="text-sm text-muted-foreground">
+              {item.channel}
+            </p>
+            {isMobile && (
+              <button
+                onClick={handlePhoneClick}
+                className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors shrink-0"
+                aria-label="Ligar para o lead"
+              >
+                <Phone className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Origin + Responsável + Time */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            {origin && (
               <span 
                 className={cn(
-                  "flex items-center justify-center text-[10px] font-semibold w-6 h-6 rounded-full cursor-default",
-                  item.assignee 
-                    ? "bg-green-100 text-green-700 border border-green-200" 
-                    : "bg-muted text-muted-foreground border border-border"
+                  "text-[10px] font-medium px-2 py-0.5 rounded border",
+                  getOriginStyle(origin)
                 )}
               >
-                {item.assignee ? getInitials(item.assignee) : "--"}
+                {origin.toLowerCase()}
               </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{item.assignee || "Sem responsável"}</p>
-            </TooltipContent>
-          </Tooltip>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span 
+                  className={cn(
+                    "flex items-center justify-center text-[10px] font-semibold w-6 h-6 rounded-full cursor-default",
+                    item.assignee 
+                      ? "bg-green-100 text-green-700 border border-green-200" 
+                      : "bg-muted text-muted-foreground border border-border"
+                  )}
+                >
+                  {item.assignee ? getInitials(item.assignee) : "--"}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{item.assignee || "Sem responsável"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          {timeAgo && (
+            <span className="text-[11px] text-muted-foreground ml-auto">
+              {timeAgo}
+            </span>
+          )}
         </div>
-        {timeAgo && (
-          <span className="text-[11px] text-muted-foreground ml-auto">
-            {timeAgo}
-          </span>
-        )}
       </div>
 
-    </div>
+      <AlertDialog open={showCallConfirm} onOpenChange={setShowCallConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você realizou a ligação?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Confirme se a ligação para <strong>{item.title}</strong> foi realizada para registrar a tentativa.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCall}>Sim</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
