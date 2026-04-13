@@ -29,7 +29,12 @@ serve(async (req) => {
     let userId: string;
     let userEmail: string;
     try {
-      const payloadBase64 = token.split('.')[1];
+      const payloadBase64Url = token.split('.')[1];
+      // Convert base64url to standard base64
+      const payloadBase64 = payloadBase64Url
+        .replace(/-/g, '+')
+        .replace(/_/g, '/')
+        .padEnd(payloadBase64Url.length + (4 - payloadBase64Url.length % 4) % 4, '=');
       const payloadJson = atob(payloadBase64);
       const payload = JSON.parse(payloadJson);
       
