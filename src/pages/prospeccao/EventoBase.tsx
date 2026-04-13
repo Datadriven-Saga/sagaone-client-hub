@@ -1213,46 +1213,66 @@ export default function EventoBase() {
     let offset = 0;
     let hasMore = true;
 
-    while (hasMore) {
-      let query = supabase
+    // Para WhatsApp com limite pequeno: buscar direto com limit (mais rápido que range/paginação)
+    if (!isLigacao && limite && limite <= ID_BATCH_SIZE) {
+      console.log(`   ⚡ Busca otimizada: limite ${limite} direto`);
+      const { data: eventosData, error: eventosError } = await supabase
         .from('eventos_prospeccao')
         .select('contato_id')
         .eq('prospeccao_id', eventoId)
-        .not('contato_id', 'is', null);
-      
-      // Para WhatsApp, filtrar por data_disparo_ia IS NULL (fonte de verdade local)
-      if (!isLigacao) {
-        query = query.is('data_disparo_ia', null);
-      }
-      
-      // Se temos limite, calcular quanto ainda falta buscar
-      const remaining = limite ? limite - allContatoIds.length : ID_BATCH_SIZE;
-      const fetchSize = limite ? Math.min(ID_BATCH_SIZE, remaining) : ID_BATCH_SIZE;
-      
-      if (limite && remaining <= 0) break;
-      
-      const { data: eventosData, error: eventosError } = await query
-        .range(offset, offset + fetchSize - 1);
+        .not('contato_id', 'is', null)
+        .is('data_disparo_ia', null)
+        .limit(limite);
 
       if (eventosError) {
         console.error('❌ Erro ao buscar eventos pendentes:', eventosError);
-        break;
+      } else if (eventosData && eventosData.length > 0) {
+        allContatoIds = eventosData.map(e => e.contato_id).filter(Boolean) as string[];
+        console.log(`   📊 ${allContatoIds.length} IDs encontrados`);
       }
-
-      if (eventosData && eventosData.length > 0) {
-        const ids = eventosData.map(e => e.contato_id).filter(Boolean) as string[];
-        allContatoIds = [...allContatoIds, ...ids];
-        offset += eventosData.length;
-        hasMore = eventosData.length === fetchSize;
-        console.log(`   📊 Batch ${Math.ceil(offset / ID_BATCH_SIZE)}: ${ids.length} IDs encontrados (total: ${allContatoIds.length})`);
+    } else {
+      // Paginação para buscar todos ou lotes grandes
+      while (hasMore) {
+        let query = supabase
+          .from('eventos_prospeccao')
+          .select('contato_id')
+          .eq('prospeccao_id', eventoId)
+          .not('contato_id', 'is', null);
         
-        // Se já atingiu o limite, parar
-        if (limite && allContatoIds.length >= limite) {
-          allContatoIds = allContatoIds.slice(0, limite);
+        // Para WhatsApp, filtrar por data_disparo_ia IS NULL (fonte de verdade local)
+        if (!isLigacao) {
+          query = query.is('data_disparo_ia', null);
+        }
+        
+        // Se temos limite, calcular quanto ainda falta buscar
+        const remaining = limite ? limite - allContatoIds.length : ID_BATCH_SIZE;
+        const fetchSize = limite ? Math.min(ID_BATCH_SIZE, remaining) : ID_BATCH_SIZE;
+        
+        if (limite && remaining <= 0) break;
+        
+        const { data: eventosData, error: eventosError } = await query
+          .range(offset, offset + fetchSize - 1);
+
+        if (eventosError) {
+          console.error('❌ Erro ao buscar eventos pendentes:', eventosError);
+          break;
+        }
+
+        if (eventosData && eventosData.length > 0) {
+          const ids = eventosData.map(e => e.contato_id).filter(Boolean) as string[];
+          allContatoIds = [...allContatoIds, ...ids];
+          offset += eventosData.length;
+          hasMore = eventosData.length === fetchSize;
+          console.log(`   📊 Batch ${Math.ceil(offset / ID_BATCH_SIZE)}: ${ids.length} IDs encontrados (total: ${allContatoIds.length})`);
+          
+          // Se já atingiu o limite, parar
+          if (limite && allContatoIds.length >= limite) {
+            allContatoIds = allContatoIds.slice(0, limite);
+            hasMore = false;
+          }
+        } else {
           hasMore = false;
         }
-      } else {
-        hasMore = false;
       }
     }
 
