@@ -5392,6 +5392,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      increment_tentativas_chamada: {
+        Args: { p_contato_id: string }
+        Returns: undefined
+      }
       is_admin: { Args: never; Returns: boolean }
       is_company_owner: {
         Args: { company_id: string; user_id?: string }

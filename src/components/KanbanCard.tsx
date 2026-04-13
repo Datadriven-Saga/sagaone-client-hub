@@ -103,7 +103,9 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
   const handleConfirmCall = async () => {
     setShowCallConfirm(false);
     try {
-      const { error } = await supabase.rpc('increment_tentativas_chamada', { p_contato_id: item.id });
+      const { data: current } = await supabase.from('contatos').select('tentativas_chamada').eq('id', item.id).single();
+      const newCount = ((current?.tentativas_chamada as number) || 0) + 1;
+      const { error } = await supabase.from('contatos').update({ tentativas_chamada: newCount } as any).eq('id', item.id);
       if (error) throw error;
       toast.success('Tentativa de ligação registrada!');
     } catch (err) {
