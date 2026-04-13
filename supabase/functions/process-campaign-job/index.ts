@@ -121,13 +121,43 @@ serve(async (req) => {
       );
     }
 
-    // Marcar job como processing
+    // Marcar job como processing ANTES de retornar resposta
     await supabase
       .from('campaign_jobs')
       .update({ status: 'processing', started_at: new Date().toISOString() })
       .eq('id', job_id);
 
-    // Buscar dados da prospecção
+    // Processar em background usando EdgeRuntime.waitUntil
+    // Isso permite retornar 202 imediatamente enquanto o processamento continua
+    const processPromise = processJobInBackground(supabase, job_id, job, SAGA_ONE);
+    
+    // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(processPromise);
+      console.log(`⏳ Job ${job_id} delegado para background via EdgeRuntime.waitUntil`);
+      return new Response(
+        JSON.stringify({ success: true, job_id, status: 'processing', message: 'Processamento iniciado em background' }),
+        { status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else {
+      // Fallback: processar inline (sem waitUntil disponível)
+      console.log(`⏳ Job ${job_id} processando inline (EdgeRuntime.waitUntil não disponível)`);
+      const result = await processPromise;
+      return new Response(
+        JSON.stringify(result),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+  } catch (error: any) {
+    console.error('❌ Erro crítico:', error);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
     const { data: prospeccao } = await supabase
       .from('prospeccoes')
       .select('id, titulo, canal, data_inicio, data_fim, meta_convites, meta_confirmacoes, meta_checkins, event_id_pri, template_prospeccao_id')
