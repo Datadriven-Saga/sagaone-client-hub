@@ -134,59 +134,92 @@ Deno.serve(async (req: Request) => {
 
     switch (action) {
       case 'list_users': {
-        // For Gerentes, we need to filter users
-        // They can only see: SDR, Vendedor, Recepcionista without company or from their companies
-        let profilesQuery = supabaseAdmin
-          .from('profiles')
-          .select('id, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresa_id, created_at')
-          .order('created_at', { ascending: false });
-        
-        // If user is a manager (not admin), filter by allowed tipos_acesso
-        if (isGerente && !canManage) {
-          profilesQuery = profilesQuery.in('tipo_acesso', ['SDR', 'Vendedor', 'Recepcionista', 'CRM', 'Gerente de Leads', 'Gerente de Loja']);
+        // Build tipo_acesso filter for Gerentes
+        const tipoAcessoFilter = (isGerente && !canManage)
+          ? ['SDR', 'Vendedor', 'Recepcionista', 'CRM', 'Gerente de Leads', 'Gerente de Loja']
+          : null;
+
+        // === PRIMARY: Use RPC (fast, reliable, no auth API dependency) ===
+        let profilesWithDetails: any[] = [];
+        let usedRpc = false;
+
+        try {
+          const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('get_users_with_email', {
+            p_tipo_acesso_filter: tipoAcessoFilter,
+          });
+
+          if (rpcError) throw rpcError;
+
+          profilesWithDetails = (rpcData || []).map((row: any) => ({
+            ...row,
+            empresas: [], // Will be populated below
+          }));
+          usedRpc = true;
+          console.log('RPC get_users_with_email returned:', profilesWithDetails.length, 'profiles');
+        } catch (rpcErr) {
+          console.warn('RPC get_users_with_email failed, falling back to listUsers:', rpcErr);
         }
-        
-        const { data: profiles, error: profilesError } = await profilesQuery.limit(200);
 
-        if (profilesError) {
-          console.error('Error fetching profiles:', profilesError);
-          throw profilesError;
+        // === FALLBACK: Legacy listUsers approach ===
+        if (!usedRpc) {
+          let profilesQuery = supabaseAdmin
+            .from('profiles')
+            .select('id, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresa_id, created_at')
+            .order('created_at', { ascending: false });
+
+          if (tipoAcessoFilter) {
+            profilesQuery = profilesQuery.in('tipo_acesso', tipoAcessoFilter);
+          }
+
+          const { data: profiles, error: profilesError } = await profilesQuery.limit(200);
+          if (profilesError) throw profilesError;
+
+          console.log('Fallback: Found profiles:', profiles?.length || 0);
+
+          if (!profiles || profiles.length === 0) {
+            return new Response(
+              JSON.stringify({ users: [], currentUserRole: userTipoAcesso, isAdmin: isAdmin || canManage, isGerente }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+
+          // Try listUsers, but handle failure gracefully
+          const emailsByUserId = new Map<string, string>();
+          try {
+            const authUsersResult = await supabaseAdmin.auth.admin.listUsers({ perPage: 500 });
+            if (!authUsersResult.error) {
+              (authUsersResult.data?.users || []).forEach((u: any) => {
+                emailsByUserId.set(u.id, u.email || 'Email não disponível');
+              });
+            }
+          } catch (e) {
+            console.error('listUsers fallback also failed:', e);
+          }
+
+          profilesWithDetails = profiles.map((profile: any) => ({
+            ...profile,
+            email: emailsByUserId.get(profile.id) || 'Email não disponível',
+            empresas: [],
+          }));
         }
 
-        console.log('Found profiles:', profiles?.length || 0);
-
-        if (!profiles || profiles.length === 0) {
+        if (profilesWithDetails.length === 0) {
           return new Response(
-            JSON.stringify({ users: [] }),
+            JSON.stringify({ users: [], currentUserRole: userTipoAcesso, isAdmin: isAdmin || canManage, isGerente }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        const profileIds = profiles.map(p => p.id);
-
-        // Fetch auth users first (faster operation)
-        const authUsersResult = await supabaseAdmin.auth.admin.listUsers({ perPage: 500 });
-
-        if (authUsersResult.error) {
-          console.error('Error fetching auth users:', authUsersResult.error);
-          throw authUsersResult.error;
-        }
-
-        // Create email map from auth users
-        const emailsByUserId = new Map<string, string>();
-        (authUsersResult.data?.users || []).forEach(u => {
-          emailsByUserId.set(u.id, u.email || 'Email não disponível');
-        });
-
-        // Fetch user_empresas separately with timeout protection
-        let companiesByUser = new Map<string, any[]>();
+        // Fetch user_empresas separately
+        const profileIds = profilesWithDetails.map((p: any) => p.id);
+        const companiesByUser = new Map<string, any[]>();
         try {
           const { data: userEmpresasData } = await supabaseAdmin
             .from('user_empresas')
             .select('user_id, empresa_id, is_ativa, empresas(id, nome_empresa)')
             .in('user_id', profileIds.slice(0, 100));
 
-          (userEmpresasData || []).forEach(ue => {
+          (userEmpresasData || []).forEach((ue: any) => {
             if (!companiesByUser.has(ue.user_id)) {
               companiesByUser.set(ue.user_id, []);
             }
@@ -198,39 +231,26 @@ Deno.serve(async (req: Request) => {
           console.error('Error fetching user companies (continuing without):', e);
         }
 
-        // Combine profiles with emails and companies
-        let profilesWithDetails = profiles.map(profile => ({
+        // Attach companies to profiles
+        profilesWithDetails = profilesWithDetails.map((profile: any) => ({
           ...profile,
-          email: emailsByUserId.get(profile.id) || 'Email não disponível',
-          empresas: companiesByUser.get(profile.id) || []
+          empresas: companiesByUser.get(profile.id) || [],
         }));
-        
-        // For Gerentes, apply additional filtering:
-        // 1. SDR without any company assigned (empresas.length === 0)
-        // 2. SDR/Vendedor who have at least one company that the manager also has
+
+        // For Gerentes, apply additional filtering by shared companies
         if (isGerente && !canManage && gerenteCompanies.length > 0) {
-          profilesWithDetails = profilesWithDetails.filter(profile => {
-            // Allow SDR without companies (so manager can assign them)
-            if (profile.empresas.length === 0) {
-              return true;
-            }
-            
-            // Check if user has at least one company in common with the manager
+          profilesWithDetails = profilesWithDetails.filter((profile: any) => {
+            if (profile.empresas.length === 0) return true;
             const userCompanyIds = profile.empresas.map((e: any) => e.id);
-            const hasCommonCompany = userCompanyIds.some((companyId: string) => 
-              gerenteCompanies.includes(companyId)
-            );
-            
-            return hasCommonCompany;
+            return userCompanyIds.some((companyId: string) => gerenteCompanies.includes(companyId));
           });
         }
 
         console.log('Profiles with details after filtering:', profilesWithDetails.length);
 
         return new Response(
-          JSON.stringify({ 
+          JSON.stringify({
             users: profilesWithDetails,
-            // Include info about current user role for frontend restrictions
             currentUserRole: userTipoAcesso,
             isAdmin: isAdmin || canManage,
             isGerente: isGerente
