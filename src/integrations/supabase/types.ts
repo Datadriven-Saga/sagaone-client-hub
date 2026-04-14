@@ -5392,6 +5392,21 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_users_with_email: {
+        Args: { p_tipo_acesso_filter?: string[] }
+        Returns: {
+          celular: string
+          cpf: string
+          created_at: string
+          departamento: string
+          email: string
+          empresa_id: string
+          id: string
+          nome_completo: string
+          status: string
+          tipo_acesso: string
+        }[]
+      }
       increment_tentativas_chamada: {
         Args: { p_contato_id: string }
         Returns: undefined
