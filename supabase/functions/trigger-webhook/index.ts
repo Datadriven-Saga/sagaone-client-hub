@@ -265,7 +265,7 @@ serve(async (req) => {
       // 3. Verificar canal da prospecção (excluir IA WhatsApp e Ligação)
       const { data: prospeccaoData } = await supabaseServiceClient
         .from('prospeccoes')
-        .select('canal, nome')
+        .select('canal, titulo')
         .eq('id', dados.prospeccao_id)
         .single();
 
@@ -303,7 +303,7 @@ serve(async (req) => {
       // 6. Buscar dealer_id da empresa
       const { data: empresaData } = await supabaseServiceClient
         .from('empresas')
-        .select('dealer_id')
+        .select('crm_id')
         .eq('id', dados.empresa_id)
         .single();
 
@@ -328,8 +328,8 @@ serve(async (req) => {
       const payload = {
         nome: contatoData.nome,
         telefone: contatoData.telefone,
-        dealer_id: empresaData?.dealer_id,
-        nome_evento: prospeccaoData?.nome,
+        dealer_id: empresaData?.crm_id,
+        nome_evento: prospeccaoData?.titulo,
         status_anterior: dados.status_anterior,
         status_novo: dados.status_novo,
         primeira_ativacao: primeiraAtivacao
