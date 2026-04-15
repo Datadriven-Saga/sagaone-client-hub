@@ -1415,6 +1415,7 @@ export type Database = {
           updated_at: string | null
           valor_potencial: number | null
           vendedor_nome: string | null
+          webhook_ativado: boolean | null
         }
         Insert: {
           base_id?: string | null
@@ -1440,6 +1441,7 @@ export type Database = {
           updated_at?: string | null
           valor_potencial?: number | null
           vendedor_nome?: string | null
+          webhook_ativado?: boolean | null
         }
         Update: {
           base_id?: string | null
@@ -1465,6 +1467,7 @@ export type Database = {
           updated_at?: string | null
           valor_potencial?: number | null
           vendedor_nome?: string | null
+          webhook_ativado?: boolean | null
         }
         Relationships: [
           {

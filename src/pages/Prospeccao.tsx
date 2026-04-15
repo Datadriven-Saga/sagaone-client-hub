@@ -880,6 +880,29 @@ showAllEvents: true
         });
       }
       
+      // Disparo de webhook de movimentação (processamento no backend)
+      // O backend cuida de: verificar feature flag, verificar canal, verificar webhook_ativado
+      try {
+        const prospeccaoIdParaWebhook = prospeccoes?.[0]?.id;
+        if (prospeccaoIdParaWebhook && activeCompany?.id) {
+          supabase.functions.invoke('trigger-webhook', {
+            body: {
+              gatilho: 'movimentacao_lead_kanban',
+              dados: {
+                contato_id: itemId,
+                empresa_id: activeCompany.id,
+                prospeccao_id: prospeccaoIdParaWebhook,
+                status_anterior: kanbanStatusMap[fromStatus as keyof typeof kanbanStatusMap] || fromStatus,
+                status_novo: kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap] || toStatus,
+                usuario_id: user?.id
+              }
+            }
+          }).catch(err => console.error('Webhook movimentação falhou:', err));
+        }
+      } catch (err) {
+        console.error('Webhook movimentação falhou:', err);
+      }
+
       // Atualizar contagem de leads pendentes para vendedores/SDR
       if (isLimitedUser) {
         contarLeadsPendentes();

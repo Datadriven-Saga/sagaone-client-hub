@@ -312,6 +312,27 @@ serve(async (req) => {
             }
           }
         });
+
+        // Webhook de movimentação de lead (só para ações de humanos, não Pri IA)
+        if (!isAdminToken) {
+          try {
+            await supabaseClient.functions.invoke('trigger-webhook', {
+              body: {
+                gatilho: 'movimentacao_lead_kanban',
+                dados: {
+                  contato_id: contato.id,
+                  empresa_id: contato.empresa_id,
+                  prospeccao_id: prospeccaoId,
+                  status_anterior: statusAnterior,
+                  status_novo: statusNormalizado,
+                  usuario_id: userId
+                }
+              }
+            });
+          } catch (err) {
+            console.error('Webhook movimentação falhou:', err);
+          }
+        }
       }
 
       return new Response(

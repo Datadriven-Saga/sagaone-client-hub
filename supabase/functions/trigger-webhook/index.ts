@@ -234,6 +234,141 @@ serve(async (req) => {
       }
     );
 
+    // ══════════════════════════════════════════════════════════════
+    // Handler especial: movimentacao_lead_kanban (não usa tabela gatilhos)
+    // ══════════════════════════════════════════════════════════════
+    if (gatilho === 'movimentacao_lead_kanban') {
+      console.log('🔄 Processando movimentacao_lead_kanban');
+
+      // 1. Verificar se não é Pri IA
+      const PRI_IA_USER_ID = Deno.env.get('PRI_IA_USER_ID');
+      if (dados.usuario_id === PRI_IA_USER_ID) {
+        console.log('⏭️ Ignorando: ação da Pri IA');
+        return new Response(JSON.stringify({ skipped: true, reason: 'pri_ia' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // 2. Verificar feature flag per_empresa
+      const { data: flagEnabled } = await supabaseServiceClient.rpc('is_feature_enabled_for_empresa', {
+        p_flag_key: 'webhook_movimentacao_lead',
+        p_empresa_id: dados.empresa_id
+      });
+
+      if (!flagEnabled) {
+        console.log('⏭️ Ignorando: feature flag desabilitada para empresa', dados.empresa_id);
+        return new Response(JSON.stringify({ skipped: true, reason: 'flag_disabled' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // 3. Verificar canal da prospecção (excluir IA WhatsApp e Ligação)
+      const { data: prospeccaoData } = await supabaseServiceClient
+        .from('prospeccoes')
+        .select('canal, nome')
+        .eq('id', dados.prospeccao_id)
+        .single();
+
+      if (prospeccaoData?.canal === 'Whatsapp' || prospeccaoData?.canal === 'Ligação') {
+        console.log('⏭️ Ignorando: canal excluído:', prospeccaoData.canal);
+        return new Response(JSON.stringify({ skipped: true, reason: 'canal_excluido' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // 4. Buscar dados do contato
+      const { data: contatoData } = await supabaseServiceClient
+        .from('contatos')
+        .select('nome, telefone, webhook_ativado')
+        .eq('id', dados.contato_id)
+        .single();
+
+      if (!contatoData) {
+        console.error('❌ Contato não encontrado:', dados.contato_id);
+        return new Response(JSON.stringify({ error: 'contato_not_found' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // 5. Verificar regra de ativação
+      if (!contatoData.webhook_ativado && dados.status_novo !== 'Em Espera') {
+        console.log('⏭️ Ignorando: lead não passou por Em Espera ainda');
+        return new Response(JSON.stringify({ skipped: true, reason: 'nao_ativado' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const primeiraAtivacao = !contatoData.webhook_ativado && dados.status_novo === 'Em Espera';
+
+      // 6. Buscar dealer_id da empresa
+      const { data: empresaData } = await supabaseServiceClient
+        .from('empresas')
+        .select('dealer_id')
+        .eq('id', dados.empresa_id)
+        .single();
+
+      // 7. Disparar webhook
+      const webhookUrl = Deno.env.get('WEBHOOK_MOVIMENTACAO_LEAD_URL');
+      if (!webhookUrl) {
+        console.error('❌ WEBHOOK_MOVIMENTACAO_LEAD_URL não configurada');
+        return new Response(JSON.stringify({ error: 'webhook_url_missing' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Validar URL (SSRF)
+      const urlCheck = isValidWebhookUrl(webhookUrl);
+      if (!urlCheck.valid) {
+        console.error('❌ URL bloqueada:', urlCheck.error);
+        return new Response(JSON.stringify({ error: 'webhook_url_blocked', detail: urlCheck.error }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const payload = {
+        nome: contatoData.nome,
+        telefone: contatoData.telefone,
+        dealer_id: empresaData?.dealer_id,
+        nome_evento: prospeccaoData?.nome,
+        status_anterior: dados.status_anterior,
+        status_novo: dados.status_novo,
+        primeira_ativacao: primeiraAtivacao
+      };
+
+      console.log('📤 Disparando webhook movimentação:', JSON.stringify(payload));
+
+      const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+      const webhookResponse = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(SAGA_ONE ? { 'x-saga-one': SAGA_ONE } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+
+      let responseText = '';
+      try { responseText = await webhookResponse.text(); } catch {}
+      console.log(`✅ Webhook respondeu: ${webhookResponse.status}`, responseText.substring(0, 500));
+
+      // 8. Se primeira ativação, marcar contato
+      if (primeiraAtivacao) {
+        await supabaseServiceClient
+          .from('contatos')
+          .update({ webhook_ativado: true })
+          .eq('id', dados.contato_id);
+        console.log('✅ Contato marcado com webhook_ativado = true');
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        primeira_ativacao: primeiraAtivacao,
+        webhook_status: webhookResponse.status
+      }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     // Buscar gatilhos ativos para o tipo de evento E para a empresa específica
     let gatilhosQuery = supabaseServiceClient
       .from('gatilhos')
