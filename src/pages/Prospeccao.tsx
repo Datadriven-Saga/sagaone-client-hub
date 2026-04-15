@@ -883,9 +883,13 @@ showAllEvents: true
       // Disparo de webhook de movimentação (processamento no backend)
       // O backend cuida de: verificar feature flag, verificar canal, verificar webhook_ativado
       try {
-        // Usar prospeccao_id vinculada ao lead específico, com fallback para primeiro evento
+        // Priorizar o evento filtrado no Kanban, depois o vinculado ao lead, depois fallback
         const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
-        const prospeccaoIdParaWebhook = prospeccaoIdsDoLead?.[0] || prospeccoes?.[0]?.id;
+        const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
+        // Se há filtro ativo, usar o primeiro filtro que o lead pertence; senão, primeiro do lead
+        const prospeccaoIdParaWebhook = (prospeccaoIdsFiltrados.length > 0 
+          ? prospeccaoIdsFiltrados.find(id => prospeccaoIdsDoLead?.has(id)) || prospeccaoIdsFiltrados[0]
+          : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
         
         console.log('🔄 Webhook movimentação - prospeccaoId:', prospeccaoIdParaWebhook, 'empresa:', activeCompany?.id, 'contato:', itemId);
         
