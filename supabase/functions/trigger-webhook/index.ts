@@ -269,9 +269,9 @@ serve(async (req) => {
         .eq('id', dados.prospeccao_id)
         .single();
 
-      if (prospeccaoData?.canal === 'Whatsapp' || prospeccaoData?.canal === 'Ligação') {
-        console.log('⏭️ Ignorando: canal excluído:', prospeccaoData.canal);
-        return new Response(JSON.stringify({ skipped: true, reason: 'canal_excluido' }), {
+      if (prospeccaoData?.canal !== 'Mensal' && prospeccaoData?.canal !== 'Grande Evento') {
+        console.log('⏭️ Ignorando: canal não elegível:', prospeccaoData?.canal);
+        return new Response(JSON.stringify({ skipped: true, reason: 'canal_nao_elegivel', canal: prospeccaoData?.canal }), {
           status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
