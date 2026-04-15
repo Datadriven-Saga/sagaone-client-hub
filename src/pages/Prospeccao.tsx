@@ -888,7 +888,7 @@ showAllEvents: true
         const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
         // Se há filtro ativo, usar o primeiro filtro que o lead pertence; senão, primeiro do lead
         const prospeccaoIdParaWebhook = (prospeccaoIdsFiltrados.length > 0 
-          ? prospeccaoIdsFiltrados.find(id => prospeccaoIdsDoLead?.includes(id)) || prospeccaoIdsFiltrados[0]
+          ? prospeccaoIdsFiltrados.find(id => prospeccaoIdsDoLead?.has(id)) || prospeccaoIdsFiltrados[0]
           : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
         
         console.log('🔄 Webhook movimentação - prospeccaoId:', prospeccaoIdParaWebhook, 'empresa:', activeCompany?.id, 'contato:', itemId);
