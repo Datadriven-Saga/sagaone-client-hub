@@ -883,9 +883,14 @@ showAllEvents: true
       // Disparo de webhook de movimentação (processamento no backend)
       // O backend cuida de: verificar feature flag, verificar canal, verificar webhook_ativado
       try {
-        const prospeccaoIdParaWebhook = prospeccoes?.[0]?.id;
+        // Usar prospeccao_id vinculada ao lead específico, com fallback para primeiro evento
+        const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
+        const prospeccaoIdParaWebhook = prospeccaoIdsDoLead?.[0] || prospeccoes?.[0]?.id;
+        
+        console.log('🔄 Webhook movimentação - prospeccaoId:', prospeccaoIdParaWebhook, 'empresa:', activeCompany?.id, 'contato:', itemId);
+        
         if (prospeccaoIdParaWebhook && activeCompany?.id) {
-          supabase.functions.invoke('trigger-webhook', {
+          const { data: whResult, error: whError } = await supabase.functions.invoke('trigger-webhook', {
             body: {
               gatilho: 'movimentacao_lead_kanban',
               dados: {
@@ -897,7 +902,14 @@ showAllEvents: true
                 usuario_id: user?.id
               }
             }
-          }).catch(err => console.error('Webhook movimentação falhou:', err));
+          });
+          if (whError) {
+            console.error('❌ Webhook movimentação erro:', whError);
+          } else {
+            console.log('✅ Webhook movimentação resultado:', whResult);
+          }
+        } else {
+          console.warn('⚠️ Webhook movimentação não disparado - prospeccaoId:', prospeccaoIdParaWebhook, 'empresaId:', activeCompany?.id);
         }
       } catch (err) {
         console.error('Webhook movimentação falhou:', err);
