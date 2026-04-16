@@ -316,7 +316,19 @@ Deno.serve(async (req: Request) => {
           }
         });
 
-        if (authError) throw authError;
+        if (authError) {
+          // Handle duplicate user error gracefully
+          if (authError.message?.includes('already been registered') || authError.message?.includes('already exists') || (authError as any).status === 422) {
+            return new Response(
+              JSON.stringify({ 
+                success: false, 
+                error: 'Um usuário com este email já existe no sistema'
+              }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          throw authError;
+        }
 
         if (authData.user) {
           // Get user's empresa_id from current admin user or use first owned company for proprietários
