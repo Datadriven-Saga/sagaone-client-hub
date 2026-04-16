@@ -91,8 +91,7 @@ export function RelatorioConvidadosTab({ empresaId, prospeccoes }: RelatorioConv
         p_empresa_id: empresaId,
         p_date_start: dateStart ? new Date(dateStart).toISOString() : null,
         p_date_end: dateEnd ? new Date(`${dateEnd}T23:59:59`).toISOString() : null,
-        p_prospeccao_ids:
-          selectedProspeccao && selectedProspeccao !== "__all__" ? [selectedProspeccao] : null,
+        p_prospeccao_ids: selectedProspeccoes.length > 0 ? selectedProspeccoes : null,
       });
 
       if (error) {
