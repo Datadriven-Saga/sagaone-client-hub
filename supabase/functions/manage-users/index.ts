@@ -288,15 +288,9 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        // Check if user already exists
-        const { data: existingUser, error: checkError } = await supabaseAdmin.auth.admin.listUsers();
-        
-        if (checkError) {
-          console.error('Error checking existing users:', checkError);
-          throw new Error('Erro ao verificar usuários existentes');
-        }
-
-        const userExists = existingUser.users?.some(user => user.email === email);
+        // Check if user already exists - skip pre-check and let createUser handle duplicates
+        // The old listUsers() call was failing with "Database error" due to too many users
+        let userExists = false;
         
         if (userExists) {
           return new Response(
@@ -322,7 +316,19 @@ Deno.serve(async (req: Request) => {
           }
         });
 
-        if (authError) throw authError;
+        if (authError) {
+          // Handle duplicate user error gracefully
+          if (authError.message?.includes('already been registered') || authError.message?.includes('already exists') || (authError as any).status === 422) {
+            return new Response(
+              JSON.stringify({ 
+                success: false, 
+                error: 'Um usuário com este email já existe no sistema'
+              }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          throw authError;
+        }
 
         if (authData.user) {
           // Get user's empresa_id from current admin user or use first owned company for proprietários
