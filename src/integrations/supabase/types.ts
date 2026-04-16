@@ -5365,6 +5365,27 @@ export type Database = {
           vendas: number
         }[]
       }
+      get_relatorio_convidados: {
+        Args: {
+          p_date_end?: string
+          p_date_start?: string
+          p_empresa_id: string
+          p_prospeccao_ids?: string[]
+        }
+        Returns: {
+          contato_id: string
+          convidado_por: string
+          convidado_por_nome: string
+          data_convite: string
+          email: string
+          evento_nome: string
+          lead_id: number
+          nome: string
+          prospeccao_id: string
+          status_atual: string
+          telefone: string
+        }[]
+      }
       get_resumo_stats: {
         Args: {
           p_date_end?: string
