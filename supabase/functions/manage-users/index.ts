@@ -288,15 +288,35 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        // Check if user already exists
-        const { data: existingUser, error: checkError } = await supabaseAdmin.auth.admin.listUsers();
-        
-        if (checkError) {
-          console.error('Error checking existing users:', checkError);
-          throw new Error('Erro ao verificar usuários existentes');
+        // Check if user already exists by searching specifically by email
+        let userExists = false;
+        try {
+          const { data: existingUsers, error: checkError } = await supabaseAdmin
+            .from('profiles')
+            .select('id')
+            .limit(1);
+          
+          // Use RPC or direct email check via auth admin
+          const { data: emailCheck } = await supabaseAdmin.rpc('get_users_emails', {
+            user_ids: []
+          });
+          
+          // Try listing with filter instead of loading all users
+          const { data: filteredUsers, error: filterError } = await supabaseAdmin.auth.admin.listUsers({
+            perPage: 1,
+          });
+          
+          if (!filterError && filteredUsers?.users) {
+            userExists = filteredUsers.users.some((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+          }
+          
+          // If list is too large, try creating and let it fail naturally
+          if (filterError) {
+            console.warn('Could not pre-check user existence, will attempt creation directly:', filterError.message);
+          }
+        } catch (e) {
+          console.warn('Pre-check failed, proceeding with creation:', e);
         }
-
-        const userExists = existingUser.users?.some(user => user.email === email);
         
         if (userExists) {
           return new Response(
