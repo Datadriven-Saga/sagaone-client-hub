@@ -63,7 +63,8 @@ export function RelatorioConvidadosTab({ empresaId, prospeccoes }: RelatorioConv
 
   const [dateStart, setDateStart] = useState<string>("");
   const [dateEnd, setDateEnd] = useState<string>("");
-  const [selectedProspeccao, setSelectedProspeccao] = useState<string>("__all__");
+  const [selectedProspeccoes, setSelectedProspeccoes] = useState<string[]>([]);
+  const [eventPopoverOpen, setEventPopoverOpen] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<RelatorioRow[]>([]);
