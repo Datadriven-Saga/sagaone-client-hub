@@ -22,7 +22,9 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Download, Search, FileText, Loader2, Lock } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Download, Search, FileText, Loader2, Lock, ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface RelatorioConvidadosTabProps {
