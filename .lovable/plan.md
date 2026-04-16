@@ -1,107 +1,67 @@
 
+## Plano: Captura e Propagação do `codigo_proposta` via Webhook de Movimentação
 
-## Plan: Create "Pri IA" System User
+### Objetivo
+1. **Capturar** o `codigo_proposta` retornado pelo webhook externo na primeira movimentação (tipicamente "Em Espera") e persistir em `contatos.codigo_proposta`.
+2. **Propagar** o `codigo_proposta` em todas as chamadas subsequentes do webhook `movimentacao_lead_kanban`, junto aos dados do lead.
 
-### Summary
-Create a real profile for "Pri IA" to attribute automated actions. Use a generated UUID (not a fixed one), store the email as a constant in code, skip the `prospeccao-anotacao` changes, and skip the login guard (domain check already blocks `@sagadatadriven.com.br`).
+### Análise Atual
+- A Edge Function `trigger-webhook` hoje envia o payload no padrão "fire-and-forget" (não lê resposta para persistir).
+- O campo `contatos.codigo_proposta` já existe e é usado em disparos WhatsApp/IA Voz, mas só é populado via importação de base.
+- Webhooks externos podem retornar JSON com chaves variadas (`proposalId`, `codigo_proposta`, `proposal_id`).
 
----
+### Mudanças Técnicas
 
-### Step 1 — Database Migration
+**1. `supabase/functions/trigger-webhook/index.ts`**
+- No bloco que processa o gatilho `movimentacao_lead_kanban`:
+  - Antes do `fetch`, buscar `codigo_proposta` atual do contato e **incluir no payload enviado** (campo `codigo_proposta` ou `proposalId`).
+  - Após o `fetch`, ler `response.json()` (com try/catch).
+  - Se resposta contém `codigo_proposta` / `proposalId` / `proposal_id` **e** o contato ainda não tem valor salvo (ou veio diferente), executar `UPDATE contatos SET codigo_proposta = {valor} WHERE id = {contato_id}`.
+  - Logar a captura para auditoria.
 
-Single migration that:
-
-1. Adds `'Sistema'` to the `tipo_acesso` enum
-2. Generates a real UUID for the system user
-3. Creates an `auth.users` entry with no password (email: `pri.ia@sagadatadriven.com.br`)
-4. Creates the `profiles` entry with `nome_completo = 'Pri IA'` and `tipo_acesso = 'Sistema'`
-
-```sql
-ALTER TYPE tipo_acesso ADD VALUE IF NOT EXISTS 'Sistema';
-
--- Use a DO block to generate a real UUID and insert in both tables
-DO $$
-DECLARE
-  v_id uuid := gen_random_uuid();
-BEGIN
-  INSERT INTO auth.users (id, instance_id, email, encrypted_password, email_confirmed_at, role, aud, created_at, updated_at)
-  VALUES (v_id, '00000000-0000-0000-0000-000000000000', 'pri.ia@sagadatadriven.com.br', '', now(), 'authenticated', 'authenticated', now(), now())
-  ON CONFLICT (id) DO NOTHING;
-
-  INSERT INTO profiles (id, nome_completo, tipo_acesso)
-  VALUES (v_id, 'Pri IA', 'Sistema')
-  ON CONFLICT (id) DO NOTHING;
-
-  RAISE NOTICE 'Pri IA user created with ID: %', v_id;
-END $$;
-```
-
-After migration runs, retrieve the generated UUID from the database to set as secret.
-
-### Step 2 — Add Supabase Secret
-
-Query the UUID from profiles, then add secret:
-
-- **Name:** `PRI_IA_USER_ID`
-- **Value:** the UUID generated in Step 1
-
-### Step 3 — Update `prospeccao-status/index.ts`
-
-Three changes only:
-
-**3.1** — At the top, read env + define email constant:
-```typescript
-const PRI_IA_USER_ID = Deno.env.get('PRI_IA_USER_ID');
-const PRI_IA_EMAIL = 'pri.ia@sagadatadriven.com.br';
-```
-
-**3.2** — Guard: after `isAdminToken` is determined, if it's an admin-token call and `PRI_IA_USER_ID` is missing, return 500 immediately:
-```typescript
-if (isAdminToken && !PRI_IA_USER_ID) {
-  console.error('PRI_IA_USER_ID não configurado');
-  return new Response(
-    JSON.stringify({ error: 'Configuração de sistema ausente (PRI_IA_USER_ID)' }),
-    { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-```
-
-**3.3** — In the `logs_movimentacao_contatos` INSERT (line ~269-278):
-```typescript
-usuario_id: isAdminToken ? PRI_IA_USER_ID : (userId === 'admin-api' ? null : userId),
-observacoes: isAdminToken ? 'Alteração automática via Pri IA' : 'Alteração via API (lead_id)'
-```
-
-**3.4** — After the status UPDATE (line ~261), add responsavel update for admin-token:
-```typescript
-if (isAdminToken && PRI_IA_USER_ID) {
-  const { error: respError } = await supabaseClient
-    .from('contatos')
-    .update({ responsavel_email: PRI_IA_EMAIL })
-    .eq('id', contato.id);
-  if (respError) {
-    console.error('Erro ao atribuir responsável Pri IA:', respError.message);
-  } else {
-    console.log(`   └─ Responsável atualizado para Pri IA`);
+**2. Payload enviado (estrutura)**
+```json
+{
+  "gatilho": "movimentacao_lead_kanban",
+  "dados": {
+    "contato_id": "...",
+    "lead_id": 123,
+    "codigo_proposta": "ABC123",  // ← NOVO: enviado em toda movimentação
+    "status_anterior": "...",
+    "status_novo": "...",
+    "empresa_id": "...",
+    "prospeccao_id": "..."
   }
 }
 ```
 
-**3.5** — Deploy the function.
+**3. Resposta esperada do webhook externo (contrato)**
+```json
+{
+  "codigo_proposta": "ABC123"  // aceitar também: proposalId, proposal_id
+}
+```
 
-### What We Are NOT Doing
+### Fluxo Resultante
+```text
+1ª movimentação (Em Espera):
+  ├─ Envia payload SEM codigo_proposta (ainda null)
+  ├─ Webhook externo responde { codigo_proposta: "X" }
+  └─ Salva em contatos.codigo_proposta
 
-| Item | Reason |
-|------|--------|
-| Login guard for `tipo_acesso = 'Sistema'` | Domain check already blocks `@sagadatadriven.com.br` (not `@gruposaga.com.br`) |
-| `prospeccao-anotacao` changes | Per user request — skip for now |
-| `PermissionRegistry` changes | 'Sistema' is not a permission profile |
-| Ranking/Acessos changes | Already filter by specific `tipo_acesso` values |
+2ª+ movimentações:
+  ├─ Busca contatos.codigo_proposta = "X"
+  ├─ Envia payload COM codigo_proposta = "X"
+  └─ Resposta ignorada (ou re-confirma se vier diferente)
+```
 
-### Validation
+### Arquivos Afetados
+- `supabase/functions/trigger-webhook/index.ts` (única alteração)
 
-1. Query DB: `SELECT id, nome_completo, tipo_acesso FROM profiles WHERE nome_completo = 'Pri IA'` — should return one row
-2. Test admin-token status change via curl → check `logs_movimentacao_contatos` has `usuario_id` = Pri IA UUID
-3. Check `contatos.responsavel_email` = `pri.ia@sagadatadriven.com.br` after admin-token change
-4. Timeline shows "Pri IA" via JOIN with profiles
+### Memória a Atualizar
+- `mem://features/prospeccao/webhook-movimentacao-lead-kanban`: documentar captura/propagação do `codigo_proposta`.
 
+### Validação Pós-Implementação
+- Mover lead para "Em Espera" → conferir log da edge function mostrando captura.
+- Verificar `SELECT codigo_proposta FROM contatos WHERE id = ...` retorna o valor.
+- Mover o mesmo lead para o próximo status → conferir payload de saída inclui `codigo_proposta`.
