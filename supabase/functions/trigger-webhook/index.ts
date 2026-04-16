@@ -276,10 +276,10 @@ serve(async (req) => {
         });
       }
 
-      // 4. Buscar dados do contato
+      // 4. Buscar dados do contato (inclui codigo_proposta para propagação)
       const { data: contatoData } = await supabaseServiceClient
         .from('contatos')
-        .select('nome, telefone, webhook_ativado')
+        .select('nome, telefone, webhook_ativado, codigo_proposta')
         .eq('id', dados.contato_id)
         .single();
 
@@ -325,14 +325,19 @@ serve(async (req) => {
         });
       }
 
-      const payload = {
+      const payload: Record<string, any> = {
         nome: contatoData.nome,
         telefone: contatoData.telefone,
         dealer_id: empresaData?.crm_id,
         nome_evento: prospeccaoData?.titulo,
         status_anterior: dados.status_anterior,
         status_novo: dados.status_novo,
-        primeira_ativacao: primeiraAtivacao
+        primeira_ativacao: primeiraAtivacao,
+        contato_id: dados.contato_id,
+        lead_id: dados.lead_id,
+        empresa_id: dados.empresa_id,
+        prospeccao_id: dados.prospeccao_id,
+        codigo_proposta: contatoData.codigo_proposta ?? null,
       };
 
       console.log('📤 Disparando webhook movimentação:', JSON.stringify(payload));
@@ -350,6 +355,39 @@ serve(async (req) => {
       let responseText = '';
       try { responseText = await webhookResponse.text(); } catch {}
       console.log(`✅ Webhook respondeu: ${webhookResponse.status}`, responseText.substring(0, 500));
+
+      // 7.1 Tentar capturar codigo_proposta da resposta e persistir
+      let capturedCodigoProposta: string | null = null;
+      if (webhookResponse.ok && responseText) {
+        try {
+          const parsed = JSON.parse(responseText);
+          const candidate =
+            parsed?.codigo_proposta ??
+            parsed?.proposalId ??
+            parsed?.proposal_id ??
+            parsed?.data?.codigo_proposta ??
+            parsed?.data?.proposalId ??
+            parsed?.data?.proposal_id ??
+            null;
+          if (candidate !== null && candidate !== undefined && String(candidate).trim() !== '') {
+            capturedCodigoProposta = String(candidate).trim();
+          }
+        } catch (e) {
+          console.log('ℹ️ Resposta do webhook não é JSON válido, ignorando captura de codigo_proposta');
+        }
+      }
+
+      if (capturedCodigoProposta && capturedCodigoProposta !== contatoData.codigo_proposta) {
+        const { error: updErr } = await supabaseServiceClient
+          .from('contatos')
+          .update({ codigo_proposta: capturedCodigoProposta })
+          .eq('id', dados.contato_id);
+        if (updErr) {
+          console.error('❌ Erro ao salvar codigo_proposta:', updErr.message);
+        } else {
+          console.log(`💾 codigo_proposta capturado e salvo: ${capturedCodigoProposta} (contato ${dados.contato_id})`);
+        }
+      }
 
       // 8. Se primeira ativação, marcar contato
       if (primeiraAtivacao) {
