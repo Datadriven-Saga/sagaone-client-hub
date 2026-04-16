@@ -5,13 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import {
   Table,
   TableBody,
@@ -22,7 +16,9 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Download, Search, FileText, Loader2, Lock } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Download, Search, FileText, Loader2, Lock, ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface RelatorioConvidadosTabProps {
@@ -67,7 +63,8 @@ export function RelatorioConvidadosTab({ empresaId, prospeccoes }: RelatorioConv
 
   const [dateStart, setDateStart] = useState<string>("");
   const [dateEnd, setDateEnd] = useState<string>("");
-  const [selectedProspeccao, setSelectedProspeccao] = useState<string>("__all__");
+  const [selectedProspeccoes, setSelectedProspeccoes] = useState<string[]>([]);
+  const [eventPopoverOpen, setEventPopoverOpen] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<RelatorioRow[]>([]);
@@ -94,8 +91,7 @@ export function RelatorioConvidadosTab({ empresaId, prospeccoes }: RelatorioConv
         p_empresa_id: empresaId,
         p_date_start: dateStart ? new Date(dateStart).toISOString() : null,
         p_date_end: dateEnd ? new Date(`${dateEnd}T23:59:59`).toISOString() : null,
-        p_prospeccao_ids:
-          selectedProspeccao && selectedProspeccao !== "__all__" ? [selectedProspeccao] : null,
+        p_prospeccao_ids: selectedProspeccoes.length > 0 ? selectedProspeccoes : null,
       });
 
       if (error) {
@@ -214,20 +210,74 @@ export function RelatorioConvidadosTab({ empresaId, prospeccoes }: RelatorioConv
             />
           </div>
           <div className="space-y-1">
-            <Label>Evento</Label>
-            <Select value={selectedProspeccao} onValueChange={setSelectedProspeccao}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todos os eventos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Todos os eventos</SelectItem>
-                {prospeccoes.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.titulo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Eventos</Label>
+            <Popover open={eventPopoverOpen} onOpenChange={setEventPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-between font-normal">
+                  <span className="truncate">
+                    {selectedProspeccoes.length === 0
+                      ? "Todos os eventos"
+                      : selectedProspeccoes.length === 1
+                      ? prospeccoes.find((p) => p.id === selectedProspeccoes[0])?.titulo ?? "1 evento"
+                      : `${selectedProspeccoes.length} eventos selecionados`}
+                  </span>
+                  <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[320px] p-2" align="start">
+                <div className="flex items-center justify-between px-2 py-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {selectedProspeccoes.length} de {prospeccoes.length}
+                  </span>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs"
+                      onClick={() => setSelectedProspeccoes(prospeccoes.map((p) => p.id))}
+                    >
+                      Todos
+                    </Button>
+                    {selectedProspeccoes.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs"
+                        onClick={() => setSelectedProspeccoes([])}
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Limpar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="max-h-[280px] overflow-y-auto space-y-0.5">
+                  {prospeccoes.length === 0 ? (
+                    <div className="text-sm text-muted-foreground text-center py-4">
+                      Nenhum evento disponível
+                    </div>
+                  ) : (
+                    prospeccoes.map((p) => {
+                      const isSelected = selectedProspeccoes.includes(p.id);
+                      return (
+                        <div
+                          key={p.id}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
+                          onClick={() =>
+                            setSelectedProspeccoes((prev) =>
+                              isSelected ? prev.filter((id) => id !== p.id) : [...prev, p.id]
+                            )
+                          }
+                        >
+                          <Checkbox checked={isSelected} />
+                          <span className="text-sm truncate flex-1">{p.titulo}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="flex gap-2">
             <Button onClick={fetchRelatorio} disabled={loading} className="flex-1">
