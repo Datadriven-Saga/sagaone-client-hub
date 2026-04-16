@@ -276,10 +276,10 @@ serve(async (req) => {
         });
       }
 
-      // 4. Buscar dados do contato
+      // 4. Buscar dados do contato (inclui codigo_proposta para propagação)
       const { data: contatoData } = await supabaseServiceClient
         .from('contatos')
-        .select('nome, telefone, webhook_ativado')
+        .select('nome, telefone, webhook_ativado, codigo_proposta')
         .eq('id', dados.contato_id)
         .single();
 
