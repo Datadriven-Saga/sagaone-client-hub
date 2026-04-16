@@ -43,6 +43,9 @@ const AdminDashboardWhatsApp = lazy(() =>
 const AdminDashboardLigacao = lazy(() => 
   import("@/components/resultados/AdminDashboardLigacao").then(m => ({ default: m.AdminDashboardLigacao }))
 );
+const RelatorioConvidadosTab = lazy(() =>
+  import("@/components/resultados/RelatorioConvidadosTab").then(m => ({ default: m.RelatorioConvidadosTab }))
+);
 
 interface Prospeccao {
   id: string;
@@ -185,11 +188,12 @@ const Resultados = () => {
 
       case "relatorios":
         return (
-          <Card className="p-8 text-center">
-            <FileText className="h-12 w-12 mx-auto text-primary opacity-50 mb-3" />
-            <h3 className="text-lg font-semibold mb-2">Relatórios</h3>
-            <p className="text-sm text-muted-foreground">Geração e exportação de relatórios</p>
-          </Card>
+          <Suspense fallback={<ResultadosGenericSkeleton />}>
+            <RelatorioConvidadosTab
+              empresaId={activeCompany?.id || null}
+              prospeccoes={prospeccoes}
+            />
+          </Suspense>
         );
 
       default:
