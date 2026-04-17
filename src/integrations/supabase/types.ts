@@ -5378,10 +5378,9 @@ export type Database = {
           convidado_por_nome: string
           data_convite: string
           email: string
-          evento_nome: string
+          eventos: string[]
           lead_id: number
           nome: string
-          prospeccao_id: string
           status_atual: string
           telefone: string
         }[]
