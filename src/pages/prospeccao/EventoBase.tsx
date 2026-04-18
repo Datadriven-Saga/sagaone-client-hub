@@ -1067,7 +1067,7 @@ export default function EventoBase() {
           }
 
           query = query
-            .order('created_at', { ascending: false })
+            .order('updated_at', { ascending: false })
             .range(offset, offset + EXPORT_BATCH_SIZE - 1);
 
           const { data, error } = await query;
