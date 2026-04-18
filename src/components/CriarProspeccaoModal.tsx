@@ -1172,7 +1172,16 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       return;
     }
 
-    // Validação específica para IA Whatsapp: template prospecção é obrigatório
+    // Validação específica para IA Whatsapp: descrição e template obrigatórios
+    if (tipoEvento === 'IA Whatsapp' && !descricao.trim()) {
+      toast({
+        title: "Campo obrigatório",
+        description: "A Descrição é obrigatória para eventos do tipo IA Whatsapp.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (tipoEvento === 'IA Whatsapp' && !templateProspeccaoId) {
       toast({
         title: "Campo obrigatório",
@@ -2666,6 +2675,18 @@ ${localEvento}`;
       return;
     }
     
+    // Validação específica para IA Whatsapp: descrição obrigatória
+    if (tipoEvento === 'IA Whatsapp' && currentStepName === 'Configuração IA') {
+      if (!descricao.trim()) {
+        toast({
+          title: "Campo obrigatório",
+          description: "A Descrição é obrigatória para eventos do tipo IA Whatsapp.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     // Validação específica para IA Ligação na etapa de Configuração IA
     if (tipoEvento === 'IA Ligação' && currentStepName === 'Configuração IA') {
       if (!eventoUF.trim() || !eventoCidade.trim() || !eventoEndereco.trim()) {
@@ -3001,7 +3022,7 @@ ${localEvento}`;
               {/* Descrição com borda e botão expandir */}
               <div className="rounded-lg border border-border p-4 bg-card">
                 <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="descricao">Descrição</Label>
+                  <Label htmlFor="descricao">Descrição <span className="text-destructive">*</span></Label>
                   <div className="flex items-center gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={aplicarModeloDescricao}>
                       <FileText className="w-4 h-4 mr-1" />
