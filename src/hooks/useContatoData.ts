@@ -229,7 +229,7 @@ export const useContatoData = () => {
         query = query.or(`data_fim.gte.${today},data_fim.is.null,canal.eq.Ligação`);
       }
       
-      const { data, error } = await query.order('created_at', { ascending: false });
+      const { data, error } = await query.order('updated_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching prospeccoes:', error);
