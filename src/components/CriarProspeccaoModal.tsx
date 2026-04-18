@@ -599,7 +599,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         .select('id, nome, template_id_pri, id_meta, agente_id, pri_telefone, variable_mapping')
         .eq('pri_telefone', priTelefone)
         .eq('status_meta', 'APPROVED')
-        .order('nome');
+        .order('created_at', { ascending: false });
       
       data = result.data;
       error = result.error;
@@ -610,7 +610,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         .select('id, nome, template_id_pri, id_meta, agente_id, pri_telefone, variable_mapping')
         .eq('empresa_id', activeCompany.id)
         .eq('status_meta', 'APPROVED')
-        .order('nome');
+        .order('created_at', { ascending: false });
       
       data = result.data;
       error = result.error;
