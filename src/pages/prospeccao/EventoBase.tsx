@@ -808,7 +808,7 @@ export default function EventoBase() {
 
       // Ordenar e paginar
       query = query
-        .order('updated_at', { ascending: false })
+        .order('created_at', { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
 
       const { data, error, count } = await query;
@@ -1067,7 +1067,7 @@ export default function EventoBase() {
           }
 
           query = query
-            .order('updated_at', { ascending: false })
+            .order('created_at', { ascending: false })
             .range(offset, offset + EXPORT_BATCH_SIZE - 1);
 
           const { data, error } = await query;
