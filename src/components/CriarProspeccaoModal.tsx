@@ -70,7 +70,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [descricao, setDescricao] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
-  const [canal, setCanal] = useState<'Whatsapp' | 'Ligação'>('Whatsapp');
+  const [canal, setCanal] = useState<'Whatsapp' | 'Ligação'>('Ligação');
   const [templateProspeccaoId, setTemplateProspeccaoId] = useState("");
   const [templateAgendadoId, setTemplateAgendadoId] = useState("");
   const [templateNaoAgendadoId, setTemplateNaoAgendadoId] = useState("");
@@ -2884,6 +2884,14 @@ ${localEvento}`;
                 onValueChange={(value: TipoEvento) => {
                   setTipoEvento(value);
                   setCurrentStep(0); // Reset step when type changes
+                  // Default canal: Ligação para Prospecção Mensal e Grande Evento
+                  if (value === 'Prospecção Mensal' || value === 'Grande Evento') {
+                    setCanal('Ligação');
+                  } else if (value === 'IA Whatsapp') {
+                    setCanal('Whatsapp');
+                  } else if (value === 'IA Ligação') {
+                    setCanal('Ligação');
+                  }
                 }}
                 disabled={!!editingProspeccao}
               >
