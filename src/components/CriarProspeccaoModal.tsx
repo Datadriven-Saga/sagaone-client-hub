@@ -2858,11 +2858,15 @@ ${localEvento}`;
             
             <div>
               <Label htmlFor="tipoEvento">Tipo do Evento *</Label>
-              <Select value={tipoEvento} onValueChange={(value: TipoEvento) => {
-                setTipoEvento(value);
-                setCurrentStep(0); // Reset step when type changes
-              }}>
-                <SelectTrigger>
+              <Select
+                value={tipoEvento}
+                onValueChange={(value: TipoEvento) => {
+                  setTipoEvento(value);
+                  setCurrentStep(0); // Reset step when type changes
+                }}
+                disabled={!!editingProspeccao}
+              >
+                <SelectTrigger disabled={!!editingProspeccao}>
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
