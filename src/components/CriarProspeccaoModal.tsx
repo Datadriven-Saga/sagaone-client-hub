@@ -2666,6 +2666,18 @@ ${localEvento}`;
       return;
     }
     
+    // Validação específica para IA Whatsapp: descrição obrigatória
+    if (tipoEvento === 'IA Whatsapp' && currentStepName === 'Configuração IA') {
+      if (!descricao.trim()) {
+        toast({
+          title: "Campo obrigatório",
+          description: "A Descrição é obrigatória para eventos do tipo IA Whatsapp.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     // Validação específica para IA Ligação na etapa de Configuração IA
     if (tipoEvento === 'IA Ligação' && currentStepName === 'Configuração IA') {
       if (!eventoUF.trim() || !eventoCidade.trim() || !eventoEndereco.trim()) {
