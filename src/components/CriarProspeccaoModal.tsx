@@ -2884,6 +2884,14 @@ ${localEvento}`;
                 onValueChange={(value: TipoEvento) => {
                   setTipoEvento(value);
                   setCurrentStep(0); // Reset step when type changes
+                  // Default canal: Ligação para Prospecção Mensal e Grande Evento
+                  if (value === 'Prospecção Mensal' || value === 'Grande Evento') {
+                    setCanal('Ligação');
+                  } else if (value === 'IA Whatsapp') {
+                    setCanal('Whatsapp');
+                  } else if (value === 'IA Ligação') {
+                    setCanal('Ligação');
+                  }
                 }}
                 disabled={!!editingProspeccao}
               >
