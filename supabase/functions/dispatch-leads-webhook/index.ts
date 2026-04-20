@@ -419,21 +419,20 @@ serve(async (req) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
         
-        console.log(`📡 [${requestId}] Enviando payload ao webhook: ${JSON.stringify(payloadLigacao).substring(0, 500)}`);
+        console.log(`📡 [${requestId}] Enviando payload DIRETO ao webhook externo: ${JSON.stringify(payloadLigacao).substring(0, 500)}`);
         
         let response: Response;
         try {
-          response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/external-webhook-proxy`, {
+          // Chamar DIRETAMENTE o webhook externo (sem passar pelo external-webhook-proxy)
+          // Motivo: a chamada interna entre edge functions estava falhando com 401 UNAUTHORIZED_INVALID_JWT_FORMAT
+          // no gateway. Como já temos o token SAGA_ONE aqui, podemos chamar o n8n direto.
+          response = await fetch(webhookUrl, {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-              'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
+              ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
             },
-            body: JSON.stringify({
-              endpoint: 'dispara-ligacao',
-              ...payloadLigacao,
-            }),
+            body: JSON.stringify(payloadLigacao),
             signal: controller.signal,
           });
         } catch (fetchErr: any) {

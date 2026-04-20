@@ -302,17 +302,15 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
               const controller = new AbortController();
               const timeout = setTimeout(() => controller.abort(), LIGACAO_TIMEOUT_MS);
               
-              const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/external-webhook-proxy`, {
+              // Chamar DIRETAMENTE o webhook externo (sem passar pelo external-webhook-proxy)
+              // Motivo: chamadas internas entre edge functions estavam falhando com 401 no gateway
+              const response = await fetch(webhookUrl, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-                  'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
+                  ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
                 },
-                body: JSON.stringify({
-                  endpoint: 'dispara-ligacao',
-                  ...payloadLigacao,
-                }),
+                body: JSON.stringify(payloadLigacao),
                 signal: controller.signal,
               });
               clearTimeout(timeout);
