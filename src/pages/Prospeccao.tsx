@@ -2406,7 +2406,7 @@ showAllEvents: true
 
         <TabsContent value="kanban" className="mt-0 w-full min-w-0 overflow-hidden">
           <div className="h-[calc(100vh-260px)] w-full min-w-0 overflow-hidden flex flex-col">
-            {loadingKanban ? (
+            {!defaultFilterLoaded || loadingKanban ? (
               <div className="flex-1 flex gap-3 p-2 overflow-hidden">
                 {/* Skeleton Kanban columns */}
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -2421,6 +2421,17 @@ showAllEvents: true
                     ))}
                   </div>
                 ))}
+              </div>
+            ) : globalFilters.prospeccaoIds.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                <Target className="w-12 h-12 text-muted-foreground/50 mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">
+                  Selecione pelo menos um evento
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Para visualizar o Kanban de leads, escolha um ou mais eventos no filtro acima.
+                  {(isVendedor || isSDR) && " Se você não está vinculado a nenhuma equipe de evento, fale com seu gestor."}
+                </p>
               </div>
             ) : (
               <div className="flex-1 overflow-hidden">
