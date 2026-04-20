@@ -517,7 +517,7 @@ Deno.serve(async (req: Request) => {
 
           if (importedContatos.length > 0) {
             const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-            const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+            const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY') || '';
 
             const webhookPayload = {
               contatos: importedContatos.map(c => ({
@@ -531,10 +531,13 @@ Deno.serve(async (req: Request) => {
               sync_external: true,
             };
 
+            // Use anon key (publishable) to invoke the internal edge function via gateway.
+            // Service role key fails here with UNAUTHORIZED_INVALID_JWT_FORMAT.
             const resp = await fetch(`${supabaseUrl}/functions/v1/create-base-ligacao`, {
               method: 'POST',
               headers: {
-                'Authorization': `Bearer ${serviceKey}`,
+                'Authorization': `Bearer ${anonKey}`,
+                'apikey': anonKey,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify(webhookPayload),
@@ -546,6 +549,42 @@ Deno.serve(async (req: Request) => {
             } else {
               const errText = await resp.text();
               console.error(`⚠️ create-base-ligacao failed (${resp.status}): ${errText.substring(0, 300)}`);
+
+              // Fallback: call the external webhook directly so the calling system still receives the base
+              try {
+                const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+                const externalPayload = {
+                  id_evento: parseInt(prospeccao.event_id_pri, 10),
+                  telefone_pri: telefonePri,
+                  loja: '',
+                  total_contatos: importedContatos.length,
+                  contatos: importedContatos.map(c => ({
+                    nome: c.nome,
+                    telefone: c.telefone,
+                    lead_id: c.lead_id,
+                  })),
+                };
+
+                // Resolve store name (loja) from empresas
+                const { data: empresaRow } = await supabaseAdmin
+                  .from('empresas')
+                  .select('nome_empresa')
+                  .eq('id', log.empresa_id)
+                  .single();
+                externalPayload.loja = empresaRow?.nome_empresa || '';
+
+                const directResp = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/cria-base-ligacao', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+                  },
+                  body: JSON.stringify(externalPayload),
+                });
+                console.log(`📡 Direct webhook fallback status: ${directResp.status}`);
+              } catch (directErr) {
+                console.error('❌ Direct webhook fallback failed:', directErr);
+              }
             }
           }
         }
