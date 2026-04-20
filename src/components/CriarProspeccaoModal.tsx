@@ -3364,6 +3364,40 @@ ${localEvento}`;
               <div className="border-t pt-4 mt-4">
                 <h4 className="text-sm font-medium mb-4">Configurações do Evento</h4>
                 
+                {/* Tipo de Lead */}
+                <div className="p-3 rounded-lg border bg-card mb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="tipo_lead" className="font-medium">Tipo de Lead</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Define qual o tipo de lead ou tipo de campanha desse evento. Os leads serão criados com uma tag específica no Mobigestor [tipo_lead] se for relacionamento ou prospecção. Para vendas não adicionaremos tags, apenas a tag padrão de lead, nesse caso consideramos que é uma campanha normal de negociação.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Select
+                    value={tipoLead}
+                    onValueChange={(v) => setTipoLead(v as 'vendas' | 'prospeccao' | 'relacionamento')}
+                    disabled={!!editingProspeccao}
+                  >
+                    <SelectTrigger id="tipo_lead">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="vendas">Vendas (padrão)</SelectItem>
+                      <SelectItem value="prospeccao">Prospecção</SelectItem>
+                      <SelectItem value="relacionamento">Relacionamento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {editingProspeccao && (
+                    <p className="text-xs text-muted-foreground mt-2">Este campo não pode ser alterado após a criação do evento.</p>
+                  )}
+                </div>
+
                 {/* Evento Principal */}
                 <div className="flex items-center justify-between p-3 rounded-lg border bg-card mb-3">
                   <div className="flex items-center gap-2">
