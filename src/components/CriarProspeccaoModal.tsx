@@ -2282,6 +2282,16 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         is_teste: prospeccaoData.is_teste ?? false,
       };
 
+      // lead_type normalizado (apenas IA Whatsapp): lower case e sem acento
+      if (tipoEvento === 'IA Whatsapp') {
+        const rawTipoLead = (prospeccaoData as any).tipo_lead ?? tipoLead ?? 'vendas';
+        payload.lead_type = String(rawTipoLead)
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .trim();
+      }
+
       // Adicionar templates para IA Whatsapp com IDs Pri e Meta
       if (tipoEvento === 'IA Whatsapp') {
         const lookupTemplateById = async (templateId?: string | null) => {
