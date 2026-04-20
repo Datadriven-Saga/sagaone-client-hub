@@ -277,8 +277,6 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
             const payloadLigacao = {
               id_evento: parseInt(eventIdPri, 10) || eventIdPri,
               telefone_pri: telefonePri,
-              dealer_id: empresaData?.crm_id || '',
-              loja: empresaData?.nome_empresa || '',
               contatos: subContatos.map(c => ({
                 telefone_lead: c.telefone_lead,
                 nome: c.nome,
