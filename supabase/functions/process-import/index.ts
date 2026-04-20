@@ -688,7 +688,6 @@ async function processBatch(
           if (!novoTel) continue;
 
           // Verifica se já existe um contato com o telefone novo (sem 9) na empresa.
-          // Se existir, NÃO atualiza para evitar violar a constraint única.
           const { data: jaExiste } = await supabase
             .from('contatos')
             .select('id')
@@ -699,10 +698,49 @@ async function processBatch(
             .maybeSingle();
 
           if (jaExiste) {
-            console.log(`⏭️  Telefone ${row.telefone} → ${novoTel}: já existe contato sem 9, mantendo legado`);
+            // AMBOS existem → mesclar: mover dependências do legado para o novo e deletar o legado
+            const legacyId = row.id as string;
+            const novoId = jaExiste.id as string;
+            try {
+              // Move vínculos de eventos_prospeccao do legado para o novo (evita duplicar vínculos)
+              const { data: legacyVinculos } = await supabase
+                .from('eventos_prospeccao')
+                .select('id, prospeccao_id')
+                .eq('contato_id', legacyId);
+
+              for (const v of (legacyVinculos || [])) {
+                const { data: jaVinculado } = await supabase
+                  .from('eventos_prospeccao')
+                  .select('id')
+                  .eq('contato_id', novoId)
+                  .eq('prospeccao_id', v.prospeccao_id)
+                  .limit(1)
+                  .maybeSingle();
+                if (jaVinculado) {
+                  // Já existe vínculo no novo → apenas remove o legado
+                  await supabase.from('eventos_prospeccao').delete().eq('id', v.id);
+                } else {
+                  await supabase.from('eventos_prospeccao').update({ contato_id: novoId }).eq('id', v.id);
+                }
+              }
+
+              // Move timeline do legado para o novo
+              await supabase.from('contato_timeline').update({ contato_id: novoId }).eq('contato_id', legacyId);
+
+              // Deleta o contato legado (com 9)
+              const { error: delErr } = await supabase.from('contatos').delete().eq('id', legacyId);
+              if (delErr) {
+                console.warn(`⚠️ Falha ao deletar legado ${row.telefone}:`, delErr.message);
+              } else {
+                console.log(`🔀 Mesclado: legado ${row.telefone} (${legacyId}) → novo ${novoTel} (${novoId})`);
+              }
+            } catch (mergeErr: any) {
+              console.warn(`⚠️ Falha ao mesclar ${row.telefone} → ${novoTel}:`, mergeErr?.message || mergeErr);
+            }
             continue;
           }
 
+          // Apenas o legado existe → atualiza para o formato sem 9
           const { error: updErr } = await supabase
             .from('contatos')
             .update({ telefone: novoTel, updated_at: new Date().toISOString() })
