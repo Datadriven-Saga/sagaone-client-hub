@@ -1399,6 +1399,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         // Novos campos IA Whatsapp
         dadosProspeccao.evento_principal = eventoPrincipal;
         dadosProspeccao.qualificar_lead = qualificarLead;
+        // tipo_lead: bloqueado em edição, definido apenas na criação
+        if (!editingProspeccao) {
+          dadosProspeccao.tipo_lead = tipoLead;
+        }
         dadosProspeccao.data_envio_template_inicial = dataEnvioInicial ? new Date(dataEnvioInicial).toISOString() : new Date().toISOString();
         // Cadência completa (apenas na criação, não altera na edição)
         if (!editingProspeccao) {
