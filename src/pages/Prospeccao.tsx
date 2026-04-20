@@ -385,6 +385,63 @@ showAllEvents: true
     fetchProfiles();
   }, [activeCompany?.id]);
 
+  // Carregar filtro padrão de prospecções (uma vez por empresa)
+  // Vendedor/SDR/Gerente: prospecções das equipes do usuário
+  // Admin/Master/CRM/Diretor/Proprietário: últimas 5 prospecções ativas
+  useEffect(() => {
+    if (!activeCompany?.id || !user?.id) return;
+    if (defaultFilterLoaded) return;
+    if (globalFilters.prospeccaoIds.length > 0) {
+      setDefaultFilterLoaded(true);
+      return;
+    }
+
+    const loadDefaultFilter = async () => {
+      try {
+        const isPrivilegedRole = isAdmin || isMasterRole || isCRM || isDiretor || isProprietario;
+
+        if (isPrivilegedRole) {
+          const { data, error } = await supabase
+            .from('prospeccoes')
+            .select('id')
+            .eq('empresa_id', activeCompany.id)
+            .eq('ativo', true)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            setGlobalFilters(prev => ({ ...prev, prospeccaoIds: data.map(p => p.id) }));
+          }
+        } else {
+          // Vendedor / SDR / Gerente: prospecções onde é membro de equipe
+          const { data, error } = await supabase.rpc('get_prospeccoes_usuario', {
+            p_user_id: user.id,
+            p_empresa_id: activeCompany.id,
+          });
+
+          if (error) throw error;
+
+          if (data && Array.isArray(data) && data.length > 0) {
+            setGlobalFilters(prev => ({ ...prev, prospeccaoIds: data as string[] }));
+          }
+        }
+      } catch (err) {
+        console.error('[DefaultFilter] Erro ao carregar filtro padrão de prospecções:', err);
+      } finally {
+        setDefaultFilterLoaded(true);
+      }
+    };
+
+    loadDefaultFilter();
+  }, [activeCompany?.id, user?.id, defaultFilterLoaded, isAdmin, isMasterRole, isCRM, isDiretor, isProprietario]);
+
+  // Resetar flag de default ao trocar de empresa
+  useEffect(() => {
+    setDefaultFilterLoaded(false);
+  }, [activeCompany?.id]);
+
   // Recarregar eventos quando o filtro "mostrar todos" mudar
   useEffect(() => {
     if (activeCompany?.id) {
