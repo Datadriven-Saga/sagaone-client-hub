@@ -840,11 +840,33 @@ export default function Templates() {
       // Extrair dados do Meta da resposta do webhook
       if (webhookResult?.webhook_response) {
         const response = webhookResult.webhook_response;
+        // Tentar extrair mensagem de erro da Meta a partir do raw_response
+        let errorUserTitle: string | undefined;
+        let errorUserMsg: string | undefined;
+        let errorMessage: string | undefined;
+        try {
+          const raw = response.raw_response;
+          if (raw && typeof raw === 'string') {
+            const parsed = JSON.parse(raw);
+            const err = parsed?.error || parsed?.data?.error || parsed;
+            errorUserTitle = err?.error_user_title;
+            errorUserMsg = err?.error_user_msg;
+            errorMessage = err?.message;
+          }
+        } catch {
+          // ignore
+        }
         return {
           template_id_pri: response.template_id_pri || response.id || null,
           id_meta: response.id_meta || response.id || null,
           status_meta: response.status_meta || response.status || null,
           category_meta: response.category_meta || response.category || null,
+          webhook_status: response.webhook_status,
+          webhook_ok: response.webhook_ok,
+          error_user_title: errorUserTitle,
+          error_user_msg: errorUserMsg,
+          error_message: errorMessage,
+          raw_response: response.raw_response,
         };
       }
 
