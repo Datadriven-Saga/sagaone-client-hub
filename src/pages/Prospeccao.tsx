@@ -629,9 +629,12 @@ showAllEvents: true
 
   // Carregar contatos quando necessário
   // Kanban usa fetchKanbanColumns (per-column), Lista usa fetchContatosPaginated
+  // Guard: NÃO chama Kanban sem prospeccaoIds (evita timeout 57014)
   useEffect(() => {
     if (activeTab !== 'eventos' && activeCompany?.id) {
       if (activeTab === 'kanban') {
+        if (!defaultFilterLoaded) return;
+        if (globalFilters.prospeccaoIds.length === 0) return;
         fetchKanbanColumns(getKanbanFilters());
       } else if (activeTab === 'lista') {
         const filters = getKanbanFilters();
@@ -643,12 +646,14 @@ showAllEvents: true
         loadContatos();
       }
     }
-  }, [activeTab, activeCompany?.id, contatosLoaded, loadContatos, fetchContatosPaginated, fetchKanbanColumns]);
+  }, [activeTab, activeCompany?.id, contatosLoaded, loadContatos, fetchContatosPaginated, fetchKanbanColumns, defaultFilterLoaded, globalFilters.prospeccaoIds]);
 
   // Re-fetch when global filters change
   useEffect(() => {
     if (!activeCompany?.id) return;
     if (activeTab === 'kanban') {
+      if (!defaultFilterLoaded) return;
+      if (globalFilters.prospeccaoIds.length === 0) return;
       fetchKanbanColumns(getKanbanFilters());
     } else if (activeTab === 'lista') {
       const filters = getKanbanFilters();
@@ -657,18 +662,20 @@ showAllEvents: true
         status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
       });
     }
-  }, [globalFilters.prospeccaoIds, globalFilters.status, globalFilters.responsavelId, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, activeCompany?.id]);
+  }, [globalFilters.prospeccaoIds, globalFilters.status, globalFilters.responsavelId, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, activeCompany?.id, defaultFilterLoaded]);
 
   // Atribuir leads automaticamente para vendedores quando acessam a aba de atendimentos
   useEffect(() => {
-    if (activeTab === 'kanban' && isLimitedUser && !loadingKanban) {
+    if (activeTab === 'kanban' && isLimitedUser && !loadingKanban && defaultFilterLoaded) {
       verificarEAtribuirSeNecessario().then(() => {
         contarLeadsPendentes();
-        fetchKanbanColumns(getKanbanFilters());
+        if (globalFilters.prospeccaoIds.length > 0) {
+          fetchKanbanColumns(getKanbanFilters());
+        }
         fetchServerMetricas();
       });
     }
-  }, [activeTab, isLimitedUser]);
+  }, [activeTab, isLimitedUser, defaultFilterLoaded]);
   useEffect(() => {
     sessionStorage.setItem('prospeccao_active_tab', activeTab);
   }, [activeTab]);
