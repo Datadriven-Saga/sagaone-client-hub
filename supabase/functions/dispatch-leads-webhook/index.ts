@@ -399,13 +399,11 @@ serve(async (req) => {
       const payloadLigacao = {
         id_evento: eventIdPri,
         telefone_pri: telefonePri,
-        loja: empresaData?.nome_empresa || '',
         contatos: contatosArray
       };
 
       console.log(`   ├─ id_evento: ${eventIdPri}`);
       console.log(`   ├─ telefone_pri: ${telefonePri}`);
-      console.log(`   ├─ loja: ${empresaData?.nome_empresa || ''}`);
       console.log(`   └─ contatos: ${leads.length} lead(s)`);
       contatosArray.slice(0, 5).forEach((c, i) => {
         console.log(`      ${i === Math.min(4, contatosArray.length - 1) ? '└' : '├'}─ ${c.nome} (${c.telefone_lead})`);
