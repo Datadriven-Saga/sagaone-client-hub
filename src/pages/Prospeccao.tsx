@@ -156,12 +156,13 @@ showAllEvents: true
     canal: '',
     totalContatos: 0,
   });
+  const [defaultFilterLoaded, setDefaultFilterLoaded] = useState(false);
   
   // === Custom Hooks e Context Hooks ===
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeCompany, loading: companyLoading, switchCompany } = useCompany();
-  const { canAddClientes, canDeleteContatos, canDeleteEventos, canEditEventos, canToggleIALigacao, canUploadBase, canCreateEventos, canManageEventos, isVendedor, isSDR } = useUserAccessType();
+  const { canAddClientes, canDeleteContatos, canDeleteEventos, canEditEventos, canToggleIALigacao, canUploadBase, canCreateEventos, canManageEventos, isVendedor, isSDR, isAdmin, isMasterRole, isCRM, isDiretor, isGerente, isProprietario } = useUserAccessType();
   const { registrarMovimentacao } = useProspeccaoLogs();
   const { 
     contatos, 
@@ -384,6 +385,63 @@ showAllEvents: true
     fetchProfiles();
   }, [activeCompany?.id]);
 
+  // Carregar filtro padrão de prospecções (uma vez por empresa)
+  // Vendedor/SDR/Gerente: prospecções das equipes do usuário
+  // Admin/Master/CRM/Diretor/Proprietário: últimas 5 prospecções ativas
+  useEffect(() => {
+    if (!activeCompany?.id || !user?.id) return;
+    if (defaultFilterLoaded) return;
+    if (globalFilters.prospeccaoIds.length > 0) {
+      setDefaultFilterLoaded(true);
+      return;
+    }
+
+    const loadDefaultFilter = async () => {
+      try {
+        const isPrivilegedRole = isAdmin || isMasterRole || isCRM || isDiretor || isProprietario;
+
+        if (isPrivilegedRole) {
+          const { data, error } = await supabase
+            .from('prospeccoes')
+            .select('id')
+            .eq('empresa_id', activeCompany.id)
+            .eq('ativo', true)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            setGlobalFilters(prev => ({ ...prev, prospeccaoIds: data.map(p => p.id) }));
+          }
+        } else {
+          // Vendedor / SDR / Gerente: prospecções onde é membro de equipe
+          const { data, error } = await supabase.rpc('get_prospeccoes_usuario', {
+            p_user_id: user.id,
+            p_empresa_id: activeCompany.id,
+          });
+
+          if (error) throw error;
+
+          if (data && Array.isArray(data) && data.length > 0) {
+            setGlobalFilters(prev => ({ ...prev, prospeccaoIds: data as string[] }));
+          }
+        }
+      } catch (err) {
+        console.error('[DefaultFilter] Erro ao carregar filtro padrão de prospecções:', err);
+      } finally {
+        setDefaultFilterLoaded(true);
+      }
+    };
+
+    loadDefaultFilter();
+  }, [activeCompany?.id, user?.id, defaultFilterLoaded, isAdmin, isMasterRole, isCRM, isDiretor, isProprietario]);
+
+  // Resetar flag de default ao trocar de empresa
+  useEffect(() => {
+    setDefaultFilterLoaded(false);
+  }, [activeCompany?.id]);
+
   // Recarregar eventos quando o filtro "mostrar todos" mudar
   useEffect(() => {
     if (activeCompany?.id) {
@@ -571,9 +629,12 @@ showAllEvents: true
 
   // Carregar contatos quando necessário
   // Kanban usa fetchKanbanColumns (per-column), Lista usa fetchContatosPaginated
+  // Guard: NÃO chama Kanban sem prospeccaoIds (evita timeout 57014)
   useEffect(() => {
     if (activeTab !== 'eventos' && activeCompany?.id) {
       if (activeTab === 'kanban') {
+        if (!defaultFilterLoaded) return;
+        if (globalFilters.prospeccaoIds.length === 0) return;
         fetchKanbanColumns(getKanbanFilters());
       } else if (activeTab === 'lista') {
         const filters = getKanbanFilters();
@@ -585,12 +646,14 @@ showAllEvents: true
         loadContatos();
       }
     }
-  }, [activeTab, activeCompany?.id, contatosLoaded, loadContatos, fetchContatosPaginated, fetchKanbanColumns]);
+  }, [activeTab, activeCompany?.id, contatosLoaded, loadContatos, fetchContatosPaginated, fetchKanbanColumns, defaultFilterLoaded, globalFilters.prospeccaoIds]);
 
   // Re-fetch when global filters change
   useEffect(() => {
     if (!activeCompany?.id) return;
     if (activeTab === 'kanban') {
+      if (!defaultFilterLoaded) return;
+      if (globalFilters.prospeccaoIds.length === 0) return;
       fetchKanbanColumns(getKanbanFilters());
     } else if (activeTab === 'lista') {
       const filters = getKanbanFilters();
@@ -599,18 +662,20 @@ showAllEvents: true
         status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
       });
     }
-  }, [globalFilters.prospeccaoIds, globalFilters.status, globalFilters.responsavelId, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, activeCompany?.id]);
+  }, [globalFilters.prospeccaoIds, globalFilters.status, globalFilters.responsavelId, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, activeCompany?.id, defaultFilterLoaded]);
 
   // Atribuir leads automaticamente para vendedores quando acessam a aba de atendimentos
   useEffect(() => {
-    if (activeTab === 'kanban' && isLimitedUser && !loadingKanban) {
+    if (activeTab === 'kanban' && isLimitedUser && !loadingKanban && defaultFilterLoaded) {
       verificarEAtribuirSeNecessario().then(() => {
         contarLeadsPendentes();
-        fetchKanbanColumns(getKanbanFilters());
+        if (globalFilters.prospeccaoIds.length > 0) {
+          fetchKanbanColumns(getKanbanFilters());
+        }
         fetchServerMetricas();
       });
     }
-  }, [activeTab, isLimitedUser]);
+  }, [activeTab, isLimitedUser, defaultFilterLoaded]);
   useEffect(() => {
     sessionStorage.setItem('prospeccao_active_tab', activeTab);
   }, [activeTab]);
@@ -2341,7 +2406,7 @@ showAllEvents: true
 
         <TabsContent value="kanban" className="mt-0 w-full min-w-0 overflow-hidden">
           <div className="h-[calc(100vh-260px)] w-full min-w-0 overflow-hidden flex flex-col">
-            {loadingKanban ? (
+            {!defaultFilterLoaded || loadingKanban ? (
               <div className="flex-1 flex gap-3 p-2 overflow-hidden">
                 {/* Skeleton Kanban columns */}
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -2356,6 +2421,17 @@ showAllEvents: true
                     ))}
                   </div>
                 ))}
+              </div>
+            ) : globalFilters.prospeccaoIds.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                <Target className="w-12 h-12 text-muted-foreground/50 mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">
+                  Selecione pelo menos um evento
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Para visualizar o Kanban de leads, escolha um ou mais eventos no filtro acima.
+                  {(isVendedor || isSDR) && " Se você não está vinculado a nenhuma equipe de evento, fale com seu gestor."}
+                </p>
               </div>
             ) : (
               <div className="flex-1 overflow-hidden">
