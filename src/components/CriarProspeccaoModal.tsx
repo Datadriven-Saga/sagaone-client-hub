@@ -493,6 +493,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     // Reset novos campos IA Whatsapp
     setEventoPrincipal(true);
     setQualificarLead(true);
+    setTipoLead('vendas');
     setDataEnvioInicial("");
     setDataEnvioCadencia("");
     // Reset Cadência Completa
