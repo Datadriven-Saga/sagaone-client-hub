@@ -156,6 +156,7 @@ showAllEvents: true
     canal: '',
     totalContatos: 0,
   });
+  const [defaultFilterLoaded, setDefaultFilterLoaded] = useState(false);
   
   // === Custom Hooks e Context Hooks ===
   const { toast } = useToast();
