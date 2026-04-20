@@ -5329,6 +5329,10 @@ export type Database = {
           status: string
         }[]
       }
+      get_prospeccoes_usuario: {
+        Args: { p_empresa_id: string; p_user_id: string }
+        Returns: string[]
+      }
       get_quarentena_dias: {
         Args: { p_canal: string; p_empresa_id: string; p_marca: string }
         Returns: number
