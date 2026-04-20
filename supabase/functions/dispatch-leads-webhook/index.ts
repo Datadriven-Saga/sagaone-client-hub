@@ -423,13 +423,17 @@ serve(async (req) => {
         
         let response: Response;
         try {
-          response = await fetch(webhookUrl, {
+          response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/external-webhook-proxy`, {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
-              ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
             },
-            body: JSON.stringify(payloadLigacao),
+            body: JSON.stringify({
+              endpoint: 'dispara-ligacao',
+              ...payloadLigacao,
+            }),
             signal: controller.signal,
           });
         } catch (fetchErr: any) {
