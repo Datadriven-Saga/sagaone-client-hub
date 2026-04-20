@@ -763,7 +763,18 @@ export default function Templates() {
     cardData: Record<string, any>;
     agenteId: string | null;
     variableMappings?: VariableMapping[];
-  }): Promise<{ template_id_pri?: string; id_meta?: string; status_meta?: string; category_meta?: string } | null> => {
+  }): Promise<{
+    template_id_pri?: string;
+    id_meta?: string;
+    status_meta?: string;
+    category_meta?: string;
+    webhook_status?: number;
+    webhook_ok?: boolean;
+    error_user_title?: string;
+    error_user_msg?: string;
+    error_message?: string;
+    raw_response?: string;
+  } | null> => {
     if (!activeCompany?.id) return null;
 
     try {
