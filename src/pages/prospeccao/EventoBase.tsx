@@ -1178,7 +1178,7 @@ export default function EventoBase() {
 
         if (error) throw error;
 
-        if (data?.success && data?.pendentes) {
+        if (data?.success && Array.isArray(data?.pendentes) && data.pendentes.length > 0) {
           const pendentes: ContatoEvento[] = data.pendentes.map((p: any) => ({
             id: p.id,
             lead_id: p.lead_id ? parseInt(String(p.lead_id), 10) : null,
@@ -1197,7 +1197,7 @@ export default function EventoBase() {
           console.log(`🎯 Total de contatos PENDENTES de prospect_pri_voz: ${pendentes.length}`);
           return pendentes;
         }
-        
+
         console.warn('⚠️ get-base-ligacao retornou sem dados pendentes, tentando fallback local...');
       } catch (err) {
         console.warn('⚠️ Erro ao buscar pendentes de prospect_pri_voz, tentando fallback local:', err);
