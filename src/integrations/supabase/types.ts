@@ -3800,6 +3800,7 @@ export type Database = {
           template_agendado_id: string | null
           template_nao_agendado_id: string | null
           template_prospeccao_id: string | null
+          tipo_lead: string
           titulo: string
           updated_at: string | null
         }
@@ -3852,6 +3853,7 @@ export type Database = {
           template_agendado_id?: string | null
           template_nao_agendado_id?: string | null
           template_prospeccao_id?: string | null
+          tipo_lead?: string
           titulo: string
           updated_at?: string | null
         }
@@ -3904,6 +3906,7 @@ export type Database = {
           template_agendado_id?: string | null
           template_nao_agendado_id?: string | null
           template_prospeccao_id?: string | null
+          tipo_lead?: string
           titulo?: string
           updated_at?: string | null
         }
