@@ -67,20 +67,22 @@ function findColumnIndex(headers: string[], fieldName: string): number {
   return -1;
 }
 
-// Basic Brazilian phone normalization
+// Brazilian phone normalization → padrão DDD + 8 dígitos (10 total, SEM o 9 adicional)
+// Esse é o formato esperado pelos discadores e pela tabela prospect_pri_voz
 function normalizePhone(raw: string): string | null {
   if (!raw) return null;
   let digits = raw.replace(/\D/g, '');
-  if (digits.length < 10) return null;
-  if (digits.startsWith('55') && digits.length >= 12) {
-    digits = digits.slice(2);
-  }
+  if (digits.startsWith('0055')) digits = digits.slice(4);
+  if (digits.startsWith('55') && digits.length >= 12) digits = digits.slice(2);
+  if (digits.startsWith('0') && (digits.length === 11 || digits.length === 12)) digits = digits.slice(1);
   if (digits.length < 10 || digits.length > 11) return null;
-  if (digits.length === 10) {
-    const ddd = digits.slice(0, 2);
-    const number = digits.slice(2);
-    digits = ddd + '9' + number;
+  // Remove o 9º dígito adicional de celulares (mantém DDD + 8)
+  if (digits.length === 11 && digits[2] === '9') {
+    digits = digits.slice(0, 2) + digits.slice(3);
   }
+  if (digits.length !== 10) return null;
+  // DDD válido (10-99)
+  if (!/^[1-9]\d$/.test(digits.slice(0, 2))) return null;
   return digits;
 }
 
