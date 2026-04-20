@@ -1034,9 +1034,41 @@ export default function Templates() {
         variableMappings: variableMappings,
       });
 
-      // 3. Validar que o webhook retornou template_id_pri (OBRIGATÓRIO)
+      // 3a. Validar status HTTP do webhook externo (Meta).
+      // Se não for 200, marcar template como rejeitado e mostrar mensagem da Meta.
+      const webhookStatus = webhookResponse?.webhook_status;
+      const webhookOk = webhookResponse?.webhook_ok;
+      const httpFailed =
+        webhookResponse !== null &&
+        ((typeof webhookOk === 'boolean' && !webhookOk) ||
+          (typeof webhookStatus === 'number' && webhookStatus !== 200));
+
+      if (httpFailed) {
+        // Marcar como rejeitado em vez de excluir, para que o usuário veja o registro
+        await supabase
+          .from("whatsapp_templates")
+          .update({ status_meta: "REJECTED" })
+          .eq("id", insertedTemplateId);
+
+        const metaTitle = webhookResponse?.error_user_title;
+        const metaMsg =
+          webhookResponse?.error_user_msg ||
+          webhookResponse?.error_message ||
+          webhookResponse?.raw_response ||
+          "Erro desconhecido retornado pela Meta.";
+
+        const fullMsg = metaTitle ? `${metaTitle}: ${metaMsg}` : metaMsg;
+        toast.error(`Template rejeitado (HTTP ${webhookStatus ?? '?'}) — ${fullMsg}`, {
+          duration: 12000,
+        });
+        refetchTemplates();
+        handleCloseModal();
+        return;
+      }
+
+      // 3b. Validar que o webhook retornou template_id_pri (OBRIGATÓRIO)
       const returnedTemplateIdPri = webhookResponse?.template_id_pri;
-      
+
       if (!returnedTemplateIdPri) {
         // Rollback: excluir o template parcial do banco
         await supabase.from("whatsapp_templates").delete().eq("id", insertedTemplateId);
