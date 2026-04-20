@@ -630,17 +630,33 @@ serve(async (req) => {
 
         // Capturar resposta do webhook para retornar ao cliente
         let responseBody: any = null;
+        let responseTextRaw: string = '';
         try {
-          const responseText = await webhookResponse.text();
-          console.log(`Resposta do webhook (${webhookResponse.status}):`, responseText);
-          responseBody = JSON.parse(responseText);
+          responseTextRaw = await webhookResponse.text();
+          console.log(`Resposta do webhook (${webhookResponse.status}):`, responseTextRaw);
+          try {
+            responseBody = JSON.parse(responseTextRaw);
+          } catch {
+            responseBody = null;
+          }
           
           // Se for webhook de template e tiver dados do Meta, armazenar
           if (gatilho === 'novo_template_whatsapp' && responseBody) {
             webhookResponseData = responseBody;
           }
         } catch (parseErr) {
-          console.log('Resposta do webhook não é JSON válido');
+          console.log('Falha ao ler resposta do webhook');
+        }
+
+        // Para templates, propagar status e body bruto para o cliente tratar erros da Meta
+        if (gatilho === 'novo_template_whatsapp') {
+          webhookResponseData = {
+            ...(webhookResponseData || {}),
+            ...(responseBody || {}),
+            webhook_status: webhookResponse.status,
+            webhook_ok: webhookResponse.ok,
+            raw_response: responseTextRaw,
+          };
         }
 
         webhooksDispareados.push({
