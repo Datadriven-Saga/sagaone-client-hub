@@ -306,6 +306,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       // Novos campos IA Whatsapp - converter ISO para datetime-local
       setEventoPrincipal(editingProspeccao.evento_principal ?? false);
       setQualificarLead(editingProspeccao.qualificar_lead ?? true);
+      setTipoLead((editingProspeccao.tipo_lead as any) || 'vendas');
       // Converter timestamp ISO para formato datetime-local (YYYY-MM-DDTHH:MM)
       const formatToDatetimeLocal = (isoString: string | null) => {
         if (!isoString) return "";
