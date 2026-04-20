@@ -1548,11 +1548,79 @@ showAllEvents: true
   };
 
   const handleClientesSelected = async (prospeccaoId: string, clientes: ClienteData[]) => {
-    // BaseExistente já faz a vinculação diretamente no banco
-    // Este callback é chamado apenas para atualizar os dados locais
+    // BaseExistente já faz a vinculação no banco; aqui sincronizamos com webhook externo
+    // quando for um evento de IA Ligação (cria-base-ligacao)
     try {
       console.log(`✅ ${clientes.length} clientes vinculados ao evento ${prospeccaoId} via BaseExistente`);
-      
+
+      const prospeccaoAlvo = prospeccoes.find(p => p.id === prospeccaoId);
+      const isLigacaoEvent = prospeccaoAlvo?.canal === 'Ligação';
+
+      if (isLigacaoEvent && clientes.length > 0 && activeCompany?.id) {
+        try {
+          console.log('📞 [SYNC-BASE-EXISTENTE] Sincronizando com webhook cria-base-ligacao...');
+
+          const { data: agenteData } = await supabase
+            .from('agente_empresas')
+            .select(`
+              agente_id,
+              agentes_ia (
+                id,
+                nome,
+                telefone,
+                ativo
+              )
+            `)
+            .eq('empresa_id', activeCompany.id)
+            .limit(10);
+
+          const agenteAtivo = agenteData?.find((a: any) => a.agentes_ia?.ativo === true && a.agentes_ia?.telefone);
+
+          if (!agenteAtivo?.agentes_ia?.telefone) {
+            console.warn('⚠️ [SYNC-BASE-EXISTENTE] Nenhum agente Pri ativo encontrado — pulando webhook');
+          } else {
+            const telefonePri = agenteAtivo.agentes_ia.telefone.replace(/\D/g, '');
+            const lojaNome = activeCompany?.nome_empresa || '';
+            const idEvento = prospeccaoAlvo?.event_id_pri ? Number(prospeccaoAlvo.event_id_pri) : null;
+
+            const normalizeTelefoneForPri = (digitsIn: string) => {
+              let digits = digitsIn;
+              if (digits.length > 11 && digits.startsWith('55')) digits = digits.slice(2);
+              if (digits.length === 11 && digits[2] === '9') digits = digits.slice(0, 2) + digits.slice(3);
+              return digits;
+            };
+
+            const contatosPayload = clientes.map((c: any) => {
+              const raw = (c.telefone || '').replace(/\D/g, '');
+              return { nome: c.nome || '', telefone: normalizeTelefoneForPri(raw) };
+            });
+
+            const SYNC_BATCH = 1000;
+            for (let i = 0; i < contatosPayload.length; i += SYNC_BATCH) {
+              const batch = contatosPayload.slice(i, i + SYNC_BATCH);
+              try {
+                await supabase.functions.invoke('create-base-ligacao', {
+                  body: {
+                    contatos: batch,
+                    id_evento: idEvento || 0,
+                    telefone_pri: telefonePri,
+                    empresa_id: activeCompany.id,
+                    prospeccao_id: prospeccaoId,
+                    loja: lojaNome,
+                    sync_external: !!idEvento,
+                  },
+                });
+              } catch (batchError) {
+                console.error('❌ [SYNC-BASE-EXISTENTE] Exceção no lote:', batchError);
+              }
+            }
+            console.log('✅ [SYNC-BASE-EXISTENTE] Sincronização concluída');
+          }
+        } catch (syncErr) {
+          console.error('❌ [SYNC-BASE-EXISTENTE] Erro ao sincronizar com webhook:', syncErr);
+        }
+      }
+
       // Atualizar dados locais
       refetch();
     } catch (error: any) {
