@@ -649,6 +649,77 @@ async function processBatch(
   const MAX_RETRIES = 3;
   let lastError = '';
 
+  // ==========================================================
+  // PRÉ-PROCESSAMENTO: migrar telefones legados (com 9 adicional)
+  // para o formato sem o 9, APENAS para os números desta importação.
+  // Assim, contatos já existentes que vierem na planilha terão seu
+  // telefone normalizado, e o upsert seguinte fará UPDATE (não INSERT duplicado).
+  // ==========================================================
+  try {
+    // Para cada telefone normalizado (10 dígitos sem 9), monta o equivalente
+    // legado com 9 adicional (11 dígitos). Ex: 6232001234 → 62932001234
+    const legacyMap = new Map<string, string>(); // legacy(11d c/9) → novo(10d s/9)
+    for (const c of batch) {
+      const tel = String(c.telefone || '');
+      if (tel.length === 10 && /^[1-9]\d/.test(tel)) {
+        const legacy = tel.slice(0, 2) + '9' + tel.slice(2);
+        legacyMap.set(legacy, tel);
+      }
+    }
+
+    if (legacyMap.size > 0) {
+      const legacyPhones = [...legacyMap.keys()];
+      const CHUNK = 200;
+      for (let i = 0; i < legacyPhones.length; i += CHUNK) {
+        const chunk = legacyPhones.slice(i, i + CHUNK);
+        const { data: existentes, error: fetchErr } = await supabase
+          .from('contatos')
+          .select('id, telefone')
+          .eq('empresa_id', empresaId)
+          .in('telefone', chunk);
+
+        if (fetchErr) {
+          console.warn('⚠️ Falha ao buscar telefones legados:', fetchErr.message);
+          continue;
+        }
+
+        for (const row of (existentes || [])) {
+          const novoTel = legacyMap.get(row.telefone);
+          if (!novoTel) continue;
+
+          // Verifica se já existe um contato com o telefone novo (sem 9) na empresa.
+          // Se existir, NÃO atualiza para evitar violar a constraint única.
+          const { data: jaExiste } = await supabase
+            .from('contatos')
+            .select('id')
+            .eq('empresa_id', empresaId)
+            .eq('telefone', novoTel)
+            .neq('id', row.id)
+            .limit(1)
+            .maybeSingle();
+
+          if (jaExiste) {
+            console.log(`⏭️  Telefone ${row.telefone} → ${novoTel}: já existe contato sem 9, mantendo legado`);
+            continue;
+          }
+
+          const { error: updErr } = await supabase
+            .from('contatos')
+            .update({ telefone: novoTel, updated_at: new Date().toISOString() })
+            .eq('id', row.id);
+
+          if (updErr) {
+            console.warn(`⚠️ Falha ao normalizar telefone ${row.telefone} → ${novoTel}:`, updErr.message);
+          } else {
+            console.log(`📞 Telefone normalizado (importação): ${row.telefone} → ${novoTel}`);
+          }
+        }
+      }
+    }
+  } catch (preErr: any) {
+    console.warn('⚠️ Erro no pré-processamento de normalização:', preErr?.message || preErr);
+  }
+
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const { data, error } = await supabase.rpc('bulk_upsert_contatos', {
