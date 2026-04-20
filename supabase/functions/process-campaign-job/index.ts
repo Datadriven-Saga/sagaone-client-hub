@@ -229,6 +229,20 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
               })));
             }
           }
+
+          if (leads.length === 0) {
+            for (let i = 0; i < leadIds.length; i += SUB_BATCH) {
+              const batchIds = leadIds.slice(i, i + SUB_BATCH);
+              const { data: leadsData, error: leadsError } = await supabase
+                .from('contatos')
+                .select('id, lead_id, nome, telefone, email, status, origem, vendedor_nome, codigo_proposta')
+                .in('id', batchIds);
+              if (leadsError) {
+                console.error(`⚠️ [BG] Erro no fallback local de contatos sub-batch ${Math.floor(i / SUB_BATCH)}:`, leadsError.message);
+              }
+              if (leadsData) leads.push(...leadsData);
+            }
+          }
         } else {
           for (let i = 0; i < leadIds.length; i += SUB_BATCH) {
             const batchIds = leadIds.slice(i, i + SUB_BATCH);
@@ -288,13 +302,17 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
               const controller = new AbortController();
               const timeout = setTimeout(() => controller.abort(), LIGACAO_TIMEOUT_MS);
               
-              const response = await fetch(webhookUrl, {
+              const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/external-webhook-proxy`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                  'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
                 },
-                body: JSON.stringify(payloadLigacao),
+                body: JSON.stringify({
+                  endpoint: 'dispara-ligacao',
+                  ...payloadLigacao,
+                }),
                 signal: controller.signal,
               });
               clearTimeout(timeout);
