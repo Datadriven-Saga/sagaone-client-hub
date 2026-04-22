@@ -605,14 +605,16 @@ export const useRecepcaoData = () => {
 
     try {
       const nowIso = new Date().toISOString();
+      // Janela de tolerância: inclui eventos encerrados nos últimos 3 dias
+      const tresDiasAtrasIso = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
-      // 1. Prospecções ativas (apenas pelas datas, ignora coluna `ativo`)
+      // 1. Prospecções ativas OU encerradas há até 3 dias (apenas pelas datas, ignora coluna `ativo`)
       const { data: ativas, error: ativasErr } = await supabase
         .from("prospeccoes")
         .select("id, titulo, data_inicio, data_fim, empresa_id, ativo")
         .eq("empresa_id", activeCompany.id)
         .lte("data_inicio", nowIso)
-        .gte("data_fim", nowIso)
+        .gte("data_fim", tresDiasAtrasIso)
         .order("data_inicio", { ascending: false });
 
       if (ativasErr) throw ativasErr;
