@@ -5,6 +5,7 @@ import { Trash2, Calendar, Phone, User, Tag, Building2 } from "lucide-react";
 import { RecepcaoVisita } from "@/hooks/useRecepcaoData";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +25,7 @@ interface RecepcaoTableProps {
 
 export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: RecepcaoTableProps) => {
   const [visitaParaExcluir, setVisitaParaExcluir] = useState<string | null>(null);
+  const { canDeleteRecepcaoVisita } = useUserAccessType();
 
   const visitasFiltradas = visitas.filter(visita => {
     if (!searchFilter) return true;
