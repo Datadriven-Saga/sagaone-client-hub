@@ -107,7 +107,7 @@ export function CheckinConfirmModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] sm:max-w-[480px] p-4 sm:p-6 rounded-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] sm:max-w-[480px] p-4 sm:p-6 rounded-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <CheckCircle2 className="w-5 h-5 text-primary" />
@@ -183,7 +183,7 @@ export function CheckinConfirmModal({
                         className="mt-0.5"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">
+                        <p className="font-medium text-sm break-words">
                           {m.prospeccao.titulo}
                           {isEncerrado && (
                             <span className="ml-1 text-xs font-normal text-muted-foreground">
@@ -193,11 +193,11 @@ export function CheckinConfirmModal({
                         </p>
                         {m.isNewContact ? (
                           <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5 flex items-center gap-1">
-                            <Sparkles className="w-3 h-3" /> Novo visitante nesta prospecção
+                            <Sparkles className="w-3 h-3 shrink-0" /> Novo visitante nesta prospecção
                           </p>
                         ) : (
-                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                            <User className="w-3 h-3" /> {m.contatoNome}
+                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 min-w-0">
+                            <User className="w-3 h-3 shrink-0" /> <span className="truncate">{m.contatoNome}</span>
                           </p>
                         )}
                       </div>
@@ -278,7 +278,7 @@ export function CheckinConfirmModal({
         </div>
         )}
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+        <DialogFooter className="flex-col sm:flex-row gap-2 w-full">
           <Button 
             type="button" 
             variant="ghost" 
@@ -291,7 +291,7 @@ export function CheckinConfirmModal({
           <Button 
             onClick={handleConfirmClick}
             disabled={confirmDisabled}
-            className="w-full sm:w-auto order-1 sm:order-2 gap-2"
+            className="w-full sm:w-auto order-1 sm:order-2 gap-2 whitespace-normal text-center"
           >
             {loading ? (
               <>
@@ -300,7 +300,7 @@ export function CheckinConfirmModal({
               </>
             ) : (
               <>
-                <CheckCircle2 className="w-4 h-4" />
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
                 {isMulti
                   ? `Confirmar em ${selectedMatches.length} evento${selectedMatches.length === 1 ? "" : "s"}`
                   : "Confirmar Check-in"}
