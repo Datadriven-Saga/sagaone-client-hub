@@ -969,11 +969,10 @@ const Acessos = () => {
 interface FilteredUsersListProps {
   profiles: Profile[];
   companies: Company[];
-  filterSearch: string;
   filterEmpresaId: string;
-  filterStatus: string;
   currentPage: number;
   itemsPerPage: number;
+  totalUsers: number;
   setCurrentPage: (page: number) => void;
   handleEdit: (profile: Profile) => void;
   handleDelete: (id: string) => void;
@@ -983,37 +982,29 @@ interface FilteredUsersListProps {
 
 const FilteredUsersList = ({
   profiles,
-  filterSearch,
   filterEmpresaId,
-  filterStatus,
   currentPage,
   itemsPerPage,
+  totalUsers,
   setCurrentPage,
   handleEdit,
   handleDelete,
   canEdit,
   canDelete
 }: FilteredUsersListProps) => {
+  // Search, status and tipo_acesso filters are applied server-side.
+  // Empresa filter remains client-side because user_empresas is loaded with the page.
   const filteredProfiles = useMemo(() => {
-    return profiles.filter(profile => {
-      const searchLower = filterSearch.toLowerCase();
-      const matchSearch = !filterSearch || 
-        profile.nome_completo?.toLowerCase().includes(searchLower) ||
-        profile.email?.toLowerCase().includes(searchLower) ||
-        profile.cpf?.toLowerCase().includes(searchLower) ||
-        profile.celular?.includes(filterSearch);
-      const matchEmpresa = !filterEmpresaId || filterEmpresaId === "all" || profile.empresas?.some(e => e.id === filterEmpresaId);
-      const matchStatus = !filterStatus || filterStatus === "all" || profile.status === filterStatus;
-      
-      return matchSearch && matchEmpresa && matchStatus;
-    });
-  }, [profiles, filterSearch, filterEmpresaId, filterStatus]);
+    if (!filterEmpresaId || filterEmpresaId === "all") return profiles;
+    return profiles.filter(profile =>
+      profile.empresas?.some(e => e.id === filterEmpresaId)
+    );
+  }, [profiles, filterEmpresaId]);
 
-  const totalPages = Math.ceil(filteredProfiles.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedProfiles = filteredProfiles.slice(startIndex, startIndex + itemsPerPage);
-  const startItem = startIndex + 1;
-  const endItem = Math.min(startIndex + itemsPerPage, filteredProfiles.length);
+  const totalPages = Math.max(Math.ceil(totalUsers / itemsPerPage), 1);
+  const startItem = totalUsers === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalUsers);
+  const paginatedProfiles = filteredProfiles;
 
   if (filteredProfiles.length === 0) {
     return (
@@ -1027,7 +1018,7 @@ const FilteredUsersList = ({
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div className="text-xs md:text-sm text-muted-foreground">
-          Mostrando {startItem}-{endItem} de {filteredProfiles.length} usuários
+          Mostrando {startItem}-{endItem} de {totalUsers} usuários
         </div>
         {totalPages > 1 && (
           <div className="flex items-center gap-1.5">
