@@ -151,7 +151,14 @@ const Acessos = () => {
       console.log('Acessos: Fetching profiles...');
       
       const { data, error } = await supabase.functions.invoke('manage-users', {
-        body: { action: 'list_users' }
+        body: {
+          action: 'list_users',
+          search: debouncedSearch || null,
+          tipo_acesso_filter: filterTipoAcesso && filterTipoAcesso !== 'all' ? filterTipoAcesso : null,
+          status_filter: filterStatus && filterStatus !== 'all' ? filterStatus : null,
+          limit: itemsPerPage,
+          offset: (currentPage - 1) * itemsPerPage,
+        }
       });
 
       console.log('Acessos: Response from edge function:', { data, error });
@@ -164,6 +171,7 @@ const Acessos = () => {
       if (data?.users) {
         console.log('Acessos: Found users from edge function:', data.users.length);
         setProfiles(data.users);
+        setTotalUsers(Number(data.total) || 0);
         
         // Set role-based state from backend
         setIsAdminUser(data.isAdmin === true);
@@ -184,6 +192,7 @@ const Acessos = () => {
       } else {
         console.warn('Acessos: No users found in response');
         setProfiles([]);
+        setTotalUsers(0);
       }
     } catch (error: any) {
       console.error('Acessos: Erro ao buscar perfis:', error);
@@ -193,24 +202,26 @@ const Acessos = () => {
         variant: "destructive"
       });
       setProfiles([]);
+      setTotalUsers(0);
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
     }
-  }, [toast, authUser?.id]);
+  }, [toast, authUser?.id, debouncedSearch, filterTipoAcesso, filterStatus, currentPage, itemsPerPage]);
 
   useEffect(() => {
-    // Only fetch once when user is authenticated
-    if (!authUser?.id || hasFetchedRef.current) {
-      return;
+    if (!authUser?.id) return;
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      fetchCompanies();
     }
-
-    console.log('Acessos: Initial fetch for user:', authUser?.id);
-    hasFetchedRef.current = true;
-    
-    fetchCompanies();
     fetchProfiles();
   }, [authUser?.id, fetchProfiles, fetchCompanies]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, filterTipoAcesso, filterStatus]);
 
   const handleCreateUser = async (data: UserForm) => {
     setSubmitting(true);
