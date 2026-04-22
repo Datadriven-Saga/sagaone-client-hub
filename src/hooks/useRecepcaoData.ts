@@ -626,15 +626,24 @@ export const useRecepcaoData = () => {
         return null;
       }
 
-      // 2. Carrega contatos da empresa e filtra por telefone (com variações 9º dígito).
-      //    Mais simples e robusto do que múltiplos OR no Postgrest.
+      // 2. Busca SERVER-SIDE por variações do telefone (9º dígito, DDI 55).
+      //    Evita carregar todos os contatos (limite default 1000) e perder matches
+      //    em empresas com bases grandes.
+      const variacoes = Array.from(new Set([
+        ...generatePhoneVariations(telefone),
+        // Inclui também variações com prefixo 55 (DDI), pois alguns registros são salvos assim
+        ...generatePhoneVariations(telefone).map((v) => `55${v}`),
+      ])).filter(Boolean);
+
       const { data: contatosEmpresa, error: cErr } = await supabase
         .from("contatos")
         .select("id, nome, telefone")
-        .eq("empresa_id", activeCompany.id);
+        .eq("empresa_id", activeCompany.id)
+        .in("telefone", variacoes);
 
       if (cErr) throw cErr;
 
+      // Confirma match local (cobre formatações como "(62) 98116-1820")
       const contatosMatch = (contatosEmpresa || []).filter(
         (c) => c.telefone && phonesMatch(telefone, c.telefone)
       );
