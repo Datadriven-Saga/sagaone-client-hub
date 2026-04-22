@@ -56,6 +56,20 @@ export interface CheckinData {
   isNewContact: boolean;
 }
 
+// === Multi-prospecção ativa ===
+export interface ProspeccaoAtivaMatch {
+  prospeccao: Prospeccao;
+  contatoId: string | null;
+  contatoNome: string | null;
+  isNewContact: boolean; // true => não vinculado a essa prospecção
+}
+
+export interface MultiCheckinData {
+  telefone: string;
+  matches: ProspeccaoAtivaMatch[];
+  hasAnyExisting: boolean; // ao menos uma prospecção já tem o contato
+}
+
 // Usa a função centralizada de phoneUtils
 const normalizePhone = (phone: string): string => {
   return extractPhoneDigits(phone);
