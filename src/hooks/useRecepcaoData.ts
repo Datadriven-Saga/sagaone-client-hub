@@ -119,14 +119,39 @@ export const useRecepcaoData = () => {
         // Specific event
         prospeccaoIds = [recepcaoEventoFilter];
       } else if (recepcaoStatusFilter !== "todos") {
-        // "todos" but filtered by active/inactive status
+        // "todos" com filtro Ativos/Inativos:
+        // - IA Ligação: usa coluna `ativo` (toggle manual + sync PRI)
+        // - Demais canais: calcula por data_fim (Ativo = hoje <= data_fim ou sem data_fim; Inativo = hoje > data_fim)
         const { data: filteredProspeccoes } = await supabase
           .from("prospeccoes")
-          .select("id")
-          .eq("empresa_id", activeCompany.id)
-          .eq("ativo", recepcaoStatusFilter === "ativos");
-        
-        prospeccaoIds = (filteredProspeccoes || []).map(p => p.id);
+          .select("id, canal, ativo, data_fim")
+          .eq("empresa_id", activeCompany.id);
+
+        const hoje = new Date();
+        const hojeDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+        const querAtivos = recepcaoStatusFilter === "ativos";
+
+        prospeccaoIds = (filteredProspeccoes || [])
+          .filter((p: any) => {
+            const isIaLigacao = String(p.canal || "").toLowerCase().includes("ligacao") ||
+                                String(p.canal || "").toLowerCase().includes("ligação") ||
+                                String(p.canal || "").toLowerCase().includes("voz");
+            let ativoEfetivo: boolean;
+            if (isIaLigacao) {
+              ativoEfetivo = p.ativo !== false;
+            } else {
+              if (!p.data_fim) {
+                ativoEfetivo = true;
+              } else {
+                const fim = new Date(p.data_fim);
+                const fimDia = new Date(fim.getFullYear(), fim.getMonth(), fim.getDate());
+                ativoEfetivo = hojeDia <= fimDia;
+              }
+            }
+            return ativoEfetivo === querAtivos;
+          })
+          .map((p: any) => p.id);
+
         if (prospeccaoIds.length === 0) {
           setVisitas([]);
           setTotalVisitas(0);
