@@ -273,6 +273,7 @@ Deno.serve(async (req: Request) => {
         return new Response(
           JSON.stringify({
             users: profilesWithDetails,
+            total: totalCount,
             currentUserRole: userTipoAcesso,
             isAdmin: isAdmin || canManage,
             isGerente: isGerente
