@@ -847,7 +847,7 @@ const Acessos = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-1.5 md:col-span-1">
                 <label className="text-xs font-medium text-muted-foreground">Pesquisar</label>
                 <Input
@@ -855,10 +855,32 @@ const Acessos = () => {
                   value={filterSearch}
                   onChange={(e) => {
                     setFilterSearch(e.target.value);
-                    setCurrentPage(1);
                   }}
                   className="h-9"
                 />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Tipo de Acesso</label>
+                <Select value={filterTipoAcesso} onValueChange={setFilterTipoAcesso}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="Administrador">Administrador</SelectItem>
+                    <SelectItem value="TI">TI</SelectItem>
+                    <SelectItem value="Master">Master</SelectItem>
+                    <SelectItem value="Diretor">Diretor</SelectItem>
+                    <SelectItem value="Proprietário">Proprietário</SelectItem>
+                    <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
+                    <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
+                    <SelectItem value="Coordenadora de Leads">Coordenadora de Leads</SelectItem>
+                    <SelectItem value="CRM">CRM</SelectItem>
+                    <SelectItem value="Vendedor">Vendedor</SelectItem>
+                    <SelectItem value="SDR">SDR</SelectItem>
+                    <SelectItem value="Recepcionista">Recepcionista</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Empresa</label>
@@ -883,7 +905,6 @@ const Acessos = () => {
                 <label className="text-xs font-medium text-muted-foreground">Status</label>
                 <Select value={filterStatus} onValueChange={(value) => {
                   setFilterStatus(value);
-                  setCurrentPage(1);
                 }}>
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Todos" />
