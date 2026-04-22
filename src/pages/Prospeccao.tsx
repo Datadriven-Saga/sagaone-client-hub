@@ -2177,37 +2177,40 @@ showAllEvents: true
                         <tbody>
                           {filteredProspeccoes
                             .map((prospeccao) => {
-                              // Determinar status baseado no estado do disparo
-                              const contagem = contagemPendentes[prospeccao.id];
-                              const total = contagem?.total || 0;
-                              const pendentes = contagem?.pendentes || 0;
-                              const disparados = contagem?.disparados || 0;
-                              const isDisparandoEvento = disparandoIA === prospeccao.id;
-                              
                               // Verificar se evento está desativado (apenas para IA Ligação)
                               const canalStrCheck = String(prospeccao.canal).toLowerCase();
                               const isIALigacaoCheck = canalStrCheck.includes('liga') || canalStrCheck === 'ligação' || canalStrCheck === 'ligacao';
                               const eventoDesativado = isIALigacaoCheck && (prospeccao as any).ativo === false;
-                              
+
+                              // Determinar status baseado em data_inicio / data_fim do evento
+                              // Pendente: hoje < data_inicio (evento ainda não começou)
+                              // Em Progresso: data_inicio <= hoje <= data_fim (evento em andamento)
+                              // Encerrado: hoje > data_fim (evento já terminou)
                               let status = 'Pendente';
                               let statusColor = 'bg-yellow-100 text-yellow-700';
-                              
+
                               if (eventoDesativado) {
-                                // Evento desativado
                                 status = 'Desativado';
                                 statusColor = 'bg-red-100 text-red-700';
-                              } else if (isDisparandoEvento) {
-                                // Está disparando agora
-                                status = 'Em Progresso';
-                                statusColor = 'bg-blue-100 text-blue-700';
-                              } else if (total > 0 && pendentes === 0) {
-                                // Todos os contatos foram disparados
-                                status = 'Encerrado';
-                                statusColor = 'bg-gray-100 text-gray-700';
-                              } else if (disparados > 0 && pendentes > 0) {
-                                // Alguns disparados, mas ainda há pendentes - consideramos "Em Progresso"
-                                status = 'Em Progresso';
-                                statusColor = 'bg-blue-100 text-blue-700';
+                              } else {
+                                const dataInicio = (prospeccao as any).data_inicio ? new Date((prospeccao as any).data_inicio) : null;
+                                const dataFim = (prospeccao as any).data_fim ? new Date((prospeccao as any).data_fim) : null;
+                                const hoje = new Date();
+                                // Normalizar para comparação por dia (ignorar hora)
+                                const hojeDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+                                const inicioDia = dataInicio ? new Date(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate()) : null;
+                                const fimDia = dataFim ? new Date(dataFim.getFullYear(), dataFim.getMonth(), dataFim.getDate()) : null;
+
+                                if (fimDia && hojeDia > fimDia) {
+                                  status = 'Encerrado';
+                                  statusColor = 'bg-gray-100 text-gray-700';
+                                } else if (inicioDia && hojeDia >= inicioDia && (!fimDia || hojeDia <= fimDia)) {
+                                  status = 'Em Progresso';
+                                  statusColor = 'bg-blue-100 text-blue-700';
+                                } else {
+                                  status = 'Pendente';
+                                  statusColor = 'bg-yellow-100 text-yellow-700';
+                                }
                               }
                             
                             // Calcular meta total de vendas
