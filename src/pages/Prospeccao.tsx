@@ -2999,13 +2999,27 @@ showAllEvents: true
       />
 
       <CheckinConfirmModal
-        isOpen={!!checkinConfirmData}
+        isOpen={!!checkinConfirmData || !!pendingCheckin?.matches}
         onClose={() => {
           setCheckinConfirmData(null);
           setPendingCheckin(null);
         }}
-        onConfirm={handleConfirmCheckin}
         data={checkinConfirmData}
+        multiData={pendingCheckin?.matches ? pendingCheckin : null}
+        onConfirmMulti={handleConfirmMultiCheckin}
+        onConfirm={async (nomeVisitante?: string) => {
+          // Fluxo single (QR Code)
+          if (!pendingCheckin) return;
+          setIsConfirmingCheckin(true);
+          try {
+            await registrarCheckin(pendingCheckin, nomeVisitante);
+            refetch();
+          } finally {
+            setIsConfirmingCheckin(false);
+            setCheckinConfirmData(null);
+            setPendingCheckin(null);
+          }
+        }}
         loading={isConfirmingCheckin}
       />
 
