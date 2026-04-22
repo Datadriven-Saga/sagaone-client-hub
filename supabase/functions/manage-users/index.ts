@@ -200,7 +200,7 @@ Deno.serve(async (req: Request) => {
 
           if (!profiles || profiles.length === 0) {
             return new Response(
-              JSON.stringify({ users: [], currentUserRole: userTipoAcesso, isAdmin: isAdmin || canManage, isGerente }),
+              JSON.stringify({ users: [], total: 0, currentUserRole: userTipoAcesso, isAdmin: isAdmin || canManage, isGerente }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
@@ -227,7 +227,7 @@ Deno.serve(async (req: Request) => {
 
         if (profilesWithDetails.length === 0) {
           return new Response(
-            JSON.stringify({ users: [], currentUserRole: userTipoAcesso, isAdmin: isAdmin || canManage, isGerente }),
+            JSON.stringify({ users: [], total: totalCount, currentUserRole: userTipoAcesso, isAdmin: isAdmin || canManage, isGerente }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
