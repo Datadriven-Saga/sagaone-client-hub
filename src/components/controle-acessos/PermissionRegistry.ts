@@ -147,6 +147,7 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   // ── Recepção ──
   { key: "canAccessRecepcao", label: "Acessar Recepção", moduleId: "recepcao", action: "visualizar" },
   { key: "canReadQRCode", label: "Ler QR Code / Check-in", moduleId: "recepcao", action: "executar" },
+  { key: "canDeleteRecepcaoVisita", label: "Excluir check-in da Recepção", moduleId: "recepcao", action: "excluir" },
 
   // ── Convites ──
   { key: "canGenerateInvites", label: "Gerar convites / QR Codes", moduleId: "convites", action: "executar" },
