@@ -5,6 +5,7 @@ import { Trash2, Calendar, Phone, User, Tag, Building2 } from "lucide-react";
 import { RecepcaoVisita } from "@/hooks/useRecepcaoData";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +25,7 @@ interface RecepcaoTableProps {
 
 export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: RecepcaoTableProps) => {
   const [visitaParaExcluir, setVisitaParaExcluir] = useState<string | null>(null);
+  const { canDeleteRecepcaoVisita } = useUserAccessType();
 
   const visitasFiltradas = visitas.filter(visita => {
     if (!searchFilter) return true;
@@ -72,14 +74,16 @@ export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: Recepcao
             <p className="text-sm text-muted-foreground">{visita.telefone_cliente}</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setVisitaParaExcluir(visita.id)}
-          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
-        >
-          <Trash2 size={16} />
-        </Button>
+        {canDeleteRecepcaoVisita && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setVisitaParaExcluir(visita.id)}
+            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+          >
+            <Trash2 size={16} />
+          </Button>
+        )}
       </div>
       
       <div className="grid grid-cols-2 gap-2 text-sm">
@@ -120,7 +124,7 @@ export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: Recepcao
               <TableHead className="font-semibold">Campanha</TableHead>
               <TableHead className="font-semibold hidden lg:table-cell">ID Maia</TableHead>
               <TableHead className="font-semibold">Data/Hora</TableHead>
-              <TableHead className="w-[80px]"></TableHead>
+              {canDeleteRecepcaoVisita && <TableHead className="w-[80px]"></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -146,16 +150,18 @@ export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: Recepcao
                 <TableCell className="text-muted-foreground">
                   {format(new Date(visita.data_hora_visita), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                 </TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setVisitaParaExcluir(visita.id)}
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 size={16} />
-                  </Button>
-                </TableCell>
+                {canDeleteRecepcaoVisita && (
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setVisitaParaExcluir(visita.id)}
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

@@ -147,6 +147,7 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   // ── Recepção ──
   { key: "canAccessRecepcao", label: "Acessar Recepção", moduleId: "recepcao", action: "visualizar" },
   { key: "canReadQRCode", label: "Ler QR Code / Check-in", moduleId: "recepcao", action: "executar" },
+  { key: "canDeleteRecepcaoVisita", label: "Excluir check-in da Recepção", moduleId: "recepcao", action: "excluir" },
 
   // ── Convites ──
   { key: "canGenerateInvites", label: "Gerar convites / QR Codes", moduleId: "convites", action: "executar" },
@@ -343,6 +344,8 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   // ── Recepção ──
   defaults.canAccessRecepcao = isAdmin || isRecepcionista || isGerente || isCRM;
   defaults.canReadQRCode = isAdmin || isRecepcionista;
+  // Apenas Gerente de Leads pra cima (Gerente Leads/Loja, Coordenadora, Diretor, Proprietário, TI, Admin, Master)
+  defaults.canDeleteRecepcaoVisita = isAdmin || isTI || isGerente || isDiretor || isProprietario;
 
   // ── Convites ──
   defaults.canGenerateInvites = !isRecepcionista;
