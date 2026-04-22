@@ -165,6 +165,8 @@ export function CheckinConfirmModal({
               <div className="space-y-2">
                 {multiData!.matches.map((m) => {
                   const checked = selectedIds.includes(m.prospeccao.id);
+                  const dataFim = m.prospeccao.data_fim ? new Date(m.prospeccao.data_fim) : null;
+                  const isEncerrado = !!dataFim && dataFim.getTime() < Date.now();
                   return (
                     <label
                       key={m.prospeccao.id}
@@ -181,7 +183,14 @@ export function CheckinConfirmModal({
                         className="mt-0.5"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{m.prospeccao.titulo}</p>
+                        <p className="font-medium text-sm truncate">
+                          {m.prospeccao.titulo}
+                          {isEncerrado && (
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">
+                              (encerrado)
+                            </span>
+                          )}
+                        </p>
                         {m.isNewContact ? (
                           <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5 flex items-center gap-1">
                             <Sparkles className="w-3 h-3" /> Novo visitante nesta prospecção
