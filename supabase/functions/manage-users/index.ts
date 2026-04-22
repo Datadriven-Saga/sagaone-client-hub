@@ -155,75 +155,39 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        // === PRIMARY: Use RPC (fast, reliable, no auth API dependency) ===
+        // === SOURCE OF TRUTH: RPC get_users_with_email (server-side filtering + pagination) ===
+        const rpcParams = {
+          p_tipo_acesso_filter: tipoAcessoFilter,
+          p_search: search,
+          p_status: statusFilter,
+          p_limit: pageSize,
+          p_offset: pageOffset,
+        };
+        console.log('[list_users] payload recebido:', JSON.stringify(payload));
+        console.log('[list_users] parâmetros enviados para RPC get_users_with_email:', JSON.stringify(rpcParams));
+
         let profilesWithDetails: any[] = [];
         let totalCount = 0;
-        let usedRpc = false;
 
-        try {
-          const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('get_users_with_email', {
-            p_tipo_acesso_filter: tipoAcessoFilter,
-            p_search: search,
-            p_status: statusFilter,
-            p_limit: pageSize,
-            p_offset: pageOffset,
-          });
+        const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('get_users_with_email', rpcParams);
 
-          if (rpcError) throw rpcError;
-
-          profilesWithDetails = (rpcData || []).map((row: any) => ({
-            ...row,
-            empresas: [], // Will be populated below
-          }));
-          totalCount = (rpcData && rpcData.length > 0) ? Number(rpcData[0].total_count) || 0 : 0;
-          usedRpc = true;
-          console.log('RPC get_users_with_email returned:', profilesWithDetails.length, 'profiles');
-        } catch (rpcErr) {
-          console.warn('RPC get_users_with_email failed, falling back to listUsers:', rpcErr);
+        if (rpcError) {
+          console.error('[list_users] RPC get_users_with_email FALHOU (sem fallback):', rpcError);
+          return new Response(
+            JSON.stringify({
+              error: 'Falha ao listar usuários via RPC',
+              details: rpcError.message,
+            }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
 
-        // === FALLBACK: Legacy listUsers approach ===
-        if (!usedRpc) {
-          let profilesQuery = supabaseAdmin
-            .from('profiles')
-            .select('id, nome_completo, tipo_acesso, departamento, celular, cpf, status, empresa_id, created_at')
-            .order('created_at', { ascending: false });
-
-          if (tipoAcessoFilter) {
-            profilesQuery = profilesQuery.in('tipo_acesso', tipoAcessoFilter);
-          }
-
-          const { data: profiles, error: profilesError } = await profilesQuery.limit(200);
-          if (profilesError) throw profilesError;
-
-          console.log('Fallback: Found profiles:', profiles?.length || 0);
-
-          if (!profiles || profiles.length === 0) {
-            return new Response(
-              JSON.stringify({ users: [], total: 0, currentUserRole: userTipoAcesso, isAdmin: isAdmin || canManage, isGerente }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-
-          // Try listUsers, but handle failure gracefully
-          const emailsByUserId = new Map<string, string>();
-          try {
-            const authUsersResult = await supabaseAdmin.auth.admin.listUsers({ perPage: 500 });
-            if (!authUsersResult.error) {
-              (authUsersResult.data?.users || []).forEach((u: any) => {
-                emailsByUserId.set(u.id, u.email || 'Email não disponível');
-              });
-            }
-          } catch (e) {
-            console.error('listUsers fallback also failed:', e);
-          }
-
-          profilesWithDetails = profiles.map((profile: any) => ({
-            ...profile,
-            email: emailsByUserId.get(profile.id) || 'Email não disponível',
-            empresas: [],
-          }));
-        }
+        profilesWithDetails = (rpcData || []).map((row: any) => ({
+          ...row,
+          empresas: [], // Will be populated below
+        }));
+        totalCount = (rpcData && rpcData.length > 0) ? Number(rpcData[0].total_count) || 0 : 0;
+        console.log('[list_users] fonte=RPC | retornados (já filtrados):', profilesWithDetails.length, '| total_count:', totalCount);
 
         if (profilesWithDetails.length === 0) {
           return new Response(
