@@ -5423,7 +5423,13 @@ export type Database = {
         }[]
       }
       get_users_with_email: {
-        Args: { p_tipo_acesso_filter?: string[] }
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+          p_tipo_acesso_filter?: string[]
+        }
         Returns: {
           celular: string
           cpf: string
@@ -5435,6 +5441,7 @@ export type Database = {
           nome_completo: string
           status: string
           tipo_acesso: string
+          total_count: number
         }[]
       }
       increment_tentativas_chamada: {
