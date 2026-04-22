@@ -1,9 +1,20 @@
+import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Trash2, Calendar, Phone, User, Tag, Building2 } from "lucide-react";
 import { RecepcaoVisita } from "@/hooks/useRecepcaoData";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface RecepcaoTableProps {
   visitas: RecepcaoVisita[];
@@ -12,6 +23,8 @@ interface RecepcaoTableProps {
 }
 
 export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: RecepcaoTableProps) => {
+  const [visitaParaExcluir, setVisitaParaExcluir] = useState<string | null>(null);
+
   const visitasFiltradas = visitas.filter(visita => {
     if (!searchFilter) return true;
     
@@ -62,7 +75,7 @@ export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: Recepcao
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => onDelete(visita.id)}
+          onClick={() => setVisitaParaExcluir(visita.id)}
           className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
         >
           <Trash2 size={16} />
@@ -137,7 +150,7 @@ export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: Recepcao
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => onDelete(visita.id)}
+                    onClick={() => setVisitaParaExcluir(visita.id)}
                     className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                   >
                     <Trash2 size={16} />
@@ -148,6 +161,34 @@ export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: Recepcao
           </TableBody>
         </Table>
       </div>
+
+      <AlertDialog
+        open={!!visitaParaExcluir}
+        onOpenChange={(open) => !open && setVisitaParaExcluir(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir visita</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta visita? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (visitaParaExcluir) {
+                  onDelete(visitaParaExcluir);
+                  setVisitaParaExcluir(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
