@@ -429,6 +429,7 @@ export const useRecepcaoData = () => {
           prospeccao_id: data.evento_id,
           status_anterior: data.contato?.status || null,
           status_novo: "Check-in",
+          usuario_id: user?.id || null,
           observacoes: `Check-in via Recepção - Evento: ${data.evento_nome || 'N/A'}`
         }]);
 
