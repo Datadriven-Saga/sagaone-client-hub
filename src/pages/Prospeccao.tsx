@@ -280,12 +280,12 @@ showAllEvents: true
   };
 
   // Handle check-in confirmation
-  const handleConfirmCheckin = async () => {
+  const handleConfirmCheckin = async (nomeVisitante?: string) => {
     if (!pendingCheckin) return;
     
     setIsConfirmingCheckin(true);
     try {
-      await registrarCheckin(pendingCheckin);
+      await registrarCheckin(pendingCheckin, nomeVisitante);
       refetch();
     } finally {
       setIsConfirmingCheckin(false);

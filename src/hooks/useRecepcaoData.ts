@@ -358,7 +358,7 @@ export const useRecepcaoData = () => {
   };
 
   // Registrar check-in (atualiza contato existente ou cria novo)
-  const registrarCheckin = async (data: CheckinData): Promise<boolean> => {
+  const registrarCheckin = async (data: CheckinData, nomeInformado?: string): Promise<boolean> => {
     if (!activeCompany) return false;
 
     try {
@@ -376,7 +376,8 @@ export const useRecepcaoData = () => {
 
       const phoneNormalized = normalizePhone(data.telefone);
       let contatoId: string;
-      let nomeContato = data.contato?.nome || "Visitante";
+      const nomeNovoVisitante = (nomeInformado && nomeInformado.trim()) || "Visitante";
+      let nomeContato = data.contato?.nome || nomeNovoVisitante;
 
       if (data.contato && !data.isNewContact) {
         // Atualizar contato existente para Check-in
@@ -395,7 +396,7 @@ export const useRecepcaoData = () => {
         const { data: newContato, error: insertError } = await supabase
           .from("contatos")
           .insert([{
-            nome: "Visitante",
+            nome: nomeNovoVisitante,
             telefone: data.telefone,
             empresa_id: activeCompany.id,
             status: "Check-in" as any,
@@ -408,7 +409,7 @@ export const useRecepcaoData = () => {
         if (insertError) throw insertError;
         
         contatoId = newContato.id;
-        nomeContato = "Visitante";
+        nomeContato = nomeNovoVisitante;
 
         // Vincular ao evento via eventos_prospeccao
         await supabase

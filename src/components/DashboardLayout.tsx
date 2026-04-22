@@ -142,12 +142,12 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
   };
 
   // Handle check-in confirmation
-  const handleConfirmCheckin = async () => {
+  const handleConfirmCheckin = async (nomeVisitante?: string) => {
     if (!pendingCheckin) return;
     
     setIsConfirmingCheckin(true);
     try {
-      const success = await registrarCheckin(pendingCheckin);
+      const success = await registrarCheckin(pendingCheckin, nomeVisitante);
       if (success) {
         window.dispatchEvent(new CustomEvent('lead-created'));
       }
