@@ -944,11 +944,10 @@ const Acessos = () => {
               <FilteredUsersList 
                 profiles={profiles}
                 companies={companies}
-                filterSearch={filterSearch}
                 filterEmpresaId={filterEmpresaId}
-                filterStatus={filterStatus}
                 currentPage={currentPage}
                 itemsPerPage={itemsPerPage}
+                totalUsers={totalUsers}
                 setCurrentPage={setCurrentPage}
                 handleEdit={handleEdit}
                 handleDelete={handleDelete}
