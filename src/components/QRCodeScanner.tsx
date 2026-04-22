@@ -238,7 +238,6 @@ export function QRCodeScanner({
           { facingMode: 'environment' },
           {
             fps: 10,
-            qrbox: { width: 200, height: 200 },
             aspectRatio: 1.0,
           },
           handleScanSuccess,
@@ -276,7 +275,6 @@ export function QRCodeScanner({
         cameraId,
         {
           fps: 10,
-          qrbox: { width: 200, height: 200 },
           aspectRatio: 1.0,
         },
         handleScanSuccess,
