@@ -344,6 +344,8 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   // ── Recepção ──
   defaults.canAccessRecepcao = isAdmin || isRecepcionista || isGerente || isCRM;
   defaults.canReadQRCode = isAdmin || isRecepcionista;
+  // Apenas Gerente de Leads pra cima (Gerente Leads/Loja, Coordenadora, Diretor, Proprietário, TI, Admin, Master)
+  defaults.canDeleteRecepcaoVisita = isAdmin || isTI || isGerente || isDiretor || isProprietario;
 
   // ── Convites ──
   defaults.canGenerateInvites = !isRecepcionista;

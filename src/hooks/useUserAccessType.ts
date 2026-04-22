@@ -145,6 +145,7 @@ export function useUserAccessType() {
     canDeleteContatos: p("canDeleteContatos"),
     canAccessRecepcao: p("canAccessRecepcao"),
     canReadQRCode: p("canReadQRCode"),
+    canDeleteRecepcaoVisita: p("canDeleteRecepcaoVisita"),
     canManageUsers: p("canManageUsers"),
     canAccessAdminConfig: p("canAccessAdminConfig"),
     canAccessFinancialReports: p("canAccessFinancialReports"),
