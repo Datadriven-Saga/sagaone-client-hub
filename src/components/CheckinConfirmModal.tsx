@@ -1,11 +1,14 @@
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { CheckCircle2, User, Phone, Calendar, Loader2 } from "lucide-react";
 
 interface CheckinConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: (nomeVisitante?: string) => Promise<void>;
   data: {
     nome: string;
     telefone: string;
@@ -22,7 +25,24 @@ export function CheckinConfirmModal({
   data,
   loading = false 
 }: CheckinConfirmModalProps) {
+  const [nomeVisitante, setNomeVisitante] = useState("");
+
+  // Pré-preencher quando vier nome via deep link / QR (algo diferente do placeholder padrão)
+  useEffect(() => {
+    if (!isOpen) {
+      setNomeVisitante("");
+      return;
+    }
+    if (data?.isNewContact) {
+      const placeholder = !data.nome || data.nome === "Novo Visitante" || data.nome === "Visitante";
+      setNomeVisitante(placeholder ? "" : data.nome);
+    }
+  }, [isOpen, data?.isNewContact, data?.nome]);
+
   if (!data) return null;
+
+  const nomeTrim = nomeVisitante.trim();
+  const confirmDisabled = loading || (data.isNewContact && !nomeTrim);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -50,6 +70,29 @@ export function CheckinConfirmModal({
             </div>
           )}
 
+          {/* Campo de nome para visitante novo */}
+          {data.isNewContact && (
+            <div className="space-y-2">
+              <Label htmlFor="nome-visitante">
+                Nome do visitante <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="nome-visitante"
+                value={nomeVisitante}
+                onChange={(e) => setNomeVisitante(e.target.value)}
+                placeholder="Digite o nome completo"
+                autoFocus
+                disabled={loading}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !confirmDisabled) {
+                    e.preventDefault();
+                    onConfirm(nomeTrim);
+                  }
+                }}
+              />
+            </div>
+          )}
+
           {/* Dados do visitante */}
           <div className="space-y-3 bg-muted/50 rounded-xl p-4">
             <div className="flex items-center gap-3">
@@ -58,7 +101,9 @@ export function CheckinConfirmModal({
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Nome</p>
-                <p className="font-medium">{data.nome}</p>
+                <p className="font-medium">
+                  {data.isNewContact ? (nomeTrim || "—") : data.nome}
+                </p>
               </div>
             </div>
 
@@ -95,8 +140,8 @@ export function CheckinConfirmModal({
             Cancelar
           </Button>
           <Button 
-            onClick={onConfirm}
-            disabled={loading}
+            onClick={() => onConfirm(data.isNewContact ? nomeTrim : undefined)}
+            disabled={confirmDisabled}
             className="w-full sm:w-auto order-1 sm:order-2 gap-2"
           >
             {loading ? (
