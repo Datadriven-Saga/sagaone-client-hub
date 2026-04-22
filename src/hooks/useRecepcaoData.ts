@@ -595,6 +595,241 @@ export const useRecepcaoData = () => {
     }
   };
 
+  // ===== Multi-prospecção ativa =====
+  // Retorna prospecções da empresa onde data_inicio <= now() <= data_fim,
+  // junto com o vínculo do telefone (contato existente ou não).
+  const buscarContatoMultiAtivo = async (
+    telefone: string
+  ): Promise<MultiCheckinData | null> => {
+    if (!activeCompany) return null;
+
+    try {
+      const nowIso = new Date().toISOString();
+
+      // 1. Prospecções ativas (apenas pelas datas, ignora coluna `ativo`)
+      const { data: ativas, error: ativasErr } = await supabase
+        .from("prospeccoes")
+        .select("id, titulo, data_inicio, data_fim, empresa_id, ativo")
+        .eq("empresa_id", activeCompany.id)
+        .lte("data_inicio", nowIso)
+        .gte("data_fim", nowIso)
+        .order("data_inicio", { ascending: false });
+
+      if (ativasErr) throw ativasErr;
+
+      if (!ativas || ativas.length === 0) {
+        toast({
+          title: "Nenhuma prospecção ativa",
+          description: "Não há eventos em andamento agora para registrar check-in.",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      // 2. Carrega contatos da empresa e filtra por telefone (com variações 9º dígito).
+      //    Mais simples e robusto do que múltiplos OR no Postgrest.
+      const { data: contatosEmpresa, error: cErr } = await supabase
+        .from("contatos")
+        .select("id, nome, telefone")
+        .eq("empresa_id", activeCompany.id);
+
+      if (cErr) throw cErr;
+
+      const contatosMatch = (contatosEmpresa || []).filter(
+        (c) => c.telefone && phonesMatch(telefone, c.telefone)
+      );
+      const contatoIds = contatosMatch.map((c) => c.id);
+
+      // 3. Vínculos desses contatos com as prospecções ativas
+      let vinculos: Array<{ contato_id: string; prospeccao_id: string }> = [];
+      if (contatoIds.length > 0) {
+        const { data: vincData, error: vErr } = await supabase
+          .from("eventos_prospeccao")
+          .select("contato_id, prospeccao_id")
+          .in("contato_id", contatoIds)
+          .in(
+            "prospeccao_id",
+            ativas.map((p) => p.id)
+          );
+        if (vErr) throw vErr;
+        // Dedupe (eventos_prospeccao é log, pode ter múltiplas linhas)
+        const seen = new Set<string>();
+        vinculos = (vincData || []).filter((v) => {
+          const k = `${v.contato_id}:${v.prospeccao_id}`;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+      }
+
+      // 4. Monta matches: uma entrada por prospecção ativa
+      const matches: ProspeccaoAtivaMatch[] = ativas.map((p) => {
+        const vinc = vinculos.find((v) => v.prospeccao_id === p.id);
+        const contato = vinc
+          ? contatosMatch.find((c) => c.id === vinc.contato_id)
+          : undefined;
+        return {
+          prospeccao: p as Prospeccao,
+          contatoId: contato?.id ?? null,
+          contatoNome: contato?.nome ?? null,
+          isNewContact: !contato,
+        };
+      });
+
+      return {
+        telefone: normalizePhone(telefone),
+        matches,
+        hasAnyExisting: matches.some((m) => !m.isNewContact),
+      };
+    } catch (error) {
+      console.error("Erro em buscarContatoMultiAtivo:", error);
+      toast({
+        title: "Erro ao buscar contato",
+        description: "Não foi possível consultar as prospecções ativas.",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  // Registra check-in em N prospecções ativas.
+  // - selectedProspeccaoIds: subconjunto opcional (usado quando recepcionista marca/desmarca).
+  //   Se omitido, registra em TODAS as prospecções onde o contato já existe (modo "só onde existe").
+  // - nomeVisitanteNovo: usado apenas para criar contatos quando o visitante é 100% novo.
+  const registrarCheckinMulti = async (
+    data: MultiCheckinData,
+    selectedProspeccaoIds?: string[],
+    nomeVisitanteNovo?: string
+  ): Promise<{ ok: boolean; total: number; criados: number; pulados: number }> => {
+    if (!activeCompany) return { ok: false, total: 0, criados: 0, pulados: 0 };
+
+    const selected = selectedProspeccaoIds
+      ? data.matches.filter((m) => selectedProspeccaoIds.includes(m.prospeccao.id))
+      : data.matches.filter((m) => !m.isNewContact); // default: só onde existe
+
+    if (selected.length === 0) {
+      toast({
+        title: "Nada para registrar",
+        description: "Nenhuma prospecção selecionada para check-in.",
+        variant: "destructive",
+      });
+      return { ok: false, total: 0, criados: 0, pulados: 0 };
+    }
+
+    let criados = 0;
+    let pulados = 0;
+    const nomeNovo = (nomeVisitanteNovo || "").trim();
+
+    for (const match of selected) {
+      try {
+        let contatoId = match.contatoId;
+        let nomeContato = match.contatoNome || nomeNovo || "Visitante";
+
+        // 1. Criar contato + vínculo se for novo nessa prospecção
+        if (match.isNewContact) {
+          if (!nomeNovo) {
+            // Sem nome digitado: pula para evitar criar "Visitante" hardcoded
+            pulados += 1;
+            continue;
+          }
+          const { data: novo, error: insErr } = await supabase
+            .from("contatos")
+            .insert([{
+              nome: nomeNovo,
+              telefone: data.telefone,
+              empresa_id: activeCompany.id,
+              status: "Check-in" as any,
+              origem: "Outros" as any,
+              observacoes: `Check-in via Recepção - Evento: ${match.prospeccao.titulo}`,
+            }])
+            .select("id")
+            .single();
+          if (insErr) throw insErr;
+          contatoId = novo.id;
+          nomeContato = nomeNovo;
+
+          await supabase.from("eventos_prospeccao").insert([{
+            contato_id: contatoId,
+            prospeccao_id: match.prospeccao.id,
+            tipo_evento: "Contato Inicial" as any,
+            descricao: "Check-in via Recepção",
+          }]);
+        } else if (contatoId) {
+          // Atualiza status do contato existente
+          await supabase
+            .from("contatos")
+            .update({ status: "Check-in" as any, updated_at: new Date().toISOString() })
+            .eq("id", contatoId);
+        }
+
+        if (!contatoId) {
+          pulados += 1;
+          continue;
+        }
+
+        // 2. Idempotência: pula se já houve check-in HOJE neste evento
+        const inicioDia = new Date();
+        inicioDia.setHours(0, 0, 0, 0);
+        const { data: jaHoje } = await supabase
+          .from("recepcao_visitas")
+          .select("id")
+          .eq("empresa_id", activeCompany.id)
+          .eq("prospeccao_id", match.prospeccao.id)
+          .eq("telefone_cliente", data.telefone)
+          .gte("data_hora_visita", inicioDia.toISOString())
+          .limit(1);
+
+        if (jaHoje && jaHoje.length > 0) {
+          pulados += 1;
+          continue;
+        }
+
+        // 3. Log + visita
+        await supabase.from("logs_movimentacao_contatos").insert([{
+          contato_id: contatoId,
+          prospeccao_id: match.prospeccao.id,
+          status_anterior: null,
+          status_novo: "Check-in",
+          usuario_id: user?.id || null,
+          observacoes: `Check-in via Recepção - Evento: ${match.prospeccao.titulo}`,
+        }]);
+
+        await supabase.from("recepcao_visitas").insert([{
+          nome_cliente: nomeContato,
+          telefone_cliente: data.telefone,
+          nome_campanha: match.prospeccao.titulo,
+          empresa_id: activeCompany.id,
+          prospeccao_id: match.prospeccao.id,
+        }]);
+
+        criados += 1;
+      } catch (e) {
+        console.error("Erro registrarCheckinMulti em prospecção", match.prospeccao.id, e);
+        pulados += 1;
+      }
+    }
+
+    if (criados > 0) {
+      toast({
+        title: "Check-in registrado",
+        description:
+          criados === 1
+            ? `Check-in registrado em 1 evento.`
+            : `Check-in registrado em ${criados} eventos.` +
+              (pulados > 0 ? ` (${pulados} ignorado(s))` : ""),
+      });
+    } else {
+      toast({
+        title: "Nenhum check-in registrado",
+        description: "Todos os eventos já tinham check-in hoje ou foram pulados.",
+        variant: "destructive",
+      });
+    }
+
+    await fetchVisitas();
+    return { ok: criados > 0, total: selected.length, criados, pulados };
+  };
+
   return {
     visitas,
     totalVisitas,
@@ -605,6 +840,8 @@ export const useRecepcaoData = () => {
     buscarContatoPorTelefoneEvento,
     registrarCheckin,
     validarEvento,
+    buscarContatoMultiAtivo,
+    registrarCheckinMulti,
     refetch: fetchVisitas,
     // Filter/pagination
     recepcaoEventoFilter,
