@@ -22,6 +22,7 @@ import { UserEmpresasManager } from "@/components/UserEmpresasManager";
 import { useMfaMaster } from "@/hooks/useMfaMaster";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { MasterUsersCard } from "@/components/admin/MasterUsersCard";
+import { useDebounce } from "@/hooks/useDebounce";
 
 import { Database } from "@/integrations/supabase/types";
 
@@ -78,6 +79,9 @@ const Acessos = () => {
   const [filterEmpresaId, setFilterEmpresaId] = useState<string>("");
   const [filterSearch, setFilterSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("");
+  const [filterTipoAcesso, setFilterTipoAcesso] = useState<string>("");
+  const [totalUsers, setTotalUsers] = useState(0);
+  const debouncedSearch = useDebounce(filterSearch, 400);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const { user: authUser, session } = useAuth();
