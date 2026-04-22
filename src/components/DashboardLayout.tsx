@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Contato } from "@/hooks/useContatoData";
-import { useRecepcaoData, CheckinData } from "@/hooks/useRecepcaoData";
+import { useRecepcaoData, MultiCheckinData } from "@/hooks/useRecepcaoData";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -30,13 +30,7 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
   const shouldShowBack = showBackButton !== undefined ? showBackButton : !isHomePage;
   const [isNovoLeadModalOpen, setIsNovoLeadModalOpen] = useState(false);
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
-  const [checkinConfirmData, setCheckinConfirmData] = useState<{
-    nome: string;
-    telefone: string;
-    evento: string;
-    isNewContact: boolean;
-  } | null>(null);
-  const [pendingCheckin, setPendingCheckin] = useState<CheckinData | null>(null);
+  const [pendingMultiCheckin, setPendingMultiCheckin] = useState<MultiCheckinData | null>(null);
   const [isConfirmingCheckin, setIsConfirmingCheckin] = useState(false);
   const [contatoModalState, setContatoModalState] = useState<{
     isOpen: boolean;
@@ -46,7 +40,7 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
   
   const { activeCompany } = useCompany();
   const { user } = useAuth();
-  const { prospeccoes, buscarContatoPorTelefoneEvento, registrarCheckin } = useRecepcaoData();
+  const { buscarContatoMultiAtivo, registrarCheckinMulti } = useRecepcaoData();
 
   // Fetch profiles for NovoLeadModal
   useEffect(() => {
@@ -116,45 +110,25 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
     window.dispatchEvent(new CustomEvent('lead-created'));
   };
 
-  // Handle search from RecepcaoModal
-  const handleRecepcaoSearch = async (telefone: string, eventoId: string): Promise<CheckinData | null> => {
-    const contato = await buscarContatoPorTelefoneEvento(telefone, eventoId);
-    const evento = prospeccoes.find(p => p.id === eventoId);
-    
-    const checkinData: CheckinData = {
-      telefone,
-      evento_id: eventoId,
-      evento_nome: evento?.titulo || 'Evento',
-      contato: contato,
-      isNewContact: !contato
-    };
-    
-    // Show confirmation modal
-    setCheckinConfirmData({
-      nome: contato?.nome || 'Novo Visitante',
-      telefone,
-      evento: evento?.titulo || 'Evento',
-      isNewContact: !contato
-    });
-    setPendingCheckin(checkinData);
-    
-    return checkinData;
+  // Handle search from RecepcaoModal — agora multi-prospecção ativa
+  const handleRecepcaoSearch = async (telefone: string): Promise<MultiCheckinData | null> => {
+    const result = await buscarContatoMultiAtivo(telefone);
+    if (result) setPendingMultiCheckin(result);
+    return result;
   };
 
-  // Handle check-in confirmation
-  const handleConfirmCheckin = async (nomeVisitante?: string) => {
-    if (!pendingCheckin) return;
-    
+  const handleConfirmMultiCheckin = async (
+    selectedIds: string[],
+    nomeVisitanteNovo?: string
+  ) => {
+    if (!pendingMultiCheckin) return;
     setIsConfirmingCheckin(true);
     try {
-      const success = await registrarCheckin(pendingCheckin, nomeVisitante);
-      if (success) {
-        window.dispatchEvent(new CustomEvent('lead-created'));
-      }
+      const res = await registrarCheckinMulti(pendingMultiCheckin, selectedIds, nomeVisitanteNovo);
+      if (res.ok) window.dispatchEvent(new CustomEvent('lead-created'));
     } finally {
       setIsConfirmingCheckin(false);
-      setCheckinConfirmData(null);
-      setPendingCheckin(null);
+      setPendingMultiCheckin(null);
     }
   };
 
@@ -219,17 +193,14 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
           isOpen={isRecepcaoModalOpen}
           onClose={() => setIsRecepcaoModalOpen(false)}
           onSearch={handleRecepcaoSearch}
-          prospeccoes={prospeccoes}
         />
 
         <CheckinConfirmModal
-          isOpen={!!checkinConfirmData}
-          onClose={() => {
-            setCheckinConfirmData(null);
-            setPendingCheckin(null);
-          }}
-          onConfirm={handleConfirmCheckin}
-          data={checkinConfirmData}
+          isOpen={!!pendingMultiCheckin}
+          onClose={() => setPendingMultiCheckin(null)}
+          data={null}
+          multiData={pendingMultiCheckin}
+          onConfirmMulti={handleConfirmMultiCheckin}
           loading={isConfirmingCheckin}
         />
 

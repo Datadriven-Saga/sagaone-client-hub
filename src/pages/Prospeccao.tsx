@@ -217,6 +217,8 @@ showAllEvents: true
     excluirVisita,
     buscarContatoPorTelefoneEvento,
     registrarCheckin,
+    buscarContatoMultiAtivo,
+    registrarCheckinMulti,
     validarEvento,
     recepcaoEventoFilter,
     setRecepcaoEventoFilter,
@@ -255,41 +257,25 @@ showAllEvents: true
   const [pendingCheckin, setPendingCheckin] = useState<any>(null);
   const [isConfirmingCheckin, setIsConfirmingCheckin] = useState(false);
 
-  // Handle search from RecepcaoModal
-  const handleRecepcaoSearch = async (telefone: string, eventoId: string) => {
-    const contato = await buscarContatoPorTelefoneEvento(telefone, eventoId);
-    const evento = recepcaoProspeccoes.find(p => p.id === eventoId);
-    
-    const checkinData = {
-      telefone,
-      evento_id: eventoId,
-      evento_nome: evento?.titulo || 'Evento',
-      contato: contato,
-      isNewContact: !contato
-    };
-    
-    setCheckinConfirmData({
-      nome: contato?.nome || 'Novo Visitante',
-      telefone,
-      evento: evento?.titulo || 'Evento',
-      isNewContact: !contato
-    });
-    setPendingCheckin(checkinData);
-    
-    return checkinData;
+  // Handle search from RecepcaoModal — multi-prospecção ativa
+  const handleRecepcaoSearch = async (telefone: string) => {
+    const result = await buscarContatoMultiAtivo(telefone);
+    if (result) setPendingCheckin(result);
+    return result;
   };
 
-  // Handle check-in confirmation
-  const handleConfirmCheckin = async (nomeVisitante?: string) => {
+  // Confirm multi check-in
+  const handleConfirmMultiCheckin = async (
+    selectedIds: string[],
+    nomeVisitanteNovo?: string
+  ) => {
     if (!pendingCheckin) return;
-    
     setIsConfirmingCheckin(true);
     try {
-      await registrarCheckin(pendingCheckin, nomeVisitante);
+      await registrarCheckinMulti(pendingCheckin, selectedIds, nomeVisitanteNovo);
       refetch();
     } finally {
       setIsConfirmingCheckin(false);
-      setCheckinConfirmData(null);
       setPendingCheckin(null);
     }
   };
@@ -3013,13 +2999,27 @@ showAllEvents: true
       />
 
       <CheckinConfirmModal
-        isOpen={!!checkinConfirmData}
+        isOpen={!!checkinConfirmData || !!pendingCheckin?.matches}
         onClose={() => {
           setCheckinConfirmData(null);
           setPendingCheckin(null);
         }}
-        onConfirm={handleConfirmCheckin}
         data={checkinConfirmData}
+        multiData={pendingCheckin?.matches ? pendingCheckin : null}
+        onConfirmMulti={handleConfirmMultiCheckin}
+        onConfirm={async (nomeVisitante?: string) => {
+          // Fluxo single (QR Code)
+          if (!pendingCheckin) return;
+          setIsConfirmingCheckin(true);
+          try {
+            await registrarCheckin(pendingCheckin, nomeVisitante);
+            refetch();
+          } finally {
+            setIsConfirmingCheckin(false);
+            setCheckinConfirmData(null);
+            setPendingCheckin(null);
+          }
+        }}
         loading={isConfirmingCheckin}
       />
 
