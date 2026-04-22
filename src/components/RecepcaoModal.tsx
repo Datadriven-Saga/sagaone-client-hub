@@ -3,18 +3,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCompany } from "@/contexts/CompanyContext";
-import { Prospeccao, CheckinData } from "@/hooks/useRecepcaoData";
-import { UserPlus, Loader2, Search, Calendar } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { MultiCheckinData, Prospeccao } from "@/hooks/useRecepcaoData";
+import { UserPlus, Loader2, Search } from "lucide-react";
 
 interface RecepcaoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSearch: (telefone: string, eventoId: string) => Promise<CheckinData | null>;
-  prospeccoes: Prospeccao[];
+  onSearch: (telefone: string) => Promise<MultiCheckinData | null>;
+  prospeccoes?: Prospeccao[]; // mantido por compat, não usado
 }
 
 // Máscara de telefone
@@ -26,17 +23,15 @@ const formatPhone = (value: string): string => {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
 };
 
-export const RecepcaoModal = ({ isOpen, onClose, onSearch, prospeccoes }: RecepcaoModalProps) => {
+export const RecepcaoModal = ({ isOpen, onClose, onSearch }: RecepcaoModalProps) => {
   const { activeCompany } = useCompany();
   const [telefone, setTelefone] = useState("");
-  const [eventoId, setEventoId] = useState("");
   const [loading, setLoading] = useState(false);
 
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
       setTelefone("");
-      setEventoId("");
     }
   }, [isOpen]);
 
@@ -49,33 +44,18 @@ export const RecepcaoModal = ({ isOpen, onClose, onSearch, prospeccoes }: Recepc
     e.preventDefault();
     
     const digitsOnly = telefone.replace(/\D/g, '');
-    if (digitsOnly.length < 10 || !eventoId) {
+    if (digitsOnly.length < 10) {
       return;
     }
 
     setLoading(true);
     try {
-      await onSearch(digitsOnly, eventoId);
+      await onSearch(digitsOnly);
       onClose();
     } catch (error) {
       console.error("Erro ao buscar contato:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Formatar data do evento para exibição
-  const formatEventDate = (dataInicio: string | null, dataFim: string | null): string => {
-    if (!dataInicio) return "";
-    try {
-      const inicio = format(new Date(dataInicio), "dd/MM", { locale: ptBR });
-      if (dataFim) {
-        const fim = format(new Date(dataFim), "dd/MM", { locale: ptBR });
-        return `${inicio} - ${fim}`;
-      }
-      return inicio;
-    } catch {
-      return "";
     }
   };
 
@@ -88,45 +68,12 @@ export const RecepcaoModal = ({ isOpen, onClose, onSearch, prospeccoes }: Recepc
             Registrar Visita
           </DialogTitle>
           <DialogDescription>
-            Selecione o evento e informe o telefone do visitante
+            Informe o telefone — o sistema identifica automaticamente as prospecções ativas
           </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-2">
-            {/* Seleção de Evento */}
-            <div className="space-y-2">
-              <Label htmlFor="evento" className="text-sm font-medium flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Evento / Prospecção <span className="text-destructive">*</span>
-              </Label>
-              <Select value={eventoId} onValueChange={setEventoId}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Selecione o evento" />
-                </SelectTrigger>
-                <SelectContent>
-                  {prospeccoes.length === 0 ? (
-                    <div className="p-4 text-center text-sm text-muted-foreground">
-                      Nenhum evento encontrado
-                    </div>
-                  ) : (
-                    prospeccoes.map((prospeccao) => (
-                      <SelectItem key={prospeccao.id} value={prospeccao.id}>
-                        <div className="flex flex-col">
-                          <span>{prospeccao.titulo}</span>
-                          {prospeccao.data_inicio && (
-                            <span className="text-xs text-muted-foreground">
-                              {formatEventDate(prospeccao.data_inicio, prospeccao.data_fim)}
-                            </span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Telefone */}
             <div className="space-y-2">
               <Label htmlFor="telefone" className="text-sm font-medium">
@@ -140,9 +87,10 @@ export const RecepcaoModal = ({ isOpen, onClose, onSearch, prospeccoes }: Recepc
                 className="h-11"
                 required
                 maxLength={16}
+                autoFocus
               />
               <p className="text-xs text-muted-foreground">
-                O sistema buscará o contato pelo telefone no evento selecionado
+                O sistema buscará o contato em todas as prospecções ativas no momento
               </p>
             </div>
           </div>
@@ -159,7 +107,7 @@ export const RecepcaoModal = ({ isOpen, onClose, onSearch, prospeccoes }: Recepc
             </Button>
             <Button 
               type="submit" 
-              disabled={loading || telefone.replace(/\D/g, '').length < 10 || !eventoId}
+              disabled={loading || telefone.replace(/\D/g, '').length < 10}
               className="w-full sm:w-auto order-1 sm:order-2 gap-2"
             >
               {loading ? (
