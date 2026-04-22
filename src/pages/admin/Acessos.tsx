@@ -111,7 +111,7 @@ const Acessos = () => {
   });
 
   const hasFetchedRef = useRef(false);
-  const isFetchingRef = useRef(false);
+  const lastRequestIdRef = useRef(0);
 
   const fetchCompanies = useCallback(async () => {
     try {
@@ -139,14 +139,9 @@ const Acessos = () => {
   }, [toast]);
 
   const fetchProfiles = useCallback(async () => {
-    // Prevent concurrent fetches
-    if (isFetchingRef.current) {
-      console.log('Acessos: Already fetching, skipping...');
-      return;
-    }
+    const requestId = ++lastRequestIdRef.current;
+    setLoading(true);
 
-    isFetchingRef.current = true;
-    
     try {
       console.log('Acessos: Fetching profiles...');
       
@@ -168,10 +163,15 @@ const Acessos = () => {
         throw new Error(error.message || 'Erro ao chamar a função de gerenciamento de usuários');
       }
 
+      if (requestId !== lastRequestIdRef.current) {
+        console.log('Acessos: Ignoring stale response for request', requestId);
+        return;
+      }
+
       if (data?.users) {
         console.log('Acessos: Found users from edge function:', data.users.length);
         setProfiles(data.users);
-        setTotalUsers(Number(data.total) || 0);
+        setTotalUsers(Number(data.total) || data.users.length || 0);
         
         // Set role-based state from backend
         setIsAdminUser(data.isAdmin === true);
@@ -195,6 +195,10 @@ const Acessos = () => {
         setTotalUsers(0);
       }
     } catch (error: any) {
+      if (requestId !== lastRequestIdRef.current) {
+        return;
+      }
+
       console.error('Acessos: Erro ao buscar perfis:', error);
       toast({
         title: "Erro",
@@ -204,8 +208,9 @@ const Acessos = () => {
       setProfiles([]);
       setTotalUsers(0);
     } finally {
-      setLoading(false);
-      isFetchingRef.current = false;
+      if (requestId === lastRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [toast, authUser?.id, debouncedSearch, filterTipoAcesso, filterStatus, currentPage, itemsPerPage]);
 
@@ -945,6 +950,9 @@ const Acessos = () => {
                 profiles={profiles}
                 companies={companies}
                 filterEmpresaId={filterEmpresaId}
+                filterSearch={debouncedSearch}
+                filterStatus={filterStatus}
+                filterTipoAcesso={filterTipoAcesso}
                 currentPage={currentPage}
                 itemsPerPage={itemsPerPage}
                 totalUsers={totalUsers}
@@ -970,6 +978,9 @@ interface FilteredUsersListProps {
   profiles: Profile[];
   companies: Company[];
   filterEmpresaId: string;
+  filterSearch: string;
+  filterStatus: string;
+  filterTipoAcesso: string;
   currentPage: number;
   itemsPerPage: number;
   totalUsers: number;
@@ -983,6 +994,9 @@ interface FilteredUsersListProps {
 const FilteredUsersList = ({
   profiles,
   filterEmpresaId,
+  filterSearch,
+  filterStatus,
+  filterTipoAcesso,
   currentPage,
   itemsPerPage,
   totalUsers,
@@ -992,18 +1006,46 @@ const FilteredUsersList = ({
   canEdit,
   canDelete
 }: FilteredUsersListProps) => {
-  // Search, status and tipo_acesso filters are applied server-side.
-  // Empresa filter remains client-side because user_empresas is loaded with the page.
+  // Search, status and tipo_acesso are applied server-side, but kept here as a
+  // defensive fallback so the UI always reflects the selected filters.
   const filteredProfiles = useMemo(() => {
-    if (!filterEmpresaId || filterEmpresaId === "all") return profiles;
-    return profiles.filter(profile =>
-      profile.empresas?.some(e => e.id === filterEmpresaId)
-    );
-  }, [profiles, filterEmpresaId]);
+    const normalizedSearch = filterSearch.trim().toLowerCase();
 
-  const totalPages = Math.max(Math.ceil(totalUsers / itemsPerPage), 1);
-  const startItem = totalUsers === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(currentPage * itemsPerPage, totalUsers);
+    return profiles.filter((profile) => {
+      const matchesEmpresa = !filterEmpresaId || filterEmpresaId === "all"
+        ? true
+        : profile.empresas?.some((e) => e.id === filterEmpresaId);
+
+      const matchesStatus = !filterStatus || filterStatus === "all"
+        ? true
+        : profile.status === filterStatus;
+
+      const matchesTipoAcesso = !filterTipoAcesso || filterTipoAcesso === "all"
+        ? true
+        : profile.tipo_acesso === filterTipoAcesso;
+
+      const matchesSearch = !normalizedSearch
+        ? true
+        : [profile.nome_completo, profile.email, profile.cpf, profile.celular, profile.departamento]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(normalizedSearch));
+
+      return matchesEmpresa && matchesStatus && matchesTipoAcesso && matchesSearch;
+    });
+  }, [profiles, filterEmpresaId, filterSearch, filterStatus, filterTipoAcesso]);
+
+  const hasLocalFallbackFilters = Boolean(
+    (filterEmpresaId && filterEmpresaId !== "all") ||
+    (filterSearch && filterSearch.trim()) ||
+    (filterStatus && filterStatus !== "all") ||
+    (filterTipoAcesso && filterTipoAcesso !== "all")
+  );
+  const effectiveTotalUsers = hasLocalFallbackFilters
+    ? filteredProfiles.length
+    : (totalUsers || profiles.length);
+  const totalPages = Math.max(Math.ceil(effectiveTotalUsers / itemsPerPage), 1);
+  const startItem = effectiveTotalUsers === 0 ? 0 : Math.min((currentPage - 1) * itemsPerPage + 1, effectiveTotalUsers);
+  const endItem = Math.min(currentPage * itemsPerPage, effectiveTotalUsers);
   const paginatedProfiles = filteredProfiles;
 
   if (filteredProfiles.length === 0) {
@@ -1018,7 +1060,7 @@ const FilteredUsersList = ({
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div className="text-xs md:text-sm text-muted-foreground">
-          Mostrando {startItem}-{endItem} de {totalUsers} usuários
+          Mostrando {startItem}-{endItem} de {effectiveTotalUsers} usuários
         </div>
         {totalPages > 1 && (
           <div className="flex items-center gap-1.5">
