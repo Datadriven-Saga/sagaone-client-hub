@@ -22,6 +22,7 @@ import { UserEmpresasManager } from "@/components/UserEmpresasManager";
 import { useMfaMaster } from "@/hooks/useMfaMaster";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { MasterUsersCard } from "@/components/admin/MasterUsersCard";
+import { useDebounce } from "@/hooks/useDebounce";
 
 import { Database } from "@/integrations/supabase/types";
 
@@ -78,6 +79,9 @@ const Acessos = () => {
   const [filterEmpresaId, setFilterEmpresaId] = useState<string>("");
   const [filterSearch, setFilterSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("");
+  const [filterTipoAcesso, setFilterTipoAcesso] = useState<string>("");
+  const [totalUsers, setTotalUsers] = useState(0);
+  const debouncedSearch = useDebounce(filterSearch, 400);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const { user: authUser, session } = useAuth();
@@ -147,7 +151,14 @@ const Acessos = () => {
       console.log('Acessos: Fetching profiles...');
       
       const { data, error } = await supabase.functions.invoke('manage-users', {
-        body: { action: 'list_users' }
+        body: {
+          action: 'list_users',
+          search: debouncedSearch || null,
+          tipo_acesso_filter: filterTipoAcesso && filterTipoAcesso !== 'all' ? filterTipoAcesso : null,
+          status_filter: filterStatus && filterStatus !== 'all' ? filterStatus : null,
+          limit: itemsPerPage,
+          offset: (currentPage - 1) * itemsPerPage,
+        }
       });
 
       console.log('Acessos: Response from edge function:', { data, error });
@@ -160,6 +171,7 @@ const Acessos = () => {
       if (data?.users) {
         console.log('Acessos: Found users from edge function:', data.users.length);
         setProfiles(data.users);
+        setTotalUsers(Number(data.total) || 0);
         
         // Set role-based state from backend
         setIsAdminUser(data.isAdmin === true);
@@ -180,6 +192,7 @@ const Acessos = () => {
       } else {
         console.warn('Acessos: No users found in response');
         setProfiles([]);
+        setTotalUsers(0);
       }
     } catch (error: any) {
       console.error('Acessos: Erro ao buscar perfis:', error);
@@ -189,24 +202,26 @@ const Acessos = () => {
         variant: "destructive"
       });
       setProfiles([]);
+      setTotalUsers(0);
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
     }
-  }, [toast, authUser?.id]);
+  }, [toast, authUser?.id, debouncedSearch, filterTipoAcesso, filterStatus, currentPage, itemsPerPage]);
 
   useEffect(() => {
-    // Only fetch once when user is authenticated
-    if (!authUser?.id || hasFetchedRef.current) {
-      return;
+    if (!authUser?.id) return;
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      fetchCompanies();
     }
-
-    console.log('Acessos: Initial fetch for user:', authUser?.id);
-    hasFetchedRef.current = true;
-    
-    fetchCompanies();
     fetchProfiles();
   }, [authUser?.id, fetchProfiles, fetchCompanies]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, filterTipoAcesso, filterStatus]);
 
   const handleCreateUser = async (data: UserForm) => {
     setSubmitting(true);
@@ -832,7 +847,7 @@ const Acessos = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-1.5 md:col-span-1">
                 <label className="text-xs font-medium text-muted-foreground">Pesquisar</label>
                 <Input
@@ -840,10 +855,32 @@ const Acessos = () => {
                   value={filterSearch}
                   onChange={(e) => {
                     setFilterSearch(e.target.value);
-                    setCurrentPage(1);
                   }}
                   className="h-9"
                 />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Tipo de Acesso</label>
+                <Select value={filterTipoAcesso} onValueChange={setFilterTipoAcesso}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="Administrador">Administrador</SelectItem>
+                    <SelectItem value="TI">TI</SelectItem>
+                    <SelectItem value="Master">Master</SelectItem>
+                    <SelectItem value="Diretor">Diretor</SelectItem>
+                    <SelectItem value="Proprietário">Proprietário</SelectItem>
+                    <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
+                    <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
+                    <SelectItem value="Coordenadora de Leads">Coordenadora de Leads</SelectItem>
+                    <SelectItem value="CRM">CRM</SelectItem>
+                    <SelectItem value="Vendedor">Vendedor</SelectItem>
+                    <SelectItem value="SDR">SDR</SelectItem>
+                    <SelectItem value="Recepcionista">Recepcionista</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Empresa</label>
@@ -868,7 +905,6 @@ const Acessos = () => {
                 <label className="text-xs font-medium text-muted-foreground">Status</label>
                 <Select value={filterStatus} onValueChange={(value) => {
                   setFilterStatus(value);
-                  setCurrentPage(1);
                 }}>
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Todos" />
@@ -908,11 +944,10 @@ const Acessos = () => {
               <FilteredUsersList 
                 profiles={profiles}
                 companies={companies}
-                filterSearch={filterSearch}
                 filterEmpresaId={filterEmpresaId}
-                filterStatus={filterStatus}
                 currentPage={currentPage}
                 itemsPerPage={itemsPerPage}
+                totalUsers={totalUsers}
                 setCurrentPage={setCurrentPage}
                 handleEdit={handleEdit}
                 handleDelete={handleDelete}
@@ -934,11 +969,10 @@ const Acessos = () => {
 interface FilteredUsersListProps {
   profiles: Profile[];
   companies: Company[];
-  filterSearch: string;
   filterEmpresaId: string;
-  filterStatus: string;
   currentPage: number;
   itemsPerPage: number;
+  totalUsers: number;
   setCurrentPage: (page: number) => void;
   handleEdit: (profile: Profile) => void;
   handleDelete: (id: string) => void;
@@ -948,37 +982,29 @@ interface FilteredUsersListProps {
 
 const FilteredUsersList = ({
   profiles,
-  filterSearch,
   filterEmpresaId,
-  filterStatus,
   currentPage,
   itemsPerPage,
+  totalUsers,
   setCurrentPage,
   handleEdit,
   handleDelete,
   canEdit,
   canDelete
 }: FilteredUsersListProps) => {
+  // Search, status and tipo_acesso filters are applied server-side.
+  // Empresa filter remains client-side because user_empresas is loaded with the page.
   const filteredProfiles = useMemo(() => {
-    return profiles.filter(profile => {
-      const searchLower = filterSearch.toLowerCase();
-      const matchSearch = !filterSearch || 
-        profile.nome_completo?.toLowerCase().includes(searchLower) ||
-        profile.email?.toLowerCase().includes(searchLower) ||
-        profile.cpf?.toLowerCase().includes(searchLower) ||
-        profile.celular?.includes(filterSearch);
-      const matchEmpresa = !filterEmpresaId || filterEmpresaId === "all" || profile.empresas?.some(e => e.id === filterEmpresaId);
-      const matchStatus = !filterStatus || filterStatus === "all" || profile.status === filterStatus;
-      
-      return matchSearch && matchEmpresa && matchStatus;
-    });
-  }, [profiles, filterSearch, filterEmpresaId, filterStatus]);
+    if (!filterEmpresaId || filterEmpresaId === "all") return profiles;
+    return profiles.filter(profile =>
+      profile.empresas?.some(e => e.id === filterEmpresaId)
+    );
+  }, [profiles, filterEmpresaId]);
 
-  const totalPages = Math.ceil(filteredProfiles.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedProfiles = filteredProfiles.slice(startIndex, startIndex + itemsPerPage);
-  const startItem = startIndex + 1;
-  const endItem = Math.min(startIndex + itemsPerPage, filteredProfiles.length);
+  const totalPages = Math.max(Math.ceil(totalUsers / itemsPerPage), 1);
+  const startItem = totalUsers === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalUsers);
+  const paginatedProfiles = filteredProfiles;
 
   if (filteredProfiles.length === 0) {
     return (
@@ -992,7 +1018,7 @@ const FilteredUsersList = ({
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div className="text-xs md:text-sm text-muted-foreground">
-          Mostrando {startItem}-{endItem} de {filteredProfiles.length} usuários
+          Mostrando {startItem}-{endItem} de {totalUsers} usuários
         </div>
         {totalPages > 1 && (
           <div className="flex items-center gap-1.5">

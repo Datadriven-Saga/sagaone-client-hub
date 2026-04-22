@@ -135,17 +135,38 @@ Deno.serve(async (req: Request) => {
     switch (action) {
       case 'list_users': {
         // Build tipo_acesso filter for Gerentes
-        const tipoAcessoFilter = (isGerente && !canManage)
+        let tipoAcessoFilter: string[] | null = (isGerente && !canManage)
           ? ['SDR', 'Vendedor', 'Recepcionista', 'CRM', 'Gerente de Leads', 'Gerente de Loja']
           : null;
 
+        // Optional client-provided filters
+        const clientTipoAcesso: string | null = (payload?.tipo_acesso_filter || null) as string | null;
+        const search: string | null = (payload?.search || null) as string | null;
+        const statusFilter: string | null = (payload?.status_filter || null) as string | null;
+        const pageSize: number = Math.min(Math.max(Number(payload?.limit) || 20, 1), 100);
+        const pageOffset: number = Math.max(Number(payload?.offset) || 0, 0);
+
+        // Intersect client tipo filter with gerente restriction
+        if (clientTipoAcesso) {
+          if (tipoAcessoFilter) {
+            tipoAcessoFilter = tipoAcessoFilter.includes(clientTipoAcesso) ? [clientTipoAcesso] : [];
+          } else {
+            tipoAcessoFilter = [clientTipoAcesso];
+          }
+        }
+
         // === PRIMARY: Use RPC (fast, reliable, no auth API dependency) ===
         let profilesWithDetails: any[] = [];
+        let totalCount = 0;
         let usedRpc = false;
 
         try {
           const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('get_users_with_email', {
             p_tipo_acesso_filter: tipoAcessoFilter,
+            p_search: search,
+            p_status: statusFilter,
+            p_limit: pageSize,
+            p_offset: pageOffset,
           });
 
           if (rpcError) throw rpcError;
@@ -154,6 +175,7 @@ Deno.serve(async (req: Request) => {
             ...row,
             empresas: [], // Will be populated below
           }));
+          totalCount = (rpcData && rpcData.length > 0) ? Number(rpcData[0].total_count) || 0 : 0;
           usedRpc = true;
           console.log('RPC get_users_with_email returned:', profilesWithDetails.length, 'profiles');
         } catch (rpcErr) {
@@ -178,7 +200,7 @@ Deno.serve(async (req: Request) => {
 
           if (!profiles || profiles.length === 0) {
             return new Response(
-              JSON.stringify({ users: [], currentUserRole: userTipoAcesso, isAdmin: isAdmin || canManage, isGerente }),
+              JSON.stringify({ users: [], total: 0, currentUserRole: userTipoAcesso, isAdmin: isAdmin || canManage, isGerente }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
@@ -205,7 +227,7 @@ Deno.serve(async (req: Request) => {
 
         if (profilesWithDetails.length === 0) {
           return new Response(
-            JSON.stringify({ users: [], currentUserRole: userTipoAcesso, isAdmin: isAdmin || canManage, isGerente }),
+            JSON.stringify({ users: [], total: totalCount, currentUserRole: userTipoAcesso, isAdmin: isAdmin || canManage, isGerente }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -251,6 +273,7 @@ Deno.serve(async (req: Request) => {
         return new Response(
           JSON.stringify({
             users: profilesWithDetails,
+            total: totalCount,
             currentUserRole: userTipoAcesso,
             isAdmin: isAdmin || canManage,
             isGerente: isGerente
