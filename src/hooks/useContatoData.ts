@@ -49,18 +49,11 @@ export const kanbanStatusMap = {
   'atribuidos': 'Atribuído',
   'emespera': 'Em Espera',
   'convidados': 'Convidado',
-  'agendados': 'Agendado',
   'confirmados': 'Confirmado',
   'checkin': 'Check-in',
   'venda': 'Venda',
   'descartados': 'Descartado',
   'optout': 'Opt Out',
-  'desperdicio': 'Desperdício',
-  'enviados': 'Negociação',
-  'recebidos': 'Em Contato', 
-  'qualificados': 'Qualificado',
-  'fechados': 'Fechado',
-  'cancelados': 'Perdido'
 } as const;
 
 export interface Prospeccao {
@@ -1508,13 +1501,13 @@ export const useContatoData = () => {
     const atribuidos = contatos.filter(c => c.status === 'Atribuído').length;
     const emEspera = contatos.filter(c => c.status === 'Em Espera').length;
     const convidados = contatos.filter(c => c.status === 'Convidado').length;
-    const agendados = contatos.filter(c => c.status === 'Agendado').length;
+    const agendados = 0;
     const confirmados = contatos.filter(c => c.status === 'Confirmado').length;
     const checkin = contatos.filter(c => c.status === 'Check-in').length;
     const vendas = contatos.filter(c => c.status === 'Venda').length;
     const descartados = contatos.filter(c => c.status === 'Descartado').length;
     const optOut = contatos.filter(c => c.status === 'Opt Out').length;
-    const desperdicio = contatos.filter(c => c.status === 'Desperdício').length;
+    const desperdicio = 0;
     
     const disponiveisDistribuicao = totalBase - atribuidos - emEspera - convidados - agendados - confirmados - checkin - vendas - descartados - optOut;
 
