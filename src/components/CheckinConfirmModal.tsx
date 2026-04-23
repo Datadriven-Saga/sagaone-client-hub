@@ -61,14 +61,22 @@ export function CheckinConfirmModal({
   // ===== Seleção default de prospecções =====
   useEffect(() => {
     if (!isOpen || !multiData) { setSelectedIds([]); return; }
-    // "Só onde já existe": pré-marca apenas matches existentes.
-    // Se NENHUMA existir (visitante 100% novo), pré-marca TODAS para o recepcionista revisar.
-    const existing = multiData.matches.filter(m => !m.isNewContact).map(m => m.prospeccao.id);
-    if (existing.length > 0) {
-      setSelectedIds(existing);
-    } else {
-      setSelectedIds(multiData.matches.map(m => m.prospeccao.id));
+    // Regra: pré-marca apenas UMA prospecção — a que possui a maior base de leads.
+    // Prioriza entre as prospecções onde o visitante já existe; se nenhum match,
+    // considera todas as ativas e escolhe a maior base.
+    const candidatos = multiData.matches.some(m => !m.isNewContact)
+      ? multiData.matches.filter(m => !m.isNewContact)
+      : multiData.matches;
+
+    if (candidatos.length === 0) {
+      setSelectedIds([]);
+      return;
     }
+
+    const maior = candidatos.reduce((acc, m) =>
+      (m.totalLeads ?? 0) > (acc.totalLeads ?? 0) ? m : acc
+    , candidatos[0]);
+    setSelectedIds([maior.prospeccao.id]);
   }, [isOpen, multiData]);
 
   if (!isMulti && !data) return null;
