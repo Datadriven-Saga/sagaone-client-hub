@@ -307,6 +307,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       // Novos campos IA Whatsapp - converter ISO para datetime-local
       setEventoPrincipal(editingProspeccao.evento_principal ?? false);
       setQualificarLead(editingProspeccao.qualificar_lead ?? true);
+      setEventoConfirmacao((editingProspeccao as any).evento_confirmacao ?? false);
       setTipoLead((editingProspeccao.tipo_lead as any) || 'vendas');
       // Converter timestamp ISO para formato datetime-local (YYYY-MM-DDTHH:MM)
       const formatToDatetimeLocal = (isoString: string | null) => {
@@ -494,6 +495,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     // Reset novos campos IA Whatsapp
     setEventoPrincipal(true);
     setQualificarLead(true);
+    setEventoConfirmacao(false);
     setTipoLead('vendas');
     setDataEnvioInicial("");
     setDataEnvioCadencia("");
@@ -1400,6 +1402,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         // Novos campos IA Whatsapp
         dadosProspeccao.evento_principal = eventoPrincipal;
         dadosProspeccao.qualificar_lead = qualificarLead;
+        // Evento de Confirmação: bloqueado em edição, definido apenas na criação
+        if (!editingProspeccao) {
+          (dadosProspeccao as any).evento_confirmacao = eventoConfirmacao;
+        }
         // tipo_lead: bloqueado em edição, definido apenas na criação
         if (!editingProspeccao) {
           dadosProspeccao.tipo_lead = tipoLead;
@@ -2281,6 +2287,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         data_envio_cadencia: formatarDataISO(prospeccaoData.data_envio_cadencia),
         cadencia_completa: prospeccaoData.cadencia_completa ?? false,
         is_teste: prospeccaoData.is_teste ?? false,
+        evento_confirmacao: (prospeccaoData as any).evento_confirmacao ?? false,
       };
 
       // lead_type normalizado (apenas IA Whatsapp): lower case e sem acento
@@ -3452,6 +3459,32 @@ ${localEvento}`;
                     onCheckedChange={setQualificarLead}
                   />
                 </div>
+
+                {/* Evento de Confirmação */}
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-card mt-3">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="evento_confirmacao" className="font-medium cursor-pointer">Evento de Confirmação</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Disparo direcionado exclusivamente a leads que já estão agendados (status "Convidado"). O objetivo não é gerar novos agendamentos, mas confirmar a presença de quem já agendou. Ao confirmar, o lead avança para o status "Confirmado". Leads em qualquer outro status não serão impactados por esse tipo de evento.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Switch
+                    id="evento_confirmacao"
+                    checked={eventoConfirmacao}
+                    onCheckedChange={setEventoConfirmacao}
+                    disabled={!!editingProspeccao}
+                  />
+                </div>
+                {editingProspeccao && (
+                  <p className="text-xs text-muted-foreground -mt-1">Este campo não pode ser alterado após a criação do evento.</p>
+                )}
               </div>
             </div>
           );
