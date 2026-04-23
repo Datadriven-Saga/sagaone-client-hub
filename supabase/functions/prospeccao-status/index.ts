@@ -202,13 +202,13 @@ serve(async (req) => {
       );
     }
 
-    // Mapeamento de snake_case para valores do enum status_lead (9 valores válidos)
+    // Mapeamento de snake_case para valores do enum status_lead
     const statusMap: Record<string, string> = {
       'novo': 'Novo',
       'atribuido': 'Atribuído',
       'em_espera': 'Em Espera',
       'convidado': 'Convidado',
-      'agendado': 'Convidado', // legado: Agendado foi consolidado em Convidado
+      'agendado': 'Agendado',
       'confirmado': 'Confirmado',
       'checkin': 'Check-in',
       'check-in': 'Check-in',
@@ -216,6 +216,13 @@ serve(async (req) => {
       'descartado': 'Descartado',
       'opt_out': 'Opt Out',
       'optout': 'Opt Out',
+      'desperdicio': 'Desperdício',
+      'negociacao': 'Negociação',
+      'em_contato': 'Em Contato',
+      'qualificado': 'Qualificado',
+      'fechado': 'Fechado',
+      'perdido': 'Perdido',
+      'proposta': 'Proposta',
     };
 
     if (req.method === 'PUT' || req.method === 'PATCH') {
