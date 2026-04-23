@@ -30,18 +30,11 @@ export const statusKanbanMap = {
   'Atribuído': 'atribuidos',
   'Em Espera': 'emespera',
   'Convidado': 'convidados',
-  'Agendado': 'agendados',
   'Confirmado': 'confirmados',
   'Check-in': 'checkin',
   'Venda': 'venda',
   'Descartado': 'descartados',
   'Opt Out': 'optout',
-  'Desperdício': 'desperdicio',
-  'Negociação': 'enviados', 
-  'Em Contato': 'recebidos',
-  'Qualificado': 'qualificados',
-  'Fechado': 'fechados',
-  'Perdido': 'cancelados'
 } as const;
 
 export const kanbanStatusMap = {
@@ -49,18 +42,11 @@ export const kanbanStatusMap = {
   'atribuidos': 'Atribuído',
   'emespera': 'Em Espera',
   'convidados': 'Convidado',
-  'agendados': 'Agendado',
   'confirmados': 'Confirmado',
   'checkin': 'Check-in',
   'venda': 'Venda',
   'descartados': 'Descartado',
   'optout': 'Opt Out',
-  'desperdicio': 'Desperdício',
-  'enviados': 'Negociação',
-  'recebidos': 'Em Contato', 
-  'qualificados': 'Qualificado',
-  'fechados': 'Fechado',
-  'cancelados': 'Perdido'
 } as const;
 
 export interface Prospeccao {
