@@ -5535,21 +5535,13 @@ export type Database = {
       status_gatilho: "Ativo" | "Inativo" | "Pausado"
       status_lead:
         | "Novo"
-        | "Em Contato"
-        | "Qualificado"
-        | "Proposta"
-        | "Negociação"
-        | "Fechado"
-        | "Perdido"
         | "Atribuído"
+        | "Em Espera"
         | "Convidado"
-        | "Agendado"
         | "Confirmado"
         | "Check-in"
         | "Venda"
         | "Descartado"
-        | "Desperdício"
-        | "Em Espera"
         | "Opt Out"
       status_meta: "Ativa" | "Pausada" | "Concluída" | "Cancelada"
       status_notificacao: "Enviada" | "Lida" | "Pendente" | "Erro"
@@ -5747,21 +5739,13 @@ export const Constants = {
       status_gatilho: ["Ativo", "Inativo", "Pausado"],
       status_lead: [
         "Novo",
-        "Em Contato",
-        "Qualificado",
-        "Proposta",
-        "Negociação",
-        "Fechado",
-        "Perdido",
         "Atribuído",
+        "Em Espera",
         "Convidado",
-        "Agendado",
         "Confirmado",
         "Check-in",
         "Venda",
         "Descartado",
-        "Desperdício",
-        "Em Espera",
         "Opt Out",
       ],
       status_meta: ["Ativa", "Pausada", "Concluída", "Cancelada"],
