@@ -2277,6 +2277,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         // Novos campos
         evento_principal: prospeccaoData.evento_principal ?? false,
         qualificar_lead: prospeccaoData.qualificar_lead ?? true,
+        evento_confirmacao: eventoConfirmacao,
         data_envio_template_inicial: formatarDataISO(prospeccaoData.data_envio_template_inicial),
         data_envio_cadencia: formatarDataISO(prospeccaoData.data_envio_cadencia),
         cadencia_completa: prospeccaoData.cadencia_completa ?? false,
