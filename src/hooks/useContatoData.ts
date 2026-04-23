@@ -12,7 +12,7 @@ export interface Contato {
   nome: string;
   telefone: string;
   email?: string;
-  status: 'Novo' | 'Em Contato' | 'Qualificado' | 'Proposta' | 'Negociação' | 'Fechado' | 'Perdido' | 'Atribuído' | 'Convidado' | 'Agendado' | 'Confirmado' | 'Check-in' | 'Venda' | 'Descartado' | 'Desperdício' | 'Em Espera' | 'Opt Out';
+  status: 'Novo' | 'Atribuído' | 'Em Espera' | 'Convidado' | 'Confirmado' | 'Check-in' | 'Venda' | 'Descartado' | 'Opt Out';
   valor_potencial?: number;
   responsavel_email?: string;
   cliente_id?: string;
