@@ -62,6 +62,7 @@ export interface ProspeccaoAtivaMatch {
   contatoId: string | null;
   contatoNome: string | null;
   isNewContact: boolean; // true => não vinculado a essa prospecção
+  totalLeads: number; // tamanho da base (qtd de contatos vinculados via eventos_prospeccao)
 }
 
 export interface MultiCheckinData {
