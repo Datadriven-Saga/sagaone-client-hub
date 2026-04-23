@@ -83,6 +83,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   // Novos campos para IA Whatsapp
   const [eventoPrincipal, setEventoPrincipal] = useState(true);
   const [qualificarLead, setQualificarLead] = useState(true);
+  const [eventoConfirmacao, setEventoConfirmacao] = useState(false);
   const [tipoLead, setTipoLead] = useState<'vendas' | 'prospeccao' | 'relacionamento'>('vendas');
   const [dataEnvioInicial, setDataEnvioInicial] = useState("");
   const [dataEnvioCadencia, setDataEnvioCadencia] = useState("");
@@ -1981,6 +1982,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           evento_principal: Boolean(prospeccaoData.evento_principal ?? false),
           is_teste: Boolean(prospeccaoData.is_teste ?? false),
           qualificar_lead: Boolean(prospeccaoData.qualificar_lead ?? true),
+          evento_confirmacao: Boolean(eventoConfirmacao),
           imagem_divulgacao_url: prospeccaoData.imagem_divulgacao_url ?? null,
           uf: eventoUF.trim() || empresaCrmData?.uf || null,
           cidade: eventoCidade.trim() || empresaCrmData?.cidade || null,
@@ -2276,6 +2278,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         // Novos campos
         evento_principal: prospeccaoData.evento_principal ?? false,
         qualificar_lead: prospeccaoData.qualificar_lead ?? true,
+        evento_confirmacao: eventoConfirmacao,
         data_envio_template_inicial: formatarDataISO(prospeccaoData.data_envio_template_inicial),
         data_envio_cadencia: formatarDataISO(prospeccaoData.data_envio_cadencia),
         cadencia_completa: prospeccaoData.cadencia_completa ?? false,
@@ -3449,6 +3452,28 @@ ${localEvento}`;
                     id="qualificar_lead"
                     checked={qualificarLead}
                     onCheckedChange={setQualificarLead}
+                  />
+                </div>
+
+                {/* Evento de Confirmação */}
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-card mt-3">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="evento_confirmacao" className="font-medium cursor-pointer">Evento de Confirmação</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Disparo direcionado exclusivamente a leads que já estão agendados (status "Convidado"). O objetivo não é gerar novos agendamentos, mas confirmar a presença de quem já agendou. Ao confirmar, o lead avança para o status "Confirmado". Leads em qualquer outro status não serão impactados por esse tipo de evento.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Switch
+                    id="evento_confirmacao"
+                    checked={eventoConfirmacao}
+                    onCheckedChange={setEventoConfirmacao}
                   />
                 </div>
               </div>

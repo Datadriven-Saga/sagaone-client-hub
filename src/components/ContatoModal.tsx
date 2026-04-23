@@ -509,12 +509,10 @@ export function ContatoModal({
     }
 
     // Regras especiais para status específicos
-    if (novoStatus === 'Perdido') {
-      // TODO: Abrir modal para escolher motivo de insucesso
-      console.log('Selecionar motivo de insucesso');
-    } else if (novoStatus === 'Fechado') {
-      // TODO: Criar lead no Central de Atendimento
-      console.log('Criar lead no Central de Atendimento');
+    if (novoStatus === 'Descartado') {
+      console.log('Selecionar motivo de descarte');
+    } else if (novoStatus === 'Venda') {
+      console.log('Registrar venda');
     }
 
     onStatusChange?.(contato.id, novoStatus);
