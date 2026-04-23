@@ -62,6 +62,7 @@ export interface ProspeccaoAtivaMatch {
   contatoId: string | null;
   contatoNome: string | null;
   isNewContact: boolean; // true => não vinculado a essa prospecção
+  totalLeads: number; // tamanho da base (qtd de contatos vinculados via eventos_prospeccao)
 }
 
 export interface MultiCheckinData {
@@ -674,6 +675,18 @@ export const useRecepcaoData = () => {
       }
 
       // 4. Monta matches: uma entrada por prospecção ativa
+      // 4a. Conta tamanho da base por prospecção (todos os contatos vinculados, não só o atual)
+      const totaisPorProspeccao = new Map<string, number>();
+      await Promise.all(
+        ativas.map(async (p) => {
+          const { count } = await supabase
+            .from("eventos_prospeccao")
+            .select("contato_id", { count: "exact", head: true })
+            .eq("prospeccao_id", p.id);
+          totaisPorProspeccao.set(p.id, count ?? 0);
+        })
+      );
+
       const matches: ProspeccaoAtivaMatch[] = ativas.map((p) => {
         const vinc = vinculos.find((v) => v.prospeccao_id === p.id);
         const contato = vinc
@@ -684,6 +697,7 @@ export const useRecepcaoData = () => {
           contatoId: contato?.id ?? null,
           contatoNome: contato?.nome ?? null,
           isNewContact: !contato,
+          totalLeads: totaisPorProspeccao.get(p.id) ?? 0,
         };
       });
 
