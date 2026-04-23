@@ -3452,6 +3452,28 @@ ${localEvento}`;
                     onCheckedChange={setQualificarLead}
                   />
                 </div>
+
+                {/* Evento de Confirmação */}
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-card mt-3">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="evento_confirmacao" className="font-medium cursor-pointer">Evento de Confirmação</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Disparo direcionado exclusivamente a leads que já estão agendados (status "Convidado"). O objetivo não é gerar novos agendamentos, mas confirmar a presença de quem já agendou. Ao confirmar, o lead avança para o status "Confirmado". Leads em qualquer outro status não serão impactados por esse tipo de evento.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Switch
+                    id="evento_confirmacao"
+                    checked={eventoConfirmacao}
+                    onCheckedChange={setEventoConfirmacao}
+                  />
+                </div>
               </div>
             </div>
           );
