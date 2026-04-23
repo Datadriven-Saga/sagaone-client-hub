@@ -165,7 +165,7 @@ export default function EventoBase() {
       // Buscar dados completos do evento
       const { data: fullProspeccao, error: prosErr } = await supabase
         .from('prospeccoes')
-        .select('id, titulo, descricao, canal, data_inicio, data_fim, event_id_pri, evento_principal, qualificar_lead, data_envio_template_inicial, data_envio_cadencia, cadencia_completa, template_prospeccao_id, template_agendado_id, template_nao_agendado_id, template_agendado_48h_id, template_agendado_24h_id')
+        .select('id, titulo, descricao, canal, data_inicio, data_fim, event_id_pri, evento_principal, qualificar_lead, evento_confirmacao, data_envio_template_inicial, data_envio_cadencia, cadencia_completa, template_prospeccao_id, template_agendado_id, template_nao_agendado_id, template_agendado_48h_id, template_agendado_24h_id')
         .eq('id', prospeccaoData.id)
         .maybeSingle();
 
@@ -267,6 +267,7 @@ export default function EventoBase() {
         pri_status: priStatus,
         evento_principal: (fullProspeccao as any).evento_principal ?? false,
         qualificar_lead: (fullProspeccao as any).qualificar_lead ?? true,
+        evento_confirmacao: (fullProspeccao as any).evento_confirmacao ?? false,
         data_envio_template_inicial: formatarDataISO((fullProspeccao as any).data_envio_template_inicial),
         data_envio_cadencia: formatarDataISO((fullProspeccao as any).data_envio_cadencia),
         cadencia_completa: (fullProspeccao as any).cadencia_completa ?? false,

@@ -3766,6 +3766,7 @@ export type Database = {
           disparos_pausados: boolean | null
           empresa_id: string
           event_id_pri: string | null
+          evento_confirmacao: boolean
           evento_principal: boolean
           id: string
           imagem_divulgacao_url: string | null
@@ -3819,6 +3820,7 @@ export type Database = {
           disparos_pausados?: boolean | null
           empresa_id: string
           event_id_pri?: string | null
+          evento_confirmacao?: boolean
           evento_principal?: boolean
           id?: string
           imagem_divulgacao_url?: string | null
@@ -3872,6 +3874,7 @@ export type Database = {
           disparos_pausados?: boolean | null
           empresa_id?: string
           event_id_pri?: string | null
+          evento_confirmacao?: boolean
           evento_principal?: boolean
           id?: string
           imagem_divulgacao_url?: string | null
