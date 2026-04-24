@@ -117,7 +117,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
         if (currentProspeccaoId) {
           const { data: prospeccaoData, error: prospeccaoError } = await supabase
             .from('prospeccoes')
-            .select('id, titulo, data_inicio, data_fim, empresa_id, imagem_divulgacao_url')
+            .select('id, titulo, data_inicio, data_fim, empresa_id, imagem_divulgacao_url, texto_convite_template')
             .eq('id', currentProspeccaoId)
             .single();
           
@@ -176,7 +176,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
         // Buscar dados do contato com qr_token
         const { data: contatoData } = await supabase
           .from('contatos')
-          .select('qr_token, qr_token_used, vendedor_nome, responsavel_email')
+          .select('qr_token, qr_token_used, vendedor_nome, responsavel_email, confirmation_token, confirmation_sent_at, confirmed_at')
           .eq('id', contato.id)
           .single();
 
@@ -184,6 +184,9 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
         if (contatoData) {
           setQrToken(contatoData.qr_token);
           setQrTokenUsed(contatoData.qr_token_used || false);
+          setConfirmationToken(contatoData.confirmation_token ?? null);
+          setConfirmationSentAt(contatoData.confirmation_sent_at ?? null);
+          setConfirmedAt(contatoData.confirmed_at ?? null);
           currentVendedorNome = contatoData.vendedor_nome || '';
           setVendedorNome(contatoData.vendedor_nome || '');
 
