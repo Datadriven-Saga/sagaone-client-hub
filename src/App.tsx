@@ -52,6 +52,7 @@ const Integracoes = lazy(() => import("./pages/admin/Integracoes"));
 const OptOutGlobal = lazy(() => import("./pages/admin/OptOutGlobal"));
 const MFAGeral = lazy(() => import("./pages/admin/MFAGeral"));
 const Instancias = lazy(() => import("./pages/agentes-ia/Instancias"));
+const ConfirmarPresenca = lazy(() => import("./pages/public/ConfirmarPresenca"));
 
 // QueryClient with optimized defaults
 const queryClient = new QueryClient({
@@ -78,6 +79,8 @@ const AppRoutes = () => {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        {/* Página pública de confirmação (sem auth) */}
+        <Route path="/confirmar/:token" element={<ConfirmarPresenca />} />
         <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
         <Route path="/clientes" element={<PermissionProtectedRoute permissionKey="canViewClientes"><Clientes /></PermissionProtectedRoute>} />
         <Route path="/notificacoes" element={<PermissionProtectedRoute permissionKey="canAccessNotificacoes"><Notificacoes /></PermissionProtectedRoute>} />
