@@ -81,6 +81,17 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
   const [confirmationSentAt, setConfirmationSentAt] = useState<string | null>(null);
   const [confirmedAt, setConfirmedAt] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
+
+  // Carregar feature flag por empresa
+  useEffect(() => {
+    if (!activeCompany?.id) {
+      setConfirmacaoFlagAtiva(false);
+      return;
+    }
+    isEnabledForEmpresa('confirmacao_presenca_whatsapp', activeCompany.id)
+      .then(setConfirmacaoFlagAtiva)
+      .catch(() => setConfirmacaoFlagAtiva(false));
+  }, [activeCompany?.id, isEnabledForEmpresa]);
   
   // QR Code state
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
