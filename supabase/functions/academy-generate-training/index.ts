@@ -241,8 +241,9 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("academy-generate-training: unexpected error", error);
+    const message = error instanceof Error ? error.message : "Unexpected error";
     return new Response(
-      JSON.stringify({ error: error?.message ?? "Unexpected error" }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
