@@ -15,7 +15,10 @@ import {
   Save,
   Loader2,
   RefreshCw,
-  Download
+  Download,
+  Send,
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +27,7 @@ import { useCompany } from '@/contexts/CompanyContext';
 import { Contato } from '@/hooks/useContatoData';
 import QRCodeLib from 'qrcode';
 import html2canvas from 'html2canvas';
+import { montarMensagemConvite, montarUrlWhatsapp } from '@/lib/conviteUtils';
 
 interface ConviteTabProps {
   contato: Contato;
@@ -38,6 +42,7 @@ interface ProspeccaoData {
   data_fim: string | null;
   empresa_id: string;
   imagem_divulgacao_url?: string | null;
+  texto_convite_template?: string | null;
 }
 
 interface EmpresaData {
@@ -69,6 +74,10 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
   const [vendedorNome, setVendedorNome] = useState<string>('');
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [qrTokenUsed, setQrTokenUsed] = useState<boolean>(false);
+  const [confirmationToken, setConfirmationToken] = useState<string | null>(null);
+  const [confirmationSentAt, setConfirmationSentAt] = useState<string | null>(null);
+  const [confirmedAt, setConfirmedAt] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
   
   // QR Code state
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
@@ -108,7 +117,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
         if (currentProspeccaoId) {
           const { data: prospeccaoData, error: prospeccaoError } = await supabase
             .from('prospeccoes')
-            .select('id, titulo, data_inicio, data_fim, empresa_id, imagem_divulgacao_url')
+            .select('id, titulo, data_inicio, data_fim, empresa_id, imagem_divulgacao_url, texto_convite_template')
             .eq('id', currentProspeccaoId)
             .single();
           
@@ -167,7 +176,7 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
         // Buscar dados do contato com qr_token
         const { data: contatoData } = await supabase
           .from('contatos')
-          .select('qr_token, qr_token_used, vendedor_nome, responsavel_email')
+          .select('qr_token, qr_token_used, vendedor_nome, responsavel_email, confirmation_token, confirmation_sent_at, confirmed_at')
           .eq('id', contato.id)
           .single();
 
@@ -175,6 +184,9 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
         if (contatoData) {
           setQrToken(contatoData.qr_token);
           setQrTokenUsed(contatoData.qr_token_used || false);
+          setConfirmationToken(contatoData.confirmation_token ?? null);
+          setConfirmationSentAt(contatoData.confirmation_sent_at ?? null);
+          setConfirmedAt(contatoData.confirmed_at ?? null);
           currentVendedorNome = contatoData.vendedor_nome || '';
           setVendedorNome(contatoData.vendedor_nome || '');
 
@@ -356,6 +368,62 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
     }
   };
 
+  // Reenviar convite via WhatsApp (gera token se necessário)
+  const handleReenviarConfirmacao = async () => {
+    if (!contato.telefone) {
+      toast({
+        title: 'Sem telefone',
+        description: 'Este contato não possui telefone cadastrado.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setResending(true);
+    try {
+      let token = confirmationToken;
+      if (!token) {
+        token = crypto.randomUUID();
+        const { error } = await supabase
+          .from('contatos')
+          .update({ confirmation_token: token })
+          .eq('id', contato.id);
+        if (error) throw error;
+        setConfirmationToken(token);
+      }
+
+      const mensagem = montarMensagemConvite({
+        template: prospeccao?.texto_convite_template ?? null,
+        nome: contato.nome || '',
+        evento: prospeccao?.titulo || 'Evento',
+        token,
+      });
+      const url = montarUrlWhatsapp(contato.telefone, mensagem);
+
+      // Registrar (re)envio
+      const nowIso = new Date().toISOString();
+      await supabase
+        .from('contatos')
+        .update({
+          confirmation_sent_at: nowIso,
+          confirmation_sent_by: user?.id ?? null,
+        })
+        .eq('id', contato.id);
+      setConfirmationSentAt(nowIso);
+
+      window.open(url, '_blank', 'noopener,noreferrer');
+
+      toast({
+        title: 'WhatsApp aberto',
+        description: 'A mensagem foi preparada para reenvio.',
+      });
+    } catch (err) {
+      console.error('Erro ao reenviar convite:', err);
+      toast({ title: 'Erro', description: 'Não foi possível reenviar.', variant: 'destructive' });
+    } finally {
+      setResending(false);
+    }
+  };
+
   // Função para exportar QR Code como imagem
   const handleExportQRCode = () => {
     if (!qrCodeUrl) return;
@@ -471,6 +539,43 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
 
       {/* Seção de controles */}
       <Card className="p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Send className="w-4 h-4 text-primary" />
+          <h4 className="font-semibold text-sm">Confirmação de Presença</h4>
+          {confirmedAt ? (
+            <Badge className="text-xs bg-green-100 text-green-800 border border-green-200 hover:bg-green-100">
+              <CheckCircle2 className="w-3 h-3 mr-1" /> Confirmado
+            </Badge>
+          ) : confirmationSentAt ? (
+            <Badge className="text-xs bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-100">
+              <Clock className="w-3 h-3 mr-1" /> Aguardando
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs">Não enviado</Badge>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground mb-3">
+          {confirmedAt
+            ? `Confirmado em ${new Date(confirmedAt).toLocaleString('pt-BR')}`
+            : confirmationSentAt
+              ? `Enviado em ${new Date(confirmationSentAt).toLocaleString('pt-BR')}`
+              : 'Nenhuma confirmação enviada para este contato.'}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleReenviarConfirmacao}
+          disabled={resending || !contato.telefone}
+          className="mb-4 w-full"
+        >
+          {resending ? (
+            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+          ) : (
+            <Send className="w-4 h-4 mr-1" />
+          )}
+          {confirmationSentAt ? 'Reenviar Confirmação' : 'Enviar Confirmação'}
+        </Button>
+
         <div className="flex items-center gap-2 mb-4">
           <QrCode className="w-4 h-4 text-primary" />
           <h4 className="font-semibold text-sm">Controles do QR Code</h4>

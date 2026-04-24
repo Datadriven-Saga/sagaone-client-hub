@@ -26,6 +26,7 @@ import { ClientesPorUsuarioModal } from "@/components/ClientesPorUsuarioModal";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
 import { NovoLeadModal } from "@/components/NovoLeadModal";
 import { DescarteLeadModal } from "@/components/DescarteLeadModal";
+import { EnviarConfirmacaoModal } from "@/components/EnviarConfirmacaoModal";
 import { ClientesImportadosList } from "@/components/ClientesImportadosList";
 import { VendasProspeccaoTab } from "@/components/VendasProspeccaoTab";
 import { EventoBaseModal } from "@/components/EventoBaseModal";
@@ -111,6 +112,25 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     contatoId: '',
     contatoNome: '',
     fromStatus: ''
+  });
+  const [convidarModal, setConvidarModal] = useState<{
+    isOpen: boolean;
+    contatoId: string;
+    contatoNome: string;
+    contatoTelefone: string;
+    token: string;
+    eventoNome: string;
+    templatePadrao: string | null;
+    fromStatus: string;
+  }>({
+    isOpen: false,
+    contatoId: '',
+    contatoNome: '',
+    contatoTelefone: '',
+    token: '',
+    eventoNome: '',
+    templatePadrao: null,
+    fromStatus: '',
   });
   const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string; departamento?: string | null }[]>([]);
   const [eventosLigacaoValidos, setEventosLigacaoValidos] = useState<Set<string>>(new Set());
@@ -822,6 +842,65 @@ showAllEvents: true
           fromStatus: fromStatus
         });
         return false; // Não mover o card visualmente ainda
+      }
+    }
+
+    // Se destino é "convidados", abrir modal de envio de confirmação por WhatsApp
+    if (toStatus === 'convidados') {
+      const contatoCompleto = contatos.find(c => c.id === itemId);
+      if (contatoCompleto) {
+        // Garantir que existe um confirmation_token. Se não existir, gerar um agora.
+        let token: string | null = null;
+        let templatePadrao: string | null = null;
+        let eventoNome = prospeccoes?.[0]?.titulo || 'Evento';
+        try {
+          const { data: contatoRow } = await supabase
+            .from('contatos')
+            .select('confirmation_token')
+            .eq('id', itemId)
+            .maybeSingle();
+          token = contatoRow?.confirmation_token ?? null;
+          if (!token) {
+            token = crypto.randomUUID();
+            await supabase
+              .from('contatos')
+              .update({ confirmation_token: token })
+              .eq('id', itemId);
+          }
+
+          // Buscar template e nome do evento (priorizar o filtro ativo)
+          const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
+          const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
+          const prospeccaoIdAlvo = (prospeccaoIdsFiltrados.length > 0
+            ? prospeccaoIdsFiltrados.find(id => prospeccaoIdsDoLead?.has(id)) || prospeccaoIdsFiltrados[0]
+            : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
+
+          if (prospeccaoIdAlvo) {
+            const { data: prospRow } = await supabase
+              .from('prospeccoes')
+              .select('titulo, texto_convite_template')
+              .eq('id', prospeccaoIdAlvo)
+              .maybeSingle();
+            if (prospRow) {
+              eventoNome = prospRow.titulo || eventoNome;
+              templatePadrao = prospRow.texto_convite_template ?? null;
+            }
+          }
+        } catch (err) {
+          console.error('Erro ao preparar convite:', err);
+        }
+
+        setConvidarModal({
+          isOpen: true,
+          contatoId: itemId,
+          contatoNome: contatoCompleto.nome,
+          contatoTelefone: contatoCompleto.telefone || '',
+          token: token || '',
+          eventoNome,
+          templatePadrao,
+          fromStatus,
+        });
+        return false; // Card só se move após escolha do usuário
       }
     }
     
@@ -2986,6 +3065,74 @@ showAllEvents: true
               description: "Não foi possível descartar o lead. Tente novamente.",
               variant: "destructive"
             });
+          }
+        }}
+      />
+
+      <EnviarConfirmacaoModal
+        open={convidarModal.isOpen}
+        contatoNome={convidarModal.contatoNome}
+        contatoTelefone={convidarModal.contatoTelefone}
+        eventoNome={convidarModal.eventoNome}
+        token={convidarModal.token}
+        templatePadrao={convidarModal.templatePadrao}
+        onCancelar={() =>
+          setConvidarModal((s) => ({ ...s, isOpen: false }))
+        }
+        onDepois={async () => {
+          const { contatoId, fromStatus } = convidarModal;
+          setConvidarModal((s) => ({ ...s, isOpen: false }));
+          try {
+            await atualizarStatusContato(contatoId, 'Convidado');
+            if (registrarMovimentacao && user && prospeccoes?.length > 0) {
+              await registrarMovimentacao({
+                leadId: contatoId,
+                prospeccaoId: prospeccoes[0].id,
+                statusAnterior: fromStatus,
+                statusNovo: 'convidados',
+                usuarioId: user.id,
+              });
+            }
+            toast({
+              title: 'Lead movido para Convidados',
+              description: 'Você pode reenviar a confirmação a qualquer momento pela aba de convite.',
+            });
+            refetch();
+          } catch (err) {
+            console.error('Erro ao mover lead para Convidados:', err);
+            toast({ title: 'Erro', description: 'Não foi possível mover o lead.', variant: 'destructive' });
+          }
+        }}
+        onEnviar={async () => {
+          const { contatoId, fromStatus } = convidarModal;
+          setConvidarModal((s) => ({ ...s, isOpen: false }));
+          try {
+            await supabase
+              .from('contatos')
+              .update({
+                confirmation_sent_at: new Date().toISOString(),
+                confirmation_sent_by: user?.id ?? null,
+              })
+              .eq('id', contatoId);
+            await atualizarStatusContato(contatoId, 'Convidado');
+            if (registrarMovimentacao && user && prospeccoes?.length > 0) {
+              await registrarMovimentacao({
+                leadId: contatoId,
+                prospeccaoId: prospeccoes[0].id,
+                statusAnterior: fromStatus,
+                statusNovo: 'convidados',
+                usuarioId: user.id,
+                observacoes: 'Confirmação enviada via WhatsApp',
+              });
+            }
+            toast({
+              title: 'Convite enviado',
+              description: 'WhatsApp aberto e lead movido para Convidados.',
+            });
+            refetch();
+          } catch (err) {
+            console.error('Erro ao enviar convite:', err);
+            toast({ title: 'Erro', description: 'Não foi possível registrar o envio.', variant: 'destructive' });
           }
         }}
       />
