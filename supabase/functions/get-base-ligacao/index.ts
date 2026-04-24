@@ -113,7 +113,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (eventoData.empresa_id !== empresa_id) {
+    if (!eventoData || eventoData.empresa_id !== empresa_id) {
       console.warn(`🚫 [${requestId}] Bloqueado: evento ${id_evento} pertence à empresa ${eventoData.empresa_id}, mas a requisição veio com empresa ${empresa_id}`);
       return new Response(
         JSON.stringify({ success: false, error: 'Evento não pertence à empresa ativa' }),
@@ -381,13 +381,12 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    if (filters.tentativas && filters.tentativas !== 'todos' && filters.tentativas !== '__all__') {
+    if (filters.tentativas && filters.tentativas !== 'todos') {
       filteredProspects = filteredProspects.filter(p => {
         switch (filters.tentativas) {
           case '0': return p.num_tentativas === 0;
           case '1': return p.num_tentativas === 1;
           case '2': return p.num_tentativas === 2;
-          case '3': return p.num_tentativas === 3;
           case '3+': return p.num_tentativas >= 3;
           default: return true;
         }
@@ -453,8 +452,9 @@ Deno.serve(async (req: Request) => {
 
   } catch (error) {
     console.error(`❌ [${requestId}] Erro:`, error);
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
