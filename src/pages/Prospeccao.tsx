@@ -859,8 +859,10 @@ showAllEvents: true
       }
     }
 
-    // Se destino é "convidados", abrir modal de envio de confirmação por WhatsApp
-    if (toStatus === 'convidados') {
+    // Se destino é "convidados" e a feature flag está ativa para a empresa,
+    // abrir modal de envio de confirmação por WhatsApp.
+    // Caso a flag esteja desligada, segue o fluxo normal de mudança de status.
+    if (toStatus === 'convidados' && confirmacaoFlagAtiva) {
       const contatoCompleto = contatos.find(c => c.id === itemId);
       if (contatoCompleto) {
         // Garantir que existe um confirmation_token. Se não existir, gerar um agora.
