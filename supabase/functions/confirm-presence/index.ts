@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
   const { data: contato, error: fetchError } = await supabase
     .from('contatos')
     .select(
-      'id, nome, status, confirmed_at, confirmation_expires_at, confirmation_sent_by, qr_token, empresa_id, prospeccao_id',
+      'id, nome, status, confirmed_at, confirmation_expires_at, confirmation_sent_by, qr_token, empresa_id',
     )
     .eq('confirmation_token', token)
     .maybeSingle()
@@ -79,6 +79,15 @@ Deno.serve(async (req) => {
   ) {
     return json({ error: 'Link expirado' }, 410)
   }
+
+  const { data: eventoContato } = await supabase
+    .from('eventos_prospeccao')
+    .select('prospeccao_id')
+    .eq('contato_id', contato.id)
+    .limit(1)
+    .maybeSingle()
+
+  const prospeccaoId = eventoContato?.prospeccao_id ?? null
 
   // 4. Garante qr_token
   const qrToken = contato.qr_token ?? crypto.randomUUID()
@@ -123,10 +132,10 @@ Deno.serve(async (req) => {
   })
 
   // 8. Log de movimentação (apenas se houver prospeccao_id — coluna NOT NULL)
-  if (contato.prospeccao_id) {
+  if (prospeccaoId) {
     await supabase.from('logs_movimentacao_contatos').insert({
       contato_id: contato.id,
-      prospeccao_id: contato.prospeccao_id,
+      prospeccao_id: prospeccaoId,
       status_anterior: statusAnterior,
       status_novo: 'Confirmado',
       usuario_id: contato.confirmation_sent_by,
@@ -141,7 +150,7 @@ Deno.serve(async (req) => {
         gatilho: 'movimentacao_lead_kanban',
         contato_id: contato.id,
         empresa_id: contato.empresa_id,
-        prospeccao_id: contato.prospeccao_id,
+        prospeccao_id: prospeccaoId,
         status_anterior: statusAnterior,
         status_novo: 'Confirmado',
         origem: 'link_confirmacao',

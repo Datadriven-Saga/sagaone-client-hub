@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
 
   const { data: contato, error } = await supabase
     .from('contatos')
-    .select('id, nome, confirmed_at, confirmation_expires_at, qr_token, prospeccao_id, empresa_id')
+    .select('id, nome, confirmed_at, confirmation_expires_at, qr_token, empresa_id')
     .eq('confirmation_token', token)
     .maybeSingle()
 
@@ -63,13 +63,20 @@ Deno.serve(async (req) => {
     return json({ expired: true })
   }
 
+  const { data: eventoContato } = await supabase
+    .from('eventos_prospeccao')
+    .select('prospeccao_id')
+    .eq('contato_id', contato.id)
+    .limit(1)
+    .maybeSingle()
+
   // Busca evento e empresa em paralelo
   const [eventoRes, empresaRes] = await Promise.all([
-    contato.prospeccao_id
+    eventoContato?.prospeccao_id
       ? supabase
           .from('prospeccoes')
           .select('titulo, data_inicio, data_fim')
-          .eq('id', contato.prospeccao_id)
+          .eq('id', eventoContato.prospeccao_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
     contato.empresa_id
