@@ -15,7 +15,10 @@ import {
   Save,
   Loader2,
   RefreshCw,
-  Download
+  Download,
+  Send,
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +27,7 @@ import { useCompany } from '@/contexts/CompanyContext';
 import { Contato } from '@/hooks/useContatoData';
 import QRCodeLib from 'qrcode';
 import html2canvas from 'html2canvas';
+import { montarMensagemConvite, montarUrlWhatsapp } from '@/lib/conviteUtils';
 
 interface ConviteTabProps {
   contato: Contato;
@@ -38,6 +42,7 @@ interface ProspeccaoData {
   data_fim: string | null;
   empresa_id: string;
   imagem_divulgacao_url?: string | null;
+  texto_convite_template?: string | null;
 }
 
 interface EmpresaData {
@@ -69,6 +74,10 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
   const [vendedorNome, setVendedorNome] = useState<string>('');
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [qrTokenUsed, setQrTokenUsed] = useState<boolean>(false);
+  const [confirmationToken, setConfirmationToken] = useState<string | null>(null);
+  const [confirmationSentAt, setConfirmationSentAt] = useState<string | null>(null);
+  const [confirmedAt, setConfirmedAt] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
   
   // QR Code state
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
