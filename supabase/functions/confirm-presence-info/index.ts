@@ -42,6 +42,17 @@ Deno.serve(async (req) => {
     return json({ error: 'Convite não encontrado' }, 404)
   }
 
+  // Feature flag por empresa: se desligada, tratar como inexistente
+  if (contato.empresa_id) {
+    const { data: flagEnabled } = await supabase.rpc('is_feature_enabled_for_empresa', {
+      p_flag_key: 'confirmacao_presenca_whatsapp',
+      p_empresa_id: contato.empresa_id,
+    })
+    if (!flagEnabled) {
+      return json({ error: 'Convite não encontrado' }, 404)
+    }
+  }
+
   // Expirado e ainda não confirmado → 410-like (mas 200 com flag pra UI poder renderizar)
   const expired =
     !contato.confirmed_at &&
