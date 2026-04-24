@@ -20,9 +20,9 @@ export function montarMensagemConvite(params: {
 }): string {
   const tpl = params.template?.trim() ? params.template : DEFAULT_TEMPLATE;
   return tpl
-    .replaceAll("{{nome}}", params.nome || "")
-    .replaceAll("{{evento}}", params.evento || "")
-    .replaceAll("{{link}}", montarLinkConfirmacao(params.token));
+    .split("{{nome}}").join(params.nome || "")
+    .split("{{evento}}").join(params.evento || "")
+    .split("{{link}}").join(montarLinkConfirmacao(params.token));
 }
 
 /**
