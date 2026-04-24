@@ -553,7 +553,7 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
       .eq('job_id', job_id)
       .eq('status', 'failed');
 
-    const retriableBatches = (failedBatches || []).filter(b => (b.retry_count || 0) < MAX_RETRIES);
+    const retriableBatches = (failedBatches || []).filter((b: { retry_count: number | null }) => (b.retry_count || 0) < MAX_RETRIES);
 
     const finalStatus = (remainingBatches?.length === 0 && retriableBatches.length === 0)
       ? 'completed'

@@ -114,7 +114,8 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!eventoData || eventoData.empresa_id !== empresa_id) {
-      console.warn(`🚫 [${requestId}] Bloqueado: evento ${id_evento} pertence à empresa ${eventoData.empresa_id}, mas a requisição veio com empresa ${empresa_id}`);
+      const empresaEvento = eventoData?.empresa_id ?? 'desconhecida';
+      console.warn(`🚫 [${requestId}] Bloqueado: evento ${id_evento} pertence à empresa ${empresaEvento}, mas a requisição veio com empresa ${empresa_id}`);
       return new Response(
         JSON.stringify({ success: false, error: 'Evento não pertence à empresa ativa' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

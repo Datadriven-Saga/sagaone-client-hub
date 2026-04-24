@@ -438,7 +438,7 @@ Deno.serve(async (req: Request) => {
 
       try { responseData = JSON.parse(responseText); } catch { responseData = { raw: responseText }; }
     } catch (webhookError) {
-      const isTimeout = webhookError.name === 'AbortError';
+      const isTimeout = webhookError instanceof Error && webhookError.name === 'AbortError';
       console.error(`⚠️ ${isTimeout ? 'Timeout' : 'Erro'} ao chamar webhook externo (não fatal):`, webhookError);
       responseData = { 
         error: isTimeout ? 'Timeout ao comunicar com sistema externo (15s)' : 'Falha na comunicação com sistema externo', 
@@ -487,8 +487,9 @@ Deno.serve(async (req: Request) => {
 
   } catch (error) {
     console.error('❌ Erro no IA Ligação Webhook:', error);
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
