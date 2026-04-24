@@ -36,6 +36,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { useContatoData, kanbanStatusMap, Contato } from "@/hooks/useContatoData";
 import { useAutoAtribuirLeads } from "@/hooks/useAutoAtribuirLeads";
 import { useRecepcaoData } from "@/hooks/useRecepcaoData";
@@ -184,6 +185,8 @@ showAllEvents: true
   const { activeCompany, loading: companyLoading, switchCompany } = useCompany();
   const { canAddClientes, canDeleteContatos, canDeleteEventos, canEditEventos, canToggleIALigacao, canUploadBase, canCreateEventos, canManageEventos, isVendedor, isSDR, isAdmin, isMasterRole, isCRM, isDiretor, isGerente, isProprietario } = useUserAccessType();
   const { registrarMovimentacao } = useProspeccaoLogs();
+  const { isEnabledForEmpresa } = useFeatureFlags();
+  const [confirmacaoFlagAtiva, setConfirmacaoFlagAtiva] = useState(false);
   const { 
     contatos, 
     prospeccoes,
@@ -312,6 +315,17 @@ showAllEvents: true
   };
 
   // === useEffect hooks ===
+  // Carregar feature flag "Confirmação de Presença via WhatsApp" para a empresa ativa
+  useEffect(() => {
+    if (!activeCompany?.id) {
+      setConfirmacaoFlagAtiva(false);
+      return;
+    }
+    isEnabledForEmpresa('confirmacao_presenca_whatsapp', activeCompany.id)
+      .then(setConfirmacaoFlagAtiva)
+      .catch(() => setConfirmacaoFlagAtiva(false));
+  }, [activeCompany?.id, isEnabledForEmpresa]);
+
   // Atualizar activeTab quando defaultTab mudar (navegação entre sub-módulos)
   useEffect(() => {
     if (defaultTab === 'eventos') {
@@ -845,8 +859,10 @@ showAllEvents: true
       }
     }
 
-    // Se destino é "convidados", abrir modal de envio de confirmação por WhatsApp
-    if (toStatus === 'convidados') {
+    // Se destino é "convidados" e a feature flag está ativa para a empresa,
+    // abrir modal de envio de confirmação por WhatsApp.
+    // Caso a flag esteja desligada, segue o fluxo normal de mudança de status.
+    if (toStatus === 'convidados' && confirmacaoFlagAtiva) {
       const contatoCompleto = contatos.find(c => c.id === itemId);
       if (contatoCompleto) {
         // Garantir que existe um confirmation_token. Se não existir, gerar um agora.
