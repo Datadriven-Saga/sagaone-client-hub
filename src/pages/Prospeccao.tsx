@@ -36,6 +36,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { useContatoData, kanbanStatusMap, Contato } from "@/hooks/useContatoData";
 import { useAutoAtribuirLeads } from "@/hooks/useAutoAtribuirLeads";
 import { useRecepcaoData } from "@/hooks/useRecepcaoData";
@@ -184,6 +185,8 @@ showAllEvents: true
   const { activeCompany, loading: companyLoading, switchCompany } = useCompany();
   const { canAddClientes, canDeleteContatos, canDeleteEventos, canEditEventos, canToggleIALigacao, canUploadBase, canCreateEventos, canManageEventos, isVendedor, isSDR, isAdmin, isMasterRole, isCRM, isDiretor, isGerente, isProprietario } = useUserAccessType();
   const { registrarMovimentacao } = useProspeccaoLogs();
+  const { isEnabledForEmpresa } = useFeatureFlags();
+  const [confirmacaoFlagAtiva, setConfirmacaoFlagAtiva] = useState(false);
   const { 
     contatos, 
     prospeccoes,
