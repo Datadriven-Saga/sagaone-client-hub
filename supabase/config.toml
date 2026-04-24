@@ -124,6 +124,3 @@ verify_jwt = true
 
 [functions.fetch-twilio-metrics]
 verify_jwt = true
-
-[functions.confirm-presence-info]
-verify_jwt = false
