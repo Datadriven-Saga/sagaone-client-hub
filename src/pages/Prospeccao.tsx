@@ -844,6 +844,65 @@ showAllEvents: true
         return false; // Não mover o card visualmente ainda
       }
     }
+
+    // Se destino é "convidados", abrir modal de envio de confirmação por WhatsApp
+    if (toStatus === 'convidados') {
+      const contatoCompleto = contatos.find(c => c.id === itemId);
+      if (contatoCompleto) {
+        // Garantir que existe um confirmation_token. Se não existir, gerar um agora.
+        let token: string | null = null;
+        let templatePadrao: string | null = null;
+        let eventoNome = prospeccoes?.[0]?.titulo || 'Evento';
+        try {
+          const { data: contatoRow } = await supabase
+            .from('contatos')
+            .select('confirmation_token')
+            .eq('id', itemId)
+            .maybeSingle();
+          token = contatoRow?.confirmation_token ?? null;
+          if (!token) {
+            token = crypto.randomUUID();
+            await supabase
+              .from('contatos')
+              .update({ confirmation_token: token })
+              .eq('id', itemId);
+          }
+
+          // Buscar template e nome do evento (priorizar o filtro ativo)
+          const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
+          const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
+          const prospeccaoIdAlvo = (prospeccaoIdsFiltrados.length > 0
+            ? prospeccaoIdsFiltrados.find(id => prospeccaoIdsDoLead?.has(id)) || prospeccaoIdsFiltrados[0]
+            : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
+
+          if (prospeccaoIdAlvo) {
+            const { data: prospRow } = await supabase
+              .from('prospeccoes')
+              .select('titulo, texto_convite_template')
+              .eq('id', prospeccaoIdAlvo)
+              .maybeSingle();
+            if (prospRow) {
+              eventoNome = prospRow.titulo || eventoNome;
+              templatePadrao = prospRow.texto_convite_template ?? null;
+            }
+          }
+        } catch (err) {
+          console.error('Erro ao preparar convite:', err);
+        }
+
+        setConvidarModal({
+          isOpen: true,
+          contatoId: itemId,
+          contatoNome: contatoCompleto.nome,
+          contatoTelefone: contatoCompleto.telefone || '',
+          token: token || '',
+          eventoNome,
+          templatePadrao,
+          fromStatus,
+        });
+        return false; // Card só se move após escolha do usuário
+      }
+    }
     
     // Se destino é "venda", verificar campos obrigatórios
     if (toStatus === 'venda') {
