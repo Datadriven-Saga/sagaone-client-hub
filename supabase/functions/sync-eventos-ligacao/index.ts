@@ -387,8 +387,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Erro na sincronização:', error);
+    const message = error instanceof Error ? error.message : 'Erro interno na sincronização';
     return new Response(
-      JSON.stringify({ error: error.message || 'Erro interno na sincronização' }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
