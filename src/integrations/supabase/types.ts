@@ -1395,6 +1395,10 @@ export type Database = {
           base_id: string | null
           cliente_id: string | null
           codigo_proposta: string | null
+          confirmation_expires_at: string | null
+          confirmation_sent_at: string | null
+          confirmation_sent_by: string | null
+          confirmation_token: string | null
           confirmed_at: string | null
           created_at: string | null
           data_disparo_ia: string | null
@@ -1422,6 +1426,10 @@ export type Database = {
           base_id?: string | null
           cliente_id?: string | null
           codigo_proposta?: string | null
+          confirmation_expires_at?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_sent_by?: string | null
+          confirmation_token?: string | null
           confirmed_at?: string | null
           created_at?: string | null
           data_disparo_ia?: string | null
@@ -1449,6 +1457,10 @@ export type Database = {
           base_id?: string | null
           cliente_id?: string | null
           codigo_proposta?: string | null
+          confirmation_expires_at?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_sent_by?: string | null
+          confirmation_token?: string | null
           confirmed_at?: string | null
           created_at?: string | null
           data_disparo_ia?: string | null
@@ -3804,6 +3816,7 @@ export type Database = {
           template_agendado_id: string | null
           template_nao_agendado_id: string | null
           template_prospeccao_id: string | null
+          texto_convite_template: string | null
           tipo_lead: string
           titulo: string
           updated_at: string | null
@@ -3858,6 +3871,7 @@ export type Database = {
           template_agendado_id?: string | null
           template_nao_agendado_id?: string | null
           template_prospeccao_id?: string | null
+          texto_convite_template?: string | null
           tipo_lead?: string
           titulo: string
           updated_at?: string | null
@@ -3912,6 +3926,7 @@ export type Database = {
           template_agendado_id?: string | null
           template_nao_agendado_id?: string | null
           template_prospeccao_id?: string | null
+          texto_convite_template?: string | null
           tipo_lead?: string
           titulo?: string
           updated_at?: string | null
