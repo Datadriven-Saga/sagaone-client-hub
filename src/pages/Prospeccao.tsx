@@ -3069,6 +3069,74 @@ showAllEvents: true
         }}
       />
 
+      <EnviarConfirmacaoModal
+        open={convidarModal.isOpen}
+        contatoNome={convidarModal.contatoNome}
+        contatoTelefone={convidarModal.contatoTelefone}
+        eventoNome={convidarModal.eventoNome}
+        token={convidarModal.token}
+        templatePadrao={convidarModal.templatePadrao}
+        onCancelar={() =>
+          setConvidarModal((s) => ({ ...s, isOpen: false }))
+        }
+        onDepois={async () => {
+          const { contatoId, fromStatus } = convidarModal;
+          setConvidarModal((s) => ({ ...s, isOpen: false }));
+          try {
+            await atualizarStatusContato(contatoId, 'Convidado');
+            if (registrarMovimentacao && user && prospeccoes?.length > 0) {
+              await registrarMovimentacao({
+                leadId: contatoId,
+                prospeccaoId: prospeccoes[0].id,
+                statusAnterior: fromStatus,
+                statusNovo: 'convidados',
+                usuarioId: user.id,
+              });
+            }
+            toast({
+              title: 'Lead movido para Convidados',
+              description: 'Você pode reenviar a confirmação a qualquer momento pela aba de convite.',
+            });
+            refetch();
+          } catch (err) {
+            console.error('Erro ao mover lead para Convidados:', err);
+            toast({ title: 'Erro', description: 'Não foi possível mover o lead.', variant: 'destructive' });
+          }
+        }}
+        onEnviar={async () => {
+          const { contatoId, fromStatus } = convidarModal;
+          setConvidarModal((s) => ({ ...s, isOpen: false }));
+          try {
+            await supabase
+              .from('contatos')
+              .update({
+                confirmation_sent_at: new Date().toISOString(),
+                confirmation_sent_by: user?.id ?? null,
+              })
+              .eq('id', contatoId);
+            await atualizarStatusContato(contatoId, 'Convidado');
+            if (registrarMovimentacao && user && prospeccoes?.length > 0) {
+              await registrarMovimentacao({
+                leadId: contatoId,
+                prospeccaoId: prospeccoes[0].id,
+                statusAnterior: fromStatus,
+                statusNovo: 'convidados',
+                usuarioId: user.id,
+                observacoes: 'Confirmação enviada via WhatsApp',
+              });
+            }
+            toast({
+              title: 'Convite enviado',
+              description: 'WhatsApp aberto e lead movido para Convidados.',
+            });
+            refetch();
+          } catch (err) {
+            console.error('Erro ao enviar convite:', err);
+            toast({ title: 'Erro', description: 'Não foi possível registrar o envio.', variant: 'destructive' });
+          }
+        }}
+      />
+
       <QRCodeScanner
         isOpen={isQRCodeScannerOpen}
         onClose={() => setIsQRCodeScannerOpen(false)}
