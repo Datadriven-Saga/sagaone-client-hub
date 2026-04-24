@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompany } from '@/contexts/CompanyContext';
 import { Contato } from '@/hooks/useContatoData';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import QRCodeLib from 'qrcode';
 import html2canvas from 'html2canvas';
 import { montarMensagemConvite, montarUrlWhatsapp } from '@/lib/conviteUtils';
@@ -63,6 +64,8 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeCompany } = useCompany();
+  const { isEnabledForEmpresa } = useFeatureFlags();
+  const [confirmacaoFlagAtiva, setConfirmacaoFlagAtiva] = useState(false);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
