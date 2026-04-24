@@ -315,6 +315,17 @@ showAllEvents: true
   };
 
   // === useEffect hooks ===
+  // Carregar feature flag "Confirmação de Presença via WhatsApp" para a empresa ativa
+  useEffect(() => {
+    if (!activeCompany?.id) {
+      setConfirmacaoFlagAtiva(false);
+      return;
+    }
+    isEnabledForEmpresa('confirmacao_presenca_whatsapp', activeCompany.id)
+      .then(setConfirmacaoFlagAtiva)
+      .catch(() => setConfirmacaoFlagAtiva(false));
+  }, [activeCompany?.id, isEnabledForEmpresa]);
+
   // Atualizar activeTab quando defaultTab mudar (navegação entre sub-módulos)
   useEffect(() => {
     if (defaultTab === 'eventos') {
