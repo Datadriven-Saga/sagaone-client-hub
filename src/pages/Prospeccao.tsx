@@ -26,6 +26,7 @@ import { ClientesPorUsuarioModal } from "@/components/ClientesPorUsuarioModal";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
 import { NovoLeadModal } from "@/components/NovoLeadModal";
 import { DescarteLeadModal } from "@/components/DescarteLeadModal";
+import { EnviarConfirmacaoModal } from "@/components/EnviarConfirmacaoModal";
 import { ClientesImportadosList } from "@/components/ClientesImportadosList";
 import { VendasProspeccaoTab } from "@/components/VendasProspeccaoTab";
 import { EventoBaseModal } from "@/components/EventoBaseModal";
