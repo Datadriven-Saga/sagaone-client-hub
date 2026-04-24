@@ -103,10 +103,11 @@ serve(async (req) => {
           });
         }
       } catch (error) {
+        const message = error instanceof Error ? error.message : 'Erro desconhecido';
         errors.push({ 
           id: invalidUser.id, 
           email: invalidUser.email, 
-          error: error.message 
+          error: message 
         });
       }
     }
@@ -129,8 +130,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in cleanup-invalid-users:', error);
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
