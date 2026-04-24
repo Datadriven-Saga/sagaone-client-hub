@@ -300,6 +300,27 @@ serve(async (req) => {
 
       const primeiraAtivacao = !contatoData.webhook_ativado && dados.status_novo === 'Em Espera';
 
+      // 5.1. Filtrar apenas status finais elegíveis para envio externo
+      // (a primeira ativação em "Em Espera" continua marcando webhook_ativado, mas não dispara webhook)
+      const STATUS_ELEGIVEIS = ['Confirmado', 'Check-in', 'Descartado'];
+      if (!STATUS_ELEGIVEIS.includes(dados.status_novo)) {
+        console.log('⏭️ Ignorando: status_novo fora da lista de envio:', dados.status_novo);
+
+        // Mesmo pulando o disparo, marcar webhook_ativado na primeira passagem por Em Espera
+        // para preservar a regra de ativação dos status seguintes.
+        if (primeiraAtivacao) {
+          await supabaseServiceClient
+            .from('contatos')
+            .update({ webhook_ativado: true })
+            .eq('id', dados.contato_id);
+          console.log('✅ Contato marcado com webhook_ativado = true (sem disparo)');
+        }
+
+        return new Response(JSON.stringify({ skipped: true, reason: 'status_nao_elegivel', status_novo: dados.status_novo }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       // 6. Buscar dealer_id da empresa
       const { data: empresaData } = await supabaseServiceClient
         .from('empresas')
