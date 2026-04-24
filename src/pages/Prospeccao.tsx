@@ -834,6 +834,28 @@ showAllEvents: true
   // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string): Promise<boolean> => {
     console.log('handleStatusChange called:', { itemId, fromStatus, toStatus });
+    const contatoCompleto = contatos.find(c => c.id === itemId) ?? (() => {
+      const kanbanContato = Object.values(kanbanData)
+        .flatMap((column) => column?.items ?? [])
+        .find((item: any) => item.id === itemId);
+
+      return kanbanContato
+        ? {
+            id: kanbanContato.id,
+            nome: kanbanContato.nome,
+            telefone: kanbanContato.telefone ?? '',
+            email: kanbanContato.email ?? undefined,
+            status: kanbanContato.status,
+            responsavel_email: kanbanContato.responsavel_email ?? undefined,
+            empresa_id: kanbanContato.empresa_id ?? activeCompany?.id,
+            observacoes: kanbanContato.observacoes ?? undefined,
+            origem: kanbanContato.origem ?? 'Outros',
+            created_at: kanbanContato.created_at ?? '',
+            updated_at: kanbanContato.updated_at ?? '',
+            tentativas_chamada: kanbanContato.tentativas_chamada ?? 0,
+          }
+        : null;
+    })();
     
     // Bloquear SDR/Vendedor de mover leads para "atribuidos" quando no limite de 30
     if (isLimitedUser && atLimitLeads && fromStatus === 'novos' && toStatus === 'atribuidos') {
@@ -847,7 +869,6 @@ showAllEvents: true
     
     // Se destino é "descartados", abrir modal para preencher motivo e justificativa
     if (toStatus === 'descartados') {
-      const contatoCompleto = contatos.find(c => c.id === itemId);
       if (contatoCompleto) {
         setDescarteModal({
           isOpen: true,
@@ -863,7 +884,6 @@ showAllEvents: true
     // abrir modal de envio de confirmação por WhatsApp.
     // Caso a flag esteja desligada, segue o fluxo normal de mudança de status.
     if (toStatus === 'convidados' && confirmacaoFlagAtiva) {
-      const contatoCompleto = contatos.find(c => c.id === itemId);
       if (contatoCompleto) {
         // Garantir que existe um confirmation_token. Se não existir, gerar um agora.
         let token: string | null = null;
@@ -922,7 +942,6 @@ showAllEvents: true
     
     // Se destino é "venda", verificar campos obrigatórios
     if (toStatus === 'venda') {
-      const contatoCompleto = contatos.find(c => c.id === itemId);
       console.log('Moving to venda, contato:', contatoCompleto);
       
       if (contatoCompleto) {
