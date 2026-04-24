@@ -38,7 +38,8 @@ serve(async (req) => {
         }
       }
     } catch (e) {
-      console.warn("Frankfurter API failed, trying fallback:", e.message);
+      const message = e instanceof Error ? e.message : String(e);
+      console.warn("Frankfurter API failed, trying fallback:", message);
     }
 
     // Fallback: AwesomeAPI
@@ -60,7 +61,8 @@ serve(async (req) => {
           }
         }
       } catch (e) {
-        console.warn("AwesomeAPI also failed:", e.message);
+        const message = e instanceof Error ? e.message : String(e);
+        console.warn("AwesomeAPI also failed:", message);
       }
     }
 
@@ -86,8 +88,9 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Erro ao buscar cotação:", error);
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
-      JSON.stringify({ error: "Não foi possível obter a cotação do dólar", details: error.message }),
+      JSON.stringify({ error: "Não foi possível obter a cotação do dólar", details: message }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,

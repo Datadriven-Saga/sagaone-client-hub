@@ -73,8 +73,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in validate-domain:', error);
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
-      JSON.stringify({ valid: false, error: error.message }),
+      JSON.stringify({ valid: false, error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

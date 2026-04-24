@@ -28,6 +28,10 @@ interface WebhookContato {
   vendedor_nome?: string;
   origem?: string;
   observacoes?: string;
+  enviado_whatsapp?: boolean;
+  ligacao_atendida?: boolean;
+  status_agendado?: boolean;
+  criado_em?: string;
 }
 
 interface SyncResult {
@@ -412,8 +416,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Erro na sincronização de contatos:', error);
+    const message = error instanceof Error ? error.message : 'Erro interno na sincronização de contatos';
     return new Response(
-      JSON.stringify({ error: error.message || 'Erro interno na sincronização de contatos' }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

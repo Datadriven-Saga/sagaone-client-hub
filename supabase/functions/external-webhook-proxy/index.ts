@@ -186,12 +186,7 @@ Deno.serve(async (req: Request) => {
           console.error('❌ Erro no dispara-ligacao:', err);
         }
       };
-      // @ts-ignore
-      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
-        EdgeRuntime.waitUntil(backgroundTask());
-      } else {
-        backgroundTask();
-      }
+      void backgroundTask();
       return new Response(
         JSON.stringify({ success: true, message: 'Disparo iniciado com sucesso.', async: true }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

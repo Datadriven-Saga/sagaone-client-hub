@@ -172,8 +172,9 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in sync-empresas:', error);
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: message }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

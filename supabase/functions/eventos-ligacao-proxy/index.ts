@@ -167,9 +167,10 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Erro no proxy:', error);
-    
-    // Verificar se é timeout
-    if (error.name === 'AbortError') {
+    const isAbortError = error instanceof Error && error.name === 'AbortError';
+    const message = error instanceof Error ? error.message : 'Erro interno';
+
+    if (isAbortError) {
       return new Response(
         JSON.stringify({ 
           error: 'Timeout ao buscar dados do servidor externo',
@@ -180,7 +181,7 @@ Deno.serve(async (req) => {
     }
     
     return new Response(
-      JSON.stringify({ error: error.message || 'Erro interno' }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -50,7 +50,8 @@ serve(async (req) => {
         throw new Error('Token expirado');
       }
     } catch (e) {
-      console.error('Erro ao decodificar JWT:', e.message);
+      const message = e instanceof Error ? e.message : String(e);
+      console.error('Erro ao decodificar JWT:', message);
       return new Response(
         JSON.stringify({ error: 'Token inválido' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
