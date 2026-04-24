@@ -368,6 +368,62 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
     }
   };
 
+  // Reenviar convite via WhatsApp (gera token se necessário)
+  const handleReenviarConfirmacao = async () => {
+    if (!contato.telefone) {
+      toast({
+        title: 'Sem telefone',
+        description: 'Este contato não possui telefone cadastrado.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setResending(true);
+    try {
+      let token = confirmationToken;
+      if (!token) {
+        token = crypto.randomUUID();
+        const { error } = await supabase
+          .from('contatos')
+          .update({ confirmation_token: token })
+          .eq('id', contato.id);
+        if (error) throw error;
+        setConfirmationToken(token);
+      }
+
+      const mensagem = montarMensagemConvite({
+        template: prospeccao?.texto_convite_template ?? null,
+        nome: contato.nome || '',
+        evento: prospeccao?.titulo || 'Evento',
+        token,
+      });
+      const url = montarUrlWhatsapp(contato.telefone, mensagem);
+
+      // Registrar (re)envio
+      const nowIso = new Date().toISOString();
+      await supabase
+        .from('contatos')
+        .update({
+          confirmation_sent_at: nowIso,
+          confirmation_sent_by: user?.id ?? null,
+        })
+        .eq('id', contato.id);
+      setConfirmationSentAt(nowIso);
+
+      window.open(url, '_blank', 'noopener,noreferrer');
+
+      toast({
+        title: 'WhatsApp aberto',
+        description: 'A mensagem foi preparada para reenvio.',
+      });
+    } catch (err) {
+      console.error('Erro ao reenviar convite:', err);
+      toast({ title: 'Erro', description: 'Não foi possível reenviar.', variant: 'destructive' });
+    } finally {
+      setResending(false);
+    }
+  };
+
   // Função para exportar QR Code como imagem
   const handleExportQRCode = () => {
     if (!qrCodeUrl) return;
