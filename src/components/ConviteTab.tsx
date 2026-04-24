@@ -539,6 +539,43 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
 
       {/* Seção de controles */}
       <Card className="p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Send className="w-4 h-4 text-primary" />
+          <h4 className="font-semibold text-sm">Confirmação de Presença</h4>
+          {confirmedAt ? (
+            <Badge className="text-xs bg-green-100 text-green-800 border border-green-200 hover:bg-green-100">
+              <CheckCircle2 className="w-3 h-3 mr-1" /> Confirmado
+            </Badge>
+          ) : confirmationSentAt ? (
+            <Badge className="text-xs bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-100">
+              <Clock className="w-3 h-3 mr-1" /> Aguardando
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs">Não enviado</Badge>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground mb-3">
+          {confirmedAt
+            ? `Confirmado em ${new Date(confirmedAt).toLocaleString('pt-BR')}`
+            : confirmationSentAt
+              ? `Enviado em ${new Date(confirmationSentAt).toLocaleString('pt-BR')}`
+              : 'Nenhuma confirmação enviada para este contato.'}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleReenviarConfirmacao}
+          disabled={resending || !contato.telefone}
+          className="mb-4 w-full"
+        >
+          {resending ? (
+            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+          ) : (
+            <Send className="w-4 h-4 mr-1" />
+          )}
+          {confirmationSentAt ? 'Reenviar Confirmação' : 'Enviar Confirmação'}
+        </Button>
+
         <div className="flex items-center gap-2 mb-4">
           <QrCode className="w-4 h-4 text-primary" />
           <h4 className="font-semibold text-sm">Controles do QR Code</h4>
