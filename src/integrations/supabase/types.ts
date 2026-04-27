@@ -3200,6 +3200,135 @@ export type Database = {
           },
         ]
       }
+      pool_clientes_externos: {
+        Row: {
+          canal: string | null
+          cnpj_loja: string | null
+          codigo_loja: string | null
+          codigo_proposta: string
+          created_at: string
+          criado_em_origem: string | null
+          email_cliente: string | null
+          empresa_id: string | null
+          id: string
+          importado_em_evento_ids: string[] | null
+          ingestao_job_id: string | null
+          lead_maia: string | null
+          lead_pri: string | null
+          motivo_nao_venda: string | null
+          motivo_orfao: string | null
+          nome_cliente: string | null
+          origem: string | null
+          snapshot_date: string | null
+          status: string
+          tags: string[] | null
+          telefone: string | null
+          updated_at: string
+          veiculo_interesse: string | null
+        }
+        Insert: {
+          canal?: string | null
+          cnpj_loja?: string | null
+          codigo_loja?: string | null
+          codigo_proposta: string
+          created_at?: string
+          criado_em_origem?: string | null
+          email_cliente?: string | null
+          empresa_id?: string | null
+          id?: string
+          importado_em_evento_ids?: string[] | null
+          ingestao_job_id?: string | null
+          lead_maia?: string | null
+          lead_pri?: string | null
+          motivo_nao_venda?: string | null
+          motivo_orfao?: string | null
+          nome_cliente?: string | null
+          origem?: string | null
+          snapshot_date?: string | null
+          status?: string
+          tags?: string[] | null
+          telefone?: string | null
+          updated_at?: string
+          veiculo_interesse?: string | null
+        }
+        Update: {
+          canal?: string | null
+          cnpj_loja?: string | null
+          codigo_loja?: string | null
+          codigo_proposta?: string
+          created_at?: string
+          criado_em_origem?: string | null
+          email_cliente?: string | null
+          empresa_id?: string | null
+          id?: string
+          importado_em_evento_ids?: string[] | null
+          ingestao_job_id?: string | null
+          lead_maia?: string | null
+          lead_pri?: string | null
+          motivo_nao_venda?: string | null
+          motivo_orfao?: string | null
+          nome_cliente?: string | null
+          origem?: string | null
+          snapshot_date?: string | null
+          status?: string
+          tags?: string[] | null
+          telefone?: string | null
+          updated_at?: string
+          veiculo_interesse?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pool_clientes_externos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pool_clientes_externos_ingestao_job_id_fkey"
+            columns: ["ingestao_job_id"]
+            isOneToOne: false
+            referencedRelation: "pool_ingestao_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pool_ingestao_jobs: {
+        Row: {
+          created_at: string
+          erros: Json | null
+          finished_at: string | null
+          id: string
+          payload_recebido: Json | null
+          status: string
+          total_orfaos: number | null
+          total_processado: number | null
+          total_recebido: number | null
+        }
+        Insert: {
+          created_at?: string
+          erros?: Json | null
+          finished_at?: string | null
+          id?: string
+          payload_recebido?: Json | null
+          status?: string
+          total_orfaos?: number | null
+          total_processado?: number | null
+          total_recebido?: number | null
+        }
+        Update: {
+          created_at?: string
+          erros?: Json | null
+          finished_at?: string | null
+          id?: string
+          payload_recebido?: Json | null
+          status?: string
+          total_orfaos?: number | null
+          total_processado?: number | null
+          total_recebido?: number | null
+        }
+        Relationships: []
+      }
       produtos: {
         Row: {
           ativo: boolean | null
