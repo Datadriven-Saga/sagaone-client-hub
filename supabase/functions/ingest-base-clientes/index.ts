@@ -40,14 +40,6 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function buildEmpresaKey(row: { empresa_id: string | null; codigo_proposta: string }) {
-  return `E::${row.empresa_id}::${row.codigo_proposta}`;
-}
-
-function buildOrfaoKey(row: { codigo_loja: string | null; codigo_proposta: string }) {
-  return `O::${row.codigo_loja ?? ''}::${row.codigo_proposta}`;
-}
-
 async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: string) {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -122,8 +114,8 @@ async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: stri
       };
 
       const dedupKey = isOrfao
-        ? buildOrfaoKey({ codigo_loja: codigoLoja || null, codigo_proposta: codigoProposta })
-        : buildEmpresaKey({ empresa_id: empresaId, codigo_proposta: codigoProposta });
+        ? `O::${codigoLoja}::${codigoProposta}`
+        : `E::${empresaId}::${codigoProposta}`;
 
       const existing = dedupMap.get(dedupKey);
       if (!existing) {
@@ -145,98 +137,13 @@ async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: stri
 
     let totalProcessado = 0;
 
-    async function mergeChunkByLookup(
-      chunk: any[],
-      type: 'empresa' | 'orfao',
-    ) {
-      if (chunk.length === 0) return 0;
-
-      const existingMap = new Map<string, string>();
-
-      if (type === 'empresa') {
-        const empresaIds = Array.from(new Set(chunk.map((row) => row.empresa_id).filter(Boolean)));
-        const propostas = Array.from(new Set(chunk.map((row) => row.codigo_proposta).filter(Boolean)));
-
-        const { data, error } = await supabase
-          .from('pool_clientes_externos')
-          .select('id, empresa_id, codigo_proposta')
-          .in('empresa_id', empresaIds)
-          .in('codigo_proposta', propostas);
-
-        if (error) {
-          erros.push({ stage: 'lookup', message: error.message, sample: chunk[0]?.codigo_proposta });
-          return 0;
-        }
-
-        for (const row of data ?? []) {
-          existingMap.set(
-            buildEmpresaKey({ empresa_id: row.empresa_id, codigo_proposta: row.codigo_proposta }),
-            row.id,
-          );
-        }
-      } else {
-        const lojas = Array.from(new Set(chunk.map((row) => row.codigo_loja).filter(Boolean)));
-        const propostas = Array.from(new Set(chunk.map((row) => row.codigo_proposta).filter(Boolean)));
-
-        const { data, error } = await supabase
-          .from('pool_clientes_externos')
-          .select('id, codigo_loja, codigo_proposta')
-          .is('empresa_id', null)
-          .in('codigo_loja', lojas)
-          .in('codigo_proposta', propostas);
-
-        if (error) {
-          erros.push({ stage: 'lookup', message: error.message, sample: chunk[0]?.codigo_proposta });
-          return 0;
-        }
-
-        for (const row of data ?? []) {
-          existingMap.set(
-            buildOrfaoKey({ codigo_loja: row.codigo_loja, codigo_proposta: row.codigo_proposta }),
-            row.id,
-          );
-        }
-      }
-
-      const toInsert = [] as any[];
-      const toUpdate = [] as any[];
-
-      for (const row of chunk) {
-        const key = type === 'empresa'
-          ? buildEmpresaKey({ empresa_id: row.empresa_id, codigo_proposta: row.codigo_proposta })
-          : buildOrfaoKey({ codigo_loja: row.codigo_loja, codigo_proposta: row.codigo_proposta });
-        const existingId = existingMap.get(key);
-        if (existingId) {
-          toUpdate.push({ ...row, id: existingId });
-        } else {
-          toInsert.push(row);
-        }
-      }
-
+    async function upsertChunk(chunk: any[], onConflict: string) {
       let attempt = 0;
       while (attempt < MAX_RETRIES) {
-        const insertError = toInsert.length
-          ? (await supabase.from('pool_clientes_externos').insert(toInsert)).error
-          : null;
-
-        let updateError = null;
-        if (toUpdate.length) {
-          for (const row of toUpdate) {
-            const { id, ...changes } = row;
-            const { error } = await supabase
-              .from('pool_clientes_externos')
-              .update(changes)
-              .eq('id', id);
-
-            if (error) {
-              updateError = error;
-              break;
-            }
-          }
-        }
-
-        const error = insertError ?? updateError;
-        if (!error) return toInsert.length + toUpdate.length;
+        const { error } = await supabase
+          .from('pool_clientes_externos')
+          .upsert(chunk, { onConflict, ignoreDuplicates: false });
+        if (!error) return chunk.length;
         attempt++;
         if (attempt >= MAX_RETRIES) {
           erros.push({
@@ -248,17 +155,16 @@ async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: stri
         }
         await sleep(500 * attempt);
       }
-
       return 0;
     }
 
     for (let i = 0; i < rowsComEmpresa.length; i += CHUNK_SIZE) {
       const chunk = rowsComEmpresa.slice(i, i + CHUNK_SIZE);
-      totalProcessado += await mergeChunkByLookup(chunk, 'empresa');
+      totalProcessado += await upsertChunk(chunk, 'empresa_id,codigo_proposta');
     }
     for (let i = 0; i < rowsOrfaos.length; i += CHUNK_SIZE) {
       const chunk = rowsOrfaos.slice(i, i + CHUNK_SIZE);
-      totalProcessado += await mergeChunkByLookup(chunk, 'orfao');
+      totalProcessado += await upsertChunk(chunk, 'codigo_proposta,codigo_loja');
     }
 
     await supabase
