@@ -359,17 +359,34 @@ export const AdminDashboardWhatsApp = () => {
       gasto_total_real: 0,
     };
 
+    // Deduplicação: eventos que compartilham EXATAMENTE o mesmo conjunto
+    // de templates (por nome) recebem do backend as mesmas msg_enviada/
+    // entregue/lida (templates são compartilhados via id_meta entre lojas).
+    // Para esses, contamos as métricas de mensagem apenas UMA vez por grupo.
+    // total_base, agendado, respondida e gasto somam normalmente por evento.
+    const seenTemplateGroups = new Set<string>();
+
     resultados.forEach((r) => {
       agg.total_base += r.total_base;
-      agg.msg_enviada += r.msg_enviada;
-      agg.msg_entregue += r.msg_entregue;
-      agg.msg_lida += r.msg_lida;
       agg.msg_respondida += r.msg_respondida;
       agg.agendado += r.agendado;
       agg.optout += r.optout;
       agg.negativa_clara += r.negativa_clara;
       agg.gasto_total_dolar += r.gasto_total_dolar;
       agg.gasto_total_real += r.gasto_total_real;
+
+      const templateKey = (r.templates || [])
+        .map((t) => t.template_nome)
+        .filter(Boolean)
+        .sort()
+        .join("|") || `__evt_${r.event_id}`;
+
+      if (!seenTemplateGroups.has(templateKey)) {
+        seenTemplateGroups.add(templateKey);
+        agg.msg_enviada += r.msg_enviada;
+        agg.msg_entregue += r.msg_entregue;
+        agg.msg_lida += r.msg_lida;
+      }
     });
 
     return agg;
