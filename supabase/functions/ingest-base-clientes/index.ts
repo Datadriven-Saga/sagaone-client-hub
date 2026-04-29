@@ -105,6 +105,7 @@ async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: stri
         lead_maia: raw.lead_maia ?? null,
         lead_pri: raw.lead_pri ?? null,
         status: isOrfao ? 'orfao' : 'ativo',
+        status_crm: (raw as any).status ?? null,
         motivo_nao_venda: raw.motivo_nao_venda ?? null,
         motivo_orfao: isOrfao
           ? codigoLoja
