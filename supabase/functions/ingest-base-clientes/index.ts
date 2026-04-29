@@ -131,18 +131,15 @@ async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: stri
     const rows = Array.from(dedupMap.values());
     totalOrfaos = rows.filter((r) => r.status === 'orfao').length;
 
-    // 3) UPSERT em chunks separados (com/sem empresa_id usam constraints diferentes)
-    const rowsComEmpresa = rows.filter((r) => r.empresa_id !== null);
-    const rowsOrfaos = rows.filter((r) => r.empresa_id === null);
-
+    // 3) UPSERT em chunks — codigo_proposta é globalmente único
     let totalProcessado = 0;
 
-    async function upsertChunk(chunk: any[], onConflict: string) {
+    async function upsertChunk(chunk: any[]) {
       let attempt = 0;
       while (attempt < MAX_RETRIES) {
         const { error } = await supabase
           .from('pool_clientes_externos')
-          .upsert(chunk, { onConflict, ignoreDuplicates: false });
+          .upsert(chunk, { onConflict: 'codigo_proposta', ignoreDuplicates: false });
         if (!error) return chunk.length;
         attempt++;
         if (attempt >= MAX_RETRIES) {
@@ -158,13 +155,9 @@ async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: stri
       return 0;
     }
 
-    for (let i = 0; i < rowsComEmpresa.length; i += CHUNK_SIZE) {
-      const chunk = rowsComEmpresa.slice(i, i + CHUNK_SIZE);
-      totalProcessado += await upsertChunk(chunk, 'empresa_id,codigo_proposta');
-    }
-    for (let i = 0; i < rowsOrfaos.length; i += CHUNK_SIZE) {
-      const chunk = rowsOrfaos.slice(i, i + CHUNK_SIZE);
-      totalProcessado += await upsertChunk(chunk, 'codigo_proposta,codigo_loja');
+    for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+      const chunk = rows.slice(i, i + CHUNK_SIZE);
+      totalProcessado += await upsertChunk(chunk);
     }
 
     await supabase
