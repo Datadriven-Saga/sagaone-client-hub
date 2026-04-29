@@ -99,7 +99,9 @@ async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: stri
         codigo_loja: codigoLoja || null,
         cnpj_loja: raw.cnpj_loja ?? null,
         veiculo_interesse: raw.veiculo_interesse ?? null,
-        tags: Array.isArray(raw.tags) ? raw.tags : [],
+        tags: typeof raw.tags === 'string'
+          ? raw.tags.split(';').map((s) => s.trim()).filter(Boolean)
+          : (Array.isArray(raw.tags) ? raw.tags : []),
         lead_maia: raw.lead_maia ?? null,
         lead_pri: raw.lead_pri ?? null,
         status: isOrfao ? 'orfao' : 'ativo',
