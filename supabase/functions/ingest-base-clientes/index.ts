@@ -145,13 +145,73 @@ async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: stri
 
     let totalProcessado = 0;
 
-    async function upsertChunk(chunk: any[], onConflict: string) {
+    async function mergeChunkByLookup(
+      chunk: any[],
+      type: 'empresa' | 'orfao',
+    ) {
+      if (chunk.length === 0) return 0;
+
+      const existingMap = new Map<string, string>();
+
+      if (type === 'empresa') {
+        const empresaIds = Array.from(new Set(chunk.map((row) => row.empresa_id).filter(Boolean)));
+        const propostas = Array.from(new Set(chunk.map((row) => row.codigo_proposta).filter(Boolean)));
+
+        const { data, error } = await supabase
+          .from('pool_clientes_externos')
+          .select('id, empresa_id, codigo_proposta')
+          .in('empresa_id', empresaIds)
+          .in('codigo_proposta', propostas);
+
+        if (error) {
+          erros.push({ stage: 'lookup', message: error.message, sample: chunk[0]?.codigo_proposta });
+          return 0;
+        }
+
+        for (const row of data ?? []) {
+          existingMap.set(
+            buildEmpresaKey({ empresa_id: row.empresa_id, codigo_proposta: row.codigo_proposta }),
+            row.id,
+          );
+        }
+      } else {
+        const lojas = Array.from(new Set(chunk.map((row) => row.codigo_loja).filter(Boolean)));
+        const propostas = Array.from(new Set(chunk.map((row) => row.codigo_proposta).filter(Boolean)));
+
+        const { data, error } = await supabase
+          .from('pool_clientes_externos')
+          .select('id, codigo_loja, codigo_proposta')
+          .is('empresa_id', null)
+          .in('codigo_loja', lojas)
+          .in('codigo_proposta', propostas);
+
+        if (error) {
+          erros.push({ stage: 'lookup', message: error.message, sample: chunk[0]?.codigo_proposta });
+          return 0;
+        }
+
+        for (const row of data ?? []) {
+          existingMap.set(
+            buildOrfaoKey({ codigo_loja: row.codigo_loja, codigo_proposta: row.codigo_proposta }),
+            row.id,
+          );
+        }
+      }
+
+      const payload = chunk.map((row) => {
+        const key = type === 'empresa'
+          ? buildEmpresaKey({ empresa_id: row.empresa_id, codigo_proposta: row.codigo_proposta })
+          : buildOrfaoKey({ codigo_loja: row.codigo_loja, codigo_proposta: row.codigo_proposta });
+        const existingId = existingMap.get(key);
+        return existingId ? { ...row, id: existingId } : row;
+      });
+
       let attempt = 0;
       while (attempt < MAX_RETRIES) {
         const { error } = await supabase
           .from('pool_clientes_externos')
-          .upsert(chunk, { onConflict, ignoreDuplicates: false });
-        if (!error) return chunk.length;
+          .upsert(payload, { onConflict: 'id', ignoreDuplicates: false });
+        if (!error) return payload.length;
         attempt++;
         if (attempt >= MAX_RETRIES) {
           erros.push({
@@ -163,16 +223,17 @@ async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: stri
         }
         await sleep(500 * attempt);
       }
+
       return 0;
     }
 
     for (let i = 0; i < rowsComEmpresa.length; i += CHUNK_SIZE) {
       const chunk = rowsComEmpresa.slice(i, i + CHUNK_SIZE);
-      totalProcessado += await upsertChunk(chunk, 'empresa_id,codigo_proposta');
+      totalProcessado += await mergeChunkByLookup(chunk, 'empresa');
     }
     for (let i = 0; i < rowsOrfaos.length; i += CHUNK_SIZE) {
       const chunk = rowsOrfaos.slice(i, i + CHUNK_SIZE);
-      totalProcessado += await upsertChunk(chunk, 'codigo_proposta,codigo_loja');
+      totalProcessado += await mergeChunkByLookup(chunk, 'orfao');
     }
 
     await supabase
