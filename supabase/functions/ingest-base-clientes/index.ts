@@ -40,6 +40,14 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function buildEmpresaKey(row: { empresa_id: string | null; codigo_proposta: string }) {
+  return `E::${row.empresa_id}::${row.codigo_proposta}`;
+}
+
+function buildOrfaoKey(row: { codigo_loja: string | null; codigo_proposta: string }) {
+  return `O::${row.codigo_loja ?? ''}::${row.codigo_proposta}`;
+}
+
 async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: string) {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -114,8 +122,8 @@ async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: stri
       };
 
       const dedupKey = isOrfao
-        ? `O::${codigoLoja}::${codigoProposta}`
-        : `E::${empresaId}::${codigoProposta}`;
+        ? buildOrfaoKey({ codigo_loja: codigoLoja || null, codigo_proposta: codigoProposta })
+        : buildEmpresaKey({ empresa_id: empresaId, codigo_proposta: codigoProposta });
 
       const existing = dedupMap.get(dedupKey);
       if (!existing) {
