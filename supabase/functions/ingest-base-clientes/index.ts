@@ -219,9 +219,21 @@ async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: stri
           ? (await supabase.from('pool_clientes_externos').insert(toInsert)).error
           : null;
 
-        const updateError = toUpdate.length
-          ? (await supabase.from('pool_clientes_externos').upsert(toUpdate, { onConflict: 'id' })).error
-          : null;
+        let updateError = null;
+        if (toUpdate.length) {
+          for (const row of toUpdate) {
+            const { id, ...changes } = row;
+            const { error } = await supabase
+              .from('pool_clientes_externos')
+              .update(changes)
+              .eq('id', id);
+
+            if (error) {
+              updateError = error;
+              break;
+            }
+          }
+        }
 
         const error = insertError ?? updateError;
         if (!error) return toInsert.length + toUpdate.length;
