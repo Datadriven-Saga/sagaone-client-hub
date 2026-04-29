@@ -3221,6 +3221,7 @@ export type Database = {
           origem: string | null
           snapshot_date: string | null
           status: string
+          status_crm: string | null
           tags: string[] | null
           telefone: string | null
           updated_at: string
@@ -3246,6 +3247,7 @@ export type Database = {
           origem?: string | null
           snapshot_date?: string | null
           status?: string
+          status_crm?: string | null
           tags?: string[] | null
           telefone?: string | null
           updated_at?: string
@@ -3271,6 +3273,7 @@ export type Database = {
           origem?: string | null
           snapshot_date?: string | null
           status?: string
+          status_crm?: string | null
           tags?: string[] | null
           telefone?: string | null
           updated_at?: string
