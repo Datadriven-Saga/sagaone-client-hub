@@ -198,20 +198,33 @@ async function processarPool(jobId: string, leads: LeadRaw[], snapshotDate: stri
         }
       }
 
-      const payload = chunk.map((row) => {
+      const toInsert = [] as any[];
+      const toUpdate = [] as any[];
+
+      for (const row of chunk) {
         const key = type === 'empresa'
           ? buildEmpresaKey({ empresa_id: row.empresa_id, codigo_proposta: row.codigo_proposta })
           : buildOrfaoKey({ codigo_loja: row.codigo_loja, codigo_proposta: row.codigo_proposta });
         const existingId = existingMap.get(key);
-        return existingId ? { ...row, id: existingId } : row;
-      });
+        if (existingId) {
+          toUpdate.push({ ...row, id: existingId });
+        } else {
+          toInsert.push(row);
+        }
+      }
 
       let attempt = 0;
       while (attempt < MAX_RETRIES) {
-        const { error } = await supabase
-          .from('pool_clientes_externos')
-          .upsert(payload, { onConflict: 'id', ignoreDuplicates: false });
-        if (!error) return payload.length;
+        const insertError = toInsert.length
+          ? (await supabase.from('pool_clientes_externos').insert(toInsert)).error
+          : null;
+
+        const updateError = toUpdate.length
+          ? (await supabase.from('pool_clientes_externos').upsert(toUpdate, { onConflict: 'id' })).error
+          : null;
+
+        const error = insertError ?? updateError;
+        if (!error) return toInsert.length + toUpdate.length;
         attempt++;
         if (attempt >= MAX_RETRIES) {
           erros.push({
