@@ -5567,6 +5567,7 @@ export type Database = {
         Args: { user_id_param?: string }
         Returns: string
       }
+      get_user_marcas: { Args: { p_user_id?: string }; Returns: string[] }
       get_user_pri_telefone: { Args: never; Returns: string }
       get_users_emails: {
         Args: { user_ids: string[] }
