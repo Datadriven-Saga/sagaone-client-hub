@@ -89,7 +89,7 @@ export function getQuarentenaStatus(item: QuarentenaItem, diasConfig?: number): 
 export function useQuarentenaData() {
   const { user } = useAuth();
   const { activeCompany } = useCompany();
-  const { isCRM, isAdmin } = useUserAccessType();
+  const { isAdmin } = useUserAccessType();
   const [items, setItems] = useState<QuarentenaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<QuarentenaFilters>({
@@ -130,7 +130,10 @@ export function useQuarentenaData() {
     setPage(1);
   }, [filters.marcas, filters.lojas, filters.status, filters.dateRange, filters.canal]);
 
-  const companyFilter = isCRM && !isAdmin ? activeCompany?.id : null;
+  // Escopo agora é por MARCA (alinhado à regra de bloqueio).
+  // A RPC `get_quarentena_paginated` aplica o filtro de marcas do usuário no servidor.
+  // `companyFilter` permanece null para CRM — eles veem todas as lojas das marcas que têm acesso.
+  const companyFilter: string | null = null;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -226,17 +229,13 @@ export function useQuarentenaData() {
 
     // For bulk deactivate all filtered, we need to fetch the IDs server-side
     try {
-      const dateTo = filters.dateRange?.to
-        ? new Date(new Date(filters.dateRange.to).setHours(23, 59, 59, 999)).toISOString()
-        : null;
-
-      // Fetch all active IDs matching filter (only IDs, lightweight)
+      // Fetch all active IDs matching filter (only IDs, lightweight).
+      // RLS já restringe por marca para não-admin; não filtramos por empresa_id aqui.
       let query = supabase
         .from("contato_quarentena")
         .select("id")
         .eq("desativado", false);
 
-      if (companyFilter) query = query.eq("empresa_id", companyFilter);
       if (filters.marcas.length > 0) query = query.in("marca", filters.marcas);
       if (filters.lojas.length > 0) query = query.in("empresa_id", filters.lojas);
 
@@ -269,7 +268,7 @@ export function useQuarentenaData() {
       console.error("Erro ao desativar em massa:", err);
       toast.error("Erro ao desativar quarentena em massa");
     }
-  }, [activeFilteredCount, companyFilter, filters, user, loadData]);
+  }, [activeFilteredCount, filters, user, loadData]);
 
   const toggleSort = useCallback((col: string) => {
     if (sortColumn === col) {
