@@ -1293,6 +1293,7 @@ export type Database = {
           desativado_por: string | null
           empresa_id: string | null
           evento_nome: string | null
+          expira_em: string | null
           id: string
           marca: string | null
           prospeccao_id: string | null
@@ -1309,6 +1310,7 @@ export type Database = {
           desativado_por?: string | null
           empresa_id?: string | null
           evento_nome?: string | null
+          expira_em?: string | null
           id?: string
           marca?: string | null
           prospeccao_id?: string | null
@@ -1325,6 +1327,7 @@ export type Database = {
           desativado_por?: string | null
           empresa_id?: string | null
           evento_nome?: string | null
+          expira_em?: string | null
           id?: string
           marca?: string | null
           prospeccao_id?: string | null
