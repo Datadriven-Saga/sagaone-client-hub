@@ -5,7 +5,7 @@
 const CONFIRM_BASE_URL = "https://one.sagadatadriven.com.br/confirmar";
 
 const DEFAULT_TEMPLATE =
-  "Olá {{nome}}! 🎉\n\nVocê está convidado(a) para o evento *{{evento}}*.\n\n" +
+  "Olá {{nome}}!\n\nVocê está convidado(a) para o evento *{{evento}}*.\n\n" +
   "Confirme sua presença pelo link abaixo:\n{{link}}\n\nAté lá!";
 
 export function montarLinkConfirmacao(token: string): string {
