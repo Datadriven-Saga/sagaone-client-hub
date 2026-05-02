@@ -145,8 +145,19 @@ Deno.serve(async (req) => {
 
   // 9. Webhook de movimentação (best-effort)
   try {
-    const { data: whData, error: whError } = await supabase.functions.invoke('trigger-webhook', {
-      body: {
+    // Endpoint público (sem JWT do usuário) precisa chamar o trigger-webhook via
+    // fetch direto autenticando com SERVICE_ROLE_KEY. invoke() falha com 401
+    // (UNAUTHORIZED_INVALID_JWT_FORMAT) porque não há Authorization no contexto.
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const whResp = await fetch(`${supabaseUrl}/functions/v1/trigger-webhook`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({
         gatilho: 'movimentacao_lead_kanban',
         dados: {
           contato_id: contato.id,
@@ -155,23 +166,28 @@ Deno.serve(async (req) => {
           status_anterior: statusAnterior,
           status_novo: 'Confirmado',
           origem: 'link_confirmacao',
+          // Atribuição preservada: vendedor que enviou o link, não o service role.
+          // Necessário para MobiGestor e para o guard PRI_IA_USER_ID no trigger-webhook.
           usuario_id: contato.confirmation_sent_by ?? null,
         },
-      },
+      }),
     })
-    if (whError) {
+    const whText = await whResp.text()
+    if (!whResp.ok) {
       console.error('[confirm-presence] trigger-webhook falhou', {
         contato_id: contato.id,
         empresa_id: contato.empresa_id,
         prospeccao_id: prospeccaoId,
-        error: whError,
+        status: whResp.status,
+        body: whText,
       })
     } else {
       console.log('[confirm-presence] trigger-webhook ok', {
         contato_id: contato.id,
         empresa_id: contato.empresa_id,
         prospeccao_id: prospeccaoId,
-        response: whData,
+        status: whResp.status,
+        body: whText,
       })
     }
   } catch (e) {
