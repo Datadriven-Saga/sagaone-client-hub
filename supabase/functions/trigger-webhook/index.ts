@@ -204,14 +204,24 @@ serve(async (req) => {
     console.log(`API trigger-webhook accessed by user: ${userEmail} (${userId})`);
     console.log(`Webhook trigger request body:`, await req.clone().json());
 
-    const { gatilho, dados } = await req.json();
+    const reqBody = await req.json();
+    const { gatilho, dados } = reqBody ?? {};
 
     console.log('🎯 Trigger webhook called with:', { gatilho, dados });
     console.log('🔍 Request body parsed successfully');
 
     if (!gatilho || !dados) {
+      console.error('❌ Payload inválido em trigger-webhook', {
+        received_keys: reqBody && typeof reqBody === 'object' ? Object.keys(reqBody) : [],
+        has_gatilho: !!gatilho,
+        has_dados: !!dados,
+      });
       return new Response(
-        JSON.stringify({ error: 'gatilho e dados são obrigatórios' }),
+        JSON.stringify({
+          error: "campos 'gatilho' e 'dados' são obrigatórios no body",
+          hint: "esperado: { gatilho: string, dados: { contato_id, empresa_id, prospeccao_id, status_novo, ... } }",
+          received_keys: reqBody && typeof reqBody === 'object' ? Object.keys(reqBody) : [],
+        }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -239,6 +249,24 @@ serve(async (req) => {
     // ══════════════════════════════════════════════════════════════
     if (gatilho === 'movimentacao_lead_kanban') {
       console.log('🔄 Processando movimentacao_lead_kanban');
+
+      // 0. Validação de campos obrigatórios em `dados`
+      const requiredFields = ['contato_id', 'empresa_id', 'prospeccao_id', 'status_novo'];
+      const missingFields = requiredFields.filter((k) => !dados?.[k]);
+      if (missingFields.length > 0) {
+        console.error('❌ movimentacao_lead_kanban: campos ausentes em dados', {
+          missing: missingFields,
+          received_keys: dados && typeof dados === 'object' ? Object.keys(dados) : [],
+        });
+        return new Response(
+          JSON.stringify({
+            error: `campos ausentes em 'dados': ${missingFields.join(', ')}`,
+            required: requiredFields,
+            received_keys: dados && typeof dados === 'object' ? Object.keys(dados) : [],
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       // 1. Verificar se não é Pri IA
       const PRI_IA_USER_ID = Deno.env.get('PRI_IA_USER_ID');
