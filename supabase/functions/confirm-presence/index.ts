@@ -145,19 +145,42 @@ Deno.serve(async (req) => {
 
   // 9. Webhook de movimentação (best-effort)
   try {
-    await supabase.functions.invoke('trigger-webhook', {
+    const { data: whData, error: whError } = await supabase.functions.invoke('trigger-webhook', {
       body: {
         gatilho: 'movimentacao_lead_kanban',
+        dados: {
+          contato_id: contato.id,
+          empresa_id: contato.empresa_id,
+          prospeccao_id: prospeccaoId,
+          status_anterior: statusAnterior,
+          status_novo: 'Confirmado',
+          origem: 'link_confirmacao',
+          usuario_id: contato.confirmation_sent_by ?? null,
+        },
+      },
+    })
+    if (whError) {
+      console.error('[confirm-presence] trigger-webhook falhou', {
         contato_id: contato.id,
         empresa_id: contato.empresa_id,
         prospeccao_id: prospeccaoId,
-        status_anterior: statusAnterior,
-        status_novo: 'Confirmado',
-        origem: 'link_confirmacao',
-      },
-    })
+        error: whError,
+      })
+    } else {
+      console.log('[confirm-presence] trigger-webhook ok', {
+        contato_id: contato.id,
+        empresa_id: contato.empresa_id,
+        prospeccao_id: prospeccaoId,
+        response: whData,
+      })
+    }
   } catch (e) {
-    console.warn('trigger-webhook falhou (não bloqueia confirmação):', e)
+    console.error('[confirm-presence] trigger-webhook exception', {
+      contato_id: contato.id,
+      empresa_id: contato.empresa_id,
+      prospeccao_id: prospeccaoId,
+      error: e instanceof Error ? e.message : String(e),
+    })
   }
 
   return json({
