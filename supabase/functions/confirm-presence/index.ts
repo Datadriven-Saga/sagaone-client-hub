@@ -2,6 +2,7 @@
 // Endpoint público (sem JWT) que confirma presença do convidado.
 // Atribui a ação ao vendedor que enviou o link (confirmation_sent_by).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { dispararMovimentacaoLeadKanban } from '../_shared/movimentacao-lead-webhook.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -143,55 +144,28 @@ Deno.serve(async (req) => {
     })
   }
 
-  // 9. Webhook de movimentação (best-effort)
+  // 9. Webhook de movimentação (best-effort, chamada in-process via helper compartilhado).
+  // Evita o gateway/JWT: este endpoint é público e não tem Authorization de usuário.
+  // Atribuição preservada via usuario_id = confirmation_sent_by (necessário para
+  // MobiGestor e para o guard PRI_IA_USER_ID dentro do helper).
   try {
-    // Endpoint público (sem JWT do usuário) precisa chamar o trigger-webhook via
-    // fetch direto autenticando com SERVICE_ROLE_KEY. invoke() falha com 401
-    // (UNAUTHORIZED_INVALID_JWT_FORMAT) porque não há Authorization no contexto.
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const whResp = await fetch(`${supabaseUrl}/functions/v1/trigger-webhook`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-      },
-      body: JSON.stringify({
-        gatilho: 'movimentacao_lead_kanban',
-        dados: {
-          contato_id: contato.id,
-          empresa_id: contato.empresa_id,
-          prospeccao_id: prospeccaoId,
-          status_anterior: statusAnterior,
-          status_novo: 'Confirmado',
-          origem: 'link_confirmacao',
-          // Atribuição preservada: vendedor que enviou o link, não o service role.
-          // Necessário para MobiGestor e para o guard PRI_IA_USER_ID no trigger-webhook.
-          usuario_id: contato.confirmation_sent_by ?? null,
-        },
-      }),
+    const result = await dispararMovimentacaoLeadKanban(supabase, {
+      contato_id: contato.id,
+      empresa_id: contato.empresa_id,
+      prospeccao_id: prospeccaoId ?? '',
+      status_anterior: statusAnterior,
+      status_novo: 'Confirmado',
+      origem: 'link_confirmacao',
+      usuario_id: contato.confirmation_sent_by ?? null,
     })
-    const whText = await whResp.text()
-    if (!whResp.ok) {
-      console.error('[confirm-presence] trigger-webhook falhou', {
-        contato_id: contato.id,
-        empresa_id: contato.empresa_id,
-        prospeccao_id: prospeccaoId,
-        status: whResp.status,
-        body: whText,
-      })
-    } else {
-      console.log('[confirm-presence] trigger-webhook ok', {
-        contato_id: contato.id,
-        empresa_id: contato.empresa_id,
-        prospeccao_id: prospeccaoId,
-        status: whResp.status,
-        body: whText,
-      })
-    }
+    console.log('[confirm-presence] movimentacao-lead result', {
+      contato_id: contato.id,
+      empresa_id: contato.empresa_id,
+      prospeccao_id: prospeccaoId,
+      ...result,
+    })
   } catch (e) {
-    console.error('[confirm-presence] trigger-webhook exception', {
+    console.error('[confirm-presence] movimentacao-lead exception', {
       contato_id: contato.id,
       empresa_id: contato.empresa_id,
       prospeccao_id: prospeccaoId,
