@@ -220,6 +220,15 @@ export default function ConfirmarPresenca() {
                   </div>
                 </div>
               )}
+              {qrDataUrl && (
+                <a
+                  href={qrDataUrl}
+                  download={`qrcode-${info?.nome ?? "convite"}.png`}
+                  className="inline-flex items-center justify-center gap-2 w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-semibold py-3 rounded-xl transition-all shadow-lg hover:shadow-xl active:scale-[0.98]"
+                >
+                  ⬇️ Baixar QR Code
+                </a>
+              )}
               <p className="text-xs text-slate-400">
                 Tire um print desta tela ou salve a imagem do QR Code
               </p>
