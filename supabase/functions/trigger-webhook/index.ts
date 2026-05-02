@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { dispararMovimentacaoLeadKanban } from "../_shared/movimentacao-lead-webhook.ts";
 
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024; // 100MB
 
@@ -250,176 +251,16 @@ serve(async (req) => {
     if (gatilho === 'movimentacao_lead_kanban') {
       console.log('🔄 Processando movimentacao_lead_kanban');
 
-      // 0. Validação de campos obrigatórios em `dados`
-      const requiredFields = ['contato_id', 'empresa_id', 'prospeccao_id', 'status_novo'];
-      const missingFields = requiredFields.filter((k) => !dados?.[k]);
-      if (missingFields.length > 0) {
-        console.error('❌ movimentacao_lead_kanban: campos ausentes em dados', {
-          missing: missingFields,
-          received_keys: dados && typeof dados === 'object' ? Object.keys(dados) : [],
-        });
-        return new Response(
-          JSON.stringify({
-            error: `campos ausentes em 'dados': ${missingFields.join(', ')}`,
-            required: requiredFields,
-            received_keys: dados && typeof dados === 'object' ? Object.keys(dados) : [],
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // 1. Verificar se não é Pri IA
-      const PRI_IA_USER_ID = Deno.env.get('PRI_IA_USER_ID');
-      if (dados.usuario_id === PRI_IA_USER_ID) {
-        console.log('⏭️ Ignorando: ação da Pri IA');
-        return new Response(JSON.stringify({ skipped: true, reason: 'pri_ia' }), {
-          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      // 2. Verificar feature flag per_empresa
-      const { data: flagEnabled } = await supabaseServiceClient.rpc('is_feature_enabled_for_empresa', {
-        p_flag_key: 'webhook_movimentacao_lead',
-        p_empresa_id: dados.empresa_id
-      });
-
-      if (!flagEnabled) {
-        console.log('⏭️ Ignorando: feature flag desabilitada para empresa', dados.empresa_id);
-        return new Response(JSON.stringify({ skipped: true, reason: 'flag_disabled' }), {
-          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      // 3. Verificar canal da prospecção (excluir IA WhatsApp e Ligação)
-      const { data: prospeccaoData } = await supabaseServiceClient
-        .from('prospeccoes')
-        .select('canal, titulo')
-        .eq('id', dados.prospeccao_id)
-        .single();
-
-      if (prospeccaoData?.canal !== 'Mensal' && prospeccaoData?.canal !== 'Grande Evento') {
-        console.log('⏭️ Ignorando: canal não elegível:', prospeccaoData?.canal);
-        return new Response(JSON.stringify({ skipped: true, reason: 'canal_nao_elegivel', canal: prospeccaoData?.canal }), {
-          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      // 3.1. Filtrar apenas status finais elegíveis para envio externo
-      const STATUS_ELEGIVEIS = ['Confirmado', 'Check-in', 'Descartado'];
-      if (!STATUS_ELEGIVEIS.includes(dados.status_novo)) {
-        console.log('⏭️ Ignorando: status_novo fora da lista de envio:', dados.status_novo);
-        return new Response(JSON.stringify({ skipped: true, reason: 'status_nao_elegivel', status_novo: dados.status_novo }), {
-          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      // 4. Buscar dados do contato (inclui codigo_proposta para propagação)
-      const { data: contatoData } = await supabaseServiceClient
-        .from('contatos')
-        .select('nome, telefone, codigo_proposta')
-        .eq('id', dados.contato_id)
-        .single();
-
-      if (!contatoData) {
-        console.error('❌ Contato não encontrado:', dados.contato_id);
-        return new Response(JSON.stringify({ error: 'contato_not_found' }), {
-          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      // 6. Buscar dealer_id da empresa
-      const { data: empresaData } = await supabaseServiceClient
-        .from('empresas')
-        .select('crm_id')
-        .eq('id', dados.empresa_id)
-        .single();
-
-      // 7. Disparar webhook
-      const webhookUrl = Deno.env.get('WEBHOOK_MOVIMENTACAO_LEAD_URL');
-      if (!webhookUrl) {
-        console.error('❌ WEBHOOK_MOVIMENTACAO_LEAD_URL não configurada');
-        return new Response(JSON.stringify({ error: 'webhook_url_missing' }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Validar URL (SSRF)
-      const urlCheck = isValidWebhookUrl(webhookUrl);
-      if (!urlCheck.valid) {
-        console.error('❌ URL bloqueada:', urlCheck.error);
-        return new Response(JSON.stringify({ error: 'webhook_url_blocked', detail: urlCheck.error }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      const payload: Record<string, any> = {
-        nome: contatoData.nome,
-        telefone: contatoData.telefone,
-        dealer_id: empresaData?.crm_id,
-        nome_evento: prospeccaoData?.titulo,
-        status_anterior: dados.status_anterior,
-        status_novo: dados.status_novo,
-        contato_id: dados.contato_id,
-        lead_id: dados.lead_id,
-        empresa_id: dados.empresa_id,
-        prospeccao_id: dados.prospeccao_id,
-        codigo_proposta: contatoData.codigo_proposta ?? null,
-      };
-
-      console.log('📤 Disparando webhook movimentação:', JSON.stringify(payload));
-
-      const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
-      const webhookResponse = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(SAGA_ONE ? { 'x-saga-one': SAGA_ONE } : {})
-        },
-        body: JSON.stringify(payload)
-      });
-
-      let responseText = '';
-      try { responseText = await webhookResponse.text(); } catch {}
-      console.log(`✅ Webhook respondeu: ${webhookResponse.status}`, responseText.substring(0, 500));
-
-      // 7.1 Tentar capturar codigo_proposta da resposta e persistir
-      let capturedCodigoProposta: string | null = null;
-      if (webhookResponse.ok && responseText) {
-        try {
-          const parsed = JSON.parse(responseText);
-          const candidate =
-            parsed?.codigo_proposta ??
-            parsed?.proposalId ??
-            parsed?.proposal_id ??
-            parsed?.data?.codigo_proposta ??
-            parsed?.data?.proposalId ??
-            parsed?.data?.proposal_id ??
-            null;
-          if (candidate !== null && candidate !== undefined && String(candidate).trim() !== '') {
-            capturedCodigoProposta = String(candidate).trim();
-          }
-        } catch (e) {
-          console.log('ℹ️ Resposta do webhook não é JSON válido, ignorando captura de codigo_proposta');
-        }
-      }
-
-      if (capturedCodigoProposta && capturedCodigoProposta !== contatoData.codigo_proposta) {
-        const { error: updErr } = await supabaseServiceClient
-          .from('contatos')
-          .update({ codigo_proposta: capturedCodigoProposta })
-          .eq('id', dados.contato_id);
-        if (updErr) {
-          console.error('❌ Erro ao salvar codigo_proposta:', updErr.message);
-        } else {
-          console.log(`💾 codigo_proposta capturado e salvo: ${capturedCodigoProposta} (contato ${dados.contato_id})`);
-        }
-      }
-
-      return new Response(JSON.stringify({
-        success: true,
-        webhook_status: webhookResponse.status
-      }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      const result = await dispararMovimentacaoLeadKanban(supabaseServiceClient, dados);
+      const status = result.success
+        ? 200
+        : (result.error === "campos_ausentes" ? 400
+          : result.error === "contato_not_found" ? 404
+          : result.error === "webhook_url_blocked" ? 400
+          : 500);
+      return new Response(JSON.stringify(result), {
+        status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
