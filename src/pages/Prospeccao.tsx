@@ -2539,7 +2539,7 @@ showAllEvents: true
                   <div className="space-y-3">
                     <div>
                       <h4 className="font-medium text-sm mb-2">Carga de Clientes</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <BaseExistente 
                           onClientesSelected={handleClientesSelected}
                           prospeccoes={prospeccoes}
@@ -2548,6 +2548,12 @@ showAllEvents: true
                           onImportComplete={() => refetch()}
                           prospeccoes={prospeccoes}
                         />
+                        {canImportPool && (
+                          <ImportarDoDataLake
+                            prospeccoes={prospeccoes}
+                            onImportComplete={() => refetch()}
+                          />
+                        )}
                       </div>
                     </div>
 
