@@ -1,0 +1,477 @@
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { Database, Loader2, Filter, Save, History, Trash2, X } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useCompany } from '@/contexts/CompanyContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { formatPhone } from '@/lib/utils';
+
+interface Prospeccao {
+  id: string;
+  titulo: string;
+}
+
+interface PoolCliente {
+  id: string;
+  empresa_id: string;
+  codigo_proposta: string | null;
+  telefone: string;
+  nome_cliente: string | null;
+  email_cliente: string | null;
+  origem: string | null;
+  canal: string | null;
+  veiculo_interesse: string | null;
+  motivo_nao_venda: string | null;
+  status_crm: string | null;
+  lead_maia: string | null;
+  lead_pri: string | null;
+  loja_nome: string | null;
+}
+
+interface Facets {
+  marca: string;
+  uf: string;
+  total: number;
+  ddds: string[];
+  motivos: string[];
+  status_crm: string[];
+  origens: string[];
+  canais: string[];
+  veiculos: string[];
+}
+
+interface Filtros {
+  ddds: string[];
+  motivos: string[];
+  status_crm: string[];
+  origens: string[];
+  canais: string[];
+  veiculos: string[];
+  lead_maia?: boolean;
+  lead_pri?: boolean;
+}
+
+interface SegmentacaoSalva {
+  id: string;
+  nome: string;
+  marca: string;
+  uf: string;
+  filtros: Filtros;
+  total_resultados: number;
+  created_at: string;
+}
+
+interface ImportarDoDataLakeProps {
+  prospeccoes: Prospeccao[];
+  onImportComplete?: () => void;
+}
+
+const emptyFiltros: Filtros = {
+  ddds: [], motivos: [], status_crm: [], origens: [], canais: [], veiculos: [],
+};
+
+function buildFiltrosPayload(f: Filtros): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (f.ddds.length) out.ddds = f.ddds;
+  if (f.motivos.length) out.motivos = f.motivos;
+  if (f.status_crm.length) out.status_crm = f.status_crm;
+  if (f.origens.length) out.origens = f.origens;
+  if (f.canais.length) out.canais = f.canais;
+  if (f.veiculos.length) out.veiculos = f.veiculos;
+  if (f.lead_maia !== undefined) out.lead_maia = f.lead_maia;
+  if (f.lead_pri !== undefined) out.lead_pri = f.lead_pri;
+  return out;
+}
+
+/**
+ * Multi-select chip-style for an array of options.
+ */
+function ChipMultiSelect({ label, options, value, onChange }: {
+  label: string; options: string[]; value: string[]; onChange: (v: string[]) => void;
+}) {
+  const toggle = (opt: string) => {
+    if (value.includes(opt)) onChange(value.filter(v => v !== opt));
+    else onChange([...value, opt]);
+  };
+  if (!options.length) return null;
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium">{label} {value.length > 0 && <span className="text-muted-foreground">({value.length})</span>}</Label>
+      <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 rounded-md border bg-muted/30">
+        {options.map(opt => (
+          <Badge
+            key={opt}
+            variant={value.includes(opt) ? 'default' : 'outline'}
+            className="cursor-pointer text-xs"
+            onClick={() => toggle(opt)}
+          >
+            {opt}
+          </Badge>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDoDataLakeProps) => {
+  const { activeCompany } = useCompany();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedProspeccao, setSelectedProspeccao] = useState<string>('');
+  const [facets, setFacets] = useState<Facets | null>(null);
+  const [loadingFacets, setLoadingFacets] = useState(false);
+  const [filtros, setFiltros] = useState<Filtros>(emptyFiltros);
+  const [resultados, setResultados] = useState<PoolCliente[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<'filtros' | 'edicao'>('filtros');
+  const [edits, setEdits] = useState<Record<string, { telefone: string; nome: string }>>({});
+  const [excluidos, setExcluidos] = useState<Set<string>>(new Set());
+  const [importando, setImportando] = useState(false);
+  const [historico, setHistorico] = useState<SegmentacaoSalva[]>([]);
+  const [showHistorico, setShowHistorico] = useState(false);
+
+  // Carrega facets e histórico quando abre
+  useEffect(() => {
+    if (!isOpen || !activeCompany?.id) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingFacets(true);
+      try {
+        const { data, error } = await supabase.rpc('get_pool_facets_for_empresa', { p_empresa_id: activeCompany.id });
+        if (error) throw error;
+        if (!cancelled) setFacets(data as unknown as Facets);
+      } catch (err: any) {
+        toast({ title: 'Erro ao carregar filtros', description: err.message, variant: 'destructive' });
+      } finally {
+        if (!cancelled) setLoadingFacets(false);
+      }
+    })();
+    // histórico de segmentações da mesma marca/uf
+    (async () => {
+      const { data: emp } = await supabase.from('empresas').select('marca, uf').eq('id', activeCompany.id).single();
+      if (!emp) return;
+      const { data } = await supabase
+        .from('pool_segmentacoes')
+        .select('id, nome, marca, uf, filtros, total_resultados, created_at')
+        .eq('marca', emp.marca)
+        .eq('uf', emp.uf)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (!cancelled && data) setHistorico(data as unknown as SegmentacaoSalva[]);
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, activeCompany?.id, toast]);
+
+  const buscar = useCallback(async () => {
+    if (!activeCompany?.id) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_pool_clientes_for_empresa', {
+        p_empresa_id: activeCompany.id,
+        p_filtros: buildFiltrosPayload(filtros),
+        p_limit: 5000,
+      });
+      if (error) throw error;
+      const list = (data ?? []) as PoolCliente[];
+      setResultados(list);
+      // inicia edits e nada excluído
+      const initial: Record<string, { telefone: string; nome: string }> = {};
+      list.forEach(r => { initial[r.id] = { telefone: r.telefone || '', nome: r.nome_cliente || '' }; });
+      setEdits(initial);
+      setExcluidos(new Set());
+      toast({ title: 'Busca realizada', description: `${list.length} clientes encontrados` });
+    } catch (err: any) {
+      toast({ title: 'Erro na busca', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [activeCompany?.id, filtros, toast]);
+
+  const handleAvancar = async () => {
+    if (!selectedProspeccao) {
+      toast({ title: 'Selecione um evento', variant: 'destructive' });
+      return;
+    }
+    if (resultados.length === 0) {
+      toast({ title: 'Faça uma busca primeiro', variant: 'destructive' });
+      return;
+    }
+    // Salva log de segmentação automaticamente (nome auto)
+    if (user && facets) {
+      const ts = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const nomeAuto = `SEG-${facets.marca?.toUpperCase()}-${facets.uf?.toUpperCase()}-${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}`;
+      await supabase.from('pool_segmentacoes').insert({
+        empresa_id: activeCompany!.id,
+        prospeccao_id: selectedProspeccao,
+        criado_por: user.id,
+        nome: nomeAuto,
+        marca: facets.marca,
+        uf: facets.uf,
+        filtros: buildFiltrosPayload(filtros) as any,
+        total_resultados: resultados.length,
+      });
+    }
+    setStep('edicao');
+  };
+
+  const aplicarSegmentacaoAnterior = (seg: SegmentacaoSalva) => {
+    setFiltros({ ...emptyFiltros, ...(seg.filtros || {}) });
+    setShowHistorico(false);
+    toast({ title: 'Segmentação carregada', description: seg.nome });
+  };
+
+  const importar = async () => {
+    if (!selectedProspeccao || !activeCompany?.id) return;
+    const itens = resultados
+      .filter(r => !excluidos.has(r.id))
+      .map(r => {
+        const e = edits[r.id];
+        return {
+          pool_id: r.id,
+          telefone: e?.telefone || r.telefone,
+          nome: e?.nome || r.nome_cliente || '',
+          email: r.email_cliente,
+          codigo_proposta: r.codigo_proposta,
+        };
+      });
+    if (itens.length === 0) {
+      toast({ title: 'Nenhum cliente para importar', variant: 'destructive' });
+      return;
+    }
+    setImportando(true);
+    try {
+      const { data, error } = await supabase.rpc('importar_pool_para_evento', {
+        p_empresa_id: activeCompany.id,
+        p_prospeccao_id: selectedProspeccao,
+        p_itens: itens as any,
+      });
+      if (error) throw error;
+      const r = data as any;
+      toast({
+        title: 'Importação concluída',
+        description: `${r.linked} vinculados • ${r.already_linked} já existiam • ${r.errors} erros`,
+      });
+      setIsOpen(false);
+      setStep('filtros');
+      setResultados([]);
+      setExcluidos(new Set());
+      setFiltros(emptyFiltros);
+      onImportComplete?.();
+    } catch (err: any) {
+      toast({ title: 'Erro ao importar', description: err.message, variant: 'destructive' });
+    } finally {
+      setImportando(false);
+    }
+  };
+
+  const visiveis = useMemo(() => resultados.filter(r => !excluidos.has(r.id)), [resultados, excluidos]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(o) => { setIsOpen(o); if (!o) { setStep('filtros'); } }}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="p-3 h-auto flex items-center gap-2">
+          <Database size={18} />
+          <span className="text-sm">Importar do DataLake</span>
+        </Button>
+      </DialogTrigger>
+
+      <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            {step === 'filtros' ? 'Importar do DataLake — Segmentar' : 'Revisar e Importar'}
+            {facets && (
+              <Badge variant="secondary" className="ml-2">{facets.marca} / {facets.uf}</Badge>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+
+        {step === 'filtros' ? (
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+            {/* Evento + histórico */}
+            <Card className="p-4 space-y-3">
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Label>Evento de destino</Label>
+                  <Select value={selectedProspeccao} onValueChange={setSelectedProspeccao}>
+                    <SelectTrigger className="mt-1.5"><SelectValue placeholder="Escolha o evento..." /></SelectTrigger>
+                    <SelectContent>
+                      {prospeccoes.map(p => <SelectItem key={p.id} value={p.id}>{p.titulo}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button variant="outline" onClick={() => setShowHistorico(s => !s)}>
+                  <History className="h-4 w-4 mr-2" /> Histórico ({historico.length})
+                </Button>
+              </div>
+
+              {showHistorico && (
+                <div className="border rounded-md max-h-48 overflow-y-auto">
+                  {historico.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-3">Nenhuma segmentação anterior para essa marca/UF.</p>
+                  ) : historico.map(seg => (
+                    <button
+                      key={seg.id}
+                      onClick={() => aplicarSegmentacaoAnterior(seg)}
+                      className="w-full text-left p-2 hover:bg-muted border-b last:border-0 flex justify-between items-center text-xs"
+                    >
+                      <span className="font-mono">{seg.nome}</span>
+                      <span className="text-muted-foreground">{seg.total_resultados} leads · {new Date(seg.created_at).toLocaleDateString('pt-BR')}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* Filtros */}
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Filter className="h-4 w-4" />
+                <h4 className="font-medium text-sm">Filtros de segmentação</h4>
+                {facets && <Badge variant="outline">Total na base: {facets.total}</Badge>}
+              </div>
+
+              {loadingFacets ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm py-4">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Carregando filtros disponíveis...
+                </div>
+              ) : !facets || facets.total === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">Nenhum cliente disponível no DataLake para {facets?.marca}/{facets?.uf}.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <ChipMultiSelect label="DDD" options={facets.ddds} value={filtros.ddds} onChange={v => setFiltros(f => ({ ...f, ddds: v }))} />
+                  <ChipMultiSelect label="Motivo não-venda" options={facets.motivos} value={filtros.motivos} onChange={v => setFiltros(f => ({ ...f, motivos: v }))} />
+                  <ChipMultiSelect label="Status CRM" options={facets.status_crm} value={filtros.status_crm} onChange={v => setFiltros(f => ({ ...f, status_crm: v }))} />
+                  <ChipMultiSelect label="Origem" options={facets.origens} value={filtros.origens} onChange={v => setFiltros(f => ({ ...f, origens: v }))} />
+                  <ChipMultiSelect label="Canal" options={facets.canais} value={filtros.canais} onChange={v => setFiltros(f => ({ ...f, canais: v }))} />
+                  <ChipMultiSelect label="Veículo de interesse" options={facets.veiculos} value={filtros.veiculos} onChange={v => setFiltros(f => ({ ...f, veiculos: v }))} />
+
+                  <div className="flex items-center justify-between border rounded-md p-2.5">
+                    <Label className="text-xs">Apenas Lead MAIA</Label>
+                    <Switch checked={!!filtros.lead_maia} onCheckedChange={(c) => setFiltros(f => ({ ...f, lead_maia: c ? true : undefined }))} />
+                  </div>
+                  <div className="flex items-center justify-between border rounded-md p-2.5">
+                    <Label className="text-xs">Apenas Lead PRI</Label>
+                    <Switch checked={!!filtros.lead_pri} onCheckedChange={(c) => setFiltros(f => ({ ...f, lead_pri: c ? true : undefined }))} />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between mt-4 pt-3 border-t">
+                <Button variant="ghost" size="sm" onClick={() => setFiltros(emptyFiltros)}>
+                  <X className="h-4 w-4 mr-1" /> Limpar filtros
+                </Button>
+                <Button onClick={buscar} disabled={loading || !facets || facets.total === 0}>
+                  {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Filter className="h-4 w-4 mr-2" />}
+                  Buscar leads
+                </Button>
+              </div>
+            </Card>
+
+            {/* Resultado prévia */}
+            {resultados.length > 0 && (
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-sm">Pré-visualização ({resultados.length} leads)</h4>
+                  <Button onClick={handleAvancar} disabled={!selectedProspeccao}>
+                    Avançar para edição
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  No próximo passo você poderá editar telefone/nome e remover linhas antes da importação.
+                </p>
+              </Card>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between pb-3">
+              <div className="text-sm">
+                <span className="font-medium">{visiveis.length}</span> de <span>{resultados.length}</span> serão importados
+                {excluidos.size > 0 && <span className="text-muted-foreground"> • {excluidos.size} removidos</span>}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setStep('filtros')}>Voltar</Button>
+                <Button onClick={importar} disabled={importando || visiveis.length === 0}>
+                  {importando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Importar para o evento
+                </Button>
+              </div>
+            </div>
+
+            <ScrollArea className="flex-1 border rounded-md">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background">
+                  <TableRow>
+                    <TableHead className="w-10"></TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Loja</TableHead>
+                    <TableHead>Origem</TableHead>
+                    <TableHead>Motivo</TableHead>
+                    <TableHead>Status CRM</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {resultados.map(r => {
+                    const e = edits[r.id];
+                    const isExcl = excluidos.has(r.id);
+                    return (
+                      <TableRow key={r.id} className={isExcl ? 'opacity-40' : ''}>
+                        <TableCell>
+                          <Checkbox
+                            checked={!isExcl}
+                            onCheckedChange={(c) => {
+                              setExcluidos(prev => {
+                                const next = new Set(prev);
+                                if (c) next.delete(r.id); else next.add(r.id);
+                                return next;
+                              });
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={e?.nome ?? ''}
+                            onChange={ev => setEdits(prev => ({ ...prev, [r.id]: { ...prev[r.id], nome: ev.target.value } }))}
+                            className="h-8 text-xs"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={e?.telefone ?? ''}
+                            onChange={ev => setEdits(prev => ({ ...prev, [r.id]: { ...prev[r.id], telefone: ev.target.value } }))}
+                            className="h-8 text-xs font-mono"
+                            placeholder={formatPhone(r.telefone) || ''}
+                          />
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{r.loja_nome}</TableCell>
+                        <TableCell className="text-xs">{r.origem || '—'}</TableCell>
+                        <TableCell className="text-xs">{r.motivo_nao_venda || '—'}</TableCell>
+                        <TableCell className="text-xs">{r.status_crm || '—'}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
