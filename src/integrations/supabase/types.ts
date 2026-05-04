@@ -3335,6 +3335,60 @@ export type Database = {
         }
         Relationships: []
       }
+      pool_segmentacoes: {
+        Row: {
+          created_at: string
+          criado_por: string
+          empresa_id: string
+          filtros: Json
+          id: string
+          marca: string
+          nome: string
+          prospeccao_id: string | null
+          total_resultados: number
+          uf: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por: string
+          empresa_id: string
+          filtros?: Json
+          id?: string
+          marca: string
+          nome: string
+          prospeccao_id?: string | null
+          total_resultados?: number
+          uf: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string
+          empresa_id?: string
+          filtros?: Json
+          id?: string
+          marca?: string
+          nome?: string
+          prospeccao_id?: string | null
+          total_resultados?: number
+          uf?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pool_segmentacoes_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pool_segmentacoes_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       produtos: {
         Row: {
           ativo: boolean | null
@@ -5473,6 +5527,32 @@ export type Database = {
           empresa_id: string
         }[]
       }
+      get_pool_clientes_for_empresa: {
+        Args: { p_empresa_id: string; p_filtros?: Json; p_limit?: number }
+        Returns: {
+          canal: string
+          cnpj_loja: string
+          codigo_loja: string
+          codigo_proposta: string
+          criado_em_origem: string
+          email_cliente: string
+          empresa_id: string
+          id: string
+          lead_maia: string
+          lead_pri: string
+          loja_nome: string
+          motivo_nao_venda: string
+          nome_cliente: string
+          origem: string
+          status_crm: string
+          telefone: string
+          veiculo_interesse: string
+        }[]
+      }
+      get_pool_facets_for_empresa: {
+        Args: { p_empresa_id: string }
+        Returns: Json
+      }
       get_prospeccao_metricas: {
         Args: { p_empresa_id: string; p_prospeccao_id: string }
         Returns: {
@@ -5600,6 +5680,10 @@ export type Database = {
           tipo_acesso: string
           total_count: number
         }[]
+      }
+      importar_pool_para_evento: {
+        Args: { p_empresa_id: string; p_itens: Json; p_prospeccao_id: string }
+        Returns: Json
       }
       increment_tentativas_chamada: {
         Args: { p_contato_id: string }

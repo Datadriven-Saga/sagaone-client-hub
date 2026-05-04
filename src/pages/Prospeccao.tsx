@@ -14,6 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProspeccaoGlobalFilter, ProspeccaoGlobalFilters } from "@/components/ProspeccaoGlobalFilter";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
+import { ImportarDoDataLake } from "@/components/ImportarDoDataLake";
 import { CriarProspeccaoModal } from "@/components/CriarProspeccaoModal";
 import { ContatoModal } from "@/components/ContatoModal";
 import { RecepcaoModal } from "@/components/RecepcaoModal";
@@ -183,7 +184,8 @@ showAllEvents: true
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeCompany, loading: companyLoading, switchCompany } = useCompany();
-  const { canAddClientes, canDeleteContatos, canDeleteEventos, canEditEventos, canToggleIALigacao, canUploadBase, canCreateEventos, canManageEventos, isVendedor, isSDR, isAdmin, isMasterRole, isCRM, isDiretor, isGerente, isProprietario } = useUserAccessType();
+  const { canAddClientes, canDeleteContatos, canDeleteEventos, canEditEventos, canToggleIALigacao, canUploadBase, canCreateEventos, canManageEventos, isVendedor, isSDR, isAdmin, isMasterRole, isCRM, isDiretor, isGerente, isProprietario, permissions } = useUserAccessType();
+  const canImportPool = !!permissions["canImportPool"];
   const { registrarMovimentacao } = useProspeccaoLogs();
   const { isEnabledForEmpresa } = useFeatureFlags();
   const [confirmacaoFlagAtiva, setConfirmacaoFlagAtiva] = useState(false);
@@ -2537,7 +2539,7 @@ showAllEvents: true
                   <div className="space-y-3">
                     <div>
                       <h4 className="font-medium text-sm mb-2">Carga de Clientes</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <BaseExistente 
                           onClientesSelected={handleClientesSelected}
                           prospeccoes={prospeccoes}
@@ -2546,6 +2548,12 @@ showAllEvents: true
                           onImportComplete={() => refetch()}
                           prospeccoes={prospeccoes}
                         />
+                        {canImportPool && (
+                          <ImportarDoDataLake
+                            prospeccoes={prospeccoes}
+                            onImportComplete={() => refetch()}
+                          />
+                        )}
                       </div>
                     </div>
 
