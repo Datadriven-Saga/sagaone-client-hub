@@ -181,7 +181,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
     try {
       const { data, error } = await supabase.rpc('get_pool_clientes_for_empresa', {
         p_empresa_id: activeCompany.id,
-        p_filtros: buildFiltrosPayload(filtros),
+        p_filtros: buildFiltrosPayload(filtros) as never,
         p_limit: 5000,
       });
       if (error) throw error;
