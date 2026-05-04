@@ -184,7 +184,8 @@ showAllEvents: true
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeCompany, loading: companyLoading, switchCompany } = useCompany();
-  const { canAddClientes, canDeleteContatos, canDeleteEventos, canEditEventos, canToggleIALigacao, canUploadBase, canCreateEventos, canManageEventos, isVendedor, isSDR, isAdmin, isMasterRole, isCRM, isDiretor, isGerente, isProprietario } = useUserAccessType();
+  const { canAddClientes, canDeleteContatos, canDeleteEventos, canEditEventos, canToggleIALigacao, canUploadBase, canCreateEventos, canManageEventos, isVendedor, isSDR, isAdmin, isMasterRole, isCRM, isDiretor, isGerente, isProprietario, permissions } = useUserAccessType();
+  const canImportPool = !!permissions["canImportPool"];
   const { registrarMovimentacao } = useProspeccaoLogs();
   const { isEnabledForEmpresa } = useFeatureFlags();
   const [confirmacaoFlagAtiva, setConfirmacaoFlagAtiva] = useState(false);
