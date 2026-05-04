@@ -221,7 +221,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
         nome: nomeAuto,
         marca: facets.marca,
         uf: facets.uf,
-        filtros: buildFiltrosPayload(filtros) as any,
+        filtros: buildFiltrosPayload(filtros) as never,
         total_resultados: resultados.length,
       });
     }
