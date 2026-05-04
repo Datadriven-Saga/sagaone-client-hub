@@ -14,6 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProspeccaoGlobalFilter, ProspeccaoGlobalFilters } from "@/components/ProspeccaoGlobalFilter";
 import { UploadPlanilha } from "@/components/UploadPlanilha";
 import { BaseExistente } from "@/components/BaseExistente";
+import { ImportarDoDataLake } from "@/components/ImportarDoDataLake";
 import { CriarProspeccaoModal } from "@/components/CriarProspeccaoModal";
 import { ContatoModal } from "@/components/ContatoModal";
 import { RecepcaoModal } from "@/components/RecepcaoModal";
