@@ -3230,6 +3230,7 @@ export type Database = {
           status_crm: string | null
           tags: string[] | null
           telefone: string | null
+          telefone_digits: string | null
           updated_at: string
           veiculo_interesse: string | null
         }
@@ -3256,6 +3257,7 @@ export type Database = {
           status_crm?: string | null
           tags?: string[] | null
           telefone?: string | null
+          telefone_digits?: string | null
           updated_at?: string
           veiculo_interesse?: string | null
         }
@@ -3282,6 +3284,7 @@ export type Database = {
           status_crm?: string | null
           tags?: string[] | null
           telefone?: string | null
+          telefone_digits?: string | null
           updated_at?: string
           veiculo_interesse?: string | null
         }
