@@ -847,15 +847,23 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
                             value={e?.nome ?? ''}
                             onChange={ev => setEdits(prev => ({ ...prev, [r.id]: { ...prev[r.id], nome: ev.target.value } }))}
                             className="h-8 text-xs"
+                            disabled={isReadOnly}
                           />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            value={e?.telefone ?? ''}
-                            onChange={ev => setEdits(prev => ({ ...prev, [r.id]: { ...prev[r.id], telefone: ev.target.value } }))}
-                            className="h-8 text-xs font-mono"
-                            placeholder={formatPhone(r.telefone) || ''}
-                          />
+                          {isFull ? (
+                            <Input
+                              value={e?.telefone ?? ''}
+                              onChange={ev => setEdits(prev => ({ ...prev, [r.id]: { ...prev[r.id], telefone: ev.target.value } }))}
+                              className="h-8 text-xs font-mono"
+                              placeholder={formatPhone(r.telefone) || ''}
+                            />
+                          ) : (
+                            <span className="text-xs font-mono inline-flex items-center gap-1">
+                              <Lock className="h-3 w-3 text-muted-foreground" />
+                              {maskTelefone(r.telefone, false)}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{r.loja_nome}</TableCell>
                         <TableCell className="text-xs">{r.origem || '—'}</TableCell>
