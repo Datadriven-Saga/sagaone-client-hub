@@ -350,21 +350,37 @@ function PermissionRow({
                           const isNull = v === null || v === undefined;
                           return (
                             <div key={field} className="flex items-center gap-1">
-                              <Input
-                                type="number"
-                                value={isNull ? '' : v}
-                                placeholder={schema.nullable ? schema.nullLabel : ''}
-                                step={schema.step ?? 1}
-                                min={schema.min ?? 1}
-                                max={schema.max}
-                                onChange={(e) => {
-                                  const raw = e.target.value;
-                                  const next = { ...tipoValor };
-                                  next[field] = raw === '' ? null : Number(raw);
-                                  onValorChange(perm.key, tipo, next);
-                                }}
-                                className="h-7 w-24 text-xs"
-                              />
+                              {schema.type === "select" && schema.options ? (
+                                <select
+                                  value={isNull ? schema.options[0] : v}
+                                  onChange={(e) => {
+                                    const next = { ...tipoValor };
+                                    next[field] = e.target.value;
+                                    onValorChange(perm.key, tipo, next);
+                                  }}
+                                  className="h-7 px-1 text-xs rounded border bg-background"
+                                >
+                                  {schema.options.map(opt => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <Input
+                                  type="number"
+                                  value={isNull ? '' : v}
+                                  placeholder={schema.nullable ? schema.nullLabel : ''}
+                                  step={schema.step ?? 1}
+                                  min={schema.min ?? 1}
+                                  max={schema.max}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    const next = { ...tipoValor };
+                                    next[field] = raw === '' ? null : Number(raw);
+                                    onValorChange(perm.key, tipo, next);
+                                  }}
+                                  className="h-7 w-24 text-xs"
+                                />
+                              )}
                               <span className="text-[10px] text-muted-foreground">{schema.label}</span>
                             </div>
                           );

@@ -25,13 +25,14 @@ export interface PermissionEntry {
   description?: string;
   hasValor?: boolean;
   valorSchema?: Record<string, {
-    type: "number";
+    type: "number" | "select";
     label: string;
     nullable?: boolean;
     nullLabel?: string;
     step?: number;
     min?: number;
     max?: number;
+    options?: string[];
   }>;
 }
 
@@ -162,6 +163,29 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
     hasValor: true,
     valorSchema: {
       dias_max: { type: "number", label: "Limite de dias", nullable: true, nullLabel: "Ilimitado", step: 30, min: 1 },
+    },
+  },
+  {
+    key: "canImportPoolFull",
+    label: "Segmentar Base — Acesso Completo",
+    moduleId: "base_contatos",
+    action: "executar",
+    description: "Visualiza todos os dados, edita nome/telefone e importa para qualquer evento",
+    hasValor: true,
+    valorSchema: {
+      dias_max: { type: "number", label: "Limite de dias", nullable: true, nullLabel: "Ilimitado", step: 30, min: 1 },
+    },
+  },
+  {
+    key: "canImportPoolReadOnly",
+    label: "Segmentar Base — Somente Leitura",
+    moduleId: "base_contatos",
+    action: "executar",
+    description: "Vê dados com telefone mascarado, sem edição, importa para eventos autorizados",
+    hasValor: true,
+    valorSchema: {
+      dias_max: { type: "number", label: "Limite de dias", nullable: true, nullLabel: "Ilimitado", step: 30, min: 1 },
+      eventos_permitidos: { type: "select", label: "Eventos permitidos", options: ["todos", "futuros"] },
     },
   },
 

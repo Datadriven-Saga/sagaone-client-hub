@@ -165,6 +165,8 @@ export function useUserAccessType() {
     canManageEvents: p("canManageEvents"),
     canImportClientes: p("canImportClientes"),
     canImportPool: p("canImportPool"),
+    canImportPoolFull: p("canImportPoolFull"),
+    canImportPoolReadOnly: p("canImportPoolReadOnly"),
     canGenerateInvites: p("canGenerateInvites"),
     canCreateTemplates: p("canCreateTemplates"),
     canEditUsers: p("canEditUsers"),
