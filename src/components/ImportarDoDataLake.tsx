@@ -338,7 +338,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
       <DialogTrigger asChild>
         <Button variant="outline" className="p-3 h-auto flex items-center gap-2">
           <Database size={18} />
-          <span className="text-sm">Importar do DataLake</span>
+          <span className="text-sm">Segmentar Base</span>
         </Button>
       </DialogTrigger>
 
@@ -346,7 +346,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />
-            {step === 'filtros' ? 'Importar do DataLake — Segmentar' : 'Revisar e Importar'}
+            {step === 'filtros' ? 'Segmentar Base' : 'Revisar e Importar'}
             {facets && (
               <Badge variant="secondary" className="ml-2">{facets.marca} / {facets.uf}</Badge>
             )}
