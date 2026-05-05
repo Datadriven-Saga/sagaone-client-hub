@@ -21,6 +21,7 @@ import {
 
 const ControleAcessos = () => {
   const [overrides, setOverrides] = useState<Record<string, Record<string, boolean>>>({});
+  const [valores, setValores] = useState<Record<string, Record<string, any>>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -31,16 +32,22 @@ const ControleAcessos = () => {
     try {
       const { data, error } = await supabase
         .from("departamento_permissoes")
-        .select("departamento, permissao, ativo");
+        .select("departamento, permissao, ativo, valor");
 
       if (error) throw error;
 
       const ov: Record<string, Record<string, boolean>> = {};
+      const vl: Record<string, Record<string, any>> = {};
       data?.forEach((row) => {
         if (!ov[row.departamento]) ov[row.departamento] = {};
         ov[row.departamento][row.permissao] = row.ativo;
+        if ((row as any).valor !== null && (row as any).valor !== undefined) {
+          if (!vl[row.departamento]) vl[row.departamento] = {};
+          vl[row.departamento][row.permissao] = (row as any).valor;
+        }
       });
       setOverrides(ov);
+      setValores(vl);
     } catch (err) {
       console.error("Erro ao carregar permissões:", err);
       toast.error("Erro ao carregar permissões");
@@ -90,6 +97,28 @@ const ControleAcessos = () => {
       setSaving(null);
     }
   }, []);
+
+  const handleValorChange = useCallback(async (permissao: string, tipo: string, valor: Record<string, any>) => {
+    const key = `valor-${permissao}-${tipo}`;
+    setSaving(key);
+    setValores(prev => ({ ...prev, [tipo]: { ...(prev[tipo] || {}), [permissao]: valor } }));
+    try {
+      const ativo = overrides[tipo]?.[permissao] ?? false;
+      const { error } = await supabase
+        .from("departamento_permissoes")
+        .upsert(
+          { departamento: tipo, permissao, ativo, valor: valor as any },
+          { onConflict: "departamento,permissao" }
+        );
+      if (error) throw error;
+    } catch (err) {
+      console.error("Erro ao atualizar configuração:", err);
+      toast.error("Erro ao atualizar configuração");
+      loadAllOverrides();
+    } finally {
+      setSaving(null);
+    }
+  }, [overrides, loadAllOverrides]);
 
   // Clone all permissions from source to target
   const handleCloneProfile = useCallback(async (source: TipoAcesso, target: TipoAcesso) => {
@@ -158,8 +187,10 @@ const ControleAcessos = () => {
                 <PermissionModuleView
                   isMaster={isMaster}
                   overrides={overrides}
+                  valores={valores}
                   saving={saving}
                   onToggle={handleToggle}
+                  onValorChange={handleValorChange}
                 />
               </TabsContent>
 
