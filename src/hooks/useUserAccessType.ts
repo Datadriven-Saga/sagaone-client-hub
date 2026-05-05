@@ -15,6 +15,7 @@ export function useUserAccessType() {
   const [tipoAcesso, setTipoAcesso] = useState<TipoAcessoDB | null>(null);
   const [departamento, setDepartamento] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
+  const [permissionValores, setPermissionValores] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,7 +38,7 @@ export function useUserAccessType() {
             .single(),
           supabase
             .from("departamento_permissoes")
-            .select("departamento, permissao, ativo"),
+            .select("departamento, permissao, ativo, valor"),
         ]);
 
         const tipo = profileRes.data?.tipo_acesso ?? null;
@@ -49,9 +50,14 @@ export function useUserAccessType() {
         if (tipo) {
           // Build overrides map for this user's tipo_acesso
           const allOverrides: Record<string, Record<string, boolean>> = {};
+          const allValores: Record<string, Record<string, any>> = {};
           overridesRes.data?.forEach((row) => {
             if (!allOverrides[row.departamento]) allOverrides[row.departamento] = {};
             allOverrides[row.departamento][row.permissao] = row.ativo;
+            if ((row as any).valor !== null && (row as any).valor !== undefined) {
+              if (!allValores[row.departamento]) allValores[row.departamento] = {};
+              allValores[row.departamento][row.permissao] = (row as any).valor;
+            }
           });
 
           const myOverrides = allOverrides[tipo as string] || {};
@@ -65,14 +71,17 @@ export function useUserAccessType() {
           }
           
           setPermissions(resolved);
+          setPermissionValores(allValores[tipo as string] || {});
         } else {
           setPermissions({});
+          setPermissionValores({});
         }
       } catch (err) {
         console.error("Erro ao buscar tipo de acesso/permissões:", err);
         setTipoAcesso(null);
         setDepartamento(null);
         setPermissions({});
+        setPermissionValores({});
       } finally {
         setLoading(false);
       }
@@ -102,6 +111,9 @@ export function useUserAccessType() {
 
   // Helper to get permission from resolved map with fallback
   const p = (key: string): boolean => permissions[key] ?? false;
+  const getPermissionValor = (key: string): Record<string, any> | null => {
+    return permissionValores[key] ?? null;
+  };
 
   return {
     tipoAcesso,
@@ -171,5 +183,6 @@ export function useUserAccessType() {
 
     // Full permissions map for granular checks
     permissions,
+    getPermissionValor,
   };
 }

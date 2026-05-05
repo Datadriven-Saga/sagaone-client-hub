@@ -10,11 +10,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import { Database, Loader2, Filter, Save, History, Trash2, X, Search, CheckSquare } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserAccessType } from '@/hooks/useUserAccessType';
 import { formatPhone } from '@/lib/utils';
 
 interface Prospeccao {
@@ -50,6 +52,8 @@ interface Facets {
   canais: string[];
   veiculos: string[];
   lojas: string[];
+  data_min?: string | null;
+  data_max?: string | null;
 }
 
 interface Filtros {
@@ -171,12 +175,16 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
   const { activeCompany } = useCompany();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { getPermissionValor } = useUserAccessType();
+  const poolConfig = getPermissionValor('canImportPool');
+  const diasMaxPermitido: number | null = poolConfig?.dias_max ?? null;
 
   const [isOpen, setIsOpen] = useState(false);
   const [selectedProspeccao, setSelectedProspeccao] = useState<string>('');
   const [facets, setFacets] = useState<Facets | null>(null);
   const [loadingFacets, setLoadingFacets] = useState(false);
   const [filtros, setFiltros] = useState<Filtros>(emptyFiltros);
+  const [diasAtras, setDiasAtras] = useState<number>(30);
   const [resultados, setResultados] = useState<PoolCliente[]>([]);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'filtros' | 'edicao'>('filtros');
@@ -222,9 +230,11 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
     if (!activeCompany?.id) return;
     setLoading(true);
     try {
+      const payload = buildFiltrosPayload(filtros);
+      (payload as any).dias_atras = diasAtras;
       const { data, error } = await supabase.rpc('get_pool_clientes_for_empresa', {
         p_empresa_id: activeCompany.id,
-        p_filtros: buildFiltrosPayload(filtros) as never,
+        p_filtros: payload as never,
         p_limit: 5000,
       });
       if (error) throw error;
@@ -241,7 +251,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
     } finally {
       setLoading(false);
     }
-  }, [activeCompany?.id, filtros, toast]);
+  }, [activeCompany?.id, filtros, diasAtras, toast]);
 
   const handleAvancar = async () => {
     if (!selectedProspeccao) {
@@ -395,6 +405,44 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
               ) : !facets || facets.total === 0 ? (
                 <p className="text-sm text-muted-foreground py-4">Nenhum cliente disponível no DataLake para {facets?.marca}/{facets?.uf}.</p>
               ) : (
+                <>
+                {(() => {
+                  const dataMinDias = facets.data_min
+                    ? Math.max(1, Math.floor((Date.now() - new Date(facets.data_min).getTime()) / 86400000))
+                    : 365;
+                  const sliderMax = diasMaxPermitido != null
+                    ? Math.min(diasMaxPermitido, dataMinDias)
+                    : dataMinDias;
+                  const effectiveDias = Math.min(diasAtras, sliderMax);
+                  const dataInicio = new Date(Date.now() - effectiveDias * 86400000);
+                  return (
+                    <div className="mb-4 p-3 rounded-md border bg-muted/30 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-medium">
+                          Período: últimos <span className="text-foreground font-bold">{effectiveDias}</span> dias
+                        </Label>
+                        <span className="text-xs text-muted-foreground">
+                          A partir de {dataInicio.toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                      <Slider
+                        min={1}
+                        max={sliderMax}
+                        step={1}
+                        value={[effectiveDias]}
+                        onValueChange={(v) => setDiasAtras(v[0])}
+                      />
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>1 dia</span>
+                        <span>
+                          {diasMaxPermitido != null
+                            ? `Seu acesso permite até ${diasMaxPermitido} dias`
+                            : `Disponível até ${sliderMax} dias`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <ChipMultiSelect label="DDD" options={facets.ddds} value={filtros.ddds} onChange={v => setFiltros(f => ({ ...f, ddds: v }))} />
                   <ChipMultiSelect label="Motivo não-venda" options={facets.motivos} value={filtros.motivos} onChange={v => setFiltros(f => ({ ...f, motivos: v }))} />
@@ -413,6 +461,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
                     <Switch checked={!!filtros.lead_pri} onCheckedChange={(c) => setFiltros(f => ({ ...f, lead_pri: c ? true : undefined }))} />
                   </div>
                 </div>
+                </>
               )}
 
               <div className="flex items-center justify-between mt-4 pt-3 border-t">
