@@ -387,9 +387,16 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-medium text-sm">Pré-visualização ({resultados.length} leads)</h4>
-                  <Button onClick={handleAvancar} disabled={!selectedProspeccao}>
-                    Avançar para edição
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {!selectedProspeccao && (
+                      <span className="text-xs text-amber-500">
+                        Selecione um evento de destino acima para avançar
+                      </span>
+                    )}
+                    <Button onClick={handleAvancar} disabled={!selectedProspeccao}>
+                      Avançar para edição
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   No próximo passo você poderá editar telefone/nome e remover linhas antes da importação.
