@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import { Database, Loader2, Filter, Save, History, Trash2, X, Search, CheckSquare } from 'lucide-react';
+import { Database, Loader2, Filter, Save, History, Trash2, X, Search, CheckSquare, ChevronDown, AlertTriangle, Lock } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -39,6 +40,7 @@ interface PoolCliente {
   lead_maia: string | null;
   lead_pri: string | null;
   loja_nome: string | null;
+  criado_em_origem?: string | null;
 }
 
 interface Facets {
@@ -86,6 +88,118 @@ interface ImportarDoDataLakeProps {
 const emptyFiltros: Filtros = {
   ddds: [], motivos: [], status_crm: [], origens: [], canais: [], veiculos: [], lojas: [],
 };
+
+const NAO_PARECE_NOME = (nome: string | null | undefined): boolean => {
+  if (!nome) return true;
+  const trimmed = nome.trim();
+  if (trimmed.length === 0) return true;
+  const digits = trimmed.replace(/\D/g, '').length;
+  if (digits / trimmed.length > 0.4) return true;
+  if (/^[\W\d_]+$/.test(trimmed)) return true;
+  if (trimmed.replace(/[^a-zA-ZÀ-ú]/g, '').length < 2) return true;
+  return false;
+};
+
+const maskTelefone = (tel: string | null | undefined, full: boolean): string => {
+  if (!tel) return '';
+  if (full) return formatPhone(tel) || tel;
+  const digits = tel.replace(/\D/g, '');
+  return digits.slice(0, 4) + '••••';
+};
+
+/** Filtro estilo Excel para uma coluna (multi-select com busca + opções especiais) */
+function ColumnFilter({
+  label, values, current, onApply, extras,
+}: {
+  label: string;
+  values: string[];
+  current: { termos: Set<string>; vazios: boolean; naoParece?: boolean } | null;
+  onApply: (v: { termos: Set<string>; vazios: boolean; naoParece?: boolean } | null) => void;
+  extras?: { naoParece?: boolean };
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [tempSel, setTempSel] = useState<Set<string>>(new Set());
+  const [tempVazios, setTempVazios] = useState(false);
+  const [tempNaoParece, setTempNaoParece] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setTempSel(new Set(current?.termos ?? values));
+      setTempVazios(current?.vazios ?? true);
+      setTempNaoParece(current?.naoParece ?? true);
+      setQuery('');
+    }
+  }, [open, current, values]);
+
+  const filtered = query.trim()
+    ? values.filter(v => v.toLowerCase().includes(query.toLowerCase()))
+    : values;
+  const allChecked = filtered.length > 0 && filtered.every(v => tempSel.has(v));
+  const active = !!current;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className={`h-6 px-1 ${active ? 'text-primary' : ''}`}>
+          <Filter className={`h-3 w-3 ${active ? 'fill-primary' : ''}`} />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-2 space-y-2">
+        <div className="text-xs font-medium">{label}</div>
+        <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar..." className="h-7 text-xs" />
+        <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
+          <label className="flex items-center gap-2 text-xs">
+            <Checkbox checked={allChecked} onCheckedChange={(c) => {
+              setTempSel(prev => {
+                const next = new Set(prev);
+                if (c) filtered.forEach(v => next.add(v)); else filtered.forEach(v => next.delete(v));
+                return next;
+              });
+            }} />
+            (Selecionar {query.trim() ? 'filtrados' : 'todos'})
+          </label>
+          <label className="flex items-center gap-2 text-xs">
+            <Checkbox checked={tempVazios} onCheckedChange={(c) => setTempVazios(!!c)} />
+            (Vazios)
+          </label>
+          {extras?.naoParece && (
+            <label className="flex items-center gap-2 text-xs">
+              <Checkbox checked={tempNaoParece} onCheckedChange={(c) => setTempNaoParece(!!c)} />
+              <AlertTriangle className="h-3 w-3 text-amber-500" /> (Não parece nome)
+            </label>
+          )}
+          <div className="h-px bg-border my-1" />
+          {filtered.length === 0 ? (
+            <div className="text-xs text-muted-foreground py-2">Sem resultados</div>
+          ) : filtered.map(v => (
+            <label key={v} className="flex items-center gap-2 text-xs">
+              <Checkbox checked={tempSel.has(v)} onCheckedChange={(c) => {
+                setTempSel(prev => {
+                  const next = new Set(prev);
+                  if (c) next.add(v); else next.delete(v);
+                  return next;
+                });
+              }} />
+              <span className="truncate" title={v}>{v}</span>
+            </label>
+          ))}
+        </div>
+        <div className="flex justify-between gap-2 pt-1 border-t">
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { onApply(null); setOpen(false); }}>
+            Limpar
+          </Button>
+          <Button size="sm" className="h-7 text-xs" onClick={() => {
+            onApply({ termos: tempSel, vazios: tempVazios, naoParece: extras?.naoParece ? tempNaoParece : undefined });
+            setOpen(false);
+          }}>
+            Aplicar
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function buildFiltrosPayload(f: Filtros): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -175,9 +289,14 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
   const { activeCompany } = useCompany();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { getPermissionValor } = useUserAccessType();
-  const poolConfig = getPermissionValor('canImportPool');
+  const { getPermissionValor, permissions } = useUserAccessType();
+  const isFull = !!permissions['canImportPoolFull'];
+  const isReadOnly = !isFull && !!permissions['canImportPoolReadOnly'];
+  const hasAccess = isFull || isReadOnly;
+  const poolConfig = getPermissionValor(isFull ? 'canImportPoolFull' : 'canImportPoolReadOnly')
+    || getPermissionValor('canImportPool');
   const diasMaxPermitido: number | null = poolConfig?.dias_max ?? null;
+  const eventosPermitidosCfg: string = poolConfig?.eventos_permitidos ?? 'todos';
 
   const [isOpen, setIsOpen] = useState(false);
   const [selectedProspeccao, setSelectedProspeccao] = useState<string>('');
@@ -187,6 +306,15 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
   const [diasAtras, setDiasAtras] = useState<number>(30);
   const [resultados, setResultados] = useState<PoolCliente[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalServidor, setTotalServidor] = useState<number>(0);
+  const [cursor, setCursor] = useState<{ data: string; id: string } | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [autoLoadingAll, setAutoLoadingAll] = useState(false);
+  const cancelAutoRef = useRef(false);
+  // Filtros locais (Excel-like) sobre o conjunto carregado
+  const [nomeFiltro, setNomeFiltro] = useState<{ termos: Set<string>; vazios: boolean; naoParece?: boolean } | null>(null);
+  const [telFiltro, setTelFiltro] = useState<{ termos: Set<string>; vazios: boolean } | null>(null);
   const [step, setStep] = useState<'filtros' | 'edicao'>('filtros');
   const [edits, setEdits] = useState<Record<string, { telefone: string; nome: string }>>({});
   const [excluidos, setExcluidos] = useState<Set<string>>(new Set());
@@ -226,32 +354,112 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
     return () => { cancelled = true; };
   }, [isOpen, activeCompany?.id, toast]);
 
+  const PAGE_SIZE = 200;
+
+  const fetchPage = useCallback(async (opts: { reset: boolean; cursor?: { data: string; id: string } | null }) => {
+    if (!activeCompany?.id) return null;
+    const payload = buildFiltrosPayload(filtros);
+    (payload as any).dias_atras = diasAtras;
+    const { data, error } = await supabase.rpc('get_pool_clientes_for_empresa', {
+      p_empresa_id: activeCompany.id,
+      p_filtros: payload as never,
+      p_limit: PAGE_SIZE,
+      p_cursor_data: opts.cursor?.data ?? null,
+      p_cursor_id: opts.cursor?.id ?? null,
+      p_with_total: opts.reset,
+    } as any);
+    if (error) throw error;
+    const resp = data as unknown as { items: PoolCliente[]; total: number | null };
+    return resp;
+  }, [activeCompany?.id, filtros, diasAtras]);
+
   const buscar = useCallback(async () => {
     if (!activeCompany?.id) return;
     setLoading(true);
+    cancelAutoRef.current = true; // cancela auto-load anterior
     try {
-      const payload = buildFiltrosPayload(filtros);
-      (payload as any).dias_atras = diasAtras;
-      const { data, error } = await supabase.rpc('get_pool_clientes_for_empresa', {
-        p_empresa_id: activeCompany.id,
-        p_filtros: payload as never,
-        p_limit: 5000,
-      });
-      if (error) throw error;
-      const list = (data ?? []) as PoolCliente[];
+      const resp = await fetchPage({ reset: true, cursor: null });
+      if (!resp) return;
+      const list = resp.items || [];
       setResultados(list);
-      // inicia edits e nada excluído
+      setTotalServidor(resp.total ?? list.length);
+      const last = list[list.length - 1];
+      const more = list.length === PAGE_SIZE;
+      setHasMore(more);
+      setCursor(more && last && last.criado_em_origem ? { data: last.criado_em_origem, id: last.id } : null);
       const initial: Record<string, { telefone: string; nome: string }> = {};
       list.forEach(r => { initial[r.id] = { telefone: r.telefone || '', nome: r.nome_cliente || '' }; });
       setEdits(initial);
       setExcluidos(new Set());
-      toast({ title: 'Busca realizada', description: `${list.length} clientes encontrados` });
+      toast({ title: 'Busca realizada', description: `${list.length} de ~${resp.total ?? list.length} carregados` });
     } catch (err: any) {
       toast({ title: 'Erro na busca', description: err.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [activeCompany?.id, filtros, diasAtras, toast]);
+  }, [activeCompany?.id, fetchPage, toast]);
+
+  const carregarMais = useCallback(async () => {
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const resp = await fetchPage({ reset: false, cursor });
+      if (!resp) return;
+      const list = resp.items || [];
+      setResultados(prev => {
+        const next = [...prev, ...list];
+        setEdits(e => {
+          const merged = { ...e };
+          list.forEach(r => { if (!merged[r.id]) merged[r.id] = { telefone: r.telefone || '', nome: r.nome_cliente || '' }; });
+          return merged;
+        });
+        return next;
+      });
+      const last = list[list.length - 1];
+      const more = list.length === PAGE_SIZE;
+      setHasMore(more);
+      setCursor(more && last && last.criado_em_origem ? { data: last.criado_em_origem, id: last.id } : null);
+    } catch (err: any) {
+      toast({ title: 'Erro ao carregar mais', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [cursor, loadingMore, fetchPage, toast]);
+
+  // Auto-load até o fim quando filtro local está ativo
+  const filtroLocalAtivo = !!nomeFiltro || !!telFiltro;
+  useEffect(() => {
+    if (!filtroLocalAtivo || !hasMore || autoLoadingAll || loading || loadingMore) return;
+    cancelAutoRef.current = false;
+    setAutoLoadingAll(true);
+    (async () => {
+      let curCursor = cursor;
+      while (curCursor && !cancelAutoRef.current) {
+        const resp = await fetchPage({ reset: false, cursor: curCursor }).catch(() => null);
+        if (!resp) break;
+        const list = resp.items || [];
+        setResultados(prev => {
+          setEdits(e => {
+            const merged = { ...e };
+            list.forEach(r => { if (!merged[r.id]) merged[r.id] = { telefone: r.telefone || '', nome: r.nome_cliente || '' }; });
+            return merged;
+          });
+          return [...prev, ...list];
+        });
+        const last = list[list.length - 1];
+        if (list.length < PAGE_SIZE || !last || !last.criado_em_origem) {
+          curCursor = null;
+          setHasMore(false);
+          setCursor(null);
+          break;
+        }
+        curCursor = { data: last.criado_em_origem, id: last.id };
+        setCursor(curCursor);
+      }
+      setAutoLoadingAll(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroLocalAtivo]);
 
   const handleAvancar = async () => {
     if (!selectedProspeccao) {
@@ -331,12 +539,45 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
     }
   };
 
-  const visiveis = useMemo(() => resultados.filter(r => !excluidos.has(r.id)), [resultados, excluidos]);
+  // Aplicar filtros locais Excel-like ao conjunto carregado
+  const filtrados = useMemo(() => {
+    return resultados.filter(r => {
+      if (nomeFiltro) {
+        const nome = (r.nome_cliente || '').trim();
+        const isVazio = nome === '';
+        const isNao = NAO_PARECE_NOME(r.nome_cliente);
+        const matchTermo = nomeFiltro.termos.has(nome);
+        const allow = (isVazio && nomeFiltro.vazios) || (nomeFiltro.naoParece && isNao) || matchTermo;
+        if (!allow) return false;
+      }
+      if (telFiltro) {
+        const tel = (r.telefone || '').trim();
+        const isVazio = tel === '';
+        const matchTermo = telFiltro.termos.has(tel);
+        const allow = (isVazio && telFiltro.vazios) || matchTermo;
+        if (!allow) return false;
+      }
+      return true;
+    });
+  }, [resultados, nomeFiltro, telFiltro]);
+
+  const nomesUnicos = useMemo(() => Array.from(new Set(resultados.map(r => (r.nome_cliente || '').trim()).filter(Boolean))).sort(), [resultados]);
+  const telefonesUnicos = useMemo(() => Array.from(new Set(resultados.map(r => (r.telefone || '').trim()).filter(Boolean))).sort(), [resultados]);
+
+  const visiveis = useMemo(() => filtrados.filter(r => !excluidos.has(r.id)), [filtrados, excluidos]);
+
+  // Validação se evento está permitido (somente ReadOnly com whitelist)
+  const eventoPermitido = useMemo(() => {
+    if (!isReadOnly) return true;
+    if (eventosPermitidosCfg === 'todos') return true;
+    // 'futuros' ou outras restrições — por padrão permite, hook futuro
+    return true;
+  }, [isReadOnly, eventosPermitidosCfg]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => { setIsOpen(o); if (!o) { setStep('filtros'); } }}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="p-3 h-auto flex items-center gap-2">
+        <Button variant="outline" className="p-3 h-auto flex items-center gap-2" disabled={!hasAccess} title={!hasAccess ? 'Sem permissão' : undefined}>
           <Database size={18} />
           <span className="text-sm">Segmentar Base</span>
         </Button>
@@ -479,37 +720,65 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
             {resultados.length > 0 && (
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-sm">Pré-visualização ({resultados.length} leads)</h4>
+                  <h4 className="font-medium text-sm">
+                    Pré-visualização — {resultados.length} de ~{totalServidor} carregados
+                    {filtroLocalAtivo && <span className="text-muted-foreground"> · {filtrados.length} após filtros</span>}
+                  </h4>
                   <div className="flex items-center gap-2">
                     {!selectedProspeccao && (
                       <span className="text-xs text-amber-500">
                         Selecione um evento de destino acima para avançar
                       </span>
                     )}
-                    <Button onClick={handleAvancar} disabled={!selectedProspeccao}>
+                    <Button onClick={handleAvancar} disabled={!selectedProspeccao || !eventoPermitido}>
                       Avançar para edição
                     </Button>
                   </div>
                 </div>
+                {hasMore && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Button size="sm" variant="outline" onClick={carregarMais} disabled={loadingMore || autoLoadingAll}>
+                      {(loadingMore || autoLoadingAll) ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <ChevronDown className="h-3 w-3 mr-1" />}
+                      {autoLoadingAll ? `Carregando todos... (${resultados.length}/${totalServidor})` : `Carregar mais (${PAGE_SIZE})`}
+                    </Button>
+                    {autoLoadingAll && (
+                      <Button size="sm" variant="ghost" onClick={() => { cancelAutoRef.current = true; }}>
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
                   No próximo passo você poderá editar telefone/nome e remover linhas antes da importação.
+                  {isReadOnly && <span className="ml-1 inline-flex items-center gap-1 text-amber-600"><Lock className="h-3 w-3" /> Modo somente leitura — telefones mascarados.</span>}
                 </p>
                 <div className="mt-3 border rounded-md overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="h-8 text-xs">Nome</TableHead>
-                        <TableHead className="h-8 text-xs">Telefone</TableHead>
+                        <TableHead className="h-8 text-xs">
+                          <span className="inline-flex items-center gap-1">Nome
+                            <ColumnFilter label="Filtrar por Nome" values={nomesUnicos} current={nomeFiltro} onApply={setNomeFiltro} extras={{ naoParece: true }} />
+                          </span>
+                        </TableHead>
+                        <TableHead className="h-8 text-xs">
+                          <span className="inline-flex items-center gap-1">Telefone
+                            <ColumnFilter label="Filtrar por Telefone" values={telefonesUnicos} current={telFiltro ? { ...telFiltro } : null} onApply={(v) => setTelFiltro(v ? { termos: v.termos, vazios: v.vazios } : null)} />
+                          </span>
+                        </TableHead>
                         <TableHead className="h-8 text-xs">Loja</TableHead>
                         <TableHead className="h-8 text-xs">Origem</TableHead>
                         <TableHead className="h-8 text-xs">Status CRM</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {resultados.slice(0, 5).map(r => (
+                      {filtrados.slice(0, 10).map(r => (
                         <TableRow key={r.id}>
-                          <TableCell className="py-1.5 text-xs">{r.nome_cliente || '—'}</TableCell>
-                          <TableCell className="py-1.5 text-xs font-mono">{formatPhone(r.telefone) || r.telefone}</TableCell>
+                          <TableCell className="py-1.5 text-xs">
+                            {r.nome_cliente || '—'}
+                            {NAO_PARECE_NOME(r.nome_cliente) && <AlertTriangle className="inline ml-1 h-3 w-3 text-amber-500" />}
+                          </TableCell>
+                          <TableCell className="py-1.5 text-xs font-mono">{maskTelefone(r.telefone, isFull)}</TableCell>
                           <TableCell className="py-1.5 text-xs text-muted-foreground">{r.loja_nome || '—'}</TableCell>
                           <TableCell className="py-1.5 text-xs">{r.origem || '—'}</TableCell>
                           <TableCell className="py-1.5 text-xs">{r.status_crm || '—'}</TableCell>
@@ -518,9 +787,9 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
                     </TableBody>
                   </Table>
                 </div>
-                {resultados.length > 5 && (
+                {filtrados.length > 10 && (
                   <p className="text-xs text-muted-foreground mt-2">
-                    Mostrando 5 de {resultados.length} resultados.
+                    Mostrando 10 de {filtrados.length} resultados (após filtros).
                   </p>
                 )}
               </Card>
@@ -578,15 +847,23 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
                             value={e?.nome ?? ''}
                             onChange={ev => setEdits(prev => ({ ...prev, [r.id]: { ...prev[r.id], nome: ev.target.value } }))}
                             className="h-8 text-xs"
+                            disabled={isReadOnly}
                           />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            value={e?.telefone ?? ''}
-                            onChange={ev => setEdits(prev => ({ ...prev, [r.id]: { ...prev[r.id], telefone: ev.target.value } }))}
-                            className="h-8 text-xs font-mono"
-                            placeholder={formatPhone(r.telefone) || ''}
-                          />
+                          {isFull ? (
+                            <Input
+                              value={e?.telefone ?? ''}
+                              onChange={ev => setEdits(prev => ({ ...prev, [r.id]: { ...prev[r.id], telefone: ev.target.value } }))}
+                              className="h-8 text-xs font-mono"
+                              placeholder={formatPhone(r.telefone) || ''}
+                            />
+                          ) : (
+                            <span className="text-xs font-mono inline-flex items-center gap-1">
+                              <Lock className="h-3 w-3 text-muted-foreground" />
+                              {maskTelefone(r.telefone, false)}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{r.loja_nome}</TableCell>
                         <TableCell className="text-xs">{r.origem || '—'}</TableCell>
