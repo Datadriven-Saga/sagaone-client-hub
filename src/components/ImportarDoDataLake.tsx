@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -40,6 +40,7 @@ interface PoolCliente {
   lead_maia: string | null;
   lead_pri: string | null;
   loja_nome: string | null;
+  criado_em_origem?: string | null;
 }
 
 interface Facets {
@@ -256,7 +257,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
       p_with_total: opts.reset,
     } as any);
     if (error) throw error;
-    const resp = data as { items: PoolCliente[]; total: number | null };
+    const resp = data as unknown as { items: PoolCliente[]; total: number | null };
     return resp;
   }, [activeCompany?.id, filtros, diasAtras]);
 
