@@ -230,9 +230,11 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
     if (!activeCompany?.id) return;
     setLoading(true);
     try {
+      const payload = buildFiltrosPayload(filtros);
+      (payload as any).dias_atras = diasAtras;
       const { data, error } = await supabase.rpc('get_pool_clientes_for_empresa', {
         p_empresa_id: activeCompany.id,
-        p_filtros: buildFiltrosPayload(filtros) as never,
+        p_filtros: payload as never,
         p_limit: 5000,
       });
       if (error) throw error;
@@ -249,7 +251,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
     } finally {
       setLoading(false);
     }
-  }, [activeCompany?.id, filtros, toast]);
+  }, [activeCompany?.id, filtros, diasAtras, toast]);
 
   const handleAvancar = async () => {
     if (!selectedProspeccao) {
