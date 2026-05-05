@@ -10,11 +10,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import { Database, Loader2, Filter, Save, History, Trash2, X, Search, CheckSquare } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserAccessType } from '@/hooks/useUserAccessType';
 import { formatPhone } from '@/lib/utils';
 
 interface Prospeccao {
@@ -50,6 +52,8 @@ interface Facets {
   canais: string[];
   veiculos: string[];
   lojas: string[];
+  data_min?: string | null;
+  data_max?: string | null;
 }
 
 interface Filtros {
