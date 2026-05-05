@@ -153,7 +153,17 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   { key: "canValidarImportacao", label: "Validar importações de base", moduleId: "base_contatos", action: "administrar", description: "Aprovar ou reprovar importações de base de contatos" },
   { key: "canGovernancaDados", label: "Gerenciar governança de dados", moduleId: "base_contatos", action: "administrar", description: "Controle de qualidade e governança sobre dados de contatos" },
   { key: "canAccessOptOutGlobal", label: "Acessar Opt-Out Global", moduleId: "base_contatos", action: "administrar", description: "Gerenciar lista negra global de números bloqueados" },
-  { key: "canImportPool", label: "Importar do DataLake (Pool)", moduleId: "base_contatos", action: "executar", description: "Importar leads do pool de clientes externos (DataLake) para um evento" },
+  {
+    key: "canImportPool",
+    label: "Importar do DataLake (Pool)",
+    moduleId: "base_contatos",
+    action: "executar",
+    description: "Importar leads do pool de clientes externos (DataLake) para um evento",
+    hasValor: true,
+    valorSchema: {
+      dias_max: { type: "number", label: "Limite de dias", nullable: true, nullLabel: "Ilimitado", step: 30, min: 1 },
+    },
+  },
 
   // ── Recepção ──
   { key: "canAccessRecepcao", label: "Acessar Recepção", moduleId: "recepcao", action: "visualizar" },
