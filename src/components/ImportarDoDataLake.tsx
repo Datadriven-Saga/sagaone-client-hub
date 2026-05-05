@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
-import { Database, Loader2, Filter, Save, History, Trash2, X } from 'lucide-react';
+import { Database, Loader2, Filter, Save, History, Trash2, X, Search, CheckSquare } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -100,19 +100,59 @@ function buildFiltrosPayload(f: Filtros): Record<string, unknown> {
 /**
  * Multi-select chip-style for an array of options.
  */
-function ChipMultiSelect({ label, options, value, onChange }: {
-  label: string; options: string[]; value: string[]; onChange: (v: string[]) => void;
+function ChipMultiSelect({ label, options, value, onChange, searchable }: {
+  label: string; options: string[]; value: string[]; onChange: (v: string[]) => void; searchable?: boolean;
 }) {
+  const [query, setQuery] = useState('');
   const toggle = (opt: string) => {
     if (value.includes(opt)) onChange(value.filter(v => v !== opt));
     else onChange([...value, opt]);
   };
   if (!options.length) return null;
+  const filtered = searchable && query.trim()
+    ? options.filter(o => o.toLowerCase().includes(query.trim().toLowerCase()))
+    : options;
+  const allFilteredSelected = filtered.length > 0 && filtered.every(o => value.includes(o));
+  const selectAllFiltered = () => {
+    if (allFilteredSelected) {
+      onChange(value.filter(v => !filtered.includes(v)));
+    } else {
+      const set = new Set(value);
+      filtered.forEach(o => set.add(o));
+      onChange(Array.from(set));
+    }
+  };
   return (
     <div className="space-y-1.5">
       <Label className="text-xs font-medium">{label} {value.length > 0 && <span className="text-muted-foreground">({value.length})</span>}</Label>
+      {searchable && (
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex-1">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Buscar..."
+              className="h-8 pl-7 text-xs"
+            />
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 px-2 text-xs"
+            onClick={selectAllFiltered}
+            disabled={filtered.length === 0}
+          >
+            <CheckSquare className="h-3.5 w-3.5 mr-1" />
+            {allFilteredSelected ? 'Desmarcar' : 'Marcar'} {query.trim() ? `(${filtered.length})` : 'todos'}
+          </Button>
+        </div>
+      )}
       <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 rounded-md border bg-muted/30">
-        {options.map(opt => (
+        {filtered.length === 0 ? (
+          <span className="text-xs text-muted-foreground">Nenhum resultado</span>
+        ) : filtered.map(opt => (
           <Badge
             key={opt}
             variant={value.includes(opt) ? 'default' : 'outline'}
@@ -361,7 +401,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
                   <ChipMultiSelect label="Status CRM" options={facets.status_crm} value={filtros.status_crm} onChange={v => setFiltros(f => ({ ...f, status_crm: v }))} />
                   <ChipMultiSelect label="Origem" options={facets.origens} value={filtros.origens} onChange={v => setFiltros(f => ({ ...f, origens: v }))} />
                   <ChipMultiSelect label="Canal" options={facets.canais} value={filtros.canais} onChange={v => setFiltros(f => ({ ...f, canais: v }))} />
-                  <ChipMultiSelect label="Veículo de interesse" options={facets.veiculos} value={filtros.veiculos} onChange={v => setFiltros(f => ({ ...f, veiculos: v }))} />
+                  <ChipMultiSelect label="Veículo de interesse" options={facets.veiculos} value={filtros.veiculos} onChange={v => setFiltros(f => ({ ...f, veiculos: v }))} searchable />
                   <ChipMultiSelect label="Loja" options={facets.lojas || []} value={filtros.lojas} onChange={v => setFiltros(f => ({ ...f, lojas: v }))} />
 
                   <div className="flex items-center justify-between border rounded-md p-2.5">
