@@ -577,7 +577,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
   return (
     <Dialog open={isOpen} onOpenChange={(o) => { setIsOpen(o); if (!o) { setStep('filtros'); } }}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="p-3 h-auto flex items-center gap-2">
+        <Button variant="outline" className="p-3 h-auto flex items-center gap-2" disabled={!hasAccess} title={!hasAccess ? 'Sem permissão' : undefined}>
           <Database size={18} />
           <span className="text-sm">Segmentar Base</span>
         </Button>
@@ -720,37 +720,65 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
             {resultados.length > 0 && (
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-sm">Pré-visualização ({resultados.length} leads)</h4>
+                  <h4 className="font-medium text-sm">
+                    Pré-visualização — {resultados.length} de ~{totalServidor} carregados
+                    {filtroLocalAtivo && <span className="text-muted-foreground"> · {filtrados.length} após filtros</span>}
+                  </h4>
                   <div className="flex items-center gap-2">
                     {!selectedProspeccao && (
                       <span className="text-xs text-amber-500">
                         Selecione um evento de destino acima para avançar
                       </span>
                     )}
-                    <Button onClick={handleAvancar} disabled={!selectedProspeccao}>
+                    <Button onClick={handleAvancar} disabled={!selectedProspeccao || !eventoPermitido}>
                       Avançar para edição
                     </Button>
                   </div>
                 </div>
+                {hasMore && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Button size="sm" variant="outline" onClick={carregarMais} disabled={loadingMore || autoLoadingAll}>
+                      {(loadingMore || autoLoadingAll) ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <ChevronDown className="h-3 w-3 mr-1" />}
+                      {autoLoadingAll ? `Carregando todos... (${resultados.length}/${totalServidor})` : `Carregar mais (${PAGE_SIZE})`}
+                    </Button>
+                    {autoLoadingAll && (
+                      <Button size="sm" variant="ghost" onClick={() => { cancelAutoRef.current = true; }}>
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
                   No próximo passo você poderá editar telefone/nome e remover linhas antes da importação.
+                  {isReadOnly && <span className="ml-1 inline-flex items-center gap-1 text-amber-600"><Lock className="h-3 w-3" /> Modo somente leitura — telefones mascarados.</span>}
                 </p>
                 <div className="mt-3 border rounded-md overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="h-8 text-xs">Nome</TableHead>
-                        <TableHead className="h-8 text-xs">Telefone</TableHead>
+                        <TableHead className="h-8 text-xs">
+                          <span className="inline-flex items-center gap-1">Nome
+                            <ColumnFilter label="Filtrar por Nome" values={nomesUnicos} current={nomeFiltro} onApply={setNomeFiltro} extras={{ naoParece: true }} />
+                          </span>
+                        </TableHead>
+                        <TableHead className="h-8 text-xs">
+                          <span className="inline-flex items-center gap-1">Telefone
+                            <ColumnFilter label="Filtrar por Telefone" values={telefonesUnicos} current={telFiltro ? { ...telFiltro } : null} onApply={(v) => setTelFiltro(v ? { termos: v.termos, vazios: v.vazios } : null)} />
+                          </span>
+                        </TableHead>
                         <TableHead className="h-8 text-xs">Loja</TableHead>
                         <TableHead className="h-8 text-xs">Origem</TableHead>
                         <TableHead className="h-8 text-xs">Status CRM</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {resultados.slice(0, 5).map(r => (
+                      {filtrados.slice(0, 10).map(r => (
                         <TableRow key={r.id}>
-                          <TableCell className="py-1.5 text-xs">{r.nome_cliente || '—'}</TableCell>
-                          <TableCell className="py-1.5 text-xs font-mono">{formatPhone(r.telefone) || r.telefone}</TableCell>
+                          <TableCell className="py-1.5 text-xs">
+                            {r.nome_cliente || '—'}
+                            {NAO_PARECE_NOME(r.nome_cliente) && <AlertTriangle className="inline ml-1 h-3 w-3 text-amber-500" />}
+                          </TableCell>
+                          <TableCell className="py-1.5 text-xs font-mono">{maskTelefone(r.telefone, isFull)}</TableCell>
                           <TableCell className="py-1.5 text-xs text-muted-foreground">{r.loja_nome || '—'}</TableCell>
                           <TableCell className="py-1.5 text-xs">{r.origem || '—'}</TableCell>
                           <TableCell className="py-1.5 text-xs">{r.status_crm || '—'}</TableCell>
@@ -759,9 +787,9 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
                     </TableBody>
                   </Table>
                 </div>
-                {resultados.length > 5 && (
+                {filtrados.length > 10 && (
                   <p className="text-xs text-muted-foreground mt-2">
-                    Mostrando 5 de {resultados.length} resultados.
+                    Mostrando 10 de {filtrados.length} resultados (após filtros).
                   </p>
                 )}
               </Card>
