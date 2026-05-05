@@ -313,7 +313,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
   const [autoLoadingAll, setAutoLoadingAll] = useState(false);
   const cancelAutoRef = useRef(false);
   // Filtros locais (Excel-like) sobre o conjunto carregado
-  const [nomeFiltro, setNomeFiltro] = useState<{ termos: Set<string>; vazios: boolean; naoParece: boolean } | null>(null);
+  const [nomeFiltro, setNomeFiltro] = useState<{ termos: Set<string>; vazios: boolean; naoParece?: boolean } | null>(null);
   const [telFiltro, setTelFiltro] = useState<{ termos: Set<string>; vazios: boolean } | null>(null);
   const [step, setStep] = useState<'filtros' | 'edicao'>('filtros');
   const [edits, setEdits] = useState<Record<string, { telefone: string; nome: string }>>({});
