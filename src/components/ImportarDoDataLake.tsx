@@ -274,7 +274,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
       const last = list[list.length - 1];
       const more = list.length === PAGE_SIZE;
       setHasMore(more);
-      setCursor(more && last ? { data: last.criado_em_origem!, id: last.id } : null);
+      setCursor(more && last && last.criado_em_origem ? { data: last.criado_em_origem, id: last.id } : null);
       const initial: Record<string, { telefone: string; nome: string }> = {};
       list.forEach(r => { initial[r.id] = { telefone: r.telefone || '', nome: r.nome_cliente || '' }; });
       setEdits(initial);
@@ -306,7 +306,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
       const last = list[list.length - 1];
       const more = list.length === PAGE_SIZE;
       setHasMore(more);
-      setCursor(more && last ? { data: last.criado_em_origem!, id: last.id } : null);
+      setCursor(more && last && last.criado_em_origem ? { data: last.criado_em_origem, id: last.id } : null);
     } catch (err: any) {
       toast({ title: 'Erro ao carregar mais', description: err.message, variant: 'destructive' });
     } finally {
@@ -335,13 +335,13 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
           return [...prev, ...list];
         });
         const last = list[list.length - 1];
-        if (list.length < PAGE_SIZE || !last) {
+        if (list.length < PAGE_SIZE || !last || !last.criado_em_origem) {
           curCursor = null;
           setHasMore(false);
           setCursor(null);
           break;
         }
-        curCursor = { data: last.criado_em_origem!, id: last.id };
+        curCursor = { data: last.criado_em_origem, id: last.id };
         setCursor(curCursor);
       }
       setAutoLoadingAll(false);
