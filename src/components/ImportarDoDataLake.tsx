@@ -175,12 +175,16 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
   const { activeCompany } = useCompany();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { getPermissionValor } = useUserAccessType();
+  const poolConfig = getPermissionValor('canImportPool');
+  const diasMaxPermitido: number | null = poolConfig?.dias_max ?? null;
 
   const [isOpen, setIsOpen] = useState(false);
   const [selectedProspeccao, setSelectedProspeccao] = useState<string>('');
   const [facets, setFacets] = useState<Facets | null>(null);
   const [loadingFacets, setLoadingFacets] = useState(false);
   const [filtros, setFiltros] = useState<Filtros>(emptyFiltros);
+  const [diasAtras, setDiasAtras] = useState<number>(30);
   const [resultados, setResultados] = useState<PoolCliente[]>([]);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'filtros' | 'edicao'>('filtros');
