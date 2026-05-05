@@ -5534,26 +5534,15 @@ export type Database = {
         }[]
       }
       get_pool_clientes_for_empresa: {
-        Args: { p_empresa_id: string; p_filtros?: Json; p_limit?: number }
-        Returns: {
-          canal: string
-          cnpj_loja: string
-          codigo_loja: string
-          codigo_proposta: string
-          criado_em_origem: string
-          email_cliente: string
-          empresa_id: string
-          id: string
-          lead_maia: string
-          lead_pri: string
-          loja_nome: string
-          motivo_nao_venda: string
-          nome_cliente: string
-          origem: string
-          status_crm: string
-          telefone: string
-          veiculo_interesse: string
-        }[]
+        Args: {
+          p_cursor_data?: string
+          p_cursor_id?: string
+          p_empresa_id: string
+          p_filtros?: Json
+          p_limit?: number
+          p_with_total?: boolean
+        }
+        Returns: Json
       }
       get_pool_facets_for_empresa: {
         Args: { p_empresa_id: string }
