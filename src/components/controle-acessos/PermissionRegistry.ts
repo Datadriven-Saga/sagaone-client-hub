@@ -23,6 +23,16 @@ export interface PermissionEntry {
   moduleId: string;
   action: PermissionAction;
   description?: string;
+  hasValor?: boolean;
+  valorSchema?: Record<string, {
+    type: "number";
+    label: string;
+    nullable?: boolean;
+    nullLabel?: string;
+    step?: number;
+    min?: number;
+    max?: number;
+  }>;
 }
 
 export type PermissionAction = 
