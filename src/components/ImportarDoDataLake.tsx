@@ -49,6 +49,7 @@ interface Facets {
   origens: string[];
   canais: string[];
   veiculos: string[];
+  lojas: string[];
 }
 
 interface Filtros {
@@ -58,6 +59,7 @@ interface Filtros {
   origens: string[];
   canais: string[];
   veiculos: string[];
+  lojas: string[];
   lead_maia?: boolean;
   lead_pri?: boolean;
 }
@@ -78,7 +80,7 @@ interface ImportarDoDataLakeProps {
 }
 
 const emptyFiltros: Filtros = {
-  ddds: [], motivos: [], status_crm: [], origens: [], canais: [], veiculos: [],
+  ddds: [], motivos: [], status_crm: [], origens: [], canais: [], veiculos: [], lojas: [],
 };
 
 function buildFiltrosPayload(f: Filtros): Record<string, unknown> {
@@ -89,6 +91,7 @@ function buildFiltrosPayload(f: Filtros): Record<string, unknown> {
   if (f.origens.length) out.origens = f.origens;
   if (f.canais.length) out.canais = f.canais;
   if (f.veiculos.length) out.veiculos = f.veiculos;
+  if (f.lojas.length) out.lojas = f.lojas;
   if (f.lead_maia !== undefined) out.lead_maia = f.lead_maia;
   if (f.lead_pri !== undefined) out.lead_pri = f.lead_pri;
   return out;
@@ -359,6 +362,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
                   <ChipMultiSelect label="Origem" options={facets.origens} value={filtros.origens} onChange={v => setFiltros(f => ({ ...f, origens: v }))} />
                   <ChipMultiSelect label="Canal" options={facets.canais} value={filtros.canais} onChange={v => setFiltros(f => ({ ...f, canais: v }))} />
                   <ChipMultiSelect label="Veículo de interesse" options={facets.veiculos} value={filtros.veiculos} onChange={v => setFiltros(f => ({ ...f, veiculos: v }))} />
+                  <ChipMultiSelect label="Loja" options={facets.lojas || []} value={filtros.lojas} onChange={v => setFiltros(f => ({ ...f, lojas: v }))} />
 
                   <div className="flex items-center justify-between border rounded-md p-2.5">
                     <Label className="text-xs">Apenas Lead MAIA</Label>
