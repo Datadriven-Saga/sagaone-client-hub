@@ -38,8 +38,10 @@ import {
 interface PermissionModuleViewProps {
   isMaster: boolean;
   overrides: Record<string, Record<string, boolean>>;
+  valores?: Record<string, Record<string, any>>;
   saving: string | null;
   onToggle: (permissao: string, tipo: string, ativo: boolean) => void;
+  onValorChange?: (permissao: string, tipo: string, valor: Record<string, any>) => void;
 }
 
 const ACTIONS: PermissionAction[] = ["visualizar", "criar", "editar", "excluir", "ativar_desativar", "administrar", "executar"];
@@ -47,8 +49,10 @@ const ACTIONS: PermissionAction[] = ["visualizar", "criar", "editar", "excluir",
 export function PermissionModuleView({
   isMaster,
   overrides,
+  valores = {},
   saving,
   onToggle,
+  onValorChange,
 }: PermissionModuleViewProps) {
   const [searchText, setSearchText] = useState("");
   const [filterAction, setFilterAction] = useState<string>("todas");
@@ -231,6 +235,8 @@ export function PermissionModuleView({
                         isOverridden={isOverridden}
                         countActiveRoles={countActiveRoles}
                         onToggle={onToggle}
+                        valores={valores}
+                        onValorChange={onValorChange}
                       />
                     ))}
                   </div>
@@ -251,6 +257,8 @@ function PermissionRow({
   isOverridden,
   countActiveRoles,
   onToggle,
+  valores,
+  onValorChange,
 }: {
   perm: PermissionEntry;
   saving: string | null;
@@ -258,6 +266,8 @@ function PermissionRow({
   isOverridden: (key: string, tipo: TipoAcesso) => boolean;
   countActiveRoles: (key: string) => number;
   onToggle: (permissao: string, tipo: string, ativo: boolean) => void;
+  valores?: Record<string, Record<string, any>>;
+  onValorChange?: (permissao: string, tipo: string, valor: Record<string, any>) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const activeCount = countActiveRoles(perm.key);
@@ -325,6 +335,47 @@ function PermissionRow({
               })}
             </TooltipProvider>
           </div>
+          {perm.hasValor && perm.valorSchema && onValorChange && (
+            <div className="mt-3 p-3 rounded-md border bg-muted/30 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Configurações por perfil</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                {TIPOS_ACESSO.map(tipo => {
+                  const tipoValor = valores?.[tipo]?.[perm.key] || {};
+                  return (
+                    <div key={`v-${tipo}`} className="flex items-center gap-2 p-2 rounded border bg-background">
+                      <span className="text-xs font-medium w-24 truncate">{tipo}</span>
+                      <div className="flex-1 flex flex-wrap gap-2">
+                        {Object.entries(perm.valorSchema!).map(([field, schema]) => {
+                          const v = tipoValor[field];
+                          const isNull = v === null || v === undefined;
+                          return (
+                            <div key={field} className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                value={isNull ? '' : v}
+                                placeholder={schema.nullable ? schema.nullLabel : ''}
+                                step={schema.step ?? 1}
+                                min={schema.min ?? 1}
+                                max={schema.max}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const next = { ...tipoValor };
+                                  next[field] = raw === '' ? null : Number(raw);
+                                  onValorChange(perm.key, tipo, next);
+                                }}
+                                className="h-7 w-24 text-xs"
+                              />
+                              <span className="text-[10px] text-muted-foreground">{schema.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
