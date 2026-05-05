@@ -401,6 +401,35 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
                 <p className="text-xs text-muted-foreground">
                   No próximo passo você poderá editar telefone/nome e remover linhas antes da importação.
                 </p>
+                <div className="mt-3 border rounded-md overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="h-8 text-xs">Nome</TableHead>
+                        <TableHead className="h-8 text-xs">Telefone</TableHead>
+                        <TableHead className="h-8 text-xs">Loja</TableHead>
+                        <TableHead className="h-8 text-xs">Origem</TableHead>
+                        <TableHead className="h-8 text-xs">Status CRM</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {resultados.slice(0, 5).map(r => (
+                        <TableRow key={r.id}>
+                          <TableCell className="py-1.5 text-xs">{r.nome_cliente || '—'}</TableCell>
+                          <TableCell className="py-1.5 text-xs font-mono">{formatPhone(r.telefone) || r.telefone}</TableCell>
+                          <TableCell className="py-1.5 text-xs text-muted-foreground">{r.loja_nome || '—'}</TableCell>
+                          <TableCell className="py-1.5 text-xs">{r.origem || '—'}</TableCell>
+                          <TableCell className="py-1.5 text-xs">{r.status_crm || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                {resultados.length > 5 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Mostrando 5 de {resultados.length} resultados.
+                  </p>
+                )}
               </Card>
             )}
           </div>
