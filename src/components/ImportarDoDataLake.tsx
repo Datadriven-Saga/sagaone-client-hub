@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import { Database, Loader2, Filter, Save, History, Trash2, X, Search, CheckSquare } from 'lucide-react';
+import { Database, Loader2, Filter, Save, History, Trash2, X, Search, CheckSquare, ChevronDown, AlertTriangle, Lock } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -175,9 +176,14 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
   const { activeCompany } = useCompany();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { getPermissionValor } = useUserAccessType();
-  const poolConfig = getPermissionValor('canImportPool');
+  const { getPermissionValor, permissions } = useUserAccessType();
+  const isFull = !!permissions['canImportPoolFull'];
+  const isReadOnly = !isFull && !!permissions['canImportPoolReadOnly'];
+  const hasAccess = isFull || isReadOnly;
+  const poolConfig = getPermissionValor(isFull ? 'canImportPoolFull' : 'canImportPoolReadOnly')
+    || getPermissionValor('canImportPool');
   const diasMaxPermitido: number | null = poolConfig?.dias_max ?? null;
+  const eventosPermitidosCfg: string = poolConfig?.eventos_permitidos ?? 'todos';
 
   const [isOpen, setIsOpen] = useState(false);
   const [selectedProspeccao, setSelectedProspeccao] = useState<string>('');
@@ -187,6 +193,15 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
   const [diasAtras, setDiasAtras] = useState<number>(30);
   const [resultados, setResultados] = useState<PoolCliente[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalServidor, setTotalServidor] = useState<number>(0);
+  const [cursor, setCursor] = useState<{ data: string; id: string } | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [autoLoadingAll, setAutoLoadingAll] = useState(false);
+  const cancelAutoRef = useRef(false);
+  // Filtros locais (Excel-like) sobre o conjunto carregado
+  const [nomeFiltro, setNomeFiltro] = useState<{ termos: Set<string>; vazios: boolean; naoParece: boolean } | null>(null);
+  const [telFiltro, setTelFiltro] = useState<{ termos: Set<string>; vazios: boolean } | null>(null);
   const [step, setStep] = useState<'filtros' | 'edicao'>('filtros');
   const [edits, setEdits] = useState<Record<string, { telefone: string; nome: string }>>({});
   const [excluidos, setExcluidos] = useState<Set<string>>(new Set());
@@ -226,32 +241,112 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
     return () => { cancelled = true; };
   }, [isOpen, activeCompany?.id, toast]);
 
+  const PAGE_SIZE = 200;
+
+  const fetchPage = useCallback(async (opts: { reset: boolean; cursor?: { data: string; id: string } | null }) => {
+    if (!activeCompany?.id) return null;
+    const payload = buildFiltrosPayload(filtros);
+    (payload as any).dias_atras = diasAtras;
+    const { data, error } = await supabase.rpc('get_pool_clientes_for_empresa', {
+      p_empresa_id: activeCompany.id,
+      p_filtros: payload as never,
+      p_limit: PAGE_SIZE,
+      p_cursor_data: opts.cursor?.data ?? null,
+      p_cursor_id: opts.cursor?.id ?? null,
+      p_with_total: opts.reset,
+    } as any);
+    if (error) throw error;
+    const resp = data as { items: PoolCliente[]; total: number | null };
+    return resp;
+  }, [activeCompany?.id, filtros, diasAtras]);
+
   const buscar = useCallback(async () => {
     if (!activeCompany?.id) return;
     setLoading(true);
+    cancelAutoRef.current = true; // cancela auto-load anterior
     try {
-      const payload = buildFiltrosPayload(filtros);
-      (payload as any).dias_atras = diasAtras;
-      const { data, error } = await supabase.rpc('get_pool_clientes_for_empresa', {
-        p_empresa_id: activeCompany.id,
-        p_filtros: payload as never,
-        p_limit: 5000,
-      });
-      if (error) throw error;
-      const list = (data ?? []) as PoolCliente[];
+      const resp = await fetchPage({ reset: true, cursor: null });
+      if (!resp) return;
+      const list = resp.items || [];
       setResultados(list);
-      // inicia edits e nada excluído
+      setTotalServidor(resp.total ?? list.length);
+      const last = list[list.length - 1];
+      const more = list.length === PAGE_SIZE;
+      setHasMore(more);
+      setCursor(more && last ? { data: last.criado_em_origem!, id: last.id } : null);
       const initial: Record<string, { telefone: string; nome: string }> = {};
       list.forEach(r => { initial[r.id] = { telefone: r.telefone || '', nome: r.nome_cliente || '' }; });
       setEdits(initial);
       setExcluidos(new Set());
-      toast({ title: 'Busca realizada', description: `${list.length} clientes encontrados` });
+      toast({ title: 'Busca realizada', description: `${list.length} de ~${resp.total ?? list.length} carregados` });
     } catch (err: any) {
       toast({ title: 'Erro na busca', description: err.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [activeCompany?.id, filtros, diasAtras, toast]);
+  }, [activeCompany?.id, fetchPage, toast]);
+
+  const carregarMais = useCallback(async () => {
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const resp = await fetchPage({ reset: false, cursor });
+      if (!resp) return;
+      const list = resp.items || [];
+      setResultados(prev => {
+        const next = [...prev, ...list];
+        setEdits(e => {
+          const merged = { ...e };
+          list.forEach(r => { if (!merged[r.id]) merged[r.id] = { telefone: r.telefone || '', nome: r.nome_cliente || '' }; });
+          return merged;
+        });
+        return next;
+      });
+      const last = list[list.length - 1];
+      const more = list.length === PAGE_SIZE;
+      setHasMore(more);
+      setCursor(more && last ? { data: last.criado_em_origem!, id: last.id } : null);
+    } catch (err: any) {
+      toast({ title: 'Erro ao carregar mais', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [cursor, loadingMore, fetchPage, toast]);
+
+  // Auto-load até o fim quando filtro local está ativo
+  const filtroLocalAtivo = !!nomeFiltro || !!telFiltro;
+  useEffect(() => {
+    if (!filtroLocalAtivo || !hasMore || autoLoadingAll || loading || loadingMore) return;
+    cancelAutoRef.current = false;
+    setAutoLoadingAll(true);
+    (async () => {
+      let curCursor = cursor;
+      while (curCursor && !cancelAutoRef.current) {
+        const resp = await fetchPage({ reset: false, cursor: curCursor }).catch(() => null);
+        if (!resp) break;
+        const list = resp.items || [];
+        setResultados(prev => {
+          setEdits(e => {
+            const merged = { ...e };
+            list.forEach(r => { if (!merged[r.id]) merged[r.id] = { telefone: r.telefone || '', nome: r.nome_cliente || '' }; });
+            return merged;
+          });
+          return [...prev, ...list];
+        });
+        const last = list[list.length - 1];
+        if (list.length < PAGE_SIZE || !last) {
+          curCursor = null;
+          setHasMore(false);
+          setCursor(null);
+          break;
+        }
+        curCursor = { data: last.criado_em_origem!, id: last.id };
+        setCursor(curCursor);
+      }
+      setAutoLoadingAll(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroLocalAtivo]);
 
   const handleAvancar = async () => {
     if (!selectedProspeccao) {
