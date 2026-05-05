@@ -89,6 +89,118 @@ const emptyFiltros: Filtros = {
   ddds: [], motivos: [], status_crm: [], origens: [], canais: [], veiculos: [], lojas: [],
 };
 
+const NAO_PARECE_NOME = (nome: string | null | undefined): boolean => {
+  if (!nome) return true;
+  const trimmed = nome.trim();
+  if (trimmed.length === 0) return true;
+  const digits = trimmed.replace(/\D/g, '').length;
+  if (digits / trimmed.length > 0.4) return true;
+  if (/^[\W\d_]+$/.test(trimmed)) return true;
+  if (trimmed.replace(/[^a-zA-ZÀ-ú]/g, '').length < 2) return true;
+  return false;
+};
+
+const maskTelefone = (tel: string | null | undefined, full: boolean): string => {
+  if (!tel) return '';
+  if (full) return formatPhone(tel) || tel;
+  const digits = tel.replace(/\D/g, '');
+  return digits.slice(0, 4) + '••••';
+};
+
+/** Filtro estilo Excel para uma coluna (multi-select com busca + opções especiais) */
+function ColumnFilter({
+  label, values, current, onApply, extras,
+}: {
+  label: string;
+  values: string[];
+  current: { termos: Set<string>; vazios: boolean; naoParece?: boolean } | null;
+  onApply: (v: { termos: Set<string>; vazios: boolean; naoParece?: boolean } | null) => void;
+  extras?: { naoParece?: boolean };
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [tempSel, setTempSel] = useState<Set<string>>(new Set());
+  const [tempVazios, setTempVazios] = useState(false);
+  const [tempNaoParece, setTempNaoParece] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setTempSel(new Set(current?.termos ?? values));
+      setTempVazios(current?.vazios ?? true);
+      setTempNaoParece(current?.naoParece ?? true);
+      setQuery('');
+    }
+  }, [open, current, values]);
+
+  const filtered = query.trim()
+    ? values.filter(v => v.toLowerCase().includes(query.toLowerCase()))
+    : values;
+  const allChecked = filtered.length > 0 && filtered.every(v => tempSel.has(v));
+  const active = !!current;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className={`h-6 px-1 ${active ? 'text-primary' : ''}`}>
+          <Filter className={`h-3 w-3 ${active ? 'fill-primary' : ''}`} />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-2 space-y-2">
+        <div className="text-xs font-medium">{label}</div>
+        <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar..." className="h-7 text-xs" />
+        <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
+          <label className="flex items-center gap-2 text-xs">
+            <Checkbox checked={allChecked} onCheckedChange={(c) => {
+              setTempSel(prev => {
+                const next = new Set(prev);
+                if (c) filtered.forEach(v => next.add(v)); else filtered.forEach(v => next.delete(v));
+                return next;
+              });
+            }} />
+            (Selecionar {query.trim() ? 'filtrados' : 'todos'})
+          </label>
+          <label className="flex items-center gap-2 text-xs">
+            <Checkbox checked={tempVazios} onCheckedChange={(c) => setTempVazios(!!c)} />
+            (Vazios)
+          </label>
+          {extras?.naoParece && (
+            <label className="flex items-center gap-2 text-xs">
+              <Checkbox checked={tempNaoParece} onCheckedChange={(c) => setTempNaoParece(!!c)} />
+              <AlertTriangle className="h-3 w-3 text-amber-500" /> (Não parece nome)
+            </label>
+          )}
+          <div className="h-px bg-border my-1" />
+          {filtered.length === 0 ? (
+            <div className="text-xs text-muted-foreground py-2">Sem resultados</div>
+          ) : filtered.map(v => (
+            <label key={v} className="flex items-center gap-2 text-xs">
+              <Checkbox checked={tempSel.has(v)} onCheckedChange={(c) => {
+                setTempSel(prev => {
+                  const next = new Set(prev);
+                  if (c) next.add(v); else next.delete(v);
+                  return next;
+                });
+              }} />
+              <span className="truncate" title={v}>{v}</span>
+            </label>
+          ))}
+        </div>
+        <div className="flex justify-between gap-2 pt-1 border-t">
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { onApply(null); setOpen(false); }}>
+            Limpar
+          </Button>
+          <Button size="sm" className="h-7 text-xs" onClick={() => {
+            onApply({ termos: tempSel, vazios: tempVazios, naoParece: extras?.naoParece ? tempNaoParece : undefined });
+            setOpen(false);
+          }}>
+            Aplicar
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function buildFiltrosPayload(f: Filtros): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (f.ddds.length) out.ddds = f.ddds;
