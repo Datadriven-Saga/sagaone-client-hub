@@ -539,7 +539,40 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
     }
   };
 
-  const visiveis = useMemo(() => resultados.filter(r => !excluidos.has(r.id)), [resultados, excluidos]);
+  // Aplicar filtros locais Excel-like ao conjunto carregado
+  const filtrados = useMemo(() => {
+    return resultados.filter(r => {
+      if (nomeFiltro) {
+        const nome = (r.nome_cliente || '').trim();
+        const isVazio = nome === '';
+        const isNao = NAO_PARECE_NOME(r.nome_cliente);
+        const matchTermo = nomeFiltro.termos.has(nome);
+        const allow = (isVazio && nomeFiltro.vazios) || (nomeFiltro.naoParece && isNao) || matchTermo;
+        if (!allow) return false;
+      }
+      if (telFiltro) {
+        const tel = (r.telefone || '').trim();
+        const isVazio = tel === '';
+        const matchTermo = telFiltro.termos.has(tel);
+        const allow = (isVazio && telFiltro.vazios) || matchTermo;
+        if (!allow) return false;
+      }
+      return true;
+    });
+  }, [resultados, nomeFiltro, telFiltro]);
+
+  const nomesUnicos = useMemo(() => Array.from(new Set(resultados.map(r => (r.nome_cliente || '').trim()).filter(Boolean))).sort(), [resultados]);
+  const telefonesUnicos = useMemo(() => Array.from(new Set(resultados.map(r => (r.telefone || '').trim()).filter(Boolean))).sort(), [resultados]);
+
+  const visiveis = useMemo(() => filtrados.filter(r => !excluidos.has(r.id)), [filtrados, excluidos]);
+
+  // Validação se evento está permitido (somente ReadOnly com whitelist)
+  const eventoPermitido = useMemo(() => {
+    if (!isReadOnly) return true;
+    if (eventosPermitidosCfg === 'todos') return true;
+    // 'futuros' ou outras restrições — por padrão permite, hook futuro
+    return true;
+  }, [isReadOnly, eventosPermitidosCfg]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => { setIsOpen(o); if (!o) { setStep('filtros'); } }}>
