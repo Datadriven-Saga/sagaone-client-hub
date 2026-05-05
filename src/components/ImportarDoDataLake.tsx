@@ -405,6 +405,44 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
               ) : !facets || facets.total === 0 ? (
                 <p className="text-sm text-muted-foreground py-4">Nenhum cliente disponível no DataLake para {facets?.marca}/{facets?.uf}.</p>
               ) : (
+                <>
+                {(() => {
+                  const dataMinDias = facets.data_min
+                    ? Math.max(1, Math.floor((Date.now() - new Date(facets.data_min).getTime()) / 86400000))
+                    : 365;
+                  const sliderMax = diasMaxPermitido != null
+                    ? Math.min(diasMaxPermitido, dataMinDias)
+                    : dataMinDias;
+                  const effectiveDias = Math.min(diasAtras, sliderMax);
+                  const dataInicio = new Date(Date.now() - effectiveDias * 86400000);
+                  return (
+                    <div className="mb-4 p-3 rounded-md border bg-muted/30 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-medium">
+                          Período: últimos <span className="text-foreground font-bold">{effectiveDias}</span> dias
+                        </Label>
+                        <span className="text-xs text-muted-foreground">
+                          A partir de {dataInicio.toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                      <Slider
+                        min={1}
+                        max={sliderMax}
+                        step={1}
+                        value={[effectiveDias]}
+                        onValueChange={(v) => setDiasAtras(v[0])}
+                      />
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>1 dia</span>
+                        <span>
+                          {diasMaxPermitido != null
+                            ? `Seu acesso permite até ${diasMaxPermitido} dias`
+                            : `Disponível até ${sliderMax} dias`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <ChipMultiSelect label="DDD" options={facets.ddds} value={filtros.ddds} onChange={v => setFiltros(f => ({ ...f, ddds: v }))} />
                   <ChipMultiSelect label="Motivo não-venda" options={facets.motivos} value={filtros.motivos} onChange={v => setFiltros(f => ({ ...f, motivos: v }))} />
@@ -423,6 +461,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
                     <Switch checked={!!filtros.lead_pri} onCheckedChange={(c) => setFiltros(f => ({ ...f, lead_pri: c ? true : undefined }))} />
                   </div>
                 </div>
+                </>
               )}
 
               <div className="flex items-center justify-between mt-4 pt-3 border-t">
