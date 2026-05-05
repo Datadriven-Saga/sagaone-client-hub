@@ -1659,6 +1659,7 @@ export type Database = {
           id: string
           permissao: string
           updated_at: string
+          valor: Json | null
         }
         Insert: {
           ativo?: boolean
@@ -1667,6 +1668,7 @@ export type Database = {
           id?: string
           permissao: string
           updated_at?: string
+          valor?: Json | null
         }
         Update: {
           ativo?: boolean
@@ -1675,6 +1677,7 @@ export type Database = {
           id?: string
           permissao?: string
           updated_at?: string
+          valor?: Json | null
         }
         Relationships: []
       }
