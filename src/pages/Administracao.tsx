@@ -10,7 +10,6 @@ import {
   FileText,
   AlertTriangle,
   Bot,
-  GraduationCap,
   ShieldCheck,
   KeyRound,
   DollarSign,
