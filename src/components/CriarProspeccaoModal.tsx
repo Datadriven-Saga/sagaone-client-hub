@@ -62,7 +62,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   
   // Tipo de Evento
   const [tipoEvento, setTipoEvento] = useState<TipoEvento>('Prospecção Mensal');
-  const [canalQuarentena, setCanalQuarentena] = useState<'whatsapp' | 'ligacao'>('whatsapp');
+  const [canalQuarentena, setCanalQuarentena] = useState<'whatsapp' | 'ligacao'>('ligacao');
   const [isTeste, setIsTeste] = useState(false);
   
   // Dados Gerais
@@ -270,7 +270,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       setDataInicio(editingProspeccao.data_inicio || "");
       setDataFim(editingProspeccao.data_fim || "");
       setCanal(editingProspeccao.canal || 'Whatsapp');
-      setCanalQuarentena(editingProspeccao.canal_quarentena || 'whatsapp');
+      setCanalQuarentena(editingProspeccao.canal_quarentena || 'ligacao');
       setIsTeste(editingProspeccao.is_teste ?? false);
       setTemplateProspeccaoId(editingProspeccao.template_prospeccao_id || "");
       setTemplateAgendadoId(editingProspeccao.template_agendado_id || "");
@@ -431,7 +431,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setDataInicio("");
     setDataFim("");
     setCanal('Whatsapp');
-    setCanalQuarentena('whatsapp');
+    setCanalQuarentena('ligacao');
     setIsTeste(false);
     setTemplateProspeccaoId("");
     setTemplateAgendadoId("");
