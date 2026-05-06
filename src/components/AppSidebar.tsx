@@ -4,7 +4,6 @@ import {
   Users, 
   Target, 
   FileText, 
-  BookOpen, 
   Settings, 
   Shield,
   Bot,
@@ -17,8 +16,6 @@ import {
   UserCheck,
   ShoppingCart,
   LayoutDashboard,
-  GraduationCap,
-  History,
   Phone,
   MessageSquare,
   Medal,
@@ -64,12 +61,6 @@ const performanceSubItems = [
   { title: "Relatórios", url: "/resultados/relatorios", icon: FileText },
 ];
 
-const treinamentosSubItems = [
-  { title: "Dashboard", url: "/treinamentos", icon: LayoutDashboard, exact: true },
-  { title: "Simulações", url: "/treinamentos/simulacoes", icon: GraduationCap },
-  { title: "Histórico", url: "/treinamentos/historico", icon: History },
-];
-
 const agentesIASubItems = [
   { title: "Agentes", url: "/agentes-ia", icon: Bot },
 ];
@@ -105,7 +96,6 @@ export function AppSidebar() {
   // Submenus recolhidos por padrão, abrem apenas se a rota atual está dentro
   const [isProspeccaoOpen, setIsProspeccaoOpen] = useState(currentPath.startsWith('/prospeccao'));
   const [isPerformanceOpen, setIsPerformanceOpen] = useState(currentPath.startsWith('/resultados'));
-  const [isTreinamentosOpen, setIsTreinamentosOpen] = useState(currentPath.startsWith('/treinamentos'));
   const [isAgentesIAOpen, setIsAgentesIAOpen] = useState(currentPath.startsWith('/agentes-ia'));
 
   // Sidebar visibility driven by permission flags
@@ -115,15 +105,11 @@ export function AppSidebar() {
   const canSeeConfiguracoes = p("canAccessConfiguracoes");
   const canSeeRelatorios = p("canAccessRelatorios");
   const canSeeResultados = p("canAccessResultados");
-  const canSeeAcademy = p("canAccessAcademy");
   
   const bottomMenuItems = [
     ...(canSeeConfiguracoes ? bottomMenuItemsPublic : []),
     ...(canSeeAdministracao ? bottomMenuItemsAdmin : []),
   ];
-
-  // Use treinamentos items directly (no admin filtering needed now)
-  const filteredTreinamentosItems = treinamentosSubItems;
 
   const renderCollapsibleMenu = (
     label: string,
@@ -238,9 +224,6 @@ export function AppSidebar() {
 
               {/* Performance com submenu */}
               {canSeeResultados && renderCollapsibleMenu("Performance", TrendingUp, isPerformanceOpen, setIsPerformanceOpen, performanceSubItems, '/resultados')}
-
-              {/* Treinamentos com submenu */}
-              {canSeeAcademy && renderCollapsibleMenu("Treinamentos", BookOpen, isTreinamentosOpen, setIsTreinamentosOpen, filteredTreinamentosItems, '/treinamentos')}
 
               {/* Agentes de IA com submenu */}
               {canSeeAgentesIA && renderCollapsibleMenu("Agentes de IA", Bot, isAgentesIAOpen, setIsAgentesIAOpen, agentesIASubItems, '/agentes-ia')}

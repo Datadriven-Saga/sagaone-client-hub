@@ -83,7 +83,6 @@ export const PERMISSION_MODULES: PermissionModule[] = [
   { id: "empresas", label: "Empresas / Lojas", icon: "Building", description: "Gestão de empresas e lojas", order: 14 },
   { id: "financeiro", label: "Financeiro / Relatórios", icon: "BarChart3", description: "Relatórios financeiros e dashboards", order: 15 },
   { id: "resultados", label: "Resultados", icon: "TrendingUp", description: "Métricas e resultados de operação", order: 16 },
-  { id: "academy", label: "Academy / Treinamentos", icon: "GraduationCap", description: "Treinamentos e simulações", order: 17 },
   { id: "configuracoes", label: "Configurações", icon: "Settings", description: "Configurações do sistema", order: 18 },
   { id: "personas", label: "Personas / Gatilhos", icon: "Sparkles", description: "Personas de IA e gatilhos", order: 19 },
   { id: "integrações", label: "Integrações / APIs", icon: "Plug", description: "Integrações e APIs externas", order: 20 },
@@ -238,15 +237,6 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   { key: "canAccessResultados", label: "Acessar Resultados", moduleId: "resultados", action: "visualizar" },
   { key: "canViewMetricas", label: "Visualizar métricas", moduleId: "resultados", action: "visualizar" },
   { key: "canSyncResultados", label: "Sincronizar resultados", moduleId: "resultados", action: "executar" },
-
-  // ── Academy / Treinamentos ──
-  { key: "canAccessAcademy", label: "Acessar Academy", moduleId: "academy", action: "visualizar" },
-  { key: "canManageAcademy", label: "Gerenciar treinamentos (admin)", moduleId: "academy", action: "administrar" },
-  { key: "canCreateTreinamentos", label: "Criar treinamentos", moduleId: "academy", action: "criar" },
-  { key: "canEditTreinamentos", label: "Editar treinamentos", moduleId: "academy", action: "editar" },
-  { key: "canDeleteTreinamentos", label: "Excluir treinamentos", moduleId: "academy", action: "excluir" },
-  { key: "canAssignTreinamentos", label: "Atribuir treinamentos", moduleId: "academy", action: "executar" },
-  { key: "canViewProgressoEquipe", label: "Visualizar progresso da equipe", moduleId: "academy", action: "visualizar" },
 
   // ── Configurações ──
   { key: "canAccessConfiguracoes", label: "Acessar configurações", moduleId: "configuracoes", action: "visualizar" },
@@ -437,15 +427,6 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canAccessResultados = !isRecepcionista;
   defaults.canViewMetricas = !isRecepcionista;
   defaults.canSyncResultados = isAdminOrTI;
-
-  // ── Academy ──
-  defaults.canAccessAcademy = isAdminOrTI;
-  defaults.canManageAcademy = isAdminOrTI || isGerente || isDiretor;
-  defaults.canCreateTreinamentos = isAdminOrTI;
-  defaults.canEditTreinamentos = isAdminOrTI;
-  defaults.canDeleteTreinamentos = isAdminOrTI;
-  defaults.canAssignTreinamentos = isAdminOrTI || isGerente || isDiretor;
-  defaults.canViewProgressoEquipe = isAdminOrTI || isGerente || isDiretor;
 
   // ── Configurações ──
   defaults.canAccessConfiguracoes = isAdminOrTI;

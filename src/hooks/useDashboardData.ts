@@ -21,8 +21,6 @@ export function useDashboardData() {
     automacoes: 0,
     relatoriosHoje: 0,
     relatoriosPendentes: 0,
-    treinamentosAtivos: 0,
-    progressoMedio: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -44,8 +42,6 @@ export function useDashboardData() {
           agentesResult,
           followupsResult,
           relatoriosResult,
-          treinamentosResult,
-          participacoesResult
         ] = await Promise.all([
           // Clientes
           supabase
@@ -104,18 +100,6 @@ export function useDashboardData() {
             .from('relatorios')
             .select('id, data_geracao')
             .eq('empresa_id', activeCompany.id),
-          
-          // Treinamentos
-          supabase
-            .from('treinamentos')
-            .select('id, ativo')
-            .eq('empresa_id', activeCompany.id),
-          
-          // Participações em treinamentos
-          supabase
-            .from('participacoes_treinamento')
-            .select('id, progresso, participante_id')
-            .in('treinamento_id', (await supabase.from('treinamentos').select('id').eq('empresa_id', activeCompany.id)).data?.map(t => t.id) || [])
         ]);
 
         const clientes = clientesResult.data || [];
@@ -147,8 +131,6 @@ export function useDashboardData() {
         }
         const followups = followupsResult.data || [];
         const relatorios = relatoriosResult.data || [];
-        const treinamentos = treinamentosResult.data || [];
-        const participacoes = participacoesResult.data || [];
 
         // Calcular relatórios de hoje
         const hoje = new Date();
@@ -156,10 +138,6 @@ export function useDashboardData() {
         const relatoriosHoje = relatorios.filter(r => 
           r.data_geracao && new Date(r.data_geracao) >= inicioDoDay
         ).length;
-
-        // Calcular progresso médio dos treinamentos
-        const progressoTotal = participacoes.reduce((sum, p) => sum + (p.progresso || 0), 0);
-        const progressoMedio = participacoes.length > 0 ? Math.round(progressoTotal / participacoes.length) : 0;
 
         setData({
           totalClientes: clientes.length,
@@ -178,8 +156,6 @@ export function useDashboardData() {
           automacoes: followups.filter(f => f.ativo).length,
           relatoriosHoje: relatoriosHoje,
           relatoriosPendentes: relatorios.length - relatoriosHoje,
-          treinamentosAtivos: treinamentos.filter(t => t.ativo).length,
-          progressoMedio: progressoMedio
         });
 
       } catch (error) {

@@ -27,7 +27,6 @@ const Resultados = lazy(() => import("./pages/Resultados"));
 const Templates = lazy(() => import("./pages/prospeccao/Templates"));
 const EventoBase = lazy(() => import("./pages/prospeccao/EventoBase"));
 const Relatorios = lazy(() => import("./pages/Relatorios"));
-const Treinamentos = lazy(() => import("./pages/Treinamentos"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const MinhaConta = lazy(() => import("./pages/MinhaConta"));
 const Ajuda = lazy(() => import("./pages/Ajuda"));
@@ -102,12 +101,6 @@ const AppRoutes = () => {
         <Route path="/resultados/premiacoes" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
         <Route path="/resultados/relatorios" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
         <Route path="/relatorios" element={<PermissionProtectedRoute permissionKey="canAccessRelatorios"><Relatorios /></PermissionProtectedRoute>} />
-        <Route path="/treinamentos" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
-        <Route path="/treinamentos/simulacoes" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
-        <Route path="/treinamentos/simulacoes-voz" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
-        <Route path="/treinamentos/simulacoes-texto" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
-        <Route path="/treinamentos/historico" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
-        <Route path="/treinamentos/historico/:id" element={<PermissionProtectedRoute permissionKey="canAccessAcademy"><Treinamentos /></PermissionProtectedRoute>} />
         <Route path="/configuracoes" element={<PermissionProtectedRoute permissionKey="canAccessConfiguracoes"><Configuracoes /></PermissionProtectedRoute>} />
         <Route path="/minha-conta" element={<PermissionProtectedRoute permissionKey="canAccessMinhaConta"><MinhaConta /></PermissionProtectedRoute>} />
         <Route path="/ajuda" element={<PermissionProtectedRoute permissionKey="canAccessAjuda"><Ajuda /></PermissionProtectedRoute>} />
@@ -129,7 +122,6 @@ const AppRoutes = () => {
         <Route path="/administracao/campos" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><CamposObrigatorios /></PermissionProtectedRoute>} />
         <Route path="/administracao/apis" element={<PermissionProtectedRoute permissionKey="canAccessAPIs"><APIs /></PermissionProtectedRoute>} />
         <Route path="/administracao/test-apis" element={<PermissionProtectedRoute permissionKey="canTestAPIs"><TestAPIs /></PermissionProtectedRoute>} />
-        <Route path="/administracao/treinamentos" element={<PermissionProtectedRoute permissionKey="canManageAcademy"><Treinamentos adminMode /></PermissionProtectedRoute>} />
         <Route path="/administracao/controle-acessos" element={<PermissionProtectedRoute permissionKey="canAccessControleAcessos"><ControleAcessos /></PermissionProtectedRoute>} />
         <Route path="/administracao/mfa-master" element={<ProtectedRoute><MFAMasterDashboard /></ProtectedRoute>} />
         <Route path="/administracao/logs-disparos" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><LogsDisparos /></PermissionProtectedRoute>} />

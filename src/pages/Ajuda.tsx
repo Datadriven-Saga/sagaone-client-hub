@@ -72,11 +72,6 @@ const Ajuda = () => {
       icon: Target,
       description: "Defina e acompanhe objetivos da equipe"
     },
-    {
-      name: "Treinamentos",
-      icon: Video,
-      description: "Acesse materiais de capacitação e desenvolvimento"
-    }
   ];
 
   return (

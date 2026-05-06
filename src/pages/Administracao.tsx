@@ -10,7 +10,6 @@ import {
   FileText,
   AlertTriangle,
   Bot,
-  GraduationCap,
   ShieldCheck,
   KeyRound,
   DollarSign,
@@ -133,13 +132,6 @@ const Administracao = () => {
       icon: Settings,
       route: "/administracao/test-apis",
       permissionKey: "canTestAPIs",
-    },
-    {
-      title: "Painel Treinamento",
-      description: "Gerenciar treinamentos e simulações",
-      icon: GraduationCap,
-      route: "/administracao/treinamentos",
-      permissionKey: "canManageAcademy",
     },
     {
       title: "Controle de Acessos",
