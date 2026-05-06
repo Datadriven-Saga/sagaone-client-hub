@@ -4,7 +4,6 @@ import {
   Users, 
   Target, 
   FileText, 
-  BookOpen, 
   Settings, 
   Shield,
   Bot,

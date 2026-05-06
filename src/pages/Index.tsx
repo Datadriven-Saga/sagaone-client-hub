@@ -6,8 +6,7 @@ import {
   Bell, 
   Target,
   Bot,
-  FileText,
-  GraduationCap
+  FileText
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -151,28 +150,6 @@ const Index = () => {
             </div>
           </DashboardCard>}
 
-          {/* Treinamentos */}
-          {p("canAccessAcademy") && <DashboardCard
-            title="Treinamentos"
-            icon={GraduationCap}
-            actionText="Acessar Treinamentos"
-            onAction={() => navigate('/treinamentos')}
-          >
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Cursos Ativos:</span>
-                <span className="font-semibold">
-                  {loading ? "..." : data.treinamentosAtivos}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Progresso Médio:</span>
-                <span className="font-semibold text-green-600">
-                  {loading ? "..." : `${data.progressoMedio}%`}
-                </span>
-              </div>
-            </div>
-          </DashboardCard>}
         </div>
         </div>
       </ScrollIndicator>

@@ -135,13 +135,6 @@ const Administracao = () => {
       permissionKey: "canTestAPIs",
     },
     {
-      title: "Painel Treinamento",
-      description: "Gerenciar treinamentos e simulações",
-      icon: GraduationCap,
-      route: "/administracao/treinamentos",
-      permissionKey: "canManageAcademy",
-    },
-    {
       title: "Controle de Acessos",
       description: "Gerenciar permissões por departamento",
       icon: ShieldCheck,
