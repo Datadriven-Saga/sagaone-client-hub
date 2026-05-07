@@ -67,12 +67,14 @@ export function LojasTab() {
   useEffect(() => { fetchLojas(); }, [fetchLojas]);
 
   const openAdd = () => {
+    console.log("[LojasTab] openAdd clicked");
     setEditing(null);
     setFormData({ marca: "", uf: "", dealer_id: "", movisis_id: "", ativo: true });
     setShowModal(true);
   };
 
   const openEdit = (l: LojaPaty) => {
+    console.log("[LojasTab] openEdit clicked", l);
     setEditing(l);
     setFormData({ ...l });
     setShowModal(true);
