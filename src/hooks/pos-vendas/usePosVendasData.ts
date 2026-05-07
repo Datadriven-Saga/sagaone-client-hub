@@ -29,8 +29,29 @@ export function usePatyAgentes() {
         .in("id", ids)
         .ilike("nome", PATY_NAME_FILTER)
         .order("nome");
+      const base = (data ?? []) as PatyAgente[];
+
+      // Enrich with marca/uf from external webhook (same source as /administracao/agentes)
+      let enriched = base;
+      try {
+        const { data: wh } = await supabase.functions.invoke("external-webhook-proxy", {
+          body: { endpoint: "busca-dados-agentes" },
+        });
+        const arr = Array.isArray(wh) ? wh : [];
+        const byPhone = new Map<string, { marca?: string; uf?: string }>();
+        for (const w of arr) {
+          if (w?.num_maia) byPhone.set(String(w.num_maia), { marca: w.marca, uf: w.uf });
+        }
+        enriched = base.map(a => {
+          const m = a.telefone ? byPhone.get(String(a.telefone)) : undefined;
+          return m ? { ...a, marca: m.marca ?? null, uf: m.uf ?? null } : a;
+        });
+      } catch (e) {
+        console.warn("[usePatyAgentes] failed to enrich marca/uf:", e);
+      }
+
       if (!cancelled) {
-        setAgentes((data ?? []) as PatyAgente[]);
+        setAgentes(enriched);
         setLoading(false);
       }
     })();
