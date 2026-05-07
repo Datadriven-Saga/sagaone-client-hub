@@ -1251,7 +1251,7 @@ export default function TemplatesPaty() {
                 .from("whatsapp_templates")
                 .select("id, template_id_pri")
                 .eq("id_meta", metaId)
-                .eq("empresa_id", activeCompany.id)
+                .eq("pri_telefone", priTelefone)
                 .maybeSingle();
 
               // REGRA CRÍTICA: template sem template_id_pri NUNCA pode ser APPROVED
@@ -1265,7 +1265,7 @@ export default function TemplatesPaty() {
                     category_meta: metaCategory || null,
                   })
                   .eq("id", localMatch.id)
-                  .eq("empresa_id", activeCompany.id);
+                  .eq("pri_telefone", priTelefone);
 
                 if (!updateByIdErr) updatedCount++;
                 continue;
@@ -1275,7 +1275,7 @@ export default function TemplatesPaty() {
                 const { data: localTemplates } = await supabase
                   .from("whatsapp_templates")
                   .select("id, nome, template_id_pri")
-                  .eq("empresa_id", activeCompany.id)
+                  .eq("pri_telefone", priTelefone)
                   .is("id_meta", null);
 
                 if (localTemplates) {
@@ -1296,7 +1296,7 @@ export default function TemplatesPaty() {
                         category_meta: metaCategory || null,
                       })
                       .eq("id", matchingTemplate.id)
-                      .eq("empresa_id", activeCompany.id);
+                      .eq("pri_telefone", priTelefone);
 
                     if (!updateByNameErr) updatedCount++;
                   }
@@ -1322,7 +1322,7 @@ export default function TemplatesPaty() {
                   .from("whatsapp_templates")
                   .select("id")
                   .eq("id_meta", approvedMetaId)
-                  .eq("empresa_id", activeCompany.id)
+                  .eq("pri_telefone", priTelefone)
                   .maybeSingle();
 
                 if (!approvedLocal) continue;
@@ -1377,7 +1377,7 @@ export default function TemplatesPaty() {
                 category_meta: templatesArray.category || null,
               })
               .eq("id_meta", templatesArray.id_meta)
-              .eq("empresa_id", activeCompany.id);
+              .eq("pri_telefone", priTelefone);
             if (showToasts) toast.success("Status atualizado com sucesso");
           }
 
