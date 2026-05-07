@@ -20,7 +20,8 @@ import {
   MessageSquare,
   Medal,
   User,
-  TrendingUp
+  TrendingUp,
+  PackageCheck
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -105,6 +106,7 @@ export function AppSidebar() {
   const canSeeConfiguracoes = p("canAccessConfiguracoes");
   const canSeeRelatorios = p("canAccessRelatorios");
   const canSeeResultados = p("canAccessResultados");
+  const canSeePosVendas = p("canAccessPosVendas");
   
   const bottomMenuItems = [
     ...(canSeeConfiguracoes ? bottomMenuItemsPublic : []),
@@ -227,6 +229,28 @@ export function AppSidebar() {
 
               {/* Agentes de IA com submenu */}
               {canSeeAgentesIA && renderCollapsibleMenu("Agentes de IA", Bot, isAgentesIAOpen, setIsAgentesIAOpen, agentesIASubItems, '/agentes-ia')}
+
+              {/* Pós-Vendas */}
+              {canSeePosVendas && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/pos-vendas"
+                      onClick={closeMobileSidebar}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
+                          isActive
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
+                        }`
+                      }
+                    >
+                      <PackageCheck className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && <span className="font-medium">Pós-Vendas</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
               {/* Carteira de Clientes e Relatórios */}
               {canSeeClientes && (
