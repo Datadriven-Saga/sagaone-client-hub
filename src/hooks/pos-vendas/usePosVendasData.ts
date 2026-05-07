@@ -30,26 +30,29 @@ export function usePatyAgentes() {
         .ilike("nome", PATY_NAME_FILTER)
         .order("nome");
       const agentesBase = (data ?? []) as PatyAgente[];
-      const agenteIds = agentesBase.map(a => a.id);
-      let lojasByAgente: Record<string, { marcas: Set<string>; ufs: Set<string> }> = {};
-      if (agenteIds.length > 0) {
-        const { data: lojasData } = await supabase
-          .from("pos_vendas_lojas")
-          .select("agente_id, marca, uf")
-          .in("agente_id", agenteIds)
-          .eq("empresa_id", activeCompany.id)
+      const nomes = Array.from(new Set(agentesBase.map(a => a.nome).filter(Boolean)));
+      const byNome: Record<string, { marcas: Set<string>; ufs: Set<string> }> = {};
+      if (nomes.length > 0) {
+        const { data: ctrl } = await supabase
+          .from("controle_agentes")
+          .select("nome_agente, marca, uf, ativo")
+          .in("nome_agente", nomes)
           .eq("ativo", true);
-        for (const l of (lojasData ?? []) as any[]) {
-          if (!lojasByAgente[l.agente_id]) lojasByAgente[l.agente_id] = { marcas: new Set(), ufs: new Set() };
-          if (l.marca) lojasByAgente[l.agente_id].marcas.add(l.marca);
-          if (l.uf) lojasByAgente[l.agente_id].ufs.add(l.uf);
+        for (const r of (ctrl ?? []) as any[]) {
+          const key = (r.nome_agente || "").toLowerCase();
+          if (!byNome[key]) byNome[key] = { marcas: new Set(), ufs: new Set() };
+          if (r.marca) byNome[key].marcas.add(r.marca);
+          if (r.uf) byNome[key].ufs.add(r.uf);
         }
       }
-      const enriched = agentesBase.map(a => ({
-        ...a,
-        marcas: Array.from(lojasByAgente[a.id]?.marcas ?? []).sort(),
-        ufs: Array.from(lojasByAgente[a.id]?.ufs ?? []).sort(),
-      }));
+      const enriched = agentesBase.map(a => {
+        const k = (a.nome || "").toLowerCase();
+        return {
+          ...a,
+          marcas: Array.from(byNome[k]?.marcas ?? []).sort(),
+          ufs: Array.from(byNome[k]?.ufs ?? []).sort(),
+        };
+      });
       if (!cancelled) {
         setAgentes(enriched);
         setLoading(false);
