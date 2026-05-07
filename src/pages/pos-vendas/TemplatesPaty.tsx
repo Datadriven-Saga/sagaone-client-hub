@@ -1517,6 +1517,8 @@ export default function TemplatesPaty() {
             {agentesIAWhatsapp.map((agente) => (
               <SelectItem key={agente.id} value={agente.id}>
                 {agente.nome}
+                {agente.marca || agente.uf ? ` · ${[agente.marca, agente.uf].filter(Boolean).join(" / ")}` : ""}
+                {agente.telefone ? ` · ${agente.telefone}` : ""}
               </SelectItem>
             ))}
           </SelectContent>
@@ -2475,6 +2477,8 @@ export default function TemplatesPaty() {
                   {agentesIAWhatsapp.map((agente) => (
                     <SelectItem key={agente.id} value={agente.id}>
                       {agente.nome}
+                      {agente.marca || agente.uf ? ` · ${[agente.marca, agente.uf].filter(Boolean).join(" / ")}` : ""}
+                      {agente.telefone ? ` · ${agente.telefone}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
