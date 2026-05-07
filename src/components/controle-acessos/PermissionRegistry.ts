@@ -272,6 +272,12 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   { key: "canAccessMinhaConta", label: "Acessar Minha Conta", moduleId: "navegacao", action: "visualizar" },
   { key: "canAccessAjuda", label: "Acessar Ajuda", moduleId: "navegacao", action: "visualizar" },
   { key: "canAccessRelatorios", label: "Acessar Relatórios", moduleId: "navegacao", action: "visualizar" },
+
+  // ── Pós-Vendas (Paty) ──
+  { key: "canAccessPosVendas", label: "Acessar Pós-Vendas", moduleId: "pos_vendas", action: "visualizar" },
+  { key: "canManagePosVendasTemplates", label: "Gerenciar Templates Pós-Vendas", moduleId: "pos_vendas", action: "administrar" },
+  { key: "canManagePosVendasLojas", label: "Gerenciar Lojas Pós-Vendas", moduleId: "pos_vendas", action: "administrar" },
+  { key: "canManagePosVendasCadencia", label: "Gerenciar Cadências Pós-Vendas", moduleId: "pos_vendas", action: "administrar" },
 ];
 
 export const TIPOS_ACESSO = [
