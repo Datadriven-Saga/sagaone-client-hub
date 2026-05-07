@@ -469,6 +469,12 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canAccessAjuda = true;
   defaults.canAccessRelatorios = !isRecepcionista;
 
+  // ── Pós-Vendas (Paty) ──
+  defaults.canAccessPosVendas = isAdmin;
+  defaults.canManagePosVendasTemplates = isAdmin;
+  defaults.canManagePosVendasLojas = isAdmin;
+  defaults.canManagePosVendasCadencia = isAdmin;
+
   return defaults;
 }
 
