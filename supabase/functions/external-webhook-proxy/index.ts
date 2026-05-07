@@ -28,6 +28,8 @@ const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }>
   'busca-paty-lojas-ids': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-lojas-ids', method: 'GET' },
   'atualiza-paty-lojas-ids': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-paty-lojas-ids', method: 'POST' },
   'insere-paty-lojas-ids': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/insere-paty-lojas-ids', method: 'POST' },
+  'upload-media-meta': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upload-media-meta', method: 'POST' },
+  'criar-template-pri-from-meta': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/criar-template-pri-from-meta', method: 'POST' },
   'verifica_eventos_id': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica_eventos_id', method: 'POST' },
 };
 
