@@ -3,6 +3,8 @@ export interface PatyAgente {
   nome: string;
   telefone: string | null;
   ativo: boolean;
+  marca?: string | null;
+  uf?: string | null;
 }
 
 export interface PatyTemplate {
