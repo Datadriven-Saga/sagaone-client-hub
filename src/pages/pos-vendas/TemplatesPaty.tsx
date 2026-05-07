@@ -1568,6 +1568,28 @@ export default function TemplatesPaty() {
     }
   };
 
+  // Duplicar um template que existe só na Meta: abre o modal de Novo Template
+  // já preenchido com corpo/botões/rodapé/categoria/formato vindos da Meta.
+  // A mídia NÃO é copiada (URL da Meta normalmente já expirou) — usuário precisa
+  // dar novo nome e fazer upload manual da imagem/vídeo antes de salvar.
+  const handleDuplicateMetaTemplate = (meta: MetaTemplate) => {
+    const transformed = transformMetaToPriComponents(meta.components || []);
+    const fakeTemplate = {
+      formato: transformed.formato,
+      categoria: mapMetaCategory(meta.category),
+      departamento_id: "",
+      conteudo: transformed.conteudo,
+      card_data: {
+        ...transformed.cardData,
+        // Limpar URLs de mídia expiradas — usuário fará upload manual
+        imagemUrl: "",
+        videoUrl: "",
+        corpoTexto: transformed.conteudo,
+      },
+    };
+    handleOpenModal(fakeTemplate);
+  };
+
   const insertVariableToCorpoTexto = (variable: string) => {
     setFormData(prev => ({
       ...prev,
