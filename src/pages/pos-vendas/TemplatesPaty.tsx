@@ -2760,6 +2760,44 @@ export default function TemplatesPaty() {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {metaOnlyTemplates.map((mt) => (
+                    <TableRow key={`meta-${mt.id}`} className="bg-muted/30">
+                      <TableCell className="font-medium">{mt.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {(mt.category || "").charAt(0) + (mt.category || "").slice(1).toLowerCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">Meta</TableCell>
+                      <TableCell className="font-mono text-xs">-</TableCell>
+                      <TableCell className="font-mono text-xs">{mt.id}</TableCell>
+                      <TableCell>
+                        <Badge className="bg-gray-400 text-white hover:bg-gray-500">
+                          ⚠️ NÃO SINCRONIZADO
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleSincronizarTemplate(mt)}
+                          disabled={syncingMetaId === mt.id}
+                        >
+                          {syncingMetaId === mt.id ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Sincronizando...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="h-3 w-3 mr-1" />
+                              Sincronizar
+                            </>
+                          )}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             )}
