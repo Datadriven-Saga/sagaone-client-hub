@@ -28,7 +28,9 @@ export function AgenteSelector({ agentes, value, onChange, loading }: Props) {
           <SelectContent>
             {agentes.map(a => (
               <SelectItem key={a.id} value={a.id}>
-                {a.nome}{a.telefone ? ` · ${a.telefone}` : ""}
+                {a.nome}
+                {a.marca || a.uf ? ` · ${[a.marca, a.uf].filter(Boolean).join(" / ")}` : ""}
+                {a.telefone ? ` · ${a.telefone}` : ""}
               </SelectItem>
             ))}
           </SelectContent>
