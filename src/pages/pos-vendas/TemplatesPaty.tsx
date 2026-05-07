@@ -1424,6 +1424,150 @@ export default function TemplatesPaty() {
     }));
   };
 
+  // ============================================================
+  // Sincronização com Meta — busca templates do WABA via webhook
+  // verifica-templates e cruza com o que existe localmente.
+  // Templates encontrados na Meta mas ausentes no SagaOne ficam
+  // disponíveis para "Sincronizar" individualmente.
+  // ============================================================
+  const handleSincronizarComMeta = async () => {
+    if (!priTelefone) {
+      toast.error("Selecione um agente Paty com telefone configurado.");
+      return;
+    }
+    setIsFetchingMeta(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
+        body: { endpoint: "verifica-templates", pri_telefone: priTelefone },
+      });
+      if (error) throw error;
+      // Resposta pode vir como array direto, { data: [...] } ou { templates: [...] }
+      const arr: MetaTemplate[] = Array.isArray(data)
+        ? data
+        : Array.isArray((data as any)?.data)
+          ? (data as any).data
+          : Array.isArray((data as any)?.templates)
+            ? (data as any).templates
+            : [];
+      const localByMetaId = new Set(templates.filter(t => t.id_meta).map(t => String(t.id_meta)));
+      const localByName = new Set(templates.map(t => String(t.nome).toLowerCase()));
+      const missing = arr.filter(
+        mt => !localByMetaId.has(String(mt.id)) && !localByName.has(String(mt.name).toLowerCase())
+      );
+      setMetaOnlyTemplates(missing);
+      toast.success(`${arr.length} templates na Meta · ${missing.length} pendentes de sincronização`);
+    } catch (err: any) {
+      console.error("[handleSincronizarComMeta] erro:", err);
+      toast.error("Erro ao buscar templates na Meta");
+    } finally {
+      setIsFetchingMeta(false);
+    }
+  };
+
+  const handleSincronizarTemplate = async (meta: MetaTemplate) => {
+    if (!activeCompany?.id || !priTelefone || !selectedAgenteId) {
+      toast.error("Agente Paty não selecionado.");
+      return;
+    }
+    setSyncingMetaId(meta.id);
+    try {
+      const transformed = transformMetaToPriComponents(meta.components || []);
+
+      // 1) Upload de mídia (se HEADER IMAGE/VIDEO)
+      if (transformed.mediaInfo) {
+        const dl = await downloadMediaAsBase64(transformed.mediaInfo.url);
+        if (!dl) {
+          toast.error(
+            "A mídia deste template expirou na Meta. Recrie o template ou faça upload manual."
+          );
+          return;
+        }
+        const { data: upRes, error: upErr } = await supabase.functions.invoke(
+          "external-webhook-proxy",
+          {
+            body: {
+              endpoint: "upload-media-meta",
+              idpri: priTelefone,
+              base64: dl.base64,
+              mime_type: dl.mime_type,
+            },
+          }
+        );
+        if (upErr) throw upErr;
+        const mediaId = (upRes as any)?.media_id || (upRes as any)?.id;
+        if (!mediaId) {
+          toast.error("Webhook upload-media-meta não retornou media_id.");
+          return;
+        }
+        // Preencher media_id no header
+        for (const c of transformed.priComponents.components) {
+          if (c.type === "header" && Array.isArray(c.parameters)) {
+            const p = c.parameters[0];
+            if (p?.image) p.image.id = mediaId;
+            if (p?.video) p.video.id = mediaId;
+          }
+        }
+      }
+
+      // 2) Criar template na PRI
+      const { data: priRes, error: priErr } = await supabase.functions.invoke(
+        "external-webhook-proxy",
+        {
+          body: {
+            endpoint: "criar-template-pri-from-meta",
+            idpri: priTelefone,
+            agente_id: selectedAgenteId,
+            nome: meta.name,
+            id_meta: meta.id,
+            categoria: (meta.category || "MARKETING").toUpperCase(),
+            language: meta.language || "pt_BR",
+            conteudo: transformed.conteudo,
+            tem_vars: transformed.temVars,
+            components: transformed.priComponents,
+          },
+        }
+      );
+      if (priErr) throw priErr;
+      const templateIdPri =
+        (priRes as any)?.template_id ||
+        (priRes as any)?.template_id_pri ||
+        (priRes as any)?.id;
+      if (!templateIdPri) {
+        toast.error("Webhook criar-template-pri-from-meta não retornou template_id.");
+        return;
+      }
+
+      // 3) INSERT no whatsapp_templates do SagaOne
+      const { error: insErr } = await supabase.from("whatsapp_templates").insert({
+        empresa_id: activeCompany.id,
+        agente_id: selectedAgenteId,
+        pri_telefone: priTelefone,
+        nome: meta.name,
+        categoria: mapMetaCategory(meta.category),
+        category_meta: meta.category || null,
+        formato: transformed.formato,
+        conteudo: transformed.conteudo,
+        card_data: transformed.cardData,
+        status: "aprovado",
+        status_meta: meta.status || "APPROVED",
+        id_meta: meta.id,
+        template_id_pri: String(templateIdPri),
+        ativo: true,
+        variable_mapping: {},
+      });
+      if (insErr) throw insErr;
+
+      toast.success(`Template "${meta.name}" sincronizado!`);
+      setMetaOnlyTemplates(prev => prev.filter(m => m.id !== meta.id));
+      refetchTemplates();
+    } catch (err: any) {
+      console.error("[handleSincronizarTemplate] erro:", err);
+      toast.error("Erro ao sincronizar template: " + (err?.message || "desconhecido"));
+    } finally {
+      setSyncingMetaId(null);
+    }
+  };
+
   const insertVariableToCorpoTexto = (variable: string) => {
     setFormData(prev => ({
       ...prev,
