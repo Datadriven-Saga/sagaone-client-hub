@@ -29,8 +29,29 @@ export function usePatyAgentes() {
         .in("id", ids)
         .ilike("nome", PATY_NAME_FILTER)
         .order("nome");
+      const agentesBase = (data ?? []) as PatyAgente[];
+      const agenteIds = agentesBase.map(a => a.id);
+      let lojasByAgente: Record<string, { marcas: Set<string>; ufs: Set<string> }> = {};
+      if (agenteIds.length > 0) {
+        const { data: lojasData } = await supabase
+          .from("pos_vendas_lojas")
+          .select("agente_id, marca, uf")
+          .in("agente_id", agenteIds)
+          .eq("empresa_id", activeCompany.id)
+          .eq("ativo", true);
+        for (const l of (lojasData ?? []) as any[]) {
+          if (!lojasByAgente[l.agente_id]) lojasByAgente[l.agente_id] = { marcas: new Set(), ufs: new Set() };
+          if (l.marca) lojasByAgente[l.agente_id].marcas.add(l.marca);
+          if (l.uf) lojasByAgente[l.agente_id].ufs.add(l.uf);
+        }
+      }
+      const enriched = agentesBase.map(a => ({
+        ...a,
+        marcas: Array.from(lojasByAgente[a.id]?.marcas ?? []).sort(),
+        ufs: Array.from(lojasByAgente[a.id]?.ufs ?? []).sort(),
+      }));
       if (!cancelled) {
-        setAgentes((data ?? []) as PatyAgente[]);
+        setAgentes(enriched);
         setLoading(false);
       }
     })();
