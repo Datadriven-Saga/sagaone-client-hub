@@ -2434,7 +2434,8 @@ export default function TemplatesPaty() {
   };
 
   return (
-    <div className="space-y-4">
+    <>
+      <div className="space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Templates da Paty</h1>
@@ -2693,6 +2694,6 @@ export default function TemplatesPaty() {
         conteudo={previewTemplate?.conteudo || ""}
         cardData={previewTemplate?.card_data}
       />
-    </div>
+    </>
   );
 }
