@@ -3395,6 +3395,221 @@ export type Database = {
           },
         ]
       }
+      pos_vendas_cadencia_config: {
+        Row: {
+          agente_id: string
+          ativo: boolean
+          created_at: string
+          empresa_id: string
+          id: string
+          intervalo_tentativas_horas: number
+          max_tentativas: number
+          template_inicial_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agente_id: string
+          ativo?: boolean
+          created_at?: string
+          empresa_id: string
+          id?: string
+          intervalo_tentativas_horas?: number
+          max_tentativas?: number
+          template_inicial_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agente_id?: string
+          ativo?: boolean
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          intervalo_tentativas_horas?: number
+          max_tentativas?: number
+          template_inicial_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_vendas_cadencia_config_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "agentes_ia"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_vendas_cadencia_config_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_vendas_cadencia_config_template_inicial_id_fkey"
+            columns: ["template_inicial_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_vendas_followup: {
+        Row: {
+          ativo: boolean
+          cadencia_id: string
+          created_at: string
+          id: string
+          intervalo_horas: number
+          ordem: number
+          template_id: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          cadencia_id: string
+          created_at?: string
+          id?: string
+          intervalo_horas?: number
+          ordem: number
+          template_id?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          cadencia_id?: string
+          created_at?: string
+          id?: string
+          intervalo_horas?: number
+          ordem?: number
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_vendas_followup_cadencia_id_fkey"
+            columns: ["cadencia_id"]
+            isOneToOne: false
+            referencedRelation: "pos_vendas_cadencia_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_vendas_followup_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_vendas_gatilho_config: {
+        Row: {
+          agente_id: string
+          ativo: boolean
+          created_at: string
+          empresa_id: string
+          gatilho_slug: string
+          id: string
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agente_id: string
+          ativo?: boolean
+          created_at?: string
+          empresa_id: string
+          gatilho_slug: string
+          id?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agente_id?: string
+          ativo?: boolean
+          created_at?: string
+          empresa_id?: string
+          gatilho_slug?: string
+          id?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_vendas_gatilho_config_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "agentes_ia"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_vendas_gatilho_config_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_vendas_gatilho_config_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_vendas_lojas: {
+        Row: {
+          agente_id: string
+          ativo: boolean
+          created_at: string
+          dealer_id: string
+          empresa_id: string
+          id: string
+          loja_nome: string | null
+          marca: string
+          movisis_id: string | null
+          uf: string
+          updated_at: string
+        }
+        Insert: {
+          agente_id: string
+          ativo?: boolean
+          created_at?: string
+          dealer_id: string
+          empresa_id: string
+          id?: string
+          loja_nome?: string | null
+          marca: string
+          movisis_id?: string | null
+          uf: string
+          updated_at?: string
+        }
+        Update: {
+          agente_id?: string
+          ativo?: boolean
+          created_at?: string
+          dealer_id?: string
+          empresa_id?: string
+          id?: string
+          loja_nome?: string | null
+          marca?: string
+          movisis_id?: string | null
+          uf?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_vendas_lojas_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "agentes_ia"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_vendas_lojas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       produtos: {
         Row: {
           ativo: boolean | null

@@ -87,6 +87,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
   { id: "personas", label: "Personas / Gatilhos", icon: "Sparkles", description: "Personas de IA e gatilhos", order: 19 },
   { id: "integrações", label: "Integrações / APIs", icon: "Plug", description: "Integrações e APIs externas", order: 20 },
   { id: "navegacao", label: "Navegação / Menus", icon: "Menu", description: "Acesso a menus e módulos", order: 21 },
+  { id: "pos_vendas", label: "Pós-Vendas (Paty)", icon: "PackageCheck", description: "Configuração da agente Paty: gatilhos, cadências, lojas e templates", order: 17 },
 ];
 
 export const PERMISSION_REGISTRY: PermissionEntry[] = [
@@ -271,6 +272,12 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   { key: "canAccessMinhaConta", label: "Acessar Minha Conta", moduleId: "navegacao", action: "visualizar" },
   { key: "canAccessAjuda", label: "Acessar Ajuda", moduleId: "navegacao", action: "visualizar" },
   { key: "canAccessRelatorios", label: "Acessar Relatórios", moduleId: "navegacao", action: "visualizar" },
+
+  // ── Pós-Vendas (Paty) ──
+  { key: "canAccessPosVendas", label: "Acessar Pós-Vendas", moduleId: "pos_vendas", action: "visualizar" },
+  { key: "canManagePosVendasTemplates", label: "Gerenciar Templates Pós-Vendas", moduleId: "pos_vendas", action: "administrar" },
+  { key: "canManagePosVendasLojas", label: "Gerenciar Lojas Pós-Vendas", moduleId: "pos_vendas", action: "administrar" },
+  { key: "canManagePosVendasCadencia", label: "Gerenciar Cadências Pós-Vendas", moduleId: "pos_vendas", action: "administrar" },
 ];
 
 export const TIPOS_ACESSO = [
@@ -461,6 +468,12 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canAccessMinhaConta = true;
   defaults.canAccessAjuda = true;
   defaults.canAccessRelatorios = !isRecepcionista;
+
+  // ── Pós-Vendas (Paty) ──
+  defaults.canAccessPosVendas = isAdmin;
+  defaults.canManagePosVendasTemplates = isAdmin;
+  defaults.canManagePosVendasLojas = isAdmin;
+  defaults.canManagePosVendasCadencia = isAdmin;
 
   return defaults;
 }
