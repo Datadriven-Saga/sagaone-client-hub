@@ -28,9 +28,7 @@ export function AgenteSelector({ agentes, value, onChange, loading }: Props) {
           <SelectContent>
             {agentes.map(a => (
               <SelectItem key={a.id} value={a.id}>
-                {a.nome}
-                {a.marcas && a.marcas.length > 0 ? ` · ${a.marcas.join("/")}` : ""}
-                {a.ufs && a.ufs.length > 0 ? ` · ${a.ufs.join("/")}` : ""}
+                {a.nome}{a.telefone ? ` · ${a.telefone}` : ""}
               </SelectItem>
             ))}
           </SelectContent>
