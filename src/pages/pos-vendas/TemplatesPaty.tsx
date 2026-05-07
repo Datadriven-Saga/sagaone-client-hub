@@ -2799,24 +2799,35 @@ export default function TemplatesPaty() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleSincronizarTemplate(mt)}
-                          disabled={syncingMetaId === mt.id}
-                        >
-                          {syncingMetaId === mt.id ? (
-                            <>
-                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              Sincronizando...
-                            </>
-                          ) : (
-                            <>
-                              <RefreshCw className="h-3 w-3 mr-1" />
-                              Sincronizar
-                            </>
-                          )}
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="cursor-pointer"
+                            onClick={() => handleDuplicateMetaTemplate(mt)}
+                            title="Duplicar como novo template"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSincronizarTemplate(mt)}
+                            disabled={syncingMetaId === mt.id}
+                          >
+                            {syncingMetaId === mt.id ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Sincronizando...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="h-3 w-3 mr-1" />
+                                Sincronizar
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
