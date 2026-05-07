@@ -300,7 +300,24 @@ export default function TemplatesPaty() {
             index === self.findIndex((t) => t.id === a.id)
         );
 
-      return agentes;
+      // Enriquecer com marca/uf do webhook externo (mesma fonte de /administracao/agentes)
+      try {
+        const { data: wh } = await supabase.functions.invoke("external-webhook-proxy", {
+          body: { endpoint: "busca-dados-agentes" },
+        });
+        const arr = Array.isArray(wh) ? wh : [];
+        const byPhone = new Map<string, { marca?: string; uf?: string }>();
+        for (const w of arr) {
+          if (w?.num_maia) byPhone.set(String(w.num_maia), { marca: w.marca, uf: w.uf });
+        }
+        return agentes.map((a: any) => {
+          const m = a.telefone ? byPhone.get(String(a.telefone)) : undefined;
+          return m ? { ...a, marca: m.marca ?? null, uf: m.uf ?? null } : a;
+        });
+      } catch (e) {
+        console.warn("[TemplatesPaty] failed to enrich marca/uf:", e);
+        return agentes;
+      }
     },
     enabled: !!activeCompany?.id,
   });
