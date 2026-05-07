@@ -61,6 +61,12 @@ import { toast } from "sonner";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { normalizePhone } from "@/lib/utils";
 import { useVideoCompression, MAX_VIDEO_SIZE_BYTES } from "@/hooks/useVideoCompression";
+import {
+  transformMetaToPriComponents,
+  downloadMediaAsBase64,
+  mapMetaCategory,
+  type MetaTemplate,
+} from "@/lib/metaTemplateSync";
 
 
 type TemplateFormat = "texto" | "botao" | "imagem" | "video" | "card" | "lista";
@@ -148,6 +154,11 @@ export default function TemplatesPaty() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [expandedBodyOpen, setExpandedBodyOpen] = useState(false);
   const [selectedAgenteId, setSelectedAgenteId] = useState<string | null>(null);
+
+  // === Sincronização com Meta (templates não importados) ===
+  const [metaOnlyTemplates, setMetaOnlyTemplates] = useState<MetaTemplate[]>([]);
+  const [isFetchingMeta, setIsFetchingMeta] = useState(false);
+  const [syncingMetaId, setSyncingMetaId] = useState<string | null>(null);
   
   // Video compression hook
   const { compressVideo, isCompressing, compressionProgress, cancelCompression } = useVideoCompression();
@@ -1413,6 +1424,150 @@ export default function TemplatesPaty() {
     }));
   };
 
+  // ============================================================
+  // Sincronização com Meta — busca templates do WABA via webhook
+  // verifica-templates e cruza com o que existe localmente.
+  // Templates encontrados na Meta mas ausentes no SagaOne ficam
+  // disponíveis para "Sincronizar" individualmente.
+  // ============================================================
+  const handleSincronizarComMeta = async () => {
+    if (!priTelefone) {
+      toast.error("Selecione um agente Paty com telefone configurado.");
+      return;
+    }
+    setIsFetchingMeta(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
+        body: { endpoint: "verifica-templates", pri_telefone: priTelefone },
+      });
+      if (error) throw error;
+      // Resposta pode vir como array direto, { data: [...] } ou { templates: [...] }
+      const arr: MetaTemplate[] = Array.isArray(data)
+        ? data
+        : Array.isArray((data as any)?.data)
+          ? (data as any).data
+          : Array.isArray((data as any)?.templates)
+            ? (data as any).templates
+            : [];
+      const localByMetaId = new Set(templates.filter(t => t.id_meta).map(t => String(t.id_meta)));
+      const localByName = new Set(templates.map(t => String(t.nome).toLowerCase()));
+      const missing = arr.filter(
+        mt => !localByMetaId.has(String(mt.id)) && !localByName.has(String(mt.name).toLowerCase())
+      );
+      setMetaOnlyTemplates(missing);
+      toast.success(`${arr.length} templates na Meta · ${missing.length} pendentes de sincronização`);
+    } catch (err: any) {
+      console.error("[handleSincronizarComMeta] erro:", err);
+      toast.error("Erro ao buscar templates na Meta");
+    } finally {
+      setIsFetchingMeta(false);
+    }
+  };
+
+  const handleSincronizarTemplate = async (meta: MetaTemplate) => {
+    if (!activeCompany?.id || !priTelefone || !selectedAgenteId) {
+      toast.error("Agente Paty não selecionado.");
+      return;
+    }
+    setSyncingMetaId(meta.id);
+    try {
+      const transformed = transformMetaToPriComponents(meta.components || []);
+
+      // 1) Upload de mídia (se HEADER IMAGE/VIDEO)
+      if (transformed.mediaInfo) {
+        const dl = await downloadMediaAsBase64(transformed.mediaInfo.url);
+        if (!dl) {
+          toast.error(
+            "A mídia deste template expirou na Meta. Recrie o template ou faça upload manual."
+          );
+          return;
+        }
+        const { data: upRes, error: upErr } = await supabase.functions.invoke(
+          "external-webhook-proxy",
+          {
+            body: {
+              endpoint: "upload-media-meta",
+              idpri: priTelefone,
+              base64: dl.base64,
+              mime_type: dl.mime_type,
+            },
+          }
+        );
+        if (upErr) throw upErr;
+        const mediaId = (upRes as any)?.media_id || (upRes as any)?.id;
+        if (!mediaId) {
+          toast.error("Webhook upload-media-meta não retornou media_id.");
+          return;
+        }
+        // Preencher media_id no header
+        for (const c of transformed.priComponents.components) {
+          if (c.type === "header" && Array.isArray(c.parameters)) {
+            const p = c.parameters[0];
+            if (p?.image) p.image.id = mediaId;
+            if (p?.video) p.video.id = mediaId;
+          }
+        }
+      }
+
+      // 2) Criar template na PRI
+      const { data: priRes, error: priErr } = await supabase.functions.invoke(
+        "external-webhook-proxy",
+        {
+          body: {
+            endpoint: "criar-template-pri-from-meta",
+            idpri: priTelefone,
+            agente_id: selectedAgenteId,
+            nome: meta.name,
+            id_meta: meta.id,
+            categoria: (meta.category || "MARKETING").toUpperCase(),
+            language: meta.language || "pt_BR",
+            conteudo: transformed.conteudo,
+            tem_vars: transformed.temVars,
+            components: transformed.priComponents,
+          },
+        }
+      );
+      if (priErr) throw priErr;
+      const templateIdPri =
+        (priRes as any)?.template_id ||
+        (priRes as any)?.template_id_pri ||
+        (priRes as any)?.id;
+      if (!templateIdPri) {
+        toast.error("Webhook criar-template-pri-from-meta não retornou template_id.");
+        return;
+      }
+
+      // 3) INSERT no whatsapp_templates do SagaOne
+      const { error: insErr } = await supabase.from("whatsapp_templates").insert({
+        empresa_id: activeCompany.id,
+        agente_id: selectedAgenteId,
+        pri_telefone: priTelefone,
+        nome: meta.name,
+        categoria: mapMetaCategory(meta.category),
+        category_meta: meta.category || null,
+        formato: transformed.formato,
+        conteudo: transformed.conteudo,
+        card_data: transformed.cardData,
+        status: "aprovado",
+        status_meta: meta.status || "APPROVED",
+        id_meta: meta.id,
+        template_id_pri: String(templateIdPri),
+        ativo: true,
+        variable_mapping: {},
+      });
+      if (insErr) throw insErr;
+
+      toast.success(`Template "${meta.name}" sincronizado!`);
+      setMetaOnlyTemplates(prev => prev.filter(m => m.id !== meta.id));
+      refetchTemplates();
+    } catch (err: any) {
+      console.error("[handleSincronizarTemplate] erro:", err);
+      toast.error("Erro ao sincronizar template: " + (err?.message || "desconhecido"));
+    } finally {
+      setSyncingMetaId(null);
+    }
+  };
+
   const insertVariableToCorpoTexto = (variable: string) => {
     setFormData(prev => ({
       ...prev,
@@ -2491,6 +2646,15 @@ export default function TemplatesPaty() {
                 <RefreshCw className={`h-4 w-4 mr-2 ${isUpdatingStatus ? 'animate-spin' : ''}`} />
                 Atualizar Status
               </Button>
+              <Button
+                variant="outline"
+                onClick={handleSincronizarComMeta}
+                disabled={isFetchingMeta || !priTelefone}
+                title="Busca templates criados na Meta que ainda não estão na PRI"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isFetchingMeta ? 'animate-spin' : ''}`} />
+                Sincronizar com Meta
+              </Button>
             </div>
             {/* Botão novo template em destaque */}
             <Button onClick={() => handleOpenModal()} disabled={agentesIAWhatsapp.length === 0} className="w-full sm:w-auto">
@@ -2502,7 +2666,7 @@ export default function TemplatesPaty() {
 
         <Card className="flex-1 overflow-hidden">
           <CardContent className="p-0 h-[calc(100vh-220px)] overflow-auto">
-            {templates.length === 0 ? (
+            {templates.length === 0 && metaOnlyTemplates.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Type className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium text-foreground mb-2">
@@ -2593,6 +2757,44 @@ export default function TemplatesPaty() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {metaOnlyTemplates.map((mt) => (
+                    <TableRow key={`meta-${mt.id}`} className="bg-muted/30">
+                      <TableCell className="font-medium">{mt.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {(mt.category || "").charAt(0) + (mt.category || "").slice(1).toLowerCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">Meta</TableCell>
+                      <TableCell className="font-mono text-xs">-</TableCell>
+                      <TableCell className="font-mono text-xs">{mt.id}</TableCell>
+                      <TableCell>
+                        <Badge className="bg-gray-400 text-white hover:bg-gray-500">
+                          ⚠️ NÃO SINCRONIZADO
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleSincronizarTemplate(mt)}
+                          disabled={syncingMetaId === mt.id}
+                        >
+                          {syncingMetaId === mt.id ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Sincronizando...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="h-3 w-3 mr-1" />
+                              Sincronizar
+                            </>
+                          )}
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
