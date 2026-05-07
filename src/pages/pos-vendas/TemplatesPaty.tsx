@@ -61,6 +61,12 @@ import { toast } from "sonner";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { normalizePhone } from "@/lib/utils";
 import { useVideoCompression, MAX_VIDEO_SIZE_BYTES } from "@/hooks/useVideoCompression";
+import {
+  transformMetaToPriComponents,
+  downloadMediaAsBase64,
+  mapMetaCategory,
+  type MetaTemplate,
+} from "@/lib/metaTemplateSync";
 
 
 type TemplateFormat = "texto" | "botao" | "imagem" | "video" | "card" | "lista";
@@ -148,6 +154,11 @@ export default function TemplatesPaty() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [expandedBodyOpen, setExpandedBodyOpen] = useState(false);
   const [selectedAgenteId, setSelectedAgenteId] = useState<string | null>(null);
+
+  // === Sincronização com Meta (templates não importados) ===
+  const [metaOnlyTemplates, setMetaOnlyTemplates] = useState<MetaTemplate[]>([]);
+  const [isFetchingMeta, setIsFetchingMeta] = useState(false);
+  const [syncingMetaId, setSyncingMetaId] = useState<string | null>(null);
   
   // Video compression hook
   const { compressVideo, isCompressing, compressionProgress, cancelCompression } = useVideoCompression();
