@@ -1568,6 +1568,28 @@ export default function TemplatesPaty() {
     }
   };
 
+  // Duplicar um template que existe só na Meta: abre o modal de Novo Template
+  // já preenchido com corpo/botões/rodapé/categoria/formato vindos da Meta.
+  // A mídia NÃO é copiada (URL da Meta normalmente já expirou) — usuário precisa
+  // dar novo nome e fazer upload manual da imagem/vídeo antes de salvar.
+  const handleDuplicateMetaTemplate = (meta: MetaTemplate) => {
+    const transformed = transformMetaToPriComponents(meta.components || []);
+    const fakeTemplate = {
+      formato: transformed.formato,
+      categoria: mapMetaCategory(meta.category),
+      departamento_id: "",
+      conteudo: transformed.conteudo,
+      card_data: {
+        ...transformed.cardData,
+        // Limpar URLs de mídia expiradas — usuário fará upload manual
+        imagemUrl: "",
+        videoUrl: "",
+        corpoTexto: transformed.conteudo,
+      },
+    };
+    handleOpenModal(fakeTemplate);
+  };
+
   const insertVariableToCorpoTexto = (variable: string) => {
     setFormData(prev => ({
       ...prev,
@@ -2777,24 +2799,35 @@ export default function TemplatesPaty() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleSincronizarTemplate(mt)}
-                          disabled={syncingMetaId === mt.id}
-                        >
-                          {syncingMetaId === mt.id ? (
-                            <>
-                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              Sincronizando...
-                            </>
-                          ) : (
-                            <>
-                              <RefreshCw className="h-3 w-3 mr-1" />
-                              Sincronizar
-                            </>
-                          )}
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="cursor-pointer"
+                            onClick={() => handleDuplicateMetaTemplate(mt)}
+                            title="Duplicar como novo template"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSincronizarTemplate(mt)}
+                            disabled={syncingMetaId === mt.id}
+                          >
+                            {syncingMetaId === mt.id ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Sincronizando...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="h-3 w-3 mr-1" />
+                                Sincronizar
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
