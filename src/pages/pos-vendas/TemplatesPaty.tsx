@@ -2646,6 +2646,15 @@ export default function TemplatesPaty() {
                 <RefreshCw className={`h-4 w-4 mr-2 ${isUpdatingStatus ? 'animate-spin' : ''}`} />
                 Atualizar Status
               </Button>
+              <Button
+                variant="outline"
+                onClick={handleSincronizarComMeta}
+                disabled={isFetchingMeta || !priTelefone}
+                title="Busca templates criados na Meta que ainda não estão na PRI"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isFetchingMeta ? 'animate-spin' : ''}`} />
+                Sincronizar com Meta
+              </Button>
             </div>
             {/* Botão novo template em destaque */}
             <Button onClick={() => handleOpenModal()} disabled={agentesIAWhatsapp.length === 0} className="w-full sm:w-auto">
