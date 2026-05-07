@@ -95,8 +95,9 @@ export function LojasTab() {
         movisis_id: Number(formData.movisis_id),
         ativo: !!formData.ativo,
       };
+      const endpoint = editing?.id ? "atualiza-paty-lojas-ids" : "insere-paty-lojas-ids";
       const { error } = await supabase.functions.invoke("external-webhook-proxy", {
-        body: { endpoint: "atualiza-paty-lojas-ids", ...payload },
+        body: { endpoint, ...payload },
       });
       if (error) throw new Error(error.message);
       toast({ title: editing ? "Loja atualizada" : "Loja inserida" });
