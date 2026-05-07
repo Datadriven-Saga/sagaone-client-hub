@@ -25,6 +25,8 @@ const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }>
   'insere-loja': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/insere-loja', method: 'POST' },
   'verifca-lojas': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifca-lojas', method: 'GET' },
   'update-lojas-gaia': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/update-lojas-gaia', method: 'POST' },
+  'busca-paty-lojas-ids': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-lojas-ids', method: 'GET' },
+  'atualiza-paty-lojas-ids': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-paty-lojas-ids', method: 'POST' },
   'verifica_eventos_id': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica_eventos_id', method: 'POST' },
 };
 
