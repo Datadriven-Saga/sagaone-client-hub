@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EntregasTab } from "@/components/pos-vendas/EntregasTab";
 import { AgendamentosTab } from "@/components/pos-vendas/AgendamentosTab";
 import { LojasTab } from "@/components/pos-vendas/LojasTab";
-import { TemplatesTab } from "@/components/pos-vendas/TemplatesTab";
+import TemplatesPaty from "@/pages/pos-vendas/TemplatesPaty";
 
 const VALID = ["entregas", "agendamentos", "lojas", "templates"] as const;
 type TabKey = typeof VALID[number];
@@ -43,7 +43,7 @@ export default function PosVendas() {
           <TabsContent value="entregas"><EntregasTab /></TabsContent>
           <TabsContent value="agendamentos"><AgendamentosTab /></TabsContent>
           <TabsContent value="lojas"><LojasTab /></TabsContent>
-          <TabsContent value="templates"><TemplatesTab /></TabsContent>
+          <TabsContent value="templates"><TemplatesPaty /></TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
