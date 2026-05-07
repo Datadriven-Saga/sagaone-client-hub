@@ -31,6 +31,7 @@ const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const MinhaConta = lazy(() => import("./pages/MinhaConta"));
 const Ajuda = lazy(() => import("./pages/Ajuda"));
 const AgentesIA = lazy(() => import("./pages/AgentesIA"));
+const PosVendas = lazy(() => import("./pages/pos-vendas/PosVendas"));
 
 // Admin pages - lazy
 const Empresas = lazy(() => import("./pages/admin/Empresas"));
@@ -105,6 +106,10 @@ const AppRoutes = () => {
         <Route path="/minha-conta" element={<PermissionProtectedRoute permissionKey="canAccessMinhaConta"><MinhaConta /></PermissionProtectedRoute>} />
         <Route path="/ajuda" element={<PermissionProtectedRoute permissionKey="canAccessAjuda"><Ajuda /></PermissionProtectedRoute>} />
         <Route path="/gatilhos" element={<PermissionProtectedRoute permissionKey="canAccessGatilhos"><Gatilhos /></PermissionProtectedRoute>} />
+
+        {/* Pós-Vendas (Paty) */}
+        <Route path="/pos-vendas" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PosVendas /></PermissionProtectedRoute>} />
+        <Route path="/pos-vendas/:tab" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PosVendas /></PermissionProtectedRoute>} />
         
         {/* Agentes IA */}
         <Route path="/agentes-ia" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><AgentesIA /></PermissionProtectedRoute>} />
