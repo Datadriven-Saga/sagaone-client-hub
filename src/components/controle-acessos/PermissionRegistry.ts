@@ -87,6 +87,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
   { id: "personas", label: "Personas / Gatilhos", icon: "Sparkles", description: "Personas de IA e gatilhos", order: 19 },
   { id: "integrações", label: "Integrações / APIs", icon: "Plug", description: "Integrações e APIs externas", order: 20 },
   { id: "navegacao", label: "Navegação / Menus", icon: "Menu", description: "Acesso a menus e módulos", order: 21 },
+  { id: "pos_vendas", label: "Pós-Vendas (Paty)", icon: "PackageCheck", description: "Configuração da agente Paty: gatilhos, cadências, lojas e templates", order: 17 },
 ];
 
 export const PERMISSION_REGISTRY: PermissionEntry[] = [
