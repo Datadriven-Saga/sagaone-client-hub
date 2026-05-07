@@ -18,25 +18,18 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface LojaPaty {
-  id?: number | string;
-  dealerid: string;
-  loja_nome: string;
+  id?: number;
+  marca: string;
   uf: string;
-  ativa: boolean | string;
-  maia_id?: string;
-  chatwoot?: string;
-  tb_histories?: string;
-  id_gestor?: string | number | null;
-  [key: string]: any;
+  dealer_id: number | string;
+  movisis_id: number | string;
+  ativo: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const UF_OPTIONS = ["DF", "GO", "MG", "MT", "RO"];
-
-function isAtivo(v: any): boolean {
-  if (typeof v === "boolean") return v;
-  const s = String(v ?? "").toLowerCase().trim();
-  return s === "true" || s === "ativo" || s === "1";
-}
+const MARCA_OPTIONS = ["HYUNDAI", "TOYOTA", "RAM", "JEEP", "FIAT", "CHEVROLET", "VOLKSWAGEN", "HONDA", "NISSAN", "FORD"];
 
 export function LojasTab() {
   const { toast } = useToast();
@@ -44,14 +37,14 @@ export function LojasTab() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterUF, setFilterUF] = useState("all");
+  const [filterMarca, setFilterMarca] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<LojaPaty | null>(null);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<LojaPaty>({
-    dealerid: "", loja_nome: "", uf: "", ativa: true,
-    maia_id: "", chatwoot: "", tb_histories: "", id_gestor: "",
+    marca: "", uf: "", dealer_id: "", movisis_id: "", ativo: true,
   });
 
   const fetchLojas = useCallback(async () => {
@@ -62,7 +55,7 @@ export function LojasTab() {
       });
       if (error) throw new Error(error.message);
       const arr = Array.isArray(data) ? data : data ? [data] : [];
-      setLojas(arr);
+      setLojas(arr as LojaPaty[]);
     } catch (err) {
       console.error("Erro ao buscar lojas Paty:", err);
       toast({ title: "Erro ao carregar lojas", variant: "destructive" });
@@ -75,40 +68,30 @@ export function LojasTab() {
 
   const openAdd = () => {
     setEditing(null);
-    setFormData({
-      dealerid: "", loja_nome: "", uf: "", ativa: true,
-      maia_id: "", chatwoot: "", tb_histories: "", id_gestor: "",
-    });
+    setFormData({ marca: "", uf: "", dealer_id: "", movisis_id: "", ativo: true });
     setShowModal(true);
   };
 
   const openEdit = (l: LojaPaty) => {
     setEditing(l);
-    setFormData({
-      ...l,
-      ativa: isAtivo(l.ativa),
-      id_gestor: l.id_gestor ?? l.idgestor ?? "",
-    });
+    setFormData({ ...l });
     setShowModal(true);
   };
 
   const handleSave = async () => {
-    if (!formData.dealerid || !formData.loja_nome || !formData.uf) {
-      toast({ title: "Campos obrigatórios", description: "Preencha dealerid, nome e UF", variant: "destructive" });
+    if (!formData.marca || !formData.uf || !formData.dealer_id || !formData.movisis_id) {
+      toast({ title: "Campos obrigatórios", description: "Preencha marca, UF, dealer_id e movisis_id", variant: "destructive" });
       return;
     }
     try {
       setSaving(true);
       const payload: any = {
         ...(editing?.id ? { id: editing.id } : {}),
-        dealerid: formData.dealerid,
-        loja_nome: formData.loja_nome,
+        marca: formData.marca,
         uf: formData.uf,
-        ativa: isAtivo(formData.ativa),
-        maia_id: formData.maia_id ?? "",
-        chatwoot: formData.chatwoot ?? "",
-        tb_histories: formData.tb_histories ?? "",
-        id_gestor: formData.id_gestor || null,
+        dealer_id: Number(formData.dealer_id),
+        movisis_id: Number(formData.movisis_id),
+        ativo: !!formData.ativo,
       };
       const { error } = await supabase.functions.invoke("external-webhook-proxy", {
         body: { endpoint: "atualiza-paty-lojas-ids", ...payload },
@@ -129,21 +112,22 @@ export function LojasTab() {
     if (searchTerm) {
       const t = searchTerm.toLowerCase();
       if (
-        !String(l.loja_nome ?? "").toLowerCase().includes(t) &&
-        !String(l.dealerid ?? "").toLowerCase().includes(t) &&
-        !String(l.maia_id ?? "").toLowerCase().includes(t)
+        !String(l.marca ?? "").toLowerCase().includes(t) &&
+        !String(l.dealer_id ?? "").toLowerCase().includes(t) &&
+        !String(l.movisis_id ?? "").toLowerCase().includes(t)
       ) return false;
     }
     if (filterUF !== "all" && l.uf?.toUpperCase() !== filterUF.toUpperCase()) return false;
+    if (filterMarca !== "all" && l.marca?.toUpperCase() !== filterMarca.toUpperCase()) return false;
     if (filterStatus !== "all") {
-      const a = isAtivo(l.ativa);
-      if (filterStatus === "ativo" && !a) return false;
-      if (filterStatus === "inativo" && a) return false;
+      if (filterStatus === "ativo" && !l.ativo) return false;
+      if (filterStatus === "inativo" && l.ativo) return false;
     }
     return true;
   });
 
   const ufs = [...new Set(lojas.map((l) => l.uf?.toUpperCase()).filter(Boolean))].sort();
+  const marcas = [...new Set(lojas.map((l) => l.marca?.toUpperCase()).filter(Boolean))].sort();
 
   return (
     <Card>
@@ -155,7 +139,7 @@ export function LojasTab() {
               Lojas Paty
             </CardTitle>
             <CardDescription className="mt-1">
-              Gerencie as lojas vinculadas à Paty (Pós-Vendas)
+              Mapeamento de Dealer ID ↔ Movisis ID por marca/UF (Pós-Vendas)
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -175,14 +159,21 @@ export function LojasTab() {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nome, dealer ID ou maia ID..."
+              placeholder="Buscar por marca, dealer ID ou movisis ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
             />
           </div>
+          <Select value={filterMarca} onValueChange={setFilterMarca}>
+            <SelectTrigger className="w-36"><SelectValue placeholder="Marca" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas marcas</SelectItem>
+              {marcas.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Select value={filterUF} onValueChange={setFilterUF}>
-            <SelectTrigger className="w-32"><SelectValue placeholder="UF" /></SelectTrigger>
+            <SelectTrigger className="w-28"><SelectValue placeholder="UF" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas UF</SelectItem>
               {ufs.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
@@ -213,12 +204,11 @@ export function LojasTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead>ID</TableHead>
-                  <TableHead>Dealer ID</TableHead>
-                  <TableHead>Loja</TableHead>
+                  <TableHead>Marca</TableHead>
                   <TableHead>UF</TableHead>
+                  <TableHead>Dealer ID</TableHead>
+                  <TableHead>Movisis ID</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Maia ID</TableHead>
-                  <TableHead>Chatwoot</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -226,16 +216,15 @@ export function LojasTab() {
                 {filtered.map((l, i) => (
                   <TableRow key={String(l.id ?? i)}>
                     <TableCell className="font-mono text-xs">{l.id ?? "-"}</TableCell>
-                    <TableCell className="font-mono text-sm">{l.dealerid}</TableCell>
-                    <TableCell className="font-medium">{l.loja_nome}</TableCell>
+                    <TableCell className="font-medium">{l.marca}</TableCell>
                     <TableCell><Badge variant="secondary">{l.uf}</Badge></TableCell>
+                    <TableCell className="font-mono text-sm">{l.dealer_id}</TableCell>
+                    <TableCell className="font-mono text-sm">{l.movisis_id}</TableCell>
                     <TableCell>
-                      <Badge variant={isAtivo(l.ativa) ? "default" : "outline"}>
-                        {isAtivo(l.ativa) ? "Ativo" : "Inativo"}
+                      <Badge variant={l.ativo ? "default" : "outline"}>
+                        {l.ativo ? "Ativo" : "Inativo"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{l.maia_id}</TableCell>
-                    <TableCell className="font-mono text-xs">{l.chatwoot}</TableCell>
                     <TableCell className="text-right">
                       <Button size="sm" variant="ghost" onClick={() => openEdit(l)}>
                         <Edit className="h-4 w-4" />
@@ -258,14 +247,19 @@ export function LojasTab() {
           <DialogHeader>
             <DialogTitle>{editing ? "Editar Loja" : "Nova Loja"}</DialogTitle>
             <DialogDescription>
-              {editing ? `Editando ${editing.loja_nome} (ID: ${editing.id})` : "Insira uma nova loja Paty"}
+              {editing ? `Editando loja ID ${editing.id}` : "Insira um novo mapeamento Dealer ↔ Movisis"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Dealer ID *</Label>
-                <Input value={formData.dealerid} onChange={(e) => setFormData({ ...formData, dealerid: e.target.value })} />
+                <Label>Marca *</Label>
+                <Select value={formData.marca} onValueChange={(v) => setFormData({ ...formData, marca: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {MARCA_OPTIONS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>UF *</Label>
@@ -277,33 +271,27 @@ export function LojasTab() {
                 </Select>
               </div>
             </div>
-            <div>
-              <Label>Nome da Loja *</Label>
-              <Input value={formData.loja_nome} onChange={(e) => setFormData({ ...formData, loja_nome: e.target.value })} />
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Maia ID</Label>
-                <Input value={formData.maia_id ?? ""} onChange={(e) => setFormData({ ...formData, maia_id: e.target.value })} />
+                <Label>Dealer ID *</Label>
+                <Input
+                  type="number"
+                  value={String(formData.dealer_id ?? "")}
+                  onChange={(e) => setFormData({ ...formData, dealer_id: e.target.value })}
+                />
               </div>
               <div>
-                <Label>Chatwoot</Label>
-                <Input value={formData.chatwoot ?? ""} onChange={(e) => setFormData({ ...formData, chatwoot: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Tabela Histórico</Label>
-                <Input value={formData.tb_histories ?? ""} onChange={(e) => setFormData({ ...formData, tb_histories: e.target.value })} />
-              </div>
-              <div>
-                <Label>ID Gestor</Label>
-                <Input value={String(formData.id_gestor ?? "")} onChange={(e) => setFormData({ ...formData, id_gestor: e.target.value })} />
+                <Label>Movisis ID *</Label>
+                <Input
+                  type="number"
+                  value={String(formData.movisis_id ?? "")}
+                  onChange={(e) => setFormData({ ...formData, movisis_id: e.target.value })}
+                />
               </div>
             </div>
             <div>
               <Label>Status</Label>
-              <Select value={isAtivo(formData.ativa) ? "true" : "false"} onValueChange={(v) => setFormData({ ...formData, ativa: v === "true" })}>
+              <Select value={formData.ativo ? "true" : "false"} onValueChange={(v) => setFormData({ ...formData, ativo: v === "true" })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="true">Ativo</SelectItem>
