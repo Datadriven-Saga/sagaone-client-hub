@@ -14,6 +14,7 @@ export interface PatyTemplate {
   category_meta: string | null;
   status_meta: string | null;
   agente_id: string | null;
+  template_id_pri?: string | null;
 }
 
 export interface GatilhoConfig {
