@@ -306,3 +306,89 @@ export function useFollowUpCadence(telAgent: string | null) {
 
   return { config, intervals, isDefault, loading, save, reload };
 }
+
+// ====================================================================
+// Paty Cadência - Templates Iniciais (via webhook externo)
+// Gatilhos: 'aniversario' | 'previsao' | 'att_km'
+// Comportamento espelhado de /administracao/agentes: depende do retorno
+// do webhook (sem persistência local).
+// ====================================================================
+export type PatyCadenciaGatilho = "aniversario" | "previsao" | "att_km";
+
+export interface PatyCadenciaTemplates {
+  aniversario: string | null;
+  previsao: string | null;
+  att_km: string | null;
+}
+
+function pickTemplateId(row: any, gatilho: PatyCadenciaGatilho): string | null {
+  if (!row) return null;
+  // Aceita várias formas de retorno do n8n
+  const direct =
+    row[`template_${gatilho}_id`] ??
+    row[`template_${gatilho}`] ??
+    row[gatilho] ??
+    null;
+  if (direct) return String(direct);
+  if (row.gatilho === gatilho) {
+    return row.template_id_pri ?? row.template_id ?? row.id_pri ?? null;
+  }
+  return null;
+}
+
+export function usePatyCadenciaTemplates(agenteTelefone: string | null) {
+  const [templates, setTemplates] = useState<PatyCadenciaTemplates>({
+    aniversario: null,
+    previsao: null,
+    att_km: null,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    if (!agenteTelefone) {
+      setTemplates({ aniversario: null, previsao: null, att_km: null });
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: err } = await supabase.functions.invoke("external-webhook-proxy", {
+        body: { endpoint: "busca-paty-cadencia-config-template", agente_telefone: agenteTelefone },
+      });
+      if (err) throw new Error(err.message);
+      const arr = Array.isArray(data) ? data : data ? [data] : [];
+      // Pode vir como [{aniversario:..., previsao:..., att_km:...}] OU [{gatilho, template_id_pri}, ...]
+      const next: PatyCadenciaTemplates = { aniversario: null, previsao: null, att_km: null };
+      for (const row of arr) {
+        for (const g of ["aniversario", "previsao", "att_km"] as PatyCadenciaGatilho[]) {
+          const v = pickTemplateId(row, g);
+          if (v) next[g] = v;
+        }
+      }
+      setTemplates(next);
+    } catch (e: any) {
+      console.error("[usePatyCadenciaTemplates] reload error:", e);
+      setError(e.message ?? "Erro ao carregar configuração");
+    } finally {
+      setLoading(false);
+    }
+  }, [agenteTelefone]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const upsert = useCallback(async (gatilho: PatyCadenciaGatilho, templateIdPri: string | null) => {
+    if (!agenteTelefone) throw new Error("Telefone do agente não disponível");
+    const { error: err } = await supabase.functions.invoke("external-webhook-proxy", {
+      body: {
+        endpoint: "upsert-paty-cadencia-config-template",
+        agente_telefone: agenteTelefone,
+        gatilho,
+        template_id_pri: templateIdPri,
+      },
+    });
+    if (err) throw new Error(err.message);
+  }, [agenteTelefone]);
+
+  return { templates, setTemplates, loading, error, reload, upsert };
+}
