@@ -330,7 +330,8 @@ function pickTemplateId(row: any, gatilho: PatyCadenciaGatilho): string | null {
     row[gatilho] ??
     null;
   if (direct) return String(direct);
-  if (row.gatilho === gatilho) {
+  const tipo = row.gatilho ?? row.gatilho_tipo ?? row.tipo ?? null;
+  if (tipo === gatilho) {
     return row.template_id_pri ?? row.template_id ?? row.id_pri ?? null;
   }
   return null;
