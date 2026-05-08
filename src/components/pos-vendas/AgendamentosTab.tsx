@@ -41,7 +41,10 @@ export function AgendamentosTab() {
   const updF = (i: number, p: Partial<FollowupConfig>) => upd({ followups: draft.followups.map((f, idx) => idx === i ? { ...f, ...p } : f) });
 
   const handleSave = async () => {
-    if (!draft.template_inicial_id) { toast({ title: "Template inicial obrigatório", variant: "destructive" }); return; }
+    if (!draft.template_aniversario_id && !draft.template_previsao_id) {
+      toast({ title: "Selecione ao menos uma variação de disparo inicial", variant: "destructive" });
+      return;
+    }
     if (draft.followups.some(f => !f.template_id)) { toast({ title: "Selecione template em todos os follow-ups", variant: "destructive" }); return; }
     setSaving(true);
     try { await save(draft); toast({ title: "Cadência salva" }); await reload(); }
@@ -49,17 +52,39 @@ export function AgendamentosTab() {
     finally { setSaving(false); }
   };
 
-  const total = custoOf(templates, draft.template_inicial_id) + draft.followups.reduce((s, f) => s + custoOf(templates, f.template_id), 0);
+  const custoInicialMax = Math.max(
+    custoOf(templates, draft.template_aniversario_id),
+    custoOf(templates, draft.template_previsao_id),
+  );
+  const total = custoInicialMax + draft.followups.reduce((s, f) => s + custoOf(templates, f.template_id), 0);
 
   return (
     <div className="space-y-6">
       <AgenteSelector agentes={agentes} value={effectiveId} onChange={setAgenteId} loading={loadingAgentes} />
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Template de Disparo Inicial</CardTitle></CardHeader>
-        <CardContent>
-          <TemplateSelectApproved templates={templates} value={draft.template_inicial_id} onChange={(id) => upd({ template_inicial_id: id })} />
-          <p className="text-xs text-muted-foreground mt-2">Enviado quando uma oportunidade de agendamento é gerada.</p>
+        <CardHeader>
+          <CardTitle className="text-base">Templates de Disparo Inicial</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium">Aniversário de Compra</Label>
+            <p className="text-xs text-muted-foreground mb-2">Disparado quando completa 1 ano da compra do veículo pelo cliente.</p>
+            <TemplateSelectApproved
+              templates={templates}
+              value={draft.template_aniversario_id}
+              onChange={(id) => upd({ template_aniversario_id: id })}
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">Previsão de Oportunidade (Tempo + KM)</Label>
+            <p className="text-xs text-muted-foreground mb-2">Disparado conforme a previsão calculada por tempo de uso e estimativa de quilometragem.</p>
+            <TemplateSelectApproved
+              templates={templates}
+              value={draft.template_previsao_id}
+              onChange={(id) => upd({ template_previsao_id: id })}
+            />
+          </div>
         </CardContent>
       </Card>
 

@@ -3404,7 +3404,9 @@ export type Database = {
           id: string
           intervalo_tentativas_horas: number
           max_tentativas: number
+          template_aniversario_id: string | null
           template_inicial_id: string | null
+          template_previsao_id: string | null
           updated_at: string
         }
         Insert: {
@@ -3415,7 +3417,9 @@ export type Database = {
           id?: string
           intervalo_tentativas_horas?: number
           max_tentativas?: number
+          template_aniversario_id?: string | null
           template_inicial_id?: string | null
+          template_previsao_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -3426,7 +3430,9 @@ export type Database = {
           id?: string
           intervalo_tentativas_horas?: number
           max_tentativas?: number
+          template_aniversario_id?: string | null
           template_inicial_id?: string | null
+          template_previsao_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3445,8 +3451,22 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "pos_vendas_cadencia_config_template_aniversario_id_fkey"
+            columns: ["template_aniversario_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "pos_vendas_cadencia_config_template_inicial_id_fkey"
             columns: ["template_inicial_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_vendas_cadencia_config_template_previsao_id_fkey"
+            columns: ["template_previsao_id"]
             isOneToOne: false
             referencedRelation: "whatsapp_templates"
             referencedColumns: ["id"]
