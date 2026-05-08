@@ -226,3 +226,83 @@ export function useLojasPosVenda(agenteId: string | null) {
 
   return { lojas, loading, reload };
 }
+// ====================================================================
+// Cadência Conversacional (compartilhada Entregas + Agendamentos)
+// Chaveada por tel_agent (telefone do agente). Fallback row 'DEFAULT'.
+// ====================================================================
+function intervalToHours(v: any): number {
+  // Postgres interval pode vir como string "HH:MM:SS" ou objeto { hours, minutes, ... }
+  if (v == null) return 0;
+  if (typeof v === "object") {
+    const h = Number(v.hours ?? 0);
+    const d = Number(v.days ?? 0);
+    const m = Number(v.minutes ?? 0);
+    return d * 24 + h + m / 60;
+  }
+  if (typeof v === "string") {
+    const parts = v.split(":");
+    if (parts.length >= 2) return Number(parts[0]) + Number(parts[1]) / 60;
+    const n = Number(v);
+    if (!isNaN(n)) return n;
+  }
+  if (typeof v === "number") return v;
+  return 0;
+}
+
+export function useFollowUpCadence(telAgent: string | null) {
+  const [config, setConfig] = useState<{ tel_agent: string; max_attempts: number; active: boolean } | null>(null);
+  const [intervals, setIntervals] = useState<{ from_attempt: number; wait_hours: number }[]>([]);
+  const [isDefault, setIsDefault] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const reload = useCallback(async () => {
+    if (!telAgent) { setConfig(null); setIntervals([]); return; }
+    setLoading(true);
+    // Tenta buscar do agente; se não houver, cai no DEFAULT
+    let { data: cfg } = await supabase
+      .from("follow_up_cadence_config")
+      .select("*")
+      .eq("tel_agent", telAgent)
+      .maybeSingle();
+    let usingDefault = false;
+    if (!cfg) {
+      const { data: def } = await supabase
+        .from("follow_up_cadence_config")
+        .select("*")
+        .eq("tel_agent", "DEFAULT")
+        .maybeSingle();
+      cfg = def;
+      usingDefault = true;
+    }
+    if (!cfg) { setConfig(null); setIntervals([]); setLoading(false); return; }
+    const { data: ivs } = await supabase
+      .from("follow_up_cadence_intervals")
+      .select("from_attempt, wait_interval")
+      .eq("tel_agent", cfg.tel_agent)
+      .order("from_attempt");
+    setConfig({ tel_agent: cfg.tel_agent, max_attempts: cfg.max_attempts, active: cfg.active });
+    setIntervals((ivs ?? []).map((r: any) => ({ from_attempt: r.from_attempt, wait_hours: intervalToHours(r.wait_interval) })));
+    setIsDefault(usingDefault);
+    setLoading(false);
+  }, [telAgent]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const save = useCallback(async (next: { max_attempts: number; active: boolean; intervals: { from_attempt: number; wait_hours: number }[] }) => {
+    if (!telAgent) return;
+    const { error: e1 } = await supabase
+      .from("follow_up_cadence_config")
+      .upsert({ tel_agent: telAgent, max_attempts: next.max_attempts, active: next.active }, { onConflict: "tel_agent" });
+    if (e1) throw e1;
+    await supabase.from("follow_up_cadence_intervals").delete().eq("tel_agent", telAgent);
+    if (next.intervals.length > 0) {
+      const { error: e2 } = await supabase.from("follow_up_cadence_intervals").insert(
+        next.intervals.map(i => ({ tel_agent: telAgent, from_attempt: i.from_attempt, wait_interval: `${i.wait_hours} hours` }))
+      );
+      if (e2) throw e2;
+    }
+    await reload();
+  }, [telAgent, reload]);
+
+  return { config, intervals, isDefault, loading, save, reload };
+}
