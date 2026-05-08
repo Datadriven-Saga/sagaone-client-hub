@@ -61,6 +61,46 @@ const Gatilhos = () => {
       value: "atualiza_status_meta", 
       label: "Atualiza Status Meta",
       modulo: "Templates"
+    },
+    {
+      value: "paty_busca_cadencia_template",
+      label: "Paty — Buscar Cadência (Templates Iniciais)",
+      modulo: "Pós-Vendas"
+    },
+    {
+      value: "paty_upsert_cadencia_template",
+      label: "Paty — Atualizar Template de Cadência",
+      modulo: "Pós-Vendas"
+    },
+    {
+      value: "paty_busca_lojas",
+      label: "Paty — Buscar Lojas (busca-paty-lojas-ids)",
+      modulo: "Pós-Vendas"
+    },
+    {
+      value: "paty_insere_loja",
+      label: "Paty — Inserir Loja (insere-paty-lojas-ids)",
+      modulo: "Pós-Vendas"
+    },
+    {
+      value: "paty_atualiza_loja",
+      label: "Paty — Atualizar Loja (atualiza-paty-lojas-ids)",
+      modulo: "Pós-Vendas"
+    },
+    {
+      value: "lojas_verifica",
+      label: "Lojas — Verificar (verifca-lojas)",
+      modulo: "Lojas"
+    },
+    {
+      value: "lojas_insere",
+      label: "Lojas — Inserir (insere-loja)",
+      modulo: "Lojas"
+    },
+    {
+      value: "lojas_update_gaia",
+      label: "Lojas — Atualizar GAIA (update-lojas-gaia)",
+      modulo: "Lojas"
     }
   ];
 
