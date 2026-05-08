@@ -121,25 +121,9 @@ export function AgendamentosTab() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Cadência — Cliente RESPONDEU (conversação livre)</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">Após resposta, a Paty conversa livremente. Configure os limites operacionais.</p>
-          <div className="grid sm:grid-cols-2 gap-3 max-w-md">
-            <div>
-              <Label className="text-xs">Máximo de tentativas</Label>
-              <Input type="number" min={1} max={10} value={draft.max_tentativas}
-                onChange={(e) => upd({ max_tentativas: Math.max(1, Math.min(10, parseInt(e.target.value) || 1)) })} />
-            </div>
-            <div>
-              <Label className="text-xs">Intervalo entre tentativas (h)</Label>
-              <Input type="number" min={1} max={168} value={draft.intervalo_tentativas_horas}
-                onChange={(e) => upd({ intervalo_tentativas_horas: Math.max(1, Math.min(168, parseInt(e.target.value) || 1)) })} />
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">Após esgotar tentativas, o lead vai para atendimento humano.</p>
-        </CardContent>
-      </Card>
+      <p className="text-xs text-muted-foreground">
+        A cadência conversacional (após o cliente responder) agora é configurada na aba <strong>Cadência Conversacional</strong>, e vale tanto para Entregas quanto para Agendamentos.
+      </p>
 
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={saving}><Save className="h-4 w-4 mr-1" /> Salvar Cadência</Button>
