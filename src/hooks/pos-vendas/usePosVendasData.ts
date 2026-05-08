@@ -74,7 +74,7 @@ export function usePatyTemplates(agenteId: string | null, approvedOnly = false) 
     setLoading(true);
     let q = supabase
       .from("whatsapp_templates")
-      .select("id, nome, categoria, category_meta, status_meta, agente_id")
+      .select("id, nome, categoria, category_meta, status_meta, agente_id, template_id_pri")
       .eq("empresa_id", activeCompany.id)
       .eq("agente_id", agenteId)
       .eq("ativo", true);
