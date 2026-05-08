@@ -4,10 +4,11 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EntregasTab } from "@/components/pos-vendas/EntregasTab";
 import { AgendamentosTab } from "@/components/pos-vendas/AgendamentosTab";
+import { CadenciaConversacionalTab } from "@/components/pos-vendas/CadenciaConversacionalTab";
 import { LojasTab } from "@/components/pos-vendas/LojasTab";
 import TemplatesPaty from "@/pages/pos-vendas/TemplatesPaty";
 
-const VALID = ["entregas", "agendamentos", "lojas", "templates"] as const;
+const VALID = ["entregas", "agendamentos", "conversacional", "lojas", "templates"] as const;
 type TabKey = typeof VALID[number];
 
 export default function PosVendas() {
@@ -37,11 +38,13 @@ export default function PosVendas() {
           <TabsList>
             <TabsTrigger value="entregas">Entregas</TabsTrigger>
             <TabsTrigger value="agendamentos">Agendamentos</TabsTrigger>
+            <TabsTrigger value="conversacional">Cadência Conversacional</TabsTrigger>
             <TabsTrigger value="lojas">Lojas</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
           </TabsList>
           <TabsContent value="entregas"><EntregasTab /></TabsContent>
           <TabsContent value="agendamentos"><AgendamentosTab /></TabsContent>
+          <TabsContent value="conversacional"><CadenciaConversacionalTab /></TabsContent>
           <TabsContent value="lojas"><LojasTab /></TabsContent>
           <TabsContent value="templates"><TemplatesPaty /></TabsContent>
         </Tabs>

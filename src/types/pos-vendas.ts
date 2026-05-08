@@ -41,8 +41,6 @@ export interface CadenciaConfig {
   template_inicial_id: string | null;
   template_aniversario_id: string | null;
   template_previsao_id: string | null;
-  max_tentativas: number;
-  intervalo_tentativas_horas: number;
   ativo: boolean;
   followups: FollowupConfig[];
 }
@@ -57,4 +55,17 @@ export interface LojaPosVenda {
   movisis_id: string | null;
   loja_nome: string | null;
   ativo: boolean;
+}
+
+export interface FollowUpCadenceConfig {
+  tel_agent: string;
+  max_attempts: number;
+  active: boolean;
+}
+
+export interface FollowUpCadenceInterval {
+  tel_agent: string;
+  from_attempt: number;
+  /** Stored as Postgres interval; we exchange with UI as hours (number). */
+  wait_hours: number;
 }

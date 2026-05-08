@@ -2060,6 +2060,56 @@ export type Database = {
           },
         ]
       }
+      follow_up_cadence_config: {
+        Row: {
+          active: boolean
+          created_at: string
+          max_attempts: number
+          tel_agent: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          max_attempts?: number
+          tel_agent: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          max_attempts?: number
+          tel_agent?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      follow_up_cadence_intervals: {
+        Row: {
+          from_attempt: number
+          tel_agent: string
+          wait_interval: string
+        }
+        Insert: {
+          from_attempt: number
+          tel_agent: string
+          wait_interval: string
+        }
+        Update: {
+          from_attempt?: number
+          tel_agent?: string
+          wait_interval?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follow_up_cadence_intervals_tel_agent_fkey"
+            columns: ["tel_agent"]
+            isOneToOne: false
+            referencedRelation: "follow_up_cadence_config"
+            referencedColumns: ["tel_agent"]
+          },
+        ]
+      }
       gatilhos: {
         Row: {
           acoes: Json | null
@@ -3402,8 +3452,6 @@ export type Database = {
           created_at: string
           empresa_id: string
           id: string
-          intervalo_tentativas_horas: number
-          max_tentativas: number
           template_aniversario_id: string | null
           template_inicial_id: string | null
           template_previsao_id: string | null
@@ -3415,8 +3463,6 @@ export type Database = {
           created_at?: string
           empresa_id: string
           id?: string
-          intervalo_tentativas_horas?: number
-          max_tentativas?: number
           template_aniversario_id?: string | null
           template_inicial_id?: string | null
           template_previsao_id?: string | null
@@ -3428,8 +3474,6 @@ export type Database = {
           created_at?: string
           empresa_id?: string
           id?: string
-          intervalo_tentativas_horas?: number
-          max_tentativas?: number
           template_aniversario_id?: string | null
           template_inicial_id?: string | null
           template_previsao_id?: string | null
