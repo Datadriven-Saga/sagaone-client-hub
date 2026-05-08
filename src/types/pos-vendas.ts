@@ -39,6 +39,8 @@ export interface CadenciaConfig {
   agente_id: string;
   empresa_id: string;
   template_inicial_id: string | null;
+  template_aniversario_id: string | null;
+  template_previsao_id: string | null;
   max_tentativas: number;
   intervalo_tentativas_horas: number;
   ativo: boolean;
