@@ -26,13 +26,6 @@ export function AgendamentosTab() {
   const effectiveAgente = agentes.find(a => a.id === effectiveId) ?? null;
   const telefone = effectiveAgente?.telefone ?? null;
   const { templates } = usePatyTemplates(effectiveId, true);
-  const { templates: aniversarioTemplates } = usePatyTemplates(effectiveId, true);
-  void aniversarioTemplates;
-  const { templates: tplsAll } = usePatyTemplates(effectiveId, true);
-  void tplsAll;
-  const { templates: _t } = usePatyTemplates(effectiveId, true);
-  void _t;
-
   const { templates: templatesPri, loading, reload, upsert } = usePatyCadenciaTemplates(telefone);
 
   // mapas pri <-> local id
