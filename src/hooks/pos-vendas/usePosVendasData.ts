@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { PATY_NAME_FILTER } from "@/constants/pos-vendas-gatilhos";
-import type { PatyAgente, PatyTemplate, GatilhoConfig, CadenciaConfig, FollowupConfig, LojaPosVenda } from "@/types/pos-vendas";
+import type { PatyAgente, PatyTemplate, GatilhoConfig, CadenciaConfig, FollowupConfig, LojaPosVenda, FollowUpCadenceConfig, FollowUpCadenceInterval } from "@/types/pos-vendas";
 
 export function usePatyAgentes() {
   const { activeCompany } = useCompany();
@@ -150,8 +150,6 @@ export function useCadenciaConfig(agenteId: string | null) {
         template_inicial_id: null,
         template_aniversario_id: null,
         template_previsao_id: null,
-        max_tentativas: 3,
-        intervalo_tentativas_horas: 24,
         ativo: true,
         followups: [],
       });
@@ -180,8 +178,6 @@ export function useCadenciaConfig(agenteId: string | null) {
         template_inicial_id: next.template_inicial_id,
         template_aniversario_id: next.template_aniversario_id,
         template_previsao_id: next.template_previsao_id,
-        max_tentativas: next.max_tentativas,
-        intervalo_tentativas_horas: next.intervalo_tentativas_horas,
         ativo: next.ativo,
       }, { onConflict: "agente_id,empresa_id" })
       .select("id")
