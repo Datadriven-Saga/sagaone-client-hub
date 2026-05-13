@@ -101,6 +101,21 @@ const Gatilhos = () => {
       value: "lojas_update_gaia",
       label: "Lojas — Atualizar GAIA (update-lojas-gaia)",
       modulo: "Lojas"
+    },
+    {
+      value: "paty_busca_cadencia_steps",
+      label: "Paty — Buscar Steps de Cadência (busca-paty-cadencia-steps)",
+      modulo: "Pós-Vendas"
+    },
+    {
+      value: "paty_upsert_cadencia_steps",
+      label: "Paty — Upsert Step de Cadência (upsert-paty-cadencia-steps)",
+      modulo: "Pós-Vendas"
+    },
+    {
+      value: "paty_delete_cadencia_step",
+      label: "Paty — Remover Step de Cadência (delete-paty-cadencia-step)",
+      modulo: "Pós-Vendas"
     }
   ];
 

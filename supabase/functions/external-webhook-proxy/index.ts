@@ -33,6 +33,9 @@ const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }>
   'verifica_eventos_id': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica_eventos_id', method: 'POST' },
   'busca-paty-cadencia-config-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-cadencia-config-template', method: 'POST' },
   'upsert-paty-cadencia-config-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-cadencia-config-template', method: 'POST' },
+  'busca-paty-cadencia-steps': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-cadencia-steps', method: 'POST' },
+  'upsert-paty-cadencia-steps': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-cadencia-steps', method: 'POST' },
+  'delete-paty-cadencia-step': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/delete-paty-cadencia-step', method: 'POST' },
 };
 
 // Domínios permitidos para webhook genérico (passthrough)
