@@ -393,3 +393,128 @@ export function usePatyCadenciaTemplates(agenteTelefone: string | null) {
 
   return { templates, setTemplates, loading, error, reload, upsert };
 }
+
+// ====================================================================
+// Paty Cadência - Steps de Follow-up (via webhook externo)
+// ====================================================================
+export interface PatyCadenciaStep {
+  id: number;
+  config_id?: number;
+  etapa: number;
+  intervalo_texto: string;
+  intervalo_segundos?: number;
+  template_id: string; // ID PRI
+  ativo: boolean;
+  gatilho_tipo: PatyCadenciaGatilho;
+  agente_telefone?: string;
+}
+
+export type PatyStepsByGatilho = Record<PatyCadenciaGatilho, PatyCadenciaStep[]>;
+
+export type IntervaloUnidade = "minutos" | "horas" | "dias";
+
+export function montarIntervalo(quantidade: number, unidade: IntervaloUnidade): string {
+  const mapa: Record<IntervaloUnidade, string> = { minutos: "minutes", horas: "hours", dias: "days" };
+  return `${quantidade} ${mapa[unidade]}`;
+}
+
+export function formatarIntervalo(intervaloTexto: string | null | undefined): string {
+  if (!intervaloTexto) return "";
+  const t = String(intervaloTexto).trim();
+  const diasHorasMatch = t.match(/^(\d+)\s+days?\s+(\d+):(\d+):(\d+)$/);
+  if (diasHorasMatch) {
+    return `${diasHorasMatch[1]}d ${parseInt(diasHorasMatch[2])}h`;
+  }
+  const diasOnly = t.match(/^(\d+)\s+days?$/);
+  if (diasOnly) {
+    const d = diasOnly[1];
+    return `${d} dia${d !== "1" ? "s" : ""}`;
+  }
+  const horasMatch = t.match(/^(\d+):(\d+):(\d+)$/);
+  if (horasMatch) {
+    const h = parseInt(horasMatch[1]);
+    const m = parseInt(horasMatch[2]);
+    if (h > 0 && m === 0) return `${h} hora${h !== 1 ? "s" : ""}`;
+    if (h === 0 && m > 0) return `${m} minuto${m !== 1 ? "s" : ""}`;
+    return `${h}h ${m}min`;
+  }
+  return t;
+}
+
+const GATILHOS: PatyCadenciaGatilho[] = ["aniversario", "previsao", "att_km"];
+
+export function usePatyCadenciaSteps(agenteTelefone: string | null) {
+  const [steps, setSteps] = useState<PatyStepsByGatilho>({ aniversario: [], previsao: [], att_km: [] });
+  const [loading, setLoading] = useState(false);
+
+  const reloadGatilho = useCallback(async (gatilho: PatyCadenciaGatilho) => {
+    if (!agenteTelefone) return;
+    const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
+      body: { endpoint: "busca-paty-cadencia-steps", agente_telefone: agenteTelefone, gatilho_tipo: gatilho },
+    });
+    if (error) {
+      console.error(`[usePatyCadenciaSteps] reload ${gatilho}:`, error);
+      return;
+    }
+    const arr = Array.isArray(data) ? data : [];
+    const list: PatyCadenciaStep[] = arr
+      .map((r: any) => ({
+        id: Number(r.id),
+        config_id: r.config_id != null ? Number(r.config_id) : undefined,
+        etapa: Number(r.etapa ?? 0),
+        intervalo_texto: String(r.intervalo_texto ?? r.intervalo ?? ""),
+        intervalo_segundos: r.intervalo_segundos != null ? Number(r.intervalo_segundos) : undefined,
+        template_id: String(r.template_id ?? r.template_id_pri ?? ""),
+        ativo: r.ativo !== false,
+        gatilho_tipo: gatilho,
+        agente_telefone: r.agente_telefone,
+      }))
+      .sort((a, b) => a.etapa - b.etapa);
+    setSteps(prev => ({ ...prev, [gatilho]: list }));
+  }, [agenteTelefone]);
+
+  const reload = useCallback(async () => {
+    if (!agenteTelefone) {
+      setSteps({ aniversario: [], previsao: [], att_km: [] });
+      return;
+    }
+    setLoading(true);
+    try {
+      await Promise.all(GATILHOS.map(g => reloadGatilho(g)));
+    } finally {
+      setLoading(false);
+    }
+  }, [agenteTelefone, reloadGatilho]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const create = useCallback(async (gatilho: PatyCadenciaGatilho, intervalo: string, templateIdPri: string) => {
+    if (!agenteTelefone) throw new Error("Telefone do agente não disponível");
+    const proximaEtapa = steps[gatilho].length > 0
+      ? Math.max(...steps[gatilho].map(s => s.etapa)) + 1
+      : 1;
+    const { error } = await supabase.functions.invoke("external-webhook-proxy", {
+      body: {
+        endpoint: "upsert-paty-cadencia-steps",
+        agente_telefone: agenteTelefone,
+        gatilho_tipo: gatilho,
+        etapa: proximaEtapa,
+        intervalo,
+        template_id_pri: templateIdPri,
+        ativo: true,
+      },
+    });
+    if (error) throw new Error(error.message);
+    await reloadGatilho(gatilho);
+  }, [agenteTelefone, steps, reloadGatilho]);
+
+  const remove = useCallback(async (gatilho: PatyCadenciaGatilho, stepId: number) => {
+    const { error } = await supabase.functions.invoke("external-webhook-proxy", {
+      body: { endpoint: "delete-paty-cadencia-step", step_id: stepId },
+    });
+    if (error) throw new Error(error.message);
+    await reloadGatilho(gatilho);
+  }, [reloadGatilho]);
+
+  return { steps, loading, reload, reloadGatilho, create, remove };
+}
