@@ -892,30 +892,36 @@ showAllEvents: true
     setKanbanData(prev => {
       const updated = { ...prev };
       for (const col of columns) {
-        if (updated[col.id]) {
-          // Map KanbanItems back to Contato-like objects, preserving all fields
-          updated[col.id] = {
-            ...updated[col.id],
-            count: updated[col.id].count + (col.items.length - (updated[col.id].items?.length ?? 0)),
-            items: col.items.map(item => {
-              // Try to find original contato data from any column
-              const original = Object.values(prev).flatMap(c => c.items).find(c => c.id === item.id);
-              if (original) return original;
-              // Fallback: build minimal contato from KanbanItem
+        const previousColumn = updated[col.id] ?? { count: 0, items: [] };
+        const mappedStatus = kanbanStatusMap[col.id as keyof typeof kanbanStatusMap] ?? 'Novo';
+
+        updated[col.id] = {
+          ...previousColumn,
+          count: Math.max(0, previousColumn.count + (col.items.length - (previousColumn.items?.length ?? 0))),
+          items: col.items.map(item => {
+            // Try to find original contato data from any column
+            const original = Object.values(prev).flatMap(c => c.items).find(c => c.id === item.id);
+            if (original) {
               return {
-                id: item.id,
-                lead_id: item.lead_id,
-                nome: item.title,
-                telefone: item.channel || '',
-                status: 'Novo' as any,
-                origem: 'Outros' as any,
-                created_at: item.dueDate || '',
-                updated_at: '',
-                tentativas_chamada: item.tentativas_chamada ?? 0,
+                ...original,
+                status: mappedStatus,
               };
-            }),
-          };
-        }
+            }
+
+            // Fallback: build minimal contato from KanbanItem
+            return {
+              id: item.id,
+              lead_id: item.lead_id,
+              nome: item.title,
+              telefone: item.channel || '',
+              status: mappedStatus as any,
+              origem: 'Outros' as any,
+              created_at: item.dueDate || '',
+              updated_at: '',
+              tentativas_chamada: item.tentativas_chamada ?? 0,
+            };
+          }),
+        };
       }
       return updated;
     });
@@ -1117,7 +1123,10 @@ showAllEvents: true
     try {
       const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
       if (novoStatusDb) {
-        await atualizarStatusContato(itemId, novoStatusDb);
+        const statusAtualizado = await atualizarStatusContato(itemId, novoStatusDb);
+        if (statusAtualizado === false) {
+          return false;
+        }
       }
 
       // Auto-atribuir responsável quando sair da coluna "novos"
