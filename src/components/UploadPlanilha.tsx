@@ -55,6 +55,9 @@ interface ImportLog {
   errors: number;
   quarantined: number;
   error_details: string[];
+  responsavel_applied?: number;
+  responsavel_skipped?: number;
+  warning_details?: Array<{ type?: string; value?: string; telefone?: string; nome?: string }>;
   message: string | null;
 }
 
