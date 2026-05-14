@@ -408,6 +408,93 @@ showAllEvents: true
     fetchProfiles();
   }, [activeCompany?.id]);
 
+  // Filtra "Vendedor/Responsável" para mostrar apenas:
+  // - tipo_acesso Vendedor ou SDR
+  // - quem tem leads atribuídos (escopo: evento filtrado, se houver)
+  // - quando há evento filtrado: apenas membros da equipe daqueles eventos
+  useEffect(() => {
+    const computeResponsaveis = async () => {
+      if (!activeCompany?.id) {
+        setResponsaveisFiltrados([]);
+        return;
+      }
+      try {
+        const base = profiles.filter(p => p.tipo_acesso === 'Vendedor' || p.tipo_acesso === 'SDR');
+        if (base.length === 0) {
+          setResponsaveisFiltrados([]);
+          return;
+        }
+        const eventIds = globalFilters.prospeccaoIds || [];
+        const hasEventFilter = eventIds.length > 0;
+
+        // Membros das equipes dos eventos filtrados
+        let teamUserIds: Set<string> | null = null;
+        if (hasEventFilter) {
+          const { data: equipes } = await supabase
+            .from('prospeccao_equipes')
+            .select('id')
+            .in('prospeccao_id', eventIds);
+          const equipeIds = (equipes || []).map(e => e.id);
+          if (equipeIds.length === 0) {
+            setResponsaveisFiltrados([]);
+            return;
+          }
+          const { data: membros } = await supabase
+            .from('prospeccao_equipe_membros')
+            .select('user_id')
+            .in('equipe_id', equipeIds);
+          teamUserIds = new Set((membros || []).map(m => m.user_id).filter(Boolean));
+        }
+
+        // Emails de responsáveis com leads atribuídos (no escopo do evento, se houver)
+        let emailsComLeads = new Set<string>();
+        if (hasEventFilter) {
+          const { data: evRows } = await supabase
+            .from('eventos_prospeccao')
+            .select('contato_id')
+            .in('prospeccao_id', eventIds);
+          const contatoIds = Array.from(new Set((evRows || []).map(e => e.contato_id).filter(Boolean)));
+          if (contatoIds.length === 0) {
+            setResponsaveisFiltrados([]);
+            return;
+          }
+          // Buscar em lotes para evitar URL gigante
+          const chunkSize = 500;
+          for (let i = 0; i < contatoIds.length; i += chunkSize) {
+            const chunk = contatoIds.slice(i, i + chunkSize);
+            const { data: cs } = await supabase
+              .from('contatos')
+              .select('responsavel_email')
+              .eq('empresa_id', activeCompany.id)
+              .not('responsavel_email', 'is', null)
+              .in('id', chunk);
+            (cs || []).forEach(c => { if (c.responsavel_email) emailsComLeads.add(c.responsavel_email.toLowerCase()); });
+          }
+        } else {
+          const { data: cs } = await supabase
+            .from('contatos')
+            .select('responsavel_email')
+            .eq('empresa_id', activeCompany.id)
+            .not('responsavel_email', 'is', null)
+            .limit(10000);
+          (cs || []).forEach(c => { if (c.responsavel_email) emailsComLeads.add(c.responsavel_email.toLowerCase()); });
+        }
+
+        const filtered = base.filter(p => {
+          if (teamUserIds && !teamUserIds.has(p.id)) return false;
+          if (!p.email) return false;
+          return emailsComLeads.has(p.email.toLowerCase());
+        }).map(p => ({ id: p.id, nome_completo: p.nome_completo, tipo_acesso: p.tipo_acesso }));
+
+        setResponsaveisFiltrados(filtered);
+      } catch (e) {
+        console.error('Erro ao computar responsáveis filtrados:', e);
+        setResponsaveisFiltrados([]);
+      }
+    };
+    computeResponsaveis();
+  }, [activeCompany?.id, profiles, globalFilters.prospeccaoIds]);
+
   // Carregar filtro padrão de prospecções (uma vez por empresa)
   // Vendedor/SDR/Gerente: prospecções das equipes do usuário
   // Admin/Master/CRM/Diretor/Proprietário: últimas 5 prospecções ativas
