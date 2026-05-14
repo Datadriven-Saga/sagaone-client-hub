@@ -672,7 +672,7 @@ async function processBatch(
   empresaId: string,
   prospeccaoId: string | null,
   canal: string = 'whatsapp',
-): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
+): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; responsavel_applied: number; responsavel_skipped: number; warning_details: any[]; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
   const MAX_RETRIES = 3;
   let lastError = '';
 
@@ -803,6 +803,9 @@ async function processBatch(
         already_linked: data?.already_linked || 0,
         errors: data?.errors || 0,
         quarantined: data?.quarantined || 0,
+        responsavel_applied: data?.responsavel_applied || 0,
+        responsavel_skipped: data?.responsavel_skipped || 0,
+        warning_details: Array.isArray(data?.warning_details) ? data.warning_details : [],
         error_details: data?.error_details || [],
       };
     } catch (err: any) {
@@ -815,5 +818,5 @@ async function processBatch(
   }
 
   console.error(`🚫 Batch failed permanently: ${lastError}`);
-  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0, error_details: [{ telefone: '', nome: '', erro: `Lote inteiro falhou: ${lastError}` }] };
+  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, warning_details: [], error_details: [{ telefone: '', nome: '', erro: `Lote inteiro falhou: ${lastError}` }] };
 }
