@@ -3228,7 +3228,7 @@ showAllEvents: true
               title: 'Lead movido para Convidados',
               description: 'Você pode reenviar a confirmação a qualquer momento pela aba de convite.',
             });
-            refetch();
+            refreshLeadViews({ silentKanban: true });
           } catch (err) {
             console.error('Erro ao mover lead para Convidados:', err);
             toast({ title: 'Erro', description: 'Não foi possível mover o lead.', variant: 'destructive' });
@@ -3260,7 +3260,7 @@ showAllEvents: true
               title: 'Convite enviado',
               description: 'WhatsApp aberto e lead movido para Convidados.',
             });
-            refetch();
+            refreshLeadViews({ silentKanban: true });
           } catch (err) {
             console.error('Erro ao enviar convite:', err);
             toast({ title: 'Erro', description: 'Não foi possível registrar o envio.', variant: 'destructive' });
