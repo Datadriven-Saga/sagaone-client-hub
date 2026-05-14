@@ -568,6 +568,21 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                   </p>
                 )}
 
+                {((importLog.responsavel_applied || 0) > 0 || (importLog.responsavel_skipped || 0) > 0) && (
+                  <div className="flex flex-wrap gap-3 text-xs pt-1 border-t border-border/40">
+                    {(importLog.responsavel_applied || 0) > 0 && (
+                      <span className="text-emerald-600">
+                        ✅ {(importLog.responsavel_applied || 0).toLocaleString('pt-BR')} atribuídos
+                      </span>
+                    )}
+                    {(importLog.responsavel_skipped || 0) > 0 && (
+                      <span className="text-amber-600">
+                        ⚠️ {(importLog.responsavel_skipped || 0).toLocaleString('pt-BR')} responsável não encontrado
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Error details */}
                 {importLog.error_details && importLog.error_details.length > 0 && (
                   <ScrollArea className="max-h-40 border rounded p-2">
