@@ -1078,8 +1078,12 @@ export const useContatoData = () => {
       if (contatoAtual?.telefone) {
         dispararWebhookStatusAtendimento(contatoId, contatoAtual.telefone, novoStatus, 'mudanca_status');
       }
+
+      return true;
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
+
+      return false;
     }
   };
 
