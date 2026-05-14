@@ -2268,11 +2268,14 @@ export type Database = {
           processed_rows: number | null
           prospeccao_id: string | null
           quarantined: number | null
+          responsavel_applied: number
+          responsavel_skipped: number
           status: string
           total_rows: number | null
           updated: number | null
           updated_at: string
           user_id: string
+          warning_details: Json
         }
         Insert: {
           already_linked?: number | null
@@ -2292,11 +2295,14 @@ export type Database = {
           processed_rows?: number | null
           prospeccao_id?: string | null
           quarantined?: number | null
+          responsavel_applied?: number
+          responsavel_skipped?: number
           status?: string
           total_rows?: number | null
           updated?: number | null
           updated_at?: string
           user_id: string
+          warning_details?: Json
         }
         Update: {
           already_linked?: number | null
@@ -2316,11 +2322,14 @@ export type Database = {
           processed_rows?: number | null
           prospeccao_id?: string | null
           quarantined?: number | null
+          responsavel_applied?: number
+          responsavel_skipped?: number
           status?: string
           total_rows?: number | null
           updated?: number | null
           updated_at?: string
           user_id?: string
+          warning_details?: Json
         }
         Relationships: [
           {

@@ -233,6 +233,9 @@ Deno.serve(async (req: Request) => {
     let quarantined = log.quarantined || 0;
     const errorDetails: string[] = Array.isArray(log.error_details) ? [...log.error_details] : [];
     let processedRows = log.processed_rows || 0;
+    let responsavelApplied = log.responsavel_applied || 0;
+    let responsavelSkipped = log.responsavel_skipped || 0;
+    const warningDetails: any[] = Array.isArray(log.warning_details) ? [...log.warning_details] : [];
 
     // 5b. Fetch canal_quarentena from prospeccao (defaults to 'whatsapp')
     let canalQuarentena = 'whatsapp';
@@ -264,6 +267,11 @@ Deno.serve(async (req: Request) => {
           alreadyLinked += result.already_linked;
           errors += result.errors;
           quarantined += result.quarantined;
+          responsavelApplied += result.responsavel_applied;
+          responsavelSkipped += result.responsavel_skipped;
+          for (const w of result.warning_details) {
+            if (warningDetails.length < 200) warningDetails.push(w);
+          }
           processedRows += batch.length;
         }
 
@@ -273,6 +281,9 @@ Deno.serve(async (req: Request) => {
           inserted, updated, linked, already_linked: alreadyLinked,
           errors, quarantined,
           error_details: errorDetails,
+          responsavel_applied: responsavelApplied,
+          responsavel_skipped: responsavelSkipped,
+          warning_details: warningDetails,
           message: `Processando... ${processedRows.toLocaleString('pt-BR')}/${totalDataRows.toLocaleString('pt-BR')} (continuando em nova execução)`,
         }).eq('id', import_log_id);
 
@@ -328,6 +339,11 @@ Deno.serve(async (req: Request) => {
         alreadyLinked += result.already_linked;
         errors += result.errors;
         quarantined += result.quarantined;
+        responsavelApplied += result.responsavel_applied;
+        responsavelSkipped += result.responsavel_skipped;
+        for (const w of result.warning_details) {
+          if (warningDetails.length < 200) warningDetails.push(w);
+        }
         processedRows += batch.length;
 
         // Capture per-record error details from RPC
@@ -347,6 +363,9 @@ Deno.serve(async (req: Request) => {
           inserted, updated, linked, already_linked: alreadyLinked,
           errors, quarantined,
           error_details: errorDetails,
+          responsavel_applied: responsavelApplied,
+          responsavel_skipped: responsavelSkipped,
+          warning_details: warningDetails,
           message: `Processando... ${processedRows.toLocaleString('pt-BR')}/${totalDataRows.toLocaleString('pt-BR')}`,
         }).eq('id', import_log_id);
 
@@ -366,6 +385,11 @@ Deno.serve(async (req: Request) => {
       alreadyLinked += result.already_linked;
       errors += result.errors;
       quarantined += result.quarantined;
+      responsavelApplied += result.responsavel_applied;
+      responsavelSkipped += result.responsavel_skipped;
+      for (const w of result.warning_details) {
+        if (warningDetails.length < 200) warningDetails.push(w);
+      }
       processedRows += batch.length;
 
       // Capture per-record error details from final batch
@@ -412,6 +436,9 @@ Deno.serve(async (req: Request) => {
       inserted, updated, linked, already_linked: alreadyLinked,
       errors, quarantined,
       error_details: errorDetails,
+      responsavel_applied: responsavelApplied,
+      responsavel_skipped: responsavelSkipped,
+      warning_details: warningDetails,
       message: finalMessage,
     }).eq('id', import_log_id);
 
