@@ -3260,6 +3260,7 @@ showAllEvents: true
           setConvidarModal((s) => ({ ...s, isOpen: false }));
           try {
             await atualizarStatusContato(contatoId, 'Convidado');
+            moveKanbanCardOptimistic(contatoId, fromStatus, 'convidados');
             if (registrarMovimentacao && user && prospeccoes?.length > 0) {
               await registrarMovimentacao({
                 leadId: contatoId,
@@ -3291,6 +3292,7 @@ showAllEvents: true
               })
               .eq('id', contatoId);
             await atualizarStatusContato(contatoId, 'Convidado');
+            moveKanbanCardOptimistic(contatoId, fromStatus, 'convidados');
             if (registrarMovimentacao && user && prospeccoes?.length > 0) {
               await registrarMovimentacao({
                 leadId: contatoId,
