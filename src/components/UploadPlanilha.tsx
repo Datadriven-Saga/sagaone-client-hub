@@ -452,6 +452,11 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                           <td className="py-1 pr-2">Não</td>
                           <td className="py-1">responsavel, vendedor, atendente, consultor</td>
                         </tr>
+                        <tr className="border-t border-blue-100">
+                          <td className="py-1 pr-2 font-medium">Código da Proposta</td>
+                          <td className="py-1 pr-2">Não</td>
+                          <td className="py-1">codigo_proposta, codigo proposta, proposalid, proposal_id, proposal id</td>
+                        </tr>
                       </tbody>
                     </table>
                     <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-2">
