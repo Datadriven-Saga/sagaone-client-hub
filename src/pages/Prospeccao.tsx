@@ -2240,7 +2240,7 @@ showAllEvents: true
           <ProspeccaoGlobalFilter
             className="min-w-0 flex-1"
             prospeccoes={prospeccoes.map(p => ({ id: p.id, titulo: p.titulo }))}
-            responsaveis={profiles.map(p => ({ id: p.id, nome_completo: p.nome_completo, tipo_acesso: p.tipo_acesso }))}
+            responsaveis={responsaveisFiltrados}
             filters={globalFilters}
             onFiltersChange={setGlobalFilters}
           />
