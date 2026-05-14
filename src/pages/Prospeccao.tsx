@@ -3188,7 +3188,7 @@ showAllEvents: true
             });
             
             setDescarteModal({ isOpen: false, contatoId: '', contatoNome: '', fromStatus: '' });
-            refetch();
+            refreshLeadViews({ silentKanban: true });
           } catch (error) {
             console.error('Erro ao descartar lead:', error);
             toast({
