@@ -135,6 +135,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     fromStatus: '',
   });
   const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string; departamento?: string | null }[]>([]);
+  const [responsaveisFiltrados, setResponsaveisFiltrados] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null }[]>([]);
   const [eventosLigacaoValidos, setEventosLigacaoValidos] = useState<Set<string>>(new Set());
   const [loadingEventosLigacao, setLoadingEventosLigacao] = useState(false);
   const [eventosLigacaoVerificados, setEventosLigacaoVerificados] = useState(false);
