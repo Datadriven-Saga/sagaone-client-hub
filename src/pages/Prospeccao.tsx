@@ -927,6 +927,42 @@ showAllEvents: true
     });
   };
 
+  // Move a single card across kanban columns (used by modal flows that bypass drag)
+  const moveKanbanCardOptimistic = (itemId: string, fromColId: string, toColId: string) => {
+    if (!fromColId || !toColId || fromColId === toColId) return;
+    setKanbanData(prev => {
+      const updated = { ...prev };
+      const fromCol = updated[fromColId];
+      let movedItem: any | undefined;
+      if (fromCol) {
+        movedItem = fromCol.items.find((i: any) => i.id === itemId);
+        updated[fromColId] = {
+          ...fromCol,
+          items: fromCol.items.filter((i: any) => i.id !== itemId),
+          count: Math.max(0, fromCol.count - (movedItem ? 1 : 0)),
+        };
+      }
+      const toCol = updated[toColId] ?? { count: 0, items: [] };
+      const mappedStatus = kanbanStatusMap[toColId as keyof typeof kanbanStatusMap] ?? toColId;
+      const alreadyThere = toCol.items.some((i: any) => i.id === itemId);
+      if (!alreadyThere) {
+        const itemToInsert = movedItem
+          ? { ...movedItem, status: mappedStatus }
+          : Object.values(prev).flatMap(c => c.items).find((c: any) => c.id === itemId);
+        if (itemToInsert) {
+          updated[toColId] = {
+            ...toCol,
+            items: [{ ...itemToInsert, status: mappedStatus }, ...toCol.items],
+            count: toCol.count + 1,
+          };
+        } else {
+          updated[toColId] = { ...toCol, count: toCol.count + 1 };
+        }
+      }
+      return updated;
+    });
+  };
+
   // Função para registrar movimentações dos contatos
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string): Promise<boolean> => {
     console.log('handleStatusChange called:', { itemId, fromStatus, toStatus });
@@ -3224,6 +3260,7 @@ showAllEvents: true
           setConvidarModal((s) => ({ ...s, isOpen: false }));
           try {
             await atualizarStatusContato(contatoId, 'Convidado');
+            moveKanbanCardOptimistic(contatoId, fromStatus, 'convidados');
             if (registrarMovimentacao && user && prospeccoes?.length > 0) {
               await registrarMovimentacao({
                 leadId: contatoId,
@@ -3255,6 +3292,7 @@ showAllEvents: true
               })
               .eq('id', contatoId);
             await atualizarStatusContato(contatoId, 'Convidado');
+            moveKanbanCardOptimistic(contatoId, fromStatus, 'convidados');
             if (registrarMovimentacao && user && prospeccoes?.length > 0) {
               await registrarMovimentacao({
                 leadId: contatoId,
