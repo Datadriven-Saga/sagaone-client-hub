@@ -55,6 +55,9 @@ interface ImportLog {
   errors: number;
   quarantined: number;
   error_details: string[];
+  responsavel_applied?: number;
+  responsavel_skipped?: number;
+  warning_details?: Array<{ type?: string; value?: string; telefone?: string; nome?: string }>;
   message: string | null;
 }
 
@@ -565,6 +568,21 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                   </p>
                 )}
 
+                {((importLog.responsavel_applied || 0) > 0 || (importLog.responsavel_skipped || 0) > 0) && (
+                  <div className="flex flex-wrap gap-3 text-xs pt-1 border-t border-border/40">
+                    {(importLog.responsavel_applied || 0) > 0 && (
+                      <span className="text-emerald-600">
+                        ✅ {(importLog.responsavel_applied || 0).toLocaleString('pt-BR')} atribuídos
+                      </span>
+                    )}
+                    {(importLog.responsavel_skipped || 0) > 0 && (
+                      <span className="text-amber-600">
+                        ⚠️ {(importLog.responsavel_skipped || 0).toLocaleString('pt-BR')} responsável não encontrado
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Error details */}
                 {importLog.error_details && importLog.error_details.length > 0 && (
                   <ScrollArea className="max-h-40 border rounded p-2">
@@ -709,6 +727,71 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                   </div>
                 )}
               </div>
+
+              {/* Atribuição por responsável */}
+              {((importLog.responsavel_applied || 0) > 0 || (importLog.responsavel_skipped || 0) > 0) && (
+                <Card className="p-3 border-primary/20 bg-primary/5 space-y-1.5">
+                  {(importLog.responsavel_applied || 0) > 0 && (
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                        Leads atribuídos ao vendedor da planilha
+                      </span>
+                      <span className="font-medium text-emerald-600">
+                        {(importLog.responsavel_applied || 0).toLocaleString('pt-BR')}
+                      </span>
+                    </div>
+                  )}
+                  {(importLog.responsavel_skipped || 0) > 0 && (
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="flex items-center gap-1.5">
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                        Responsável não encontrado no sistema
+                      </span>
+                      <span className="font-medium text-amber-600">
+                        {(importLog.responsavel_skipped || 0).toLocaleString('pt-BR')}
+                      </span>
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {/* Warnings: responsáveis não encontrados */}
+              {importLog.warning_details && importLog.warning_details.length > 0 && (() => {
+                const grouped = new Map<string, number>();
+                for (const w of importLog.warning_details) {
+                  if (w?.type === 'responsavel_not_found' && w.value) {
+                    grouped.set(w.value, (grouped.get(w.value) || 0) + 1);
+                  }
+                }
+                if (grouped.size === 0) return null;
+                const entries = Array.from(grouped.entries()).sort((a, b) => b[1] - a[1]);
+                return (
+                  <Card className="p-3 border-amber-500/30 bg-amber-500/5">
+                    <div className="space-y-2">
+                      <div className="flex gap-2 items-center">
+                        <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                        <p className="text-xs font-medium text-amber-700">
+                          Responsáveis não encontrados ({entries.length}):
+                        </p>
+                      </div>
+                      <ScrollArea className="max-h-40">
+                        <div className="text-xs space-y-1">
+                          {entries.slice(0, 50).map(([value, count], i) => (
+                            <div key={i} className="flex justify-between items-center py-1 border-b border-amber-500/10 last:border-0">
+                              <span className="text-muted-foreground truncate mr-2">{value}</span>
+                              <span className="font-medium text-amber-700 shrink-0">{count.toLocaleString('pt-BR')} lead(s)</span>
+                            </div>
+                          ))}
+                          {entries.length > 50 && (
+                            <p className="text-muted-foreground pt-1">...e mais {entries.length - 50}</p>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </Card>
+                );
+              })()}
 
               {/* Error details */}
               {importLog.error_details && importLog.error_details.length > 0 && (

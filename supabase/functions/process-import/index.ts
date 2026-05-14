@@ -233,6 +233,9 @@ Deno.serve(async (req: Request) => {
     let quarantined = log.quarantined || 0;
     const errorDetails: string[] = Array.isArray(log.error_details) ? [...log.error_details] : [];
     let processedRows = log.processed_rows || 0;
+    let responsavelApplied = log.responsavel_applied || 0;
+    let responsavelSkipped = log.responsavel_skipped || 0;
+    const warningDetails: any[] = Array.isArray(log.warning_details) ? [...log.warning_details] : [];
 
     // 5b. Fetch canal_quarentena from prospeccao (defaults to 'whatsapp')
     let canalQuarentena = 'whatsapp';
@@ -264,6 +267,11 @@ Deno.serve(async (req: Request) => {
           alreadyLinked += result.already_linked;
           errors += result.errors;
           quarantined += result.quarantined;
+          responsavelApplied += result.responsavel_applied;
+          responsavelSkipped += result.responsavel_skipped;
+          for (const w of result.warning_details) {
+            if (warningDetails.length < 200) warningDetails.push(w);
+          }
           processedRows += batch.length;
         }
 
@@ -273,6 +281,9 @@ Deno.serve(async (req: Request) => {
           inserted, updated, linked, already_linked: alreadyLinked,
           errors, quarantined,
           error_details: errorDetails,
+          responsavel_applied: responsavelApplied,
+          responsavel_skipped: responsavelSkipped,
+          warning_details: warningDetails,
           message: `Processando... ${processedRows.toLocaleString('pt-BR')}/${totalDataRows.toLocaleString('pt-BR')} (continuando em nova execução)`,
         }).eq('id', import_log_id);
 
@@ -328,6 +339,11 @@ Deno.serve(async (req: Request) => {
         alreadyLinked += result.already_linked;
         errors += result.errors;
         quarantined += result.quarantined;
+        responsavelApplied += result.responsavel_applied;
+        responsavelSkipped += result.responsavel_skipped;
+        for (const w of result.warning_details) {
+          if (warningDetails.length < 200) warningDetails.push(w);
+        }
         processedRows += batch.length;
 
         // Capture per-record error details from RPC
@@ -347,6 +363,9 @@ Deno.serve(async (req: Request) => {
           inserted, updated, linked, already_linked: alreadyLinked,
           errors, quarantined,
           error_details: errorDetails,
+          responsavel_applied: responsavelApplied,
+          responsavel_skipped: responsavelSkipped,
+          warning_details: warningDetails,
           message: `Processando... ${processedRows.toLocaleString('pt-BR')}/${totalDataRows.toLocaleString('pt-BR')}`,
         }).eq('id', import_log_id);
 
@@ -366,6 +385,11 @@ Deno.serve(async (req: Request) => {
       alreadyLinked += result.already_linked;
       errors += result.errors;
       quarantined += result.quarantined;
+      responsavelApplied += result.responsavel_applied;
+      responsavelSkipped += result.responsavel_skipped;
+      for (const w of result.warning_details) {
+        if (warningDetails.length < 200) warningDetails.push(w);
+      }
       processedRows += batch.length;
 
       // Capture per-record error details from final batch
@@ -412,6 +436,9 @@ Deno.serve(async (req: Request) => {
       inserted, updated, linked, already_linked: alreadyLinked,
       errors, quarantined,
       error_details: errorDetails,
+      responsavel_applied: responsavelApplied,
+      responsavel_skipped: responsavelSkipped,
+      warning_details: warningDetails,
       message: finalMessage,
     }).eq('id', import_log_id);
 
@@ -645,7 +672,7 @@ async function processBatch(
   empresaId: string,
   prospeccaoId: string | null,
   canal: string = 'whatsapp',
-): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
+): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; responsavel_applied: number; responsavel_skipped: number; warning_details: any[]; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
   const MAX_RETRIES = 3;
   let lastError = '';
 
@@ -776,6 +803,9 @@ async function processBatch(
         already_linked: data?.already_linked || 0,
         errors: data?.errors || 0,
         quarantined: data?.quarantined || 0,
+        responsavel_applied: data?.responsavel_applied || 0,
+        responsavel_skipped: data?.responsavel_skipped || 0,
+        warning_details: Array.isArray(data?.warning_details) ? data.warning_details : [],
         error_details: data?.error_details || [],
       };
     } catch (err: any) {
@@ -788,5 +818,5 @@ async function processBatch(
   }
 
   console.error(`🚫 Batch failed permanently: ${lastError}`);
-  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0, error_details: [{ telefone: '', nome: '', erro: `Lote inteiro falhou: ${lastError}` }] };
+  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, warning_details: [], error_details: [{ telefone: '', nome: '', erro: `Lote inteiro falhou: ${lastError}` }] };
 }
