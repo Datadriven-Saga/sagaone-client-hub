@@ -4090,7 +4090,7 @@ ${localEvento}`;
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
+                      <div className="max-h-52 overflow-y-auto border rounded-md p-2 space-y-1">
                         {usersComAcesso
                           .filter(u => {
                             if (membrosFilterNome && !u.nome_completo.toLowerCase().includes(membrosFilterNome.toLowerCase())) return false;
@@ -4202,7 +4202,7 @@ ${localEvento}`;
                                 </SelectContent>
                               </Select>
                             </div>
-                            <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
+                            <div className="max-h-52 overflow-y-auto border rounded-md p-2 space-y-1">
                               {usersComAcesso
                                 .filter(u => {
                                   if (membrosFilterNome && !u.nome_completo.toLowerCase().includes(membrosFilterNome.toLowerCase())) return false;
