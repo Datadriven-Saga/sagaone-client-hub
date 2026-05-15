@@ -406,14 +406,29 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
     }
     setResending(true);
     try {
+      if (!prospeccaoId) {
+        toast({ title: 'Erro', description: 'Evento não identificado.', variant: 'destructive' });
+        return;
+      }
       let token = confirmationToken;
       if (!token) {
-        token = crypto.randomUUID();
-        const { error } = await supabase
-          .from('contatos')
-          .update({ confirmation_token: token })
-          .eq('id', contato.id);
-        if (error) throw error;
+        // Token nasce com default na linha de eventos_prospeccao; busca/garante.
+        const { data: vinc } = await supabase
+          .from('eventos_prospeccao')
+          .select('confirmation_token')
+          .eq('contato_id', contato.id)
+          .eq('prospeccao_id', prospeccaoId)
+          .maybeSingle();
+        token = vinc?.confirmation_token ?? null;
+        if (!token) {
+          token = crypto.randomUUID();
+          const { error } = await supabase
+            .from('eventos_prospeccao')
+            .update({ confirmation_token: token })
+            .eq('contato_id', contato.id)
+            .eq('prospeccao_id', prospeccaoId);
+          if (error) throw error;
+        }
         setConfirmationToken(token);
       }
 
@@ -428,12 +443,13 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
       // Registrar (re)envio
       const nowIso = new Date().toISOString();
       await supabase
-        .from('contatos')
+        .from('eventos_prospeccao')
         .update({
           confirmation_sent_at: nowIso,
           confirmation_sent_by: user?.id ?? null,
         })
-        .eq('id', contato.id);
+        .eq('contato_id', contato.id)
+        .eq('prospeccao_id', prospeccaoId);
       setConfirmationSentAt(nowIso);
 
       window.open(url, '_blank', 'noopener,noreferrer');
