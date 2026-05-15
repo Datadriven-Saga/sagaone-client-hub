@@ -271,97 +271,10 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     {!isCollapsed && (
-                      <CollapsibleContent className="pl-3 mt-1 space-y-1">
-                        {canSeeAlgCompra && (
-                          <Collapsible open={isAlgCompraOpen} onOpenChange={setIsAlgCompraOpen}>
-                            <CollapsibleTrigger asChild>
-                              <SidebarMenuButton className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between text-sm text-sidebar-foreground hover:opacity-80">
-                                <div className="flex items-center gap-2">
-                                  <ShoppingCart className="h-4 w-4 flex-shrink-0" />
-                                  <span>Compra</span>
-                                </div>
-                                {isAlgCompraOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                              </SidebarMenuButton>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="pl-5 mt-1 space-y-1">
-                              {algoritmosCompraItems.map((s) => (
-                                <SidebarMenuButton key={s.url} asChild>
-                                  <NavLink
-                                    to={s.url}
-                                    onClick={closeMobileSidebar}
-                                    className={({ isActive }) =>
-                                      `flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
-                                        isActive ? "font-bold border-b-2 border-primary" : "hover:opacity-80"
-                                      }`
-                                    }
-                                  >
-                                    <span>{s.title}</span>
-                                  </NavLink>
-                                </SidebarMenuButton>
-                              ))}
-                            </CollapsibleContent>
-                          </Collapsible>
-                        )}
-                        {canSeeAlgVenda && (
-                          <Collapsible open={isAlgVendaOpen} onOpenChange={setIsAlgVendaOpen}>
-                            <CollapsibleTrigger asChild>
-                              <SidebarMenuButton className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between text-sm text-sidebar-foreground hover:opacity-80">
-                                <div className="flex items-center gap-2">
-                                  <Tag className="h-4 w-4 flex-shrink-0" />
-                                  <span>Venda</span>
-                                </div>
-                                {isAlgVendaOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                              </SidebarMenuButton>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="pl-5 mt-1 space-y-1">
-                              {algoritmosVendaItems.map((s) => (
-                                <SidebarMenuButton key={s.url} asChild>
-                                  <NavLink
-                                    to={s.url}
-                                    onClick={closeMobileSidebar}
-                                    className={({ isActive }) =>
-                                      `flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
-                                        isActive ? "font-bold border-b-2 border-primary" : "hover:opacity-80"
-                                      }`
-                                    }
-                                  >
-                                    <span>{s.title}</span>
-                                  </NavLink>
-                                </SidebarMenuButton>
-                              ))}
-                            </CollapsibleContent>
-                          </Collapsible>
-                        )}
-                        {canSeeAlgPosVendas && (
-                          <Collapsible open={isAlgPosVendasOpen} onOpenChange={setIsAlgPosVendasOpen}>
-                            <CollapsibleTrigger asChild>
-                              <SidebarMenuButton className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between text-sm text-sidebar-foreground hover:opacity-80">
-                                <div className="flex items-center gap-2">
-                                  <PackageOpen className="h-4 w-4 flex-shrink-0" />
-                                  <span>Pós-Vendas</span>
-                                </div>
-                                {isAlgPosVendasOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                              </SidebarMenuButton>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="pl-5 mt-1 space-y-1">
-                              {algoritmosPosVendasItems.map((s) => (
-                                <SidebarMenuButton key={s.url} asChild>
-                                  <NavLink
-                                    to={s.url}
-                                    onClick={closeMobileSidebar}
-                                    className={({ isActive }) =>
-                                      `flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm text-sidebar-foreground ${
-                                        isActive ? "font-bold border-b-2 border-primary" : "hover:opacity-80"
-                                      }`
-                                    }
-                                  >
-                                    <span>{s.title}</span>
-                                  </NavLink>
-                                </SidebarMenuButton>
-                              ))}
-                            </CollapsibleContent>
-                          </Collapsible>
-                        )}
+                      <CollapsibleContent className="pl-4 mt-1 space-y-1">
+                        {canSeeAlgCompra && renderAlgGroup("Compra", ShoppingCart, isAlgCompraOpen, setIsAlgCompraOpen, algoritmosCompraItems)}
+                        {canSeeAlgVenda && renderAlgGroup("Venda", Tag, isAlgVendaOpen, setIsAlgVendaOpen, algoritmosVendaItems)}
+                        {canSeeAlgPosVendas && renderAlgGroup("Pós-Vendas", PackageOpen, isAlgPosVendasOpen, setIsAlgPosVendasOpen, algoritmosPosVendasItems)}
                       </CollapsibleContent>
                     )}
                   </Collapsible>
