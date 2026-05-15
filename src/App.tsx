@@ -32,6 +32,7 @@ const MinhaConta = lazy(() => import("./pages/MinhaConta"));
 const Ajuda = lazy(() => import("./pages/Ajuda"));
 const AgentesIA = lazy(() => import("./pages/AgentesIA"));
 const PosVendas = lazy(() => import("./pages/pos-vendas/PosVendas"));
+const AlgoritmoEmConstrucao = lazy(() => import("./pages/algoritmos/EmConstrucao"));
 
 // Admin pages - lazy
 const Empresas = lazy(() => import("./pages/admin/Empresas"));
@@ -110,6 +111,15 @@ const AppRoutes = () => {
         {/* Pós-Vendas (Paty) */}
         <Route path="/pos-vendas" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PosVendas /></PermissionProtectedRoute>} />
         <Route path="/pos-vendas/:tab" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PosVendas /></PermissionProtectedRoute>} />
+
+        {/* Algoritmos */}
+        <Route path="/algoritmos/compra/avaliacao" element={<PermissionProtectedRoute permissionKey="canAccessAlgoritmosCompra"><AlgoritmoEmConstrucao titulo="Avaliação de Compra" grupo="Compra" /></PermissionProtectedRoute>} />
+        <Route path="/algoritmos/compra/politicas" element={<PermissionProtectedRoute permissionKey="canAccessAlgoritmosCompra"><AlgoritmoEmConstrucao titulo="Políticas de Compra" grupo="Compra" /></PermissionProtectedRoute>} />
+        <Route path="/algoritmos/compra/simulacao" element={<PermissionProtectedRoute permissionKey="canAccessAlgoritmosCompra"><AlgoritmoEmConstrucao titulo="Simulação de Compra" grupo="Compra" /></PermissionProtectedRoute>} />
+        <Route path="/algoritmos/venda/atualizar-price" element={<PermissionProtectedRoute permissionKey="canAccessAlgoritmosVenda"><AlgoritmoEmConstrucao titulo="Atualizar Price" grupo="Venda" /></PermissionProtectedRoute>} />
+        <Route path="/algoritmos/venda/historico-precificacao" element={<PermissionProtectedRoute permissionKey="canAccessAlgoritmosVenda"><AlgoritmoEmConstrucao titulo="Histórico de Precificação" grupo="Venda" /></PermissionProtectedRoute>} />
+        <Route path="/algoritmos/pos-vendas/politicas" element={<PermissionProtectedRoute permissionKey="canAccessAlgoritmosPosVendas"><AlgoritmoEmConstrucao titulo="Políticas Pós-Vendas" grupo="Pós-Vendas" /></PermissionProtectedRoute>} />
+        <Route path="/algoritmos/pos-vendas/eventos" element={<PermissionProtectedRoute permissionKey="canAccessAlgoritmosPosVendas"><AlgoritmoEmConstrucao titulo="Eventos Pós-Vendas" grupo="Pós-Vendas" /></PermissionProtectedRoute>} />
         
         {/* Agentes IA */}
         <Route path="/agentes-ia" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><AgentesIA /></PermissionProtectedRoute>} />
