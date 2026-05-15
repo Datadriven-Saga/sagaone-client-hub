@@ -3293,16 +3293,19 @@ showAllEvents: true
           }
         }}
         onEnviar={async () => {
-          const { contatoId, fromStatus } = convidarModal;
+          const { contatoId, fromStatus, prospeccaoIdAlvo } = convidarModal;
           setConvidarModal((s) => ({ ...s, isOpen: false }));
           try {
-            await supabase
-              .from('contatos')
-              .update({
-                confirmation_sent_at: new Date().toISOString(),
-                confirmation_sent_by: user?.id ?? null,
-              })
-              .eq('id', contatoId);
+            if (prospeccaoIdAlvo) {
+              await supabase
+                .from('eventos_prospeccao')
+                .update({
+                  confirmation_sent_at: new Date().toISOString(),
+                  confirmation_sent_by: user?.id ?? null,
+                })
+                .eq('contato_id', contatoId)
+                .eq('prospeccao_id', prospeccaoIdAlvo);
+            }
             await atualizarStatusContato(contatoId, 'Convidado');
             moveKanbanCardOptimistic(contatoId, fromStatus, 'convidados');
             if (registrarMovimentacao && user && prospeccoes?.length > 0) {
