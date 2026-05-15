@@ -40,7 +40,6 @@ import {
 } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import sagaOneLogo from "@/assets/saga-one-menu-logo.png";
 
@@ -218,29 +217,20 @@ export function AppSidebar() {
         <CollapsibleContent className="pl-4 mt-1 space-y-1">
           {subItems.map((subItem) => (
             <SidebarMenuButton key={subItem.url} asChild>
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <NavLink
-                      to={subItem.url}
-                      onClick={closeMobileSidebar}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm w-full min-w-0 ${
-                          isActive
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
-                        }`
-                      }
-                    >
-                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate">{subItem.title}</span>
-                    </NavLink>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={8}>
-                    {subItem.title}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <NavLink
+                to={subItem.url}
+                onClick={closeMobileSidebar}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
+                  }`
+                }
+              >
+                <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                <span>{subItem.title}</span>
+              </NavLink>
             </SidebarMenuButton>
           ))}
         </CollapsibleContent>
