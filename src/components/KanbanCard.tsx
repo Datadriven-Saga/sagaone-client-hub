@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { formatPhoneForDisplay } from '@/lib/phoneUtils';
 
 interface KanbanCardProps {
   item: KanbanItem;
@@ -164,7 +165,7 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
         {item.channel && (
           <div className="flex items-center gap-2 mb-2.5">
             <p className="text-sm text-muted-foreground">
-              {item.channel}
+              {formatPhoneForDisplay(item.channel) || item.channel}
             </p>
             {(
               <button
