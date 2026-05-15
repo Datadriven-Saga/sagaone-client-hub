@@ -280,7 +280,89 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
         console.log('📄 Excel convertido para CSV');
       }
 
-      // 2) Upload CSV to Supabase Storage (with retry)
+      // 1.5) Bloqueio de evento encerrado (frontend)
+      const { data: eventoCheck } = await supabase
+        .from('prospeccoes')
+        .select('snapshot_realizado, data_fim')
+        .eq('id', selectedCampanha)
+        .maybeSingle();
+      const dataFim = eventoCheck?.data_fim ? new Date(eventoCheck.data_fim) : null;
+      const hojeMidnight = new Date(new Date().toDateString());
+      const encerrado = eventoCheck?.snapshot_realizado === true ||
+        (dataFim !== null && dataFim < hojeMidnight);
+      if (encerrado) {
+        setPhase('idle');
+        toast({
+          title: 'Evento encerrado',
+          description: 'Este evento já foi encerrado e não aceita novas importações.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // 2) Conferir conflitos com outros eventos ativos antes de subir
+      setCheckingConflitos(true);
+      const phones = await extractPhonesFromCsvFile(csvFile);
+      setPendingPhonesTotal(phones.length);
+
+      const conflitosAcc: ConflitoLead[] = [];
+      const CHUNK = 1000;
+      for (let i = 0; i < phones.length; i += CHUNK) {
+        const chunk = phones.slice(i, i + CHUNK);
+        const { data, error } = await supabase.rpc('preview_importacao_conflitos', {
+          p_empresa_id: activeCompany.id,
+          p_prospeccao_id: selectedCampanha,
+          p_telefones: chunk,
+        });
+        if (error) {
+          console.error('preview_importacao_conflitos error:', error);
+          break;
+        }
+        if (Array.isArray(data)) {
+          for (const row of data as any[]) {
+            conflitosAcc.push({
+              telefone: row.telefone,
+              contato_id: row.contato_id,
+              nome: row.nome,
+              status_atual: row.status_atual,
+              eventos_ativos: Array.isArray(row.eventos_ativos) ? row.eventos_ativos : [],
+            });
+          }
+        }
+      }
+      setCheckingConflitos(false);
+
+      if (conflitosAcc.length > 0) {
+        // Mantemos o csvFile pronto e mostramos a tela de preview.
+        setPendingCsvFile(csvFile);
+        setConflitos(conflitosAcc);
+        setShowConflitos(true);
+        return; // Aguardar decisão do usuário em handleConflitosConfirm
+      }
+
+      // Sem conflitos → segue direto, sem force_status_novo
+      await proceedUpload(csvFile, baseNomeFinal, origemContato, [], false);
+    } catch (error: any) {
+      console.error('❌ Import error:', error);
+      setPhase('error');
+      setCheckingConflitos(false);
+      toast({
+        title: 'Erro na importação',
+        description: error.message || 'Não foi possível iniciar a importação',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const proceedUpload = async (
+    csvFile: File,
+    baseNomeFinal: string,
+    origemContato: string,
+    telefonesSkip: string[],
+    forceStatusNovo: boolean,
+  ) => {
+    if (!activeCompany?.id) return;
+    try {
       setPhase('uploading');
       setUploadProgress(0);
       const timestamp = Date.now();
@@ -381,7 +463,11 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
       // 7) Trigger edge function (fire and forget)
       console.log('🚀 Triggering process-import edge function...');
       supabase.functions.invoke('process-import', {
-        body: { import_log_id: logData.id },
+        body: {
+          import_log_id: logData.id,
+          telefones_skip: telefonesSkip,
+          force_status_novo: forceStatusNovo,
+        },
       }).then(({ error }) => {
         if (error) {
           console.error('❌ Edge function invocation error:', error);
@@ -398,6 +484,23 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
         variant: 'destructive',
       });
     }
+  };
+
+  const handleConflitosConfirm = async (telefonesSkip: string[]) => {
+    setShowConflitos(false);
+    if (!pendingCsvFile) return;
+    const baseNomeFinal = nomeBase.trim() || `Importação ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    const origemContato = selectedOrigem || 'Outros';
+    await proceedUpload(pendingCsvFile, baseNomeFinal, origemContato, telefonesSkip, true);
+    setPendingCsvFile(null);
+    setConflitos([]);
+  };
+
+  const handleConflitosCancel = () => {
+    setShowConflitos(false);
+    setPendingCsvFile(null);
+    setConflitos([]);
+    setPhase('idle');
   };
 
   const clearData = () => {
