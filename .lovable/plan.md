@@ -1,67 +1,66 @@
+## Objetivo
+Adicionar menu "Algoritmos" na sidebar com 3 sub-grupos colapsáveis (Compra, Venda, Pós-Vendas), cada um com suas sub-páginas. Cada página renderiza um placeholder "Em construção" usando o layout atual. Acesso controlado por 3 permissões dedicadas (uma por sub-grupo) registradas no `PermissionRegistry`.
 
-## Plano: Captura e Propagação do `codigo_proposta` via Webhook de Movimentação
+## Estrutura do menu
 
-### Objetivo
-1. **Capturar** o `codigo_proposta` retornado pelo webhook externo na primeira movimentação (tipicamente "Em Espera") e persistir em `contatos.codigo_proposta`.
-2. **Propagar** o `codigo_proposta` em todas as chamadas subsequentes do webhook `movimentacao_lead_kanban`, junto aos dados do lead.
-
-### Análise Atual
-- A Edge Function `trigger-webhook` hoje envia o payload no padrão "fire-and-forget" (não lê resposta para persistir).
-- O campo `contatos.codigo_proposta` já existe e é usado em disparos WhatsApp/IA Voz, mas só é populado via importação de base.
-- Webhooks externos podem retornar JSON com chaves variadas (`proposalId`, `codigo_proposta`, `proposal_id`).
-
-### Mudanças Técnicas
-
-**1. `supabase/functions/trigger-webhook/index.ts`**
-- No bloco que processa o gatilho `movimentacao_lead_kanban`:
-  - Antes do `fetch`, buscar `codigo_proposta` atual do contato e **incluir no payload enviado** (campo `codigo_proposta` ou `proposalId`).
-  - Após o `fetch`, ler `response.json()` (com try/catch).
-  - Se resposta contém `codigo_proposta` / `proposalId` / `proposal_id` **e** o contato ainda não tem valor salvo (ou veio diferente), executar `UPDATE contatos SET codigo_proposta = {valor} WHERE id = {contato_id}`.
-  - Logar a captura para auditoria.
-
-**2. Payload enviado (estrutura)**
-```json
-{
-  "gatilho": "movimentacao_lead_kanban",
-  "dados": {
-    "contato_id": "...",
-    "lead_id": 123,
-    "codigo_proposta": "ABC123",  // ← NOVO: enviado em toda movimentação
-    "status_anterior": "...",
-    "status_novo": "...",
-    "empresa_id": "...",
-    "prospeccao_id": "..."
-  }
-}
-```
-
-**3. Resposta esperada do webhook externo (contrato)**
-```json
-{
-  "codigo_proposta": "ABC123"  // aceitar também: proposalId, proposal_id
-}
-```
-
-### Fluxo Resultante
 ```text
-1ª movimentação (Em Espera):
-  ├─ Envia payload SEM codigo_proposta (ainda null)
-  ├─ Webhook externo responde { codigo_proposta: "X" }
-  └─ Salva em contatos.codigo_proposta
-
-2ª+ movimentações:
-  ├─ Busca contatos.codigo_proposta = "X"
-  ├─ Envia payload COM codigo_proposta = "X"
-  └─ Resposta ignorada (ou re-confirma se vier diferente)
+Algoritmos (CodeMerge)                 ← canAccessAlgoritmos (OR das 3 abaixo)
+├── Compra                              ← canAccessAlgoritmosCompra
+│   ├── Avaliação de Compra
+│   ├── Políticas de Compra
+│   └── Simulação de Compra
+├── Venda                               ← canAccessAlgoritmosVenda
+│   ├── Atualizar Price
+│   └── Histórico de Precificação
+└── Pós-Vendas                          ← canAccessAlgoritmosPosVendas
+    ├── Políticas Pós-Vendas
+    └── Eventos Pós-Vendas
 ```
 
-### Arquivos Afetados
-- `supabase/functions/trigger-webhook/index.ts` (única alteração)
+## Rotas
 
-### Memória a Atualizar
-- `mem://features/prospeccao/webhook-movimentacao-lead-kanban`: documentar captura/propagação do `codigo_proposta`.
+Padrão `/algoritmos/<grupo>/<item>`:
 
-### Validação Pós-Implementação
-- Mover lead para "Em Espera" → conferir log da edge function mostrando captura.
-- Verificar `SELECT codigo_proposta FROM contatos WHERE id = ...` retorna o valor.
-- Mover o mesmo lead para o próximo status → conferir payload de saída inclui `codigo_proposta`.
+- `/algoritmos/compra/avaliacao`
+- `/algoritmos/compra/politicas`
+- `/algoritmos/compra/simulacao`
+- `/algoritmos/venda/atualizar-price`
+- `/algoritmos/venda/historico-precificacao`
+- `/algoritmos/pos-vendas/politicas`
+- `/algoritmos/pos-vendas/eventos`
+
+Todas usam o mesmo componente `AlgoritmoEmConstrucao` (recebe título via prop ou lê da rota), embrulhado em `PermissionProtectedRoute` com a permissão do sub-grupo.
+
+## Permissões (RBAC via departamento_permissoes)
+
+Adicionar em `src/components/controle-acessos/PermissionRegistry.ts`:
+
+- Novo módulo: `{ id: "algoritmos", label: "Algoritmos", icon: "GitMerge", description: "Algoritmos de Compra, Venda e Pós-Vendas", order: 17 }`
+- 3 entries:
+  - `canAccessAlgoritmosCompra` — visualizar
+  - `canAccessAlgoritmosVenda` — visualizar
+  - `canAccessAlgoritmosPosVendas` — visualizar
+- Defaults em `getDefaultPermissions`: as 3 = `isAdmin` (admins/master por padrão; demais perfis liberados via overrides na tela de Controle de Acessos).
+
+Não há mudanças de banco — `departamento_permissoes` já trata as novas keys dinamicamente via `resolvePermissions`.
+
+## Página em construção
+
+Novo componente `src/pages/algoritmos/EmConstrucao.tsx`:
+- Usa `DashboardLayout` (mesmo wrapper das demais páginas)
+- Card centralizado: ícone (Construction), título do item, subtítulo "Em construção", descrição curta
+- Mantém tokens semânticos do design system (sem cores diretas)
+
+## Arquivos alterados/criados
+
+1. `src/components/controle-acessos/PermissionRegistry.ts` — novo módulo + 3 permissões + defaults
+2. `src/hooks/useUserAccessType.ts` — expor `canAccessAlgoritmosCompra/Venda/PosVendas` (opcional; sidebar pode ler direto de `permissions[...]`)
+3. `src/components/AppSidebar.tsx` — novo item "Algoritmos" colapsável com 3 sub-grupos aninhados (também colapsáveis); cada sub-grupo só aparece se a permissão correspondente for true; o item "Algoritmos" só aparece se pelo menos uma das 3 for true. Ícone: `GitMerge` (lucide-react)
+4. `src/pages/algoritmos/EmConstrucao.tsx` — novo placeholder reutilizável
+5. `src/App.tsx` — registrar as 7 rotas com `PermissionProtectedRoute permissionKey="canAccessAlgoritmos<Grupo>"` e lazy-load do `EmConstrucao`
+
+## Notas técnicas
+
+- A sidebar atual usa `Collapsible` para um nível. Para o segundo nível (Compra/Venda/Pós-Vendas dentro de Algoritmos) será adicionado um `Collapsible` aninhado, reaproveitando o helper `renderCollapsibleMenu` ou criando uma variante simples. Estado de cada um: `useState(currentPath.startsWith('/algoritmos/<grupo>'))`.
+- Nada de RLS no banco — RBAC é client-side via `PermissionProtectedRoute`, igual aos demais menus do projeto. As páginas em construção não consultam dados.
+- Master continua com tudo true (override no `useUserAccessType`).
