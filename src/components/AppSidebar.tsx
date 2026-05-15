@@ -230,7 +230,7 @@ export function AppSidebar() {
                 }
               >
                 <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate group-hover/menu-item:overflow-visible">{subItem.title}</span>
+                <span className="truncate">{subItem.title}</span>
               </NavLink>
             </SidebarMenuButton>
           ))}
