@@ -13,6 +13,7 @@ import { useCompany } from '@/contexts/CompanyContext';
 import { safeRead, XLSX } from '@/lib/xlsxSafe';
 import { useUserAccessType } from '@/hooks/useUserAccessType';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ImportPreviewConflitos, type ConflitoLead } from '@/components/import/ImportPreviewConflitos';
 
 interface Prospeccao {
   id: string;
@@ -63,6 +64,70 @@ interface ImportLog {
 
 type ImportPhase = 'idle' | 'converting' | 'uploading' | 'processing' | 'done' | 'error';
 
+// Mantém paridade com normalizePhone do edge function process-import.
+function normalizePhoneClient(raw: string): string | null {
+  if (!raw) return null;
+  let digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('0055')) digits = digits.slice(4);
+  if (digits.startsWith('55') && digits.length >= 12) digits = digits.slice(2);
+  if (digits.startsWith('0') && (digits.length === 11 || digits.length === 12)) digits = digits.slice(1);
+  if (digits.length < 10 || digits.length > 11) return null;
+  if (digits.length === 11 && digits[2] === '9') {
+    digits = digits.slice(0, 2) + digits.slice(3);
+  }
+  if (digits.length !== 10) return null;
+  if (!/^[1-9]\d$/.test(digits.slice(0, 2))) return null;
+  return digits;
+}
+
+function parseCSVLineLight(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if ((ch === ',' || ch === ';') && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function findPhoneColumnIndex(headers: string[]): number {
+  const aliases = ['telefone', 'phone', 'celular', 'cel', 'whatsapp', 'fone', 'tel'];
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+  for (let i = 0; i < headers.length; i++) {
+    const h = norm(headers[i] || '');
+    if (aliases.some(a => h === a || h.includes(a))) return i;
+  }
+  return -1;
+}
+
+async function extractPhonesFromCsvFile(csvFile: File): Promise<string[]> {
+  const text = await csvFile.text();
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (lines.length < 2) return [];
+  const headers = parseCSVLineLight(lines[0]);
+  const idx = findPhoneColumnIndex(headers);
+  if (idx === -1) return [];
+  const phones = new Set<string>();
+  for (let i = 1; i < lines.length; i++) {
+    const row = parseCSVLineLight(lines[i]);
+    const raw = row[idx] || '';
+    if (!raw.trim()) continue;
+    const p = normalizePhoneClient(raw);
+    if (p) phones.add(p);
+  }
+  return Array.from(phones);
+}
+
 export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilhaProps) => {
   const { activeCompany } = useCompany();
   const { tipoAcesso } = useUserAccessType();
@@ -83,6 +148,13 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
   const [importLog, setImportLog] = useState<ImportLog | null>(null);
   const [showResultDialog, setShowResultDialog] = useState(false);
   const channelRef = useRef<any>(null);
+
+  // Preview de conflitos
+  const [conflitos, setConflitos] = useState<ConflitoLead[]>([]);
+  const [showConflitos, setShowConflitos] = useState(false);
+  const [pendingCsvFile, setPendingCsvFile] = useState<File | null>(null);
+  const [pendingPhonesTotal, setPendingPhonesTotal] = useState(0);
+  const [checkingConflitos, setCheckingConflitos] = useState(false);
 
   const isWorking = phase !== 'idle' && phase !== 'done' && phase !== 'error';
 
@@ -208,7 +280,89 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
         console.log('📄 Excel convertido para CSV');
       }
 
-      // 2) Upload CSV to Supabase Storage (with retry)
+      // 1.5) Bloqueio de evento encerrado (frontend)
+      const { data: eventoCheck } = await supabase
+        .from('prospeccoes')
+        .select('snapshot_realizado, data_fim')
+        .eq('id', selectedCampanha)
+        .maybeSingle();
+      const dataFim = eventoCheck?.data_fim ? new Date(eventoCheck.data_fim) : null;
+      const hojeMidnight = new Date(new Date().toDateString());
+      const encerrado = eventoCheck?.snapshot_realizado === true ||
+        (dataFim !== null && dataFim < hojeMidnight);
+      if (encerrado) {
+        setPhase('idle');
+        toast({
+          title: 'Evento encerrado',
+          description: 'Este evento já foi encerrado e não aceita novas importações.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // 2) Conferir conflitos com outros eventos ativos antes de subir
+      setCheckingConflitos(true);
+      const phones = await extractPhonesFromCsvFile(csvFile);
+      setPendingPhonesTotal(phones.length);
+
+      const conflitosAcc: ConflitoLead[] = [];
+      const CHUNK = 1000;
+      for (let i = 0; i < phones.length; i += CHUNK) {
+        const chunk = phones.slice(i, i + CHUNK);
+        const { data, error } = await supabase.rpc('preview_importacao_conflitos', {
+          p_empresa_id: activeCompany.id,
+          p_prospeccao_id: selectedCampanha,
+          p_telefones: chunk,
+        });
+        if (error) {
+          console.error('preview_importacao_conflitos error:', error);
+          break;
+        }
+        if (Array.isArray(data)) {
+          for (const row of data as any[]) {
+            conflitosAcc.push({
+              telefone: row.telefone,
+              contato_id: row.contato_id,
+              nome: row.nome,
+              status_atual: row.status_atual,
+              eventos_ativos: Array.isArray(row.eventos_ativos) ? row.eventos_ativos : [],
+            });
+          }
+        }
+      }
+      setCheckingConflitos(false);
+
+      if (conflitosAcc.length > 0) {
+        // Mantemos o csvFile pronto e mostramos a tela de preview.
+        setPendingCsvFile(csvFile);
+        setConflitos(conflitosAcc);
+        setShowConflitos(true);
+        return; // Aguardar decisão do usuário em handleConflitosConfirm
+      }
+
+      // Sem conflitos → segue direto, sem force_status_novo
+      await proceedUpload(csvFile, baseNomeFinal, origemContato, [], false);
+    } catch (error: any) {
+      console.error('❌ Import error:', error);
+      setPhase('error');
+      setCheckingConflitos(false);
+      toast({
+        title: 'Erro na importação',
+        description: error.message || 'Não foi possível iniciar a importação',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const proceedUpload = async (
+    csvFile: File,
+    baseNomeFinal: string,
+    origemContato: string,
+    telefonesSkip: string[],
+    forceStatusNovo: boolean,
+  ) => {
+    if (!activeCompany?.id) return;
+    try {
       setPhase('uploading');
       setUploadProgress(0);
       const timestamp = Date.now();
@@ -309,7 +463,11 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
       // 7) Trigger edge function (fire and forget)
       console.log('🚀 Triggering process-import edge function...');
       supabase.functions.invoke('process-import', {
-        body: { import_log_id: logData.id },
+        body: {
+          import_log_id: logData.id,
+          telefones_skip: telefonesSkip,
+          force_status_novo: forceStatusNovo,
+        },
       }).then(({ error }) => {
         if (error) {
           console.error('❌ Edge function invocation error:', error);
@@ -326,6 +484,23 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
         variant: 'destructive',
       });
     }
+  };
+
+  const handleConflitosConfirm = async (telefonesSkip: string[]) => {
+    setShowConflitos(false);
+    if (!pendingCsvFile) return;
+    const baseNomeFinal = nomeBase.trim() || `Importação ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    const origemContato = selectedOrigem || 'Outros';
+    await proceedUpload(pendingCsvFile, baseNomeFinal, origemContato, telefonesSkip, true);
+    setPendingCsvFile(null);
+    setConflitos([]);
+  };
+
+  const handleConflitosCancel = () => {
+    setShowConflitos(false);
+    setPendingCsvFile(null);
+    setConflitos([]);
+    setPhase('idle');
   };
 
   const clearData = () => {
@@ -631,8 +806,8 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                 {phase === 'done' || phase === 'error' ? 'Fechar' : 'Cancelar'}
               </Button>
               {file && phase === 'idle' && (
-                <Button onClick={handleImport}>
-                  Enviar e Processar
+                <Button onClick={handleImport} disabled={checkingConflitos}>
+                  {checkingConflitos ? 'Verificando conflitos...' : 'Enviar e Processar'}
                 </Button>
               )}
             </div>
@@ -850,6 +1025,14 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
           )}
         </DialogContent>
       </Dialog>
+
+      <ImportPreviewConflitos
+        open={showConflitos}
+        conflitos={conflitos}
+        totalImport={pendingPhonesTotal}
+        onCancel={handleConflitosCancel}
+        onConfirm={handleConflitosConfirm}
+      />
     </>
   );
 };

@@ -1855,6 +1855,51 @@ export type Database = {
         }
         Relationships: []
       }
+      evento_snapshot_leads: {
+        Row: {
+          codigo_proposta: string | null
+          contato_id: string | null
+          email: string | null
+          evento_id: string
+          id: string
+          nome: string | null
+          responsavel_email: string | null
+          responsavel_nome: string | null
+          snapshot_at: string
+          status: string
+          telefone: string
+          vinculado_em: string | null
+        }
+        Insert: {
+          codigo_proposta?: string | null
+          contato_id?: string | null
+          email?: string | null
+          evento_id: string
+          id?: string
+          nome?: string | null
+          responsavel_email?: string | null
+          responsavel_nome?: string | null
+          snapshot_at?: string
+          status: string
+          telefone: string
+          vinculado_em?: string | null
+        }
+        Update: {
+          codigo_proposta?: string | null
+          contato_id?: string | null
+          email?: string | null
+          evento_id?: string
+          id?: string
+          nome?: string | null
+          responsavel_email?: string | null
+          responsavel_nome?: string | null
+          snapshot_at?: string
+          status?: string
+          telefone?: string
+          vinculado_em?: string | null
+        }
+        Relationships: []
+      }
       eventos_pri_voz: {
         Row: {
           atualizado_em: string | null
@@ -4266,6 +4311,7 @@ export type Database = {
           descricao: string | null
           disparos_pausados: boolean | null
           empresa_id: string
+          encerrado_at: string | null
           event_id_pri: string | null
           evento_confirmacao: boolean
           evento_principal: boolean
@@ -4297,6 +4343,7 @@ export type Database = {
           premio_vendedor_prata: number | null
           qualificar_lead: boolean
           responsavel_id: string | null
+          snapshot_realizado: boolean
           template_agendado_24h_id: string | null
           template_agendado_48h_id: string | null
           template_agendado_id: string | null
@@ -4321,6 +4368,7 @@ export type Database = {
           descricao?: string | null
           disparos_pausados?: boolean | null
           empresa_id: string
+          encerrado_at?: string | null
           event_id_pri?: string | null
           evento_confirmacao?: boolean
           evento_principal?: boolean
@@ -4352,6 +4400,7 @@ export type Database = {
           premio_vendedor_prata?: number | null
           qualificar_lead?: boolean
           responsavel_id?: string | null
+          snapshot_realizado?: boolean
           template_agendado_24h_id?: string | null
           template_agendado_48h_id?: string | null
           template_agendado_id?: string | null
@@ -4376,6 +4425,7 @@ export type Database = {
           descricao?: string | null
           disparos_pausados?: boolean | null
           empresa_id?: string
+          encerrado_at?: string | null
           event_id_pri?: string | null
           evento_confirmacao?: boolean
           evento_principal?: boolean
@@ -4407,6 +4457,7 @@ export type Database = {
           premio_vendedor_prata?: number | null
           qualificar_lead?: boolean
           responsavel_id?: string | null
+          snapshot_realizado?: boolean
           template_agendado_24h_id?: string | null
           template_agendado_48h_id?: string | null
           template_agendado_id?: string | null
@@ -5678,6 +5729,7 @@ export type Database = {
           p_canal?: string
           p_contatos: Json
           p_empresa_id: string
+          p_force_status_novo?: boolean
           p_prospeccao_id?: string
         }
         Returns: Json
@@ -5718,6 +5770,7 @@ export type Database = {
         Args: { encrypted_secret: string }
         Returns: string
       }
+      encerrar_eventos_finalizados: { Args: never; Returns: undefined }
       encrypt_mfa_secret: { Args: { plain_secret: string }; Returns: string }
       generate_optout_dedupe_key: {
         Args: {
@@ -5997,6 +6050,20 @@ export type Database = {
       normalize_phone_br: { Args: { phone: string }; Returns: string }
       normalize_phone_e164: { Args: { phone_input: string }; Returns: string }
       phone_match_variants: { Args: { phone: string }; Returns: string[] }
+      preview_importacao_conflitos: {
+        Args: {
+          p_empresa_id: string
+          p_prospeccao_id: string
+          p_telefones: string[]
+        }
+        Returns: {
+          contato_id: string
+          eventos_ativos: Json
+          nome: string
+          status_atual: string
+          telefone: string
+        }[]
+      }
       set_user_active_company: {
         Args: { new_empresa_id: string }
         Returns: undefined

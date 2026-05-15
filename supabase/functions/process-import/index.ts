@@ -117,7 +117,19 @@ Deno.serve(async (req: Request) => {
   const startTime = Date.now();
 
   try {
-    const { import_log_id } = await req.json();
+    const reqBody = await req.json();
+    const {
+      import_log_id,
+      telefones_skip,
+      force_status_novo,
+    }: {
+      import_log_id?: string;
+      telefones_skip?: string[];
+      force_status_novo?: boolean;
+    } = reqBody || {};
+
+    const skipSet = new Set<string>(Array.isArray(telefones_skip) ? telefones_skip : []);
+    const forceStatusNovo = Boolean(force_status_novo);
 
     if (!import_log_id) {
       return new Response(JSON.stringify({ error: 'import_log_id is required' }), {
@@ -150,6 +162,28 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ message: 'Already finished' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Bloqueio: evento encerrado (snapshot feito ou data_fim no passado)
+    if (log.prospeccao_id) {
+      const { data: eventoCheck } = await supabaseAdmin
+        .from('prospeccoes')
+        .select('snapshot_realizado, data_fim')
+        .eq('id', log.prospeccao_id)
+        .single();
+      const dataFim = eventoCheck?.data_fim ? new Date(eventoCheck.data_fim) : null;
+      const encerrado = eventoCheck?.snapshot_realizado === true ||
+        (dataFim !== null && dataFim < new Date(new Date().toDateString()));
+      if (encerrado) {
+        await supabaseAdmin.from('import_logs').update({
+          status: 'error',
+          message: 'Este evento já foi encerrado e não aceita novas importações.',
+        }).eq('id', import_log_id);
+        return new Response(JSON.stringify({ error: 'Evento encerrado' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     console.log(`🚀 Processing import ${import_log_id}, offset: ${log.current_offset}`);
@@ -260,7 +294,7 @@ Deno.serve(async (req: Request) => {
       if (Date.now() - startTime > MAX_ELAPSED_MS) {
         console.log(`⏱️ Timeout approaching at row ${i}, will self-chain`);
         if (batch.length > 0) {
-          const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena);
+          const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo);
           inserted += result.inserted;
           updated += result.updated;
           linked += result.linked;
@@ -317,6 +351,12 @@ Deno.serve(async (req: Request) => {
       }
       seenPhones.add(phone);
 
+      // Skip phones the user explicitly chose to skip in the conflict preview
+      if (skipSet.has(phone)) {
+        processedRows++;
+        continue;
+      }
+
       batch.push({
         nome: colIndices.nome >= 0 ? (row[colIndices.nome] || '').trim() : '',
         telefone: phone,
@@ -332,7 +372,7 @@ Deno.serve(async (req: Request) => {
         batchCount++;
         console.log(`📤 Lote ${batchCount}: Enviando ${batch.length} registros...`);
 
-        const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena);
+        const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo);
         inserted += result.inserted;
         updated += result.updated;
         linked += result.linked;
@@ -378,7 +418,7 @@ Deno.serve(async (req: Request) => {
       batchCount++;
       console.log(`📤 Lote final ${batchCount}: Enviando ${batch.length} registros...`);
 
-      const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena);
+      const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo);
       inserted += result.inserted;
       updated += result.updated;
       linked += result.linked;
@@ -413,7 +453,11 @@ Deno.serve(async (req: Request) => {
           'Authorization': `Bearer ${serviceKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ import_log_id }),
+        body: JSON.stringify({
+          import_log_id,
+          telefones_skip: Array.from(skipSet),
+          force_status_novo: forceStatusNovo,
+        }),
       }).catch(err => console.error('Self-chain error:', err));
 
       return new Response(JSON.stringify({
@@ -672,6 +716,7 @@ async function processBatch(
   empresaId: string,
   prospeccaoId: string | null,
   canal: string = 'whatsapp',
+  forceStatusNovo: boolean = false,
 ): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; responsavel_applied: number; responsavel_skipped: number; warning_details: any[]; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
   const MAX_RETRIES = 3;
   let lastError = '';
@@ -792,6 +837,7 @@ async function processBatch(
         p_empresa_id: empresaId,
         p_prospeccao_id: prospeccaoId,
         p_canal: canal,
+        p_force_status_novo: forceStatusNovo,
       });
 
       if (error) throw error;
