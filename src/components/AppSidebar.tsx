@@ -23,7 +23,6 @@ import {
   TrendingUp,
   PackageCheck,
   GitMerge,
-  ShoppingBag,
   Tag,
   PackageOpen
 } from "lucide-react";
