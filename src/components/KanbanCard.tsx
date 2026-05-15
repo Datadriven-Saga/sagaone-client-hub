@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { formatPhoneForDisplay } from '@/lib/phoneUtils';
+import { formatPhoneForDisplay, normalizePhoneForComparison } from '@/lib/phoneUtils';
 
 interface KanbanCardProps {
   item: KanbanItem;
@@ -98,8 +98,9 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
 
   const handlePhoneClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Open native dialer
-    const phone = item.channel?.replace(/\D/g, '') || '';
+    // Open native dialer (E.164 BR: +55 + DDD + 9 + 8 dígitos)
+    const normalized = normalizePhoneForComparison(item.channel || '');
+    const phone = normalized || (item.channel?.replace(/\D/g, '') || '');
     window.open(`tel:+55${phone}`, '_self');
     // Show confirmation dialog
     setShowCallConfirm(true);
