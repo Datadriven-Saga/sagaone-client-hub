@@ -88,6 +88,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
   { id: "integrações", label: "Integrações / APIs", icon: "Plug", description: "Integrações e APIs externas", order: 20 },
   { id: "navegacao", label: "Navegação / Menus", icon: "Menu", description: "Acesso a menus e módulos", order: 21 },
   { id: "pos_vendas", label: "Pós-Vendas (Paty)", icon: "PackageCheck", description: "Configuração da agente Paty: gatilhos, cadências, lojas e templates", order: 17 },
+  { id: "algoritmos", label: "Algoritmos", icon: "GitMerge", description: "Algoritmos de Compra, Venda e Pós-Vendas", order: 22 },
 ];
 
 export const PERMISSION_REGISTRY: PermissionEntry[] = [
@@ -278,6 +279,11 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   { key: "canManagePosVendasTemplates", label: "Gerenciar Templates Pós-Vendas", moduleId: "pos_vendas", action: "administrar" },
   { key: "canManagePosVendasLojas", label: "Gerenciar Lojas Pós-Vendas", moduleId: "pos_vendas", action: "administrar" },
   { key: "canManagePosVendasCadencia", label: "Gerenciar Cadências Pós-Vendas", moduleId: "pos_vendas", action: "administrar" },
+
+  // ── Algoritmos ──
+  { key: "canAccessAlgoritmosCompra", label: "Acessar Algoritmos de Compra", moduleId: "algoritmos", action: "visualizar" },
+  { key: "canAccessAlgoritmosVenda", label: "Acessar Algoritmos de Venda", moduleId: "algoritmos", action: "visualizar" },
+  { key: "canAccessAlgoritmosPosVendas", label: "Acessar Algoritmos de Pós-Vendas", moduleId: "algoritmos", action: "visualizar" },
 ];
 
 export const TIPOS_ACESSO = [
@@ -474,6 +480,11 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canManagePosVendasTemplates = isAdmin;
   defaults.canManagePosVendasLojas = isAdmin;
   defaults.canManagePosVendasCadencia = isAdmin;
+
+  // ── Algoritmos ──
+  defaults.canAccessAlgoritmosCompra = isAdmin;
+  defaults.canAccessAlgoritmosVenda = isAdmin;
+  defaults.canAccessAlgoritmosPosVendas = isAdmin;
 
   return defaults;
 }
