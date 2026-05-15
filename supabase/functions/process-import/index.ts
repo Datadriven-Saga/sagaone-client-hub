@@ -117,7 +117,19 @@ Deno.serve(async (req: Request) => {
   const startTime = Date.now();
 
   try {
-    const { import_log_id } = await req.json();
+    const reqBody = await req.json();
+    const {
+      import_log_id,
+      telefones_skip,
+      force_status_novo,
+    }: {
+      import_log_id?: string;
+      telefones_skip?: string[];
+      force_status_novo?: boolean;
+    } = reqBody || {};
+
+    const skipSet = new Set<string>(Array.isArray(telefones_skip) ? telefones_skip : []);
+    const forceStatusNovo = Boolean(force_status_novo);
 
     if (!import_log_id) {
       return new Response(JSON.stringify({ error: 'import_log_id is required' }), {
@@ -150,6 +162,28 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ message: 'Already finished' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Bloqueio: evento encerrado (snapshot feito ou data_fim no passado)
+    if (log.prospeccao_id) {
+      const { data: eventoCheck } = await supabaseAdmin
+        .from('prospeccoes')
+        .select('snapshot_realizado, data_fim')
+        .eq('id', log.prospeccao_id)
+        .single();
+      const dataFim = eventoCheck?.data_fim ? new Date(eventoCheck.data_fim) : null;
+      const encerrado = eventoCheck?.snapshot_realizado === true ||
+        (dataFim !== null && dataFim < new Date(new Date().toDateString()));
+      if (encerrado) {
+        await supabaseAdmin.from('import_logs').update({
+          status: 'error',
+          message: 'Este evento já foi encerrado e não aceita novas importações.',
+        }).eq('id', import_log_id);
+        return new Response(JSON.stringify({ error: 'Evento encerrado' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     console.log(`🚀 Processing import ${import_log_id}, offset: ${log.current_offset}`);
