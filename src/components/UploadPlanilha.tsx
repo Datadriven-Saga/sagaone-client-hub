@@ -806,8 +806,8 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                 {phase === 'done' || phase === 'error' ? 'Fechar' : 'Cancelar'}
               </Button>
               {file && phase === 'idle' && (
-                <Button onClick={handleImport}>
-                  Enviar e Processar
+                <Button onClick={handleImport} disabled={checkingConflitos}>
+                  {checkingConflitos ? 'Verificando conflitos...' : 'Enviar e Processar'}
                 </Button>
               )}
             </div>
