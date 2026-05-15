@@ -39,13 +39,21 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
-  // 1. Busca contato
+  // 1. Token vive em eventos_prospeccao — resolve vínculo (contato + evento)
+  const { data: vinculo, error: vinculoErr } = await supabase
+    .from('eventos_prospeccao')
+    .select('id, contato_id, prospeccao_id, confirmed_at, confirmation_expires_at, confirmation_sent_by')
+    .eq('confirmation_token', token)
+    .maybeSingle()
+
+  if (vinculoErr || !vinculo) {
+    return json({ error: 'Convite não encontrado' }, 404)
+  }
+
   const { data: contato, error: fetchError } = await supabase
     .from('contatos')
-    .select(
-      'id, nome, status, confirmed_at, confirmation_expires_at, confirmation_sent_by, qr_token, empresa_id',
-    )
-    .eq('confirmation_token', token)
+    .select('id, nome, status, qr_token, empresa_id')
+    .eq('id', vinculo.contato_id)
     .maybeSingle()
 
   if (fetchError || !contato) {
@@ -63,8 +71,8 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 2. Idempotência: já confirmou
-  if (contato.confirmed_at) {
+  // 2. Idempotência: este vínculo já confirmou
+  if (vinculo.confirmed_at) {
     return json({
       success: true,
       already_confirmed: true,
@@ -75,34 +83,40 @@ Deno.serve(async (req) => {
 
   // 3. Expiração
   if (
-    contato.confirmation_expires_at &&
-    new Date(contato.confirmation_expires_at) < new Date()
+    vinculo.confirmation_expires_at &&
+    new Date(vinculo.confirmation_expires_at as string) < new Date()
   ) {
     return json({ error: 'Link expirado' }, 410)
   }
 
-  const { data: eventoContato } = await supabase
-    .from('eventos_prospeccao')
-    .select('prospeccao_id')
-    .eq('contato_id', contato.id)
-    .limit(1)
-    .maybeSingle()
-
-  const prospeccaoId = eventoContato?.prospeccao_id ?? null
+  const prospeccaoId = vinculo.prospeccao_id ?? null
+  const sentBy = vinculo.confirmation_sent_by ?? null
 
   // 4. Garante qr_token
   const qrToken = contato.qr_token ?? crypto.randomUUID()
   const statusAnterior = contato.status as string
 
-  // 5. Atualiza contato
+  // 5. Marca o vínculo como confirmado
+  const nowIso = new Date().toISOString()
+  const { error: vinculoUpdErr } = await supabase
+    .from('eventos_prospeccao')
+    .update({ confirmed_at: nowIso })
+    .eq('id', vinculo.id)
+
+  if (vinculoUpdErr) {
+    console.error('Erro ao confirmar vínculo:', vinculoUpdErr)
+    return json({ error: 'Erro ao confirmar presença' }, 500)
+  }
+
+  // 5b. Atualiza status global do contato (presença confirmada em qualquer evento)
   const { error: updateError } = await supabase
     .from('contatos')
     .update({
       status: 'Confirmado',
-      confirmed_at: new Date().toISOString(),
+      confirmed_at: nowIso,
       qr_token: qrToken,
       qr_token_used: false,
-      updated_at: new Date().toISOString(),
+      updated_at: nowIso,
     })
     .eq('id', contato.id)
 
@@ -113,11 +127,11 @@ Deno.serve(async (req) => {
 
   // 6. Resolve nome do vendedor (para usuario_nome no log)
   let vendedorNome: string | null = null
-  if (contato.confirmation_sent_by) {
+  if (sentBy) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('nome_completo')
-      .eq('id', contato.confirmation_sent_by)
+      .eq('id', sentBy)
       .maybeSingle()
     vendedorNome = (profile as any)?.nome_completo ?? null
   }
@@ -127,9 +141,9 @@ Deno.serve(async (req) => {
     contato_id: contato.id,
     tipo: 'confirmacao_presenca',
     descricao: 'Cliente confirmou presença via link de convite',
-    usuario_id: contato.confirmation_sent_by,
+    usuario_id: sentBy,
     usuario_nome: vendedorNome,
-    metadata: { origem: 'link_confirmacao' },
+    metadata: { origem: 'link_confirmacao', prospeccao_id: prospeccaoId },
   })
 
   // 8. Log de movimentação (apenas se houver prospeccao_id — coluna NOT NULL)
@@ -139,7 +153,7 @@ Deno.serve(async (req) => {
       prospeccao_id: prospeccaoId,
       status_anterior: statusAnterior,
       status_novo: 'Confirmado',
-      usuario_id: contato.confirmation_sent_by,
+      usuario_id: sentBy,
       observacoes: 'Confirmação automática via link público',
     })
   }
@@ -156,7 +170,7 @@ Deno.serve(async (req) => {
       status_anterior: statusAnterior,
       status_novo: 'Confirmado',
       origem: 'link_confirmacao',
-      usuario_id: contato.confirmation_sent_by ?? null,
+      usuario_id: sentBy,
     })
     console.log('[confirm-presence] movimentacao-lead result', {
       contato_id: contato.id,

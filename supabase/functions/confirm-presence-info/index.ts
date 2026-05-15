@@ -32,10 +32,21 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
+  // 1. Token vive em eventos_prospeccao (vínculo contato+evento)
+  const { data: vinculo, error: vinculoErr } = await supabase
+    .from('eventos_prospeccao')
+    .select('contato_id, prospeccao_id, confirmed_at, confirmation_expires_at')
+    .eq('confirmation_token', token)
+    .maybeSingle()
+
+  if (vinculoErr || !vinculo) {
+    return json({ error: 'Convite não encontrado' }, 404)
+  }
+
   const { data: contato, error } = await supabase
     .from('contatos')
-    .select('id, nome, confirmed_at, confirmation_expires_at, qr_token, empresa_id')
-    .eq('confirmation_token', token)
+    .select('id, nome, qr_token, empresa_id')
+    .eq('id', vinculo.contato_id)
     .maybeSingle()
 
   if (error || !contato) {
@@ -55,28 +66,21 @@ Deno.serve(async (req) => {
 
   // Expirado e ainda não confirmado → 410-like (mas 200 com flag pra UI poder renderizar)
   const expired =
-    !contato.confirmed_at &&
-    contato.confirmation_expires_at &&
-    new Date(contato.confirmation_expires_at) < new Date()
+    !vinculo.confirmed_at &&
+    vinculo.confirmation_expires_at &&
+    new Date(vinculo.confirmation_expires_at as string) < new Date()
 
   if (expired) {
     return json({ expired: true })
   }
 
-  const { data: eventoContato } = await supabase
-    .from('eventos_prospeccao')
-    .select('prospeccao_id')
-    .eq('contato_id', contato.id)
-    .limit(1)
-    .maybeSingle()
-
-  // Busca evento e empresa em paralelo
+  // Busca evento e empresa em paralelo (prospeccao_id vem direto do vínculo do token)
   const [eventoRes, empresaRes] = await Promise.all([
-    eventoContato?.prospeccao_id
+    vinculo.prospeccao_id
       ? supabase
           .from('prospeccoes')
           .select('titulo, data_inicio, data_fim')
-          .eq('id', eventoContato.prospeccao_id)
+          .eq('id', vinculo.prospeccao_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
     contato.empresa_id
@@ -90,8 +94,8 @@ Deno.serve(async (req) => {
 
   return json({
     nome: contato.nome,
-    already_confirmed: !!contato.confirmed_at,
-    qr_token: contato.confirmed_at ? contato.qr_token : null,
+    already_confirmed: !!vinculo.confirmed_at,
+    qr_token: vinculo.confirmed_at ? contato.qr_token : null,
     evento: eventoRes.data
       ? {
           nome: (eventoRes.data as any).titulo,

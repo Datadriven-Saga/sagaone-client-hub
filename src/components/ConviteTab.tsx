@@ -187,19 +187,31 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
           }
         }
 
-        // Buscar dados do contato com qr_token
+        // Buscar dados do contato (qr_token + responsável)
         const { data: contatoData } = await supabase
           .from('contatos')
-          .select('qr_token, qr_token_used, vendedor_nome, responsavel_email, confirmation_token, confirmation_sent_at, confirmed_at')
+          .select('qr_token, qr_token_used, vendedor_nome, responsavel_email, confirmed_at')
           .eq('id', contato.id)
           .single();
+
+        // Buscar token de confirmação do vínculo contato+evento (eventos_prospeccao)
+        let vinculoData: { confirmation_token: string | null; confirmation_sent_at: string | null } | null = null;
+        if (currentProspeccaoId) {
+          const { data } = await supabase
+            .from('eventos_prospeccao')
+            .select('confirmation_token, confirmation_sent_at')
+            .eq('contato_id', contato.id)
+            .eq('prospeccao_id', currentProspeccaoId)
+            .maybeSingle();
+          vinculoData = data ?? null;
+        }
 
         let currentVendedorNome = '';
         if (contatoData) {
           setQrToken(contatoData.qr_token);
           setQrTokenUsed(contatoData.qr_token_used || false);
-          setConfirmationToken(contatoData.confirmation_token ?? null);
-          setConfirmationSentAt(contatoData.confirmation_sent_at ?? null);
+          setConfirmationToken(vinculoData?.confirmation_token ?? null);
+          setConfirmationSentAt(vinculoData?.confirmation_sent_at ?? null);
           setConfirmedAt(contatoData.confirmed_at ?? null);
           currentVendedorNome = contatoData.vendedor_nome || '';
           setVendedorNome(contatoData.vendedor_nome || '');
@@ -394,14 +406,29 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
     }
     setResending(true);
     try {
+      if (!prospeccaoId) {
+        toast({ title: 'Erro', description: 'Evento não identificado.', variant: 'destructive' });
+        return;
+      }
       let token = confirmationToken;
       if (!token) {
-        token = crypto.randomUUID();
-        const { error } = await supabase
-          .from('contatos')
-          .update({ confirmation_token: token })
-          .eq('id', contato.id);
-        if (error) throw error;
+        // Token nasce com default na linha de eventos_prospeccao; busca/garante.
+        const { data: vinc } = await supabase
+          .from('eventos_prospeccao')
+          .select('confirmation_token')
+          .eq('contato_id', contato.id)
+          .eq('prospeccao_id', prospeccaoId)
+          .maybeSingle();
+        token = vinc?.confirmation_token ?? null;
+        if (!token) {
+          token = crypto.randomUUID();
+          const { error } = await supabase
+            .from('eventos_prospeccao')
+            .update({ confirmation_token: token })
+            .eq('contato_id', contato.id)
+            .eq('prospeccao_id', prospeccaoId);
+          if (error) throw error;
+        }
         setConfirmationToken(token);
       }
 
@@ -416,12 +443,13 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
       // Registrar (re)envio
       const nowIso = new Date().toISOString();
       await supabase
-        .from('contatos')
+        .from('eventos_prospeccao')
         .update({
           confirmation_sent_at: nowIso,
           confirmation_sent_by: user?.id ?? null,
         })
-        .eq('id', contato.id);
+        .eq('contato_id', contato.id)
+        .eq('prospeccao_id', prospeccaoId);
       setConfirmationSentAt(nowIso);
 
       window.open(url, '_blank', 'noopener,noreferrer');

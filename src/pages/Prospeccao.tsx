@@ -124,6 +124,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     eventoNome: string;
     templatePadrao: string | null;
     fromStatus: string;
+    prospeccaoIdAlvo: string;
   }>({
     isOpen: false,
     contatoId: '',
@@ -133,6 +134,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     eventoNome: '',
     templatePadrao: null,
     fromStatus: '',
+    prospeccaoIdAlvo: '',
   });
   const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string; departamento?: string | null }[]>([]);
   const [responsaveisFiltrados, setResponsaveisFiltrados] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null }[]>([]);
@@ -1022,20 +1024,6 @@ showAllEvents: true
         let templatePadrao: string | null = null;
         let eventoNome = prospeccoes?.[0]?.titulo || 'Evento';
         try {
-          const { data: contatoRow } = await supabase
-            .from('contatos')
-            .select('confirmation_token')
-            .eq('id', itemId)
-            .maybeSingle();
-          token = contatoRow?.confirmation_token ?? null;
-          if (!token) {
-            token = crypto.randomUUID();
-            await supabase
-              .from('contatos')
-              .update({ confirmation_token: token })
-              .eq('id', itemId);
-          }
-
           // Buscar template e nome do evento (priorizar o filtro ativo)
           const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
           const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
@@ -1044,6 +1032,23 @@ showAllEvents: true
             : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
 
           if (prospeccaoIdAlvo) {
+            // Token vive em eventos_prospeccao (vínculo contato+evento)
+            const { data: vinc } = await supabase
+              .from('eventos_prospeccao')
+              .select('confirmation_token')
+              .eq('contato_id', itemId)
+              .eq('prospeccao_id', prospeccaoIdAlvo)
+              .maybeSingle();
+            token = vinc?.confirmation_token ?? null;
+            if (!token) {
+              token = crypto.randomUUID();
+              await supabase
+                .from('eventos_prospeccao')
+                .update({ confirmation_token: token })
+                .eq('contato_id', itemId)
+                .eq('prospeccao_id', prospeccaoIdAlvo);
+            }
+
             const { data: prospRow } = await supabase
               .from('prospeccoes')
               .select('titulo, texto_convite_template')
@@ -1067,6 +1072,13 @@ showAllEvents: true
           eventoNome,
           templatePadrao,
           fromStatus,
+          prospeccaoIdAlvo: (() => {
+            const ids = contatosProspeccoes.get(itemId);
+            const filtros = globalFilters.prospeccaoIds;
+            return (filtros.length > 0
+              ? filtros.find(id => ids?.has(id)) || filtros[0]
+              : ids?.[0]) || prospeccoes?.[0]?.id || '';
+          })(),
         });
         return false; // Card só se move após escolha do usuário
       }
@@ -3281,16 +3293,19 @@ showAllEvents: true
           }
         }}
         onEnviar={async () => {
-          const { contatoId, fromStatus } = convidarModal;
+          const { contatoId, fromStatus, prospeccaoIdAlvo } = convidarModal;
           setConvidarModal((s) => ({ ...s, isOpen: false }));
           try {
-            await supabase
-              .from('contatos')
-              .update({
-                confirmation_sent_at: new Date().toISOString(),
-                confirmation_sent_by: user?.id ?? null,
-              })
-              .eq('id', contatoId);
+            if (prospeccaoIdAlvo) {
+              await supabase
+                .from('eventos_prospeccao')
+                .update({
+                  confirmation_sent_at: new Date().toISOString(),
+                  confirmation_sent_by: user?.id ?? null,
+                })
+                .eq('contato_id', contatoId)
+                .eq('prospeccao_id', prospeccaoIdAlvo);
+            }
             await atualizarStatusContato(contatoId, 'Convidado');
             moveKanbanCardOptimistic(contatoId, fromStatus, 'convidados');
             if (registrarMovimentacao && user && prospeccoes?.length > 0) {
