@@ -716,6 +716,7 @@ async function processBatch(
   empresaId: string,
   prospeccaoId: string | null,
   canal: string = 'whatsapp',
+  forceStatusNovo: boolean = false,
 ): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; responsavel_applied: number; responsavel_skipped: number; warning_details: any[]; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
   const MAX_RETRIES = 3;
   let lastError = '';
@@ -836,6 +837,7 @@ async function processBatch(
         p_empresa_id: empresaId,
         p_prospeccao_id: prospeccaoId,
         p_canal: canal,
+        p_force_status_novo: forceStatusNovo,
       });
 
       if (error) throw error;
