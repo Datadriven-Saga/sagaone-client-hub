@@ -24,7 +24,7 @@ import {
   PackageCheck,
   GitMerge,
   Tag,
-  PackageOpen
+  PartyPopper
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -81,8 +81,8 @@ const algoritmosVendaItems = [
 ];
 
 const algoritmosPosVendasItems = [
-  { title: "Políticas Pós-Vendas", url: "/algoritmos/pos-vendas/politicas", icon: PackageOpen },
-  { title: "Eventos Pós-Vendas", url: "/algoritmos/pos-vendas/eventos", icon: PackageOpen },
+  { title: "Políticas Pós-Vendas", url: "/algoritmos/pos-vendas/politicas", icon: PartyPopper },
+  { title: "Eventos Pós-Vendas", url: "/algoritmos/pos-vendas/eventos", icon: PartyPopper },
 ];
 
 // Items apenas para Administrador
@@ -318,7 +318,7 @@ export function AppSidebar() {
                       <CollapsibleContent className="pl-4 mt-1 space-y-1">
                         {canSeeAlgCompra && renderAlgGroup("Compra", ShoppingCart, isAlgCompraOpen, setIsAlgCompraOpen, algoritmosCompraItems)}
                         {canSeeAlgVenda && renderAlgGroup("Venda", Tag, isAlgVendaOpen, setIsAlgVendaOpen, algoritmosVendaItems)}
-                        {canSeeAlgPosVendas && renderAlgGroup("Pós-Vendas", PackageOpen, isAlgPosVendasOpen, setIsAlgPosVendasOpen, algoritmosPosVendasItems)}
+                        {canSeeAlgPosVendas && renderAlgGroup("Pós-Vendas", PartyPopper, isAlgPosVendasOpen, setIsAlgPosVendasOpen, algoritmosPosVendasItems)}
                       </CollapsibleContent>
                     )}
                   </Collapsible>
