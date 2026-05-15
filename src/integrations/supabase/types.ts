@@ -1940,6 +1940,11 @@ export type Database = {
       }
       eventos_prospeccao: {
         Row: {
+          confirmation_expires_at: string | null
+          confirmation_sent_at: string | null
+          confirmation_sent_by: string | null
+          confirmation_token: string | null
+          confirmed_at: string | null
           contato_id: string | null
           created_at: string | null
           data_disparo_ia: string | null
@@ -1956,6 +1961,11 @@ export type Database = {
           usuario_id: string | null
         }
         Insert: {
+          confirmation_expires_at?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_sent_by?: string | null
+          confirmation_token?: string | null
+          confirmed_at?: string | null
           contato_id?: string | null
           created_at?: string | null
           data_disparo_ia?: string | null
@@ -1972,6 +1982,11 @@ export type Database = {
           usuario_id?: string | null
         }
         Update: {
+          confirmation_expires_at?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_sent_by?: string | null
+          confirmation_token?: string | null
+          confirmed_at?: string | null
           contato_id?: string | null
           created_at?: string | null
           data_disparo_ia?: string | null
