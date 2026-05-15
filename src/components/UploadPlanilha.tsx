@@ -13,6 +13,7 @@ import { useCompany } from '@/contexts/CompanyContext';
 import { safeRead, XLSX } from '@/lib/xlsxSafe';
 import { useUserAccessType } from '@/hooks/useUserAccessType';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ImportPreviewConflitos, type ConflitoLead } from '@/components/import/ImportPreviewConflitos';
 
 interface Prospeccao {
   id: string;
@@ -63,6 +64,70 @@ interface ImportLog {
 
 type ImportPhase = 'idle' | 'converting' | 'uploading' | 'processing' | 'done' | 'error';
 
+// Mantém paridade com normalizePhone do edge function process-import.
+function normalizePhoneClient(raw: string): string | null {
+  if (!raw) return null;
+  let digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('0055')) digits = digits.slice(4);
+  if (digits.startsWith('55') && digits.length >= 12) digits = digits.slice(2);
+  if (digits.startsWith('0') && (digits.length === 11 || digits.length === 12)) digits = digits.slice(1);
+  if (digits.length < 10 || digits.length > 11) return null;
+  if (digits.length === 11 && digits[2] === '9') {
+    digits = digits.slice(0, 2) + digits.slice(3);
+  }
+  if (digits.length !== 10) return null;
+  if (!/^[1-9]\d$/.test(digits.slice(0, 2))) return null;
+  return digits;
+}
+
+function parseCSVLineLight(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if ((ch === ',' || ch === ';') && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function findPhoneColumnIndex(headers: string[]): number {
+  const aliases = ['telefone', 'phone', 'celular', 'cel', 'whatsapp', 'fone', 'tel'];
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+  for (let i = 0; i < headers.length; i++) {
+    const h = norm(headers[i] || '');
+    if (aliases.some(a => h === a || h.includes(a))) return i;
+  }
+  return -1;
+}
+
+async function extractPhonesFromCsvFile(csvFile: File): Promise<string[]> {
+  const text = await csvFile.text();
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (lines.length < 2) return [];
+  const headers = parseCSVLineLight(lines[0]);
+  const idx = findPhoneColumnIndex(headers);
+  if (idx === -1) return [];
+  const phones = new Set<string>();
+  for (let i = 1; i < lines.length; i++) {
+    const row = parseCSVLineLight(lines[i]);
+    const raw = row[idx] || '';
+    if (!raw.trim()) continue;
+    const p = normalizePhoneClient(raw);
+    if (p) phones.add(p);
+  }
+  return Array.from(phones);
+}
+
 export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilhaProps) => {
   const { activeCompany } = useCompany();
   const { tipoAcesso } = useUserAccessType();
@@ -83,6 +148,13 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
   const [importLog, setImportLog] = useState<ImportLog | null>(null);
   const [showResultDialog, setShowResultDialog] = useState(false);
   const channelRef = useRef<any>(null);
+
+  // Preview de conflitos
+  const [conflitos, setConflitos] = useState<ConflitoLead[]>([]);
+  const [showConflitos, setShowConflitos] = useState(false);
+  const [pendingCsvFile, setPendingCsvFile] = useState<File | null>(null);
+  const [pendingPhonesTotal, setPendingPhonesTotal] = useState(0);
+  const [checkingConflitos, setCheckingConflitos] = useState(false);
 
   const isWorking = phase !== 'idle' && phase !== 'done' && phase !== 'error';
 
