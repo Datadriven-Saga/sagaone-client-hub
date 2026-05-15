@@ -187,19 +187,31 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
           }
         }
 
-        // Buscar dados do contato com qr_token
+        // Buscar dados do contato (qr_token + responsável)
         const { data: contatoData } = await supabase
           .from('contatos')
-          .select('qr_token, qr_token_used, vendedor_nome, responsavel_email, confirmation_token, confirmation_sent_at, confirmed_at')
+          .select('qr_token, qr_token_used, vendedor_nome, responsavel_email, confirmed_at')
           .eq('id', contato.id)
           .single();
+
+        // Buscar token de confirmação do vínculo contato+evento (eventos_prospeccao)
+        let vinculoData: { confirmation_token: string | null; confirmation_sent_at: string | null } | null = null;
+        if (currentProspeccaoId) {
+          const { data } = await supabase
+            .from('eventos_prospeccao')
+            .select('confirmation_token, confirmation_sent_at')
+            .eq('contato_id', contato.id)
+            .eq('prospeccao_id', currentProspeccaoId)
+            .maybeSingle();
+          vinculoData = data ?? null;
+        }
 
         let currentVendedorNome = '';
         if (contatoData) {
           setQrToken(contatoData.qr_token);
           setQrTokenUsed(contatoData.qr_token_used || false);
-          setConfirmationToken(contatoData.confirmation_token ?? null);
-          setConfirmationSentAt(contatoData.confirmation_sent_at ?? null);
+          setConfirmationToken(vinculoData?.confirmation_token ?? null);
+          setConfirmationSentAt(vinculoData?.confirmation_sent_at ?? null);
           setConfirmedAt(contatoData.confirmed_at ?? null);
           currentVendedorNome = contatoData.vendedor_nome || '';
           setVendedorNome(contatoData.vendedor_nome || '');
