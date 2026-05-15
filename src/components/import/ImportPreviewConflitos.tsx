@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -56,7 +56,9 @@ export const ImportPreviewConflitos = ({
   const [skipSet, setSkipSet] = useState<Set<string>>(defaultSkip);
 
   // Se a lista de conflitos mudar, ressetamos os defaults
-  useMemo(() => setSkipSet(new Set(defaultSkip)), [defaultSkip]);
+  useEffect(() => {
+    setSkipSet(new Set(defaultSkip));
+  }, [defaultSkip]);
 
   const toggle = (telefone: string) => {
     setSkipSet(prev => {
