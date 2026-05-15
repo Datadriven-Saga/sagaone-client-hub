@@ -481,6 +481,11 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canManagePosVendasLojas = isAdmin;
   defaults.canManagePosVendasCadencia = isAdmin;
 
+  // ── Algoritmos ──
+  defaults.canAccessAlgoritmosCompra = isAdmin;
+  defaults.canAccessAlgoritmosVenda = isAdmin;
+  defaults.canAccessAlgoritmosPosVendas = isAdmin;
+
   return defaults;
 }
 
