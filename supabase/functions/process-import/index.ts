@@ -294,7 +294,7 @@ Deno.serve(async (req: Request) => {
       if (Date.now() - startTime > MAX_ELAPSED_MS) {
         console.log(`⏱️ Timeout approaching at row ${i}, will self-chain`);
         if (batch.length > 0) {
-          const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena);
+          const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo);
           inserted += result.inserted;
           updated += result.updated;
           linked += result.linked;
@@ -351,6 +351,12 @@ Deno.serve(async (req: Request) => {
       }
       seenPhones.add(phone);
 
+      // Skip phones the user explicitly chose to skip in the conflict preview
+      if (skipSet.has(phone)) {
+        processedRows++;
+        continue;
+      }
+
       batch.push({
         nome: colIndices.nome >= 0 ? (row[colIndices.nome] || '').trim() : '',
         telefone: phone,
@@ -366,7 +372,7 @@ Deno.serve(async (req: Request) => {
         batchCount++;
         console.log(`📤 Lote ${batchCount}: Enviando ${batch.length} registros...`);
 
-        const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena);
+        const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo);
         inserted += result.inserted;
         updated += result.updated;
         linked += result.linked;
@@ -412,7 +418,7 @@ Deno.serve(async (req: Request) => {
       batchCount++;
       console.log(`📤 Lote final ${batchCount}: Enviando ${batch.length} registros...`);
 
-      const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena);
+      const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo);
       inserted += result.inserted;
       updated += result.updated;
       linked += result.linked;
@@ -447,7 +453,11 @@ Deno.serve(async (req: Request) => {
           'Authorization': `Bearer ${serviceKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ import_log_id }),
+        body: JSON.stringify({
+          import_log_id,
+          telefones_skip: Array.from(skipSet),
+          force_status_novo: forceStatusNovo,
+        }),
       }).catch(err => console.error('Self-chain error:', err));
 
       return new Response(JSON.stringify({
