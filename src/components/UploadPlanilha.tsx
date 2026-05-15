@@ -1025,6 +1025,14 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
           )}
         </DialogContent>
       </Dialog>
+
+      <ImportPreviewConflitos
+        open={showConflitos}
+        conflitos={conflitos}
+        totalImport={pendingPhonesTotal}
+        onCancel={handleConflitosCancel}
+        onConfirm={handleConflitosConfirm}
+      />
     </>
   );
 };
