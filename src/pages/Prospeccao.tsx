@@ -124,6 +124,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     eventoNome: string;
     templatePadrao: string | null;
     fromStatus: string;
+    prospeccaoIdAlvo: string;
   }>({
     isOpen: false,
     contatoId: '',
@@ -133,6 +134,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     eventoNome: '',
     templatePadrao: null,
     fromStatus: '',
+    prospeccaoIdAlvo: '',
   });
   const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string; departamento?: string | null }[]>([]);
   const [responsaveisFiltrados, setResponsaveisFiltrados] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null }[]>([]);
