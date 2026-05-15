@@ -194,6 +194,50 @@ export function AppSidebar() {
     );
   };
 
+  // Sub-grupo (nível 2) dentro de Algoritmos — visual clean, igual ao padrão Performance, sem underline
+  const renderAlgGroup = (
+    label: string,
+    icon: React.ElementType,
+    isOpen: boolean,
+    setIsOpen: (v: boolean) => void,
+    subItems: Array<{ title: string; url: string; icon: React.ElementType }>
+  ) => {
+    const Icon = icon;
+    return (
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between hover:scale-105 hover:opacity-80 text-sidebar-foreground">
+            <div className="flex items-center gap-3">
+              <Icon className="h-4 w-4 flex-shrink-0" />
+              <span className="text-sm">{label}</span>
+            </div>
+            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pl-4 mt-1 space-y-1">
+          {subItems.map((subItem) => (
+            <SidebarMenuButton key={subItem.url} asChild>
+              <NavLink
+                to={subItem.url}
+                onClick={closeMobileSidebar}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
+                  }`
+                }
+              >
+                <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                <span>{subItem.title}</span>
+              </NavLink>
+            </SidebarMenuButton>
+          ))}
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  };
+
   return (
     <Sidebar
       className="transition-all duration-300"
