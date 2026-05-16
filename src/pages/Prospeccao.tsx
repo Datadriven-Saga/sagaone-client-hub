@@ -702,12 +702,24 @@ showAllEvents: true
 
   // Helper to resolve kanban filters
   const getKanbanFilters = () => {
-    const resolvedResponsavel = globalFilters.responsavelId !== 'todos' 
-      ? (() => {
-          const profile = profiles.find(p => p.id === globalFilters.responsavelId);
-          return profile?.email || profile?.id || globalFilters.responsavelId;
-        })()
-      : undefined;
+    // Multi-select: cada id selecionado pode bater por email, id ou celular em
+    // contatos.responsavel_email — incluímos todas as variantes na CSV.
+    const selectedIds = globalFilters.responsavelIds || [];
+    let resolvedResponsavel: string | undefined = undefined;
+    if (selectedIds.length > 0) {
+      const values: string[] = [];
+      selectedIds.forEach(id => {
+        const profile = profiles.find(p => p.id === id);
+        if (profile) {
+          if (profile.email) values.push(profile.email);
+          values.push(profile.id);
+          if (profile.celular) values.push(profile.celular);
+        } else {
+          values.push(id);
+        }
+      });
+      resolvedResponsavel = Array.from(new Set(values.filter(Boolean))).join(',');
+    }
     return {
       prospeccaoIds: globalFilters.prospeccaoIds.length > 0 ? globalFilters.prospeccaoIds : undefined,
       responsavel: resolvedResponsavel,
