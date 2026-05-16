@@ -145,7 +145,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     prospeccaoIds: [],
     dataInicio: "",
     dataFim: "",
-    responsavelId: "todos",
+    responsavelIds: [],
     status: "todos",
     dadosLead: "",
 showAllEvents: true
@@ -377,8 +377,7 @@ showAllEvents: true
         const { data: profilesData, error } = await supabase
           .from('profiles')
           .select('id, nome_completo, tipo_acesso, celular, departamento')
-          .in('id', userIds)
-          .in('tipo_acesso', ['Vendedor', 'CRM', 'Gerente de Loja', 'Gerente de Leads', 'Administrador', 'TI', 'Diretor', 'Recepcionista']);
+          .in('id', userIds);
         
         if (error) {
           console.error('Error fetching profiles:', error);
@@ -703,12 +702,24 @@ showAllEvents: true
 
   // Helper to resolve kanban filters
   const getKanbanFilters = () => {
-    const resolvedResponsavel = globalFilters.responsavelId !== 'todos' 
-      ? (() => {
-          const profile = profiles.find(p => p.id === globalFilters.responsavelId);
-          return profile?.email || profile?.id || globalFilters.responsavelId;
-        })()
-      : undefined;
+    // Multi-select: cada id selecionado pode bater por email, id ou celular em
+    // contatos.responsavel_email — incluímos todas as variantes na CSV.
+    const selectedIds = globalFilters.responsavelIds || [];
+    let resolvedResponsavel: string | undefined = undefined;
+    if (selectedIds.length > 0) {
+      const values: string[] = [];
+      selectedIds.forEach(id => {
+        const profile = profiles.find(p => p.id === id);
+        if (profile) {
+          if (profile.email) values.push(profile.email);
+          values.push(profile.id);
+          if (profile.celular) values.push(profile.celular);
+        } else {
+          values.push(id);
+        }
+      });
+      resolvedResponsavel = Array.from(new Set(values.filter(Boolean))).join(',');
+    }
     return {
       prospeccaoIds: globalFilters.prospeccaoIds.length > 0 ? globalFilters.prospeccaoIds : undefined,
       responsavel: resolvedResponsavel,
@@ -733,7 +744,7 @@ showAllEvents: true
         status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
       });
     }
-  }, [activeCompany?.id, activeTab, currentPage, globalFilters.status, fetchContatosPaginated, fetchKanbanColumns, fetchServerMetricas, globalFilters.prospeccaoIds, globalFilters.responsavelId, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, profiles]);
+  }, [activeCompany?.id, activeTab, currentPage, globalFilters.status, fetchContatosPaginated, fetchKanbanColumns, fetchServerMetricas, globalFilters.prospeccaoIds, globalFilters.responsavelIds, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, profiles]);
 
   // Carregar contatos quando necessário
   // Kanban usa fetchKanbanColumns (per-column), Lista usa fetchContatosPaginated
@@ -770,7 +781,7 @@ showAllEvents: true
         status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
       });
     }
-  }, [globalFilters.prospeccaoIds, globalFilters.status, globalFilters.responsavelId, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, activeCompany?.id, defaultFilterLoaded]);
+  }, [globalFilters.prospeccaoIds, globalFilters.status, globalFilters.responsavelIds, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, activeCompany?.id, defaultFilterLoaded]);
 
   // Atribuir leads automaticamente para vendedores quando acessam a aba de atendimentos
   useEffect(() => {
@@ -1355,17 +1366,16 @@ showAllEvents: true
         }
       }
       // Date filtering is now handled server-side via RPCs
-      if (globalFilters.responsavelId !== "todos") {
-        const profile = profiles.find(p => p.id === globalFilters.responsavelId);
-        if (profile) {
-          const matchResponsavel = 
-            contato.responsavel_email === profile.id ||
-            contato.responsavel_email === profile.email ||
-            contato.responsavel_email === profile.celular;
-          if (!matchResponsavel) return false;
-        } else {
-          return false;
-        }
+      if ((globalFilters.responsavelIds?.length || 0) > 0) {
+        const selectedProfiles = globalFilters.responsavelIds
+          .map(id => profiles.find(p => p.id === id))
+          .filter(Boolean) as typeof profiles;
+        const matchResponsavel = selectedProfiles.some(profile =>
+          contato.responsavel_email === profile.id ||
+          contato.responsavel_email === profile.email ||
+          contato.responsavel_email === profile.celular
+        );
+        if (!matchResponsavel) return false;
       }
       if (globalFilters.status !== "todos" && contato.status !== globalFilters.status) {
         return false;

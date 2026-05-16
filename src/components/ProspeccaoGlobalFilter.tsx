@@ -14,7 +14,7 @@ export interface ProspeccaoGlobalFilters {
   prospeccaoIds: string[];
   dataInicio: string;
   dataFim: string;
-  responsavelId: string;
+  responsavelIds: string[];
   status: string;
   dadosLead: string;
   showAllEvents: boolean;
@@ -82,8 +82,10 @@ export function ProspeccaoGlobalFilter({
   const clearFilter = (key: keyof ProspeccaoGlobalFilters) => {
     if (key === 'prospeccaoIds') {
       onFiltersChange({ ...filters, prospeccaoIds: [] });
+    } else if (key === 'responsavelIds') {
+      onFiltersChange({ ...filters, responsavelIds: [] });
     } else {
-      const defaultValue = key === 'responsavelId' || key === 'status' ? 'todos' : '';
+      const defaultValue = key === 'status' ? 'todos' : '';
       onFiltersChange({ ...filters, [key]: defaultValue });
     }
   };
@@ -93,7 +95,7 @@ export function ProspeccaoGlobalFilter({
       prospeccaoIds: [],
       dataInicio: "",
       dataFim: "",
-      responsavelId: "todos",
+      responsavelIds: [],
       status: "todos",
       dadosLead: "",
       showAllEvents: filters.showAllEvents
@@ -117,6 +119,19 @@ export function ProspeccaoGlobalFilter({
     onFiltersChange({ ...filters, prospeccaoIds: [] });
   };
 
+  const toggleResponsavel = (id: string) => {
+    const current = filters.responsavelIds || [];
+    if (current.includes(id)) {
+      onFiltersChange({ ...filters, responsavelIds: current.filter(x => x !== id) });
+    } else {
+      onFiltersChange({ ...filters, responsavelIds: [...current, id] });
+    }
+  };
+
+  const clearResponsaveis = () => {
+    onFiltersChange({ ...filters, responsavelIds: [] });
+  };
+
   const filteredEventList = prospeccoes.filter(p =>
     p.titulo.toLowerCase().includes(eventSearchTerm.toLowerCase())
   );
@@ -138,9 +153,11 @@ export function ProspeccaoGlobalFilter({
     if (filters.status !== "todos") {
       active.push({ key: 'status', label: 'Status', value: filters.status });
     }
-    if (filters.responsavelId !== "todos") {
-      const responsavel = responsaveis.find(r => r.id === filters.responsavelId);
-      active.push({ key: 'responsavelId', label: 'Vendedor', value: responsavel?.nome_completo || filters.responsavelId });
+    if ((filters.responsavelIds?.length || 0) > 0) {
+      const value = filters.responsavelIds.length === 1
+        ? (responsaveis.find(r => r.id === filters.responsavelIds[0])?.nome_completo || filters.responsavelIds[0])
+        : `${filters.responsavelIds.length} pessoas`;
+      active.push({ key: 'responsavelIds', label: 'Responsável', value });
     }
     if (filters.dataInicio) {
       active.push({ key: 'dataInicio', label: 'Início', value: filters.dataInicio });
@@ -303,28 +320,45 @@ export function ProspeccaoGlobalFilter({
                   </Select>
                 </div>
 
-                {/* Vendedor/Responsável */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-muted-foreground">Vendedor/Responsável</label>
-                  <Select 
-                    value={filters.responsavelId} 
-                    onValueChange={(value) => updateFilter('responsavelId', value)}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Todos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todos</SelectItem>
-                      {responsaveis
+                {/* Vendedor/Responsável - Multi-select */}
+                <div className="flex flex-col gap-1 col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-muted-foreground">Vendedor/Responsável</label>
+                    {(filters.responsavelIds?.length || 0) > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearResponsaveis}
+                        className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
+                      >
+                        Limpar
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-0.5 max-h-[160px] overflow-y-auto border rounded-md p-1">
+                    {responsaveis.filter(r => r.nome_completo).length === 0 ? (
+                      <div className="text-xs text-muted-foreground text-center py-2">
+                        Ninguém encontrado
+                      </div>
+                    ) : (
+                      responsaveis
                         .filter(r => r.nome_completo)
                         .sort((a, b) => (a.nome_completo || '').localeCompare(b.nome_completo || ''))
-                        .map((r) => (
-                          <SelectItem key={r.id} value={r.id}>
-                            {r.nome_completo}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                        .map((r) => {
+                          const isSelected = (filters.responsavelIds || []).includes(r.id);
+                          return (
+                            <div
+                              key={r.id}
+                              className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer"
+                              onClick={() => toggleResponsavel(r.id)}
+                            >
+                              <Checkbox checked={isSelected} className="h-3.5 w-3.5" />
+                              <span className="text-xs truncate">{r.nome_completo}</span>
+                            </div>
+                          );
+                        })
+                    )}
+                  </div>
                 </div>
 
                 {/* Data Início */}
