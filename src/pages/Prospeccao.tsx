@@ -145,7 +145,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     prospeccaoIds: [],
     dataInicio: "",
     dataFim: "",
-    responsavelId: "todos",
+    responsavelIds: [],
     status: "todos",
     dadosLead: "",
 showAllEvents: true
