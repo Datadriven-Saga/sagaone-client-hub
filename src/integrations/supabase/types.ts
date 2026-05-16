@@ -5770,7 +5770,20 @@ export type Database = {
         Args: { encrypted_secret: string }
         Returns: string
       }
-      encerrar_eventos_finalizados: { Args: never; Returns: undefined }
+      encerrar_eventos_finalizados:
+        | { Args: never; Returns: undefined }
+        | {
+            Args: {
+              p_evento_id?: string
+              p_limit?: number
+              p_skip_descarte?: boolean
+            }
+            Returns: {
+              descarte_count: number
+              evento_id: string
+              snapshot_count: number
+            }[]
+          }
       encrypt_mfa_secret: { Args: { plain_secret: string }; Returns: string }
       generate_optout_dedupe_key: {
         Args: {
