@@ -704,7 +704,7 @@ showAllEvents: true
   const getKanbanFilters = () => {
     // Multi-select: cada id selecionado pode bater por email, id ou celular em
     // contatos.responsavel_email — incluímos todas as variantes na CSV.
-    const selectedIds = globalFilters.responsavelIds || [];
+    const selectedIds = globalFilters.responsavelIdss || [];
     let resolvedResponsavel: string | undefined = undefined;
     if (selectedIds.length > 0) {
       const values: string[] = [];
@@ -744,7 +744,7 @@ showAllEvents: true
         status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
       });
     }
-  }, [activeCompany?.id, activeTab, currentPage, globalFilters.status, fetchContatosPaginated, fetchKanbanColumns, fetchServerMetricas, globalFilters.prospeccaoIds, globalFilters.responsavelId, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, profiles]);
+  }, [activeCompany?.id, activeTab, currentPage, globalFilters.status, fetchContatosPaginated, fetchKanbanColumns, fetchServerMetricas, globalFilters.prospeccaoIds, globalFilters.responsavelIds, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, profiles]);
 
   // Carregar contatos quando necessário
   // Kanban usa fetchKanbanColumns (per-column), Lista usa fetchContatosPaginated
@@ -781,7 +781,7 @@ showAllEvents: true
         status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
       });
     }
-  }, [globalFilters.prospeccaoIds, globalFilters.status, globalFilters.responsavelId, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, activeCompany?.id, defaultFilterLoaded]);
+  }, [globalFilters.prospeccaoIds, globalFilters.status, globalFilters.responsavelIds, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, activeCompany?.id, defaultFilterLoaded]);
 
   // Atribuir leads automaticamente para vendedores quando acessam a aba de atendimentos
   useEffect(() => {
@@ -1366,8 +1366,8 @@ showAllEvents: true
         }
       }
       // Date filtering is now handled server-side via RPCs
-      if (globalFilters.responsavelId !== "todos") {
-        const profile = profiles.find(p => p.id === globalFilters.responsavelId);
+      if (globalFilters.responsavelIds !== "todos") {
+        const profile = profiles.find(p => p.id === globalFilters.responsavelIds);
         if (profile) {
           const matchResponsavel = 
             contato.responsavel_email === profile.id ||
