@@ -1366,17 +1366,16 @@ showAllEvents: true
         }
       }
       // Date filtering is now handled server-side via RPCs
-      if (globalFilters.responsavelIds !== "todos") {
-        const profile = profiles.find(p => p.id === globalFilters.responsavelIds);
-        if (profile) {
-          const matchResponsavel = 
-            contato.responsavel_email === profile.id ||
-            contato.responsavel_email === profile.email ||
-            contato.responsavel_email === profile.celular;
-          if (!matchResponsavel) return false;
-        } else {
-          return false;
-        }
+      if ((globalFilters.responsavelIds?.length || 0) > 0) {
+        const selectedProfiles = globalFilters.responsavelIds
+          .map(id => profiles.find(p => p.id === id))
+          .filter(Boolean) as typeof profiles;
+        const matchResponsavel = selectedProfiles.some(profile =>
+          contato.responsavel_email === profile.id ||
+          contato.responsavel_email === profile.email ||
+          contato.responsavel_email === profile.celular
+        );
+        if (!matchResponsavel) return false;
       }
       if (globalFilters.status !== "todos" && contato.status !== globalFilters.status) {
         return false;
