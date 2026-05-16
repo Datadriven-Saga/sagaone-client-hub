@@ -704,7 +704,7 @@ showAllEvents: true
   const getKanbanFilters = () => {
     // Multi-select: cada id selecionado pode bater por email, id ou celular em
     // contatos.responsavel_email — incluímos todas as variantes na CSV.
-    const selectedIds = globalFilters.responsavelIdss || [];
+    const selectedIds = globalFilters.responsavelIds || [];
     let resolvedResponsavel: string | undefined = undefined;
     if (selectedIds.length > 0) {
       const values: string[] = [];
