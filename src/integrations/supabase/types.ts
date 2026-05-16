@@ -5779,9 +5779,9 @@ export type Database = {
               p_skip_descarte?: boolean
             }
             Returns: {
-              descarte_count: number
-              evento_id: string
-              snapshot_count: number
+              out_descarte_count: number
+              out_evento_id: string
+              out_snapshot_count: number
             }[]
           }
       encrypt_mfa_secret: { Args: { plain_secret: string }; Returns: string }
