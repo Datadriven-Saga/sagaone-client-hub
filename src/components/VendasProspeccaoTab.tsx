@@ -39,9 +39,9 @@ export function VendasProspeccaoTab({ globalFilters }: VendasProspeccaoTabProps)
       result = result.filter(v => globalFilters.prospeccaoIds.includes(v.prospeccao_id));
     }
 
-    // Filter by responsavel
-    if (globalFilters.responsavelId && globalFilters.responsavelId !== 'todos') {
-      result = result.filter(v => v.responsavel_id === globalFilters.responsavelId);
+    // Filter by responsavel (multi-select)
+    if ((globalFilters.responsavelIds?.length || 0) > 0) {
+      result = result.filter(v => globalFilters.responsavelIds.includes(v.responsavel_id));
     }
 
     // Filter by date range
