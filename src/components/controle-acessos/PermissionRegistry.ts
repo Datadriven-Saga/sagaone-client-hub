@@ -473,7 +473,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canAccessNotificacoes = true;
   defaults.canAccessMinhaConta = true;
   defaults.canAccessAjuda = true;
-  defaults.canAccessRelatorios = !isRecepcionista;
+  defaults.canAccessRelatorios = isAdmin;
 
   // ── Pós-Vendas (Paty) ──
   defaults.canAccessPosVendas = isAdmin;
