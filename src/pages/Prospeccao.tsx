@@ -377,8 +377,7 @@ showAllEvents: true
         const { data: profilesData, error } = await supabase
           .from('profiles')
           .select('id, nome_completo, tipo_acesso, celular, departamento')
-          .in('id', userIds)
-          .in('tipo_acesso', ['Vendedor', 'CRM', 'Gerente de Loja', 'Gerente de Leads', 'Administrador', 'TI', 'Diretor', 'Recepcionista']);
+          .in('id', userIds);
         
         if (error) {
           console.error('Error fetching profiles:', error);
