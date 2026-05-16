@@ -222,7 +222,12 @@ export const useContatoData = () => {
         query = query.or(`data_fim.gte.${today},data_fim.is.null,canal.eq.Ligação`);
       }
       
-      const { data, error } = await query.order('updated_at', { ascending: false });
+      // Ordenação: data_fim DESC (mais recentes/futuros primeiro), com NULLS por último,
+      // e updated_at como desempate. Evita que backfills de updated_at
+      // (ex.: encerrar_eventos_finalizados) joguem eventos antigos para o topo.
+      const { data, error } = await query
+        .order('data_fim', { ascending: false, nullsFirst: false })
+        .order('updated_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching prospeccoes:', error);
