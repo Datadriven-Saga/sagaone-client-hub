@@ -410,10 +410,10 @@ showAllEvents: true
     fetchProfiles();
   }, [activeCompany?.id]);
 
-  // Filtra "Vendedor/Responsável" para mostrar apenas:
-  // - tipo_acesso Vendedor ou SDR
-  // - quem tem leads atribuídos (escopo: evento filtrado, se houver)
-  // - quando há evento filtrado: apenas membros da equipe daqueles eventos
+  // Filtra "Vendedor/Responsável" para mostrar qualquer pessoa que:
+  // - esteja na equipe dos eventos filtrados, OU
+  // - tenha leads atribuídos (no escopo do evento filtrado, se houver)
+  // Sem restrição de tipo_acesso (Vendedor, SDR, Gerente, etc.)
   useEffect(() => {
     const computeResponsaveis = async () => {
       if (!activeCompany?.id) {
@@ -421,7 +421,7 @@ showAllEvents: true
         return;
       }
       try {
-        const base = profiles.filter(p => p.tipo_acesso === 'Vendedor' || p.tipo_acesso === 'SDR');
+        const base = profiles;
         if (base.length === 0) {
           setResponsaveisFiltrados([]);
           return;
@@ -430,22 +430,20 @@ showAllEvents: true
         const hasEventFilter = eventIds.length > 0;
 
         // Membros das equipes dos eventos filtrados
-        let teamUserIds: Set<string> | null = null;
+        let teamUserIds: Set<string> = new Set();
         if (hasEventFilter) {
           const { data: equipes } = await supabase
             .from('prospeccao_equipes')
             .select('id')
             .in('prospeccao_id', eventIds);
           const equipeIds = (equipes || []).map(e => e.id);
-          if (equipeIds.length === 0) {
-            setResponsaveisFiltrados([]);
-            return;
+          if (equipeIds.length > 0) {
+            const { data: membros } = await supabase
+              .from('prospeccao_equipe_membros')
+              .select('user_id')
+              .in('equipe_id', equipeIds);
+            teamUserIds = new Set((membros || []).map(m => m.user_id).filter(Boolean));
           }
-          const { data: membros } = await supabase
-            .from('prospeccao_equipe_membros')
-            .select('user_id')
-            .in('equipe_id', equipeIds);
-          teamUserIds = new Set((membros || []).map(m => m.user_id).filter(Boolean));
         }
 
         // Emails de responsáveis com leads atribuídos (no escopo do evento, se houver)
@@ -456,21 +454,19 @@ showAllEvents: true
             .select('contato_id')
             .in('prospeccao_id', eventIds);
           const contatoIds = Array.from(new Set((evRows || []).map(e => e.contato_id).filter(Boolean)));
-          if (contatoIds.length === 0) {
-            setResponsaveisFiltrados([]);
-            return;
-          }
-          // Buscar em lotes para evitar URL gigante
-          const chunkSize = 500;
-          for (let i = 0; i < contatoIds.length; i += chunkSize) {
-            const chunk = contatoIds.slice(i, i + chunkSize);
-            const { data: cs } = await supabase
-              .from('contatos')
-              .select('responsavel_email')
-              .eq('empresa_id', activeCompany.id)
-              .not('responsavel_email', 'is', null)
-              .in('id', chunk);
-            (cs || []).forEach(c => { if (c.responsavel_email) emailsComLeads.add(c.responsavel_email.toLowerCase()); });
+          if (contatoIds.length > 0) {
+            // Buscar em lotes para evitar URL gigante
+            const chunkSize = 500;
+            for (let i = 0; i < contatoIds.length; i += chunkSize) {
+              const chunk = contatoIds.slice(i, i + chunkSize);
+              const { data: cs } = await supabase
+                .from('contatos')
+                .select('responsavel_email')
+                .eq('empresa_id', activeCompany.id)
+                .not('responsavel_email', 'is', null)
+                .in('id', chunk);
+              (cs || []).forEach(c => { if (c.responsavel_email) emailsComLeads.add(c.responsavel_email.toLowerCase()); });
+            }
           }
         } else {
           const { data: cs } = await supabase
@@ -483,9 +479,9 @@ showAllEvents: true
         }
 
         const filtered = base.filter(p => {
-          if (teamUserIds && !teamUserIds.has(p.id)) return false;
-          if (!p.email) return false;
-          return emailsComLeads.has(p.email.toLowerCase());
+          const inTeam = teamUserIds.has(p.id);
+          const hasLeads = !!p.email && emailsComLeads.has(p.email.toLowerCase());
+          return inTeam || hasLeads;
         }).map(p => ({ id: p.id, nome_completo: p.nome_completo, tipo_acesso: p.tipo_acesso }));
 
         setResponsaveisFiltrados(filtered);
