@@ -48,6 +48,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Bot } from "lucide-react";
 
+const PRI_IA_EMAIL = 'pri.ia@sagadatadriven.com.br';
+const SEM_RESPONSAVEL_ID = '__sem_responsavel__';
+const PRI_IA_PSEUDO_ID = '__pri_ia__';
+
 interface ClienteData {
   nome: string;
   telefone: string;
