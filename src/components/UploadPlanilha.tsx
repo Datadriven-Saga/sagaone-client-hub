@@ -157,6 +157,15 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
   const [pendingPhonesTotal, setPendingPhonesTotal] = useState(0);
   const [checkingConflitos, setCheckingConflitos] = useState(false);
 
+  // Preview reimport mesmo evento (Correção 3)
+  const [leadsMesmoEvento, setLeadsMesmoEvento] = useState<LeadMesmoEvento[]>([]);
+  const [showMesmoEvento, setShowMesmoEvento] = useState(false);
+  const [pendingSkipPhones, setPendingSkipPhones] = useState<string[]>([]);
+  const [pendingForceFromConflitos, setPendingForceFromConflitos] = useState(false);
+  const [pendingAllPhones, setPendingAllPhones] = useState<string[]>([]);
+  const [pendingBaseNome, setPendingBaseNome] = useState('');
+  const [pendingOrigem, setPendingOrigem] = useState('');
+
   const isWorking = phase !== 'idle' && phase !== 'done' && phase !== 'error';
 
   // beforeunload protection
