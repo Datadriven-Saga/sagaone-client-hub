@@ -48,6 +48,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Bot } from "lucide-react";
 
+const PRI_IA_EMAIL = 'pri.ia@sagadatadriven.com.br';
+const SEM_RESPONSAVEL_ID = '__sem_responsavel__';
+const PRI_IA_PSEUDO_ID = '__pri_ia__';
+
 interface ClienteData {
   nome: string;
   telefone: string;
@@ -447,17 +451,18 @@ showAllEvents: true
 
         // Emails de responsáveis com leads atribuídos (no escopo do evento, se houver)
         let emailsComLeads = new Set<string>();
+        let scopedContatoIds: string[] | null = null;
         if (hasEventFilter) {
           const { data: evRows } = await supabase
             .from('eventos_prospeccao')
             .select('contato_id')
             .in('prospeccao_id', eventIds);
-          const contatoIds = Array.from(new Set((evRows || []).map(e => e.contato_id).filter(Boolean)));
-          if (contatoIds.length > 0) {
+          scopedContatoIds = Array.from(new Set((evRows || []).map(e => e.contato_id).filter(Boolean)));
+          if (scopedContatoIds.length > 0) {
             // Buscar em lotes para evitar URL gigante
             const chunkSize = 500;
-            for (let i = 0; i < contatoIds.length; i += chunkSize) {
-              const chunk = contatoIds.slice(i, i + chunkSize);
+            for (let i = 0; i < scopedContatoIds.length; i += chunkSize) {
+              const chunk = scopedContatoIds.slice(i, i + chunkSize);
               const { data: cs } = await supabase
                 .from('contatos')
                 .select('responsavel_email')
@@ -483,7 +488,47 @@ showAllEvents: true
           return inTeam || hasLeads;
         }).map(p => ({ id: p.id, nome_completo: p.nome_completo, tipo_acesso: p.tipo_acesso }));
 
-        setResponsaveisFiltrados(filtered);
+        // Pseudo-opções: "Sem responsável" e "Pri IA"
+        let temSemResp = false;
+        const temPriIa = emailsComLeads.has(PRI_IA_EMAIL.toLowerCase());
+
+        if (hasEventFilter) {
+          // Checa em lotes se algum lead do escopo tem responsavel_email NULL
+          if (scopedContatoIds && scopedContatoIds.length > 0) {
+            const chunkSize = 500;
+            for (let i = 0; i < scopedContatoIds.length && !temSemResp; i += chunkSize) {
+              const chunk = scopedContatoIds.slice(i, i + chunkSize);
+              const { count } = await supabase
+                .from('contatos')
+                .select('id', { count: 'exact', head: true })
+                .eq('empresa_id', activeCompany.id)
+                .is('responsavel_email', null)
+                .in('id', chunk);
+              if ((count ?? 0) > 0) temSemResp = true;
+            }
+          }
+        } else {
+          const { count: nullCount } = await supabase
+            .from('contatos')
+            .select('id', { count: 'exact', head: true })
+            .eq('empresa_id', activeCompany.id)
+            .is('responsavel_email', null);
+          temSemResp = (nullCount ?? 0) > 0;
+        }
+
+        const pseudo: typeof filtered = [];
+        if (temSemResp) pseudo.push({ id: SEM_RESPONSAVEL_ID, nome_completo: 'Sem responsável', tipo_acesso: null });
+        if (temPriIa) pseudo.push({ id: PRI_IA_PSEUDO_ID, nome_completo: 'Pri IA', tipo_acesso: null });
+
+        // Remove duplicata: se a Pri IA já está em filtered como profile real, esconde a entrada normal dela
+        const filteredSemPri = temPriIa
+          ? filtered.filter(f => {
+              const prof = profiles.find(p => p.id === f.id);
+              return !prof?.email || prof.email.toLowerCase() !== PRI_IA_EMAIL.toLowerCase();
+            })
+          : filtered;
+
+        setResponsaveisFiltrados([...pseudo, ...filteredSemPri]);
       } catch (e) {
         console.error('Erro ao computar responsáveis filtrados:', e);
         setResponsaveisFiltrados([]);
@@ -709,6 +754,14 @@ showAllEvents: true
     if (selectedIds.length > 0) {
       const values: string[] = [];
       selectedIds.forEach(id => {
+        if (id === SEM_RESPONSAVEL_ID) {
+          values.push('__null__');
+          return;
+        }
+        if (id === PRI_IA_PSEUDO_ID) {
+          values.push(PRI_IA_EMAIL);
+          return;
+        }
         const profile = profiles.find(p => p.id === id);
         if (profile) {
           if (profile.email) values.push(profile.email);

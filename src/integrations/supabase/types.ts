@@ -5880,6 +5880,21 @@ export type Database = {
         }
         Returns: Json
       }
+      get_leads_mesmo_evento: {
+        Args: {
+          p_empresa_id: string
+          p_prospeccao_id: string
+          p_telefones: string[]
+        }
+        Returns: {
+          contato_id: string
+          nome: string
+          responsavel_email: string
+          status_atual: string
+          telefone: string
+          vendedor_nome: string
+        }[]
+      }
       get_next_venda_numero: {
         Args: { p_prospeccao_id: string }
         Returns: number
