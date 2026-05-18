@@ -271,14 +271,31 @@ serve(async (req) => {
 
       // Atribuir responsável Pri IA para chamadas via admin-token
       if (isAdminToken && PRI_IA_USER_ID) {
-        const { error: respError } = await supabaseClient
+        // Apenas atribui Pri IA quando lead não tem responsável humano.
+        const { data: leadAtual } = await supabaseClient
           .from('contatos')
-          .update({ responsavel_email: PRI_IA_EMAIL })
-          .eq('id', contato.id);
-        if (respError) {
-          console.error('Erro ao atribuir responsável Pri IA:', respError.message);
+          .select('responsavel_email')
+          .eq('id', contato.id)
+          .single();
+
+        const respAtual = leadAtual?.responsavel_email;
+        const semResponsavel = !respAtual || respAtual === '' || respAtual === PRI_IA_EMAIL;
+
+        if (semResponsavel) {
+          const { error: respError } = await supabaseClient
+            .from('contatos')
+            .update({
+              responsavel_email: PRI_IA_EMAIL,
+              vendedor_nome: 'Pri IA',
+            })
+            .eq('id', contato.id);
+          if (respError) {
+            console.error('Erro ao atribuir responsável Pri IA:', respError.message);
+          } else {
+            console.log(`   └─ Responsável atribuído para Pri IA (lead sem dono)`);
+          }
         } else {
-          console.log(`   └─ Responsável atualizado para Pri IA`);
+          console.log(`   └─ Responsável humano preservado: ${respAtual}`);
         }
       }
 
