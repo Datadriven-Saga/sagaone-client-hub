@@ -1134,6 +1134,13 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
         onCancel={handleConflitosCancel}
         onConfirm={handleConflitosConfirm}
       />
+
+      <ReimportSameEventPreview
+        open={showMesmoEvento}
+        leads={leadsMesmoEvento}
+        onCancel={handleMesmoEventoCancel}
+        onConfirm={handleMesmoEventoConfirm}
+      />
     </>
   );
 };
