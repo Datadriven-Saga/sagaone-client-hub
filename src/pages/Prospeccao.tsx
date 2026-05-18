@@ -1270,6 +1270,15 @@ showAllEvents: true
   useEffect(() => {
     if (!activeCompany?.id) return;
 
+    // Debounce para evitar tempestade de refresh em rajadas de UPDATE
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        refreshLeadViews({ silentKanban: true });
+      }, 1500);
+    };
+
     const channel = supabase
       .channel(`prospeccao-contatos-${activeCompany.id}`)
       .on(
@@ -1280,16 +1289,38 @@ showAllEvents: true
           table: 'contatos',
           filter: `empresa_id=eq.${activeCompany.id}`,
         },
-        () => {
-          refreshLeadViews({ silentKanban: true });
-        }
+        scheduleRefresh
       )
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
   }, [activeCompany?.id, refreshLeadViews]);
+
+  // Fallback de reconciliação para o Kanban (drag-and-drop é otimista e
+  // fire-and-forget): interval de 30s + visibilitychange. Evita estado divergente
+  // sem bloquear a UI mobile após cada movimentação.
+  useEffect(() => {
+    if (activeTab !== 'kanban' || !activeCompany?.id) return;
+    if (!defaultFilterLoaded) return;
+    if (globalFilters.prospeccaoIds.length === 0) return;
+
+    const reconcile = () => {
+      fetchKanbanColumns(getKanbanFilters(), { silent: true });
+    };
+    const interval = setInterval(reconcile, 30000);
+    const onVis = () => {
+      if (!document.hidden) reconcile();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, activeCompany?.id, defaultFilterLoaded, globalFilters.prospeccaoIds.join(',')]);
 
   // Carregar contagens de pendentes para eventos IA (OTIMIZADO - sem webhooks externos)
   // Métricas externas de Ligação são carregadas sob demanda via RPC
