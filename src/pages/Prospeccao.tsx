@@ -973,6 +973,37 @@ showAllEvents: true
   };
 
   // Função para registrar movimentações dos contatos
+  // Helper único de log: resolve prospeccao_id real do contato (priorizando filtro
+  // ativo) e mapeia o status kanban para o nome do DB. Fire-and-forget por padrão
+  // para não bloquear a UI. RLS já permite INSERT autenticado — erros são logados.
+  const logStatusChange = useCallback(
+    (itemId: string, fromCol: string, toCol: string, observacoes?: string) => {
+      if (!user) return;
+      const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
+      const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
+      const prospeccaoId =
+        (prospeccaoIdsFiltrados.length > 0
+          ? prospeccaoIdsFiltrados.find((id) => prospeccaoIdsDoLead?.has(id)) ||
+            prospeccaoIdsFiltrados[0]
+          : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
+      if (!prospeccaoId) {
+        console.warn('⚠️ logStatusChange: contato sem prospeccao vinculada', { itemId, fromCol, toCol });
+        return;
+      }
+      const statusAnterior = kanbanStatusMap[fromCol as keyof typeof kanbanStatusMap] || fromCol;
+      const statusNovo = kanbanStatusMap[toCol as keyof typeof kanbanStatusMap] || toCol;
+      void registrarMovimentacao({
+        leadId: itemId,
+        prospeccaoId,
+        statusAnterior,
+        statusNovo,
+        usuarioId: user.id,
+        observacoes,
+      });
+    },
+    [user, contatosProspeccoes, globalFilters.prospeccaoIds, prospeccoes, registrarMovimentacao]
+  );
+
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string): Promise<boolean> => {
     console.log('handleStatusChange called:', { itemId, fromStatus, toStatus });
     const contatoCompleto = contatos.find(c => c.id === itemId) ?? (() => {
@@ -1114,15 +1145,7 @@ showAllEvents: true
           console.log('Venda já existe, atualizando status apenas');
           await atualizarStatusContato(itemId, 'Venda');
           
-          if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-            await registrarMovimentacao({
-              leadId: itemId,
-              prospeccaoId: prospeccoes[0].id,
-              statusAnterior: fromStatus,
-              statusNovo: toStatus,
-              usuarioId: user.id,
-            });
-          }
+          logStatusChange(itemId, fromStatus, toStatus);
           
           toast({
             title: "Status Atualizado",
@@ -1189,19 +1212,13 @@ showAllEvents: true
         await atribuirResponsavel(itemId, user.email);
       }
 
-      if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-        await registrarMovimentacao({
-          leadId: itemId,
-          prospeccaoId: prospeccoes[0].id, 
-          statusAnterior: fromStatus,
-          statusNovo: toStatus,
-          usuarioId: user.id,
-        });
-      }
+      // Log fire-and-forget (não bloqueia UI mobile)
+      logStatusChange(itemId, fromStatus, toStatus);
       
       // Disparo de webhook de movimentação (processamento no backend)
       // O backend cuida de: verificar feature flag, verificar canal, verificar webhook_ativado
-      try {
+      // Fire-and-forget — webhook não deve bloquear a UI no mobile
+      (() => {
         // Priorizar o evento filtrado no Kanban, depois o vinculado ao lead, depois fallback
         const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
         const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
@@ -1213,7 +1230,7 @@ showAllEvents: true
         console.log('🔄 Webhook movimentação - prospeccaoId:', prospeccaoIdParaWebhook, 'empresa:', activeCompany?.id, 'contato:', itemId);
         
         if (prospeccaoIdParaWebhook && activeCompany?.id) {
-          const { data: whResult, error: whError } = await supabase.functions.invoke('trigger-webhook', {
+          void supabase.functions.invoke('trigger-webhook', {
             body: {
               gatilho: 'movimentacao_lead_kanban',
               dados: {
@@ -1225,25 +1242,22 @@ showAllEvents: true
                 usuario_id: user?.id
               }
             }
-          });
-          if (whError) {
-            console.error('❌ Webhook movimentação erro:', whError);
-          } else {
-            console.log('✅ Webhook movimentação resultado:', whResult);
-          }
+          }).then(({ data, error }) => {
+            if (error) console.error('❌ Webhook movimentação erro:', error);
+            else console.log('✅ Webhook movimentação resultado:', data);
+          }).catch((err) => console.error('Webhook movimentação falhou:', err));
         } else {
           console.warn('⚠️ Webhook movimentação não disparado - prospeccaoId:', prospeccaoIdParaWebhook, 'empresaId:', activeCompany?.id);
         }
-      } catch (err) {
-        console.error('Webhook movimentação falhou:', err);
-      }
+      })();
 
       // Atualizar contagem de leads pendentes para vendedores/SDR
       if (isLimitedUser) {
         contarLeadsPendentes();
       }
 
-      refreshLeadViews({ silentKanban: true });
+      // UI já foi atualizada otimisticamente; reconciliação acontece via
+      // realtime channel + interval de 30s + visibilitychange (ver useEffect abaixo)
       
       return true;
     } catch (err) {
@@ -1256,6 +1270,15 @@ showAllEvents: true
   useEffect(() => {
     if (!activeCompany?.id) return;
 
+    // Debounce para evitar tempestade de refresh em rajadas de UPDATE
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        refreshLeadViews({ silentKanban: true });
+      }, 1500);
+    };
+
     const channel = supabase
       .channel(`prospeccao-contatos-${activeCompany.id}`)
       .on(
@@ -1266,16 +1289,38 @@ showAllEvents: true
           table: 'contatos',
           filter: `empresa_id=eq.${activeCompany.id}`,
         },
-        () => {
-          refreshLeadViews({ silentKanban: true });
-        }
+        scheduleRefresh
       )
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
   }, [activeCompany?.id, refreshLeadViews]);
+
+  // Fallback de reconciliação para o Kanban (drag-and-drop é otimista e
+  // fire-and-forget): interval de 30s + visibilitychange. Evita estado divergente
+  // sem bloquear a UI mobile após cada movimentação.
+  useEffect(() => {
+    if (activeTab !== 'kanban' || !activeCompany?.id) return;
+    if (!defaultFilterLoaded) return;
+    if (globalFilters.prospeccaoIds.length === 0) return;
+
+    const reconcile = () => {
+      fetchKanbanColumns(getKanbanFilters(), { silent: true });
+    };
+    const interval = setInterval(reconcile, 30000);
+    const onVis = () => {
+      if (!document.hidden) reconcile();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, activeCompany?.id, defaultFilterLoaded, globalFilters.prospeccaoIds.join(',')]);
 
   // Carregar contagens de pendentes para eventos IA (OTIMIZADO - sem webhooks externos)
   // Métricas externas de Ligação são carregadas sob demanda via RPC
@@ -1973,16 +2018,7 @@ showAllEvents: true
         await atribuirResponsavel(contatoId, user.email);
       }
 
-      if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-        await registrarMovimentacao({
-          leadId: contatoId,
-          prospeccaoId: prospeccoes[0].id, 
-          statusAnterior: fromStatus,
-          statusNovo: toStatus,
-          usuarioId: user.id,
-          observacoes: `Produto vendido: ${produtoVendidoId}`
-        });
-      }
+      logStatusChange(contatoId, fromStatus, toStatus, `Produto vendido: ${produtoVendidoId}`);
     } else {
       // Se não tem pendingVendaStatus, o contato já está em status de venda
       // Apenas verificar e garantir que está em Venda
@@ -2038,18 +2074,10 @@ showAllEvents: true
   const handleModalStatusChange = async (contatoId: string, novoStatus: Contato['status']) => {
     await atualizarStatusContato(contatoId, novoStatus);
     
-    // Registrar movimentação se necessário
-    if (registrarMovimentacao && user) {
-      const contato = contatos.find(c => c.id === contatoId);
-      if (contato) {
-        await registrarMovimentacao({
-          leadId: contatoId,
-          prospeccaoId: prospeccoes[0]?.id || 'default',
-          statusAnterior: contato.status,
-          statusNovo: novoStatus,
-          usuarioId: user.id,
-        });
-      }
+    // Registrar movimentação (helper resolve prospeccao_id real do contato)
+    const contato = contatos.find(c => c.id === contatoId);
+    if (contato) {
+      logStatusChange(contatoId, contato.status, novoStatus);
     }
     
     // Re-fetch kanban silently to reflect the change without requiring F5
@@ -3228,22 +3256,17 @@ showAllEvents: true
             await atualizarStatusContato(descarteModal.contatoId, 'Descartado');
             
             // Registrar movimentação com motivo e justificativa
-            if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-              const motivoDescricao = await supabase
-                .from('motivos_insucesso')
-                .select('descricao')
-                .eq('id', motivoId)
-                .single();
-              
-              await registrarMovimentacao({
-                leadId: descarteModal.contatoId,
-                prospeccaoId: prospeccoes[0].id,
-                statusAnterior: descarteModal.fromStatus,
-                statusNovo: 'descartados',
-                usuarioId: user.id,
-                observacoes: `Motivo: ${motivoDescricao.data?.descricao || 'N/A'} | Justificativa: ${justificativa}`
-              });
-            }
+            const motivoDescricao = await supabase
+              .from('motivos_insucesso')
+              .select('descricao')
+              .eq('id', motivoId)
+              .single();
+            logStatusChange(
+              descarteModal.contatoId,
+              descarteModal.fromStatus,
+              'descartados',
+              `Motivo: ${motivoDescricao.data?.descricao || 'N/A'} | Justificativa: ${justificativa}`
+            );
             
             toast({
               title: "Lead Descartado",
@@ -3279,15 +3302,7 @@ showAllEvents: true
           try {
             await atualizarStatusContato(contatoId, 'Convidado');
             moveKanbanCardOptimistic(contatoId, fromStatus, 'convidados');
-            if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-              await registrarMovimentacao({
-                leadId: contatoId,
-                prospeccaoId: prospeccoes[0].id,
-                statusAnterior: fromStatus,
-                statusNovo: 'convidados',
-                usuarioId: user.id,
-              });
-            }
+            logStatusChange(contatoId, fromStatus, 'convidados');
             toast({
               title: 'Lead movido para Convidados',
               description: 'Você pode reenviar a confirmação a qualquer momento pela aba de convite.',
@@ -3314,16 +3329,7 @@ showAllEvents: true
             }
             await atualizarStatusContato(contatoId, 'Convidado');
             moveKanbanCardOptimistic(contatoId, fromStatus, 'convidados');
-            if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-              await registrarMovimentacao({
-                leadId: contatoId,
-                prospeccaoId: prospeccoes[0].id,
-                statusAnterior: fromStatus,
-                statusNovo: 'convidados',
-                usuarioId: user.id,
-                observacoes: 'Confirmação enviada via WhatsApp',
-              });
-            }
+            logStatusChange(contatoId, fromStatus, 'convidados', 'Confirmação enviada via WhatsApp');
             toast({
               title: 'Convite enviado',
               description: 'WhatsApp aberto e lead movido para Convidados.',
