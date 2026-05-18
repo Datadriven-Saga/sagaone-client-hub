@@ -1987,16 +1987,7 @@ showAllEvents: true
         await atribuirResponsavel(contatoId, user.email);
       }
 
-      if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-        await registrarMovimentacao({
-          leadId: contatoId,
-          prospeccaoId: prospeccoes[0].id, 
-          statusAnterior: fromStatus,
-          statusNovo: toStatus,
-          usuarioId: user.id,
-          observacoes: `Produto vendido: ${produtoVendidoId}`
-        });
-      }
+      logStatusChange(contatoId, fromStatus, toStatus, `Produto vendido: ${produtoVendidoId}`);
     } else {
       // Se não tem pendingVendaStatus, o contato já está em status de venda
       // Apenas verificar e garantir que está em Venda
@@ -2052,18 +2043,10 @@ showAllEvents: true
   const handleModalStatusChange = async (contatoId: string, novoStatus: Contato['status']) => {
     await atualizarStatusContato(contatoId, novoStatus);
     
-    // Registrar movimentação se necessário
-    if (registrarMovimentacao && user) {
-      const contato = contatos.find(c => c.id === contatoId);
-      if (contato) {
-        await registrarMovimentacao({
-          leadId: contatoId,
-          prospeccaoId: prospeccoes[0]?.id || 'default',
-          statusAnterior: contato.status,
-          statusNovo: novoStatus,
-          usuarioId: user.id,
-        });
-      }
+    // Registrar movimentação (helper resolve prospeccao_id real do contato)
+    const contato = contatos.find(c => c.id === contatoId);
+    if (contato) {
+      logStatusChange(contatoId, contato.status, novoStatus);
     }
     
     // Re-fetch kanban silently to reflect the change without requiring F5
@@ -3242,22 +3225,17 @@ showAllEvents: true
             await atualizarStatusContato(descarteModal.contatoId, 'Descartado');
             
             // Registrar movimentação com motivo e justificativa
-            if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-              const motivoDescricao = await supabase
-                .from('motivos_insucesso')
-                .select('descricao')
-                .eq('id', motivoId)
-                .single();
-              
-              await registrarMovimentacao({
-                leadId: descarteModal.contatoId,
-                prospeccaoId: prospeccoes[0].id,
-                statusAnterior: descarteModal.fromStatus,
-                statusNovo: 'descartados',
-                usuarioId: user.id,
-                observacoes: `Motivo: ${motivoDescricao.data?.descricao || 'N/A'} | Justificativa: ${justificativa}`
-              });
-            }
+            const motivoDescricao = await supabase
+              .from('motivos_insucesso')
+              .select('descricao')
+              .eq('id', motivoId)
+              .single();
+            logStatusChange(
+              descarteModal.contatoId,
+              descarteModal.fromStatus,
+              'descartados',
+              `Motivo: ${motivoDescricao.data?.descricao || 'N/A'} | Justificativa: ${justificativa}`
+            );
             
             toast({
               title: "Lead Descartado",
@@ -3293,15 +3271,7 @@ showAllEvents: true
           try {
             await atualizarStatusContato(contatoId, 'Convidado');
             moveKanbanCardOptimistic(contatoId, fromStatus, 'convidados');
-            if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-              await registrarMovimentacao({
-                leadId: contatoId,
-                prospeccaoId: prospeccoes[0].id,
-                statusAnterior: fromStatus,
-                statusNovo: 'convidados',
-                usuarioId: user.id,
-              });
-            }
+            logStatusChange(contatoId, fromStatus, 'convidados');
             toast({
               title: 'Lead movido para Convidados',
               description: 'Você pode reenviar a confirmação a qualquer momento pela aba de convite.',
@@ -3328,16 +3298,7 @@ showAllEvents: true
             }
             await atualizarStatusContato(contatoId, 'Convidado');
             moveKanbanCardOptimistic(contatoId, fromStatus, 'convidados');
-            if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-              await registrarMovimentacao({
-                leadId: contatoId,
-                prospeccaoId: prospeccoes[0].id,
-                statusAnterior: fromStatus,
-                statusNovo: 'convidados',
-                usuarioId: user.id,
-                observacoes: 'Confirmação enviada via WhatsApp',
-              });
-            }
+            logStatusChange(contatoId, fromStatus, 'convidados', 'Confirmação enviada via WhatsApp');
             toast({
               title: 'Convite enviado',
               description: 'WhatsApp aberto e lead movido para Convidados.',
