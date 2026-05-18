@@ -350,8 +350,8 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
         return; // Aguardar decisão do usuário em handleConflitosConfirm
       }
 
-      // Sem conflitos → segue direto, sem force_status_novo
-      await proceedUpload(csvFile, baseNomeFinal, origemContato, [], false);
+      // Sem conflitos com outros eventos → checar mesmo evento
+      await checkMesmoEventoOrProceed(csvFile, baseNomeFinal, origemContato, phones, [], false);
     } catch (error: any) {
       console.error('❌ Import error:', error);
       setPhase('error');
@@ -501,15 +501,106 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
     if (!pendingCsvFile) return;
     const baseNomeFinal = nomeBase.trim() || `Importação ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
     const origemContato = selectedOrigem || 'Outros';
-    await proceedUpload(pendingCsvFile, baseNomeFinal, origemContato, telefonesSkip, true);
-    setPendingCsvFile(null);
+    // Após decidir conflitos com outros eventos, ainda precisa checar mesmo evento.
+    const reimportSelecionou = telefonesSkip.length < conflitos.length; // optou por reimportar pelo menos 1
+    const force = reimportSelecionou; // só força status se houve reimportação
+    const phones = await extractPhonesFromCsvFile(pendingCsvFile);
     setConflitos([]);
+    await checkMesmoEventoOrProceed(pendingCsvFile, baseNomeFinal, origemContato, phones, telefonesSkip, force);
   };
 
   const handleConflitosCancel = () => {
     setShowConflitos(false);
     setPendingCsvFile(null);
     setConflitos([]);
+    setPhase('idle');
+  };
+
+  // === Correção 3: reimport mesmo evento ===
+  const checkMesmoEventoOrProceed = async (
+    csvFile: File,
+    baseNomeFinal: string,
+    origemContato: string,
+    phones: string[],
+    telefonesSkipFromConflitos: string[],
+    forceFromConflitos: boolean,
+  ) => {
+    if (!activeCompany?.id || !selectedCampanha) return;
+    try {
+      const skipSet = new Set(telefonesSkipFromConflitos);
+      const candidates = phones.filter(p => !skipSet.has(p));
+
+      const leadsAcc: LeadMesmoEvento[] = [];
+      const CHUNK = 1000;
+      for (let i = 0; i < candidates.length; i += CHUNK) {
+        const chunk = candidates.slice(i, i + CHUNK);
+        const { data, error } = await supabase.rpc('get_leads_mesmo_evento', {
+          p_empresa_id: activeCompany.id,
+          p_prospeccao_id: selectedCampanha,
+          p_telefones: chunk,
+        });
+        if (error) {
+          console.error('get_leads_mesmo_evento error:', error);
+          break;
+        }
+        if (Array.isArray(data)) {
+          for (const row of data as any[]) {
+            leadsAcc.push({
+              telefone: row.telefone,
+              contato_id: row.contato_id,
+              nome: row.nome,
+              status_atual: row.status_atual,
+              responsavel_email: row.responsavel_email,
+              vendedor_nome: row.vendedor_nome,
+            });
+          }
+        }
+      }
+
+      if (leadsAcc.length === 0) {
+        await proceedUpload(csvFile, baseNomeFinal, origemContato, telefonesSkipFromConflitos, forceFromConflitos);
+        setPendingCsvFile(null);
+        return;
+      }
+
+      setLeadsMesmoEvento(leadsAcc);
+      setPendingSkipPhones(telefonesSkipFromConflitos);
+      setPendingForceFromConflitos(forceFromConflitos);
+      setPendingCsvFile(csvFile);
+      setPendingAllPhones(phones);
+      setPendingBaseNome(baseNomeFinal);
+      setPendingOrigem(origemContato);
+      setShowMesmoEvento(true);
+    } catch (e: any) {
+      console.error('checkMesmoEvento error:', e);
+      // fallback: prossegue sem o passo extra
+      await proceedUpload(csvFile, baseNomeFinal, origemContato, telefonesSkipFromConflitos, forceFromConflitos);
+    }
+  };
+
+  const handleMesmoEventoConfirm = async (telefonesSkipExtra: string[], resetCount: number) => {
+    setShowMesmoEvento(false);
+    if (!pendingCsvFile) return;
+    const mergedSkip = Array.from(new Set([...pendingSkipPhones, ...telefonesSkipExtra]));
+    // force_status_novo: true se houve reimport em outros eventos OU se selecionou ao menos 1 lead pra resetar
+    const force = pendingForceFromConflitos || resetCount > 0;
+    await proceedUpload(pendingCsvFile, pendingBaseNome, pendingOrigem, mergedSkip, force);
+    setPendingCsvFile(null);
+    setLeadsMesmoEvento([]);
+    setPendingSkipPhones([]);
+    setPendingAllPhones([]);
+    setPendingBaseNome('');
+    setPendingOrigem('');
+    setPendingForceFromConflitos(false);
+  };
+
+  const handleMesmoEventoCancel = () => {
+    setShowMesmoEvento(false);
+    setPendingCsvFile(null);
+    setLeadsMesmoEvento([]);
+    setPendingSkipPhones([]);
+    setPendingAllPhones([]);
+    setPendingForceFromConflitos(false);
     setPhase('idle');
   };
 
