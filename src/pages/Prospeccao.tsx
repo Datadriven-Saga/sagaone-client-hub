@@ -1145,15 +1145,7 @@ showAllEvents: true
           console.log('Venda já existe, atualizando status apenas');
           await atualizarStatusContato(itemId, 'Venda');
           
-          if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-            await registrarMovimentacao({
-              leadId: itemId,
-              prospeccaoId: prospeccoes[0].id,
-              statusAnterior: fromStatus,
-              statusNovo: toStatus,
-              usuarioId: user.id,
-            });
-          }
+          logStatusChange(itemId, fromStatus, toStatus);
           
           toast({
             title: "Status Atualizado",
@@ -1220,19 +1212,13 @@ showAllEvents: true
         await atribuirResponsavel(itemId, user.email);
       }
 
-      if (registrarMovimentacao && user && prospeccoes?.length > 0) {
-        await registrarMovimentacao({
-          leadId: itemId,
-          prospeccaoId: prospeccoes[0].id, 
-          statusAnterior: fromStatus,
-          statusNovo: toStatus,
-          usuarioId: user.id,
-        });
-      }
+      // Log fire-and-forget (não bloqueia UI mobile)
+      logStatusChange(itemId, fromStatus, toStatus);
       
       // Disparo de webhook de movimentação (processamento no backend)
       // O backend cuida de: verificar feature flag, verificar canal, verificar webhook_ativado
-      try {
+      // Fire-and-forget — webhook não deve bloquear a UI no mobile
+      (() => {
         // Priorizar o evento filtrado no Kanban, depois o vinculado ao lead, depois fallback
         const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
         const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
@@ -1244,7 +1230,7 @@ showAllEvents: true
         console.log('🔄 Webhook movimentação - prospeccaoId:', prospeccaoIdParaWebhook, 'empresa:', activeCompany?.id, 'contato:', itemId);
         
         if (prospeccaoIdParaWebhook && activeCompany?.id) {
-          const { data: whResult, error: whError } = await supabase.functions.invoke('trigger-webhook', {
+          void supabase.functions.invoke('trigger-webhook', {
             body: {
               gatilho: 'movimentacao_lead_kanban',
               dados: {
@@ -1256,25 +1242,22 @@ showAllEvents: true
                 usuario_id: user?.id
               }
             }
-          });
-          if (whError) {
-            console.error('❌ Webhook movimentação erro:', whError);
-          } else {
-            console.log('✅ Webhook movimentação resultado:', whResult);
-          }
+          }).then(({ data, error }) => {
+            if (error) console.error('❌ Webhook movimentação erro:', error);
+            else console.log('✅ Webhook movimentação resultado:', data);
+          }).catch((err) => console.error('Webhook movimentação falhou:', err));
         } else {
           console.warn('⚠️ Webhook movimentação não disparado - prospeccaoId:', prospeccaoIdParaWebhook, 'empresaId:', activeCompany?.id);
         }
-      } catch (err) {
-        console.error('Webhook movimentação falhou:', err);
-      }
+      })();
 
       // Atualizar contagem de leads pendentes para vendedores/SDR
       if (isLimitedUser) {
         contarLeadsPendentes();
       }
 
-      refreshLeadViews({ silentKanban: true });
+      // UI já foi atualizada otimisticamente; reconciliação acontece via
+      // realtime channel + interval de 30s + visibilitychange (ver useEffect abaixo)
       
       return true;
     } catch (err) {
