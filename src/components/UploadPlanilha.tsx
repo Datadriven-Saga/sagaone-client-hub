@@ -14,6 +14,7 @@ import { safeRead, XLSX } from '@/lib/xlsxSafe';
 import { useUserAccessType } from '@/hooks/useUserAccessType';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ImportPreviewConflitos, type ConflitoLead } from '@/components/import/ImportPreviewConflitos';
+import { ReimportSameEventPreview, type LeadMesmoEvento } from '@/components/import/ReimportSameEventPreview';
 
 interface Prospeccao {
   id: string;
