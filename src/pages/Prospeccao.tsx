@@ -487,7 +487,48 @@ showAllEvents: true
           return inTeam || hasLeads;
         }).map(p => ({ id: p.id, nome_completo: p.nome_completo, tipo_acesso: p.tipo_acesso }));
 
-        setResponsaveisFiltrados(filtered);
+        // Pseudo-opções: "Sem responsável" e "Pri IA"
+        // Detecta presença no escopo (mesma base de emails já carregada quando há filtro de evento)
+        let temSemResp = false;
+        let temPriIa = emailsComLeads.has(PRI_IA_EMAIL.toLowerCase());
+
+        if (hasEventFilter) {
+          // Há filtro de evento → checar leads NULL no escopo
+          const { count: nullCount } = await supabase
+            .from('contatos')
+            .select('id', { count: 'exact', head: true })
+            .eq('empresa_id', activeCompany.id)
+            .is('responsavel_email', null)
+            .in('id', Array.from(new Set(
+              (await supabase
+                .from('eventos_prospeccao')
+                .select('contato_id')
+                .in('prospeccao_id', eventIds)
+              ).data?.map(r => r.contato_id).filter(Boolean) || []
+            )).slice(0, 1000));
+          temSemResp = (nullCount ?? 0) > 0;
+        } else {
+          const { count: nullCount } = await supabase
+            .from('contatos')
+            .select('id', { count: 'exact', head: true })
+            .eq('empresa_id', activeCompany.id)
+            .is('responsavel_email', null);
+          temSemResp = (nullCount ?? 0) > 0;
+        }
+
+        const pseudo: typeof filtered = [];
+        if (temSemResp) pseudo.push({ id: SEM_RESPONSAVEL_ID, nome_completo: 'Sem responsável', tipo_acesso: null });
+        if (temPriIa) pseudo.push({ id: PRI_IA_PSEUDO_ID, nome_completo: 'Pri IA', tipo_acesso: null });
+
+        // Remove duplicata: se a Pri IA já está em filtered como profile real, esconde a entrada normal dela
+        const filteredSemPri = temPriIa
+          ? filtered.filter(f => {
+              const prof = profiles.find(p => p.id === f.id);
+              return !prof?.email || prof.email.toLowerCase() !== PRI_IA_EMAIL.toLowerCase();
+            })
+          : filtered;
+
+        setResponsaveisFiltrados([...pseudo, ...filteredSemPri]);
       } catch (e) {
         console.error('Erro ao computar responsáveis filtrados:', e);
         setResponsaveisFiltrados([]);
