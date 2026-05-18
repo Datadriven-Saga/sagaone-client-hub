@@ -1215,22 +1215,27 @@ showAllEvents: true
       // Log fire-and-forget (não bloqueia UI mobile)
       logStatusChange(itemId, fromStatus, toStatus);
       
-      // Disparo de webhook de movimentação (processamento no backend)
-      // O backend cuida de: verificar feature flag, verificar canal, verificar webhook_ativado
-      // Fire-and-forget — webhook não deve bloquear a UI no mobile
-      (() => {
-        // Priorizar o evento filtrado no Kanban, depois o vinculado ao lead, depois fallback
+      // Atualizar contagem de leads pendentes para vendedores/SDR
+      if (isLimitedUser) {
+        contarLeadsPendentes();
+      }
+
+      // Webhook de movimentação — AGUARDADO (retorna codigo_proposta do MobiGestor
+      // que precisa ser persistido). O card já está visível na coluna destino via
+      // optimistic update do DnD, então o await aqui não trava a UI; apenas a
+      // resolução do drop é adiada. Depois do retorno, reconciliamos o kanban
+      // silenciosamente para refletir o codigo_proposta gravado.
+      try {
         const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
         const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
-        // Se há filtro ativo, usar o primeiro filtro que o lead pertence; senão, primeiro do lead
-        const prospeccaoIdParaWebhook = (prospeccaoIdsFiltrados.length > 0 
+        const prospeccaoIdParaWebhook = (prospeccaoIdsFiltrados.length > 0
           ? prospeccaoIdsFiltrados.find(id => prospeccaoIdsDoLead?.has(id)) || prospeccaoIdsFiltrados[0]
           : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
-        
+
         console.log('🔄 Webhook movimentação - prospeccaoId:', prospeccaoIdParaWebhook, 'empresa:', activeCompany?.id, 'contato:', itemId);
-        
+
         if (prospeccaoIdParaWebhook && activeCompany?.id) {
-          void supabase.functions.invoke('trigger-webhook', {
+          const { data: whResult, error: whError } = await supabase.functions.invoke('trigger-webhook', {
             body: {
               gatilho: 'movimentacao_lead_kanban',
               dados: {
@@ -1242,23 +1247,22 @@ showAllEvents: true
                 usuario_id: user?.id
               }
             }
-          }).then(({ data, error }) => {
-            if (error) console.error('❌ Webhook movimentação erro:', error);
-            else console.log('✅ Webhook movimentação resultado:', data);
-          }).catch((err) => console.error('Webhook movimentação falhou:', err));
+          });
+          if (whError) {
+            console.error('❌ Webhook movimentação erro:', whError);
+          } else {
+            console.log('✅ Webhook movimentação resultado:', whResult);
+            // Reconciliação silenciosa só do kanban para capturar codigo_proposta
+            // gravado pelo backend após o retorno do MobiGestor.
+            fetchKanbanColumns(getKanbanFilters(), { silent: true });
+          }
         } else {
           console.warn('⚠️ Webhook movimentação não disparado - prospeccaoId:', prospeccaoIdParaWebhook, 'empresaId:', activeCompany?.id);
         }
-      })();
-
-      // Atualizar contagem de leads pendentes para vendedores/SDR
-      if (isLimitedUser) {
-        contarLeadsPendentes();
+      } catch (err) {
+        console.error('Webhook movimentação falhou:', err);
       }
 
-      // UI já foi atualizada otimisticamente; reconciliação acontece via
-      // realtime channel + interval de 30s + visibilitychange (ver useEffect abaixo)
-      
       return true;
     } catch (err) {
       console.error('Erro ao processar mudança de status:', err);
