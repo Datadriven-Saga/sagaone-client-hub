@@ -973,6 +973,37 @@ showAllEvents: true
   };
 
   // Função para registrar movimentações dos contatos
+  // Helper único de log: resolve prospeccao_id real do contato (priorizando filtro
+  // ativo) e mapeia o status kanban para o nome do DB. Fire-and-forget por padrão
+  // para não bloquear a UI. RLS já permite INSERT autenticado — erros são logados.
+  const logStatusChange = useCallback(
+    (itemId: string, fromCol: string, toCol: string, observacoes?: string) => {
+      if (!user) return;
+      const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
+      const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
+      const prospeccaoId =
+        (prospeccaoIdsFiltrados.length > 0
+          ? prospeccaoIdsFiltrados.find((id) => prospeccaoIdsDoLead?.has(id)) ||
+            prospeccaoIdsFiltrados[0]
+          : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
+      if (!prospeccaoId) {
+        console.warn('⚠️ logStatusChange: contato sem prospeccao vinculada', { itemId, fromCol, toCol });
+        return;
+      }
+      const statusAnterior = kanbanStatusMap[fromCol as keyof typeof kanbanStatusMap] || fromCol;
+      const statusNovo = kanbanStatusMap[toCol as keyof typeof kanbanStatusMap] || toCol;
+      void registrarMovimentacao({
+        leadId: itemId,
+        prospeccaoId,
+        statusAnterior,
+        statusNovo,
+        usuarioId: user.id,
+        observacoes,
+      });
+    },
+    [user, contatosProspeccoes, globalFilters.prospeccaoIds, prospeccoes, registrarMovimentacao]
+  );
+
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string): Promise<boolean> => {
     console.log('handleStatusChange called:', { itemId, fromStatus, toStatus });
     const contatoCompleto = contatos.find(c => c.id === itemId) ?? (() => {
