@@ -451,17 +451,18 @@ showAllEvents: true
 
         // Emails de responsáveis com leads atribuídos (no escopo do evento, se houver)
         let emailsComLeads = new Set<string>();
+        let scopedContatoIds: string[] | null = null;
         if (hasEventFilter) {
           const { data: evRows } = await supabase
             .from('eventos_prospeccao')
             .select('contato_id')
             .in('prospeccao_id', eventIds);
-          const contatoIds = Array.from(new Set((evRows || []).map(e => e.contato_id).filter(Boolean)));
-          if (contatoIds.length > 0) {
+          scopedContatoIds = Array.from(new Set((evRows || []).map(e => e.contato_id).filter(Boolean)));
+          if (scopedContatoIds.length > 0) {
             // Buscar em lotes para evitar URL gigante
             const chunkSize = 500;
-            for (let i = 0; i < contatoIds.length; i += chunkSize) {
-              const chunk = contatoIds.slice(i, i + chunkSize);
+            for (let i = 0; i < scopedContatoIds.length; i += chunkSize) {
+              const chunk = scopedContatoIds.slice(i, i + chunkSize);
               const { data: cs } = await supabase
                 .from('contatos')
                 .select('responsavel_email')
@@ -488,25 +489,24 @@ showAllEvents: true
         }).map(p => ({ id: p.id, nome_completo: p.nome_completo, tipo_acesso: p.tipo_acesso }));
 
         // Pseudo-opções: "Sem responsável" e "Pri IA"
-        // Detecta presença no escopo (mesma base de emails já carregada quando há filtro de evento)
         let temSemResp = false;
-        let temPriIa = emailsComLeads.has(PRI_IA_EMAIL.toLowerCase());
+        const temPriIa = emailsComLeads.has(PRI_IA_EMAIL.toLowerCase());
 
         if (hasEventFilter) {
-          // Há filtro de evento → checar leads NULL no escopo
-          const { count: nullCount } = await supabase
-            .from('contatos')
-            .select('id', { count: 'exact', head: true })
-            .eq('empresa_id', activeCompany.id)
-            .is('responsavel_email', null)
-            .in('id', Array.from(new Set(
-              (await supabase
-                .from('eventos_prospeccao')
-                .select('contato_id')
-                .in('prospeccao_id', eventIds)
-              ).data?.map(r => r.contato_id).filter(Boolean) || []
-            )).slice(0, 1000));
-          temSemResp = (nullCount ?? 0) > 0;
+          // Checa em lotes se algum lead do escopo tem responsavel_email NULL
+          if (scopedContatoIds && scopedContatoIds.length > 0) {
+            const chunkSize = 500;
+            for (let i = 0; i < scopedContatoIds.length && !temSemResp; i += chunkSize) {
+              const chunk = scopedContatoIds.slice(i, i + chunkSize);
+              const { count } = await supabase
+                .from('contatos')
+                .select('id', { count: 'exact', head: true })
+                .eq('empresa_id', activeCompany.id)
+                .is('responsavel_email', null)
+                .in('id', chunk);
+              if ((count ?? 0) > 0) temSemResp = true;
+            }
+          }
         } else {
           const { count: nullCount } = await supabase
             .from('contatos')
