@@ -754,6 +754,14 @@ showAllEvents: true
     if (selectedIds.length > 0) {
       const values: string[] = [];
       selectedIds.forEach(id => {
+        if (id === SEM_RESPONSAVEL_ID) {
+          values.push('__null__');
+          return;
+        }
+        if (id === PRI_IA_PSEUDO_ID) {
+          values.push(PRI_IA_EMAIL);
+          return;
+        }
         const profile = profiles.find(p => p.id === id);
         if (profile) {
           if (profile.email) values.push(profile.email);
