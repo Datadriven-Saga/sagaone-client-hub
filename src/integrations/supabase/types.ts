@@ -5734,6 +5734,16 @@ export type Database = {
         }
         Returns: Json
       }
+      bulk_upsert_contatos_backup_v1: {
+        Args: {
+          p_canal?: string
+          p_contatos: Json
+          p_empresa_id: string
+          p_force_status_novo?: boolean
+          p_prospeccao_id?: string
+        }
+        Returns: Json
+      }
       can_manage_users: { Args: { user_id?: string }; Returns: boolean }
       check_global_opt_out: { Args: { p_telefone: string }; Returns: boolean }
       check_global_opt_out_bulk: {
