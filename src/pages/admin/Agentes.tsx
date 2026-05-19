@@ -1004,6 +1004,25 @@ export default function AdminAgentes() {
     try {
       setSavingAgente(true);
 
+      // Pré-checagem: telefone já usado por outro agente?
+      if (formData.telefone) {
+        const { data: conflito } = await supabase
+          .from("agentes_ia")
+          .select("id, nome")
+          .eq("telefone", formData.telefone)
+          .maybeSingle();
+
+        if (conflito && conflito.id !== agenteLocal?.id) {
+          toast({
+            title: "Telefone já cadastrado",
+            description: `Este telefone já pertence ao agente "${conflito.nome}". Use outro número ou edite o agente existente.`,
+            variant: "destructive",
+          });
+          setSavingAgente(false);
+          return;
+        }
+      }
+
       if (agenteLocal) {
         // Update existing
         const { error: updateError } = await supabase
@@ -1094,11 +1113,20 @@ export default function AdminAgentes() {
       carregarAgentes();
     } catch (saveError) {
       console.error("Erro ao salvar agente:", saveError);
+      const err = saveError as { code?: string; message?: string };
+      if (err?.code === "23505" && err?.message?.includes("telefone")) {
+        toast({
+          title: "Telefone já cadastrado",
+          description: "Já existe outro agente com este telefone. Use um número diferente.",
+          variant: "destructive",
+        });
+      } else {
       toast({
         title: "Erro ao salvar",
-        description: "Não foi possível salvar o agente",
+        description: err?.message || "Não foi possível salvar o agente",
         variant: "destructive",
       });
+      }
     } finally {
       setSavingAgente(false);
     }
