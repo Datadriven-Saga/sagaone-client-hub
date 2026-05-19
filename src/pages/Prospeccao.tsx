@@ -876,7 +876,7 @@ showAllEvents: true
       verificarEAtribuirSeNecessario().then(() => {
         contarLeadsPendentes();
         if (globalFilters.prospeccaoIds.length > 0) {
-          fetchKanbanColumns(getKanbanFilters());
+          refreshLatestRef.current({ silentKanban: false });
         }
         fetchServerMetricas();
       });
@@ -1402,7 +1402,7 @@ showAllEvents: true
     if (globalFilters.prospeccaoIds.length === 0) return;
 
     const reconcile = () => {
-      fetchKanbanColumns(getKanbanFilters(), { silent: true });
+      refreshLatestRef.current({ silentKanban: true });
     };
     const interval = setInterval(reconcile, 30000);
     const onVis = () => {
@@ -1413,8 +1413,7 @@ showAllEvents: true
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVis);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, activeCompany?.id, defaultFilterLoaded, globalFilters.prospeccaoIds.join(',')]);
+  }, [activeTab, activeCompany?.id, defaultFilterLoaded, globalFilters.prospeccaoIds, refreshLatestRef]);
 
   // Carregar contagens de pendentes para eventos IA (OTIMIZADO - sem webhooks externos)
   // Métricas externas de Ligação são carregadas sob demanda via RPC
