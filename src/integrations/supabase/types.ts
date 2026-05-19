@@ -6092,6 +6092,23 @@ export type Database = {
         }
         Returns: string
       }
+      mutate_contato_status_atomic: {
+        Args: {
+          p_anterior: string
+          p_contato: string
+          p_novo: string
+          p_obs: string
+          p_prospeccao: string
+          p_usuario: string
+        }
+        Returns: {
+          contato_id: string
+          log_inserted: boolean
+          status_anterior: string
+          status_novo: string
+          updated_at: string
+        }[]
+      }
       normalize_phone_br: { Args: { phone: string }; Returns: string }
       normalize_phone_e164: { Args: { phone_input: string }; Returns: string }
       phone_match_variants: { Args: { phone: string }; Returns: string[] }
