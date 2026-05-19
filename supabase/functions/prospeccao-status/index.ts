@@ -269,33 +269,15 @@ serve(async (req) => {
         );
       }
 
-      // Atribuir responsável Pri IA para chamadas via admin-token
-      if (isAdminToken && PRI_IA_USER_ID) {
-        // Apenas atribui Pri IA quando lead não tem responsável humano.
-        const { data: leadAtual } = await supabaseClient
-          .from('contatos')
-          .select('responsavel_email')
-          .eq('id', contato.id)
-          .single();
-
-        const respAtual = leadAtual?.responsavel_email;
-        const semResponsavel = !respAtual || respAtual === '' || respAtual === PRI_IA_EMAIL;
-
-        if (semResponsavel) {
-          const { error: respError } = await supabaseClient
-            .from('contatos')
-            .update({
-              responsavel_email: PRI_IA_EMAIL,
-              vendedor_nome: 'Pri IA',
-            })
-            .eq('id', contato.id);
-          if (respError) {
-            console.error('Erro ao atribuir responsável Pri IA:', respError.message);
-          } else {
-            console.log(`   └─ Responsável atribuído para Pri IA (lead sem dono)`);
-          }
+      // Carimbar agente IA "pri" no lead (sem tocar em responsavel_email).
+      // Não bloqueia vendedores humanos de se atribuírem ao lead.
+      if (isAdminToken) {
+        const { error: agenteError } = await supabaseClient
+          .rpc('add_agente_ia', { p_contato_id: contato.id, p_agente: 'pri' });
+        if (agenteError) {
+          console.error('Erro ao carimbar agente_ia=pri:', agenteError.message);
         } else {
-          console.log(`   └─ Responsável humano preservado: ${respAtual}`);
+          console.log(`   └─ agente_ia carimbado: pri`);
         }
       }
 

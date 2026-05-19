@@ -1395,6 +1395,7 @@ export type Database = {
       }
       contatos: {
         Row: {
+          agente_ia: string[]
           base_id: string | null
           cliente_id: string | null
           codigo_proposta: string | null
@@ -1422,6 +1423,7 @@ export type Database = {
           webhook_ativado: boolean | null
         }
         Insert: {
+          agente_ia?: string[]
           base_id?: string | null
           cliente_id?: string | null
           codigo_proposta?: string | null
@@ -1449,6 +1451,7 @@ export type Database = {
           webhook_ativado?: boolean | null
         }
         Update: {
+          agente_ia?: string[]
           base_id?: string | null
           cliente_id?: string | null
           codigo_proposta?: string | null
@@ -5715,6 +5718,10 @@ export type Database = {
       academy_recalcular_metricas_usuario: {
         Args: { p_user_id: string }
         Returns: undefined
+      }
+      add_agente_ia: {
+        Args: { p_agente: string; p_contato_id: string }
+        Returns: boolean
       }
       auto_atribuir_leads_vendedor: {
         Args: { user_id_param?: string }
