@@ -490,7 +490,32 @@ showAllEvents: true
 
         // Pseudo-opções: "Sem responsável" e "Pri IA"
         let temSemResp = false;
-        const temPriIa = emailsComLeads.has(PRI_IA_EMAIL.toLowerCase());
+        // Pri agora é detectada via coluna agente_ia (não mais via responsavel_email).
+        let temPriIa = false;
+        try {
+          if (hasEventFilter && scopedContatoIds && scopedContatoIds.length > 0) {
+            const chunkSize = 500;
+            for (let i = 0; i < scopedContatoIds.length && !temPriIa; i += chunkSize) {
+              const chunk = scopedContatoIds.slice(i, i + chunkSize);
+              const { count } = await supabase
+                .from('contatos')
+                .select('id', { count: 'exact', head: true })
+                .eq('empresa_id', activeCompany.id)
+                .contains('agente_ia', ['pri'])
+                .in('id', chunk);
+              if ((count ?? 0) > 0) temPriIa = true;
+            }
+          } else {
+            const { count } = await supabase
+              .from('contatos')
+              .select('id', { count: 'exact', head: true })
+              .eq('empresa_id', activeCompany.id)
+              .contains('agente_ia', ['pri']);
+            temPriIa = (count ?? 0) > 0;
+          }
+        } catch (e) {
+          console.warn('Falha ao detectar leads da Pri IA:', e);
+        }
 
         if (hasEventFilter) {
           // Checa em lotes se algum lead do escopo tem responsavel_email NULL
@@ -759,7 +784,9 @@ showAllEvents: true
           return;
         }
         if (id === PRI_IA_PSEUDO_ID) {
-          values.push(PRI_IA_EMAIL);
+          // Token reconhecido pelo RPC (get_kanban_columns / get_contatos_paginated)
+          // para filtrar por 'pri' = ANY(agente_ia) em vez de responsavel_email.
+          values.push('__pri_ia__');
           return;
         }
         const profile = profiles.find(p => p.id === id);
