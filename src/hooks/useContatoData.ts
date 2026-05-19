@@ -461,7 +461,11 @@ export const useContatoData = () => {
 
   // ====== KANBAN-SPECIFIC FETCH (per-column with real counts) ======
   const KANBAN_PER_COLUMN = 20;
-  
+
+  // Guard contra race-condition: respostas antigas do RPC não podem sobrescrever
+  // o resultado da última chamada (ex.: trocar filtro rapidamente).
+  const kanbanRequestIdRef = useRef(0);
+
   const fetchKanbanColumns = useCallback(async (
     filters?: {
       prospeccaoIds?: string[];
@@ -473,7 +477,9 @@ export const useContatoData = () => {
     options?: { silent?: boolean }
   ) => {
     if (!activeCompany?.id) return;
-    
+
+    const currentRequestId = ++kanbanRequestIdRef.current;
+
     if (!options?.silent) {
       setLoadingKanban(true);
     }
@@ -487,6 +493,11 @@ export const useContatoData = () => {
         p_date_start: filters?.dateStart ? new Date(filters.dateStart).toISOString() : null,
         p_date_end: filters?.dateEnd ? new Date(filters.dateEnd + 'T23:59:59').toISOString() : null,
       });
+
+      // Resposta stale: outra chamada mais recente já está em andamento.
+      if (currentRequestId !== kanbanRequestIdRef.current) {
+        return;
+      }
 
       if (error) {
         console.error('Error fetching kanban columns:', error);
@@ -523,10 +534,13 @@ export const useContatoData = () => {
       setKanbanData(mapped);
       console.log('📊 Kanban columns loaded:', Object.entries(mapped).map(([k, v]) => `${k}: ${v.count} total, ${v.items.length} loaded`).join(', '));
     } catch (error) {
+      if (currentRequestId !== kanbanRequestIdRef.current) return;
       console.error('Erro ao buscar colunas kanban:', error);
       setKanbanData({});
     } finally {
-      setLoadingKanban(false);
+      if (currentRequestId === kanbanRequestIdRef.current) {
+        setLoadingKanban(false);
+      }
     }
   }, [activeCompany?.id]);
 
