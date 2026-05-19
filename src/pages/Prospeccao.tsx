@@ -771,7 +771,7 @@ showAllEvents: true
   }, [activeCompany?.id, prospeccoes.length > 0]);
 
   // Helper to resolve kanban filters
-  const getKanbanFilters = () => {
+  const getKanbanFilters = useCallback(() => {
     // Multi-select: cada id selecionado pode bater por email, id ou celular em
     // contatos.responsavel_email — incluímos todas as variantes na CSV.
     const selectedIds = globalFilters.responsavelIds || [];
@@ -807,7 +807,7 @@ showAllEvents: true
       dateStart: globalFilters.dataInicio || undefined,
       dateEnd: globalFilters.dataFim || undefined,
     };
-  };
+  }, [globalFilters.responsavelIds, globalFilters.prospeccaoIds, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, profiles]);
 
   const refreshLeadViews = useCallback((options?: { silentKanban?: boolean }) => {
     if (!activeCompany?.id) return;
@@ -824,7 +824,14 @@ showAllEvents: true
         status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
       });
     }
-  }, [activeCompany?.id, activeTab, currentPage, globalFilters.status, fetchContatosPaginated, fetchKanbanColumns, fetchServerMetricas, globalFilters.prospeccaoIds, globalFilters.responsavelIds, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, profiles]);
+  }, [activeCompany?.id, activeTab, currentPage, globalFilters.status, fetchContatosPaginated, fetchKanbanColumns, fetchServerMetricas, getKanbanFilters]);
+
+  // Fix #1: ref sempre apontando para a versão mais recente de refreshLeadViews,
+  // para o canal Realtime não precisar ser recriado a cada mudança de filtro.
+  const refreshLatestRef = useRef(refreshLeadViews);
+  useEffect(() => {
+    refreshLatestRef.current = refreshLeadViews;
+  }, [refreshLeadViews]);
 
   // Carregar contatos quando necessário
   // Kanban usa fetchKanbanColumns (per-column), Lista usa fetchContatosPaginated
