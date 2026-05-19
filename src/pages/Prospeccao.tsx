@@ -1366,7 +1366,8 @@ showAllEvents: true
     const scheduleRefresh = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        refreshLeadViews({ silentKanban: true });
+        // Sempre usa a versão mais atual (com filtros atuais) — evita closure stale.
+        refreshLatestRef.current({ silentKanban: true });
       }, 1500);
     };
 
@@ -1388,7 +1389,9 @@ showAllEvents: true
       if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, [activeCompany?.id, refreshLeadViews]);
+    // Mantemos APENAS activeCompany.id nas deps: o canal não deve ser recriado
+    // a cada mudança de filtro. O callback usa refreshLatestRef.current.
+  }, [activeCompany?.id]);
 
   // Fallback de reconciliação para o Kanban (drag-and-drop é otimista e
   // fire-and-forget): interval de 30s + visibilitychange. Evita estado divergente
