@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
@@ -771,7 +771,7 @@ showAllEvents: true
   }, [activeCompany?.id, prospeccoes.length > 0]);
 
   // Helper to resolve kanban filters
-  const getKanbanFilters = () => {
+  const getKanbanFilters = useCallback(() => {
     // Multi-select: cada id selecionado pode bater por email, id ou celular em
     // contatos.responsavel_email — incluímos todas as variantes na CSV.
     const selectedIds = globalFilters.responsavelIds || [];
@@ -807,7 +807,7 @@ showAllEvents: true
       dateStart: globalFilters.dataInicio || undefined,
       dateEnd: globalFilters.dataFim || undefined,
     };
-  };
+  }, [globalFilters.responsavelIds, globalFilters.prospeccaoIds, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, profiles]);
 
   const refreshLeadViews = useCallback((options?: { silentKanban?: boolean }) => {
     if (!activeCompany?.id) return;
@@ -824,7 +824,14 @@ showAllEvents: true
         status: globalFilters.status !== 'todos' ? globalFilters.status : undefined,
       });
     }
-  }, [activeCompany?.id, activeTab, currentPage, globalFilters.status, fetchContatosPaginated, fetchKanbanColumns, fetchServerMetricas, globalFilters.prospeccaoIds, globalFilters.responsavelIds, globalFilters.dadosLead, globalFilters.dataInicio, globalFilters.dataFim, profiles]);
+  }, [activeCompany?.id, activeTab, currentPage, globalFilters.status, fetchContatosPaginated, fetchKanbanColumns, fetchServerMetricas, getKanbanFilters]);
+
+  // Fix #1: ref sempre apontando para a versão mais recente de refreshLeadViews,
+  // para o canal Realtime não precisar ser recriado a cada mudança de filtro.
+  const refreshLatestRef = useRef(refreshLeadViews);
+  useEffect(() => {
+    refreshLatestRef.current = refreshLeadViews;
+  }, [refreshLeadViews]);
 
   // Carregar contatos quando necessário
   // Kanban usa fetchKanbanColumns (per-column), Lista usa fetchContatosPaginated
@@ -1359,7 +1366,8 @@ showAllEvents: true
     const scheduleRefresh = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        refreshLeadViews({ silentKanban: true });
+        // Sempre usa a versão mais atual (com filtros atuais) — evita closure stale.
+        refreshLatestRef.current({ silentKanban: true });
       }, 1500);
     };
 
@@ -1381,7 +1389,9 @@ showAllEvents: true
       if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, [activeCompany?.id, refreshLeadViews]);
+    // Mantemos APENAS activeCompany.id nas deps: o canal não deve ser recriado
+    // a cada mudança de filtro. O callback usa refreshLatestRef.current.
+  }, [activeCompany?.id]);
 
   // Fallback de reconciliação para o Kanban (drag-and-drop é otimista e
   // fire-and-forget): interval de 30s + visibilitychange. Evita estado divergente
