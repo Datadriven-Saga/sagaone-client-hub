@@ -1038,7 +1038,9 @@ export default function EventoBase() {
         }
       } else {
         // Para outros canais: RPC com paginação por cursor (keyset)
-        const EXPORT_BATCH_SIZE = 2000;
+        // OBS: PostgREST tem limite default de 1000 linhas por response,
+        // então usamos 1000 aqui para o loop detectar corretamente o fim.
+        const EXPORT_BATCH_SIZE = 1000;
         let allContatos: any[] = [];
         let cursor: string | null = null;
         let hasMore = true;
