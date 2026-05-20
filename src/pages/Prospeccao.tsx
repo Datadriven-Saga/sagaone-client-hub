@@ -3336,6 +3336,11 @@ showAllEvents: true
         onLeadCreated={refetch}
         onOpenContato={handleOpenContatoFromFab}
         profiles={profiles}
+        activeProspeccaoId={
+          globalFilters.prospeccaoIds.length > 0
+            ? globalFilters.prospeccaoIds[0]
+            : prospeccoes[0]?.id
+        }
       />
 
       <DescarteLeadModal

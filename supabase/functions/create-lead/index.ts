@@ -25,6 +25,27 @@ function getCorsHeaders(req: Request) {
 
 const ADMIN_TOKEN = Deno.env.get('SAGA_ONE_ADMIN_TOKEN') ?? '';
 
+/**
+ * Normalização canônica de telefone (mesma lógica do process-import / bulk_upsert_contatos):
+ * - Remove tudo que não é dígito
+ * - Remove DDI 55 quando aplicável
+ * - Remove 9º dígito de celular
+ * Resultado: 10 dígitos (DDD + 8).
+ */
+function normalizePhoneCanonical(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let d = String(raw).replace(/\D/g, '');
+  if (!d) return null;
+  if (d.startsWith('0055')) d = d.slice(4);
+  if (d.startsWith('55') && d.length > 11) d = d.slice(2);
+  if (d.startsWith('0') && (d.length === 11 || d.length === 12)) d = d.slice(1);
+  if (d.length === 11 && d[2] === '9') {
+    d = d.slice(0, 2) + d.slice(3);
+  }
+  if (d.length !== 10) return d; // devolve o que tem; check de dup ainda usa esse valor
+  return d;
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -101,13 +122,13 @@ serve(async (req) => {
     }
 
     // Normalizar telefone (remover não-dígitos)
-    const telefoneNormalizado = telefone ? telefone.replace(/\D/g, '') : null;
+    const telefoneNormalizado = normalizePhoneCanonical(telefone);
 
     // Verificar duplicidade por telefone na mesma empresa (se telefone fornecido)
     if (telefoneNormalizado) {
       const { data: existente } = await supabaseClient
         .from('contatos')
-        .select('id, lead_id, nome, status')
+        .select('id, lead_id, nome, status, responsavel_email')
         .eq('empresa_id', empresa_id)
         .eq('telefone', telefoneNormalizado)
         .limit(1)
@@ -115,6 +136,31 @@ serve(async (req) => {
 
       if (existente) {
         console.log(`⚠️ Lead duplicado encontrado: ${existente.nome} (lead_id: ${existente.lead_id})`);
+
+        // Buscar evento (prospecção) mais recente do contato para contextualizar o 409
+        let evento_ativo: {
+          prospeccao_id: string;
+          prospeccao_titulo: string | null;
+          encerrada: boolean;
+        } | null = null;
+
+        const { data: evento } = await supabaseClient
+          .from('eventos_prospeccao')
+          .select('prospeccao_id, prospeccoes:prospeccao_id(id, titulo, encerrado_at, ativo)')
+          .eq('contato_id', existente.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (evento?.prospeccoes) {
+          const p = evento.prospeccoes as { id: string; titulo: string | null; encerrado_at: string | null; ativo: boolean | null };
+          evento_ativo = {
+            prospeccao_id: p.id,
+            prospeccao_titulo: p.titulo,
+            encerrada: p.encerrado_at !== null || p.ativo === false,
+          };
+        }
+
         return new Response(
           JSON.stringify({
             error: 'Lead já existe com este telefone',
@@ -123,6 +169,8 @@ serve(async (req) => {
               contato_id: existente.id,
               nome: existente.nome,
               status: existente.status,
+              responsavel_email: existente.responsavel_email,
+              evento_ativo,
             }
           }),
           { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
